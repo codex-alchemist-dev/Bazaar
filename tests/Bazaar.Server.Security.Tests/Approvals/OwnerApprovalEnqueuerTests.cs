@@ -19,7 +19,7 @@ public sealed class OwnerApprovalEnqueuerTests
     {
         var store = new InMemoryApprovalStore();
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 22, 10, 0, 0, TimeSpan.Zero));
-        return (new OwnerApprovalEnqueuer(store, new ApprovalOptions(ExpiryHours: 12), time), store, time);
+        return (new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(ExpiryHours: 12), time), store, time);
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class OwnerApprovalEnqueuerTests
     public async Task Concurrent_enqueues_of_one_key_give_one_row()
     {
         var store = new InMemoryApprovalStore();
-        var sut = new OwnerApprovalEnqueuer(store);
+        var sut = new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(RequestCapPerAgentHour: 100));
         var ids = await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => Task.Run(() => sut.EnqueueAsync(Req(), Ct), Ct)));
 
         Assert.Single(ids.Distinct());
@@ -93,7 +93,7 @@ public sealed class OwnerApprovalEnqueuerTests
     {
         var inner = new InMemoryApprovalStore();
         var racing = new RacingStore(inner);
-        var sut = new OwnerApprovalEnqueuer(racing);
+        var sut = new OwnerApprovalEnqueuer(racing, new InMemoryRateBucketStore());
 
         var id = await sut.EnqueueAsync(Req(), Ct);
 
@@ -104,7 +104,7 @@ public sealed class OwnerApprovalEnqueuerTests
     [Fact]
     public async Task An_insert_failure_with_no_row_propagates()
     {
-        var sut = new OwnerApprovalEnqueuer(new FailingStore());
+        var sut = new OwnerApprovalEnqueuer(new FailingStore(), new InMemoryRateBucketStore());
         await Assert.ThrowsAsync<TimeoutException>(() => sut.EnqueueAsync(Req(), Ct));
     }
 
@@ -166,9 +166,12 @@ public sealed class OwnerApprovalEnqueuerTests
     [Fact]
     public void No_store_means_throw()
     {
-        Assert.Throws<ArgumentNullException>(() => new OwnerApprovalEnqueuer(null!));
-        var provider = new ServiceCollection().AddOwnerApprovalEnqueue().BuildServiceProvider();
+        Assert.Throws<ArgumentNullException>(() => new OwnerApprovalEnqueuer(null!, new InMemoryRateBucketStore()));
+        Assert.Throws<ArgumentNullException>(() => new OwnerApprovalEnqueuer(new InMemoryApprovalStore(), null!));
+        var provider = new ServiceCollection().AddSingleton<IRateBucketStore, InMemoryRateBucketStore>().AddOwnerApprovalEnqueue().BuildServiceProvider();
         Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IOwnerApprovalEnqueuer>());
+        var noLimiter = new ServiceCollection().AddSingleton<IApprovalStore, InMemoryApprovalStore>().AddOwnerApprovalEnqueue().BuildServiceProvider();
+        Assert.Throws<InvalidOperationException>(() => noLimiter.GetRequiredService<IOwnerApprovalEnqueuer>());
     }
 
     [Fact]
@@ -176,6 +179,7 @@ public sealed class OwnerApprovalEnqueuerTests
     {
         var provider = new ServiceCollection()
             .AddSingleton<IApprovalStore, InMemoryApprovalStore>()
+            .AddSingleton<IRateBucketStore, InMemoryRateBucketStore>()
             .AddOwnerApprovalEnqueue()
             .BuildServiceProvider();
         Assert.IsType<OwnerApprovalEnqueuer>(provider.GetRequiredService<IOwnerApprovalEnqueuer>());
@@ -194,7 +198,7 @@ public sealed class OwnerApprovalEnqueuerTests
         using var key = Signing.NewKey();
         var store = new InMemoryApprovalStore();
         var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 22, 10, 0, 0, TimeSpan.Zero));
-        var sut = new OwnerApprovalEnqueuer(store, new ApprovalOptions(), time);
+        var sut = new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(), time);
         var id = await sut.EnqueueAsync(Req(), Ct);
         var row = (await store.GetAsync(id, Ct))!;
 
@@ -217,7 +221,7 @@ public sealed class OwnerApprovalEnqueuerTests
         using var key = Signing.NewKey();
         using var other = Signing.NewKey();
         var store = new InMemoryApprovalStore();
-        var sut = new OwnerApprovalEnqueuer(store);
+        var sut = new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(RequestCapPerAgentHour: 100));
         var id = await sut.EnqueueAsync(Req(), Ct);
         var row = (await store.GetAsync(id, Ct))!;
 
@@ -227,6 +231,80 @@ public sealed class OwnerApprovalEnqueuerTests
 
         Assert.Equal(ApprovalService.DecisionOutcome.InvalidSignature, result.Outcome);
         Assert.Equal(ApprovalStatus.Pending, (await store.GetAsync(id, Ct))!.Status);
+    }
+
+    [Fact]
+    public async Task The_hourly_cap_is_enforced_per_agent_and_stores_nothing_over_it()
+    {
+        var store = new InMemoryApprovalStore();
+        var time = new FakeTimeProvider(new DateTimeOffset(2026, 11, 22, 10, 0, 0, TimeSpan.Zero));
+        var sut = new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(RequestCapPerAgentHour: 2), time);
+
+        await sut.EnqueueAsync(Req(key: "k1"), Ct);
+        await sut.EnqueueAsync(Req(key: "k2"), Ct);
+        var ex = await Assert.ThrowsAsync<OwnerApprovalRateLimitedException>(() => sut.EnqueueAsync(Req(key: "k3"), Ct));
+        Assert.Equal("agent-a", ex.AgentId);
+        Assert.Equal(2, store.Count);
+
+        await sut.EnqueueAsync(Req(agent: "agent-b", key: "k4"), Ct);
+        time.Advance(TimeSpan.FromHours(1));
+        await sut.EnqueueAsync(Req(key: "k3"), Ct);
+        Assert.Equal(4, store.Count);
+    }
+
+    [Fact]
+    public async Task A_repeat_of_an_existing_key_does_not_consume_budget()
+    {
+        var sut = new OwnerApprovalEnqueuer(new InMemoryApprovalStore(), new InMemoryRateBucketStore(), new ApprovalOptions(RequestCapPerAgentHour: 1));
+        var id = await sut.EnqueueAsync(Req(key: "k1"), Ct);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Equal(id, await sut.EnqueueAsync(Req(key: "k1"), Ct));
+        }
+
+        await Assert.ThrowsAsync<OwnerApprovalRateLimitedException>(() => sut.EnqueueAsync(Req(key: "k2"), Ct));
+    }
+
+    [Fact]
+    public async Task Enqueued_and_dispatched_requests_share_one_budget_per_agent()
+    {
+        var store = new InMemoryApprovalStore();
+        var buckets = new InMemoryRateBucketStore();
+        var options = new ApprovalOptions(RequestCapPerAgentHour: 2);
+        var service = new ApprovalService(store, new InMemoryOwnerKeyRegistry(), buckets, options);
+        var sut = new OwnerApprovalEnqueuer(store, buckets, options, new FakeTimeProvider(ApprovalTestData.Now));
+
+        var dispatched = await service.RequestAsync(ApprovalTestData.Context(), Ct);
+        Assert.Equal(ApprovalService.RequestOutcome.Created, dispatched.Outcome);
+        var agent = dispatched.Request!.AgentId;
+        await sut.EnqueueAsync(Req(agent: agent, key: "k1"), Ct);
+
+        await Assert.ThrowsAsync<OwnerApprovalRateLimitedException>(() => sut.EnqueueAsync(Req(agent: agent, key: "k2"), Ct));
+        var blocked = await service.RequestAsync(ApprovalTestData.Context(), Ct);
+        Assert.Equal(ApprovalService.RequestOutcome.RateLimited, blocked.Outcome);
+    }
+
+    [Fact]
+    public async Task Concurrent_distinct_keys_never_exceed_the_cap()
+    {
+        var store = new InMemoryApprovalStore();
+        var sut = new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore(), new ApprovalOptions(RequestCapPerAgentHour: 5));
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 40).Select(i => Task.Run(async () =>
+        {
+            try
+            {
+                await sut.EnqueueAsync(Req(key: $"k{i}"), Ct);
+                return true;
+            }
+            catch (OwnerApprovalRateLimitedException)
+            {
+                return false;
+            }
+        }, Ct)));
+
+        Assert.Equal(5, results.Count(r => r));
+        Assert.Equal(5, store.Count);
     }
 
     private sealed class FakeEnqueuer : IOwnerApprovalEnqueuer

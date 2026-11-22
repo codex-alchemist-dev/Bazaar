@@ -39,5 +39,17 @@ public interface IOwnerApprovalEnqueuer
     /// </summary>
     /// <exception cref="ArgumentException">An input is blank, too long, malformed or holds a control character.</exception>
     /// <exception cref="InvalidOperationException">The action key already belongs to a different request.</exception>
+    /// <exception cref="OwnerApprovalRateLimitedException">The agent has used its hourly approval request cap. A repeat of an existing key never counts.</exception>
     Task<Guid> EnqueueAsync(OwnerApprovalEnqueueRequest request, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The agent has used its hourly approval request cap (<c>security.approval.request_cap_per_agent_hour</c>), shared with
+/// requests from tool dispatch. Nothing was stored.
+/// </summary>
+public sealed class OwnerApprovalRateLimitedException(string agentId)
+    : InvalidOperationException($"Agent '{agentId}' has used its hourly approval request cap.")
+{
+    /// <summary>The agent that hit the cap.</summary>
+    public string AgentId { get; } = agentId;
 }

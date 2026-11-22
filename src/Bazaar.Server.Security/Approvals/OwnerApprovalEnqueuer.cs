@@ -17,20 +17,24 @@ namespace Bazaar.Server.Security.Approvals;
 /// is what makes one key one row: when two callers race, one insert wins and the other reads the winner. Fields with no
 /// honest value in this flow: <c>SessionId</c> is <see cref="Guid.Empty"/> (no session; the <c>approval</c> table has no
 /// foreign key on it), taint sources are empty (no session read anything), target is null. The args hash is the dispatch
-/// hash of the tool and the payload, so the owner's signature binds to exactly what the card shows.
+/// hash of the tool and the payload, so the owner's signature binds to exactly what the card shows. A new key counts
+/// against the agent's hourly request cap, the same bucket <see cref="ApprovalService"/> uses; a repeat does not. A caller that
+/// loses the insert race has already spent one count, which is the conservative direction.
 /// </remarks>
 public sealed class OwnerApprovalEnqueuer : IOwnerApprovalEnqueuer
 {
     private const string _idDomain = "bazaar.owner-approval-enqueue.v1";
 
     private readonly IApprovalStore _store;
+    private readonly IRateBucketStore _rateBuckets;
     private readonly ApprovalOptions _options;
     private readonly TimeProvider _time;
 
-    /// <summary>Creates the enqueuer. A null store throws, so a host without one fails closed.</summary>
-    public OwnerApprovalEnqueuer(IApprovalStore store, ApprovalOptions? options = null, TimeProvider? time = null)
+    /// <summary>Creates the enqueuer. A null store or rate bucket store throws, so a host without one fails closed.</summary>
+    public OwnerApprovalEnqueuer(IApprovalStore store, IRateBucketStore rateBuckets, ApprovalOptions? options = null, TimeProvider? time = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _rateBuckets = rateBuckets ?? throw new ArgumentNullException(nameof(rateBuckets));
         _options = options ?? new ApprovalOptions();
         _options.Validate();
         _time = time ?? TimeProvider.System;
@@ -67,6 +71,13 @@ public sealed class OwnerApprovalEnqueuer : IOwnerApprovalEnqueuer
         }
 
         var now = _time.GetUtcNow();
+
+        // Only a new key spends budget; the repeat path above returned before this point.
+        if (!ApprovalRequestCap.TryConsume(_rateBuckets, request.AgentId, _options, now))
+        {
+            throw new OwnerApprovalRateLimitedException(request.AgentId);
+        }
+
         var row = new ApprovalRequest(
             id,
             request.AgentId,

@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Bazaar.Server.AccountApproval.Abstractions;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -100,7 +101,7 @@ public sealed class OwnerQueueApprovalHandOffTests
     public async Task Repeating_a_request_id_gives_one_approval_with_the_real_enqueuer()
     {
         var store = new InMemoryApprovalStore();
-        var handOff = new OwnerQueueApprovalHandOff(new OwnerApprovalEnqueuer(store));
+        var handOff = new OwnerQueueApprovalHandOff(new OwnerApprovalEnqueuer(store, new InMemoryRateBucketStore()));
 
         await handOff.RequestOwnerApprovalAsync(Request(), Ct);
         await handOff.RequestOwnerApprovalAsync(Request(), Ct);
@@ -118,6 +119,13 @@ public sealed class OwnerQueueApprovalHandOffTests
     {
         var handOff = new OwnerQueueApprovalHandOff(new RecordingEnqueuer { Throw = new InvalidOperationException("store down") });
         await Assert.ThrowsAsync<InvalidOperationException>(() => handOff.RequestOwnerApprovalAsync(Request(), Ct));
+    }
+
+    [Fact]
+    public async Task Rate_limit_propagates()
+    {
+        var handOff = new OwnerQueueApprovalHandOff(new RecordingEnqueuer { Throw = new OwnerApprovalRateLimitedException("agent-a") });
+        await Assert.ThrowsAsync<OwnerApprovalRateLimitedException>(() => handOff.RequestOwnerApprovalAsync(Request(), Ct));
     }
 
     [Fact]
@@ -143,6 +151,7 @@ public sealed class OwnerQueueApprovalHandOffTests
     {
         var withStore = new ServiceCollection()
             .AddSingleton<IApprovalStore, InMemoryApprovalStore>()
+            .AddSingleton<IRateBucketStore, InMemoryRateBucketStore>()
             .AddOwnerApprovalEnqueue()
             .AddBazaarAccountApprovalOwnerQueue()
             .BuildServiceProvider();
