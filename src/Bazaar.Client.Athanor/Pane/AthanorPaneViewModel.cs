@@ -25,6 +25,7 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
     private readonly IEditorHost? _host;
     private readonly RecordingSource? _source;
     private readonly IEditorDraftStore? _drafts;
+    private readonly IEditorFileSource? _rawSource;
     private readonly Lock _pendingGate = new();
     private readonly Dictionary<EditorDocumentId, (EditorDocument Document, EditorDraft Draft)> _pending = [];
 
@@ -45,6 +46,7 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
 
         _host = host;
         _drafts = drafts;
+        _rawSource = source;
         _source = new RecordingSource(source);
         _workspace = new EditorWorkspace(host, _source);
         _saves = new SaveCoordinator(_source, drafts, clock ?? TimeProvider.System);
@@ -164,6 +166,28 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
 
         await _drafts.DeleteAsync(draft.Id, cancellationToken).ConfigureAwait(true);
         Changed?.Invoke(this, EventArgs.Empty);
+        return true;
+    }
+
+    /// <summary>
+    /// Shows the active document's current text against the server copy in the host's diff component. False when no
+    /// document is open or the server no longer has the document.
+    /// </summary>
+    public async Task<bool> ShowActiveDiffAsync(CancellationToken cancellationToken = default)
+    {
+        if (_workspace?.ActiveTab is not { } tab || _host is null || _rawSource is null)
+        {
+            return false;
+        }
+
+        var server = await _rawSource.OpenAsync(tab.Id, cancellationToken).ConfigureAwait(true);
+        if (server is null)
+        {
+            return false;
+        }
+
+        var current = ActiveState?.Content ?? server.Content;
+        await Bazaar.Client.Athanor.Sources.DiffSession.ShowAsync(_host, server.Content, current, tab.Id.Path, LanguageRegistry.Default, cancellationToken).ConfigureAwait(true);
         return true;
     }
 

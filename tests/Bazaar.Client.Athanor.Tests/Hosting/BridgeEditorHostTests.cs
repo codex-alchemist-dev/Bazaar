@@ -310,6 +310,24 @@ public sealed class BridgeEditorHostTests
         Assert.Equal(["Alt+KeyM", "F6"], message.Keys);
     }
 
+    [Fact]
+    public async Task Request_save_raises_save_requested_for_an_open_document_only()
+    {
+        var (host, _) = await ReadyHostAsync();
+        await using var _d = host;
+        EditorDocument doc = HostingFixtures.Document("a.txt");
+        var saves = new List<EditorDocumentId>();
+        host.SaveRequested += (_, id) => saves.Add(id);
+
+        Assert.False(host.RequestSave(doc.Id));
+        await host.OpenAsync(doc, CancellationToken.None);
+        Assert.True(host.RequestSave(doc.Id));
+
+        Assert.Equal([doc.Id], saves);
+        await host.CloseAsync(doc.Id, CancellationToken.None);
+        Assert.False(host.RequestSave(doc.Id));
+    }
+
     private sealed class FakeClaims(params string[] chords) : IClaimedKeySource
     {
         private string[] _chords = chords;

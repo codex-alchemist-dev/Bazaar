@@ -90,6 +90,9 @@ public sealed class WebView2EditorHost : NativeControlHost, IEditorHost
 
     public Task ShowDiffAsync(string original, string modified, string languageId, CancellationToken cancellationToken) => _surface.Host.ShowDiffAsync(original, modified, languageId, cancellationToken);
 
+    /// <summary>Asks the client to save an open document; the save command uses it (doc 57 §8). False when it is not open.</summary>
+    public bool RequestSave(EditorDocumentId id) => _surface.Host.RequestSave(id);
+
     public ValueTask DisposeAsync() => _surface.DisposeAsync();
 
     protected override IPlatformHandle CreateNativeControlCore(IPlatformHandle parent)

@@ -125,6 +125,22 @@ public sealed class BridgeEditorHost : IEditorHost
         return SendAsync(seq => new ShowDiffMessage(seq, original, modified, languageId), cancellationToken);
     }
 
+    /// <summary>
+    /// Asks the client to save an open document, as the AvaloniaEdit host's <c>RequestSave</c> does (doc 57 §8). Raises
+    /// <see cref="SaveRequested"/>; the host writes nothing. False when the document is not open here.
+    /// </summary>
+    public bool RequestSave(EditorDocumentId id)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_documents.ContainsKey(id.ToString()))
+        {
+            return false;
+        }
+
+        SaveRequested?.Invoke(this, id);
+        return true;
+    }
+
     public ValueTask DisposeAsync()
     {
         if (_disposed)

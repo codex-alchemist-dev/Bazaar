@@ -19,6 +19,12 @@ public sealed class AthanorPaneModule : IPaneModule, IClientModule
     /// <summary>Records the pane kind and commands the manifest declares.</summary>
     public void Register(ClientModuleBuilder builder) => _client.Register(builder);
 
+    /// <summary>
+    /// Runs the module's commands for the pane built by <see cref="Register(PaneRegistry, PaneModuleContext)"/>; null before
+    /// that. The head forwards a mnemonic command id to it when <see cref="AthanorCommandHandler.Handles"/> is true.
+    /// </summary>
+    public AthanorCommandHandler? CommandHandler { get; private set; }
+
     public string Id => AthanorPaneKinds.Editor;
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
@@ -33,6 +39,7 @@ public sealed class AthanorPaneModule : IPaneModule, IClientModule
             ? new AthanorPaneViewModel("Athanor", host, source, drafts)
             : new AthanorPaneViewModel("Athanor");
 
+        CommandHandler = new AthanorCommandHandler(pane, context.Get<IEditorCommandPrompts>());
         registry.Register(AthanorPaneKinds.Editor, _ => pane);
         registry.RegisterView<AthanorPaneViewModel>(AthanorPaneViews.Editor);
     }
