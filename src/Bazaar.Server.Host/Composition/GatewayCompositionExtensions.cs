@@ -1,9 +1,12 @@
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
+using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.ClaudeLane;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
@@ -16,13 +19,10 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers.ClaudeCode;
-using Bazaar.Server.Agents.Data;
-using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
-using Microsoft.Extensions.Configuration;
-using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -62,6 +62,7 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+        services.TryAddSingleton<Bazaar.Server.Skimmer.IGatekeeperPolicySeed, GatekeeperPolicySeedAdapter>();
 
         // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
         services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
