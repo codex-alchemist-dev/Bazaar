@@ -1,4 +1,5 @@
 using Bazaar.Server.Host.Auth;
+using Bazaar.GitHub;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.Server.Host.Composition;
@@ -56,6 +57,7 @@ app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
 app.MapBazaarAuthWhoAmI();
+app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
 app.MapBazaarSetup();
