@@ -1,3 +1,5 @@
+using Bazaar.Constellation.Rendering.Core;
+
 namespace Bazaar.Constellation.Rendering;
 
 /// <summary>
@@ -41,4 +43,7 @@ public sealed class ConstellationScene
     public ReadOnlyMemory<int> ClusterIds { get; }
 
     public int EdgeCount => EdgePairs.Length / 2;
+
+    /// <summary>The cluster-free topology a backend draws. Shares the edge memory; nothing is copied.</summary>
+    public RenderScene ToRenderScene() => new(NodeCount, EdgePairs);
 }

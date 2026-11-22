@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
@@ -15,8 +16,10 @@ using Bazaar.Client.Gc;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Interrupts;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
@@ -70,6 +73,9 @@ public sealed class App : Avalonia.Application
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            .. OrgPanes.Modules,
+            .. CalendarPanes.Modules,
+            .. InterruptPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
             new AnalyticsPaneModule(),
@@ -81,7 +87,12 @@ public sealed class App : Avalonia.Application
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
+        var settings = new AndroidSettings();
+        var shell = new PhoneShell(
+            registry,
+            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)),
+            settings.Gestures,
+            settings.RadialSectors);
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
@@ -90,7 +101,7 @@ public sealed class App : Avalonia.Application
                 old.Dispose();
             }
             _postureBindings.Clear();
-            _postureBindings.Add(new PostureShellBinder(source, shell, WidthDp, new AndroidSettings().HalfOpenLayout));
+            _postureBindings.Add(new PostureShellBinder(source, shell, WidthDp, settings.HalfOpenLayout));
         }
         return shell;
     }
