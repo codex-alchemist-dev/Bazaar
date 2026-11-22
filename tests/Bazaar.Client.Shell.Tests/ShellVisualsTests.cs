@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -12,6 +13,7 @@ using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Posture;
 using Bazaar.Client.Posture.Avalonia;
 using Bazaar.Client.Theme;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Shell.Tests;
 
@@ -189,6 +191,24 @@ public class ShellVisualsTests
         visuals.ApplyTheme(BundledThemes.Load("paper"));
 
         Assert.NotEqual(before, ((SolidColorBrush)sidebar.Background!).Color);
+    }
+
+    [AvaloniaFact]
+    public void The_desktop_chrome_names_follow_the_head_locale_and_change_with_it()
+    {
+        var (window, visuals, _, _) = Build(_mica, 1000);
+        var locale = new SystemLocaleSource("en");
+        var spanish = ChromeCatalog.FromJson("es", new MemoryStream("""{ "chrome.sidebar.collapse": "Contraer barra lateral" }"""u8.ToArray()));
+
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, new ManualFrames(), locale: locale, catalogues: [spanish]);
+
+        Assert.Equal("Collapse sidebar", AutomationProperties.GetName(chrome.Sidebar.ToggleButton));
+
+        locale.Set("es");
+
+        Assert.Equal("Contraer barra lateral", AutomationProperties.GetName(chrome.Sidebar.ToggleButton));
+        // A key the catalogue lacks falls back to English.
+        Assert.Equal("Group chats", AutomationProperties.GetName(chrome.Sidebar.View));
     }
 
     [AvaloniaFact]

@@ -5,6 +5,7 @@ using Bazaar.Client.Materials;
 using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Posture;
 using Bazaar.Client.Theme;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Shell;
 
@@ -65,9 +66,17 @@ public sealed class ShellVisuals : IDisposable
     /// Desktop heads only: puts the sidebar, top strip and sheet host around the posture layout (doc 93, Desktop and phone split). The
     /// window's content becomes the chrome and the posture panel moves into its content slot, so chat and pane stay unwrapped. The
     /// chrome surfaces are drawn through <see cref="Materials"/>, so they follow the OS and the person's setting like the window does.
-    /// Call it once, before <see cref="ShellHost.Install"/>.
+    /// Call it once, before <see cref="ShellHost.Install"/>. Pass the head's <paramref name="locale"/> (and any translated
+    /// <paramref name="catalogues"/>) and the chrome's names follow it, English being the fallback; <paramref name="labels"/> is
+    /// used only when no locale is passed.
     /// </summary>
-    public DesktopChromeShell MountDesktopChrome(Window window, ThemeDefinition theme, IFrameDriver? frames = null, ChromeLabels? labels = null)
+    public DesktopChromeShell MountDesktopChrome(
+        Window window,
+        ThemeDefinition theme,
+        IFrameDriver? frames = null,
+        ChromeLabels? labels = null,
+        ILocaleSource? locale = null,
+        IEnumerable<MessageCatalog>? catalogues = null)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(theme);
@@ -81,6 +90,12 @@ public sealed class ShellVisuals : IDisposable
         var placeholder = new Border();
         DesktopChromeShell chrome = DesktopChromeShell.Create(Materials.Surface, theme, _motion, frames ?? new TopLevelFrameDriver(placeholder), content, labels);
         _chrome = chrome;
+        if (locale is not null)
+        {
+            // The chrome's names and announcements follow the active locale and change with it, with no restart.
+            chrome.Follow(new ChromeLabelSource(locale, catalogues));
+        }
+
         chrome.Sheets.Announcer = _announcer is null ? null : new SheetAnnouncer(_announcer);
         window.Content = chrome.View;
         return chrome;
