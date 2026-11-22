@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Walkthrough;
 
-/// <summary>The steps of the first-run walkthrough, in the order they are shown (doc 45 section 2.7).</summary>
+/// <summary>The steps of the first-run walkthrough, in the order they are shown (doc 45 section 2.9).</summary>
 public enum WalkthroughStep
 {
     /// <summary>What the company is and what the next steps are.</summary>

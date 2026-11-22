@@ -11,7 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LibGit2Sharp" />
-    <PackageReference Include="MimeKit" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
@@ -52,6 +51,7 @@
     <ProjectReference Include="..\Bazaar.Server.Vault\Bazaar.Server.Vault.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.ThinkingGc.Abstractions\Bazaar.Server.ThinkingGc.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />

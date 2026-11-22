@@ -72,3 +72,10 @@ public sealed record ArchiveVerifyResult(bool Ok, IReadOnlyList<string> Problems
 
 /// <summary>The outcome of a restore.</summary>
 public sealed record ArchiveRestoreResult(int Restored, int AlreadyPresent, IReadOnlyList<string> Conflicts);
+
+/// <summary>Builds a source for one caller. The GC log reader needs the viewer, so a source cannot be a singleton.</summary>
+public interface IArchiveSourceFactory
+{
+    /// <summary>A source that serves every unit kind, reading as the owner <paramref name="ownerId"/>.</summary>
+    IArchiveSource CreateFor(Guid ownerId);
+}

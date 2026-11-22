@@ -12,5 +12,6 @@
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Jobs.Abstractions\Bazaar.Server.Jobs.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
   </ItemGroup>
 </Project>

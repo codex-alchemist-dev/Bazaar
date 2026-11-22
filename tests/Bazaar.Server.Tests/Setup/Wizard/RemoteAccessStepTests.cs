@@ -1,5 +1,3 @@
-using Bazaar.Conduit.Settings;
-using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Host;
 
@@ -12,7 +10,7 @@ public sealed class RemoteAccessStepTests
     private const string _backup = "file:/mnt/backup/bazaar";
 
     private static string[] Answers(params string[] remote) =>
-        ["Example Studio", "", "Owner", "", "dpapi", _kekRef, "", _anchor, _backup, "", "", "", "", .. remote, ""];
+        ["Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", .. remote, ""];
 
     private static WizardQuestion Question(string id) =>
         RemoteAccessStep.Create().Questions.Single(question => question.Id == id);
@@ -84,8 +82,7 @@ public sealed class RemoteAccessStepTests
     /// <summary>The real overlay and loader over a catalog that includes the Conduit keys, with the apply recorded instead of run.</summary>
     private sealed class CatalogBackend : ISetupWizardBackend
     {
-        private static readonly RegistrySetupSettingCatalog _catalog = new(
-            Bazaar.Server.Settings.BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution(), new ConduitSettingContribution()]));
+        private static readonly RegistrySetupSettingCatalog _catalog = RegistrySetupSettingCatalog.Known;
 
         private static readonly IReadOnlyDictionary<string, string?> _noEnvironment = new Dictionary<string, string?>(StringComparer.Ordinal);
 

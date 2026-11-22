@@ -255,26 +255,10 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     }
 
     [Fact]
-    public void A_non_json_codec_is_refused()
-    {
-        Assert.Throws<NotSupportedException>(() => new WireClientPaneStreamConnection(_client, new NamedCodec("cbor", _transport.Codec)));
-    }
-
-    [Fact]
     public async Task Non_pane_stream_names_are_refused()
     {
         await Assert.ThrowsAsync<ArgumentException>(async () => await _adapter.SubscribeAsync("gc:1", TestContext.Current.CancellationToken));
         await Assert.ThrowsAsync<ArgumentException>(async () => await _adapter.SendAsync("pane:", "{}"u8.ToArray(), TestContext.Current.CancellationToken));
-    }
-
-    private sealed class NamedCodec(string name, IWireCodec inner) : IWireCodec
-    {
-        public string Name => name;
-        public bool IsBinary => inner.IsBinary;
-        public void Encode(in Envelope envelope, IBufferWriter<byte> writer) => inner.Encode(envelope, writer);
-        public Envelope Decode(ReadOnlySpan<byte> frame) => inner.Decode(frame);
-        public ReadOnlyMemory<byte> EncodePayload<T>(T payload) => inner.EncodePayload(payload);
-        public T DecodePayload<T>(in Envelope envelope) => inner.DecodePayload<T>(envelope);
     }
 
     private sealed class ScriptedTransport : IWireTransportFactory

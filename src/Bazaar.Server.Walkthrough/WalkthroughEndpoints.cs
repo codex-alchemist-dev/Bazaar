@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Bazaar.Server.Walkthrough;
 
 /// <summary>
-/// The walkthrough routes (doc 45 section 2.7, PROPOSED): <c>GET /onboarding/walkthrough/facts</c>, <c>GET /prefs/walkthrough</c>
+/// The walkthrough routes (doc 45 section 2.9, PROPOSED): <c>GET /onboarding/walkthrough/facts</c>, <c>GET /prefs/walkthrough</c>
 /// and <c>PUT /prefs/walkthrough</c>. Every route needs a signed-in person (401 otherwise) and answers for that person only. A route
 /// answers 503 until its ports are registered. Bodies and tokens never reach a log line. Transport rules (https or loopback) and the
 /// rate bucket are applied by the host that maps these routes.

@@ -5,7 +5,7 @@ using System.Windows.Input;
 namespace Bazaar.Client.FirstTask;
 
 /// <summary>
-/// The first-task composer (doc 45 section 2.8): one box, one Send. Send posts an ordinary group-chat message that mentions the
+/// The first-task composer (doc 45 section 2.10): one box, one Send. Send posts an ordinary group-chat message that mentions the
 /// first agent. It is off until the target is known, and a failed send keeps the text so nothing the person wrote is lost.
 /// </summary>
 public sealed class FirstTaskViewModel : INotifyPropertyChanged

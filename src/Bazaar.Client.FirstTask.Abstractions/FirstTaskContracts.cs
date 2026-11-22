@@ -1,6 +1,6 @@
 namespace Bazaar.Client.FirstTask;
 
-/// <summary>Where the first task goes: the first agent and the group chat seeded with it (doc 45 section 2.8).</summary>
+/// <summary>Where the first task goes: the first agent and the group chat seeded with it (doc 45 section 2.10).</summary>
 /// <param name="AgentId">The first agent's member id, mentioned in the message.</param>
 /// <param name="ChatId">The group chat the message is posted to.</param>
 public sealed record FirstTaskTarget(Guid AgentId, Guid ChatId);

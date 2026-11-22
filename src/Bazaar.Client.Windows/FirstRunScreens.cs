@@ -50,7 +50,7 @@ internal static class FirstRunScreens
         var actions = new ScreenActions(composerHost);
         if (both)
         {
-            // The walkthrough card sits above the screens it guides to. Facts come from the server, or from this run's own screens when it cannot say; progress is cached in a local file (doc 45 section 2.7).
+            // The walkthrough card sits above the screens it guides to. Facts come from the server, or from this run's own screens when it cannot say; progress is cached in a local file (doc 45 section 2.9).
             var walkthrough = new WalkthroughViewModel(
                 new CachedWalkthroughProgressStore(server, new FileWalkthroughProgressStore(WalkthroughPath())),
                 new FallbackFacts(server, facts),

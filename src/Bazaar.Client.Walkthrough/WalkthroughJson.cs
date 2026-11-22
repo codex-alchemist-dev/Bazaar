@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace Bazaar.Client.Walkthrough;
 
-/// <summary>Body of <c>GET /onboarding/walkthrough/facts</c> (PROPOSED, doc 45 section 2.7).</summary>
+/// <summary>Body of <c>GET /onboarding/walkthrough/facts</c> (PROPOSED, doc 45 section 2.9).</summary>
 internal sealed record FactsBody(
     [property: JsonPropertyName("company_created")] bool CompanyCreated,
     [property: JsonPropertyName("first_agent_name")] string? FirstAgentName,
@@ -10,7 +10,7 @@ internal sealed record FactsBody(
     [property: JsonPropertyName("first_agent_id")] Guid? FirstAgentId = null,
     [property: JsonPropertyName("first_chat_id")] Guid? FirstChatId = null);
 
-/// <summary>Body of <c>GET</c> and <c>PUT /prefs/walkthrough</c> (PROPOSED, doc 45 section 2.7).</summary>
+/// <summary>Body of <c>GET</c> and <c>PUT /prefs/walkthrough</c> (PROPOSED, doc 45 section 2.9).</summary>
 internal sealed record ProgressBody(
     [property: JsonPropertyName("dismissed")] bool Dismissed,
     [property: JsonPropertyName("finished")] bool Finished,

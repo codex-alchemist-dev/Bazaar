@@ -6,7 +6,7 @@ using Bazaar.Contracts.Wire.Codec;
 namespace Bazaar.Client.FirstTask;
 
 /// <summary>
-/// Posts the first task as an ordinary <c>gc.send</c> that mentions the first agent (doc 45 section 2.8). It opens its own short
+/// Posts the first task as an ordinary <c>gc.send</c> that mentions the first agent (doc 45 section 2.10). It opens its own short
 /// wire connection with the signed-in person's access token, sends once, and closes, so it needs no running chat. The token is
 /// read per send and never logged; any failure is one generic outcome.
 /// </summary>

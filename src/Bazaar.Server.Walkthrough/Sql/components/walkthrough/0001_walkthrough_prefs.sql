@@ -1,4 +1,4 @@
--- One person's first-run walkthrough progress (docs/design/45-onboarding.md section 2.7, PROPOSED). Component migration 0001 in the
+-- One person's first-run walkthrough progress (docs/design/45-onboarding.md section 2.9, PROPOSED). Component migration 0001 in the
 -- walkthrough namespace. The human preference `onboarding.walkthrough` of doc 02 (`prefs.set`), stored per person so it follows the
 -- account to every device. Step names are validated by the route before they reach this table; the column checks keep the shape sane.
 CREATE TABLE walkthrough_prefs (

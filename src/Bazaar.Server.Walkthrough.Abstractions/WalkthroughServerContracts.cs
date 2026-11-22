@@ -1,6 +1,6 @@
 namespace Bazaar.Server.Walkthrough;
 
-/// <summary>What the server knows the person has done (doc 45 section 2.7). Facts only; never agent or task content.</summary>
+/// <summary>What the server knows the person has done (doc 45 section 2.9). Facts only; never agent or task content.</summary>
 /// <param name="CompanyCreated">The install has a company.</param>
 /// <param name="FirstAgentName">The first agent's display name, or null when there is none.</param>
 /// <param name="FirstTaskGiven">The person has created a task or sent an agent request.</param>

@@ -93,29 +93,20 @@ internal static class ScreenToolSupport
     /// Resolves the caller's own target. Returns <see langword="null"/> and a refusal string when the agent has no such target, or when
     /// the resolver returned a target owned by another agent (which must never happen, and is refused rather than trusted).
     /// </summary>
-    internal static DisplayTarget? ResolveOwn(IAgentDisplayTargets targets, Guid agentId, AgentDisplayKind kind, out string? refusal)
+    internal static async Task<(DisplayTarget? Target, string? Refusal)> ResolveOwnAsync(
+        IAgentDisplayTargets targets, Guid agentId, AgentDisplayKind kind, CancellationToken cancellationToken)
     {
-        DisplayTarget? target = targets.Resolve(agentId, kind);
+        DisplayTarget? target = await targets.ResolveAsync(agentId, kind, cancellationToken).ConfigureAwait(false);
         if (target is null)
-        {
-            refusal = Refusal("no_target", $"You have no {KindName(kind)} to use.");
-            return null;
-        }
+            return (null, Refusal("no_target", $"You have no {KindName(kind)} to use."));
 
         if (!string.Equals(target.AgentId, agentId.ToString("D"), StringComparison.OrdinalIgnoreCase))
-        {
-            refusal = Refusal("no_target", $"You have no {KindName(kind)} to use.");
-            return null;
-        }
+            return (null, Refusal("no_target", $"You have no {KindName(kind)} to use."));
 
         if (kind == AgentDisplayKind.Browser && string.IsNullOrEmpty(target.BrowserSessionId))
-        {
-            refusal = Refusal("no_target", "You have no open browser session to use.");
-            return null;
-        }
+            return (null, Refusal("no_target", "You have no open browser session to use."));
 
-        refusal = null;
-        return target;
+        return (target, null);
     }
 
     /// <summary>The wire name of a source.</summary>

@@ -12,7 +12,7 @@ using Npgsql;
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
-/// Binds the profile route's ports to the modules that own the data (doc 07 read-only profile route, doc 45 section 2.7). It lives in
+/// Binds the profile route's ports to the modules that own the data (doc 07 read-only profile route, doc 45 section 2.9). It lives in
 /// the composition root because it adapts Agents, Souls and Roles types to <c>Bazaar.Server.SoulProfile</c>, which references none of them.
 /// Every registration is <c>TryAdd</c>, so a test or an operator's own implementation wins. The caller resolver is here too, over
 /// <see cref="IBearerPersonLookup"/>; the lookup that checks a token (GET /auth/whoami, PR #1145) replaces the default, which knows no one.

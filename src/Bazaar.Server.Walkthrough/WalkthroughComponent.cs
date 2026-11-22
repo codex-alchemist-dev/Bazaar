@@ -9,7 +9,7 @@ using Npgsql;
 namespace Bazaar.Server.Walkthrough;
 
 /// <summary>
-/// The first-run walkthrough's server side as a Bazaar Component (doc 45 section 2.7, PROPOSED). It registers the in-memory
+/// The first-run walkthrough's server side as a Bazaar Component (doc 45 section 2.9, PROPOSED). It registers the in-memory
 /// preference store (a durable store replaces it) and marks the component enabled, so <see cref="WalkthroughRouting.MapBazaarWalkthrough"/>
 /// maps the routes. The caller resolver and the facts provider come from the modules that own that knowledge (sign-in tokens, agents
 /// and Kanban); until they are registered the routes answer 503, never a guess.

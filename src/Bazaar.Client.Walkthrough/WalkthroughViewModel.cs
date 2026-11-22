@@ -5,7 +5,7 @@ using System.Windows.Input;
 namespace Bazaar.Client.Walkthrough;
 
 /// <summary>
-/// The first-run walkthrough shown after sign-in (doc 45 section 2.7): welcome, create the company, meet the first agent, give a
+/// The first-run walkthrough shown after sign-in (doc 45 section 2.9): welcome, create the company, meet the first agent, give a
 /// first task. Every step is skippable, nothing advances by itself, and the person's own data is used (no sample company).
 /// A step shows as done when the server says its real action happened; the person still moves on with Next.
 /// </summary>

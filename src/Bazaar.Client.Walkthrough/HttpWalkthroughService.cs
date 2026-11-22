@@ -6,7 +6,7 @@ using System.Text.Json;
 namespace Bazaar.Client.Walkthrough;
 
 /// <summary>
-/// The walkthrough's server calls (doc 45 section 2.7, routes PROPOSED): the facts read and the account-wide progress, both for the
+/// The walkthrough's server calls (doc 45 section 2.9, routes PROPOSED): the facts read and the account-wide progress, both for the
 /// signed-in person. The caller builds the <see cref="HttpClient"/> from the server endpoint, so the key-hash pin and the loopback
 /// rule already apply. The bearer token is never logged. Failures surface as exceptions for facts (the view model keeps what it
 /// knew) and as "no progress" for a read of progress, so a down server never stops the app.
