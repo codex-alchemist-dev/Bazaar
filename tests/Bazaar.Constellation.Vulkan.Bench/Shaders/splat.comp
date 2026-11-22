@@ -1,0 +1,19 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Full per-frame splat: every node is generated from its index, projected, and counted into the screen grid.
+// a = first node of this dispatch, b = nodes in this dispatch, c = grid width. The grid height is 720.
+#include "topology.glsl"
+layout(local_size_x = 256) in;
+layout(set = 0, binding = 1) buffer Screen { uint screen[]; };
+void main()
+{
+    uint local = (gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x) * 256u + gl_LocalInvocationID.x;
+    if (local >= pc.b) { return; }
+    vec4 clip = pc.viewProj * vec4(nodePos(pc.a + local), 1.0);
+    if (clip.w <= 0.0) { return; }
+    vec2 ndc = clip.xy / clip.w;
+    if (abs(ndc.x) >= 1.0 || abs(ndc.y) >= 1.0) { return; }
+    uint x = uint((ndc.x * 0.5 + 0.5) * float(pc.c));
+    uint y = uint((ndc.y * 0.5 + 0.5) * 720.0);
+    atomicAdd(screen[y * pc.c + x], 1u);
+}

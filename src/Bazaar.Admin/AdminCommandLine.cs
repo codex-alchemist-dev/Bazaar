@@ -130,7 +130,7 @@ public static class AdminCommandLine
         var report = parsed.Action switch
         {
             AdminAction.Validate => SetupOrchestrator.Validate(parsed.ConfigPath, parsed.SetArguments, variables, settings),
-            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables, settings),
+            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables, settings, applyGate.CoveredSections),
             AdminAction.Apply => await SetupOrchestrator.ApplyAsync(
                 parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, settings, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(args), parsed.Action, "Unknown action."),

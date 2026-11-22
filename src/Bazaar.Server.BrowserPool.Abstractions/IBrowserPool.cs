@@ -74,6 +74,9 @@ public enum PoolFailure
 
     /// <summary>The browser could not be started, or was ended while starting.</summary>
     LaunchFailed,
+
+    /// <summary>A readiness check found the pool VM image incomplete (a missing program, directory or AppArmor profile).</summary>
+    ImageNotReady,
 }
 
 /// <summary>Thrown by <see cref="IBrowserPool.OpenAsync"/> when the open is refused or fails. The message never contains page content.</summary>

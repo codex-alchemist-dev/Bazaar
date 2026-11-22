@@ -3,12 +3,19 @@
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="LibGit2Sharp" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Component migrations: components/<name>/NNNN_name.sql, never in Data/Sql/common (see Data/Sql/README.md). -->
-    <EmbeddedResource Include="components\github\**\*.sql" />
+    <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>
