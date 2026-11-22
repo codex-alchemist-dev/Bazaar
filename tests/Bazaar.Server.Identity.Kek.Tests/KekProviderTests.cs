@@ -157,6 +157,8 @@ public sealed class KekProviderTests : IDisposable
             [KekComponent.KekProviderKey] = "file",
         });
         var services = new ServiceCollection();
+        // Doc 61 Q2: the file provider may record a keyring fallback or migration, so the host registers an audit sink.
+        services.AddSingleton<IKekCustodyAuditSink>(new NullCustodyAudit());
 
         services.AddBazaarComponents(configuration, [new KekComponent()]);
         using var provider = services.BuildServiceProvider();
@@ -179,5 +181,10 @@ public sealed class KekProviderTests : IDisposable
         services.AddBazaarComponents(configuration, [new KekComponent()]);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IKekProvider));
+    }
+
+    private sealed class NullCustodyAudit : IKekCustodyAuditSink
+    {
+        public ValueTask RecordAsync(KekCustodyAuditEvent auditEvent, CancellationToken cancellationToken) => ValueTask.CompletedTask;
     }
 }

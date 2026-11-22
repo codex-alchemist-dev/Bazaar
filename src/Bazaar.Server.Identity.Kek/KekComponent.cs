@@ -25,15 +25,25 @@ public sealed class KekComponent : IBazaarComponent
     /// <summary>The configuration key holding the data root.</summary>
     public const string DataRootKey = "Bazaar:Host:DataRoot";
 
+    /// <summary>The configuration key holding the keyring mode for the <c>file</c> provider (doc 61 Q2): <c>auto</c> (default) or <c>required</c>.</summary>
+    public const string KekKeyringKey = "Bazaar:Identity:KekKeyring";
+
     public ComponentManifest Manifest => ManifestDefinition;
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<IKekProvider>(_ =>
+        services.AddSingleton<IKekProvider>(sp =>
         {
             var dataRoot = configuration[DataRootKey]
                 ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
-            return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
+            var mode = KekProviderFactory.ParseKeyringMode(configuration[KekKeyringKey]);
+            // A host or test may register its own keyring; otherwise the OS default. There is no default audit sink: a KEK open that
+            // may need to record a fallback or migration must have one (doc 48 section 5).
+            var keyring = sp.GetService<IKekKeyring>() ?? KekProviderFactory.DefaultKeyring();
+            var audit = sp.GetRequiredService<IKekCustodyAuditSink>();
+            var time = sp.GetService<TimeProvider>() ?? TimeProvider.System;
+            // The KEK must open before the host runs; the open is bounded by the key file lock timeout.
+            return KekProviderFactory.CreateAsync(configuration[KekProviderKey], dataRoot, keyring, mode, audit, time).AsTask().GetAwaiter().GetResult();
         });
     }
 }

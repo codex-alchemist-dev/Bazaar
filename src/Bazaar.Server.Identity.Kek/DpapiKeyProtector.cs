@@ -10,7 +10,16 @@ namespace Bazaar.Server.Identity.Kek;
 [SupportedOSPlatform("windows")]
 public sealed class DpapiKeyProtector : IKeyProtector
 {
-    private static readonly byte[] _entropy = "Bazaar.KEK.v1"u8.ToArray();
+    private readonly byte[] _entropy;
+
+    /// <summary>Protects with the <c>dpapi</c> KEK provider's entropy.</summary>
+    public DpapiKeyProtector()
+        : this("Bazaar.KEK.v1"u8)
+    {
+    }
+
+    /// <summary>Protects with <paramref name="entropy"/>, so blobs made for another purpose do not open here.</summary>
+    public DpapiKeyProtector(ReadOnlySpan<byte> entropy) => _entropy = entropy.ToArray();
 
     /// <inheritdoc />
     public byte[] Protect(ReadOnlySpan<byte> plaintext) =>

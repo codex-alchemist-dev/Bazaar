@@ -13,5 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
+    <!-- The libsecret keyring provider (doc 61 Q2) lives with the other Secret Service code in Bazaar.Secrets. -->
+    <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
   </ItemGroup>
 </Project>
