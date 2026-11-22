@@ -1,8 +1,10 @@
+using Bazaar.Community.Observatory;
 using Bazaar.Community.Quotas;
 using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Community;
 
@@ -32,5 +34,9 @@ public sealed class CommunityComponent : IBazaarComponent
         // shared NpgsqlDataSource and IAuditLog from the kernel; the host wires them when it is composed against a database.
         // TODO(component): register the Npgsql stores once the host supplies their dependencies in the composition tests.
         services.TryAddSingleton<ICommunityFreezeStore, InMemoryCommunityFreezeStore>();
+
+        // The Observatory log reader backs GET /community/log (CommunityLogEndpoint, mapped by host composition). It is lazy: it
+        // resolves the shared NpgsqlDataSource only when the route first runs, and the route answers 503 when none is registered.
+        services.TryAddSingleton<ICommunityLogReader>(sp => new NpgsqlCommunityLogReader(sp.GetRequiredService<NpgsqlDataSource>()));
     }
 }

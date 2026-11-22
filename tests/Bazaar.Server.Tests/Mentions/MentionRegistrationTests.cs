@@ -114,7 +114,7 @@ public sealed class MentionRegistrationTests
     {
         public Task<int> WriteAsync(IReadOnlyList<InboxRow> rows, CancellationToken ct) => Task.FromResult(0);
 
-        public Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) => Task.FromResult(0);
+        public Task<int> WriteAsync(System.Data.Common.DbTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) => Task.FromResult(0);
     }
 
     /// <summary>Resolves nothing; these tests only check what is registered, never post.</summary>
