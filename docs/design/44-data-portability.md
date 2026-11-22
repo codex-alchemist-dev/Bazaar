@@ -378,6 +378,7 @@ Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, 
 Undo never deletes history:
 
 - GC entries from an import get a new version that marks them `withdrawn_by_import: <job>`. The text stays in history, and the view hides it by default.
+  **[PROPOSED]** The version is written through the GC log writer (`AppendRequest.WithdrawnByImport`, doc 01 Edits): a new `message_edit` row by the system principal with `gc_message_version.withdrawn_by_import = <job id>`. Original versions are never changed. The editor-must-be-author rule does not apply to this principal.
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
 - Kanban tasks from an import move to the stored `withdrawn` state with reason `withdrawn by import` [PROPOSED]. Blocked is derived in doc 12 and never stored, so it cannot be the target, and Kanban has no archive. `withdrawn` is terminal, hidden from boards by default, keeps the task's history, and stops counting as a blocker for other tasks. It is reached only through the Kanban task service's `IKanbanTaskWithdrawal` port, behind the doc 12 gates (system or owner actor, reason required, Done tasks owner only). See doc 12, "Withdrawn state".
 - The withdrawal is itself an audit entry, linked to the job.
