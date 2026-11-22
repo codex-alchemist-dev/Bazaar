@@ -75,6 +75,18 @@ Seeded v1 types [PROPOSED defaults; values are the setting `gc.type_defaults`]:
 - The context builder (06) never loads it into another agent's context. Never a mention or wake target. Vote reasoning enters only after reveal (10).
 - Writer (built, module `Bazaar.Server.ThinkingGc`): the turn runner writes each model step's reasoning, each tool step (name and outcome only, never arguments or results) and the turn end as agent-authored messages. The id is derived from (working GC, agent), so there is one per pair. Entries are idempotent per (turn, ordinal, kind); text over the message limit is split, never cut. Nothing sweeps it: thinking is kept forever.
 
+### GC metadata and the DM owner-read flow [PROPOSED, built as `Bazaar.Server.GcMetadata`]
+Typed metadata: three reserved keys in `gc.metadata` get a typed reading, and every other key stays free-form (existing writers such as imports keep theirs).
+- `project`: slug of the project the GC belongs to (`a-z`, `0-9`, `.`, `_`, `-`; up to 64 characters).
+- `kind`: slug naming what the GC is for, finer than `type_key` (up to 40 characters).
+- `status`: one of an operator-set list. Shipped default: `open`, `active`, `blocked`, `done`. A value outside the list is refused on write and reported on read.
+- Writers send a patch: a missing key is unchanged, an empty value removes the key. A refused patch changes nothing.
+
+DM owner-read flow (rules already in Membership and doc 32; this is the service that applies them):
+- **Request.** A non-member principal (human or agent) files a request for a DM. A repeat while one is pending returns the pending one. A principal who already reads the DM gets "already allowed". The request writes one `system` event and one audit entry (`dm.access.requested`).
+- **Grant or deny.** The owner always decides. Under `gc.dm_access_approvers = owner-or-dm-member` an active member of that DM other than the requester may decide too. An agent's decision is refused and audited (`dm.access.refused`); it is never human consent. A decision writes a `system` event and an audit entry (`dm.access.granted` or `dm.access.denied`).
+- **Owner read.** The owner reads every DM without a request. Each owner read of a DM the owner is not a member of is audited (`dm.owner_read`), and the read result says whether to show the marker `privacy.owner_dm_read_marker` (doc 32; default on).
+
 ### Edits
 - Only the original author may edit (Question 2). Corrections by others are new messages.
 - Every version stays readable through `GetHistory`. More than one version shows "edited".

@@ -32,6 +32,7 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -84,6 +85,7 @@ public static class HostComponents
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcMetadataComponent(),
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
