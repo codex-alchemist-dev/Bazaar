@@ -229,7 +229,9 @@ public sealed class MonitorAdapterTests : IDisposable
             ["/machine-config", "/boot-source", "/drives/rootfs", "/network-interfaces/eth0", "/vsock", "/actions"],
             api.Sent.Select(s => s.Request.Path).ToArray());
         Assert.All(api.Sent, s => Assert.Equal(sock, s.Socket));
-        Assert.Equal($$"""{"guest_cid":3,"uds_path":"{{Path.Combine(State, _name + ".vsock")}}"}""", api.Sent[4].Request.Body);
+        Assert.Equal(
+            $$"""{"guest_cid":3,"uds_path":{{System.Text.Json.JsonSerializer.Serialize(Path.Combine(State, _name + ".vsock"))}}}""",
+            api.Sent[4].Request.Body);
         Assert.Equal("""{"action_type":"InstanceStart"}""", api.Sent[5].Request.Body);
         Assert.True(await m.IsRunningAsync(_name, Ct));
     }

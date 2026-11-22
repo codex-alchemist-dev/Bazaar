@@ -1,3 +1,4 @@
+using Bazaar.Server.Portability.Sandbox;
 using Bazaar.Server.Providers;
 
 namespace Bazaar.Server.Providers.Windows;
@@ -18,4 +19,11 @@ public static class WindowsProviders
 
     // VM providers are not listed here: each provider module contributes an IVmBackendSource through DI, and the host orders the
     // pair candidates (doc 62 section 9.2).
+
+    /// <summary>
+    /// The job-object confinement for the portability parser child (doc 44 section 8.3), or null when the host is not Windows
+    /// (the runner then uses its own OS default).
+    /// </summary>
+    public static IParserConfinement? ParserConfinement() =>
+        OperatingSystem.IsWindows() ? new WindowsJobObjectConfinement() : null;
 }
