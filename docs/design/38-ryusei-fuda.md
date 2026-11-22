@@ -6,7 +6,7 @@ Depends on: `01-gc-data-model.md` (GC, system lines, membership), `04-postgres-s
 ## Purpose
 RyuseiFuda ("shooting-star cards", the umbrella name for the company planner) is one planning surface with three layers:
 
-1. **Macro board (company-wide).** The readable schedule of the dev team and the general tasking and workflow board. This is today's Kanban (doc 12) unchanged in rules.
+1. **Macro board (company-wide).** The readable schedule of the dev team and the general tasking and workflow board. This is the board specified in doc 12, folded into RyuseiFuda under one name by owner decision (2026-11-16). Its rules are unchanged.
 2. **Micro schedule (per agent).** Physical scheduling: each agent, or a coworker, can queue a wake that re-invokes an agent later. The trigger is a timer, an interval, a watcher on a condition, or a one-shot event. This is the RyuseiFuda equivalent of Claude's self-reinvoke and scheduled wakeups.
 3. **Objective roadmap.** Project planning, documentation and dev phasing. It works closely with the Constellation: objectives are Vault documents, and the Constellation draws them as a phase graph.
 
@@ -31,7 +31,7 @@ The layers stay separate on purpose. The macro board says what work exists and w
 - **Scope.** RyuseiFuda is the umbrella for the three layers (macro board, micro schedule, objective roadmap). It is also the formal answer to the agent loop and scheduling question. Earlier design notes said "GC and Kanban handle that"; that is superseded. Wake scheduling, re-invocation, watchers and loop limits for agent scheduling are owned by RyuseiFuda (this doc). GCs stay the place where agents talk, and events stay the software's reactions (`Bazaar.md` §3).
 - **Layer names.** Macro board (company-wide, the readable team schedule; the current Kanban, doc 12), micro schedule (per-agent triggers and re-invocation, this doc), objective roadmap (Vault objectives and phases, Constellation view, this doc).
 - **Use in the docs.** Glossary (`Bazaar.md` §4) and every design doc that touches scheduling or agent loops say RyuseiFuda. Doc titles and UI say RyuseiFuda; the macro layer adds the subtitle "Board" in the UI ("RyuseiFuda · Board").
-- **Code identifiers.** New code uses `Ryusei` (for example `RyuseiTrigger`, `ryusei_trigger`, component ID `ryusei-schedule`). Existing `Kanban` identifiers, IDs and settings keys (`kanban.*`) stay until the optional rename step R4 below, because renaming them now would churn stored data and contracts for no behaviour change.
+- **Code identifiers.** All code uses `Ryusei` (for example `RyuseiTrigger`, `ryusei_trigger`, component ID `ryusei-schedule`). The Kanban code is folded in by step R4 below (owner decision, 2026-11-16, code only). Stored `kanban.*` settings keys, tool names and job kinds are rewritten by forward migrations in the `ryusei` namespace, and the old names stay readable for compatibility. The component ID `kanban` stays stable, because the component-ID rule (doc BAZAAR-COMPONENTS) says IDs do not change across versions.
 
 ## Layer 1: macro board (company-wide)
 
@@ -234,9 +234,9 @@ The technical IDs stay stable. Only the user-facing name changes, so no client o
 | R1 | Pane and window titles read "RyuseiFuda · Board". `KanbanPaneViewModel` title comes from the pane descriptor. | Pane ID `kanban`; board stream; column names | WP-R11 |
 | R2 | Layer 2 migration, service and client pane. Component `ryusei-schedule` (kind Feature) depends on `kanban`. | `kanban` component, tables, settings | WP-R3 to R9 |
 | R3 | Layer 3 views, Vault front-matter schema (doc 18), Constellation node kinds (doc 19). | Vault layout for existing docs | WP-R12 |
-| R4 (optional, later) | Code namespace and project rename (`Bazaar.Server.Components.Kanban` to a RyuseiFuda name). Only if the owner wants it. | Everything else | Not scheduled |
+| R4 (folded in, owner decision 2026-11-16) | `Bazaar.Server.Components.Kanban` moves into the RyuseiFuda module; namespaces and code identifiers rename; the pane ID and `kanban.*` settings keys, the `kanban.transition` tool name and the `kanban.deadline_scan` job kind migrate with forward migrations in the `ryusei` namespace and old names stay readable. | Table names and column names, board rules, the component ID `kanban`, the wire stream | Scheduled with the code fold |
 
-Doc 12's `kanban.*` settings keep their names. Doc 12 is not renamed, because its settings, stored data and wire contracts already depend on the ID.
+Doc 12 keeps its title and its rules. Its `kanban.*` settings are migrated to RyuseiFuda keys under R4 with compatibility reads for the old names.
 
 Component IDs (doc BAZAAR-COMPONENTS, rule: IDs stable across versions): `kanban` (layer 1, unchanged); `ryusei-schedule` (layer 2, new); `ryusei-roadmap` (layer 3, new, mostly views and a pane).
 

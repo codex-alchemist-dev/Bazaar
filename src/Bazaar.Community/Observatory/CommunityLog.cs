@@ -16,6 +16,7 @@ public static class CommunityLogSqlText
         FROM community_action
         WHERE (@agent_id::text IS NULL OR agent_id = @agent_id::text)
           AND (@platform::text IS NULL OR platform = @platform::text)
+          AND (@after_created_at::timestamptz IS NULL OR (created_at, id) < (@after_created_at::timestamptz, @after_id::bigint))
         ORDER BY created_at DESC, id DESC
         LIMIT @limit
         """;
@@ -37,12 +38,17 @@ public sealed record CommunityLogFilter
     /// <param name="AgentId">Only rows for this agent, or null for all agents.</param>
     /// <param name="Platform">Only rows for this platform, or null for all platforms.</param>
     /// <param name="Limit">Page size. Values outside 1 to 200 are clamped.</param>
-    public CommunityLogFilter(string? AgentId = null, string? Platform = null, int Limit = DefaultLimit)
+    /// <param name="After">Position of the last row of the previous page, or null for the first page.</param>
+    public CommunityLogFilter(string? AgentId = null, string? Platform = null, int Limit = DefaultLimit, CommunityLogPosition? After = null)
     {
         this.AgentId = AgentId;
         this.Platform = Platform;
         this.Limit = Math.Clamp(Limit, MinLimit, MaxLimit);
+        this.After = After;
     }
+
+    /// <summary>Only rows strictly older than this position in (created_at, id) order, or null for the newest rows.</summary>
+    public CommunityLogPosition? After { get; }
 
     /// <summary>Only rows for this agent, or null for all agents.</summary>
     public string? AgentId { get; }
@@ -80,13 +86,29 @@ public static class CommunityLog
     internal static string? ToHexOrNull(byte[]? hash) => hash is null ? null : Convert.ToHexStringLower(hash);
 }
 
+/// <summary>One page of the community log and the position to continue from.</summary>
+/// <param name="Rows">Rows of the page, newest first.</param>
+/// <param name="Next">Position of the last row when older rows exist, else null.</param>
+public sealed record CommunityLogPage(IReadOnlyList<CommunityLogRow> Rows, CommunityLogPosition? Next);
+
+/// <summary>Reads pages of the community log. The seam the HTTP route depends on.</summary>
+public interface ICommunityLogReader
+{
+    /// <summary>Returns one page of log rows, newest first, with keyset continuation.</summary>
+    Task<CommunityLogPage> ListPageAsync(CommunityLogFilter filter, CancellationToken ct = default);
+}
+
 /// <summary>Reads the Observatory community log over the shared <see cref="NpgsqlDataSource"/>. Read-only.</summary>
-public sealed class NpgsqlCommunityLogReader(NpgsqlDataSource dataSource)
+public sealed class NpgsqlCommunityLogReader(NpgsqlDataSource dataSource) : ICommunityLogReader
 {
     /// <summary>Returns log rows, newest first, that match the filter.</summary>
     /// <param name="filter">Filter and page size. Null is rejected.</param>
     /// <param name="ct">Cancellation token.</param>
-    public async Task<IReadOnlyList<CommunityLogRow>> ListAsync(CommunityLogFilter filter, CancellationToken ct = default)
+    public async Task<IReadOnlyList<CommunityLogRow>> ListAsync(CommunityLogFilter filter, CancellationToken ct = default) =>
+        (await ListPageAsync(filter, ct).ConfigureAwait(false)).Rows;
+
+    /// <inheritdoc />
+    public async Task<CommunityLogPage> ListPageAsync(CommunityLogFilter filter, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(filter);
 
@@ -96,12 +118,24 @@ public sealed class NpgsqlCommunityLogReader(NpgsqlDataSource dataSource)
         await using var cmd = new NpgsqlCommand(CommunityLogSqlText.Select, conn);
         cmd.Parameters.Add(new NpgsqlParameter("agent_id", NpgsqlDbType.Text) { Value = (object?)filter.AgentId ?? DBNull.Value });
         cmd.Parameters.Add(new NpgsqlParameter("platform", NpgsqlDbType.Text) { Value = (object?)filter.Platform ?? DBNull.Value });
-        cmd.Parameters.AddWithValue("limit", filter.Limit);
+        cmd.Parameters.Add(new NpgsqlParameter("after_created_at", NpgsqlDbType.TimestampTz)
+        {
+            Value = filter.After is { } a ? a.CreatedAt.ToUniversalTime() : DBNull.Value,
+        });
+        cmd.Parameters.Add(new NpgsqlParameter("after_id", NpgsqlDbType.Bigint) { Value = filter.After is { } b ? b.Id : DBNull.Value });
+        // One extra row tells whether an older page exists without a second query.
+        cmd.Parameters.AddWithValue("limit", filter.Limit + 1);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
             rows.Add(Map(reader));
-        return rows;
+
+        if (rows.Count <= filter.Limit)
+            return new CommunityLogPage(rows, null);
+
+        rows.RemoveAt(rows.Count - 1);
+        var last = rows[^1];
+        return new CommunityLogPage(rows, new CommunityLogPosition(last.CreatedAt, last.Id));
     }
 
     private static CommunityLogRow Map(NpgsqlDataReader r) => new(
