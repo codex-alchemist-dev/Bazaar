@@ -10,6 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.BackStack.Abstractions\Bazaar.Client.BackStack.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Gestures.Avalonia\Bazaar.Client.Gestures.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>

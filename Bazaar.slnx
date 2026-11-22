@@ -201,6 +201,9 @@
     <Project Path="src/Bazaar.Client.Motion.Avalonia/Bazaar.Client.Motion.Avalonia.csproj" />
     <Project Path="tests/Bazaar.Client.Motion.Tests/Bazaar.Client.Motion.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Motion.Avalonia.Tests/Bazaar.Client.Motion.Avalonia.Tests.csproj" />
+    <Project Path="src/Bazaar.Client.BackStack/Bazaar.Client.BackStack.csproj" />
+    <Project Path="src/Bazaar.Client.BackStack.Abstractions/Bazaar.Client.BackStack.Abstractions.csproj" />
+    <Project Path="tests/Bazaar.Client.BackStack.Tests/Bazaar.Client.BackStack.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Gestures/Bazaar.Client.Gestures.csproj" />
     <Project Path="src/Bazaar.Client.Gestures.Abstractions/Bazaar.Client.Gestures.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Gestures.Avalonia/Bazaar.Client.Gestures.Avalonia.csproj" />
