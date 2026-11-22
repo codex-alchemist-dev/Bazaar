@@ -13,6 +13,7 @@ using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Audit;
 using Bazaar.Server.BrowserPool.Display;
+using Bazaar.Server.BrowserPool.Egress;
 using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
@@ -148,6 +149,7 @@ public static class HostComponents
         new BrowserPoolImageComponent(),
         new BrowserPoolGateComponent(),
         new BrowserPoolAuditComponent(),
+        new BrowserPoolEgressComponent(),
     ];
 
     /// <summary>
