@@ -90,6 +90,45 @@ public class MnemonicShellHeadlessTests
     }
 
     [AvaloniaFact]
+    public async Task Typed_remap_and_Enter_raises_RemapRequested_and_not_CommandInvoked()
+    {
+        var h = await BuildAsync();
+        var requested = 0;
+        h.Shell.RemapRequested += (_, _) => requested++;
+
+        foreach (var (key, symbol) in new[] { (Key.R, "r"), (Key.E, "e"), (Key.M, "m"), (Key.A, "a"), (Key.P, "p") })
+        {
+            Press(h.Window, key, symbol);
+        }
+        Press(h.Window, Key.Enter);
+
+        Assert.Equal(1, requested);
+        Assert.Empty(h.Commands);
+        h.Shell.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task Remap_chosen_from_the_palette_raises_RemapRequested()
+    {
+        var h = await BuildAsync();
+        var requested = 0;
+        h.Shell.RemapRequested += (_, _) => requested++;
+
+        Press(h.Window, Key.P, "p");
+        Press(h.Window, Key.Enter);
+        Assert.True(h.Shell.IsPaletteOpen);
+        var view = Assert.Single(h.Shown);
+        view.Query = "remap";
+        Assert.Equal(NavigationDefaults.RemapCommandId, view.Selected!.CommandId);
+
+        Press(h.Window, Key.Enter);
+
+        Assert.Equal(1, requested);
+        Assert.Empty(h.Commands);
+        h.Shell.Dispose();
+    }
+
+    [AvaloniaFact]
     public async Task Disposing_stops_the_shell_reacting_to_keys()
     {
         var h = await BuildAsync();
