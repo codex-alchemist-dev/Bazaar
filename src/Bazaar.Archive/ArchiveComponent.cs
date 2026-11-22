@@ -36,7 +36,14 @@ public sealed class ArchiveComponent : IBazaarComponent
         }
 
         services.AddSingleton<ArchiveVerifier>();
-        services.AddSingleton<ColdArchiver>();
+        // A factory, so service validation on build (Development) does not require a single IArchiveSource: the host archives per owner
+        // through IArchiveSourceFactory (ArchiveRoutes), and a source is only required when a caller resolves this singleton directly.
+        services.AddSingleton(sp => new ColdArchiver(
+            sp.GetRequiredService<IArchiveSource>(),
+            sp.GetRequiredService<IArchiveStore>(),
+            sp.GetService<IArchiveSearchIndex>(),
+            sp.GetRequiredService<ArchiveOptions>(),
+            sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ArchiveRestorer>();
     }
 }
