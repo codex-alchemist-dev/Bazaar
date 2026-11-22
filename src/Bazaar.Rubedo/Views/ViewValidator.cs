@@ -26,7 +26,13 @@ public static class ViewValidator
     private static readonly HashSet<ViewWidget> _needsLabel = [ViewWidget.Button, ViewWidget.Icon, ViewWidget.Input];
 
     /// <summary>Returns every problem found. An empty list means the document is valid.</summary>
-    public static IReadOnlyList<RubedoDiagnostic> Validate(ViewDocument document)
+    public static IReadOnlyList<RubedoDiagnostic> Validate(ViewDocument document) => Validate(document, null);
+
+    /// <summary>
+    /// Returns every problem found, checking token references against <paramref name="tokens"/> when one is given
+    /// (doc 41c, section 5.1). Without a catalog the token names are not checked, but literal style values still are.
+    /// </summary>
+    public static IReadOnlyList<RubedoDiagnostic> Validate(ViewDocument document, IViewTokenCatalog? tokens)
     {
         ArgumentNullException.ThrowIfNull(document);
 
@@ -50,7 +56,16 @@ public static class ViewValidator
             }
         }
 
-        Walk(document.Root, "root", document, scope, problems);
+        _tokens = tokens;
+        try
+        {
+            Walk(document.Root, "root", document, scope, problems);
+        }
+        finally
+        {
+            _tokens = null;
+        }
+
         return problems;
     }
 
@@ -87,6 +102,61 @@ public static class ViewValidator
     /// <summary>The structural child of <c>tabs</c>. It is not a widget, so the closed set stays at 13 (doc 41c, section 3).</summary>
     private static readonly string _tabNode = "tab";
 
+    [ThreadStatic]
+    private static IViewTokenCatalog? _tokens;
+
+    private static readonly Dictionary<string, TokenKind> _propKinds = new(StringComparer.Ordinal)
+    {
+        ["color"] = TokenKind.Colour,
+        ["background"] = TokenKind.Colour,
+        ["borderColor"] = TokenKind.Colour,
+        ["duration"] = TokenKind.Duration,
+        ["motion"] = TokenKind.Interaction,
+        ["opacity"] = TokenKind.Number,
+    };
+
+    private static readonly System.Text.RegularExpressions.Regex _literalStyle = new(
+        @"^(#[0-9a-fA-F]{3,8}|rgba?\(.*\)|\d+(\.\d+)?(ms|s))$",
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>Checks token references and literal style values on one node (doc 41c, section 5.1).</summary>
+    private static void CheckTokens(ViewNode node, string path, List<RubedoDiagnostic> problems)
+    {
+        foreach (var (propName, value) in node.Props)
+        {
+            _propKinds.TryGetValue(propName, out var expected);
+            var known = _propKinds.ContainsKey(propName);
+            if (value is ViewTokenRef reference)
+            {
+                if (_tokens is null)
+                {
+                    continue;
+                }
+
+                if (_tokens.KindOf(reference.Name) is not { } kind)
+                {
+                    problems.Add(new RubedoDiagnostic("view.unknown_token", $"{path}.{propName}: token '{reference.Name}' is not in the catalog."));
+                }
+                else if (known && kind != expected)
+                {
+                    problems.Add(new RubedoDiagnostic("view.token_kind_mismatch", $"{path}.{propName}: token '{reference.Name}' is {kind}, but this prop takes {expected}."));
+                }
+                else if (!known && kind == TokenKind.Interaction)
+                {
+                    problems.Add(new RubedoDiagnostic("view.token_kind_mismatch", $"{path}.{propName}: an interaction token is only valid in the motion prop."));
+                }
+            }
+            else if (known && value is string text && propName != "motion" && _literalStyle.IsMatch(text))
+            {
+                problems.Add(new RubedoDiagnostic("view.literal_style_value", $"{path}.{propName}: '{text}' is a raw style value; use a theme token."));
+            }
+            else if (propName == "motion" && value is string motion && motion != "none")
+            {
+                problems.Add(new RubedoDiagnostic("view.literal_style_value", $"{path}.motion: a preset is named with a token, or \"none\" switches motion off."));
+            }
+        }
+    }
+
     private static void Walk(ViewNode node, string path, ViewDocument document, RubedoSchema scope, List<RubedoDiagnostic> problems)
     {
         if (node.Widget == _tabNode)
@@ -119,6 +189,7 @@ public static class ViewValidator
             }
         }
 
+        CheckTokens(node, path, problems);
         foreach (var (propName, value) in node.Props)
         {
             if (value is ViewExpr expr)
