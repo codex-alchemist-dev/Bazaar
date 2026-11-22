@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
+  </ItemGroup>
+</Project>

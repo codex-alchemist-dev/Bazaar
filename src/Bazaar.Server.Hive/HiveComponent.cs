@@ -1,7 +1,13 @@
+using System.Data.Common;
 using Bazaar.Core;
 using Bazaar.Server.Hive.Abstractions;
+using Bazaar.Server.Hive.Settings;
+using Bazaar.Server.Memory.Access;
+using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
+using Bazaar.Server.ReadAudit.Npgsql;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -18,7 +24,8 @@ namespace Bazaar.Server.Hive;
 /// Memory and Vault are soft dependencies: <see cref="HiveCopyService"/> writes through <see cref="IMemoryBatchSink"/> and reads
 /// through <see cref="IHiveNoteReader"/>, which those components provide. Without them the grant store, ledger and policy still
 /// resolve, and resolving the copy service fails with a message naming the missing service. The Postgres stores are chosen when
-/// the services are resolved: with an <see cref="NpgsqlDataSource"/> registered they are used, otherwise the in-memory ones.
+/// the services are resolved: with an <see cref="NpgsqlDataSource"/> registered they are used, otherwise the in-memory ones. They read through the
+/// <see cref="AuditedDbDataSource"/> when the read-audit component registered one (doc 48 section 5.1), and the raw source otherwise.
 /// </remarks>
 public sealed class HiveComponent : IBazaarComponent
 {
@@ -45,19 +52,43 @@ public sealed class HiveComponent : IBazaarComponent
 
         services.TryAddSingleton(ReadOptions(configuration.GetSection(SectionName)));
 
-        // In-memory fallbacks are singletons too, so a host without a database keeps its grants between calls.
+        // The grant matrix and allowed kinds are install settings (doc 08 settings table). Settings win; the Postgres table and the
+        // in-memory store serve only a host with no settings store. In-memory fallbacks are singletons too, so a host without a
+        // database keeps its grants between calls.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, HiveSettingContribution>());
         services.TryAddSingleton<IHiveGrantStore>(sp =>
-            sp.GetService<NpgsqlDataSource>() is { } dataSource
-                ? new PgHiveGrantStore(dataSource)
-                : new InMemoryHiveGrantStore());
+            sp.GetService<ISettingStore>() is { } settings
+                ? new SettingsHiveGrantStore(settings)
+                : ReadSource(sp) is { } dataSource
+                    ? new PgHiveGrantStore(dataSource)
+                    : new InMemoryHiveGrantStore());
+        services.TryAddSingleton<IHiveKindSource>(sp =>
+            sp.GetService<ISettingStore>() is { } settings
+                ? new SettingsHiveKindSource(settings)
+                : new OptionsHiveKindSource(sp.GetRequiredService<HiveCopyOptions>()));
         services.TryAddSingleton<IHiveCopyLedger>(sp =>
-            sp.GetService<NpgsqlDataSource>() is { } dataSource
+            ReadSource(sp) is { } dataSource
                 ? new PgHiveLedger(dataSource)
                 : new InMemoryHiveCopyLedger());
 
+        // Reads Hive copies for reuse and deprecation. Needs the memory component's IMemoryVault; without it the copy service
+        // fails to resolve with a message naming IHiveNoteReader. Maintenance reads hive/** without any membership, so an empty
+        // membership is enough when the host registers no IVaultAccess; agents are denied there (no Hive target source).
+        services.TryAddSingleton<IHiveNoteReader>(sp => new MemoryVaultHiveNoteReader(
+            sp.GetService<IMemoryVault>() ?? throw new InvalidOperationException(
+                "IHiveNoteReader needs IMemoryVault, which the memory component registers when Memory:Vault:RepoPath is set."),
+            sp.GetService<IVaultAccess>() ?? new VaultPathAccess(
+                new StaticProjectMembership(new Dictionary<string, ProjectMembers>()))));
+
         services.TryAddSingleton<IHiveGrantPolicy>(sp => new HiveGrantPolicy(
             sp.GetRequiredService<IHiveGrantStore>(),
-            sp.GetRequiredService<HiveCopyOptions>()));
+            sp.GetRequiredService<HiveCopyOptions>(),
+            sp.GetRequiredService<IHiveKindSource>()));
+        services.TryAddSingleton<IHiveGrantApprovals, DenyAllHiveGrantApprovals>();
+        services.TryAddSingleton<IHiveGrantWireHandler>(sp => new HiveGrantWireHandler(sp.GetRequiredService<IHiveGrantApprovals>()));
+        services.TryAddSingleton(sp => new HiveGrantApplier(
+            sp.GetRequiredService<IHiveGrantStore>(),
+            sp.GetRequiredService<HiveCopyService>()));
         services.TryAddSingleton(sp => new HiveCopyService(
             sp.GetRequiredService<IHiveGrantPolicy>(),
             sp.GetRequiredService<IHiveGrantStore>(),
@@ -65,8 +96,13 @@ public sealed class HiveComponent : IBazaarComponent
             sp.GetRequiredService<IHiveNoteReader>(),
             sp.GetRequiredService<IMemoryBatchSink>(),
             sp.GetRequiredService<HiveCopyOptions>(),
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            sp.GetRequiredService<IHiveKindSource>()));
     }
+
+    /// <summary>The audited source when registered, else the raw one, else null (no database).</summary>
+    private static DbDataSource? ReadSource(IServiceProvider sp) =>
+        sp.GetService<AuditedDbDataSource>() ?? (DbDataSource?)sp.GetService<NpgsqlDataSource>();
 
     /// <summary>
     /// Reads the operator options. Absent keys keep the defaults of <see cref="HiveCopyOptions"/> (30 review days, procedure and

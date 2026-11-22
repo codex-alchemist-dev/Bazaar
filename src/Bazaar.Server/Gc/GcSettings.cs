@@ -64,10 +64,20 @@ public static class GcSettings
         "The largest accepted blob upload, in bytes (25 MiB by default).",
         validate: bytes => bytes <= 0 ? "must be more than 0" : null);
 
-    /// <summary>Every <c>gc.*</c> key this build reads.</summary>
+    /// <summary>
+    /// Setting <c>privacy.owner_dm_read_marker</c> (docs/design/32, Settings). When on, a DM shows its members that the owner can read it.
+    /// Turning it off needs owner approval and counsel review (doc 32); the key sits here with the other DM rules.
+    /// </summary>
+    public static readonly SettingKey<bool> OwnerDmReadMarkerKey = new(
+        "privacy.owner_dm_read_marker", true, SettingScope.Install, SettingRole.Owner,
+        "Show DM members that the owner can read the DM. On by default; turning it off needs the owner's approval.",
+        approvalTier: ApprovalTier.Tier2,
+        requiresApprovalFor: shown => !shown);
+
+    /// <summary>Every <c>gc.*</c> key this build reads, plus <c>privacy.owner_dm_read_marker</c>.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
         InvitePolicyKey, EditWindowHoursKey, UnarchivePolicyKey, DmAccessApproversKey, BroadcastMentionsKey,
-        BroadcastMentionRatePerHourKey, VaultEmbedPinKey, MessageMaxBytesKey, BlobMaxBytesKey,
+        BroadcastMentionRatePerHourKey, VaultEmbedPinKey, MessageMaxBytesKey, BlobMaxBytesKey, OwnerDmReadMarkerKey,
     ];
 }

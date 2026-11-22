@@ -1,9 +1,12 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
+using Bazaar.GitHub.Ingress;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 
 namespace Bazaar.GitHub;
 
@@ -25,7 +28,39 @@ public static class GitHubRegistration
 
         var section = configuration.GetSection(ConfigurationSection);
         services.TryAddSingleton(section.GetSection("Adapter").Get<GitHubAdapterOptions>() ?? new GitHubAdapterOptions());
-        services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();
+        services.TryAddSingleton(section.GetSection("Merge").Get<GitHubMergeOptions>() ?? new GitHubMergeOptions());
+        services.TryAddSingleton<IGitHubRateState>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubRateState(dataSource) : new InMemoryGitHubRateState());
+
+        // Events poller (doc 21, Ingress). Off until Ingress:InstallationId, Ingress:Repositories and a real sink exist.
+        services.TryAddSingleton(section.GetSection("Ingress").Get<GitHubIngressOptions>() ?? new GitHubIngressOptions());
+        services.TryAddSingleton<IGitHubGcDirectory>(sp =>
+            new PgGitHubGcDirectory(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<GitHubIngressOptions>()));
+        services.TryAddSingleton<IGitHubInboxWriter>(sp =>
+            new InboxRepositoryGitHubInboxWriter(new Bazaar.Server.Agents.Data.InboxRepository(sp.GetRequiredService<NpgsqlDataSource>())));
+        // The real sink needs the GC writer, and a database (the bridge principal is seeded, see GitHubBridgePrincipal); otherwise the poller stays off (Unwired).
+        services.TryAddSingleton<IGitHubEventSink>(sp =>
+            sp.GetService<Bazaar.Server.Gc.Write.IGcLogWriter>() is { } writer
+            && sp.GetService<NpgsqlDataSource>() is not null
+                ? new GitHubGcEventSink(writer, sp.GetRequiredService<IGitHubInboxWriter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
+                    sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>())
+                : new UnwiredGitHubEventSink());
+        services.TryAddSingleton<IGitHubDeliveryStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubDeliveryStore(dataSource) : new InMemoryGitHubDeliveryStore());
+        services.TryAddSingleton(sp => new GitHubEventsPoller(
+            sp.GetRequiredService<IGitHubAdapter>(),
+            sp.GetRequiredService<IGitHubEventSink>(),
+            sp.GetRequiredService<IGitHubDeliveryStore>(),
+            sp.GetRequiredService<GitHubIngressOptions>(),
+            sp.GetRequiredService<ILogger<GitHubEventsPoller>>(),
+            sp.GetService<TimeProvider>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, GitHubEventsPollingService>(sp => new GitHubEventsPollingService(
+            sp.GetRequiredService<GitHubEventsPoller>(),
+            sp.GetRequiredService<GitHubIngressOptions>(),
+            sp.GetRequiredService<IGitHubEventSink>(),
+            sp.GetRequiredService<ILogger<GitHubEventsPollingService>>(),
+            sp.GetService<TimeProvider>())));
+        services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.GitHub.Webhooks.GitHubWebhookOptions());
 
         var identityBase = section["IdentityService:BaseAddress"];
         if (string.IsNullOrWhiteSpace(identityBase))
