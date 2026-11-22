@@ -1,8 +1,15 @@
+using Bazaar.Approvals;
+using Bazaar.Community.Actions;
+using Bazaar.Community.Drafts;
+using Bazaar.Community.Observatory;
+using Bazaar.Community.Profile;
 using Bazaar.Community.Quotas;
 using Bazaar.Core;
+using Bazaar.Server.Community;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Community;
 
@@ -32,5 +39,35 @@ public sealed class CommunityComponent : IBazaarComponent
         // shared NpgsqlDataSource and IAuditLog from the kernel; the host wires them when it is composed against a database.
         // TODO(component): register the Npgsql stores once the host supplies their dependencies in the composition tests.
         services.TryAddSingleton<ICommunityFreezeStore, InMemoryCommunityFreezeStore>();
+
+        // The Observatory log reader backs GET /community/log (CommunityLogEndpoint, mapped by host composition). It is lazy: it
+        // resolves the shared NpgsqlDataSource only when the route first runs, and the route answers 503 when none is registered.
+        services.TryAddSingleton<ICommunityLogReader>(sp => new NpgsqlCommunityLogReader(sp.GetRequiredService<NpgsqlDataSource>()));
+
+        // Draft review (doc 36 WP8). The store is lazy over the shared NpgsqlDataSource, like the log reader. The decision handler and
+        // the creator are factories: they resolve their dependencies on first use, so a host that has not bound them yet gets an
+        // InvalidOperationException there, which the draft routes answer as 503 "unavailable". Still UNBOUND here, supplied by host
+        // composition: ICommunityPolicySource (over PlatformPolicyLoader), the ICommunityAdapter set, IOwnerKeyRegistry (the owner's
+        // device keys) and CommunityActionStore (needs ICommunityActionSql and IAuditLog). DisclosureOptions and CommunityDraftOptions
+        // default to the shipped values unless the host registers its own.
+        services.TryAddSingleton<ICommunityDraftStore>(sp => new NpgsqlCommunityDraftStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton(new DisclosureOptions());
+        services.TryAddSingleton(new CommunityDraftOptions());
+        services.TryAddSingleton(sp => new CommunityDraftDecisionHandler(
+            sp.GetRequiredService<ICommunityDraftStore>(),
+            sp.GetRequiredService<IOwnerKeyRegistry>(),
+            sp.GetServices<ICommunityAdapter>(),
+            sp.GetRequiredService<CommunityActionStore>(),
+            sp.GetRequiredService<ICommunityPolicySource>(),
+            sp.GetRequiredService<DisclosureOptions>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetRequiredService<CommunityDraftOptions>()));
+        services.TryAddSingleton<ICommunityDraftCreator>(sp => new CommunityDraftCreator(
+            sp.GetRequiredService<ICommunityDraftStore>(),
+            sp.GetRequiredService<ICommunityPolicySource>(),
+            sp.GetRequiredService<CommunityDraftDecisionHandler>(),
+            sp.GetRequiredService<DisclosureOptions>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetRequiredService<CommunityDraftOptions>()));
     }
 }

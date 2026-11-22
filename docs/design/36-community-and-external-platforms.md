@@ -91,8 +91,14 @@ bot_profile(agent_id, platform, display_name, sponsor_id, contact, disclosure_ur
 community_action(id, agent_id, sponsor_id, platform, action, target_url, body, body_sha256,
                  approval_id, taint_sources jsonb, external_id, status, created_at)
 target_blocklist(platform, target_ref, reason, added_by, added_at, pk(platform, target_ref))
+community_draft(draft_id pk, agent_id, sponsor_id, action, platform, kind, target, title, body, body_sha256, head_branch,
+                base_branch, gate_input jsonb, profile jsonb, approval_id, approval_hash, approval_expires_at,
+                gate_failures jsonb, status, taint_sources jsonb, external_id, url, reused, superseded_by,
+                created_at, updated_at)   -- [PROPOSED] migration community/0005
 ```
-This doc owns these four tables (doc 04 keeps conventions only). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
+This doc owns these tables (doc 04 keeps conventions only). `community_draft` is [PROPOSED]: one row per outbound draft, never deleted. Status moves only by compare-and-set (Pending to Posting, Denied or Expired; Posting to Posted, Failed or back to Pending after a retryable adapter failure), and an owner edit moves the original to Edited and inserts the replacement in one transaction. `gate_input` holds the agent text without the disclosure footer, and the gates read that, at creation and at edit. `body` and the profile's contact are encryptable per-person fields.
+
+Draft-review routes [PROPOSED], all owner-only with the guard order of doc 02: `GET /community/drafts/{id}` returns the `DraftReviewCardDto`; `GET /community/drafts?status=pending&limit=n` returns the open drafts (approval not expired), newest first (`limit` 1 to 100, default 50; only `pending` is served); `POST /community/drafts/{id}/decision` is the signed decision. A draft is created by `ICommunityDraftCreator` from an agent's proposed post: it appends the footer, runs the gates on the text without the footer, binds the approval hash and stores the draft Pending with an expiry (default 24 hours). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
 
 ### Settings [PROPOSED]
 Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings registry (doc 03); every change writes an audit entry (doc 15 `audit_log`).
@@ -147,6 +153,10 @@ Shared quota keys are owned by doc 15 and are not redefined here: `security.quot
 11. Reader and actor hand-over for community content. Dep: doc 15 reader-session primitive.
 12. Opt-in live GitHub spike (throwaway repo). Dep: 7.
 13. Other adapters (forums, Discord, Reddit). Blocked until each platform is verified and the owner decides.
+
+WP 11 schema [PROPOSED, 2026-11-19]: the reader returns a `community_thread_summary` hand-over (doc 15, "Hand-over"). Fields: `platform` (enum), `item_kind` (enum: issue, pr, thread, comment), `target_ref` (text, 120), `summary` (text, 800), `topic_tags` (up to 5 tags of 40, optional), `tone` (enum), `flags` (enum list, optional; reader observations only), `reply_wanted` (bool), `confidence` (0 to 100) and `source_refs` (1 to 20 GUIDs, required lineage). There is no URL type, and URL-like text is refused in every text field. Unknown fields are rejected. The schema and a System.Text.Json validator live in `Bazaar.Server.Community.Abstractions`; the host maps the schema into doc 15's registry. Bounded text can still carry injected wording, so the actor treats `summary` and `topic_tags` as quoted data, never as instructions.
+
+Module names for WP 7 and WP 8 [PROPOSED, 2026-11-18]: WP 7 is `Bazaar.Server.Community.GitHub`. WP 8 is `Bazaar.Contracts/Community` (draft-review contracts) with `Bazaar.Client.Community` (view model) and `Bazaar.Client.Community.Avalonia` (view and `IPaneModule`). Layout and rules: doc 40, section 4b.
 
 ## Conflicts
 1. **Reply path vs taint (remaining).** Rounds 2 and 4 keep the reader/actor split in v1 and forbid an autonomous reply from the session that read the thread. Doc 15 must still specify the hand-over format and the fresh-session path. Until Q1 is confirmed, every reply is Tier 2.
