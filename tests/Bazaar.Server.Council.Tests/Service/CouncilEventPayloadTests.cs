@@ -41,7 +41,7 @@ public class CouncilEventPayloadTests
         var payload = h.Events.OfKind("council.open").Single().PayloadJson;
 
         Assert.Equal(
-            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"subject_ref\":\"task/42\",\"kind\":\"approve_reject\",\"motion_class\":\"ordinary\",\"options\":[],\"proposer_id\":\"ada\",\"subject_author_id\":null,\"eligible_voter_ids\":[\"cal\"],\"deadline_at\":\"2026-11-02T09:00:00+00:00\",\"reveal_seed\":SEED}",
+            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"subject_ref\":\"task/42\",\"kind\":\"approve_reject\",\"motion_class\":\"ordinary\",\"high_impact\":false,\"options\":[],\"proposer_id\":\"ada\",\"subject_author_id\":null,\"eligible_voter_ids\":[\"cal\"],\"deadline_at\":\"2026-11-02T09:00:00+00:00\",\"reveal_seed\":SEED}",
             Normalise(payload, id, h.GcId));
     }
 

@@ -18,6 +18,7 @@ public class LayeringTests
     [Theory]
     [InlineData("Bazaar.Client.RyuseiFuda")]
     [InlineData("Bazaar.Client.Views")]
+    [InlineData("Bazaar.Client.PullRequests.Abstractions")]
     public void Client_feature_module_references_only_client_core(string project)
     {
         var declared = ArchitectureRules.ClientHeadReferences(ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project)));
@@ -26,6 +27,8 @@ public class LayeringTests
         var allowed = project switch
         {
             "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme" },
+            // RyuseiFuda renders its panes from Rubedo view documents through the mapper (doc 41c).
+            "Bazaar.Client.RyuseiFuda" => new[] { "Bazaar.Client.Views" },
             _ => [],
         };
 
