@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.Vault</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="LibGit2Sharp" />
+    <PackageReference Include="Markdig" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="YamlDotNet" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Bazaar.Server still calls internal Vault members (for example VaultWriter.ToUlid); keeps access as before the move. -->
+    <InternalsVisibleTo Include="Bazaar.Server" />
+    <InternalsVisibleTo Include="Bazaar.Server.Vault.Tests" />
+    <InternalsVisibleTo Include="Bazaar.Server.Tests" />
+  </ItemGroup>
+</Project>
