@@ -23,6 +23,13 @@ public interface IToolGrantSender
     ValueTask SendAsync(string templateId, int version, OwnerPayload payload, byte[] signature, CancellationToken cancellationToken);
 }
 
+/// <summary>Lists the template versions whose tool grants wait for this owner's approval.</summary>
+public interface IPendingToolGrantSource
+{
+    /// <summary>The cards to show. Each carries the exact tool list the server holds for that version.</summary>
+    ValueTask<IReadOnlyList<ToolGrantCard>> ListPendingAsync(CancellationToken cancellationToken);
+}
+
 /// <summary>Why the gate refused. Nothing is sent for any refusal except <see cref="SendFailed"/>.</summary>
 public enum ToolGrantRefusal
 {

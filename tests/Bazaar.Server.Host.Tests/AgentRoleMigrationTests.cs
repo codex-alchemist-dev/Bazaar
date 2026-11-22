@@ -10,8 +10,8 @@ public sealed class AgentRoleMigrationTests
         var source = HostMigrations.Source();
 
         Assert.Contains("agents", source.Namespaces());
-        var file = Assert.Single(source.Load("agents"));
-        Assert.Equal(1, file.Version);
+        var file = Assert.Single(source.Load("agents"), f => f.Version == 2);
+        Assert.Equal("agent_role", file.Name);
         Assert.Contains("ALTER TABLE agent ADD COLUMN IF NOT EXISTS role text NULL", file.Sql, StringComparison.Ordinal);
     }
 }
