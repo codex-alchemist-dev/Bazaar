@@ -20,6 +20,9 @@ public class FunComponentWiringTests
             .Build();
 
         var services = new ServiceCollection();
+
+        // The host registers the sanitizer for every component; the component only consumes it.
+        services.AddSingleton<Bazaar.Sanitization.ITextSanitizer, Bazaar.Server.Sanitization.TextSanitizer>();
         var component = new FunComponent();
         component.AddServices(services, config);
         return services.BuildServiceProvider();
