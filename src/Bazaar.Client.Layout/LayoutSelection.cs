@@ -1,3 +1,5 @@
+using Bazaar.Rubedo.Rules;
+
 namespace Bazaar.Client.Layout;
 
 /// <summary>
@@ -25,5 +27,38 @@ public static class LayoutSelection
         LayoutSlot? slot = effective is null ? null : LayoutResolver.Select(effective, deviceClass, display, posture);
         slot ??= bakedDefault is null ? null : LayoutResolver.Select(bakedDefault, deviceClass, display, posture);
         return slot is null ? null : LayoutTree.Build(slot.Root, isKnownPaneKind);
+    }
+
+    /// <summary>
+    /// As the overload without a context, and also applies each node's <c>visibleWhen</c> rule against
+    /// <paramref name="context"/>. Hidden nodes are omitted; rules that error are reported in the issue list, with paths
+    /// relative to the document that supplied the slot. The placement's root is null when no slot matches or the root is hidden.
+    /// </summary>
+    public static LayoutPlacement Place(
+        LayoutDocument? effective,
+        LayoutDocument? bakedDefault,
+        string deviceClass,
+        string display,
+        string posture,
+        Func<string, bool> isKnownPaneKind,
+        RubedoContext context)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceClass);
+        ArgumentException.ThrowIfNullOrWhiteSpace(display);
+        ArgumentException.ThrowIfNullOrWhiteSpace(posture);
+        ArgumentNullException.ThrowIfNull(isKnownPaneKind);
+        ArgumentNullException.ThrowIfNull(context);
+
+        foreach (LayoutDocument? document in new[] { effective, bakedDefault })
+        {
+            LayoutSlot? slot = document is null ? null : LayoutResolver.Select(document, deviceClass, display, posture);
+            if (document is not null && slot is not null)
+            {
+                int index = document.Slots.ToList().IndexOf(slot);
+                return LayoutTree.Build(slot.Root, isKnownPaneKind, context, $"/slots/{index}/root");
+            }
+        }
+
+        return new LayoutPlacement(null, []);
     }
 }
