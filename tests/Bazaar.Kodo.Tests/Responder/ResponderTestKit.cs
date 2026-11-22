@@ -9,15 +9,26 @@ namespace Bazaar.Kodo.Tests.Responder;
 /// <summary>Fakes and fixtures for the responder tests. The signing key is generated at run time.</summary>
 internal static class ResponderTestKit
 {
+    // One RSA instance is shared by tests that run in parallel. The Windows CNG handle is not safe for concurrent use
+    // (ObjectDisposedException on the key handle), so every use of the key goes through one lock and the public key is exported once.
+    private static readonly Lock _keyLock = new();
     private static readonly Lazy<RSA> _key = new(() => RSA.Create(2048));
+    private static readonly Lazy<byte[]> _publicKey = new(() =>
+    {
+        lock (_keyLock)
+        {
+            return _key.Value.ExportSubjectPublicKeyInfo();
+        }
+    });
 
-    public static RSA Key => _key.Value;
+    /// <summary>The SubjectPublicKeyInfo of the test signing key, exported once.</summary>
+    public static byte[] PublicKey => _publicKey.Value;
 
     public static FakeTimeProvider Clock() => new(new DateTimeOffset(2026, 11, 19, 12, 0, 0, TimeSpan.Zero));
 
     public static RunbookCatalogue Catalogue(params RunbookDefinition[] definitions)
     {
-        RunbookCatalogue catalogue = new(new RsaPkcs1Sha256Verifier(), Key.ExportSubjectPublicKeyInfo());
+        RunbookCatalogue catalogue = new(new RsaPkcs1Sha256Verifier(), PublicKey);
         foreach (RunbookDefinition definition in definitions)
         {
             Assert.Null(catalogue.TryAdd(definition, Sign(definition)));
@@ -26,8 +37,14 @@ internal static class ResponderTestKit
         return catalogue;
     }
 
-    public static byte[] Sign(RunbookDefinition definition) =>
-        Key.SignData(RunbookCanonical.Bytes(definition), HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+    public static byte[] Sign(RunbookDefinition definition)
+    {
+        byte[] bytes = RunbookCanonical.Bytes(definition);
+        lock (_keyLock)
+        {
+            return _key.Value.SignData(bytes, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
+        }
+    }
 
     public static RunbookStep Step(string id, RunbookStepKind kind, string operation, int attempts = 1, bool approval = false, TimeSpan? waitFor = null) =>
         new(id, kind, operation, new Dictionary<string, string>(StringComparer.Ordinal), TimeSpan.FromSeconds(30), attempts, approval, waitFor);
