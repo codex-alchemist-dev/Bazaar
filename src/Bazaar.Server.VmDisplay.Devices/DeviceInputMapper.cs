@@ -42,9 +42,20 @@ public static class DeviceInputMapper
     {
         var map = new Dictionary<string, int>(StringComparer.Ordinal)
         {
-            ["Enter"] = 66, ["Tab"] = 61, ["Escape"] = 111, ["Backspace"] = 67, ["Delete"] = 112, ["Space"] = 62,
-            ["ArrowUp"] = 19, ["ArrowDown"] = 20, ["ArrowLeft"] = 21, ["ArrowRight"] = 22,
-            ["Home"] = 122, ["End"] = 123, ["PageUp"] = 92, ["PageDown"] = 93,
+            ["Enter"] = 66,
+            ["Tab"] = 61,
+            ["Escape"] = 111,
+            ["Backspace"] = 67,
+            ["Delete"] = 112,
+            ["Space"] = 62,
+            ["ArrowUp"] = 19,
+            ["ArrowDown"] = 20,
+            ["ArrowLeft"] = 21,
+            ["ArrowRight"] = 22,
+            ["Home"] = 122,
+            ["End"] = 123,
+            ["PageUp"] = 92,
+            ["PageDown"] = 93,
         };
         for (int c = 0; c < 26; c++)
             map["Key" + (char)('A' + c)] = 29 + c;
