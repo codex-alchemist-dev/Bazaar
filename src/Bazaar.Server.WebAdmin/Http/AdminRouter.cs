@@ -33,6 +33,9 @@ internal static class AdminRouter
         new("POST", "/admin/api/modules/preview", PreviewAsync, Write: true, JsonBody: true, Section: "modules"),
         new("PUT", "/admin/api/modules/selection", CommitAsync, Write: true, JsonBody: true, Section: "modules"),
         new("POST", "/admin/api/modules/rebuild", RebuildAsync, Write: true, Section: "modules"),
+        // Gateway catalogue (doc 05 manual "check for newer catalogue"): gated as the Modules area, no new capability (PROPOSED).
+        new("GET", "/admin/api/gateway/catalogue", r => ReadAsync<IAdminCatalogueRefresh, AdminCatalogueReport>(r, "gateway-catalogue", s => s.GetLastAsync(r.Ct), AdminJson.Default.AdminCatalogueReport), Section: "modules"),
+        new("POST", "/admin/api/gateway/catalogue/refresh", CatalogueRefreshAsync, Write: true, Section: "modules"),
     ];
 
     /// <summary>Maps each panel section (its route segment) to the <see cref="AdminArea"/> the gate checks for it.</summary>
@@ -376,5 +379,24 @@ internal static class AdminRouter
 
         var result = await port.StartRebuildAsync(actor, key, r.Ct);
         await AdminHttp.JsonAsync(r.Http, result.Started ? StatusCodes.Status200OK : StatusCodes.Status409Conflict, result, AdminJson.Default.AdminRebuildStart);
+    }
+
+    private static async Task CatalogueRefreshAsync(AdminRequest r)
+    {
+        if (r.Service<IAdminCatalogueRefresh>() is not { } port)
+        {
+            r.Http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        var actor = r.Session!.PrincipalId;
+        if (!await AdminHttp.TryAuditAsync(r, AdminAuditKinds.CatalogueRefresh, Actor(r.Session)))
+        {
+            r.Http.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        var report = await port.RefreshAsync(actor, r.Ct);
+        await AdminHttp.JsonAsync(r.Http, StatusCodes.Status200OK, report, AdminJson.Default.AdminCatalogueReport);
     }
 }
