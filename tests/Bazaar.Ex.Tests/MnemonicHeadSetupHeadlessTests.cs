@@ -64,4 +64,33 @@ public class MnemonicHeadSetupHeadlessTests
         Assert.True(shell.IsActive);
         Assert.Empty(logged);
     }
+
+    [AvaloniaFact]
+    public async Task The_head_host_takes_module_commands_and_lets_a_module_own_a_shell_command()
+    {
+        var window = new Window { Content = new TextBox() };
+        window.Show();
+        var path = Path.Combine(Path.GetTempPath(), $"bazaar-mnemonics-{Guid.NewGuid():N}.json");
+
+        using var host = await MnemonicHeadHost.AttachAsync(
+            window,
+            path,
+            [
+                new ClientCommandContribution("demo.open", "Open the demo", "opendemo"),
+                new ClientCommandContribution(NavigationDefaults.ConstellationCommandId, "Constellation", "constellation"),
+            ],
+            TestContext.Current.CancellationToken);
+        var commands = new List<string>();
+        host.Shell.CommandInvoked += (_, id) => commands.Add(id);
+
+        foreach (var c in "opendemo")
+        {
+            Press(window, Enum.Parse<Key>(char.ToUpperInvariant(c).ToString()), c.ToString());
+        }
+
+        Press(window, Key.Enter);
+
+        Assert.Equal(["demo.open"], commands);
+        Assert.Null(host.Runtime.Warning);
+    }
 }

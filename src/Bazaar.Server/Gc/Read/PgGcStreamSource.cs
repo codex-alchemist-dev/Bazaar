@@ -15,7 +15,7 @@ namespace Bazaar.Server.Gc.Read;
 /// Access is not checked here: the caller has passed <see cref="IGcAccessPolicy"/>. The current-version join looks at every
 /// message in the GC, so a page costs O(messages). A current-version index is the follow-up if the S3 numbers show it.
 /// </remarks>
-public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec bodies) : IGcStreamSource
+public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec bodies) : IGcStreamSource, IGcHistorySource
 {
     // One row per message: its current version, plus the first event's reply and mentions. @SOURCE is the message source.
     private const string _select = """

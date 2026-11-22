@@ -19,6 +19,22 @@ public static class MnemonicHeadSetup
     public const string OverridesFileName = "mnemonics.json";
 
     /// <summary>
+    /// The shell's navigation defaults plus the commands the modules contributed. A module that contributes one of the shell's own
+    /// navigation commands (the Constellation opens itself, for one) owns it: the shell default for that id is dropped, so the same
+    /// command is not assigned twice in one tier.
+    /// </summary>
+    public static IReadOnlyList<MnemonicAssignment> Combine(IEnumerable<ClientCommandContribution> moduleCommands)
+    {
+        ArgumentNullException.ThrowIfNull(moduleCommands);
+        var contributed = MnemonicAssignment.FromContributions(moduleCommands);
+        var owned = contributed.Select(a => a.CommandId).ToHashSet(StringComparer.Ordinal);
+        return NavigationDefaults.Assignments
+            .Where(a => !owned.Contains(a.CommandId))
+            .Concat(contributed)
+            .ToList();
+    }
+
+    /// <summary>
     /// Builds the runtime and the shell. The host's current content moves into a <see cref="Grid"/> that also carries the palette
     /// (added while open) and the screen-reader region, so call this after the head has set its content. Mnemonics stay off, and
     /// the reason is logged, when the combined defaults do not resolve.
@@ -37,14 +53,7 @@ public static class MnemonicHeadSetup
         ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
         ArgumentNullException.ThrowIfNull(log);
 
-        // A module that contributes one of the shell's own navigation commands (the Constellation opens itself, for one) owns it:
-        // the shell default for that id is dropped, so the same command is not assigned twice in one tier.
-        var contributed = MnemonicAssignment.FromContributions(moduleCommands);
-        var owned = contributed.Select(a => a.CommandId).ToHashSet(StringComparer.Ordinal);
-        var defaults = NavigationDefaults.Assignments
-            .Where(a => !owned.Contains(a.CommandId))
-            .Concat(contributed)
-            .ToList();
+        var defaults = Combine(moduleCommands);
         var runtime = await MnemonicRuntime.CreateAsync(
             defaults,
             new FileMnemonicOverrideStore(overridesPath),
