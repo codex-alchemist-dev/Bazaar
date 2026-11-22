@@ -28,6 +28,9 @@ public class LuckyStartServiceTests
             Runs.Add(stored);
             return Task.CompletedTask;
         }
+
+        public Task<LuckyStoredRun?> LoadAsync(string runId, CancellationToken ct) =>
+            Task.FromResult(Runs.FirstOrDefault(r => r.Run.RunId == runId));
     }
 
     private sealed class CountingSink : ILuckyRunSink
@@ -50,12 +53,17 @@ public class LuckyStartServiceTests
             Task.FromResult(Guid.NewGuid());
     }
 
+    private sealed class FixedCandidates(IReadOnlyList<LuckyCandidate> list) : ILuckyCandidateSource
+    {
+        public Task<IReadOnlyList<LuckyCandidate>> ListAsync(CancellationToken ct) => Task.FromResult(list);
+    }
+
     private static (LuckyStartService Service, MemoryStore Store, CountingSink Sink) Build(LuckySettings? settings = null)
     {
         var store = new MemoryStore();
         var sink = new CountingSink();
         var controller = new LuckyController(settings ?? new LuckySettings(), new TextSanitizer());
-        return (new LuckyStartService(controller, store, sink), store, sink);
+        return (new LuckyStartService(controller, store, sink, new FixedCandidates(_candidates)), store, sink);
     }
 
     [Fact]
@@ -63,7 +71,7 @@ public class LuckyStartServiceTests
     {
         var (service, store, sink) = Build();
 
-        var outcome = await service.StartAsync(false, _owner, _project, "stuck on the cache", _candidates, _now, CancellationToken.None);
+        var outcome = await service.StartAsync(false, _owner, _project, "stuck on the cache", _now, CancellationToken.None);
 
         Assert.Equal(LuckyStartStatus.NotOwner, outcome.Status);
         Assert.Empty(store.Runs);
@@ -75,7 +83,7 @@ public class LuckyStartServiceTests
     {
         var (service, store, sink) = Build();
 
-        var outcome = await service.StartAsync(true, _owner, _project, "stuck on the cache", _candidates, _now, CancellationToken.None);
+        var outcome = await service.StartAsync(true, _owner, _project, "stuck on the cache", _now, CancellationToken.None);
 
         Assert.Equal(LuckyStartStatus.Started, outcome.Status);
         Assert.NotNull(outcome.RunId);
@@ -92,9 +100,9 @@ public class LuckyStartServiceTests
     public async Task The_daily_cap_refuses_a_second_start_on_the_same_day()
     {
         var (service, store, sink) = Build();
-        await service.StartAsync(true, _owner, _project, "first", _candidates, _now, CancellationToken.None);
+        await service.StartAsync(true, _owner, _project, "first", _now, CancellationToken.None);
 
-        var second = await service.StartAsync(true, _owner, _project, "second", _candidates, _now.AddHours(2), CancellationToken.None);
+        var second = await service.StartAsync(true, _owner, _project, "second", _now.AddHours(2), CancellationToken.None);
 
         Assert.Equal(LuckyStartStatus.Refused, second.Status);
         Assert.Single(store.Runs);
@@ -105,9 +113,9 @@ public class LuckyStartServiceTests
     public async Task The_cap_resets_on_the_next_utc_day()
     {
         var (service, store, _) = Build();
-        await service.StartAsync(true, _owner, _project, "first", _candidates, _now, CancellationToken.None);
+        await service.StartAsync(true, _owner, _project, "first", _now, CancellationToken.None);
 
-        var nextDay = await service.StartAsync(true, _owner, _project, "tomorrow", _candidates, _now.AddDays(1), CancellationToken.None);
+        var nextDay = await service.StartAsync(true, _owner, _project, "tomorrow", _now.AddDays(1), CancellationToken.None);
 
         Assert.Equal(LuckyStartStatus.Started, nextDay.Status);
         Assert.Equal(2, store.Runs.Count);
@@ -118,7 +126,7 @@ public class LuckyStartServiceTests
     {
         var (service, store, sink) = Build();
 
-        var outcome = await service.StartAsync(true, _owner, _project, "  ", _candidates, _now, CancellationToken.None);
+        var outcome = await service.StartAsync(true, _owner, _project, "  ", _now, CancellationToken.None);
 
         Assert.Equal(LuckyStartStatus.Refused, outcome.Status);
         Assert.Empty(store.Runs);

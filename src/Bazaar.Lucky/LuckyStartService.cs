@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+
 namespace Bazaar.Lucky;
 
 /// <summary>The outcome of a start request.</summary>
@@ -29,29 +31,21 @@ public sealed record LuckyStartOutcome(
     string? Refusal);
 
 /// <summary>
-/// The owner's start path (docs/design/26-fun-systems.md, section 6). It enforces owner-only starts and the daily cap, stores the
-/// run, and applies the plan through the host's sink. Transport is handled by <see cref="LuckyStartWireHandler"/>.
+/// The owner's start path (docs/design/26-fun-systems.md, section 6). It enforces owner-only starts and the daily cap, takes the
+/// candidates from the server's candidate source, stores the run with its GC, and applies the plan through the host's sink.
 /// </summary>
-public sealed class LuckyStartService(LuckyController controller, ILuckyRunStore store, ILuckyRunSink sink)
+public sealed class LuckyStartService(LuckyController controller, ILuckyRunStore store, ILuckyRunSink sink, ILuckyCandidateSource candidates)
 {
     /// <summary>Starts a run for the owner, or refuses it.</summary>
     /// <param name="isOwner">True only when the requester is the owner principal.</param>
     /// <param name="ownerId">The owner's id.</param>
     /// <param name="projectId">The project the run belongs to.</param>
     /// <param name="prompt">The owner's prompt.</param>
-    /// <param name="candidates">The agents the run may invite.</param>
     /// <param name="now">The start time.</param>
     /// <param name="ct">Cancellation.</param>
     public async Task<LuckyStartOutcome> StartAsync(
-        bool isOwner,
-        Guid ownerId,
-        Guid projectId,
-        string prompt,
-        IReadOnlyList<LuckyCandidate> candidates,
-        DateTimeOffset now,
-        CancellationToken ct)
+        bool isOwner, Guid ownerId, Guid projectId, string prompt, DateTimeOffset now, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(candidates);
         if (!isOwner)
         {
             return new LuckyStartOutcome(LuckyStartStatus.NotOwner, null, null, 0, 0, null);
@@ -65,16 +59,18 @@ public sealed class LuckyStartService(LuckyController controller, ILuckyRunStore
         var day = DateOnly.FromDateTime(now.UtcDateTime);
         var runsToday = await store.CountStartedOnAsync(ownerId, day, ct).ConfigureAwait(false);
         var runId = Guid.CreateVersion7().ToString("N");
+        var offered = await candidates.ListAsync(ct).ConfigureAwait(false);
 
-        var result = controller.Start(runId, prompt, requestedByOwner: true, now, runsToday, candidates, () => Random.Shared.Next());
+        var result = controller.Start(runId, prompt, requestedByOwner: true, now, runsToday, offered, () => Random.Shared.Next());
         if (!result.Accepted)
         {
             return Refused(result.Refusal ?? "The run was refused.");
         }
 
         var run = result.Run!;
-        await store.SaveAsync(new LuckyStoredRun(run, projectId, ownerId, day), ct).ConfigureAwait(false);
         var applied = await LuckyRunApplier.ApplyAsync(controller.Plan(run), projectId, ownerId, sink, ct).ConfigureAwait(false);
+        await store.SaveAsync(new LuckyStoredRun(run, projectId, ownerId, day, applied.GcId, ImmutableDictionary<int, Guid>.Empty), ct)
+            .ConfigureAwait(false);
 
         return new LuckyStartOutcome(
             LuckyStartStatus.Started, runId, applied.GcId, run.Participants.Length, applied.WakesInserted, null);

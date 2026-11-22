@@ -10,6 +10,8 @@ CREATE TABLE lucky_run (
     ends_at       timestamptz NOT NULL,
     participants  jsonb       NOT NULL DEFAULT '[]'::jsonb,
     ideas         jsonb       NOT NULL DEFAULT '[]'::jsonb,
+    gc_id         uuid,
+    idea_messages jsonb       NOT NULL DEFAULT '{}'::jsonb,
     created_at    timestamptz NOT NULL DEFAULT now(),
     CHECK (ends_at > started_at)
 );

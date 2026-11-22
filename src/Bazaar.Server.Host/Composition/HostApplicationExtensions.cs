@@ -63,6 +63,10 @@ public static class HostApplicationExtensions
         {
             services.TryAddSingleton<Bazaar.Lucky.ILuckyRunStore>(sp =>
                 new Bazaar.Server.Host.Lucky.PgLuckyRunStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyOptInStore>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyOptInStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyCandidateSource>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyCandidateSource(sp.GetRequiredService<NpgsqlDataSource>()));
             services.TryAddSingleton<Bazaar.Lucky.ILuckyRunSink>(sp =>
             {
                 var ds = sp.GetRequiredService<NpgsqlDataSource>();

@@ -80,6 +80,8 @@ Purpose: a timed all-hands brainstorm for stuck or open problems.
 - **No execution:** an idea never becomes work. Under `lucky.cards_from_ideas`, the server creates Backlog cards (12) only for ideas the owner marked.
 - **Security:** external text taints the session (C06); a secret-shaped string quarantines the idea.
 - **Run storage [PROPOSED]:** one `lucky_run` row per run (component `lucky`, migration 0001), holding the prompt, time box, participants and ideas as JSON. The daily cap counts rows per owner per UTC day. Owner start is the `lucky.start` wire request, which stores the run and applies its plan. Owner-marked ideas become cards when the idea-recording path lands. Owner morning list.
+- **Idea recording and marks [PROPOSED]:** an agent records an idea with `lucky.idea` under its own principal. The server checks the run, the per-agent limit and the sanitizer, then appends a kept idea to the brainstorm GC at once. The owner marks an idea with `lucky.mark`, which creates its Backlog card from that message. Re-marking returns the same card. Quarantined ideas count toward the limit and never reach the GC or a card.
+- **Opt-in and candidates [PROPOSED]:** opt-in lives in Lucky's own `lucky_opt_in` table (default false), set by the owner with `lucky.opt_in`. The server builds the candidate list from the non-retired agents. "On shift" means active rather than resting, until the doc 09 schedule exists. The client sends no candidates.
 
 ### 7. Playtest Mode [PROPOSED]
 Purpose: UX feedback from persona players, within what agents can perceive.
