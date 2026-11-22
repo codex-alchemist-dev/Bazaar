@@ -1,5 +1,6 @@
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.Server.Agents;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Context;
 using Bazaar.Testing.Postgres;
