@@ -9,5 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Walkthrough.Abstractions\Bazaar.Client.Walkthrough.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
   </ItemGroup>
 </Project>

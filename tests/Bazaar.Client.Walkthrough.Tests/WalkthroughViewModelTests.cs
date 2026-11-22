@@ -180,3 +180,31 @@ public class FileWalkthroughProgressStoreTests
         Directory.Delete(Path.GetDirectoryName(path)!, true);
     }
 }
+
+public class WalkthroughCommandsTests
+{
+    [Fact]
+    public void The_replay_command_loads_into_the_registry_with_the_tour_mnemonic()
+    {
+        var loaded = Bazaar.Client.Commands.CommandRegistry.Load([WalkthroughCommands.Replay], []);
+
+        Assert.Same(WalkthroughCommands.Replay, loaded.Registry.FindByMnemonic("tour"));
+        Assert.Same(WalkthroughCommands.Replay, loaded.Registry.FindById(WalkthroughCommands.ReplayId));
+    }
+
+    [Fact]
+    public async Task Picking_the_command_replays_a_dismissed_walkthrough_and_other_ids_are_ignored()
+    {
+        var store = new FakeStore(new WalkthroughProgress(true, true, WalkthroughStep.Done, []));
+        var model = new WalkthroughViewModel(store, new FakeFacts(WalkthroughFacts.None), new FakeActions());
+        await model.StartAsync(TestContext.Current.CancellationToken);
+        Assert.False(model.Visible);
+
+        Assert.False(await WalkthroughCommands.TryRunAsync("other.command", model, TestContext.Current.CancellationToken));
+        Assert.False(model.Visible);
+
+        Assert.True(await WalkthroughCommands.TryRunAsync(WalkthroughCommands.ReplayId, model, TestContext.Current.CancellationToken));
+        Assert.True(model.Visible);
+        Assert.Equal(WalkthroughStep.Welcome, model.Step);
+    }
+}

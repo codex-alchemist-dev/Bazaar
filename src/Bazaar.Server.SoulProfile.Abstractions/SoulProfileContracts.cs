@@ -28,3 +28,33 @@ public interface ISoulProfileSource
     /// <summary>The profile, or null (one answer for every reason, so the route reveals nothing).</summary>
     Task<AgentProfileInfo?> ReadAsync(string personId, Guid agentId, CancellationToken cancellationToken = default);
 }
+
+/// <summary>The identity fields of an agent row that the profile card shows (doc 06 and doc 07: identity is the agent row's).</summary>
+/// <param name="Name">Display name.</param>
+/// <param name="Role">Role title, such as "Developer".</param>
+/// <param name="ModelBadge">Short model label, such as "Haiku 5.5". Empty when none is set.</param>
+public sealed record AgentIdentity(string Name, string Role, string ModelBadge);
+
+/// <summary>Reads an agent's identity fields. The Agents module supplies it. Returns null for an unknown agent.</summary>
+public interface IAgentIdentityReader
+{
+    Task<AgentIdentity?> ReadAsync(Guid agentId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Resolves the Soul an agent runs under right now, or null when the agent is unbound, retired or has no versions (doc 07, agent binding).</summary>
+public interface ISoulBindingReader
+{
+    Task<Guid?> ResolveSoulAsync(Guid agentId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Reads a Soul's version chain, in any order. The Souls module supplies it.</summary>
+public interface ISoulVersionReader
+{
+    Task<IReadOnlyList<SoulVersionInfo>> ListAsync(Guid soulId, CancellationToken cancellationToken = default);
+}
+
+/// <summary>Decides whether a person may read an agent's profile. The owner reads all (decided inputs); the rule is the server's, not the route's.</summary>
+public interface ISoulProfileAccess
+{
+    Task<bool> CanReadAsync(string personId, Guid agentId, CancellationToken cancellationToken = default);
+}

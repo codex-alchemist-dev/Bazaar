@@ -97,3 +97,80 @@ public class SoulProfileEndpointTests
         Assert.Equal(HttpStatusCode.NotFound, (await off.SendAsync(Get($"/agents/{Known}/profile"), TestContext.Current.CancellationToken)).StatusCode);
     }
 }
+
+public class SoulProfileSourceTests
+{
+    private static readonly Guid Agent = Guid.NewGuid();
+    private static readonly Guid Soul = Guid.NewGuid();
+
+    private sealed class Access(bool allowed) : ISoulProfileAccess
+    {
+        public Task<bool> CanReadAsync(string personId, Guid agentId, CancellationToken cancellationToken = default) => Task.FromResult(allowed);
+    }
+
+    private sealed class Identities(bool known) : IAgentIdentityReader
+    {
+        public Task<AgentIdentity?> ReadAsync(Guid agentId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(known ? new AgentIdentity("Claude", "Developer", "Haiku 5.5") : null);
+    }
+
+    private sealed class Bindings(Guid? soul) : ISoulBindingReader
+    {
+        public Task<Guid?> ResolveSoulAsync(Guid agentId, CancellationToken cancellationToken = default) => Task.FromResult(soul);
+    }
+
+    private sealed class Versions : ISoulVersionReader
+    {
+        public int Calls { get; private set; }
+
+        public Task<IReadOnlyList<SoulVersionInfo>> ListAsync(Guid soulId, CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            IReadOnlyList<SoulVersionInfo> list =
+            [
+                new(2, 1, "c2", "{}", "h2", "owner", "tweak", null, DateTimeOffset.UnixEpoch),
+                new(1, null, "c1", "{}", "h1", "owner", "first", null, DateTimeOffset.UnixEpoch),
+            ];
+            return Task.FromResult(list);
+        }
+    }
+
+    [Fact]
+    public async Task A_readable_bound_agent_gives_identity_and_the_chain_oldest_first()
+    {
+        var profile = await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(Soul), new Versions())
+            .ReadAsync("owner", Agent, TestContext.Current.CancellationToken);
+
+        Assert.Equal("Claude", profile!.Name);
+        Assert.Equal(Soul, profile.SoulId);
+        Assert.Equal([1, 2], profile.Versions.Select(v => v.Version));
+    }
+
+    [Fact]
+    public async Task Every_miss_is_null_and_a_refused_reader_never_reaches_the_version_store()
+    {
+        var versions = new Versions();
+        Assert.Null(await new SoulProfileSource(new Access(false), new Identities(true), new Bindings(Soul), versions).ReadAsync("guest", Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(false), new Bindings(Soul), versions).ReadAsync("owner", Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(null), versions).ReadAsync("owner", Agent, TestContext.Current.CancellationToken));
+        Assert.Equal(0, versions.Calls);
+    }
+}
+
+public class SoulBindingReaderTests
+{
+    private sealed class Bindings(Bazaar.Souls.Abstractions.SoulRef? soul) : Bazaar.Souls.Abstractions.ISoulBindings
+    {
+        public ValueTask<Bazaar.Souls.Abstractions.SoulRef?> ResolveAsync(Guid agentId, CancellationToken cancellationToken) => ValueTask.FromResult(soul);
+
+        public ValueTask<bool> IsValidStampAsync(Guid agentId, Bazaar.Souls.Abstractions.SoulRef soul, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+    }
+
+    [Fact]
+    public async Task A_bound_agent_gives_its_soul_id_and_an_unbound_one_gives_null()
+    {
+        var soul = Guid.NewGuid();
+        Assert.Equal(soul, await new SoulBindingReader(new Bindings(new Bazaar.Souls.Abstractions.SoulRef(soul, 3))).ResolveSoulAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulBindingReader(new Bindings(null)).ResolveSoulAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+    }
+}

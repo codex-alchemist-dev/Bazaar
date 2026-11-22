@@ -22,8 +22,14 @@ public sealed class SoulProfileComponent : IBazaarComponent
 
     public ComponentManifest Manifest => ManifestDefinition;
 
-    public void AddServices(IServiceCollection services, IConfiguration configuration) =>
+    public void AddServices(IServiceCollection services, IConfiguration configuration)
+    {
         services.TryAddSingleton<SoulProfileComponentMarker>();
+
+        // The binding comes from the Souls module's own read side; the other three ports (identity, versions, access) are supplied by
+        // the modules that own them, so until they are registered the route answers 503.
+        services.TryAddSingleton<ISoulBindingReader, SoulBindingReader>();
+    }
 }
 
 /// <summary>Maps the profile route for a host that ships <see cref="SoulProfileComponent"/>.</summary>
