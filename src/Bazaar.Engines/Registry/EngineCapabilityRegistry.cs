@@ -13,6 +13,9 @@ public sealed class EngineCapabilityRegistry
     private readonly Dictionary<string, EngineManifest> _manifests = new(StringComparer.Ordinal);
     private readonly Dictionary<string, HashSet<EngineCapability>> _capabilities = new(StringComparer.Ordinal);
 
+    // Adapter ids that differ only in case are one adapter for this check: "Roblox" must not shadow "roblox" in a grant or a lookup.
+    private readonly HashSet<string> _foldedIds = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Registers one adapter's manifest. Throws when that adapter id is already registered; a manifest is never replaced silently.</summary>
     /// <exception cref="ArgumentException">The manifest has no engine id.</exception>
     /// <exception cref="InvalidOperationException">An adapter with the same id is already registered.</exception>
@@ -22,9 +25,19 @@ public sealed class EngineCapabilityRegistry
         ArgumentException.ThrowIfNullOrWhiteSpace(manifest.EngineId);
         ArgumentNullException.ThrowIfNull(manifest.Capabilities);
 
+        if (manifest.EngineId.Trim() != manifest.EngineId || manifest.EngineId.Any(char.IsControl))
+        {
+            throw new ArgumentException("An engine id must not have leading or trailing space or control characters.", nameof(manifest));
+        }
+
+        if (manifest.Capabilities.Any(capability => !Enum.IsDefined(capability)))
+        {
+            throw new ArgumentException("The manifest declares a capability this server does not define.", nameof(manifest));
+        }
+
         lock (_gate)
         {
-            if (_manifests.ContainsKey(manifest.EngineId))
+            if (!_foldedIds.Add(manifest.EngineId))
             {
                 throw new InvalidOperationException($"Engine adapter '{manifest.EngineId}' is already registered.");
             }
