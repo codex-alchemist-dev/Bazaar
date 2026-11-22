@@ -35,6 +35,9 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
     /// <summary>The GC type a provisioned project GC uses (seeded in the core schema).</summary>
     public const string ProjectTypeKey = "project";
 
+    /// <summary>The GC type a direct message uses (seeded in the core schema).</summary>
+    public const string DmTypeKey = "dm";
+
     private readonly NpgsqlDataSource _dataSource;
     private readonly int _maxMembers;
 
@@ -212,6 +215,33 @@ public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid> EnsureDmAsync(Bazaar.Contracts.Gc.GcPrincipal first, Bazaar.Contracts.Gc.GcPrincipal second, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        if (first.Id == Guid.Empty || second.Id == Guid.Empty)
+        {
+            throw new GcCreateRefusedException("A DM needs two principals with ids.");
+        }
+
+        if (first.Id == second.Id)
+        {
+            throw new GcCreateRefusedException("A DM needs two different principals.");
+        }
+
+        var (low, high) = first.Id.CompareTo(second.Id) < 0 ? (first, second) : (second, first);
+        var gcId = DeterministicGcId($"dm:{low.Id:D}:{high.Id:D}");
+        var title = $"{low.DisplayName} and {high.DisplayName}".Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = "Direct message";
+        }
+
+        await EnsureAsync(new GcCreateRequest(gcId, title, low.Id, [low.Id, high.Id], DmTypeKey), ct).ConfigureAwait(false);
+        return gcId;
     }
 
     private string Validate(GcCreateRequest request)

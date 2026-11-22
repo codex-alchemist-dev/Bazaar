@@ -1,6 +1,7 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Orrery;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -31,6 +32,7 @@ public sealed class RyuseiSchedulePaneModule : IPaneModule, IClientModule
     {
         var actions = context.Get<IRyuseiTriggerActions>();
         registry.Register(PaneKinds.RyuseiSchedule, descriptor => new RyuseiSchedulePaneViewModel(descriptor, actions));
-        registry.RegisterView<RyuseiSchedulePaneViewModel>(RyuseiFudaPaneViews.RyuseiSchedule);
+        var head = context.Get<ViewContext>();
+        registry.RegisterView<RyuseiSchedulePaneViewModel>(pane => head is null ? RyuseiFudaPaneViews.RyuseiSchedule(pane) : RyuseiViewPanes.Schedule(pane, head));
     }
 }

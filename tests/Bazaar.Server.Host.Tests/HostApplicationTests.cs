@@ -3,6 +3,8 @@ using Bazaar.GitHub.Adapter;
 using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Portability;
+using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,10 +42,20 @@ public sealed class HostApplicationTests
 
             Assert.NotNull(sp.GetRequiredService<IGcNotificationSource>());
             Assert.NotNull(sp.GetRequiredService<AgentResponder>());
+            Assert.IsType<PostgresImportJobStore>(sp.GetRequiredService<IImportJobStore>());
             // The owner-signed merge gate and the one verifier it shares with the kill switch are live in the host graph (doc 21, C25).
             Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
             Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
+            // The module host (doc 48 section 1) is in the graph and fails closed: nothing is packaged, so nothing is in force.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.ModuleHost.ModuleActivationHost>());
+            Assert.IsType<DenyAllOwnerApprovalVerifier>(sp.GetRequiredService<Bazaar.Install.Abstractions.IOwnerApprovalVerifier>());
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleActivationHostedService);
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleHealthPoller);
+            // The display, density and browser pool components (doc 59) are in the graph; DisplayCompositionTests proves they refuse by default.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDisplay.Abstractions.IGuestDisplay>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDensity.Abstractions.IDensityGovernor>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.BrowserPool.Abstractions.IBrowserPool>());
         }
         finally
         {
