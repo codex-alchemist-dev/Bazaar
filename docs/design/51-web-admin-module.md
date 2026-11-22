@@ -70,6 +70,23 @@ The owner decided the scope above. These mechanics fill the gaps the decisions l
 
 **Browser hardening.** Responses carry `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'`, plus `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `Cache-Control: no-store` on every `/admin/api` response. The assets use no inline script or style, so the policy needs no `unsafe-inline`. The panel has its own rate-limit bucket `admin` (doc 32 section 7).
 
+### 5a. Where the selection and build state live [PROPOSED]
+No module stored a company's module selection, its build history or a running-build marker (the module manager keeps update decisions, line moves and permission approvals; the company build module composes and runs but is stateless). This subsection fills that gap as the most robust option. The owner can change it.
+
+**Module.** `Bazaar.Server.CompanyBuild.State` (component id `company-build-state`, depends on `company-build` and `audit`, soft edge to `approval-queue`) implements `IAdminModuleSelection`. It does not reference `Bazaar.Server` and does not reimplement the composer or the runner: validation and the plan come from `CompanyBuildComposer`, and the build runs through the `ICompanyBuildExecutor` seam, which the host binds to `CompanyBuildPipeline` (targets, identity and output folder are host settings).
+
+**Tables** (migration namespace `company_build_state`, raw Npgsql, SQL-first, no foreign keys):
+- `company_module_selection`: exactly one row. Integer `revision` (0 means nothing committed), `selected_module_ids`, the pending approvals (module id and approval-queue item id, in two parallel arrays), `updated_by`, `updated_at`. A commit is one `UPDATE ... WHERE revision = expected RETURNING`, so a stale revision updates nothing and the port answers 409 with the current revision.
+- `company_build`: id, `selection_revision`, `status` (`queued`, `running`, `succeeded`, `failed`; `queued` is reserved), `started_by`, `started_at`, `finished_at`, `idempotency_key` (unique, at most 128 characters), `attempts`, `result_summary` (at most 500 characters, never a path or exception text). A partial unique index on `status = 'running'` lets at most one build run, so two concurrent rebuilds cannot both start; the second gets 409. A repeated `Idempotency-Key` returns the first build and starts nothing.
+
+**Mechanics.**
+- The catalogue is the component manifests of the host (`IModuleCatalogue`). A selection is valid when every id is known and the composer accepts it (hard dependencies are added and shown in the preview).
+- A build still marked `running` when a server process first uses the port is marked `failed` ("abandoned"), since no build can survive a restart.
+- A failed or incomplete build leaves the committed selection as it is and says "the previous build stays live" in its summary (doc 37).
+- Audit through `IAuditLog`: `module.selection.committed` and `module.rebuild.started` (ids and names only). The rebuild's audit append failing marks the build failed and refuses the start (fail closed). The panel's own `admin.web.*` entries stay as section 5 says.
+- Permission: the router's gate for the Modules area (`admin.modules`) runs before any call; the port takes the actor id for the audit trail.
+- **Modules that need the owner.** `IModuleApprovalRequirement` (backed by the Bazaar.Install gates of doc 48 section 1: signature and owner-signed permission approval) says whether a module in the plan still needs the owner. A commit that selects one files a tier 2 `module.install` request in the approval queue (payload reference `module:<id>`, 7 days) and stores its id with the selection. A rebuild is refused while that request is pending, denied or expired, and spends an approved one exactly once when it starts. Nothing is installed or approved here, and no signature or approval rule is bypassed. Without the queue, such a module cannot be selected.
+
 ### 6. Approvals queue [PROPOSED]
 One shared queue serves the panel's approvals list (`IAdminApprovalSource`) and the mail thread's approval gateway (doc 22 tiers). Projects: `Bazaar.Server.ApprovalQueue.Abstractions` (`IApprovalQueue`, `NewApproval`, `ApprovalItem`, `ApprovalStatus`) and `Bazaar.Server.ApprovalQueue` (Postgres store, service, component id `approval-queue`, depends on `roles` and `audit`). Neither references `Bazaar.Server`. It does not replace the owner-signature contract of `Bazaar.Approvals.Abstractions` (doc 32 section 5a); a request that needs the owner's signature keeps using that, and this queue holds routine tier 1 and tier 2 approvals checked by Roles permissions.
 

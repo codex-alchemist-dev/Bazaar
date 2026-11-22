@@ -1,8 +1,8 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
-using Bazaar.Roles;
 using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -11,6 +11,7 @@ using Bazaar.Server.ApprovalQueue;
 using Bazaar.Server.AuditReader;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyBuild.State;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
@@ -47,6 +48,7 @@ public static class HostComponents
         new GcComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
+        new CompanyBuildStateComponent(),
         new FunComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
