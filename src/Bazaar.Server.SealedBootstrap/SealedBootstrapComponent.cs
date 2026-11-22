@@ -40,6 +40,8 @@ public sealed class SealedBootstrapComponent : IBazaarComponent
             imports[child.Key] = child.Value;
         }
 
+        // Lets the KEK wrap check (SealedKekWrapVerifier) find this module's scope header.
+        services.AddSingleton<ISealedScopeNameSource>(new BootstrapScopeNames());
         var options = new SealedBootstrapOptions { ImportFrom = imports };
         services.AddSingleton<ISealedBootstrapStore>(sp => new SealedBootstrapStore(
             sp.GetRequiredService<ISealedStore>(),
@@ -48,4 +50,10 @@ public sealed class SealedBootstrapComponent : IBazaarComponent
             sp.GetService<TimeProvider>()));
         services.AddSingleton(sp => new SealedBootstrapSecretResolver(sp.GetRequiredService<ISealedBootstrapStore>()));
     }
+}
+
+internal sealed class BootstrapScopeNames : ISealedScopeNameSource
+{
+    public ValueTask<IReadOnlyCollection<string>> ListScopeNamesAsync(CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IReadOnlyCollection<string>>([SealedBootstrapStore.Scope]);
 }

@@ -28,6 +28,8 @@ public sealed class SealedStorageComponent : IBazaarComponent
         var dataRoot = configuration[KekComponent.DataRootKey]
             ?? throw new InvalidOperationException($"{KekComponent.DataRootKey} is required to place sealed storage.");
         services.TryAddSingleton<ISealAnchor>(_ => new FileSealAnchor(Path.Combine(dataRoot, "sealed-anchor")));
+        // The KEK module finds this through the container when it opens the key (migration of a plain key file); it needs no KEK or store.
+        services.TryAddSingleton<IKekWrapVerifier>(sp => new SealedKekWrapVerifier(Path.Combine(dataRoot, "sealed"), sp.GetServices<ISealedScopeNameSource>()));
         services.AddSingleton<ISealedStore>(sp => new SealedStore(
             new SealedStoreOptions { RootPath = Path.Combine(dataRoot, "sealed") },
             sp.GetRequiredService<IKekProvider>(),
