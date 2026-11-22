@@ -17,7 +17,11 @@ using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
+using Bazaar.Server.VmDensity;
+using Bazaar.Server.VmDensity.Abstractions;
+using Bazaar.Server.VmDensity.HostProbes;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +49,10 @@ public static class HostApplicationExtensions
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarPostgresCredentialLeases();
+        services.AddSecretStoreLeasedCredentialValues();
+        services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
+        services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
@@ -65,6 +72,14 @@ public static class HostApplicationExtensions
         if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
+        }
+
+        // The density governor's host memory port (doc 59 section 8). The governor still admits every start until the host also
+        // supplies the VM directory and VM control ports, which have no implementation yet.
+        if (BazaarComponentRegistration.IsEnabled(configuration, VmDensityComponent.ManifestDefinition.Id)
+            && (OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
+        {
+            services.TryAddSingleton<IHostMemoryProbe>(_ => HostMemoryProbes.CreateForCurrentOs());
         }
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
