@@ -316,7 +316,7 @@ The import wizard is offered after the tour and from the palette. It is the same
 
 ## 2.6 Who is signed in [PROPOSED]
 
-After sign-in a client reads the signed-in person (human id, display name, role, device id) from `GET /auth/whoami` (doc 32 section 5) with its access token, instead of decoding the token itself. A 401 means sign in again.
+After sign-in a client reads the signed-in person (human id, display name, role, device id) from `GET /auth/whoami` (doc 32 section 5) with its access token, instead of decoding the token itself. A 401 means sign in again. Signing out calls `POST /auth/signout` (doc 32 section 5), which revokes this device only; the client then clears its stored credentials.
 
 ---
 
