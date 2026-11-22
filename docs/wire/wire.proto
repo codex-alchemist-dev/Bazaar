@@ -422,6 +422,7 @@ message WireGcMessage {
   bool edited = 8;
   repeated bytes mentions = 9;
   optional int64 reply_to_n = 10;
+  bool withdrawn = 11;
 }
 
 message WireLimits {

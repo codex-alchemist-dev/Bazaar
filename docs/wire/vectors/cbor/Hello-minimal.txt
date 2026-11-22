@@ -1,7 +1,7 @@
 Golden frame: Hello(minimal)
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7
+Schema hash: sha256:4a92429ac9bda23c6eb4bcd56699ba7aa71d53ecbadad2c5fbb85d88cc33af2e
 Payload record: Bazaar.Contracts.Wire.Hello
 Envelope: v=1 t=hello k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 192 bytes
