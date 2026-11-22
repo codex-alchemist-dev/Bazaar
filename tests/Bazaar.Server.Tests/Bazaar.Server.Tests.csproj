@@ -20,6 +20,9 @@
   <ItemGroup>
     <!-- Scheduler fakes are shared with the moved Agents tests (tests/Bazaar.Server.Agents.Tests); linked, not copied. -->
     <Compile Include="..\Bazaar.Server.Agents.Tests\Scheduling\SchedulerFakes.cs" Link="Agents\Scheduling\SchedulerFakes.cs" />
+    <!-- Judgment fixtures are shared with the moved Souls tests (tests/Bazaar.Server.Souls.Tests); linked, not copied. -->
+    <Compile Include="..\Bazaar.Server.Souls.Tests\Judgments\JudgmentFixtures.cs" Link="Souls\Judgments\JudgmentFixtures.cs" />
+    <Compile Include="..\Bazaar.Server.Souls.Tests\Retirement\RetirementFakes.cs" Link="Souls\Retirement\RetirementFakes.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Update="Gateway\Adapters\OpenAi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
@@ -36,11 +39,16 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.ReadAudit\Bazaar.Server.ReadAudit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Coding.Abstractions\Bazaar.Server.Coding.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Hive.Abstractions\Bazaar.Server.Hive.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Tls\Bazaar.Tls.csproj" />

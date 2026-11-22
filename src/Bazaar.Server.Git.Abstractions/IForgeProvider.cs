@@ -53,6 +53,16 @@ public sealed class UnknownForgeProviderException(string providerId)
     public string ProviderId { get; } = providerId;
 }
 
+/// <summary>The forge has no such repository or PR (or the credential cannot see it). Providers throw this for a 404; the message carries no forge text.</summary>
+public sealed class ForgeNotFoundException(string message) : Exception(message);
+
+/// <summary>The forge asked the caller to slow down. <see cref="RetryAfter"/> is the forge's hint, or null when it gave none.</summary>
+public sealed class ForgeRateLimitedException(TimeSpan? retryAfter)
+    : Exception("The forge rate-limited the request.")
+{
+    public TimeSpan? RetryAfter { get; } = retryAfter;
+}
+
 /// <summary>A request to open a draft PR from <paramref name="Head"/> into <paramref name="Base"/>.</summary>
 public sealed record OpenPrRequest(RepoRef Repo, BranchName Head, BranchName Base, string Title, string Body);
 
