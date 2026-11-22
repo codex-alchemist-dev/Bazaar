@@ -49,3 +49,45 @@ public sealed class SupportBundleCommandsTests
         }
     }
 }
+
+public sealed class SupportBundlePaletteTests
+{
+    [Fact]
+    public void The_save_command_loads_and_its_mnemonic_fits_the_client_table_with_the_shipped_commands()
+    {
+        var loaded = Bazaar.Client.Modules.ClientModuleHost.Load([new Bazaar.SupportBundle.SupportBundleClientModule()], Bazaar.Client.Modules.ClientHostFacts.Current());
+
+        if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux())
+        {
+            Assert.Empty(loaded.Skipped);
+            var command = Assert.Single(loaded.Commands);
+            Assert.Equal("supportbundle.save", command.Id);
+            Assert.NotEmpty(Bazaar.Ex.Head.MnemonicHeadSetup.Combine(loaded.Commands));
+        }
+    }
+
+    [Fact]
+    public void Saving_from_the_palette_writes_a_timestamped_zip_and_reports_the_path()
+    {
+        var dir = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var lines = new List<string>();
+            var path = Bazaar.Client.Windows.SupportBundleCommands.SaveFromPalette(Bazaar.Client.Windows.WindowsModules.Create(), dir, new Clock(), lines.Add);
+
+            Assert.NotNull(path);
+            Assert.EndsWith("bazaar-support-20261122-210000.zip", path);
+            Assert.True(File.Exists(path));
+            Assert.Contains(lines, l => l.Contains("support bundle saved"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    private sealed class Clock : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 11, 22, 21, 0, 0, TimeSpan.Zero);
+    }
+}

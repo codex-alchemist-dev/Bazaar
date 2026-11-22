@@ -120,6 +120,8 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 
 **Default catalogue** (shipped as a secret-free file; each entry carries `freeTier`, `termsRisk`, `trainsOnFreeData` and `verification` fields. V = primary page read; P = partly; U = unverified; re-check raw pages before release):
 
+[Built: `src/Bazaar.Server.Gateway.Catalogue/DefaultCatalogue/default-catalogue.json`, loaded by `DefaultCatalogueLoader`. `freeTier`, `termsRisk` and `trainsOnFreeData` are `unknown` for every entry until the owner or a raw-page check fills them; `verification` and its note come from the Status column below.]
+
 | Source | Adapter | Base URL | Status |
 |---|---|---|---|
 | Anthropic | anthropic_messages | `https://api.anthropic.com` | P: limits and prices V; native path carried, not re-read |
@@ -143,7 +145,7 @@ Not shipped: GitHub Models (retired 2026-07-30), and any Copilot, ChatGPT or Gem
 ## Behaviour and edge cases
 - Streaming: usage may arrive only at stream end. On abort, record partial usage with `estimated=true`. No retry or fallback once any event reached the agent; a mid-stream failure surfaces the partial result and the error.
 - Haiku 5.5 prompts over 100K tokens cost 5x (scope unverified). The gateway emits a warning event at `gateway.long_prompt.warn_tokens`; the hard cap `gateway.long_prompt.hard_cap_tokens` is off by default. Agent runtime owns compaction.
-- Catalogue refresh runs at `gateway.catalogue.refresh_hours` (default 0: release updates and the manual "check for newer catalogue" button only). A vanished model becomes `missing` and routes skip it. No whitelist is edited. Built (module `Bazaar.Server.Gateway.Catalogue`, doc 40): the refresh reads each enabled `openai_chat` provider's `GET /models`, marks vanished models `missing`, revives returned ones, and inserts new ones as `available` with the family and identity of the provider's latest model; a failed call changes nothing. The manual button is `POST /admin/api/gateway/catalogue/refresh` in the web admin panel (doc 51 section 5; PROPOSED; gated as the Modules area, no new capability). It returns per-provider outcome, counts and unclassified ids only, and `GET /admin/api/gateway/catalogue` returns the last result.
+- Catalogue refresh runs at `gateway.catalogue.refresh_hours` (default 0: release updates and the manual "check for newer catalogue" button only). A vanished model becomes `missing` and routes skip it. No whitelist is edited. Built (module `Bazaar.Server.Gateway.Catalogue`, doc 40): the refresh reads each enabled provider's own list (`openai_chat` `GET /models`, `anthropic_messages` `GET /v1/models`, `gemini_generate_content` `GET /models`, paged), marks vanished models `missing`, revives returned ones, and inserts new ones as `available` with the family and identity of the provider's latest model; a failed call changes nothing. The manual button is `POST /admin/api/gateway/catalogue/refresh` in the web admin panel (doc 51 section 5; PROPOSED; gated as the Modules area, no new capability). It returns per-provider outcome, counts and unclassified ids only, and `GET /admin/api/gateway/catalogue` returns the last result.
 - Policy changes apply to the next call; in-flight calls finish.
 - Telemetry goes through one mapping layer pinned to a GenAI semconv version; content capture off.
 - Outbound requests only to configured provider URLs. No SSRF to arbitrary hosts from agent input.
