@@ -10,6 +10,8 @@ namespace Bazaar.Server.Tests.Gateway.Data;
 
 public sealed class GatewayDb : PgFixture, IAsyncLifetime
 {
+    private static IEnumerable<MigrationFile> Load(EmbeddedMigrationSource source) => source.Namespaces().SelectMany(source.Load);
+
     public override async ValueTask InitializeAsync()
     {
         if (PgSource.IsUnsupportedHost)
@@ -18,7 +20,10 @@ public sealed class GatewayDb : PgFixture, IAsyncLifetime
         }
 
         await base.InitializeAsync();
-        var source = new EmbeddedMigrationSource(typeof(AssemblyMarker).Assembly);
+        var source = new InMemoryMigrationSource([
+            .. Load(new EmbeddedMigrationSource(typeof(AssemblyMarker).Assembly)),
+            .. Load(new EmbeddedMigrationSource(typeof(GatewayDirectoryRepository).Assembly)),
+        ]);
         await new MigrationRunner(DataSource).MigrateAsync(source, "linux");
     }
 }
@@ -108,6 +113,25 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
         Assert.Single(await repo.ListModelsAsync("p-models", Ct));
 
         await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(model with { ProviderId = "ghost" }, Ct));
+    }
+
+    [Fact]
+    public async Task Model_kind_and_embedding_caps_round_trip_and_default_to_chat()
+    {
+        SkipWithoutDatabase();
+        var repo = Directory();
+        await repo.UpsertProviderAsync(Provider("p-kind"), Ct);
+        var chat = new GwModel("p-kind", "chat1", "claude", GatewayIdentity.Native, "{}", GwModel.StatusAvailable, _t0, _t0, "probe");
+        var embed = chat with { ModelId = "emb1", Kind = GwModel.KindEmbedding, EmbedMaxBatch = 64, EmbedMaxInputChars = 1000 };
+        await repo.UpsertModelAsync(chat, Ct);
+        await repo.UpsertModelAsync(embed, Ct);
+
+        var readChat = await repo.GetModelAsync(new ModelRef("p-kind", "chat1"), Ct);
+        var readEmbed = await repo.GetModelAsync(new ModelRef("p-kind", "emb1"), Ct);
+        Assert.Equal((GwModel.KindChat, null, null), (readChat!.Kind, readChat.EmbedMaxBatch, readChat.EmbedMaxInputChars));
+        Assert.Equal((GwModel.KindEmbedding, 64, 1000), (readEmbed!.Kind, readEmbed.EmbedMaxBatch, readEmbed.EmbedMaxInputChars));
+        await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(embed with { Kind = "video" }, Ct));
+        await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(embed with { EmbedMaxBatch = 0 }, Ct));
     }
 
     [Fact]

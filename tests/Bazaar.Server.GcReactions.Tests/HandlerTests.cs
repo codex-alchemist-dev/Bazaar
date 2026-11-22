@@ -390,6 +390,9 @@ public class HandlerTests
 
         public Dictionary<Guid, long> ReadThrough { get; } = [];
 
+        public Task<HashSet<Guid>> LoadActiveMemberIdsAsync(Guid gcId, CancellationToken ct) =>
+            Task.FromResult(gcId == _gc ? new HashSet<Guid>(Members) : []);
+
         public ValueTask<bool> CanWriteAsync(Guid gcId, GcPrincipal writer, CancellationToken ct) =>
             ValueTask.FromResult(gcId == _gc && Members.Contains(writer.Id));
 

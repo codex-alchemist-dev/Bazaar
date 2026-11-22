@@ -2,6 +2,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Gateway.Adapters;
+using Bazaar.Server.Gateway.Ai;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Policy;
@@ -39,6 +40,9 @@ public sealed class ModelGateway : IModelGateway
     private static readonly HashSet<string> _retryableCodes =
         ["rate_limited", "spend_capped", "timeout", "provider_error", "stream_dropped"];
 
+    private const string _embeddingScopeSuffix = "#embedding";
+    private const string _embeddingQuotaPrefix = "embedding:";
+
     private readonly RouteResolver _resolver;
     private readonly IGatewayDirectory _directory;
     private readonly IAdapterRegistry _adapters;
@@ -54,11 +58,15 @@ public sealed class ModelGateway : IModelGateway
     private readonly SecretScrubber _scrubber;
     private readonly ICandidateRanker? _ranker;
     private readonly IEndpointStatsTracker? _selectionStats;
+    private readonly IEmbeddingProfile _embeddingProfile;
+    private readonly IEmbeddingRouteSource? _embeddingRoute;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, bool> _lastPublishedAvailable = [];
 
     /// <param name="onInternalError">Told about a usage write or event publish that threw; the caller's stream is not affected.</param>
     /// <param name="scrubber">Replaces every resolved key in failure and warning text. A private scrubber is used when none is given.</param>
+    /// <param name="embeddingProfile">The install embedding profile whose dimension every embedding is checked against. No check when none is given.</param>
+    /// <param name="settings">Read for <c>gateway.embedding.route</c> when an embedding request names no route. Without it the setting counts as unset.</param>
     public ModelGateway(
         RouteResolver resolver,
         IGatewayDirectory directory,
@@ -74,7 +82,9 @@ public sealed class ModelGateway : IModelGateway
         Action<Exception>? onInternalError = null,
         SecretScrubber? scrubber = null,
         ICandidateRanker? ranker = null,
-        IEndpointStatsTracker? selectionStats = null)
+        IEndpointStatsTracker? selectionStats = null,
+        IEmbeddingProfile? embeddingProfile = null,
+        IEmbeddingRouteSource? embeddingRoute = null)
     {
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
@@ -91,6 +101,8 @@ public sealed class ModelGateway : IModelGateway
         _scrubber = scrubber ?? new SecretScrubber();
         _ranker = ranker;
         _selectionStats = selectionStats;
+        _embeddingProfile = embeddingProfile ?? NullEmbeddingProfile.Instance;
+        _embeddingRoute = embeddingRoute;
     }
 
     /// <summary>Streams the call's events. Failure and warning text is scrubbed of every resolved key before it is yielded.</summary>
@@ -126,7 +138,7 @@ public sealed class ModelGateway : IModelGateway
         var order = await OrderCandidatesAsync(route, request, cancellationToken).ConfigureAwait(false);
         while (NextCandidate(order, tried, excluded) is { } candidate)
         {
-            var (ready, skip) = await PrepareAsync(candidate, cancellationToken).ConfigureAwait(false);
+            var (ready, skip) = await PrepareAsync(candidate, requireEmbedding: false, cancellationToken).ConfigureAwait(false);
             if (ready is null)
             {
                 excluded.Add(candidate.Model);
@@ -412,6 +424,258 @@ public sealed class ModelGateway : IModelGateway
         }
     }
 
+    /// <summary>
+    /// Embeds a batch through the same resolve, policy, health, quota, adapter, classify, fallback and usage path as
+    /// <see cref="CallAsync"/>, over embedding models only. An omitted route is the install's
+    /// <c>gateway.embedding.route</c>. The batch is split into chunks within the serving model's caps and the results are merged
+    /// in input order, with one usage row per upstream request. A candidate whose adapter cannot embed is skipped like any other
+    /// unusable candidate. A failure on every candidate, or on any chunk, returns nothing and is thrown as a
+    /// <see cref="GatewayModelException"/> carrying the gateway's failure code.
+    /// </summary>
+    public async Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Inputs);
+        if (request.Dimensions is <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), "Dimensions must be positive when given.");
+        }
+
+        if (request.Inputs.Count == 0)
+        {
+            return new EmbeddingResult([], request.Route ?? "", 0);
+        }
+
+        var routeName = request.Route;
+        if (string.IsNullOrWhiteSpace(routeName))
+        {
+            routeName = _embeddingRoute is null
+                ? ""
+                : await _embeddingRoute.GetEmbeddingRouteAsync(cancellationToken).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(routeName))
+            {
+                throw new GatewayModelException(
+                    "embedding_route_unset",
+                    "The request names no embedding route and the setting gateway.embedding.route is empty.");
+            }
+        }
+
+        var failure = await EmbedPipelineAsync(request, routeName, cancellationToken).ConfigureAwait(false);
+        if (failure.Result is { } result)
+        {
+            return result;
+        }
+
+        var f = _scrubber.ScrubEvent(failure.Failure!) as ModelEvent.Failure ?? failure.Failure!;
+        throw new GatewayModelException(f.Code, f.Message, f.RetryAfterSeconds);
+    }
+
+    private async Task<(EmbeddingResult? Result, ModelEvent.Failure? Failure)> EmbedPipelineAsync(
+        EmbeddingRequest request, string routeName, CancellationToken cancellationToken)
+    {
+        var resolveRequest = new ModelRequest(request.AgentId, routeName, [], []);
+        var resolution = await _resolver.ResolveAsync(resolveRequest, GwModelKind.Embedding, cancellationToken).ConfigureAwait(false);
+        if (resolution is RouteResolution.Denied denied)
+        {
+            return (null, new ModelEvent.Failure("policy_denied", $"{denied.Reason}: {denied.Detail}"));
+        }
+
+        var route = ((RouteResolution.Allowed)resolution).Route;
+
+        // Input length is checked against the caps before any call. An input no candidate accepts fails the whole call; an input
+        // only some candidates refuse skips those candidates.
+        var longest = request.Inputs.Max(i => i.Length);
+        var caps = new Dictionary<ModelRef, EmbedCaps>();
+        foreach (var candidate in route.Candidates)
+        {
+            caps[candidate.Model] = await CapsAsync(candidate, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (caps.Values.All(c => longest > c.MaxInputChars))
+        {
+            return (null, new ModelEvent.Failure(
+                "embedding_input_too_long",
+                $"An input has {longest} characters; the largest accepted by the route is {caps.Values.Max(c => c.MaxInputChars)}."));
+        }
+
+        var expectedDimensions = await _embeddingProfile.GetDimensionsAsync(cancellationToken).ConfigureAwait(false);
+        GwRoute? delegatedRoute = route.IsDelegated
+            ? await _directory.GetRouteAsync(routeName, cancellationToken).ConfigureAwait(false)
+            : null;
+
+        var tried = new HashSet<ModelRef>();
+        var excluded = new HashSet<ModelRef>();
+        var skips = new List<Skip>();
+        ModelEvent.Failure? lastFailure = null;
+
+        while (route.Next(tried, excluded) is { } candidate)
+        {
+            var limit = caps[candidate.Model];
+            if (longest > limit.MaxInputChars)
+            {
+                excluded.Add(candidate.Model);
+                skips.Add(Skip.Config(candidate.Model, "an input is longer than the model accepts"));
+                continue;
+            }
+
+            var (ready, skip) = await PrepareAsync(candidate, requireEmbedding: true, cancellationToken).ConfigureAwait(false);
+            if (ready is null)
+            {
+                excluded.Add(candidate.Model);
+                skips.Add(skip!);
+                continue;
+            }
+
+            tried.Add(candidate.Model);
+            var key = ready.Key;
+            var scope = ready.Scope;
+            var qclass = ready.QuotaClass;
+            var vectors = new List<float[]>(request.Inputs.Count);
+            long tokens = 0;
+            string? served = null;
+            var settledAny = false;
+            ModelEvent.Failure? retryable = null;
+
+            try
+            {
+                for (var start = 0; start < request.Inputs.Count; start += limit.MaxBatch)
+                {
+                    var chunk = request.Inputs.Skip(start).Take(limit.MaxBatch).ToList();
+                    var chunkRequest = request with { Route = routeName, Inputs = chunk };
+                    var estimated = (chunk.Sum(i => (long)i.Length) + 3) / 4;
+                    var acc = new UsageAccumulator(
+                        request.AgentId, null, candidate.Model.ProviderId, key.KeyRef, candidate.Model.ModelId, ready.Identity, _time, estimated);
+                    var settled = false;
+                    ModelEvent.Failure? failed = null;
+                    EmbeddingOutcome.Succeeded? done = null;
+                    string chunkServed = candidate.Model.ModelId;
+                    try
+                    {
+                        EmbeddingOutcome outcome;
+                        try
+                        {
+                            outcome = await ((IEmbeddingAdapter)ready.Adapter)
+                                .EmbedAsync(ready.Endpoint, chunkRequest, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            outcome = new EmbeddingOutcome.Failed(AdapterFault(ex));
+                        }
+
+                        if (outcome is EmbeddingOutcome.Succeeded ok)
+                        {
+                            if (ok.Vectors.Count != chunk.Count)
+                            {
+                                outcome = new EmbeddingOutcome.Failed(new ModelEvent.Failure("provider_error", "The upstream returned the wrong number of vectors."));
+                            }
+                            else if (expectedDimensions is { } want && ok.Vectors.FirstOrDefault(v => v.Length != want) is { } wrong)
+                            {
+                                // Fail closed: the vectors are dropped here and never leave the gateway.
+                                outcome = new EmbeddingOutcome.Failed(new ModelEvent.Failure(
+                                    "embedding_dimension_mismatch",
+                                    $"The upstream returned a vector of {wrong.Length} dimensions; the install embedding profile expects {want}."));
+                            }
+                        }
+
+                        // The outcome becomes the same events a chat call produces, so usage, health and quota see one shape.
+                        chunkServed = (outcome as EmbeddingOutcome.Succeeded)?.ServedModel ?? candidate.Model.ModelId;
+                        ModelEvent[] events = outcome is EmbeddingOutcome.Succeeded success
+                            ? [
+                                new ModelEvent.UsageReported(new GatewayTokenUsage(success.InputTokens > 0 ? success.InputTokens : estimated, 0, 0, 0, 0, 0)),
+                                new ModelEvent.Done(StopReason.EndTurn, chunkServed),
+                            ]
+                            : [((EmbeddingOutcome.Failed)outcome).Failure];
+
+                        foreach (var raw in events)
+                        {
+                            var e = _scrubber.ScrubEvent(raw);
+                            acc.Observe(e);
+                            _health.Observe(scope, e);
+                            settled |= e is ModelEvent.Done or ModelEvent.Failure;
+                            failed = e as ModelEvent.Failure ?? failed;
+                        }
+
+                        done = outcome as EmbeddingOutcome.Succeeded;
+                    }
+                    finally
+                    {
+                        settledAny |= settled;
+                        await RecordSafeAsync(acc).ConfigureAwait(false);
+                    }
+
+                    if (failed is not null)
+                    {
+                        Report(scope, qclass, failed);
+                        if (!_retryableCodes.Contains(failed.Code))
+                        {
+                            return (null, failed);
+                        }
+
+                        retryable = failed;
+                        break;
+                    }
+
+                    vectors.AddRange(done!.Vectors);
+                    tokens += done.InputTokens > 0 ? done.InputTokens : estimated;
+                    served ??= chunkServed;
+                }
+            }
+            finally
+            {
+                if (!settledAny)
+                {
+                    _health.Abandon(scope);
+                }
+            }
+
+            if (retryable is null)
+            {
+                if (delegatedRoute is not null
+                    && DelegatedRouteAudit.Violations(delegatedRoute, served!) is { Count: > 0 } violations)
+                {
+                    await SuspendSafeAsync(delegatedRoute.Id, violations, cancellationToken).ConfigureAwait(false);
+                }
+
+                PublishAvailabilityRestored(request.AgentId);
+                return (new EmbeddingResult(vectors, served!, tokens), null);
+            }
+
+            // A retryable failure on any chunk discards what earlier chunks returned: a batch is never split across models.
+            skips.Add(AfterFailure(candidate.Model, scope, qclass));
+            lastFailure = retryable;
+        }
+
+        if (lastFailure is not null)
+        {
+            PublishIfExhausted(request.AgentId, skips);
+            return (null, lastFailure);
+        }
+
+        return (null, NoCapacity(request.AgentId, skips));
+    }
+
+    /// <summary>The caps for one candidate: its model row's values, else the adapter's provider defaults.</summary>
+    private async ValueTask<EmbedCaps> CapsAsync(RouteCandidate candidate, CancellationToken ct)
+    {
+        var batch = 2048;
+        var chars = 32768;
+        var provider = await _directory.GetProviderAsync(candidate.Model.ProviderId, ct).ConfigureAwait(false);
+        if (provider is not null && _adapters.Get(provider.Adapter) is IEmbeddingAdapter embedder)
+        {
+            batch = embedder.DefaultMaxBatch;
+            chars = embedder.DefaultMaxInputChars;
+        }
+
+        var row = await _directory.GetModelAsync(candidate.Model, ct).ConfigureAwait(false);
+        return new EmbedCaps(row?.EmbedMaxBatch ?? batch, row?.EmbedMaxInputChars ?? chars);
+    }
+
+    private readonly record struct EmbedCaps(int MaxBatch, int MaxInputChars);
+
     private ModelEvent.Failure NoCapacity(string agentId, List<Skip> skips)
     {
         var now = _time.GetUtcNow();
@@ -466,7 +730,7 @@ public sealed class ModelGateway : IModelGateway
             : Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null);
     }
 
-    private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, CancellationToken ct)
+    private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, bool requireEmbedding, CancellationToken ct)
     {
         var model = candidate.Model;
         var provider = await _directory.GetProviderAsync(model.ProviderId, ct).ConfigureAwait(false);
@@ -486,6 +750,11 @@ public sealed class ModelGateway : IModelGateway
             return (null, Skip.Config(model, "the provider adapter is unknown"));
         }
 
+        if (requireEmbedding && adapter is not IEmbeddingAdapter)
+        {
+            return (null, Skip.Config(model, "the provider adapter cannot embed"));
+        }
+
         if (!TryParseHeaders(provider.HeadersJson, out var headers))
         {
             return (null, Skip.Config(model, "the provider headers are invalid"));
@@ -503,9 +772,11 @@ public sealed class ModelGateway : IModelGateway
         }
 
         var key = new ProviderKey(model.ProviderId, provider.SecretRef ?? "none");
-        if (_quota.BlockedState(key, candidate.Family) is { } blocked)
+        var scope = requireEmbedding ? key with { KeyRef = key.KeyRef + _embeddingScopeSuffix } : key;
+        var quotaClass = requireEmbedding ? _embeddingQuotaPrefix + candidate.Family : candidate.Family;
+        if (_quota.BlockedState(scope, quotaClass) is { } blocked)
         {
-            return (null, Skip.Blocked(SkipKind.Quota, model, blocked, _quota.BlockedUntil(key, candidate.Family)));
+            return (null, Skip.Blocked(SkipKind.Quota, model, blocked, _quota.BlockedUntil(scope, quotaClass)));
         }
 
         string? apiKey = null;
@@ -529,12 +800,12 @@ public sealed class ModelGateway : IModelGateway
             _scrubber.Track(apiKey);
         }
 
-        if (!_health.TryAcquire(key))
+        if (!_health.TryAcquire(scope))
         {
             return (null, Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null));
         }
 
-        return (new Ready(adapter, new ProviderEndpoint(provider.BaseUrl, model.ModelId, apiKey, headers), key, identity), null);
+        return (new Ready(adapter, new ProviderEndpoint(provider.BaseUrl, model.ModelId, apiKey, headers), key, identity, scope, quotaClass), null);
     }
 
     private static IAsyncEnumerator<ModelEvent> Open(IModelAdapter adapter, ProviderEndpoint endpoint, ModelRequest request, CancellationToken ct)
@@ -739,7 +1010,12 @@ public sealed class ModelGateway : IModelGateway
         }
     }
 
-    private sealed record Ready(IModelAdapter Adapter, ProviderEndpoint Endpoint, ProviderKey Key, GatewayIdentity Identity);
+    /// <summary>
+    /// <c>Key</c> is the provider key that usage rows name. <c>Scope</c> is the key that health is tracked under and
+    /// <c>QuotaClass</c> the class quota is tracked under; both are separate for embedding, so a failing embedding endpoint does
+    /// not open the chat breaker or block chat quota (doc 05, Embedding kind).
+    /// </summary>
+    private sealed record Ready(IModelAdapter Adapter, ProviderEndpoint Endpoint, ProviderKey Key, GatewayIdentity Identity, ProviderKey Scope, string QuotaClass);
 
     private enum SkipKind
     {

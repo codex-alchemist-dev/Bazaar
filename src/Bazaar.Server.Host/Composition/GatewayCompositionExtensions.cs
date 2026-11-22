@@ -16,8 +16,11 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers.ClaudeCode;
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -58,11 +61,20 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+
+        // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
+        services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
+            sp.GetService<Bazaar.Server.Settings.ISettingStore>() is { } store
+                ? new SettingsClaudeCodeAcknowledgementStore(store)
+                : new InMemoryClaudeCodeAcknowledgementStore());
         services.AddHostedService<GatewayProviderRowSync>();
         services.AddHostedService<DevAgentPolicySeed>();
         services.TryAddSingleton<IClaudeSourceDirectory, GatewayClaudeSourceDirectory>();
         services.TryAddSingleton<IDefaultAgentPolicyStore, GatewayDefaultAgentPolicyStore>();
         services.AddFirstRunGatewayRoutes();
+        services.AddSingleton<IAgentDefaultPolicyGrant, AgentDefaultPolicyGrantAdapter>();
+        services.AddSingleton<IAgentPolicyPresence, AgentPolicyPresenceAdapter>();
+        services.AddBazaarAgentGrantRepair();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
@@ -72,6 +84,7 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
+        services.TryAddSingleton<IEmbeddingProfile, PostgresEmbeddingProfile>();
 
         services.TryAddSingleton<SecretScrubber>();
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
@@ -148,7 +161,10 @@ public static class GatewayCompositionExtensions
             onInternalError: ex => GatewayProviderRowSync.LogInternalError(sp.GetRequiredService<ILoggerFactory>().CreateLogger<ModelGateway>(), ex),
             scrubber: sp.GetRequiredService<SecretScrubber>(),
             ranker: sp.GetRequiredService<ICandidateRanker>(),
-            selectionStats: sp.GetRequiredService<IEndpointStatsTracker>())));
+            selectionStats: sp.GetRequiredService<IEndpointStatsTracker>(),
+
+            embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
+            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
         return services;
     }
 
@@ -200,4 +216,3 @@ public static class GatewayCompositionExtensions
         return new DictionaryAdapterRegistry(adapters);
     }
 }
-
