@@ -11,8 +11,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Test-only: CodingContractsTests uses CapabilityClass from Bazaar.Server (Security/Policy). Approved by the orchestrator, Council precedent. -->
-    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Coding.Abstractions\Bazaar.Server.Coding.Abstractions.csproj" />
   </ItemGroup>
 </Project>

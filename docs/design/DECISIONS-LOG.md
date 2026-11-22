@@ -410,6 +410,16 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
+## Round 30 (2026-11-19): Linux TPM-sealed KEK
+
+| Decision | Status | Docs |
+|---|---|---|
+| `identity.kek_provider` gains an explicit `tpm` value (not folded into `file`); auditable, fails closed | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Shipped PCR policy: signed policy (PCR 7 plus a policy authorised by an offline-held signing key), key held in the owner's recovery bundle; fallback raw PCR-7-only policy if the owner declines to hold a key | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Sealing path: `systemd-creds` where systemd is present; direct tpm2-tools only on non-systemd hosts | **DECIDED 2026-11-19 (owner card)** | 14 |
+| vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
+| Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |
+
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
 | Decision | Ruling | Docs |
@@ -420,6 +430,24 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Loop-guard trip | Writes `guard_event`, one idempotent system notice and the Psych Ward hand-off (default no-op until doc 26 is built); the post is refused. | 06 |
 | Binding writers | `ISoulBindingAdmin.BindAsync` is for the hire flow, which does not exist on the server yet; `RetirementCoordinator` ends the binding first. Until a hire flow exists, an unbound agent cannot post with the default setting. | 06, 07 |
 | Not done in this change | Mention depth (needs the wake's depth on the inbox row, which doc 06 owns) and @here/@all agent broadcasts (needs the broadcast rate counter; #438 keeps them ignored). | 06, 01 |
+
+## Round 29 (2026-11-19): Encrypted data folder
+
+The round number is set at merge; other open PRs also add rounds.
+
+| Decision | Status | Docs |
+|---|---|---|
+| The data folder (data root, including the PostgreSQL data directory) is encrypted at the folder level by Bazaar, as a hard install requirement. Owner, 2026-11-19 (message `cmsg_01MC1BkUhiVHzqr38uyxWzeHPuokZJa7aiq87n8BAaMdas`): "Encryption is on the disk data folder level." Operator whole-disk encryption does not satisfy it alone. | DECIDED | 63 |
+| The host refuses to start on a missing, unmounted, unencrypted or foreign data folder, and never creates a key, volume or cluster at start (closes the chaos finding of PR #872, open item 1) | DECIDED as a requirement; mechanics PROPOSED | 63 section 5, 03, 14 |
+| Mechanism: BitLocker-protected VHDX on Windows, LUKS2 container on Linux, volume key wrapped by the KEK provider, privileged volume unit plus unprivileged host guard, boot root beside the data root | PROPOSED (spike D1) | 63 sections 2 to 6 |
+| More columns sealed by default (classes A, B, C) through one `IColumnSealer`; search copies stay plain inside the volume | PROPOSED | 63 section 9 |
+| Modules `Bazaar.Server.DataVolume` (+ `.Abstractions`, `.Windows`, `.Linux`) and `Bazaar.Server.ColumnSeal` (+ `.Abstractions`) | PROPOSED | 63, 40 |
+| Supersedes doc 61's inventory row "Postgres data directory: out of scope" | DECIDED (follows from the owner's message) | 61, 63 |
+
+| The whole data root is inside the encrypted volume, not only the PostgreSQL folder | DECIDED (owner card, 2026-11-19) | 63 section 2 |
+| Unlock after a restart is automatic now; owner unlock is built as the setting `storage.volume.unlock = owner` for later | DECIDED (owner card, 2026-11-19) | 63 section 6 |
+
+**Open for owner:** external database mode (setting, default: refused unless attested); Windows Home hosts (default: not supported).
 
 ## Round 30 (2026-11-20): Claude Code CLI provider
 
