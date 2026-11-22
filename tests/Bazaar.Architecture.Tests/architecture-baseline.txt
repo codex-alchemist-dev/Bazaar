@@ -3,9 +3,6 @@ src/Bazaar.Client.Core/MainWindow.axaml.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
 src/Bazaar.Client.Core/Panes/PaneHost.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
-src/Bazaar.Server/Agents/Recovery/AgentLeaseRecoveryHandler.cs
-src/Bazaar.Server/Agents/Responder/AgentResponder.cs
-src/Bazaar.Server/Agents/Responder/AgentResponderService.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Responder/PgResponderGcStore.cs
 src/Bazaar.Server/Agents/Turns/AgentTurnsComponent.cs
@@ -21,17 +18,6 @@ src/Bazaar.Server/Agents/Turns/Tools/ToolDispatcher.cs
 src/Bazaar.Server/Agents/Turns/TurnRunAdapter.cs
 src/Bazaar.Server/Agents/Turns/TurnRunner.cs
 src/Bazaar.Server/AssemblyMarker.cs
-src/Bazaar.Server/Calendar/CalendarRepository.cs
-src/Bazaar.Server/Calendar/CalendarRules.cs
-src/Bazaar.Server/Calendar/CalendarService.cs
-src/Bazaar.Server/Calendar/CalendarSettings.cs
-src/Bazaar.Server/Calendar/CalendarTypes.cs
-src/Bazaar.Server/Company/Availability/CalendarAvailabilityFeed.cs
-src/Bazaar.Server/Company/CompanyComponent.cs
-src/Bazaar.Server/Company/Org/LoanRules.cs
-src/Bazaar.Server/Company/Org/OrgLoanService.cs
-src/Bazaar.Server/Company/Org/OrgRouting.cs
-src/Bazaar.Server/Company/Org/OrgSettings.cs
 src/Bazaar.Server/Constellation/Clustering/LouvainClustering.cs
 src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
@@ -244,8 +230,6 @@ src/Bazaar.Server/Memory/Write/MemoryWriteItem.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteQueue.cs
 src/Bazaar.Server/Mentions/HandleSlug.cs
 src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
-src/Bazaar.Server/Org/Data/OrgRelationRepository.cs
-src/Bazaar.Server/Org/OrgRelation.cs
 src/Bazaar.Server/Providers/Fakes/FakeCacheProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeSearchProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeServiceHostProvider.cs
@@ -306,9 +290,6 @@ src/Bazaar.Server/Skimmer/Scoring/ScorerOutputParser.cs
 src/Bazaar.Server/Skimmer/Scoring/ScorerParseResult.cs
 src/Bazaar.Server/Souls/Judgments/GcLogJudgmentPoster.cs
 src/Bazaar.Server/Souls/Judgments/JudgmentServiceCollectionExtensions.cs
-src/Bazaar.Server/Souls/Presets/DefaultPresetRoster.cs
-src/Bazaar.Server/Souls/Presets/PresetLoader.cs
-src/Bazaar.Server/Souls/Presets/PresetValidationException.cs
 src/Bazaar.Server/Verification/GateModel.cs
 src/Bazaar.Server/Verification/GitRepo.cs
 src/Bazaar.Server/Verification/PathRules.cs

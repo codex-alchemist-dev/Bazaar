@@ -131,6 +131,65 @@ Recorded 2026-11-18 from doc 36. Nothing here is built yet, and nothing is renam
 - **WP 8, `Bazaar.Client.Community.Avalonia`:** the view and its `IPaneModule`.
 - **WP 8 card:** the draft-review card shows the exact quoted body, its hash, the gate results, a footer indicator and taint excerpts. Approve is disabled when a gate failed, the footer is missing, or the approval is not pending. Edit-then-approve creates a new draft that needs a new approval.
 - **WP 8 registration:** registration into the client heads waits for the client module registry (section 5, step 7).
+
+## 4c. Dependency modules: Valkey cache (PROPOSED)
+
+Status: PROPOSED (2026-11-18, revised after coordinator review the same day). Nothing here is built. The owner has not decided this module, and no DECISIONS-LOG entry records it yet. Dependencies are modules tagged `Deps` and `3rd party` (doc 42, D1), so the Linux cache dependency gets the same layout as a feature module, with a `Deps` tag. The module list below extends section 4 for dependency modules only; the feature rules of section 4 are unchanged.
+
+| Project | Holds | Rule |
+|---|---|---|
+| `Bazaar.Server.Providers.Abstractions` | `IProvider`, `ProviderStatus`, `ICacheProvider` (with `DeleteAsync`, doc 03) and the other provider seams. Namespace stays `Bazaar.Server.Providers`. | Moved from `src/Bazaar.Server/Providers/` (`ICacheProvider.cs`, and `IProvider.cs` and `ProviderStatus.cs` with it, PROPOSED). Contracts only, no implementation. |
+| `Bazaar.Server.Valkey.Abstractions` | `IValkeyClient`, `IValkeyClientFactory`, `ValkeyCacheOptions` (section `Bazaar:Cache:Valkey`), and the module's tag constants (4c.4 item 7). | Contracts other modules may reference. No library reference. |
+| `Bazaar.Server.Valkey` | `ValkeyCacheProvider` (implements `ICacheProvider`), `StackExchangeValkeyClientFactory` and `StackExchangeValkeyClient` (StackExchange.Redis, which speaks the Redis protocol Valkey implements), the supervised `valkey-server` child (4c.1), and the health probes (4c.2). | Registers `AddBazaarValkey()`. The Server host references the abstractions; only the host composition root references this project. |
+
+Code that leaves `src/Bazaar.Server/Providers/Linux/`: `ValkeyCacheProvider.cs`, `IValkeyClient.cs`, `StackExchangeValkeyClient.cs`, `ValkeyCacheOptions.cs`, and the Valkey candidate in `LinuxProviders.CacheCandidates` (that list moves into the module's registration, PROPOSED). `SystemdServiceHostProvider.cs` and `SystemdCredsSecretResolver.cs` stay, because they are the service host and secret scheme, not the cache. The old namespace gets no alias (4c.4 item 4). Garnet is not in this module. It is a separate later module behind spike S2 (C07, doc 35).
+
+Module identity (PROPOSED): id `valkey`; tags `Deps` and `3rd party`; kind `service` under doc 42 section 4 (hidden supervised child of the host, one per install); licence BSD-3-Clause (doc 42 section 13.2, to be confirmed by the licence scan). The tags are constants in `Bazaar.Server.Valkey.Abstractions` until `ComponentManifest` gains a Tags field (4c.4 item 7). StackExchange.Redis is a NuGet package under central package management and not a dep module (doc 42 section 4 boundary). Its licence is checked by the same scan.
+
+Settings: `host.provider.cache` (doc 03) is unchanged: `auto`, `garnet`, `valkey`, default `auto` (Garnet only after S2). The child-process values are the `deps.valkey.*` rows of doc 42 section 15 (PROPOSED names and defaults, owner to confirm): `deps.valkey.managed`, `deps.valkey.binaryPath`, `deps.valkey.runtimeDirectory`, `deps.valkey.managedPort`, `deps.valkey.maxMemoryMegabytes`, `deps.valkey.memoryWarnPercent`, `deps.valkey.parentDeathWrapper` and `deps.valkey.startWindowSeconds`.
+
+### 4c.1 Floors and the child process (PROPOSED)
+
+- **Loopback only.** The child listens on loopback. A non-loopback listen is not a setting (the doc 42 section 15 floor).
+- **Port.** `deps.valkey.managedPort` of 0 (the default) means a free loopback port is chosen per child start. Clients re-resolve the endpoint on every call and do not cache it at construction, so a restarted child on a new port is picked up without a host restart.
+- **Password custody (PROPOSED, 4c.4 items 1 and 12).** The managed child's password is generated per run and held in memory as a secret value. It is delivered to the child on stdin. It rotates on every start, and it is never written to disk, to an environment variable, to a command line, to a log, to the status page or to a Kodo fact. Nothing durable needs custody here, because this is a local cache. An externally configured Valkey takes its password from the secret store (doc 14), through the `SecretReference` path of `ValkeyCacheOptions`. The managed child's in-memory password is the one deviation from doc 14's custody rule.
+- **Parent death.** On Linux the child starts through the util-linux `setpriv --pdeathsig` wrapper named by `deps.valkey.parentDeathWrapper`. A managed start is refused when no parent-death mechanism is available. This is a floor, not a warning, so an orphaned `valkey-server` cannot outlive the host.
+- **Stale-child sweep (PROPOSED).** Before a managed start, the host reads `valkey-server.pid` in `deps.valkey.runtimeDirectory`. If that pid is alive and `/proc/<pid>/comm` reads `valkey-server`, the host stops it before starting a new child. If the pid is dead or does not match, the host removes the stale file. A process whose comm does not match is never killed.
+- **Startup order (PROPOSED, 4c.4 item 8).** The managed child starts before the cache provider probe in doc 03 startup step 5. The probe retries inside the bounded window `deps.valkey.startWindowSeconds`, with the per-attempt bound of `ValkeyCacheOptions.ProbeTimeout`. The window expiring marks the probe unusable. It does not fail startup, because the cache is not a required readiness role (doc 03).
+- **Restart and stop.** The restart policy follows doc 42 sections 6.2 and 6.3. Stop happens in the host's shutdown path (doc 03 steps 1 to 4). Tree kill of the child with the host is a doc 42 section 16 test (PROPOSED for this child).
+
+### 4c.2 Health probes (PROPOSED, doc 46 contract)
+
+Every probe is non-critical. This is explicit: no Valkey probe can make the state `failing` (4c.3).
+
+| Probe (doc 42 section 11) | Check | Critical |
+|---|---|---|
+| Liveness | Heartbeat from the supervised child. No I/O in the provider's liveness path. | no |
+| Readiness | PING, then a SET and GET round trip on a reserved key (`bazaar:health:valkey`, outside the cache key prefix so it cannot collide with cache entries). | no |
+| Dependencies | Used memory under `deps.valkey.memoryWarnPercent` (default 80) of `deps.valkey.maxMemoryMegabytes`. The running version equals the installed package version (doc 42 section 11, drift rule). | no |
+| Self-test (scheduled, Full scope) | Config-level check only: `CONFIG GET maxmemory-policy` returns `allkeys-lru`, and `CONFIG GET maxmemory` equals `deps.valkey.maxMemoryMegabytes`. Plus a round trip with a short TTL and an expiry check after the TTL. The behavioural eviction fill test (fill the keyspace past the cap, confirm evictions and that an evicted key reads as a miss) is deferred (4c.4 item 6). | no |
+
+### 4c.3 Failure mapping (PROPOSED, C07)
+
+- The cache is a cache. A Valkey outage is `degraded`, never `failing`. Doc 03 already states that GC delivery and turns do not depend on the cache, and GC fan-out is Postgres NOTIFY (C07).
+- A down child or a failed probe makes the `valkey` module amber, with a reason and an audit event. Kodo does not open the readiness gate of any dependent module, and the server's readiness roles (doc 03 `host.readiness.required_roles`) do not include the cache.
+- While the cache is unusable, `ICacheProvider` callers get misses and dropped writes (the existing degrade behaviour of `ValkeyCacheProvider`). What presence shows while the cache is down is doc 23's decision and is not decided here (OPEN).
+- Restart backoff exhausted: the module stays amber and the operator sees it in the module manager (doc 42 section 12). It is not red and it does not start an incident.
+
+### 4c.4 Open items and PROPOSED decisions (need one answer each before code)
+
+1. **Password custody (PROPOSED).** The managed child keeps a per-run in-memory secret, delivered on stdin, rotated on every start (4c.1). Nothing durable needs custody, so no doc 14 store scope is required for it. Owner to confirm.
+2. **Eviction self-test (PROPOSED).** Config-level only (`CONFIG GET maxmemory-policy` is `allkeys-lru` and `CONFIG GET maxmemory` matches the setting). The behavioural fill test is deferred.
+3. **Probe criticality (PROPOSED).** All Valkey probes are non-critical, as stated in 4c.2.
+4. **Namespace (PROPOSED).** No alias for the old `Bazaar.Server.Providers.Linux` cache types. Nothing outside the Linux provider folder references them.
+5. **Child-process settings (PROPOSED).** The `deps.valkey.*` rows in doc 42 section 15 need owner confirmation of names and defaults. `deps.valkey.runtimeDirectory` defaults to `/var/lib/bazaar/valkey` and is overridable by that setting (PROPOSED, owner decision recorded by the coordinator). The `ICacheProvider.DeleteAsync` addition is PROPOSED in doc 03 (WP12 status and the interface sketch).
+6. **Eviction behavioural test (deferred).** The fill-and-evict test in 4c.2 is out of the first code PR and needs its own answer.
+7. **Tags (PROPOSED).** `ComponentManifest` has no Tags field today (`src/Bazaar.Core/ComponentManifest.cs`). PROPOSED: add a Tags field in `Bazaar.Core`. Until then the tags are constants in `Bazaar.Server.Valkey.Abstractions`.
+8. **Startup ordering (PROPOSED).** Child first, bounded probe retry window `deps.valkey.startWindowSeconds` (4c.1).
+9. **Term and kind.** Doc 42 Q8 (`module` and `kind: dependency`). This section follows the proposed answer.
+10. **Licence of StackExchange.Redis.** MIT is expected, not verified. It is not in doc 42 section 13.2 yet, and the licence scan must confirm it.
+11. **Presence while the cache is down.** Doc 23's decision (OPEN).
+12. **Secret custody by mode (PROPOSED).** Managed child: per-run in-memory password, rotated each start (item 1). External Valkey (`deps.valkey.managed` false): password taken from the secret store (doc 14) through `ValkeyCacheOptions.SecretReference`, never a plain setting.
 ## 4b. Planned modules: Luau static checks and Studio bridge [PROPOSED]
 
 Source: coordinator brief, 2026-11-18, placing doc 20 work packages 7 and 8 so the code PR can follow. Not an owner decision. Names follow section 4 (`Bazaar.<F>.Abstractions` plus `Bazaar.<F>`); the server module sits under `Bazaar.Server.` as `Bazaar.Server.AgentSafety` does.
@@ -225,7 +284,7 @@ The migration (`remote/0004_owner_nonce.sql`) stays in `Bazaar.Server` under `Da
 The model gateway leaves `Bazaar.Server` in two steps. Step 1 (this change): `Bazaar.Server.Gateway.Abstractions` holds the contracts that Server-side consumers (Agents, Memory, Souls) bind to: `IModelGateway`, `GatewayChatClient` and its mapping, `GatewayModelException`, and `ModelRef`/`RouteNames`. Namespaces stay `Bazaar.Server.Gateway`, `.Ai` and `.Policy`. It references `Bazaar.Contracts` only. It is not marked AOT-compatible yet because the chat mapping uses reflection-based JSON. Step 2: `Bazaar.Server.Gateway` takes the rest of the folder (adapters, pipeline, health, usage, policy, providers, fakes, FreeLlmApi, AnthropicDirect), and `GatewaySettings` registers through the module instead of `SettingRegistry`.
 
 Step 2 is done: `Bazaar.Server.Gateway` references `Bazaar.Server` (it uses the secret resolver and setting types), `Bazaar.Server.Gateway.Abstractions` and `Bazaar.Contracts`; `Bazaar.Server` does not reference it. `GatewaySettings` is registered by the host (`SettingRegistry.Known.With(GatewaySettings.All)` in `SettingsComponent`); a caller that loads a setup plan with `gateway.*` keys must pass that registry. The gateway tests live in `tests/Bazaar.Server.Gateway.Tests`. Follow-ups: a shared gateway test-support project (two harness files are linked into `Bazaar.Server.Tests` for now), and AOT-clean JSON in the module.
-- **Hive Mind (copy flow, doc 25 WP7, doc 08 section 6):** `Bazaar.Server.Hive.Abstractions` (`IHiveGrantPolicy`, `LessonRef`, `HiveGrant`, `HiveKind`, `HiveCopyOutcome` and its refusal codes), `Bazaar.Server.Hive` (grant and ledger seams with in-memory stores, `HiveGrantPolicy`, the pure `HiveSanitizer`, `HiveCopyService` with the review window and revoke). It writes through `IMemoryBatchSink` and reads through `IHiveNoteReader`; it adds no files to `Bazaar.Server`. `PgHiveGrantStore` and `PgHiveLedger` back them in Postgres (migration namespace `hive`, files under `Sql/components/hive` in `Bazaar.Server.Hive`, tables `hive_grant`, `hive_held_copy`, `hive_copy`), and `HiveComponent` (id `hive`, soft dependencies `memory` and `vault`) registers them when an `NpgsqlDataSource` exists, otherwise the in-memory stores. Options bind from `Bazaar:Hive` (`ReviewDays`, `AllowedKinds`, `WriterAgentId`, `MaxCopyTier`, which may only be lowered). `HiveCopyService` resolves only once the memory and Vault components provide `IMemoryBatchSink` and `IHiveNoteReader`; those registrations are not in the host yet.
+- **Hive Mind (copy flow, doc 25 WP7, doc 08 section 6):** `Bazaar.Server.Hive.Abstractions` (`IHiveGrantPolicy`, `LessonRef`, `HiveGrant`, `HiveKind`, `HiveCopyOutcome` and its refusal codes), `Bazaar.Server.Hive` (grant and ledger seams with in-memory stores, `HiveGrantPolicy`, the pure `HiveSanitizer`, `HiveCopyService` with the review window and revoke). It writes through `IMemoryBatchSink` and reads through `IHiveNoteReader`; it adds no files to `Bazaar.Server`. `PgHiveGrantStore` and `PgHiveLedger` back them in Postgres (migration namespace `hive`, files under `Sql/components/hive` in `Bazaar.Server.Hive`, tables `hive_grant`, `hive_held_copy`, `hive_copy`), and `HiveComponent` (id `hive`, soft dependencies `memory` and `vault`) registers them when an `NpgsqlDataSource` exists, otherwise the in-memory stores. Options bind from `Bazaar:Hive` (`ReviewDays`, `AllowedKinds`, `WriterAgentId`, `MaxCopyTier`, which may only be lowered). The doc 08 keys `hive.grants` and `hive.allowed_kinds` are registered by `HiveSettingContribution` (`Bazaar.Server.Hive/Settings`, install scope, operator, audited by the settings store; defaults: no grants, procedure and failure). When the host has an `ISettingStore`, `SettingsHiveGrantStore` and `SettingsHiveKindSource` read them on every copy and settings win; the `Bazaar:Hive:AllowedKinds` option and the `hive_grant` table then serve only a host without a settings store. A technical-fact opt-in is held as Tier 2 (the framework has no Council tier). `HiveComponent` registers `MemoryVaultHiveNoteReader` as `IHiveNoteReader` over `IMemoryVault`: it reads `hive/**` copies only, as the maintenance principal through `IVaultAccess`, and answers null for any other path, a refusal or a missing file. `HiveCopyService` resolves once the memory component (`Memory:Vault:RepoPath` set) provides `IMemoryVault` and `IMemoryBatchSink`.
 
 ## GitHub module composition (doc 21)
 
@@ -242,10 +301,9 @@ The agent runtime (`Bazaar.Server/Agents`, 91 files) is split into two module pr
 
 `Bazaar.Server` references both projects. `tests/Bazaar.Server.Agents.Tests` holds the tests that need only moved code (136 tests, all passing without a database). The Postgres-backed tests and the ones that drive `TurnRunner`, `AgentTurnsComponent` or the responder stay in `tests/Bazaar.Server.Tests/Agents`, which also links `SchedulerFakes.cs` from the new test project.
 
-Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
+Still in `Bazaar.Server/Agents` (14 files), with the reason each one stays:
 
-- `Recovery/AgentLeaseRecoveryHandler.cs`: uses `IJobHandler` and `JobRecord` (`Bazaar.Server.Jobs`). Moves with the Jobs abstractions.
-- `Responder/AgentResponder.cs`, `Responder/AgentResponderService.cs`: use `IModelGateway` (`Bazaar.Server.Gateway`) and `IGcNotificationSource` (`Bazaar.Server.Wire.Sync`). Wire abstractions now exist (`Bazaar.Server.Wire.Abstractions`); moves with the Gateway abstractions.
+- `Recovery/AgentLeaseRecoveryHandler.cs`, `Responder/AgentResponder.cs` and `Responder/AgentResponderService.cs` have moved into `Bazaar.Server.Agents`, which now references the Jobs, Gateway and Wire abstractions. Their tests (`AgentResponder*Tests`) still sit in `tests/Bazaar.Server.Tests/Agents/Responder` with the Postgres-backed ones.
 - `Responder/AgentResponderServiceCollectionExtensions.cs`: registers the two classes above, so it stays with them.
 - `Responder/PgResponderGcStore.cs`: uses the internal `GcEnumText` in `Bazaar.Server.Gc`. Moves when that helper is public or moves to the GC abstractions.
 - `Turns/AgentTurnsComponent.cs`, `Turns/TurnRunner.cs`, `Turns/Runner/TurnRunner.cs`, `Turns/TurnRunAdapter.cs`: use `IModelGateway`, the mention and wire types, and `TurnRunner`. Move with the Gateway work.
@@ -266,9 +324,9 @@ Docs section this implements: this section (Souls extraction; the owner's direct
 
 `Bazaar.Server` references both projects. `tests/Bazaar.Server.Souls.Tests` holds the tests that need only moved code (162 tests, no database). The Postgres-backed tests (`SoulVersioningServiceTests`, the retirement ledger and soul-data tests), `GcLogJudgmentPosterTests` and the preset tests stay in `tests/Bazaar.Server.Tests/Souls`, which links `JudgmentFixtures.cs` and `RetirementFakes.cs` from the new test project.
 
-Still in `Bazaar.Server/Souls` (5 files), with the reason each one stays:
+Still in `Bazaar.Server/Souls` (2 files), with the reason each one stays:
 
-- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json`: `PresetLoader` uses `ModelRef` (`Bazaar.Server.Gateway.Policy`); the roster and exception depend on it. Move with the Gateway abstractions (`ModelRef` is a candidate for `Bazaar.Contracts`).
+- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json` have moved into `Bazaar.Server.Souls` (it now references `Bazaar.Server.Gateway.Abstractions` for `ModelRef`); the roster JSON is embedded in that assembly under the same logical name. Their tests moved to `tests/Bazaar.Server.Souls.Tests/Presets`.
 - `Judgments/GcLogJudgmentPoster.cs`: uses `IGcLogWriter` and the GC body codec (`Bazaar.Server.Gc.Write`, `Gc.Body`). Moves with the GC abstractions.
 - `Judgments/JudgmentServiceCollectionExtensions.cs`: registers `GcLogJudgmentPoster`, so it stays with it.
 
@@ -278,14 +336,20 @@ One code change besides the move: `JudgmentDecisionFile.Quote` now uses `JavaScr
 
 Docs section this implements: this section (doc 24 section 1, Company Constitution; the owner's direction to accelerate modularity transfer; Server-extraction rule #719).
 
-Decision: the Constitution is its own module pair, like Org and Calendar, not part of a shared "Company" module. Doc 24 lists four separate company systems, each with its own owning service, and Org and Calendar already extract as their own modules (PR #749). The Constitution has no dependency on either, so a shared `Bazaar.Server.Company` project would only couple them. The namespaces did not change (`Bazaar.Server.Company.Constitution.*`).
+Decision: the Constitution is its own module pair, like Org and Calendar, not part of a shared "Company" module. Doc 24 lists four separate company systems, each with its own owning service, and Org and Calendar extract as their own modules (the section below). The Constitution has no dependency on either, so a shared `Bazaar.Server.Company` project would only couple them. The namespaces did not change (`Bazaar.Server.Company.Constitution.*`).
 
 - `Bazaar.Server.Constitution.Abstractions`: `ConstitutionSection`, `ConstitutionDocument`, `ConstitutionChanged` (the `constitution.changed` event) and `ConstitutionSectionChanges` (the section diff that `ConstitutionChanged.FromDocuments` calls). It references `Bazaar.Contracts` only.
 - `Bazaar.Server.Constitution`: the acceptance check (`ConstitutionAcceptance`), the parser and its result types, the decision-link reader, `ConstitutionChangeNotice` and `ExcerptRefresh`. It references the Constitution and Agents abstractions (`InboxKind`, `InboxCandidate`), not `Bazaar.Server`.
 
 `Bazaar.Server` and `Bazaar.Server.Host` reference both. `tests/Bazaar.Server.Constitution.Tests` holds the 53 moved tests. All of these types are pure, so the module registers no `IBazaarComponent`.
 
-Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), with the reason each one stays:
+## Org Chart and Company Calendar modules (extraction from `Bazaar.Server/Org`, `Calendar` and `Company`)
 
-- `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
-- `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
+Docs section this implements: doc 24 sections 2 (Org Chart) and 4 (Company Calendar); the Server-extraction rule (#719). Decision 2026-11-22: each is its own module pair, as the Constitution section above says.
+
+- `Bazaar.Server.Calendar.Abstractions`: `CalendarKind`, `CalendarStatus`, `CalendarDraft`, `CalendarEventRecord`, `CalendarResult`, `CalendarPolicy`, `CalendarActor`, `ICalendarService` and `CalendarSettings` (the `calendar.*` setting keys, which `HostSettings` still aggregates). It references `Bazaar.Contracts` and `Bazaar.Server.Settings.Abstractions`.
+- `Bazaar.Server.Calendar`: `CalendarRepository`, `CalendarRules`, `CalendarService` (appends through `IGcLogWriter` from `Bazaar.GC.Abstractions`), `CalendarAvailabilityFeed` (moved from `Bazaar.Server/Company/Availability`; it reads `Bazaar.Server.WorkLife`) and `CalendarComponent` (id `calendar`, provides `feature:company-calendar`).
+- `Bazaar.Server.Org.Abstractions`: `OrgRelation`, `NewOrgRelation`, `OrgRelationKind`, `OrgSettings`.
+- `Bazaar.Server.Org`: `OrgRelationRepository`, `LoanRules`, `OrgRouting`, `OrgLoanService` and `OrgComponent` (id `org`, provides `feature:company-org`). Namespaces are now `Bazaar.Server.Org` and `Bazaar.Server.Org.Data` (the old `Bazaar.Server.Company.Org` and `Bazaar.Server.Company.Availability` namespaces are gone).
+- `CompanyComponent` is replaced by `CalendarComponent` and `OrgComponent`, both listed in `HostComponents`. The 15 moved files are off `architecture-baseline.txt`; `Bazaar.Server` has no `Calendar`, `Org` or `Company` folder.
+- Migrations `0017_calendar.sql` and `0018_org.sql` stay in `Bazaar.Server/Data/Sql` (one migration set, `MigrationNamespaceTests`). Tests moved to `tests/Bazaar.Server.Calendar.Tests` and `tests/Bazaar.Server.Org.Tests`.
