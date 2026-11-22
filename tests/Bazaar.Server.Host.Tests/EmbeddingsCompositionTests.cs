@@ -73,7 +73,9 @@ public sealed class EmbeddingsCompositionTests
         services.Replace(ServiceDescriptor.Singleton<IActiveEmbeddingSelector>(new StubSelector(null)));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Null(sp.GetService<IVaultQueryEmbedder>());
+        var embedder = Assert.IsType<ActiveVaultQueryEmbedder>(sp.GetRequiredService<IVaultQueryEmbedder>());
+        Assert.False(embedder.IsAvailable);
+        Assert.Equal(Guid.Empty, embedder.ProfileId);
     }
 
     [Fact]
@@ -85,8 +87,9 @@ public sealed class EmbeddingsCompositionTests
         services.Replace(ServiceDescriptor.Singleton<IActiveEmbeddingSelector>(new StubSelector(new ActiveEmbedding(profile, provider))));
         using var sp = services.BuildServiceProvider();
 
-        var embedder = Assert.IsType<VaultQueryEmbedder>(sp.GetService<IVaultQueryEmbedder>());
+        var embedder = sp.GetRequiredService<IVaultQueryEmbedder>();
 
+        Assert.True(embedder.IsAvailable);
         Assert.Equal(profile.ProfileId, embedder.ProfileId);
     }
 
@@ -97,7 +100,121 @@ public sealed class EmbeddingsCompositionTests
         services.Replace(ServiceDescriptor.Singleton<IActiveEmbeddingSelector>(new StubSelector(null, new EmbeddingProfileMismatchException("mismatch"))));
         using var sp = services.BuildServiceProvider();
 
-        Assert.Null(sp.GetService<IVaultQueryEmbedder>());
+        Assert.False(sp.GetRequiredService<IVaultQueryEmbedder>().IsAvailable);
+    }
+
+    [Fact]
+    public void The_switch_threshold_adapter_replaces_the_default_source()
+    {
+        var services = Compose(Config());
+
+        var source = Assert.Single(services, d => d.ServiceType == typeof(IEmbeddingSwitchSettingSource));
+
+        Assert.Equal(typeof(SettingStoreEmbeddingSwitchSettingSource), source.ImplementationType);
+    }
+
+    [Fact]
+    public async Task The_threshold_adapter_reads_the_setting_and_falls_back_to_the_default()
+    {
+        var store = new StubSettingStore();
+        var source = new SettingStoreEmbeddingSwitchSettingSource(store);
+
+        Assert.Equal(1.0m, await source.GetSwitchThresholdAsync(CancellationToken.None));
+
+        store.Threshold = 0.8m;
+        Assert.Equal(0.8m, await source.GetSwitchThresholdAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public void The_query_embedder_follows_an_activation_without_a_restart()
+    {
+        var first = Active();
+        var second = Active();
+        var selector = new SwitchableSelector(first);
+        var status = new StubStatus();
+        var embedder = new ActiveVaultQueryEmbedder(selector, status, TimeProvider.System);
+
+        Assert.Equal(first.Profile.ProfileId, embedder.ProfileId);
+
+        selector.Current = second;
+        Assert.Equal(first.Profile.ProfileId, embedder.ProfileId); // no activation seen yet, interval not elapsed
+
+        status.Snapshot = EmbeddingStatusSnapshot.Initial with { LastActivatedAt = DateTimeOffset.UnixEpoch.AddDays(1) };
+        Assert.Equal(second.Profile.ProfileId, embedder.ProfileId);
+        Assert.Equal(2, selector.Calls);
+    }
+
+    [Fact]
+    public void The_query_embedder_re_resolves_after_the_refresh_interval()
+    {
+        var selector = new SwitchableSelector(null);
+        var clock = new ManualTime();
+        var embedder = new ActiveVaultQueryEmbedder(selector, new StubStatus(), clock);
+
+        Assert.False(embedder.IsAvailable);
+
+        var active = Active();
+        selector.Current = active;
+        clock.Now += ActiveVaultQueryEmbedder.RefreshInterval;
+
+        Assert.True(embedder.IsAvailable);
+        Assert.Equal(active.Profile.ProfileId, embedder.ProfileId);
+    }
+
+    [Fact]
+    public async Task Embedding_with_no_active_profile_is_refused_so_search_never_calls_it()
+    {
+        var embedder = new ActiveVaultQueryEmbedder(new SwitchableSelector(null), new StubStatus(), TimeProvider.System);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => embedder.EmbedAsync("q", CancellationToken.None));
+    }
+
+    private static ActiveEmbedding Active()
+    {
+        var provider = new FakeEmbeddingProvider();
+        var profile = new EmbeddingProfile(Guid.NewGuid(), "fake", provider.Descriptor.ModelId, provider.Descriptor.Dimensions, DateTimeOffset.UnixEpoch, true);
+        return new ActiveEmbedding(profile, provider);
+    }
+
+    private sealed class SwitchableSelector(ActiveEmbedding? current) : IActiveEmbeddingSelector
+    {
+        public ActiveEmbedding? Current { get; set; } = current;
+
+        public int Calls { get; private set; }
+
+        public Task<ActiveEmbedding?> ResolveAsync(CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(Current);
+        }
+    }
+
+    private sealed class StubStatus : IEmbeddingStatus
+    {
+        public EmbeddingStatusSnapshot Snapshot { get; set; } = EmbeddingStatusSnapshot.Initial;
+
+        public Task<EmbeddingStatusSnapshot> GetAsync(CancellationToken cancellationToken) => Task.FromResult(Snapshot);
+    }
+
+    private sealed class ManualTime : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UnixEpoch;
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class StubSettingStore : ISettingStore
+    {
+        public decimal? Threshold { get; set; }
+
+        public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) =>
+            Task.FromResult(key.Name == EmbeddingSettings.SwitchThresholdKey.Name && Threshold is { } t ? (T)(object)t : key.Default);
+
+        public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<SettingWriteResult> SetJsonAsync(string key, System.Text.Json.JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     [Fact]
