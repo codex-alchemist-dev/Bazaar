@@ -178,6 +178,15 @@ internal sealed class RecordingDecisionWriter : ICouncilDecisionWriter
     }
 }
 
+/// <summary>Dissent-share source fake that serves one value, or the options default when none is set.</summary>
+internal sealed class FixedDissentShareSettings : ICouncilDissentShareSource
+{
+    public decimal? Share { get; set; }
+
+    public Task<decimal> GetFollowupDissentShareAsync(CancellationToken ct) =>
+        Task.FromResult(Share ?? new CouncilOptions().FollowupDissentShare);
+}
+
 /// <summary>Wires the fakes together and builds a service over them.</summary>
 internal sealed class CouncilHarness
 {
@@ -197,8 +206,10 @@ internal sealed class CouncilHarness
 
     public bool WithWriter { get; set; } = true;
 
+    public ICouncilDissentShareSource? Settings { get; set; }
+
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)
@@ -218,7 +229,8 @@ internal sealed class CouncilHarness
         string proposer = "ada",
         string? author = null,
         string? membershipSubject = null,
-        DateTimeOffset? deadline = null) =>
+        DateTimeOffset? deadline = null,
+        bool highImpact = false) =>
         new(
             SubjectRef: "task/42",
             Kind: kind,
@@ -228,7 +240,8 @@ internal sealed class CouncilHarness
             ProposerId: proposer,
             SubjectAuthorId: author,
             Deadline: deadline ?? Clock.Now.AddHours(100),
-            MembershipSubjectId: membershipSubject);
+            MembershipSubjectId: membershipSubject,
+            HighImpact: highImpact);
 
     /// <summary>The standard three-voter electorate: ada proposes, cal, dot and eve vote.</summary>
     public void AddThreeVoters()
