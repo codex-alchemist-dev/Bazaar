@@ -21,7 +21,11 @@ public static class ModuleHostServiceCollectionExtensions
         var list = manifests.ToList();
         services.TryAddSingleton<IModulePackageSource, NoModulePackages>();
         services.AddSingleton(sp => ActivatorUtilities.CreateInstance<ModuleActivationHost>(sp, (IEnumerable<ComponentManifest>)list));
+        services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton<IHostedService, ModuleActivationHostedService>();
+        // Registered after the activation service, so the first poll can only deactivate sets that are already in force.
+        services.AddSingleton<ModuleHealthPoller>();
+        services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<ModuleHealthPoller>());
         return services;
     }
 }

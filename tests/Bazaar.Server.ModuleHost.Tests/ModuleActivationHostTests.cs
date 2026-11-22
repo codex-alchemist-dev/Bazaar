@@ -17,13 +17,13 @@ public sealed class ModuleActivationHostTests
     private const string _publisher = "publisher-1";
     private static readonly DateTimeOffset _now = new(2026, 11, 22, 12, 0, 0, TimeSpan.Zero);
 
-    private sealed class Packages(params ModulePackage[] packages) : IModulePackageSource
+    internal sealed class Packages(params ModulePackage[] packages) : IModulePackageSource
     {
         public ValueTask<ModulePackage?> FindAsync(string moduleId, CancellationToken ct = default) =>
             ValueTask.FromResult(packages.FirstOrDefault(p => p.ModuleId == moduleId));
     }
 
-    private sealed class Store(params ModulePermissionApprovalRecord[] rows) : IModuleInstallStore
+    internal sealed class Store(params ModulePermissionApprovalRecord[] rows) : IModuleInstallStore
     {
         public Task RecordInstalledAsync(InstallAuditEntry entry, CancellationToken ct = default) => throw new NotSupportedException();
 
@@ -34,17 +34,17 @@ public sealed class ModuleActivationHostTests
             Task.FromResult<IReadOnlyList<ModulePermissionApprovalRecord>>(rows.Where(r => r.ModuleId == moduleId).ToList());
     }
 
-    private sealed class Signatures(Func<ModulePackage, ModuleSignatureStatus>? decide = null) : IModuleSignatureVerifier
+    internal sealed class Signatures(Func<ModulePackage, ModuleSignatureStatus>? decide = null) : IModuleSignatureVerifier
     {
         public ModuleSignatureStatus Verify(ModulePackage package) => decide?.Invoke(package) ?? ModuleSignatureStatus.Valid;
     }
 
-    private sealed class Owner(bool accept = true) : IOwnerApprovalVerifier
+    internal sealed class Owner(bool accept = true) : IOwnerApprovalVerifier
     {
         public bool Verify(ReadOnlySpan<byte> approvalForm, OwnerApprovalSignature signature) => accept;
     }
 
-    private sealed class NullSink : IModulePermissionDenialSink
+    internal sealed class NullSink : IModulePermissionDenialSink
     {
         public void Record(ModulePermissionDenial denial)
         {
@@ -54,11 +54,11 @@ public sealed class ModuleActivationHostTests
     private static ComponentManifest Manifest(string id, string[]? dependsOn = null) =>
         new(id, "1.0.0", ComponentKind.Feature, dependsOn ?? [], []);
 
-    private static ModulePackage Package(string id, params string[] declared) =>
+    internal static ModulePackage Package(string id, params string[] declared) =>
         new(id, "1.0.0", _publisher, new HashSet<string>(declared, StringComparer.Ordinal), new string('a', 64), "key-1",
             new HostRequirements(1, ["linux"], ["x64"], []), [1]);
 
-    private static ModulePermissionApprovalRecord Approval(string id, params string[] approved)
+    internal static ModulePermissionApprovalRecord Approval(string id, params string[] approved)
     {
         var form = ModuleApprovalForm.Build(id, "1.0.0", _publisher, approved);
         return new ModulePermissionApprovalRecord(id, "1.0.0", approved, Convert.ToHexStringLower(SHA256.HashData(form)), "owner-key", [1], "owner", _now);

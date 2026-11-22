@@ -14,7 +14,7 @@ public sealed class SetupComponentStepTests
     {
         var services = new ServiceCollection();
         services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none"));
-        services.AddSingleton(Bazaar.Server.Settings.SettingRegistry.Known);
+        services.AddSingleton(Bazaar.Server.Settings.BuiltInSettingRegistries.Known);
         component.AddServices(services, new ConfigurationBuilder().Build());
         return services.BuildServiceProvider();
     }

@@ -132,6 +132,12 @@ public sealed partial class ServerGitGuiClient(IGitHttpTransport transport) : IG
 
     private readonly IGitHttpTransport _transport = transport ?? throw new ArgumentNullException(nameof(transport));
 
+    public async Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default)
+    {
+        var body = await GetOkAsync("git/repos", cancellationToken).ConfigureAwait(false);
+        return Parse(body, GitReadContractsJsonContext.Default.GitRepoDtoArray);
+    }
+
     public async Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default)
     {
         var root = RepoRoot(provider, repo);
