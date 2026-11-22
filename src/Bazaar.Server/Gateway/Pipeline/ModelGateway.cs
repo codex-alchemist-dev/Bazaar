@@ -301,6 +301,7 @@ public sealed class ModelGateway : IModelGateway
                     Capabilities = CapabilitiesOf(row?.CapsJson),
                     ContextWindowTokens = ContextWindowOf(row?.CapsJson),
                     Signals = SignalsOf(candidate, provider),
+                    Price = PriceOf(candidate.Model),
                 });
             }
 
@@ -336,6 +337,12 @@ public sealed class ModelGateway : IModelGateway
             return route.Candidates;
         }
     }
+
+    /// <summary>The dated price in force, as a ranking hint only (money budgets are rejected). Null when no table or no entry.</summary>
+    private EndpointPrice? PriceOf(ModelRef model) =>
+        _prices?.Lookup(model.ProviderId, model.ModelId, _time.GetUtcNow()) is { } p
+            ? new EndpointPrice((double)p.InputPerMillion, (double)p.OutputPerMillion, (double)(p.CacheReadPerMillion ?? 0))
+            : null;
 
     /// <summary>Breaker and quota facts for the candidate's key, from the gateway's own trackers.</summary>
     private ExternalSignals SignalsOf(RouteCandidate candidate, GwProvider? provider)

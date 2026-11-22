@@ -154,4 +154,22 @@ public class EndpointSelectionGatewayTests
         Assert.IsType<ModelEvent.Done>(events[^1]);
         Assert.Empty(h.Adapter("b").Endpoints);
     }
+
+    [Fact]
+    public async Task The_price_table_feeds_the_cost_factor()
+    {
+        var h = new GatewayHarness();
+        var prices = new Bazaar.Server.Gateway.Usage.PriceTable("t", [
+            new Bazaar.Server.Gateway.Usage.PriceEntry("a", "m", new DateOnly(2026, 1, 1), 15m, 75m),
+            new Bazaar.Server.Gateway.Usage.PriceEntry("b", "m", new DateOnly(2026, 1, 1), 1m, 5m)]);
+        var stats = new EndpointStatsTracker(time: h.Clock);
+        var ranker = new ProfileBoundRanker(new EndpointSelector(stats, time: h.Clock, random: new SeededSelectionRandom(2)));
+        await ranker.BindAsync("r", SelectionProfiles.Cost, _ct);
+        h.Adapter("a").Provider.EnqueueCall(GatewayHarness.Reply());
+        h.Adapter("b").Provider.EnqueueCall(GatewayHarness.Reply());
+
+        await GatewayHarness.CollectAsync(h.Gateway(prices: prices, ranker: ranker, stats: stats).CallAsync(GatewayHarness.Request(), _ct), _ct);
+
+        Assert.Equal("b", Assert.Single(h.Usage.Records).ProviderId);
+    }
 }

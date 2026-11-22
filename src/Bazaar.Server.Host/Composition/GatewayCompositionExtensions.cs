@@ -105,12 +105,23 @@ public static class GatewayCompositionExtensions
             sp.GetRequiredService<IProviderSecretSource>(),
             sp.GetRequiredService<HealthTracker>(),
             sp.GetRequiredService<UsageRecorder>(),
+            prices: LoadPriceTable(sp),
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
             scrubber: sp.GetRequiredService<SecretScrubber>(),
             ranker: sp.GetRequiredService<ICandidateRanker>(),
             selectionStats: sp.GetRequiredService<IEndpointStatsTracker>())));
         return services;
+    }
+
+    /// <summary>
+    /// The dated price table from the file named by <c>Bazaar:Gateway:PriceTable:Path</c>, or null when none is set. Used for
+    /// usage cost and as a ranking hint for endpoint selection (docs/design/92). A set but unreadable file fails the start.
+    /// </summary>
+    private static PriceTable? LoadPriceTable(IServiceProvider sp)
+    {
+        var path = sp.GetService<IConfiguration>()?["Bazaar:Gateway:PriceTable:Path"];
+        return string.IsNullOrWhiteSpace(path) ? null : PriceTableLoader.Parse(File.ReadAllText(path));
     }
 
     /// <summary>
