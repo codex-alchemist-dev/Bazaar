@@ -36,13 +36,9 @@ public sealed class TalentToolGrantRoutesTests : IAsyncLifetime
         builder.Services.AddSingleton<ITalentTemplateStore>(_store);
         builder.Services.AddSingleton<IHireDecisionStore>(_hires);
         builder.Services.AddSingleton(TimeProvider.System);
-        builder.Services.AddSingleton<ITalentModelWhitelist, AllowAll>();
         builder.Services.AddSingleton<ITalentToolGrantApproval>(_recorder);
         builder.Services.AddSingleton<IToolGrantRecorder>(_recorder);
-        builder.Services.AddSingleton<ITalentInstantiator, NoInstantiator>();
-        builder.Services.AddSingleton<IHireGate, NoGate>();
         builder.Services.AddSingleton<IOwnerSignatureVerifier>(new OwnerSignatureVerifier(keys, new InMemoryOwnerNonceStore()));
-        builder.Services.AddSingleton<ITalentPool>(sp => new TalentPoolService(_store, sp.GetRequiredService<IHireGate>(), _hires, new AllowAll(), _recorder, new NoInstantiator(), TimeProvider.System));
         builder.Services.AddSingleton<TalentToolGrantApprover>();
 
         _app = builder.Build();
@@ -177,22 +173,6 @@ public sealed class TalentToolGrantRoutesTests : IAsyncLifetime
         public List<string> Recorded { get; } = [];
         public Task<bool> IsApprovedAsync(string hireKey, IReadOnlyList<string> tools, CancellationToken ct) => Task.FromResult(Approved);
         public Task RecordAsync(string hireKey, IReadOnlyList<string> tools, string approvedBy, CancellationToken ct) { Recorded.Add(hireKey); return Task.CompletedTask; }
-    }
-
-    private sealed class AllowAll : ITalentModelWhitelist
-    {
-        public ValueTask<bool> IsAllowedAsync(string model, CancellationToken cancellationToken) => ValueTask.FromResult(true);
-    }
-
-    private sealed class NoInstantiator : ITalentInstantiator
-    {
-        public Task<string> CreateAgentAsync(TalentTemplate candidate, string actorId, CancellationToken ct) => Task.FromResult("agent");
-    }
-
-    private sealed class NoGate : IHireGate
-    {
-        public Task<HireVoteState> RequestAsync(HireRequest request, CancellationToken ct) => throw new NotSupportedException();
-        public Task<bool> IsReleasedAsync(string templateId, CancellationToken ct) => Task.FromResult(false);
     }
 
     private sealed class Keys(OwnerDeviceKey key) : IOwnerKeyRegistry

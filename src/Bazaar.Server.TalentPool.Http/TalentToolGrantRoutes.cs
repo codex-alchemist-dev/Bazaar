@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Bazaar.Approvals;
+using Bazaar.Server.Council.Hiring;
 using Bazaar.Server.TalentPool.Component;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -60,14 +61,16 @@ public static class TalentToolGrantRoutes
 
     internal static async Task<IResult> PendingAsync(HttpContext http)
     {
-        var pool = http.RequestServices.GetRequiredService<ITalentPool>();
+        // Reads the store and the hire state directly: listing pending grants must not need the Council service (the host wires it later).
+        var templates = http.RequestServices.GetRequiredService<ITalentTemplateStore>();
+        var hires = http.RequestServices.GetRequiredService<IHireDecisionStore>();
         var approvals = http.RequestServices.GetRequiredService<ITalentToolGrantApproval>();
         var ct = http.RequestAborted;
         var cards = new List<ToolGrantCardDto>();
-        foreach (var view in await pool.ListAsync(ct).ConfigureAwait(false))
+        foreach (var t in await templates.ListLatestAsync(ct).ConfigureAwait(false))
         {
-            var t = view.Template;
-            if (view.Standing != TemplateStanding.Released || t.Manifest.ToolAllowlist.Count == 0)
+            if (t.Manifest.ToolAllowlist.Count == 0
+                || await hires.FindAsync(t.HireKey, ct).ConfigureAwait(false) is not { Status: HireStatus.Released })
             {
                 continue;
             }
