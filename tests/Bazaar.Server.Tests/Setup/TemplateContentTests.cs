@@ -144,7 +144,7 @@ public sealed class TemplateContentTests
     [Fact]
     public void No_setting_name_in_the_registry_is_on_the_deny_list()
     {
-        var denied = SettingRegistry.Known.Definitions
+        var denied = BuiltInSettingRegistries.Known.Definitions
             .Where(definition => TemplateContentRules.KeyCategory(definition.Name) is not null)
             .Select(definition => definition.Name)
             .ToList();
