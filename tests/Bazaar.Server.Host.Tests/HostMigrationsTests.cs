@@ -65,4 +65,24 @@ public sealed class HostMigrationsTests
         var files = source.Load("agents");
         Assert.Contains(files, f => f.Version == 1 && f.Name == "agent_first_run_seeds");
     }
+
+    [Fact]
+    public void Github_namespace_is_read_from_the_github_module_at_version_1()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("github", source.Namespaces());
+        var files = source.Load("github");
+        Assert.Contains(files, f => f.Version == 1 && f.Name == "github_tables");
+    }
+
+    [Fact]
+    public void Gc_namespace_registers_the_pr_event_kind_after_common()
+    {
+        var source = HostMigrations.Source();
+
+        var files = source.Load("gc");
+        var file = Assert.Single(files, f => f.Name == "gc_event_kind_pr_event");
+        Assert.Contains("'pr_event'", file.Sql);
+    }
 }

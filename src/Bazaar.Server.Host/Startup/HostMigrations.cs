@@ -17,7 +17,7 @@ namespace Bazaar.Server.Host.Startup;
 /// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Setup, Setup first-run, Agents), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
-    /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents and Portability migrations, read from their assemblies.</summary>
+    /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents, Portability and GitHub migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
@@ -31,5 +31,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
         new ComponentMigrationSource(typeof(PostgresFirstRunStore).Assembly),
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
-        new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly));
+        new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly));
 }
