@@ -70,9 +70,10 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
         {
             File.Delete(Real(path));
         }
-        catch (IOException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // The temp file is removed with the directory in Dispose.
+            // The temp file is removed with the directory in Dispose. On Windows a file that is still open elsewhere, or already
+            // marked for deletion, refuses the delete with "access denied" rather than an IOException.
         }
     }
 
@@ -82,7 +83,7 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
         {
             System.IO.Directory.Delete(_root, recursive: true);
         }
-        catch (IOException)
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
             // Best effort.
         }
