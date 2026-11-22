@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
-using Bazaar.Server.Security.Audit;
 using Bazaar.Server.SealedStorage;
+using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
