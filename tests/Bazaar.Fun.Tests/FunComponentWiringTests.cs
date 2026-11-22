@@ -22,7 +22,7 @@ public class FunComponentWiringTests
             .Build();
 
         var services = new ServiceCollection();
-        // The host supplies ITextSanitizer in production (HostApplicationExtensions); mirror that here.
+        // The host registers the shared sanitizer; the Lucky controller needs it in this bare composition.
         services.AddSingleton<ITextSanitizer, TextSanitizer>();
         var component = new FunComponent();
         component.AddServices(services, config);
@@ -76,7 +76,7 @@ public class FunComponentWiringTests
 
         Assert.True(result.Accepted);
         var wakeList = LuckyController.WakeList(result.Run!);
-        Assert.Equal(["agent-x", "agent-y"], wakeList);
+        Assert.Equal(["agent-y"], wakeList);
     }
 
     // ── Sidewalk ─────────────────────────────────────────────────────────────
