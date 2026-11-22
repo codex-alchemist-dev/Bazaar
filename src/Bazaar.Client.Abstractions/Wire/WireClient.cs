@@ -47,6 +47,9 @@ public sealed class WireClient(
     /// <summary>Raised on the receive loop for each typing delta (<c>presence.update</c> of kind <c>typing</c>). The same rules apply to handlers.</summary>
     public event Action<PresenceTyping>? TypingReceived;
 
+    /// <summary>Raised on the receive loop for each agent presence delta (<c>presence.update</c> of kind <c>agent</c>). The same rules apply to handlers.</summary>
+    public event Action<PresenceUpdate>? PresenceUpdateReceived;
+
     /// <summary>
     /// Raised on the receive loop after each connection is established and its streams are subscribed, the first one included. State
     /// that is not replayed (reactions) is fetched again here. Handlers must hand the work off, not await a request inline.
@@ -124,13 +127,12 @@ public sealed class WireClient(
     }
 
     /// <summary>
-    /// Sends a request whose payload the caller already encoded in this client's codec, optionally on a stream, and waits for the
-    /// <c>ok</c> (the answer's payload, if any, is not read). For features that own their payload type outside the registered
-    /// wire payloads. Resend and idempotency are as for <see cref="RequestAsync{TRequest, TResponse}"/>.
+    /// Sends a request on a stream and waits for the <c>ok</c> (the answer's payload, if any, is not read), for messages whose answer
+    /// carries nothing. Resend and idempotency are as for <see cref="RequestAsync{TRequest, TResponse}"/>.
     /// </summary>
     /// <exception cref="WireRequestException">The server answered with an error.</exception>
-    public async Task SendRawRequestAsync(string type, string? stream, ReadOnlyMemory<byte> encodedPayload, CancellationToken cancellationToken = default) =>
-        await RequestCoreAsync(type, stream, encodedPayload, cancellationToken).ConfigureAwait(false);
+    public async Task SendRequestAsync<TRequest>(string type, string? stream, TRequest payload, CancellationToken cancellationToken = default) =>
+        await RequestCoreAsync(type, stream, codec.EncodePayload(payload), cancellationToken).ConfigureAwait(false);
 
     private async Task<Envelope> RequestCoreAsync(string type, string? stream, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
@@ -321,8 +323,9 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.PresenceUpdate):
                 var presence = codec.DecodePayload<PresenceTyping>(env);
-                // Other kinds of presence delta share this type; only typing is read here, the rest are ignored.
+                // Other kinds of presence delta share this type; typing and agent rows are read here, the rest are ignored.
                 if (presence.Kind == PresenceKinds.Typing) TypingReceived?.Invoke(presence);
+                else if (presence.Kind == PresenceKinds.Agent) PresenceUpdateReceived?.Invoke(codec.DecodePayload<PresenceUpdate>(env));
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.

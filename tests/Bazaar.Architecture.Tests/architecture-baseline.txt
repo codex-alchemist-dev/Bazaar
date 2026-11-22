@@ -49,10 +49,6 @@ src/Bazaar.Server/Constellation/Tiles/LayoutTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/QuadtreeTileBuilder.cs
 src/Bazaar.Server/Constellation/Tiles/TileFrameBinaryCodec.cs
 src/Bazaar.Server/Constellation/Tiles/VaultGraphSource.cs
-src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
-src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
-src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs
-src/Bazaar.Server/Email/Quarantine/QuarantineReason.cs
 src/Bazaar.Server/Gc/Body/AesGcmGcBodyCodec.cs
 src/Bazaar.Server/Gc/Body/PersonKeyStore.cs
 src/Bazaar.Server/Gc/Body/PlaintextGcBodyCodec.cs
@@ -114,10 +110,6 @@ src/Bazaar.Server/Knowledge/Archive/ArchiveChapterRenderer.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveModel.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveVaultWriter.cs
-src/Bazaar.Server/Mail/MailComponent.cs
-src/Bazaar.Server/Mail/Parsing/MailLimits.cs
-src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
-src/Bazaar.Server/Mail/Parsing/ParsedMail.cs
 src/Bazaar.Server/Memory/Access/IVaultAccess.cs
 src/Bazaar.Server/Memory/Access/VaultPathAccess.cs
 src/Bazaar.Server/Memory/Consolidation/ConsolidationOptions.cs
@@ -176,10 +168,7 @@ src/Bazaar.Server/Memory/Write/MemoryCommitMessage.cs
 src/Bazaar.Server/Memory/Write/MemoryCommitResult.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteItem.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteQueue.cs
-src/Bazaar.Server/Mentions/HandleSlug.cs
-src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Providers/Linux/LinuxProviders.cs
-src/Bazaar.Server/Sanitization/TextSanitizer.cs
 src/Bazaar.Server/Settings/ConstellationSettings.cs
 src/Bazaar.Server/Settings/FloorCheckingSettingStore.cs
 src/Bazaar.Server/Settings/HostSettingValues.cs
@@ -192,9 +181,3 @@ src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
 src/Bazaar.Server/Settings/SecuritySettings.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
-src/Bazaar.Server/Verification/GateModel.cs
-src/Bazaar.Server/Verification/GitRepo.cs
-src/Bazaar.Server/Verification/PathRules.cs
-src/Bazaar.Server/Verification/ProcessRunner.cs
-src/Bazaar.Server/Verification/TestCounter.cs
-src/Bazaar.Server/Verification/VerificationGate.cs
