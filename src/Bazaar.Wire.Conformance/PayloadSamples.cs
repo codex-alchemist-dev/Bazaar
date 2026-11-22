@@ -59,6 +59,8 @@ public static class PayloadSamples
     private static readonly DateTimeOffset _local = new(2026, 11, 19, 7, 36, 12, TimeSpan.FromHours(2));
     private static readonly string _text = "h\u00e9llo \U0001F642 \"quoted\" \\ \u2028 end";
 
+    private static readonly WirePresenceRow _presenceRow = new(_author, 4, "OnShift", ["Throttled", "Idle"], "thinking", "ModelCall", _gc, _other, "planning the release", _at, _at);
+
     private static readonly WireGcMessage _message = new(_gc, 12, 40, _other, _author, _text, _at, true, [_author, _other], 7);
 
     /// <summary>Every sample, in a stable order.</summary>
@@ -89,6 +91,7 @@ public static class PayloadSamples
         Of("minimal", new Welcome(1, 0, "json", _author, _local, 25, 60, new WireLimits(1, 2, 3), [], 0, null, null), WireTypes.Welcome),
         Of(null, new Subscribe([new StreamCursor("gc:" + _gc, long.MaxValue, 0), new StreamCursor("ui", 0, long.MinValue + 1)]), WireTypes.Subscribe),
         Of(null, new Unsubscribe(["gc:" + _gc, "presence"]), WireTypes.Unsubscribe),
+        Of(null, new PaneFrame("{\"t\":\"output\",\"terminalId\":\"t1\",\"seq\":1,\"bytes\":\"aGk=\"}"), WireTypes.PaneFrame),
         Of(null, new SubscribeResult([new StreamResult("gc:" + _gc, "ok"), new StreamResult("ui", "denied")])),
         Of(null, new Resync("gc:" + _gc, 99, 120, 3, [_message, _message with { Edited = false, ReplyToN = null, Mentions = [] }]), WireTypes.Resync),
         Of(null, new Lagged("gc:" + _gc, 41), WireTypes.Lagged),
@@ -113,9 +116,15 @@ public static class PayloadSamples
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
+        Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
+        Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",
             [new ReleaseArtifact("linux", "linux-x64", "tar.gz", "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz", 1024,
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "Bazaar-0.1.0-linux-x64.tar.gz.sha256", "Bazaar-0.1.0-linux-x64.tar.gz.asc")])),
+        Of(null, new PresenceTyping(PresenceKinds.Typing, _gc, _author, true, 5000), WireTypes.PresenceUpdate),
+        Of(null, new PresenceUpdate(PresenceKinds.Agent, _author, 4, _presenceRow), WireTypes.PresenceUpdate),
+        Of(null, new PresenceSnapshotRequest(), WireTypes.PresenceSnapshot),
+        Of(null, new PresenceSnapshot([_presenceRow, _presenceRow with { AgentId = _other, Revision = 1, Overlays = [], GcId = null, TurnId = null, Label = null }])),
         Of(null, new RyuseiTriggerChangeRequest(_gc), WireTypes.RyuseiPause),
         Of(null, new RyuseiTriggerChangeReply(_gc, 4)),
         Of(null, new RyuseiTriggerListRequest(_gc), WireTypes.RyuseiList),

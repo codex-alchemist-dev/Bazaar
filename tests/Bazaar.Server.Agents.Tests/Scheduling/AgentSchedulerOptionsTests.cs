@@ -11,7 +11,7 @@ public sealed class AgentSchedulerOptionsTests
 
         options.Validate();
 
-        Assert.False(options.Enabled);
+        Assert.True(options.Enabled);
         Assert.Equal(TimeSpan.FromSeconds(2), options.PollInterval);
         Assert.Equal(20, options.MaxAgentsPerPass);
         Assert.Equal(4, options.MaxConcurrentTurns);

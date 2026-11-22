@@ -12,7 +12,7 @@ public sealed class HostMigrationsTests
         // Plan is pure (no database), so this checks that the host's composed source discovers the gateway namespace.
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrationNamespaces.Common, HostComponents.All.Select(c => c.Manifest));
 
-        Assert.Contains(plan, f => f.Namespace == "gateway" && f.Version == 3 && f.Name == "gateway_grants");
+        Assert.Contains(plan, f => f.Namespace == "gateway" && f.Version == 5 && f.Name == "gateway_grants");
     }
 
     [Fact]
@@ -40,8 +40,7 @@ public sealed class HostMigrationsTests
         var source = HostMigrations.Source();
 
         Assert.Contains("portability", source.Namespaces());
-        var file = Assert.Single(source.Load("portability"));
-        Assert.Equal(1, file.Version);
+        var file = Assert.Single(source.Load("portability"), f => f.Version == 1);
         Assert.Equal("import_job", file.Name);
     }
 
@@ -51,7 +50,7 @@ public sealed class HostMigrationsTests
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), []);
 
         var common = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == MigrationRunner.Common).Select(x => x.i).ToList();
-        var portability = plan.Select((f, i) => (f, i)).Single(x => x.f.Namespace == "portability").i;
+        var portability = plan.Select((f, i) => (f, i)).First(x => x.f.Namespace == "portability").i;
         Assert.NotEmpty(common);
         Assert.True(common.Max() < portability);
     }

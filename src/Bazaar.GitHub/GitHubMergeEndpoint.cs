@@ -3,6 +3,7 @@ using Bazaar.Approvals;
 using Bazaar.Contracts.Git;
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
+using Bazaar.GitHub.Webhooks;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -31,6 +32,7 @@ public static class GitHubMergeEndpoint
         ArgumentNullException.ThrowIfNull(routes);
         ArgumentNullException.ThrowIfNull(guarded);
         routes.MapPost("/github/merge", (Func<HttpContext, Task<IResult>>)(http => guarded(http, MergeAsync)));
+        routes.MapBazaarGitHubWebhook();
         return routes;
     }
 
