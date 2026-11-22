@@ -46,6 +46,27 @@ public sealed class EngineRelayComponentTests
         Assert.True(await new TaintedEngineSessionReader().IsHardTaintedAsync(Guid.NewGuid(), null, TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task Supplied_seams_win_over_the_fail_closed_defaults_whatever_the_order()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IWireConnectionDirectory>(new EmptyDirectory());
+        new EngineRelayComponent().AddServices(services, new ConfigurationBuilder().Build());
+        // Registered after the relay component: still used.
+        services.AddSingleton<IEngineGrantReader>(new AllowAll());
+        using var provider = services.BuildServiceProvider();
+
+        Assert.NotNull(provider.GetRequiredService<EngineToolDispatcher>());
+        Assert.IsType<AllowAll>(provider.GetRequiredService<IEngineGrantReader>());
+        await Task.CompletedTask;
+    }
+
+    private sealed class AllowAll : IEngineGrantReader
+    {
+        public ValueTask<bool> CoversAsync(Guid agentId, string adapterId, string toolName, RiskClass riskClass, string grantId, CancellationToken ct) =>
+            ValueTask.FromResult(true);
+    }
+
     private sealed class EmptyDirectory : IWireConnectionDirectory
     {
         public IReadOnlyCollection<IWireConnection> Connections { get; } = [];

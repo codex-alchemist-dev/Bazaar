@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526.
+; Schema hash sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -27,6 +27,7 @@ float32-array = #6.85(bstr)
 ; engine.relay.result = engine-relay-result-frame
 ; gc.edit = gc-edit
 ; gc.history = gc-history
+; gc.list = gc-list-request
 ; gc.member.add = gc-member-add
 ; gc.member.remove = gc-member-remove
 ; gc.message = wire-gc-message
@@ -56,7 +57,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-list-item / gc-list-reply / gc-list-request / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 engine-grant-verify-reply = {
   covers: bool,  ; 1
@@ -464,6 +465,26 @@ gc-history = {
   gcId: uuid-text,  ; 1
   before: int,  ; 2
   limit: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+gc-list-item = {
+  gcId: uuid-text,  ; 1
+  title: tstr,  ; 2
+  kind: tstr,  ; 3
+  memberCount: -2147483648..2147483647,  ; 4
+  headSeq: int,  ; 5
+  ? lastActivityTs: #6.0(tstr),  ; 6
+  * tstr => any
+}
+gc-list-reply = {
+  items: [* gc-list-item],  ; 1
+  hasMore: bool,  ; 2
+  ? defaultGcId: uuid-text,  ; 3
+  * tstr => any
+}
+gc-list-request = {
+  limit: -2147483648..2147483647,  ; 1
+  ? includeThinking: bool,  ; 2
   * tstr => any
 }
 gc-member-add = {

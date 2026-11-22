@@ -52,7 +52,8 @@ public sealed record ToolDispatchRequest(
     TurnRole Role,
     ModelToolCall Call,
     bool Idempotent,
-    int ChainDepth = 0);
+    int ChainDepth = 0,
+    string? GcId = null);
 
 /// <summary>The result of one dispatch. <see cref="ResultJson"/> is set only for <see cref="ToolDispatchOutcome.Executed"/>.</summary>
 public sealed record ToolDispatchResult(ToolDispatchOutcome Outcome, string? ResultJson = null, string? Reason = null);

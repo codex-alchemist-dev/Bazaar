@@ -15,6 +15,19 @@ public class StreamGateSubscriptionTests
             ValueTask.FromResult(principalKind != PrincipalKind.Agent);
     }
 
+    private sealed class OpeningGate(string stream, bool nothing = false) : IStreamGate
+    {
+        private int _opened;
+
+        public string Stream => stream;
+
+        public ValueTask<bool> CanSubscribeAsync(Guid principalId, PrincipalKind principalKind, CancellationToken ct) =>
+            ValueTask.FromResult(principalKind != PrincipalKind.Agent);
+
+        public ValueTask<StreamOpening?> OpenAsync(Guid principalId, PrincipalKind principalKind, CancellationToken ct) =>
+            ValueTask.FromResult<StreamOpening?>(nothing ? null : new StreamOpening("opening.test", System.Text.Encoding.UTF8.GetBytes($"open-{++_opened}")));
+    }
+
     private static SubscriptionEngine EngineWith(SyncHarness h, params IStreamGate[] gates) =>
         new(h.Log, h.Log, h.Dispatcher, h.Options, null, null, gates);
 
@@ -75,5 +88,35 @@ public class StreamGateSubscriptionTests
         using var c = new SyncHarness.Connection(EngineWith(h, new HumansOnlyGate("other")), SyncHarness.Alice, 50, paused: false);
 
         Assert.Equal(SubscribeStatuses.Denied, await SubscribeAsync(c, WireStreams.Presence));
+    }
+
+    [Fact]
+    public async Task A_gate_opening_event_follows_the_subscribe_and_is_sent_again_on_resubscribe()
+    {
+        using var h = new SyncHarness();
+        using var c = new SyncHarness.Connection(EngineWith(h, new OpeningGate("s1")), SyncHarness.Alice, 50, paused: false);
+
+        Assert.Equal(SubscribeStatuses.Ok, await SubscribeAsync(c, "s1"));
+        Assert.Equal(SubscribeStatuses.Ok, await SubscribeAsync(c, "s1"));
+
+        var frames = c.Of("opening.test");
+        Assert.Equal(2, frames.Count);
+        Assert.All(frames, f => Assert.Equal("s1", f.S));
+        Assert.Equal(["open-1", "open-2"], frames.Select(f => System.Text.Encoding.UTF8.GetString(f.P.Span)));
+        Assert.Equal(["s1"], c.Session.Streams);
+    }
+
+    [Fact]
+    public async Task A_gate_with_no_opening_sends_nothing_and_a_denied_gate_never_opens()
+    {
+        using var h = new SyncHarness();
+        using var quiet = new SyncHarness.Connection(EngineWith(h, new OpeningGate("s1", nothing: true)), SyncHarness.Alice, 50, paused: false);
+        using var agent = new SyncHarness.Connection(EngineWith(h, new OpeningGate("s1")), SyncHarness.Alice, 50, paused: false, PrincipalKind.Agent);
+
+        Assert.Equal(SubscribeStatuses.Ok, await SubscribeAsync(quiet, "s1"));
+        Assert.Equal(SubscribeStatuses.Denied, await SubscribeAsync(agent, "s1"));
+
+        Assert.Empty(quiet.Frames);
+        Assert.Empty(agent.Frames);
     }
 }

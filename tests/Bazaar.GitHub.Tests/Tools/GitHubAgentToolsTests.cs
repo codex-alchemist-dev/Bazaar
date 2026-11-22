@@ -51,6 +51,11 @@ public sealed class GitHubAgentToolsTests
         public Task<GitHubToken> GetTokenAsync(GitHubTokenScope scope, CancellationToken cancellationToken) => Task.FromResult(new GitHubToken("t", DateTimeOffset.MaxValue));
     }
 
+    private sealed class AllowAll : Bazaar.RateLimits.IRateLimiter
+    {
+        public Bazaar.RateLimits.RateLimitDecision TryAcquire(Bazaar.RateLimits.RateLimitPolicy policy, string scopeKey) => new(true, 1, TimeSpan.Zero);
+    }
+
     private sealed class Installs(long? id) : IGitHubAgentInstallations
     {
         public List<Guid> Asked { get; } = [];
@@ -73,7 +78,7 @@ public sealed class GitHubAgentToolsTests
     {
         var adapter = new FakeAdapter();
         var installs = new Installs(installation);
-        return (new GitHubPrReviewTool(adapter, tokens ?? new Tokens(), installs), adapter, installs);
+        return (new GitHubPrReviewTool(adapter, tokens ?? new Tokens(), installs, new AllowAll(), new GitHubAgentToolsOptions()), adapter, installs);
     }
 
     [Fact]

@@ -12,7 +12,7 @@ namespace Bazaar.Server.EngineRelay;
 /// <summary>
 /// Host composition of the engine relay [PROPOSED] (docs/design/02 stream registry, 20, 40 section 4b item 4). Registers the wire
 /// adapters, the <c>engine.relay</c> stream gate, the dispatcher and the relay broker. Every seam the host has not supplied yet
-/// (grant reader, taint reader, GC recorder, audit log) gets a fail-closed default, so until the Engines module and the GC recorder
+/// (grant reader, taint reader, GC recorder, audit log) gets a fail-closed default at resolve time, whatever the component order, so until the Engines module and the GC recorder
 /// are composed no relayed call is allowed. Setting: <c>Engine:Relay:TimeoutSeconds</c> (<c>engine.relay.timeout_seconds</c>).
 /// </summary>
 public sealed class EngineRelayComponent : IBazaarComponent
@@ -33,13 +33,10 @@ public sealed class EngineRelayComponent : IBazaarComponent
 
         services.AddBazaarEngineRelay();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IStreamGate, EngineRelayStreamGate>());
-        services.TryAddSingleton<IEngineGrantReader, DenyingEngineGrantReader>();
-        services.TryAddSingleton<ISessionTaintReader, TaintedEngineSessionReader>();
-        services.TryAddSingleton<IEngineGcRecorder, FailingEngineGcRecorder>();
         services.TryAddSingleton(sp => new EngineToolDispatcher(
-            sp.GetRequiredService<IEngineGrantReader>(),
-            sp.GetRequiredService<ISessionTaintReader>(),
-            sp.GetRequiredService<IEngineGcRecorder>(),
+            sp.GetService<IEngineGrantReader>() ?? new DenyingEngineGrantReader(),
+            sp.GetService<ISessionTaintReader>() ?? new TaintedEngineSessionReader(),
+            sp.GetService<IEngineGcRecorder>() ?? new FailingEngineGcRecorder(),
             sp.GetService<IAuditLog>() ?? new FailingAuditLog(),
             time: sp.GetService<TimeProvider>()));
         services.TryAddSingleton(new EngineRelayOptions
