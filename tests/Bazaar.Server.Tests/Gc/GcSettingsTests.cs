@@ -31,8 +31,8 @@ public sealed class GcSettingsTests
     [Fact]
     public void Both_gc_keys_are_registered_in_the_known_settings()
     {
-        Assert.True(SettingRegistry.Known.TryGet("gc.invite_policy", out var invite));
-        Assert.True(SettingRegistry.Known.TryGet("gc.edit_window_hours", out var window));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("gc.invite_policy", out var invite));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("gc.edit_window_hours", out var window));
         Assert.Same(GcSettings.InvitePolicyKey, invite);
         Assert.Same(GcSettings.EditWindowHoursKey, window);
     }
@@ -69,7 +69,7 @@ public sealed class GcSettingsTests
     {
         foreach (var definition in GcSettings.All)
         {
-            Assert.True(SettingRegistry.Known.TryGet(definition.Name, out var registered), definition.Name);
+            Assert.True(BuiltInSettingRegistries.Known.TryGet(definition.Name, out var registered), definition.Name);
             Assert.Same(definition, registered);
         }
     }
