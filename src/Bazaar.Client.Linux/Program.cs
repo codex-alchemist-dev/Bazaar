@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Bazaar.Accessibility;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -114,6 +115,7 @@ internal static class Program
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
             ShowTerminalWhenAsked(plain, args);
+        ShowColdArchiveWhenAsked(plain, args);
             ShowFirstRun(plain, args);
             InstallShell(plain);
             return plain;
@@ -123,6 +125,7 @@ internal static class Program
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
         ShowTerminalWhenAsked(window, args);
+        ShowColdArchiveWhenAsked(window, args);
         ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
         InstallShell(window);
@@ -157,6 +160,16 @@ internal static class Program
         var sessions = CalcinatoTerminalPanes.CreateSessions();
         CalcinatoTerminalPanes.ShowTerminal(window, sessions);
         window.Closed += async (_, _) => await sessions.DisposeAsync();
+    }
+
+    // `--cold-archive` shows the owner's cold-storage pane in place of the start content (doc 25, Archive cold storage).
+    private static void ShowColdArchiveWhenAsked(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (args.Contains(LinuxColdArchivePanes.Flag, StringComparer.Ordinal))
+        {
+            ClientServer.ConnectToCompanyServer();
+            LinuxColdArchivePanes.Show(window, Bazaar.Client.ColdArchive.HttpColdArchiveClient.Create(ClientServer.Current));
+        }
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

@@ -38,6 +38,7 @@
     <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.ColdArchive\Bazaar.Client.ColdArchive.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Avalonia\Bazaar.Client.Calcinato.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Pty\Bazaar.Client.Calcinato.Pty.csproj" />
