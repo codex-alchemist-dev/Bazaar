@@ -1,9 +1,15 @@
 using Bazaar.Core;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Health;
+using Bazaar.Server.Presence.Abstractions;
+using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Bazaar.Server.Interrupts;
@@ -38,5 +44,18 @@ public sealed class InterruptsComponent : IBazaarComponent
             sp.GetService<TimeProvider>()));
         services.TryAddSingleton<IInterruptStackService>(sp => sp.GetRequiredService<InterruptStackService>());
         services.TryAddSingleton<IInterruptStackReader>(sp => sp.GetRequiredService<InterruptStackService>());
+
+        // System producer (doc 24 section 3): one listener for the Health and Security seams, off until interrupt.system_targets says otherwise.
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, InterruptSettingContribution>());
+        services.TryAddSingleton<IInterruptGcResolver>(sp =>
+            sp.GetService<IPresenceStore>() is { } presence ? new PresenceInterruptGcResolver(presence) : new NoInterruptGcResolver());
+        services.TryAddSingleton(sp => new InterruptSystemProducer(
+            sp.GetRequiredService<IInterruptStackService>(),
+            sp.GetService<IInterruptSystemTargetsReader>(),
+            sp.GetService<IAgentDirectoryReader>(),
+            sp.GetService<IInterruptGcResolver>(),
+            sp.GetService<ILogger<InterruptSystemProducer>>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IBuildBrokenListener, InterruptSystemProducer>(sp => sp.GetRequiredService<InterruptSystemProducer>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITaintRaisedListener, InterruptSystemProducer>(sp => sp.GetRequiredService<InterruptSystemProducer>()));
     }
 }
