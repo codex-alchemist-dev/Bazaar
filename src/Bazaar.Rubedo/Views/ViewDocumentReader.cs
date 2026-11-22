@@ -166,7 +166,7 @@ public static class ViewDocumentReader
         return new ViewArgs(values);
     }
 
-    /// <summary>A prop is a scalar, or an expression written as <c>{ "expr": "..." }</c> (doc 41c, section 2).</summary>
+    /// <summary>A prop is a scalar, an expression <c>{ "expr": "..." }</c> or a token reference <c>{ "token": "..." }</c> (doc 41c, sections 2 and 5.1).</summary>
     private static object? ReadProp(JsonElement element, string path)
     {
         switch (element.ValueKind)
@@ -185,8 +185,12 @@ public static class ViewDocumentReader
                 return expr.ValueKind == JsonValueKind.String
                     ? new ViewExpr(expr.GetString()!)
                     : throw new FormatException($"{path}.expr: must be a string.");
+            case JsonValueKind.Object when element.TryGetProperty("token", out JsonElement token) && element.EnumerateObject().Count() == 1:
+                return token.ValueKind == JsonValueKind.String
+                    ? new ViewTokenRef(token.GetString()!)
+                    : throw new FormatException($"{path}.token: must be a string.");
             default:
-                throw new FormatException($"{path}: a prop must be a scalar or an {{ \"expr\": ... }} object.");
+                throw new FormatException($"{path}: a prop must be a scalar, an {{ \"expr\": ... }} or a {{ \"token\": ... }} object.");
         }
     }
 

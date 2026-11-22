@@ -32,6 +32,10 @@ on:
         description: 'Repository path of the public key the signature is verified with. Not a secret. Required, no default.'
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -169,7 +173,7 @@ jobs:
           global-json-file: global.json
 
       - name: Fetch the bundle built by the Linux job
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v4.3.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v4.3.0
         with:
           name: pg-src-bundle-linux-18
           path: ${{ runner.temp }}/pg-src-bundle/18
