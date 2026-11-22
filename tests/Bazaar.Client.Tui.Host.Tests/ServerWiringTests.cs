@@ -69,7 +69,8 @@ public sealed class ServerWiringTests : IDisposable
         Assert.NotNull(wiring.Ports.Approvals);
         Assert.IsType<Bazaar.Server.CompanyBuild.Postgres.PostgresModuleSelection>(wiring.Ports.Modules);
         Assert.NotNull(wiring.Writes.Devices);
-        Assert.Null(wiring.Writes.Members);
+        Assert.NotNull(wiring.Writes.Members);
+        Assert.NotNull(wiring.Writes.Restorer);
         Assert.Null(wiring.Writes.Approvals);
         Assert.Null(wiring.Writes.StepUp);
         Assert.Same(wiring.Ports.Modules, wiring.Writes.Modules);

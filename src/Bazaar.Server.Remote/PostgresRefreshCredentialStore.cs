@@ -45,6 +45,16 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
 
     private const string _revokeSql = "UPDATE device SET revoked_at = $2, revision = revision + 1 WHERE id = $1 AND revoked_at IS NULL";
 
+    // Only an active non-owner can be suspended; only a suspended person can come back. A removed person is never touched.
+    private const string _suspendSql = "UPDATE human SET status = 'suspended' WHERE id = $1 AND status = 'active' AND role <> 'owner'";
+
+    private const string _revokeHumanDevicesSql =
+        "UPDATE device SET revoked_at = $2, revision = revision + 1 WHERE human_id = $1 AND revoked_at IS NULL RETURNING id";
+
+    private const string _revokeHumanApprovalKeysSql = "UPDATE approval_key SET revoked_at = $2 WHERE human_id = $1 AND revoked_at IS NULL";
+
+    private const string _unsuspendSql = "UPDATE human SET status = 'active' WHERE id = $1 AND status = 'suspended'";
+
     public async Task<IReadOnlyList<HumanRecord>> ListHumansAsync(CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand(_listHumansSql);
@@ -185,6 +195,46 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
         await using var cmd = dataSource.CreateCommand(_revokeSql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = deviceId });
         cmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) > 0;
+    }
+
+    public async Task<SuspendResult> SuspendHumanAsync(Guid humanId, DateTimeOffset now, CancellationToken ct = default)
+    {
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        await using (var suspend = new NpgsqlCommand(_suspendSql, conn, tx))
+        {
+            suspend.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
+            if (await suspend.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 0)
+                return new SuspendResult(false, []);
+        }
+
+        var revoked = new List<Guid>();
+        await using (var devices = new NpgsqlCommand(_revokeHumanDevicesSql, conn, tx))
+        {
+            devices.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
+            devices.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
+            await using var reader = await devices.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                revoked.Add(reader.GetGuid(0));
+        }
+
+        await using (var keys = new NpgsqlCommand(_revokeHumanApprovalKeysSql, conn, tx))
+        {
+            keys.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
+            keys.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
+            await keys.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return new SuspendResult(true, revoked);
+    }
+
+    public async Task<bool> UnsuspendHumanAsync(Guid humanId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_unsuspendSql);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) > 0;
     }
 

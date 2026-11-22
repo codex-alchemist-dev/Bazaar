@@ -143,6 +143,37 @@ public sealed class InMemoryRefreshCredentialStore : IRefreshCredentialStore, II
         }
     }
 
+    public Task<SuspendResult> SuspendHumanAsync(Guid humanId, DateTimeOffset now, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_humans.TryGetValue(humanId, out var human) || human.Status != "active" || human.Role == "owner")
+                return Task.FromResult(new SuspendResult(false, []));
+            _humans[humanId] = human with { Status = "suspended" };
+            var revoked = new List<Guid>();
+            foreach (var device in _devices.Values.Where(d => d.HumanId == humanId && d.RevokedAt is null).ToList())
+            {
+                _devices[device.Id] = device with { RevokedAt = now, Revision = device.Revision + 1 };
+                revoked.Add(device.Id);
+            }
+
+            return Task.FromResult(new SuspendResult(true, revoked));
+        }
+    }
+
+    public Task<bool> UnsuspendHumanAsync(Guid humanId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            if (!_humans.TryGetValue(humanId, out var human) || human.Status != "suspended")
+                return Task.FromResult(false);
+            _humans[humanId] = human with { Status = "active" };
+            return Task.FromResult(true);
+        }
+    }
+
     // Callers hold _gate.
     private RefreshCredentialRecord ToRecord(CredentialRow row)
     {

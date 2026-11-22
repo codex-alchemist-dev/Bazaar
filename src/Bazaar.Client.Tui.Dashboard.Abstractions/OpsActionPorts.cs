@@ -10,10 +10,16 @@ namespace Bazaar.Client.Tui.Dashboard;
 /// <summary>Outcome of a write port. <see cref="Reason"/> is a short plain-text reason for a refusal and never a secret or a stack trace.</summary>
 public sealed record OpsWriteResult(bool Done, string? Reason = null);
 
-/// <summary>Revokes a person: their devices stop working at once (doc 32, revocation is immediate). Implemented by the identity module.</summary>
+/// <summary>Suspends a person (reversible, PROPOSED): their devices and approval keys are revoked at once (doc 32, revocation is immediate) and they cannot sign in or refresh. Implemented by the identity module.</summary>
 public interface IOpsMemberRevoker
 {
     Task<OpsWriteResult> RevokeMemberAsync(Guid actorPrincipalId, Guid principalId, CancellationToken ct = default);
+}
+
+/// <summary>Sets a suspended person active again (the reverse of <see cref="IOpsMemberRevoker"/>). Their revoked devices stay revoked, so they pair again.</summary>
+public interface IOpsMemberRestorer
+{
+    Task<OpsWriteResult> RestoreMemberAsync(Guid actorPrincipalId, Guid principalId, CancellationToken ct = default);
 }
 
 /// <summary>Revokes one device through the same path as an owner revoking it from a client (<c>ITokenService.RevokeDeviceAsync</c>, doc 32). Implemented by the device token module.</summary>
@@ -51,6 +57,7 @@ public interface IOpsStepUp
 public static class OpsAuditKinds
 {
     public const string MemberRevoke = "admin.tui.member.revoke";
+    public const string MemberRestore = "admin.tui.member.restore";
     public const string DeviceRevoke = "admin.tui.device.revoke";
     public const string ApprovalDecide = "admin.tui.approval.decide";
 }

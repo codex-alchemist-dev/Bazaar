@@ -108,9 +108,17 @@ internal sealed class FakeModules : IAdminModuleSelection
     }
 }
 
-internal sealed class FakeRevokers : IOpsMemberRevoker, IOpsDeviceRevoker
+internal sealed class FakeRevokers : IOpsMemberRevoker, IOpsMemberRestorer, IOpsDeviceRevoker
 {
     public List<Guid> Members { get; } = [];
+
+    public List<Guid> Restored { get; } = [];
+
+    public Task<OpsWriteResult> RestoreMemberAsync(Guid actorPrincipalId, Guid principalId, CancellationToken ct = default)
+    {
+        Restored.Add(principalId);
+        return Task.FromResult(Result);
+    }
 
     public List<Guid> Devices { get; } = [];
 
@@ -200,7 +208,7 @@ public class OpsActionsTests
             rig.ActionAudit = actionAudit ?? rig.Audit;
             rig.Actions = new OpsActions(
                 rig.Reads,
-                new OpsWritePorts(rig.Modules, rig.Revokers, rig.Revokers, rig.Decider, rig.StepUp),
+                new OpsWritePorts(rig.Modules, rig.Revokers, rig.Revokers, rig.Decider, rig.StepUp, rig.Revokers),
                 rig.Permissions,
                 rig.ActionAudit,
                 signIn,
@@ -317,7 +325,7 @@ public class OpsActionsTests
         Assert.Equal(OpsActionStatus.Unavailable, (await actions.StartRebuildAsync(rig.Session, Ct)).Status);
         Assert.Equal(OpsActionStatus.Unavailable, (await actions.RevokeMemberAsync(rig.Session, Guid.NewGuid(), null, Ct)).Status);
         Assert.Equal(OpsActionStatus.Unavailable, (await actions.RevokeDeviceAsync(rig.Session, Guid.NewGuid(), null, Ct)).Status);
-        Assert.Equal(OpsActionStatus.Unavailable, (await actions.DecideApprovalAsync(rig.Session, "a1", true, null, Ct)).Status);
+        Assert.Equal(OpsActionStatus.Refused, (await actions.DecideApprovalAsync(rig.Session, "a1", true, null, Ct)).Status);
         Assert.Empty(rig.Audit.Entries);
     }
 
@@ -522,6 +530,71 @@ public class OpsActionsTests
         Assert.Equal(OpsAuditKinds.MemberRevoke, entry.Kind);
         Assert.Equal(target.ToString("D"), entry.Fields["principal"]);
         Assert.Contains("Dana", Assert.Single(rig.Widgets.Questions));
+    }
+
+    [Fact]
+    public async Task Unsuspending_a_person_needs_the_members_capability_a_confirm_and_an_audit_entry()
+    {
+        var rig = (await Rig.CreateAsync()).Grant(Capabilities.AdminMembers);
+        var target = Guid.NewGuid();
+        rig.Widgets.Confirms.Enqueue(true);
+
+        var outcome = await rig.Actions.RestoreMemberAsync(rig.Session, target, "Dana", Ct);
+
+        Assert.Equal(OpsActionStatus.Done, outcome.Status);
+        Assert.Equal([target], rig.Revokers.Restored);
+        Assert.Equal(OpsAuditKinds.MemberRestore, Assert.Single(rig.Audit.Entries).Kind);
+        Assert.Equal([Capabilities.AdminMembers], OpsActions.CapabilitiesFor(OpsActionKind.RestoreMember));
+        Assert.Equal(OpsActionKind.RestoreMember, OpsActions.KeyFor("admin.users", 's'));
+    }
+
+    [Fact]
+    public async Task Unsuspending_without_the_capability_is_forbidden_and_never_calls_the_port()
+    {
+        var rig = await Rig.CreateAsync();
+
+        var outcome = await rig.Actions.RestoreMemberAsync(rig.Session, Guid.NewGuid(), "Dana", Ct);
+
+        Assert.Equal(OpsActionStatus.Forbidden, outcome.Status);
+        Assert.Empty(rig.Revokers.Restored);
+    }
+
+    [Fact]
+    public async Task The_unsuspend_picker_lists_only_revoked_people()
+    {
+        var alive = new AdminUser(Guid.NewGuid(), "Alive", "coworker", false, false);
+        var gone = new AdminUser(Guid.NewGuid(), "Suspended", "coworker", false, true);
+        var rig = (await Rig.CreateAsync(r => r.Reads = new OpsPorts(Users: new FakeUsers(alive, gone)))).Grant(Capabilities.AdminMembers);
+        rig.Widgets.Picks.Enqueue("Suspended");
+        rig.Widgets.Confirms.Enqueue(true);
+
+        var outcome = await rig.Actions.RunAsync(rig.Session, OpsActionKind.RestoreMember, Ct);
+
+        Assert.Equal(OpsActionStatus.Done, outcome.Status);
+        Assert.Equal([gone.PrincipalId], rig.Revokers.Restored);
+    }
+
+    [Fact]
+    public async Task Approving_without_a_step_up_sends_the_operator_to_the_owner_device()
+    {
+        var rig = (await Rig.CreateAsync()).Grant(Capabilities.Approve);
+        var actions = new OpsActions(rig.Reads, new OpsWritePorts(), rig.Permissions, rig.Audit, new OpsSignIn(null, null, rig.Sessions, new FakeAuthorizer(true), rig.Audit, TimeProvider.System), rig.Widgets);
+
+        var outcome = await actions.DecideApprovalAsync(rig.Session, "appr-1", approve: true, "merge", Ct);
+
+        Assert.Equal(OpsActionStatus.Refused, outcome.Status);
+        Assert.Contains("owner device", outcome.Message);
+        Assert.Empty(rig.Audit.Entries);
+    }
+
+    [Fact]
+    public async Task The_approvals_screen_lists_what_waits_and_names_the_owner_device_as_the_place_to_approve()
+    {
+        var waiting = new AdminApproval("appr-1", "merge pull request 12", "Charles", DateTimeOffset.UnixEpoch);
+        var lines = await OpsScreens.ApprovalsAsync(new OpsPorts(Approvals: new FakeApprovals(waiting)), Samples.Context(), Ct);
+
+        Assert.Contains(lines, l => l.Contains("merge pull request 12", StringComparison.Ordinal));
+        Assert.Contains(lines, l => l.Contains("owner device", StringComparison.Ordinal));
     }
 
     [Fact]
