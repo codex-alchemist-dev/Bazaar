@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The search table DDL stays in Bazaar.Server's common migrations (frozen namespace); linked so this project needs no Bazaar.Server reference. -->
+    <EmbeddedResource Include="..\..\src\Bazaar.Server\Data\Sql\common\0007_search_document.sql" LogicalName="0007_search_document.sql" />
+  </ItemGroup>
+</Project>
