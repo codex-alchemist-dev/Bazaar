@@ -25,6 +25,13 @@ public sealed class TpmApprovalSigner : IApprovalSigner, IDisposable
     /// <summary>The name of the TPM key this signer uses.</summary>
     public string KeyName { get; }
 
+    /// <summary>The public half as DER SubjectPublicKeyInfo, for enrolment (docs/design/32, 5b).</summary>
+    public byte[] ExportPublicKeySpki()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _key.ExportSubjectPublicKeyInfo();
+    }
+
     /// <inheritdoc />
     public ApprovalKeyCustody Custody => ApprovalKeyCustody.Tpm;
 
