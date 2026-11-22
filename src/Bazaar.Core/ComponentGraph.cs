@@ -46,6 +46,26 @@ public static class ComponentGraph
             }
         }
 
+        foreach (var manifest in byId.Values)
+        {
+            if (!manifest.EnabledByDefault && manifest.Kind == ComponentKind.Kernel)
+            {
+                throw new ComponentGraphException($"Kernel component '{manifest.Id}' cannot set enabledByDefault to false.");
+            }
+
+            // A default-on component that hard-depends on an optional one would fail the start with the shipped defaults.
+            if (manifest.EnabledByDefault)
+            {
+                var optional = manifest.DependsOn.Where(d => !byId[d].EnabledByDefault).Order(StringComparer.Ordinal).ToList();
+                if (optional.Count > 0)
+                {
+                    throw new ComponentGraphException(
+                        $"Component '{manifest.Id}' is enabled by default but depends on optional component(s): {string.Join(", ", optional)}. " +
+                        "Make the dependency default-on or the dependent optional too.");
+                }
+            }
+        }
+
         // Only hard edges set start order (docs/design/BAZAAR-COMPONENTS.md section 4.1, owner 2026-11-16). Soft edges are feature
         // links resolved from metadata, so they may form cycles and never reorder components.
         bool Ready(string id, HashSet<string> placedIds) => byId[id].DependsOn.All(placedIds.Contains);
@@ -70,5 +90,43 @@ public static class ComponentGraph
         }
 
         return ordered;
+    }
+
+    /// <summary>
+    /// Works out what a failed component blocks and degrades. Only hard edges block, and they block transitively. A soft edge never
+    /// blocks: a component that only softly depends on the failed one, or on anything it blocked, is degraded.
+    /// </summary>
+    /// <exception cref="ComponentGraphException">The graph is invalid or <paramref name="failedId"/> is not in it.</exception>
+    public static ComponentImpact Impact(IEnumerable<ComponentManifest> manifests, string failedId)
+    {
+        ArgumentNullException.ThrowIfNull(manifests);
+        ArgumentException.ThrowIfNullOrEmpty(failedId);
+
+        var all = Order(manifests);
+        if (all.All(m => m.Id != failedId))
+        {
+            throw new ComponentGraphException($"Unknown component '{failedId}'.");
+        }
+
+        var blocked = new HashSet<string>(StringComparer.Ordinal);
+        var down = new HashSet<string>(StringComparer.Ordinal) { failedId };
+
+        // Order is dependency order, so one pass sees every hard target before its dependents.
+        foreach (var manifest in all)
+        {
+            if (manifest.DependsOn.Any(down.Contains))
+            {
+                blocked.Add(manifest.Id);
+                down.Add(manifest.Id);
+            }
+        }
+
+        var degraded = all
+            .Where(m => !down.Contains(m.Id) && m.Soft.Any(down.Contains))
+            .Select(m => m.Id)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        return new ComponentImpact(failedId, blocked.Order(StringComparer.Ordinal).ToList(), degraded);
     }
 }

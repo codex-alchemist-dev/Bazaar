@@ -471,6 +471,10 @@ if (args.Length > 0 && args[0] == "experiments")
     return 0;
 }
 
+// Warm-up: run the first sweep row once and discard it, so the GPU is at a steady clock before anything is recorded.
+_ = bench.UploadNodes(1_000_000);
+_ = bench.Measure(1_000_000, 300, 600);
+
 // Sweep 1: total node count. The resident window is capped at the 1.5 GiB budget; draws are capped at 2M instances.
 foreach (long total in nodeCounts)
 {
