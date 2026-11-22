@@ -51,6 +51,23 @@ internal static class MailLoop
     {
         while (!stoppingToken.IsCancellationRequested)
         {
+            try
+            {
+                if (options is IRefreshableMailRuntimeOptionsSource refreshable)
+                {
+                    await refreshable.RefreshAsync(stoppingToken).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Keep the last good snapshot; the failure is reported by type only.
+                onFailure(ex);
+            }
+
             var current = options.Current;
             try
             {

@@ -10,6 +10,7 @@ using Bazaar.Server.MailInbound;
 using Bazaar.Server.MailOnboarding;
 using Bazaar.Server.MailOutbound;
 using Bazaar.Server.MailRuntime;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -61,6 +62,13 @@ public static class MailCompositionExtensions
         // its fail-closed default steps aside; the table starts empty, so every send stays Tier 2 until the approval path adds a row.
         services.TryAddSingleton<IApprovedRecipientStore>(sp => new PostgresApprovedRecipientStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IApprovedRecipients>(sp => new StoreApprovedRecipients(sp.GetRequiredService<IApprovedRecipientStore>()));
+        // Mail settings (doc 22, "Mail settings registration"): the runtime reads its options through the settings service when the settings
+        // component is present; otherwise the static options and shipped defaults stay.
+        if (services.Any(d => d.ServiceType == typeof(ISettingStore)))
+        {
+            services.TryAddSingleton<IMailSettingReader>(sp => new SettingStoreMailSettingReader(sp.GetRequiredService<ISettingStore>()));
+        }
+
         services.AddBazaarMailOnboarding();
         services.AddBazaarRateLimits();
         services.AddBazaarMailScreening();
@@ -68,4 +76,10 @@ public static class MailCompositionExtensions
         services.AddBazaarMailRuntime();
         return services;
     }
+}
+
+/// <summary>Adapter of the mail module's <see cref="IMailSettingReader"/> port over the host's settings store.</summary>
+internal sealed class SettingStoreMailSettingReader(ISettingStore store) : IMailSettingReader
+{
+    public Task<T> GetAsync<T>(SettingKey<T> key, CancellationToken ct) => store.GetAsync(key, cancellationToken: ct);
 }
