@@ -57,15 +57,28 @@ public static class JournalChain
     }
 
     /// <summary>Walks the chain from the genesis hash and reports the first record that does not verify.</summary>
-    public static JournalVerification Verify(IReadOnlyList<JournalRecord> records)
+    public static JournalVerification Verify(IReadOnlyList<JournalRecord> records) => VerifyFrom(records, 0, GenesisHash());
+
+    /// <summary>
+    /// Walks a segment that continues a chain from <paramref name="anchor"/> (doc 46 section 7.5): the first record must carry the
+    /// anchor's sequence and link to the anchor's hash. A spill that dropped its oldest records at the size bound starts this way,
+    /// and the gap stays visible in the anchor instead of being filled.
+    /// </summary>
+    public static JournalVerification Verify(IReadOnlyList<JournalRecord> records, JournalAnchor anchor)
+    {
+        ArgumentNullException.ThrowIfNull(anchor);
+        return VerifyFrom(records, anchor.NextSequence, anchor.PreviousHash);
+    }
+
+    private static JournalVerification VerifyFrom(IReadOnlyList<JournalRecord> records, long firstSequence, byte[] firstPrevious)
     {
         ArgumentNullException.ThrowIfNull(records);
 
-        byte[] expectedPrevious = GenesisHash();
+        byte[] expectedPrevious = firstPrevious;
         for (int index = 0; index < records.Count; index++)
         {
             JournalRecord record = records[index];
-            if (!IsLinked(record, index, expectedPrevious))
+            if (!IsLinked(record, firstSequence + index, expectedPrevious))
             {
                 return new JournalVerification(index);
             }
@@ -83,9 +96,9 @@ public static class JournalChain
         return Convert.ToHexString(record.Hash);
     }
 
-    private static bool IsLinked(JournalRecord record, int index, byte[] expectedPrevious)
+    private static bool IsLinked(JournalRecord record, long expectedSequence, byte[] expectedPrevious)
     {
-        if (record.Sequence != index || !record.PreviousHash.AsSpan().SequenceEqual(expectedPrevious))
+        if (record.Sequence != expectedSequence || !record.PreviousHash.AsSpan().SequenceEqual(expectedPrevious))
         {
             return false;
         }

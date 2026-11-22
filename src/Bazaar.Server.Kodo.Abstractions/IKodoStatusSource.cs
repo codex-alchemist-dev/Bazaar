@@ -26,6 +26,14 @@ public interface IKodoStatusSource
     /// </summary>
     ValueTask<KodoJournalProofView?> JournalProofAsync(long sequence, CancellationToken cancellationToken) =>
         ValueTask.FromResult(JournalProof(sequence));
+
+    /// <summary>
+    /// One page of the displayed-state history, newest first (doc 46 section 7.10): at most <paramref name="limit"/> changes with a
+    /// sequence below <paramref name="beforeSequence"/>, or from the newest when it is null. Reads the durable store when one is
+    /// wired and falls back to the state records in the memory journal. The default has no history.
+    /// </summary>
+    ValueTask<IReadOnlyList<KodoStateChange>> StateHistoryAsync(long? beforeSequence, int limit, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IReadOnlyList<KodoStateChange>>([]);
 }
 
 /// <summary>One journal entry as the read API shows it. Hashes are lowercase hex.</summary>

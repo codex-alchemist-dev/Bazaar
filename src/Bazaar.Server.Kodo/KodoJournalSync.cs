@@ -32,6 +32,7 @@ internal sealed partial class KodoJournalSync
     private long? _storedThrough;
     private bool _blocked;
     private bool _reachable = true;
+    private bool _backlogSeen;
     private DateTimeOffset _lastSnapshot = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPrune = DateTimeOffset.MinValue;
 
@@ -116,6 +117,7 @@ internal sealed partial class KodoJournalSync
                 }
 
                 _storedThrough = head.Sequence;
+                _backlogSeen |= head.Sequence + 1 < _journal.NextSequence;
             }
 
             MarkReachable();
@@ -164,6 +166,7 @@ internal sealed partial class KodoJournalSync
                 MarkReachable();
             }
 
+            SealAfterReplay();
             await SaveSnapshotAsync(latest, cancellationToken).ConfigureAwait(false);
             await PruneAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -177,6 +180,17 @@ internal sealed partial class KodoJournalSync
             // Reconnect (and re-read the stored head) on the next pass: a half-applied call is settled by the store's idempotence.
             _storedThrough = null;
             Unreachable(error);
+        }
+    }
+
+    // Doc 46 section 7.5: after a backlog was replayed (the database was away, or the run started with unsent records), the spill is
+    // sealed and kept for the retention window. A healthy database never builds a backlog, so the spill is not rotated on every pass.
+    private void SealAfterReplay()
+    {
+        if (_backlogSeen && _storedThrough is long stored
+            && _journal.SealSpill(stored, _time.GetUtcNow(), TimeSpan.FromDays(_options.JournalRetentionDays)))
+        {
+            _backlogSeen = false;
         }
     }
 
@@ -216,6 +230,7 @@ internal sealed partial class KodoJournalSync
 
     private bool Unreachable(Exception error)
     {
+        _backlogSeen = true;
         if (_reachable)
         {
             _reachable = false;

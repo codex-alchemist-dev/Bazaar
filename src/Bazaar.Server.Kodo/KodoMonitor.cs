@@ -62,7 +62,7 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
             FlapWindow = TimeSpan.FromMinutes(s.GetInt(KodoSettingKey.FlapLimitWindowMinutes)),
         };
         _probeTimeout = TimeSpan.FromMilliseconds(s.GetInt(KodoSettingKey.ProbeTimeoutMs));
-        _journal = new KodoJournal(options.DataDirectory, options.JournalMemoryRecords);
+        _journal = new KodoJournal(options.DataDirectory, options.JournalMemoryRecords, JournalSpillBound.BytesFromMegabytes(s.GetInt(KodoSettingKey.JournalSpillMaxMb)));
         if (store is not null && options.UseJournalStore)
         {
             _store = store;
@@ -145,6 +145,38 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
         {
             LogProofStoreFailed(_logger, error);
             return null;
+        }
+    }
+
+    public async ValueTask<IReadOnlyList<KodoStateChange>> StateHistoryAsync(long? beforeSequence, int limit, CancellationToken cancellationToken)
+    {
+        IReadOnlyList<KodoStateChange> local = _journal.StateChanges(beforeSequence, limit);
+        if (_store is null)
+        {
+            return local;
+        }
+
+        try
+        {
+            IReadOnlyList<KodoStateChange> stored = await _store.ReadStateChangesAsync(beforeSequence, limit, cancellationToken).ConfigureAwait(false);
+
+            // The store may lag the memory journal (records not yet replayed): the union by sequence is the full history.
+            return stored
+                .Concat(local)
+                .GroupBy(change => change.Sequence)
+                .Select(group => group.First())
+                .OrderByDescending(change => change.Sequence)
+                .Take(limit)
+                .ToArray();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception error)
+        {
+            LogHistoryStoreFailed(_logger, error);
+            return local;
         }
     }
 
@@ -386,6 +418,9 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "A Kodo pass failed and will be retried at the next tick.")]
     private static partial void LogCycleFailed(ILogger logger, Exception error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store could not answer a state history request; the memory journal answers instead.")]
+    private static partial void LogHistoryStoreFailed(ILogger logger, Exception error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store could not answer a proof request.")]
     private static partial void LogProofStoreFailed(ILogger logger, Exception error);

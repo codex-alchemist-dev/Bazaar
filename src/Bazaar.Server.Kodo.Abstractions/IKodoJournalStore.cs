@@ -42,6 +42,12 @@ public interface IKodoJournalStore
 
     /// <summary>The newest state changes, newest first.</summary>
     ValueTask<IReadOnlyList<KodoStateChange>> RecentStateChangesAsync(int limit, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// One page of the state history for <c>GET /history</c> (doc 46 section 7.10): up to <paramref name="limit"/> changes, newest
+    /// first, with a sequence below <paramref name="beforeSequence"/> (or from the newest when it is null).
+    /// </summary>
+    ValueTask<IReadOnlyList<KodoStateChange>> ReadStateChangesAsync(long? beforeSequence, int limit, CancellationToken cancellationToken);
 }
 
 /// <summary>What one <see cref="IKodoJournalStore.AppendAsync"/> call did.</summary>

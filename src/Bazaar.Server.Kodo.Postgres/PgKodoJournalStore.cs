@@ -48,6 +48,9 @@ public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJourn
     internal const string RecentStateChangesSql =
         "SELECT sequence, at_ticks, from_state, to_state FROM kodo_state_change ORDER BY sequence DESC LIMIT $1";
 
+    internal const string StateChangePageSql =
+        "SELECT sequence, at_ticks, from_state, to_state FROM kodo_state_change WHERE ($1::bigint IS NULL OR sequence < $1) ORDER BY sequence DESC LIMIT $2";
+
     /// <inheritdoc />
     public async ValueTask<JournalRecord?> GetHeadAsync(CancellationToken cancellationToken)
     {
@@ -228,6 +231,29 @@ public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJourn
         }
 
         return changes;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<KodoStateChange>> ReadStateChangesAsync(long? beforeSequence, int limit, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(StateChangePageSql);
+        AddStateChangePageParameters(cmd, beforeSequence, limit);
+        List<KodoStateChange> changes = [];
+        await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            changes.Add(new KodoStateChange(reader.GetInt64(0), new DateTimeOffset(reader.GetInt64(1), TimeSpan.Zero), reader.GetString(2), reader.GetString(3)));
+        }
+
+        return changes;
+    }
+
+    /// <summary>Adds the two parameters of <see cref="StateChangePageSql"/>: the exclusive upper sequence (null for none) and the limit.</summary>
+    internal static void AddStateChangePageParameters(NpgsqlCommand cmd, long? beforeSequence, int limit)
+    {
+        cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = beforeSequence is long before ? before : DBNull.Value });
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = limit });
     }
 
     /// <summary>Adds the six array parameters of <see cref="InsertSql"/>, in column order.</summary>
