@@ -31,7 +31,7 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `grid` | yes | Two-dimensional grid, column count prop |
 | `scroll` | one | Scrolling region |
 | `text` | no | Text with a style token; localisation key or literal |
-| `icon` | no | Icon from a closed icon set |
+| `icon` | no | Icon from a closed icon set, chosen by a required `name` prop (a name outside the set fails the node; the validator reports `view.missing_icon_name` when it is absent) |
 | `button` | no | Calls a named action |
 | `input` | no | Text input bound to a value (write goes through an action) |
 | `list` | template | Keyed list over a data source, one item template |
@@ -40,7 +40,9 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `divider` | no | Separator |
 | `placeholder` | no | Failure card (doc 41 section 6, rule 7) |
 
-**Text props.** `text` and `badge` take a `text` prop: a literal, or an expression of any type that renders as text (a Number or Text binding is shown as written). A bare identifier reads that field of the scope; any other expression is evaluated by Rubedo. `badge` also takes a `variant` from the theme's closed variants. `button` and `icon` take `label` (the accessible name); `icon` also takes `name` from the closed icon set. `visibleWhen` and `enabledWhen` are Rubedo bool expressions (or literal bools) on any node: the first shows or hides it, the second enables or disables it, both evaluated against the node's scope, so a list item's template sees its own fields. A value that is not a bool fails that node closed.
+**Dynamic values.** `text` and `badge` take a `value` prop: a literal, or an expression of any type that renders as text (a Number or Text binding is shown as written). `label` stays a localisation key or literal for translated strings, so a value is never looked up as a key. The validator checks every expression prop the same way, so a bad `value` expression reports like any other.
+
+**Conditions.** Any node may carry `visibleWhen` and `enabledWhen`, each a Bool expression over the node's scope. A hidden node stays in the tree so a later data change can show it. A condition that does not evaluate to a Bool fails that node closed.
 
 **Tab items (structural, not a widget).** A `tabs` node takes only `tab` children, and a `tab` is valid only directly under `tabs`. A tab has a required non-empty `title` prop (a localisation key or literal) and exactly one child, the page. The page is an ordinary node. `tab` is not in the closed set, so the widget set stays at 13. Validator codes: `view.tabs_empty` (no tabs), `view.tab_child` (a child of `tabs` that is not a `tab`), `view.tab_title`, `view.tab_page` (not exactly one page), `view.tab_placement` (a `tab` anywhere else).
 

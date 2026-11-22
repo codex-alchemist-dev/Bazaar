@@ -52,10 +52,8 @@ public sealed partial class ViewMapper
     }
 
     /// <summary>
-    /// Applies the two conditions a node may carry (doc 41a, section 1; doc 41c, section 8): <c>visibleWhen</c> shows or hides
-    /// the control and <c>enabledWhen</c> enables or disables it. Each is a Rubedo expression of type bool, or a literal bool,
-    /// evaluated against the node's scope (so a list item's template sees its own fields). A value that is not a bool fails
-    /// the node closed, so a bad condition never leaves a control visible by accident.
+    /// <c>visibleWhen</c> and <c>enabledWhen</c> are Bool expressions the validator already checks (doc 41c, section 8). A hidden
+    /// control stays in the tree so a later data change can show it; a result that is not a Bool fails the node closed.
     /// </summary>
     private static void ApplyConditions(Control control, ViewNode node, Scope scope)
     {
@@ -71,9 +69,9 @@ public sealed partial class ViewMapper
     }
 
     private static bool Condition(object? raw, string name, Scope scope) =>
-        Resolve(raw, scope) is bool flag
-            ? flag
-            : throw new ViewDeclarationException($"prop '{name}' must be a bool.");
+        Resolve(raw, scope) is bool value
+            ? value
+            : throw new ViewDeclarationException($"prop '{name}' must be a Bool expression.");
 
     private Control Widget(ViewNode node, Scope scope) => node.Widget switch
     {
