@@ -1,6 +1,6 @@
 using Bazaar.Server.Providers;
 
-namespace Bazaar.Server.Tests.Providers;
+namespace Bazaar.Server.Providers.Tests;
 
 public class ProviderSelectorCapacityTests
 {

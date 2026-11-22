@@ -187,6 +187,9 @@
     <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Abstractions/Bazaar.Server.Providers.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Valkey.Abstractions/Bazaar.Server.Valkey.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Garnet/Bazaar.Server.Garnet.csproj" />
+    <Project Path="src/Bazaar.Server.Providers/Bazaar.Server.Providers.csproj" />
+    <Project Path="src/Bazaar.Server.Providers.Linux/Bazaar.Server.Providers.Linux.csproj" />
     <Project Path="src/Bazaar.Server.Valkey/Bazaar.Server.Valkey.csproj" />
     <Project Path="src/Bazaar.Server.Sanitization.Abstractions/Bazaar.Server.Sanitization.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
@@ -360,10 +363,12 @@
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Providers.Tests/Bazaar.Server.Providers.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Providers.Linux.Tests/Bazaar.Server.Providers.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Tests/Bazaar.Server.Gateway.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Garnet.Tests/Bazaar.Server.Garnet.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
-
     <Project Path="tests/Bazaar.Server.Jobs.Tests/Bazaar.Server.Jobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Remote.Tests/Bazaar.Server.Remote.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.Tests/Bazaar.Server.BrowserPool.Tests.csproj" />
