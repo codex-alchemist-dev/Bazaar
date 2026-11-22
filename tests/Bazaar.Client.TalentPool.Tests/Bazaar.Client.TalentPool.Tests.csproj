@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.TalentPool.Avalonia\Bazaar.Client.TalentPool.Avalonia.csproj" />
     <!-- Only the cross-check that the phone signs exactly what the server verifies. -->
+    <ProjectReference Include="..\..\src\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
   </ItemGroup>

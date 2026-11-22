@@ -5,6 +5,10 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Approvals;
+using Bazaar.Client.Approvals;
+using Bazaar.Client.Approvals.Phone;
+using Bazaar.Client.TalentPool;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Commands;
 using Bazaar.Client.Constellation;
@@ -108,6 +112,7 @@ public sealed class App : Avalonia.Application
             new DashboardPaneModule(),
             new ConstellationPaneModule(),
             new GcPaneModule(),
+            new ApprovalsPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             .. OrgPanes.Modules,
@@ -116,11 +121,21 @@ public sealed class App : Avalonia.Application
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
+        // The approvals pane gets the biometric gate and the server source. With no enrolled approval key the gate is absent and the pane says so (doc 29 Approvals).
+        var deviceId = MainActivity.Current?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("approval_device_id", null);
+        var (gate, approvals) = AndroidApprovals.Create(ClientServer.Current, () => MainActivity.Current, deviceId);
+        // Talent tool grants ride the same pane, key and biometric. No enrolled owner id means no gate and no cards (doc 25, doc 32).
+        var ownerHumanId = MainActivity.Current?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("owner_human_id", null);
+        var (grantGate, grants) = AndroidApprovals.CreateToolGrants(ClientServer.Current, () => MainActivity.Current, deviceId, ownerHumanId);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<ICommandRouter>(_router)
             .With<IConstellationTileSource>(tiles)
+            .With<IPendingApprovalSource>(approvals)
+            .With<IPendingToolGrantSource>(grants)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        if (gate is not null) features = features.With(gate);
+        if (grantGate is not null) features = features.With(grantGate);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
         _moduleCommands = loaded.Commands;
@@ -129,7 +144,7 @@ public sealed class App : Avalonia.Application
         var settings = new AndroidSettings();
         var shell = new PhoneShell(
             registry,
-            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)),
+            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry), kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
             settings.RadialSectors);
         var source = MainActivity.Current?.Posture;

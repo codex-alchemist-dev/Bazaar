@@ -28,6 +28,7 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (DefaultAppCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultAppExit) { return defaultAppExit; }
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
@@ -107,6 +108,7 @@ internal static class Program
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
+            ShowTerminalWhenAsked(plain, args);
             ShowFirstRun(plain, args);
             InstallShell(plain);
             return plain;
@@ -115,6 +117,7 @@ internal static class Program
         Directory.CreateDirectory(paths.StateDirectory);
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
+        ShowTerminalWhenAsked(window, args);
         ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
         InstallShell(window);
@@ -147,6 +150,19 @@ internal static class Program
                 }
             };
         };
+    }
+
+    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
+    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (!args.Contains("--terminal", StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var sessions = CalcinatoTerminalPanes.CreateSessions();
+        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
+        window.Closed += async (_, _) => await sessions.DisposeAsync();
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

@@ -2,15 +2,17 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Approvals;
+using Bazaar.Server.Biometric;
 
 namespace Bazaar.Roles.Abstractions;
 
 /// <summary>
 /// The owner's signed approval of one grant widening (doc 48 section 4, doc 32 section 5a). The payload is the shared owner
 /// payload with action <see cref="WideningArgs.Action"/> and the args hash of this exact change, so one signature cannot be
-/// replayed for a different role, person or grant set.
+/// replayed for a different role, person or grant set. <paramref name="Biometric"/> is the device's biometric assertion over
+/// the same payload (doc 48 section 8.1). It is null when the device sent none; it matters only once a biometric check is registered.
 /// </summary>
-public sealed record OwnerWideningApproval(OwnerPayload Payload, byte[] Signature);
+public sealed record OwnerWideningApproval(OwnerPayload Payload, byte[] Signature, BiometricAssertion? Biometric = null);
 
 /// <summary>What the owner's device signs for a widening: the action name and a hash that binds the whole change.</summary>
 public static class WideningArgs
@@ -47,6 +49,6 @@ public static class WideningArgs
 /// </summary>
 public interface IWideningBiometricCheck
 {
-    /// <summary>True when a fresh biometric assertion covers this exact change.</summary>
-    Task<bool> PassedAsync(GrantWideningRequest request, CancellationToken ct = default);
+    /// <summary>True when the approval carries a fresh biometric assertion that covers this exact change.</summary>
+    Task<bool> PassedAsync(GrantWideningRequest request, OwnerWideningApproval approval, CancellationToken ct = default);
 }

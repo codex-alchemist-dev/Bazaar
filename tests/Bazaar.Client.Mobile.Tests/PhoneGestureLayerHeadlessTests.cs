@@ -14,7 +14,14 @@ public class PhoneGestureLayerHeadlessTests
 {
     private static readonly GestureOptions _fastHold = new() { HoldTime = TimeSpan.FromMilliseconds(5) };
 
-    private static (Window Window, PhoneShell Shell) Show(GestureOptions? options = null)
+    private sealed class RecordingHaptics : IHaptics
+    {
+        public List<HapticKind> Ticks { get; } = [];
+
+        public void Tick(HapticKind kind) => Ticks.Add(kind);
+    }
+
+    private static (Window Window, PhoneShell Shell) Show(GestureOptions? options = null, IHaptics? haptics = null)
     {
         var registry = new PaneRegistry(TestPaneViews.Instance);
         foreach (var kind in new[] { "a", "b", "c" })
@@ -22,7 +29,7 @@ public class PhoneGestureLayerHeadlessTests
             registry.Register(kind, descriptor => new GenericPaneViewModel(descriptor));
         }
 
-        var shell = new PhoneShell(registry, gestures: options);
+        var shell = new PhoneShell(registry, gestures: options, haptics: haptics);
         var window = new Window { Width = 400, Height = 800, Content = shell };
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -149,5 +156,50 @@ public class PhoneGestureLayerHeadlessTests
         Assert.True(shell.GoToNext());
         Assert.False(shell.GoToNext());
         Assert.Equal(2, shell.SelectedPage);
+    }
+
+    [AvaloniaFact]
+    public async Task Each_new_radial_sector_and_a_committed_swipe_play_one_tick()
+    {
+        var haptics = new RecordingHaptics();
+        var (window, shell) = Show(_fastHold, haptics);
+
+        window.MouseDown(InBody(shell, 200, 300), MouseButton.Left);
+        await Task.Delay(60, TestContext.Current.CancellationToken);
+        Dispatcher.UIThread.RunJobs();
+        window.MouseMove(InBody(shell, 200, 220));
+        window.MouseMove(InBody(shell, 201, 221));
+        window.MouseMove(InBody(shell, 280, 300));
+        window.MouseUp(InBody(shell, 280, 300), MouseButton.Left);
+
+        Assert.Equal([HapticKind.RadialSector, HapticKind.RadialSector], haptics.Ticks);
+    }
+
+    [AvaloniaFact]
+    public void A_committed_swipe_plays_a_commit_tick()
+    {
+        var haptics = new RecordingHaptics();
+        var (window, shell) = Show(haptics: haptics);
+
+        window.MouseDown(InBody(shell, 250, 200), MouseButton.Left);
+        window.MouseMove(InBody(shell, 200, 202));
+        window.MouseMove(InBody(shell, 120, 204));
+        window.MouseUp(InBody(shell, 120, 204), MouseButton.Left);
+
+        Assert.Equal([HapticKind.SwipeCommit], haptics.Ticks);
+    }
+
+    [Fact]
+    public void The_haptics_gate_follows_the_setting()
+    {
+        var inner = new RecordingHaptics();
+        var on = true;
+        var gate = new HapticsGate(inner, () => on);
+
+        gate.Tick(HapticKind.RowCommit);
+        on = false;
+        gate.Tick(HapticKind.RowCommit);
+
+        Assert.Equal([HapticKind.RowCommit], inner.Ticks);
     }
 }

@@ -115,4 +115,45 @@ public sealed class TaskTransitionRulesTests
         Assert.Equal(TransitionOutcome.NotAuthorised, TaskTransitionRules.Evaluate(TaskState.Done, TaskState.Review, reviewer));
         Assert.Equal(TransitionOutcome.Allowed, TaskTransitionRules.Evaluate(TaskState.Done, TaskState.Review, Permissive()));
     }
+
+    [Theory]
+    [InlineData(TaskState.Backlog)]
+    [InlineData(TaskState.Ready)]
+    [InlineData(TaskState.InProgress)]
+    [InlineData(TaskState.Review)]
+    [InlineData(TaskState.Done)]
+    [InlineData(TaskState.Withdrawn)]
+    public void No_table_move_enters_or_leaves_withdrawn(TaskState other)
+    {
+        Assert.False(TaskTransitionRules.IsListed(other, TaskState.Withdrawn));
+        Assert.False(TaskTransitionRules.IsListed(TaskState.Withdrawn, other));
+        Assert.Equal(TransitionOutcome.NotATransition, TaskTransitionRules.Evaluate(other, TaskState.Withdrawn, Permissive()));
+        Assert.Equal(TransitionOutcome.NotATransition, TaskTransitionRules.Evaluate(TaskState.Withdrawn, other, Permissive()));
+    }
+
+    [Theory]
+    [InlineData(TaskState.Backlog)]
+    [InlineData(TaskState.Ready)]
+    [InlineData(TaskState.InProgress)]
+    [InlineData(TaskState.Review)]
+    public void Withdrawal_gates_allow_system_or_owner_with_a_reason(TaskState from)
+    {
+        Assert.Equal(TransitionOutcome.Allowed, TaskTransitionRules.EvaluateWithdrawal(from, new TransitionContext { IsSystem = true, HasReason = true }));
+        Assert.Equal(TransitionOutcome.Allowed, TaskTransitionRules.EvaluateWithdrawal(from, new TransitionContext { IsOwner = true, HasReason = true }));
+        Assert.Equal(TransitionOutcome.NotAuthorised, TaskTransitionRules.EvaluateWithdrawal(from, new TransitionContext { IsAgent = true, IsAssignee = true, HasReason = true }));
+        Assert.Equal(TransitionOutcome.MissingReason, TaskTransitionRules.EvaluateWithdrawal(from, new TransitionContext { IsSystem = true }));
+    }
+
+    [Fact]
+    public void Withdrawing_a_done_task_needs_the_owner()
+    {
+        Assert.Equal(TransitionOutcome.NotAuthorised, TaskTransitionRules.EvaluateWithdrawal(TaskState.Done, new TransitionContext { IsSystem = true, HasReason = true }));
+        Assert.Equal(TransitionOutcome.Allowed, TaskTransitionRules.EvaluateWithdrawal(TaskState.Done, new TransitionContext { IsOwner = true, HasReason = true }));
+    }
+
+    [Fact]
+    public void Withdrawing_a_withdrawn_task_is_not_a_transition()
+    {
+        Assert.Equal(TransitionOutcome.NotATransition, TaskTransitionRules.EvaluateWithdrawal(TaskState.Withdrawn, Permissive()));
+    }
 }
