@@ -63,10 +63,10 @@ may need the owner to act on the missing checks, or CodeQL must be configured to
 
 ## Practical steps
 
-1. Open the PR as a draft. CI runs; sign-off is skipped.
+1. Open the PR as a draft. CI and sign-off are skipped on drafts (CodeQL still runs on the branch push). Run CI by hand with `workflow_dispatch` if the draft needs a build.
 2. Fix any failing build or secret-scan leg. Do not weaken either check.
 3. Ask the owner to add the `Signed-off-by:` line to the description.
-4. Mark the PR ready. Sign-off reruns and must pass.
+4. Mark the PR ready. CI starts its first full run (`ready_for_review`) and sign-off reruns; both must pass.
 5. Check that the Analyze checks reported. On a docs-only PR, see the gap above.
 6. Merge only when every required check is green, with no conflict and no open blocking review thread.
 
