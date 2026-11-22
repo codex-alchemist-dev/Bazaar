@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>bazaar-rubedo-docs</AssemblyName>
+    <RootNamespace>Bazaar.Rubedo.Docs.Tool</RootNamespace>
+    <Description>Writes or checks the generated Rubedo reference folder (doc 41d section 6).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo.Docs\Bazaar.Rubedo.Docs.csproj" />
+  </ItemGroup>
+</Project>
