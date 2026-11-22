@@ -1,0 +1,3 @@
+[*.cs]
+# Test names use underscores for readability. This project is a test library.
+dotnet_diagnostic.CA1707.severity = none

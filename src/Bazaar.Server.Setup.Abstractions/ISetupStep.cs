@@ -16,6 +16,12 @@ public interface ISetupStep
     /// <summary>Position in the apply order (doc 45 section 1.3). Lower runs first.</summary>
     int Order { get; }
 
+    /// <summary>
+    /// The plan sections (ids from <see cref="SetupPlanSections"/>) this step applies. The applier refuses a plan that asks for a
+    /// section no registered step covers, before any step runs. The default is none, so a new step must declare what it does.
+    /// </summary>
+    IReadOnlyCollection<string> Covers => [];
+
     /// <summary>Applies the step. Idempotent: see the type remarks.</summary>
     Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken);
 
