@@ -26,6 +26,8 @@ public static class OwnerApprovalsServiceCollectionExtensions
         services.TryAddSingleton<IApprovalStore>(sp => new PostgresApprovalStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IRateBucketStore, InMemoryRateBucketStore>();
         services.TryAddSingleton(new ApprovalOptions());
+        services.TryAddSingleton<IPendingApprovalLister>(sp => sp.GetRequiredService<IApprovalStore>() as IPendingApprovalLister
+            ?? throw new InvalidOperationException("The registered approval store cannot list pending approvals."));
         services.TryAddSingleton<ApprovalService>();
         return services.AddOwnerApprovalEnqueue();
     }

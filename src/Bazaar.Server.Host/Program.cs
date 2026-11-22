@@ -4,6 +4,7 @@ using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.GitHub;
 using Bazaar.Server.Analytics;
+using Bazaar.Server.Approvals.Http;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Host.Analytics;
 using Bazaar.Server.Host.Auth;
@@ -87,6 +88,7 @@ app.MapArchive((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) 
 app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
+app.MapBazaarApprovalRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapCommunityLog();
 app.MapCommunityDraftDecision();
 app.MapCommunityDraftReads();
