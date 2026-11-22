@@ -22,7 +22,7 @@ internal sealed class ExportReaderDb : IAsyncDisposable
         var db = await PgTestDatabase.CreateAsync(
             "export",
             async (ds, token) => await new MigrationRunner(ds, new MigrationOptions(16)).MigrateAsync(
-                new CoreSubsetSource(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly)), MigrateCommand.CurrentProvider(), token),
+                new CoreSubsetSource(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly)), MigrateCommand.CurrentProvider(), token),
             ct);
         return new ExportReaderDb(db);
     }
