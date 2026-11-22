@@ -20,6 +20,9 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Community\Bazaar.Client.Community.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Community.Avalonia\Bazaar.Client.Community.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Community.Approvals\Bazaar.Client.Community.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
     <ProjectReference Include="..\Bazaar.SupportBundle\Bazaar.SupportBundle.csproj" />
     <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
