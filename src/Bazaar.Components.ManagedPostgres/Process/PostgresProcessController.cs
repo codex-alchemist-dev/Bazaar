@@ -238,6 +238,9 @@ public sealed class PostgresProcessController : IAsyncDisposable
             "-U", _options.SuperuserName,
             "-A", "trust",
             "-E", "UTF8",
+            // Data checksums are an invariant (docs/design/42 section 6.4): they cannot be added after initdb, and the
+            // flag is explicit so the invariant does not depend on the default of a PostgreSQL release.
+            "--data-checksums",
         ];
 
         var result = await _runner.RunAsync(ToolPath("initdb"), arguments, cancellationToken);
