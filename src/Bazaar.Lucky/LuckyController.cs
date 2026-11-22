@@ -175,7 +175,7 @@ public sealed class LuckyController
             .ToList();
 
         var entries = kept
-            .Select(pair => new LuckyGcEntry("idea", LuckyIdea.SourceTrust, pair.idea.AgentId, pair.idea.Text))
+            .Select(pair => new LuckyGcEntry("idea", LuckyIdea.SourceTrust, pair.idea.AgentId, pair.idea.Text, pair.index))
             .ToImmutableArray();
 
         var cards = _settings.CardsFromIdeas == LuckyCardsFromIdeas.OwnerMarked

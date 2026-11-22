@@ -13,7 +13,8 @@ public sealed record LuckyWake(string AgentId, string Kind, string DedupeKey);
 /// <param name="SourceTrust">Always <c>agent</c>.</param>
 /// <param name="AgentId">The author.</param>
 /// <param name="Text">The sanitized idea text. Quarantined ideas are never planned.</param>
-public sealed record LuckyGcEntry(string Kind, string SourceTrust, string AgentId, string Text);
+/// <param name="IdeaIndex">The idea's index in the run, so a card can point back to its message.</param>
+public sealed record LuckyGcEntry(string Kind, string SourceTrust, string AgentId, string Text, int IdeaIndex);
 
 /// <summary>A Backlog card the host creates for an owner-marked idea (doc 26 section 6, doc 12).</summary>
 /// <param name="RunId">The run the idea came from.</param>
