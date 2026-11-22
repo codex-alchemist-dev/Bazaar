@@ -12,7 +12,7 @@ namespace Bazaar.Server.Modules.Persistence;
 /// SQL-first access to the module manager's append-only tables (<c>modules/0001</c>): update decisions and line-move audit
 /// events, and permission approvals (<c>modules/0002</c>). All tables refuse UPDATE, DELETE and TRUNCATE, so this repository only inserts and reads.
 /// </summary>
-public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransactionalAuditLog audit) : IModuleInstallStore
+public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransactionalAuditLog audit) : IModuleInstallStore, IModulePermissionApprovalReader
 {
     /// <summary>The largest page <see cref="ListDecisionsAsync"/> returns in one call.</summary>
     public const int MaxListLimit = 500;
