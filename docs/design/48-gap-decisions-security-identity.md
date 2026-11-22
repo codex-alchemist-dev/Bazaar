@@ -210,7 +210,7 @@ Design consequences:
 - Biometric data is never in logs, the audit chain or backups.
 - A device without a required factor cannot perform a high-risk action. It can still read.
 
-Built status: PLANNED (format PROPOSED in 8.1; software verifier and spike S-BIO in progress). Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
+Built status: PLANNED (format PROPOSED in 8.1; software verifier built in `Bazaar.Server.Biometric`, spike S-BIO B1 passed, B2 and B3 need the owner's devices; record in `docs/spikes/S-BIO.md`). Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
 
 OPEN: the platform list for LiDAR face beyond the owner's devices and the exact liveness reporting per platform. These are device-capability questions for the spike, not policy choices. The biometric matching thresholds stay with the platform.
 
