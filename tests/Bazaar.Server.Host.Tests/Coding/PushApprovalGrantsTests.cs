@@ -15,9 +15,9 @@ public sealed class PushApprovalGrantsTests : IDisposable
 {
     private static readonly CancellationToken _ct = TestContext.Current.CancellationToken;
     private static readonly DateTimeOffset _now = new(2026, 11, 22, 12, 0, 0, TimeSpan.Zero);
-    private const string Agent = "agent-1";
-    private const string Device = "device-1";
-    private const string Owner = "owner";
+    private const string _agent = "agent-1";
+    private const string _device = "device-1";
+    private const string _owner = "owner";
 
     private readonly ECDsa _key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
     private readonly Guid _session = Guid.NewGuid();
@@ -27,7 +27,7 @@ public sealed class PushApprovalGrantsTests : IDisposable
     private readonly FixedTime _time = new(_now);
 
     public PushApprovalGrantsTests() =>
-        _keys.Register(new OwnerDeviceKey(Owner, Device, _key.ExportSubjectPublicKeyInfo()));
+        _keys.Register(new OwnerDeviceKey(_owner, _device, _key.ExportSubjectPublicKeyInfo()));
 
     public void Dispose() => _key.Dispose();
 
@@ -60,7 +60,7 @@ public sealed class PushApprovalGrantsTests : IDisposable
             replaceThrows ? throw new InvalidOperationException("down") : inner.TryReplaceAsync(id, expected, updated, ct);
     }
 
-    private static PushGateRequest Push(string agent = Agent, string repo = "repo1", string branch = "agent/fix-x", string gc = "gc-1", string task = "fix-x") =>
+    private static PushGateRequest Push(string agent = _agent, string repo = "repo1", string branch = "agent/fix-x", string gc = "gc-1", string task = "fix-x") =>
         new(agent, new RepoRef(repo, "main"), BranchName.Parse(branch), gc, task);
 
     private ApprovalStorePushGrants Grants(IApprovalStore? store = null) =>
@@ -84,7 +84,7 @@ public sealed class PushApprovalGrantsTests : IDisposable
         if (signed)
         {
             signature = (signer ?? _key).SignData(
-                ApprovalSignature.Message(id, ApprovalDecision.Approve, hash, expires, Device),
+                ApprovalSignature.Message(id, ApprovalDecision.Approve, hash, expires, _device),
                 HashAlgorithmName.SHA256,
                 DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         }
@@ -101,8 +101,8 @@ public sealed class PushApprovalGrantsTests : IDisposable
             status,
             _now - TimeSpan.FromMinutes(5),
             expires,
-            DecidedBy: signed ? Owner : null,
-            DeviceId: signed ? Device : null,
+            DecidedBy: signed ? _owner : null,
+            DeviceId: signed ? _device : null,
             DecidedAt: signed ? _now - TimeSpan.FromMinutes(1) : null,
             Signature: signature,
             ConsumedAt: consumed ? _now - TimeSpan.FromSeconds(30) : null);
@@ -248,7 +248,7 @@ public sealed class PushApprovalGrantsTests : IDisposable
     public async Task An_approval_signed_by_a_revoked_owner_device_is_not_a_grant()
     {
         await ApprovedAsync();
-        _keys.Register(new OwnerDeviceKey(Owner, Device, _key.ExportSubjectPublicKeyInfo(), Revoked: true));
+        _keys.Register(new OwnerDeviceKey(_owner, _device, _key.ExportSubjectPublicKeyInfo(), Revoked: true));
 
         Assert.Null(await FindAsync());
     }

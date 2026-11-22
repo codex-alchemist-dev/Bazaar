@@ -42,7 +42,7 @@ public sealed partial class RunChecksToolHandler : ICodingToolHandler
     /// <summary>The tool name.</summary>
     public const string ToolName = "run_checks";
 
-    private const int LogCap = 1_024;
+    private const int _logCap = 1_024;
 
     private static readonly IReadOnlySet<string> _defaultAllowed = new HashSet<string>(StringComparer.Ordinal) { FlagCodes.TestFileChanged };
 
@@ -245,7 +245,7 @@ public sealed partial class RunChecksToolHandler : ICodingToolHandler
                     command.Argv,
                     command.Cwd,
                     command.Timeout ?? _options.DefaultCommandTimeout,
-                    LogCap,
+                    _logCap,
                     scanner is null ? null : scanner.Observe,
                     cancellationToken).ConfigureAwait(false);
             }

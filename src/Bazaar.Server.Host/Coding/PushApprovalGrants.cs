@@ -43,7 +43,7 @@ public interface IApprovedPushApprovalIds
 /// <summary>One read-only query over the <c>approval</c> table (migration 0011). Server's <c>IApprovalStore</c> has no query method and is left as it is.</summary>
 public sealed class PostgresApprovedPushApprovalIds : IApprovedPushApprovalIds
 {
-    private const int MaxCandidates = 8;
+    private const int _maxCandidates = 8;
 
     private readonly NpgsqlDataSource _dataSource;
 
@@ -61,7 +61,7 @@ public sealed class PostgresApprovedPushApprovalIds : IApprovedPushApprovalIds
         var utc = now.ToUniversalTime();
         await using var cmd = _dataSource.CreateCommand(
             "SELECT id FROM approval WHERE status = 'approved' AND agent_id = $1 AND session_id = $2 AND tool = $3 " +
-            "AND args_hash = $4 AND expires_at > $5 ORDER BY expires_at, id LIMIT " + MaxCandidates);
+            "AND args_hash = $4 AND expires_at > $5 ORDER BY expires_at, id LIMIT " + _maxCandidates);
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = agentId });
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = sessionId });
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = tool });

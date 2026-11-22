@@ -18,7 +18,7 @@ internal sealed record GuestCommandResult(int? ExitCode, bool TimedOut, bool Fau
 internal static class GuestCommand
 {
     /// <summary>Extra characters kept past the cap so a secret that straddles the cap is redacted whole before the cut.</summary>
-    private const int RedactionSlack = 512;
+    private const int _redactionSlack = 512;
 
     /// <summary>
     /// Runs <paramref name="argv"/> in <paramref name="cwd"/> (relative to the worktree). The environment is empty.
@@ -39,7 +39,7 @@ internal static class GuestCommand
 
         var stdout = new StringBuilder();
         var stderr = new StringBuilder();
-        var limit = outputCap + RedactionSlack;
+        var limit = outputCap + _redactionSlack;
         var truncated = false;
         var gate = new object();
 
@@ -138,7 +138,7 @@ internal static class GuestCommand
 /// </summary>
 internal static partial class SecretRedactor
 {
-    private const string Mask = "[redacted]";
+    private const string _mask = "[redacted]";
 
     /// <summary>Returns <paramref name="text"/> with secret-shaped values masked.</summary>
     public static string Redact(string text)
@@ -148,10 +148,10 @@ internal static partial class SecretRedactor
             return text;
         }
 
-        text = PrivateKey().Replace(text, Mask);
-        text = Tokens().Replace(text, Mask);
-        text = Bearer().Replace(text, "Bearer " + Mask);
-        return Assignment().Replace(text, m => m.Groups[1].Value + Mask);
+        text = PrivateKey().Replace(text, _mask);
+        text = Tokens().Replace(text, _mask);
+        text = Bearer().Replace(text, "Bearer " + _mask);
+        return Assignment().Replace(text, m => m.Groups[1].Value + _mask);
     }
 
     [GeneratedRegex(@"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z ]*PRIVATE KEY-----|$)")]
