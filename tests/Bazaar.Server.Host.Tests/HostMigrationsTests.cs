@@ -45,6 +45,15 @@ public sealed class HostMigrationsTests
     }
 
     [Fact]
+    public void Presence_agent_activity_migration_is_in_the_host_source()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("presence", source.Namespaces());
+        Assert.Contains(source.Load("presence"), f => f.Version == 1 && f.Name == "agent_activity");
+    }
+
+    [Fact]
     public void Host_plan_orders_the_portability_migration_after_common()
     {
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), []);

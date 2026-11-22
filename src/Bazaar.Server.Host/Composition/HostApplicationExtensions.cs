@@ -16,6 +16,7 @@ using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -60,6 +61,7 @@ public static class HostApplicationExtensions
         services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
+        services.AddBazaarPresencePostgres();
         services.AddBazaarLegalHoldReader();
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
