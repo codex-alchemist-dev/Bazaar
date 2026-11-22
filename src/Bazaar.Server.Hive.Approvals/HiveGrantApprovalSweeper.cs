@@ -32,12 +32,12 @@ public sealed partial class HiveGrantApprovalSweeper(
         }
 
         var applied = 0;
-        foreach (var (id, change) in ledger.Snapshot())
+        foreach (var (id, change) in await ledger.SnapshotAsync(ct).ConfigureAwait(false))
         {
             var row = await store.GetAsync(id, ct).ConfigureAwait(false);
             if (row is null || row.Tool != OwnerQueueHiveGrantApprovals.ToolName)
             {
-                ledger.Remove(id);
+                await ledger.RemoveAsync(id, ct).ConfigureAwait(false);
                 continue;
             }
 
@@ -49,14 +49,14 @@ public sealed partial class HiveGrantApprovalSweeper(
                 case ApprovalStatus.Denied:
                 case ApprovalStatus.Expired:
                 case ApprovalStatus.Consumed:
-                    ledger.Remove(id);
+                    await ledger.RemoveAsync(id, ct).ConfigureAwait(false);
                     break;
                 case ApprovalStatus.Approved:
                     try
                     {
                         await applier.ApplyApprovedAsync(change, row.DecidedBy ?? "owner", ct).ConfigureAwait(false);
                         await approvals.ConsumeAsync(id, now, ct).ConfigureAwait(false);
-                        ledger.Remove(id);
+                        await ledger.RemoveAsync(id, ct).ConfigureAwait(false);
                         applied++;
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
