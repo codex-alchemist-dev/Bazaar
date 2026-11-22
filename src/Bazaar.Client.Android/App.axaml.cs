@@ -27,6 +27,7 @@ using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
@@ -124,7 +125,9 @@ public sealed class App : Avalonia.Application
             .With<IConstellationTileSource>(tiles)
             .With<IPendingApprovalSource>(approvals)
             .With<IPendingToolGrantSource>(grants)
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+            .WithViewContext(ViewContextServices.CreateDefault(new ViewActionRouter(), ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
         if (gate is not null) features = features.With(gate);
         if (grantGate is not null) features = features.With(grantGate);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.

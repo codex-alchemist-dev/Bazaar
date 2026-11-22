@@ -32,6 +32,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.SignIn;
 using Bazaar.Client.Vault;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
@@ -91,7 +92,9 @@ internal static class Program
             new PaneModuleContext()
                 .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
                 .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
-                .WithGitGui(ClientServer.Current),
+                .WithGitGui(ClientServer.Current)
+                // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+                .WithViewContext(ViewContextServices.CreateDefault(new ViewActionRouter(), ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),
             terminals);
         features = ComposeMergeApproval(features);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.

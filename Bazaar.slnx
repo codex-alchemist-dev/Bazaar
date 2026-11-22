@@ -25,6 +25,8 @@
     <Project Path="src/Bazaar.Client.DefaultApp.Linux.Abstractions/Bazaar.Client.DefaultApp.Linux.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Gc/Bazaar.Client.Gc.csproj" />
     <Project Path="src/Bazaar.Client.Chat/Bazaar.Client.Chat.csproj" />
+    <Project Path="src/Bazaar.Client.Navigation/Bazaar.Client.Navigation.csproj" />
+    <Project Path="src/Bazaar.Client.Navigation.Abstractions/Bazaar.Client.Navigation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Chat.Abstractions/Bazaar.Client.Chat.Abstractions.csproj" />
     <Project Path="src/Bazaar.Localisation/Bazaar.Localisation.csproj" />
     <Project Path="src/Bazaar.Accessibility/Bazaar.Accessibility.csproj" />
@@ -432,6 +434,7 @@
     <Project Path="tests/Bazaar.Client.DefaultApp.Linux.Tests/Bazaar.Client.DefaultApp.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Chat.Tests/Bazaar.Client.Chat.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Navigation.Tests/Bazaar.Client.Navigation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.TalentPool.Http.Tests/Bazaar.Client.TalentPool.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.TalentPool.Tests/Bazaar.Client.TalentPool.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.ServerE2E.Tests/Bazaar.Client.ServerE2E.Tests.csproj" />
