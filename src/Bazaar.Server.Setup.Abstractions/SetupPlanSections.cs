@@ -42,6 +42,7 @@ public static class SetupPlanSections
         new("modules", ["modules"], [14]),
         new("network", ["network"], [15]),
         new("settings", ["settings"], []),
+        new("firstRun", ["firstRun"], []),
     ];
 
     private static readonly FrozenSet<string> _ids = All.Select(section => section.Id).ToFrozenSet(StringComparer.Ordinal);

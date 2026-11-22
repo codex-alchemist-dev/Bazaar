@@ -21,4 +21,7 @@ internal sealed class InstallAuditLog : IModuleInstallStore
         Entries.Add(entry);
         return Task.CompletedTask;
     }
+
+    public Task<IReadOnlyList<ModulePermissionApprovalRecord>> ListPermissionApprovalsAsync(string moduleId, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<ModulePermissionApprovalRecord>>([.. Approvals.Where(a => a.ModuleId == moduleId)]);
 }

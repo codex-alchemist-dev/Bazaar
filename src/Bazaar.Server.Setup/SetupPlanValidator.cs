@@ -20,6 +20,8 @@ public static partial class SetupPlanValidator
 
     private const int _maxNameLength = 100;
 
+    private const string _providerSecretPrefix = "secret://bazaar/providers/";
+
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,62}$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugRegex();
 
@@ -60,8 +62,11 @@ public static partial class SetupPlanValidator
         }
 
         ValidateBackups(plan.Backups, issues);
+        ValidateBackupSettings(plan, registry, issues);
+        ValidateEmail(plan, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
+        ValidateFirstRun(plan.FirstRun, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
@@ -69,6 +74,44 @@ public static partial class SetupPlanValidator
         ValidateIdentityKek(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
+    }
+
+    private static void ValidateFirstRun(SetupFirstRunSection firstRun, List<SetupValidationIssue> issues)
+    {
+        if (IsBlank(firstRun.GeneralGcTitle) || firstRun.GeneralGcTitle.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.generalGcTitle", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (IsBlank(firstRun.DefaultAgentName) || firstRun.DefaultAgentName.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.defaultAgentName", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (firstRun.DefaultAgentPurpose is null || firstRun.DefaultAgentPurpose.Length > 500)
+        {
+            issues.Add(Error("firstRun.defaultAgentPurpose", "must be at most 500 characters."));
+        }
+
+        if (firstRun.DefaultAgentProfile is null || !SlugRegex().IsMatch(firstRun.DefaultAgentProfile))
+        {
+            issues.Add(Error("firstRun.defaultAgentProfile", "must be a lower-case profile name, for example balanced."));
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < firstRun.DefaultAgentSources.Count; i++)
+        {
+            var id = firstRun.DefaultAgentSources[i];
+            var path = $"firstRun.defaultAgentSources[{i}]";
+            if (id is null || !SlugRegex().IsMatch(id))
+            {
+                issues.Add(Error(path, "must be a lower-case model source id."));
+            }
+            else if (!seen.Add(id))
+            {
+                issues.Add(Error(path, "is listed twice."));
+            }
+        }
     }
 
     private static void ValidateInstall(SetupInstallSection install, List<SetupValidationIssue> issues)
@@ -214,9 +257,62 @@ public static partial class SetupPlanValidator
         }
     }
 
+    /// <summary>
+    /// The backups section is also registry keys (doc 45 step 8; doc 33): a value set twice (in the section and in <c>settings</c>) is an
+    /// error, and a target runs through the registry's checks (shape, no credentials, and held for owner approval when it leaves the install).
+    /// </summary>
+    private static void ValidateBackupSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.BackupTargetKey, "backups.target", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupDrillIntervalKey, "backups.drillIntervalDays", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupNoTargetAcknowledgedKey, "backups.acknowledgeNoTarget", issues);
+
+        if (plan.Backups.Target is null || IsBlank(plan.Backups.Target))
+        {
+            return;
+        }
+
+        if (!registry.TryGet(SetupSettingProjection.BackupTargetKey, out var definition) || definition is null)
+        {
+            issues.Add(Error("backups.target", "the backup target setting is not registered in this build."));
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Backups.Target, SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "backups.target", value, issues);
+    }
+
+    /// <summary>
+    /// The email section (doc 45 step 11; doc 22): off with no back end, or on with one of the four v1 back ends. The operator domain
+    /// is not a plan field. A value set twice (in the section and in <c>settings</c>) is an error.
+    /// </summary>
+    private static void ValidateEmail(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.MailEnabledKey, "email.enabled", issues);
+        RejectDuplicate(plan, SetupSettingProjection.MailBackendKey, "email.backend", issues);
+
+        if (SetupSettingProjection.IsEmailChoiceCoherent(plan))
+        {
+            return;
+        }
+
+        issues.Add(plan.Email.Enabled
+            ? Error("email.backend", $"is required when email.enabled is true: one of {string.Join(", ", SetupSettingProjection.MailBackends)}.")
+            : Error("email.backend", "must be empty while email.enabled is false."));
+    }
+
+    private static void RejectDuplicate(SetupPlan plan, string key, string planPath, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(key))
+        {
+            issues.Add(Error("settings." + key, $"is already set by {planPath}; set it in one place."));
+        }
+    }
+
     private static void ValidateModels(SetupModelsSection models, List<SetupValidationIssue> issues)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        var canonicalIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < models.Sources.Count; i++)
         {
             var source = models.Sources[i];
@@ -234,11 +330,51 @@ public static partial class SetupPlanValidator
             {
                 issues.Add(Error(path + ".keyRef", "must be a secret://bazaar/ reference, or omitted. A literal value is not accepted."));
             }
+            else if (source.KeyRef is not null && !source.KeyRef.StartsWith(_providerSecretPrefix, StringComparison.Ordinal))
+            {
+                issues.Add(Error(path + ".keyRef", "must be under secret://bazaar/providers/ (the gateway only stores provider key references from there)."));
+            }
+
+            if (source.Id is not null && SlugRegex().IsMatch(source.Id))
+            {
+                ValidateModelSourceAgainstCatalogue(source, path, canonicalIds, issues);
+            }
         }
 
         if (IsBlank(models.DefaultPreset))
         {
             issues.Add(Error("models.defaultPreset", "must not be blank."));
+        }
+        else if (!SlugRegex().IsMatch(models.DefaultPreset))
+        {
+            issues.Add(Error("models.defaultPreset", "must be a lower-case slug."));
+        }
+    }
+
+    /// <summary>
+    /// A source must be one the default catalogue knows (doc 05), because the plan carries no kind, adapter or base URL and setup does not
+    /// invent them. A source that takes a key must carry one, and a local runtime takes none (the gateway refuses a key for auth none).
+    /// </summary>
+    private static void ValidateModelSourceAgainstCatalogue(SetupModelSource source, string path, HashSet<string> canonicalIds, List<SetupValidationIssue> issues)
+    {
+        if (!ModelSourceCatalogue.Default.TryGet(source.Id, out var entry) || entry is null)
+        {
+            issues.Add(Error(path + ".id", "is not in the default model source catalogue (doc 05), so its kind, adapter and base URL are unknown. Add the source in the admin panel after setup."));
+            return;
+        }
+
+        if (!canonicalIds.Add(entry.Id))
+        {
+            issues.Add(Error(path + ".id", "names a source that another entry already names (an id and its alias are the same source)."));
+        }
+
+        if (entry.TakesKey && source.KeyRef is null)
+        {
+            issues.Add(Error(path + ".keyRef", "is required: this source takes an API key or bearer token, held by reference."));
+        }
+        else if (!entry.TakesKey && source.KeyRef is not null)
+        {
+            issues.Add(Error(path + ".keyRef", "must be omitted: this source is a local runtime and takes no key."));
         }
     }
 

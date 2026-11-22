@@ -53,6 +53,7 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 - **Motion class:** `bigger_change` or `ordinary`, set by `council.bigger_change_classes` (Settings below). [PROPOSED] Default: every membership or role motion and every Constitution change is a `bigger_change`. This closes the C32 follow-up on which motions are bigger changes as a per-install setting (DECISIONS-LOG round 13, rule 4); the owner's C32 statement still governs the escalation rule.
 - **Rule:** a `bigger_change` passes without the owner only when unanimous; split or tied outcomes escalate. An `ordinary` motion uses the vote-type rules above.
 - **Effect:** the Council emits `council.decision`; the owning doc applies the change (doc 07 for Soul and lifecycle state, doc 25 for hiring). This doc writes no agent tables (C04).
+- **Membership handoff** [PROPOSED]: the vote stores what the handoff needs. A membership motion carries a `membership_kind` (`hire`, `promote`, `retire`, `role_change`, `constitution_change`) and a `membership_subject_id` (the agent, or for a hire the template id), both set when the vote opens: `OpenAsync` requires both or neither, and a vote with neither is not a membership vote and has no handoff. When the vote is decided (by the tally or by the owner's resolution), `RecordDecisionAsync` maps the outcome (`MembershipOutcomeMapper`; an owner resolution maps as an escalated tally plus `OwnerResolution`) and calls every registered `IMembershipOutcomeSink`, after the `council.decision` event is written. Sinks are idempotent by vote id. The vote row carries `membership_outcome_delivered_at` (null until every sink accepted the outcome). A sink failure never undoes the decision: the vote stays Decided and undelivered, and the deadline sweeper re-drives every decided membership vote with no delivery mark, regardless of the recovery lookback, until delivery succeeds. A withdrawn vote has no handoff in this change.
 - **Context:** reputation (doc 11) is shown beside the vote; it does not weight it in v1.
 
 ### Eligibility, quorum and deadlines [PROPOSED]
@@ -68,7 +69,8 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 
 This rule adds a follow-up trigger for ordinary motions only. A bigger change keeps the unanimity rule above unchanged: any split still goes to follow-up, and a split after follow-up escalates.
 
-- **High-impact flag:** a motion carries a boolean `high_impact`, set by the proposer when the motion opens. The default is false, so an ordinary motion without the flag is decided exactly as before. The flag is not yet stored on `council_vote`; until it is, the Council opens every vote with it false. Adding the column is a schema change for doc 04 and needs its own item.
+- **High-impact flag:** a motion carries a boolean `high_impact`, set by the proposer when the motion opens. The default is false, so an ordinary motion without the flag is decided exactly as before. It is stored on `council_vote` as `high_impact boolean not null default false` (migration `council/0002`, doc 04 Data and interfaces), written once when the vote opens and never changed after. Rows opened before the column existed read as false. The `council.open` event carries it, and every tally of the vote reads it from the stored row. [PROPOSED]
+- **Setting at decision time:** the Council reads `council.followup_dissent_share` from the settings store each time it tallies a round, so a change applies to the next tally without a restart. A vote already in follow-up is not re-tallied by a later change. [PROPOSED]
 - **Dissent share:** the number of non-abstaining ballots cast against the choice that would otherwise be decided, divided by the number of non-abstaining ballots cast in that round. For approve/reject, a Yes result counts each No as dissent; for option choice, each ballot for another option counts. Abstentions are in neither count. The denominator is ballots cast, not the eligible electorate, so quorum and the vote-type majority are unchanged.
 - **Trigger:** in the independent round only, a high-impact ordinary motion that would otherwise be decided goes to follow-up when at least one ballot dissents and the dissent share is at least `council.followup_dissent_share` (default 0.33). A share exactly equal to the setting triggers.
 - **After follow-up:** the one-round cap is fixed (DECIDED), so the follow-up tally decides as the vote-type rules say. Dissent after follow-up does not escalate on its own. [PROPOSED]
@@ -138,7 +140,11 @@ Doc 10 owns these tables (C16). Shared conventions come from doc 04.
 ```
 council_vote        (vote_id PK, gc_id, subject_ref, kind, motion_class {ordinary|bigger_change},
                      state, version, options jsonb, deadline_at, extensions int,
-                     eligible_snapshot jsonb, reveal_seed, vault_decision_no int null, created_at)
+                     eligible_snapshot jsonb, reveal_seed, vault_decision_no int null,
+                     high_impact bool not null default false [PROPOSED],
+                     membership_kind text null, membership_subject_id text null,
+                     membership_outcome_delivered_at timestamptz null [PROPOSED, migration council/0003],
+                     created_at)
 council_ballot      (vote_id, voter_id, phase {independent|followup}, choice,
                      reasoning (per-person encrypted), revealed bool, tainted_at_write bool,
                      submitted_at, PK (vote_id, voter_id, phase))
@@ -185,6 +191,75 @@ Registry rules from doc 03 (round 13): settings are per install here, changes ar
 | `council.pilot_holdout_share` | decimal | 0.15 | install | operator | No, audited |
 | `council.pilot_stop_flip_share` | decimal | 0.20 | install | operator | No, audited |
 | `council.pilot_target_votes` | int | 20 | install | operator | No, audited |
+
+## Per-person sealed reasons (implementation, C01) [PROPOSED]
+
+Status: PROPOSED, 2026-11-19, from the read-only design note "Council reveal and decision reasons: per-person encryption design" (branch `claude/project-thread-4uy4wq`; scratchpad copy, not in the repo). The owner has not confirmed the envelope choice. Binding inputs: C01 (personal fields are per-person encrypted from day 1; erasure destroys the key and tombstones; structure, authorship and timestamps stay) and doc 04 Question 2 (AES-256-GCM per person, key id as associated data, `person_key` wrapped under the KEK, no key cache, fail closed without a KEK).
+
+This section sets how the reveal and the decision store reasons. It replaces the plaintext reasoning that the current payload records carry (`CouncilRevealReasonPayload.Reasoning`, `CouncilDecisionVoterPayload.Reasoning`, `CouncilDecisionPayload.OwnerReasoning`). C01 does not allow that text in the GC log.
+
+### Envelope: one sealed event per person [PROPOSED]
+
+- The reveal appends, in one `AppendManyAsync` transaction, one `council.reveal` summary event and one `council.reason` event per voter. The summary is clear: vote id, seed, reason order, tally, counts and `reason_seq` references.
+- Each `council.reason` row has a clear payload (`vote_id`, `voter_id`, `phase`, `choice`, `context` as `reveal`, `decision` or `owner_resolution`, and `erased_at_write`). Its reasoning is sealed in `gc_event.payload_ct` under that voter's key, stored in `gc_event.key_id`.
+- No DDL on `gc_event`. The nonce sits inside `payload_ct` as a self-describing blob: format byte, 12-byte nonce, ciphertext, 16-byte tag.
+- Erasing one voter makes only that voter's `council.reason` rows unreadable. Those rows render as `[erased]`.
+- Idempotency: one `client_msg_id` per row (for example `reveal:<vote>` and `reason:<vote>:<voter>:<phase>:<context>`), within the 200-character limit. The batch is one transaction, so a retry returns all duplicates or writes all rows.
+- Rejected: an array of sealed blobs inside the payload (leaves `payload_ct` and `key_id` unused and hides key ids in jsonb); a sealed-map column on `gc_event` (schema change to the frozen core table); references only (the GC would stop holding the reasons and would need a Council port to read them).
+
+### Seal once, copy ciphertext [PROPOSED]
+
+- A reasoning is sealed once, at ballot time, under the voter's key. The reveal and decision events copy the stored nonce and ciphertext bytes verbatim, with the stored key id.
+- The reveal and decision paths never decrypt, so plaintext does not pass through them.
+- A voter erased before the reveal yields an unreadable copy, marked `erased_at_write = true` when the store reports the key as destroyed.
+- `council.decision` references reasons by seq and holds no reasoning text. A voter whose final ballot is the independent one is referenced by the reveal row's seq. Only follow-up reasons and the owner's reasoning add `council.reason` rows to the decision batch.
+
+### Associated data [PROPOSED]
+
+AD = `bazaar.council.reason.v1`, then key id, vote id, voter principal id and a phase byte (`independent`, `followup` or `owner_resolution`). Seq and event id are left out, because they are unknown before the append, so a copied blob still opens. The AD stops a reason from being moved to another vote, voter or phase. Council ids are strings, so the adapter parses voter ids strictly (`Guid.ParseExact(voterId, "D")`) and fails closed on anything else.
+
+### Interfaces and ownership [PROPOSED]
+
+| GC owns | Council owns |
+|---|---|
+| `AppendRequest.Sealed` (additive: only sealed-payload kinds, never together with `Message`, key id non-empty), the writer columns `payload_ct` and `key_id`, the generic sealed-field primitive over `person_key` (returns `null` on erasure), the per-viewer open on the read path, the erasure tombstone hook | The `council.reason` kind row in a new `council/0002` migration, the `council.*` payload records with no reasoning text, the Council AD context, the cipher adapter over the GC primitive, the choice of which fields are sealed, the erasure-tolerant tally |
+
+- `ICouncilReasoningCipher` becomes async: `SealAsync` and `OpenAsync`. `OpenAsync` returns `null` when the key was destroyed and throws on an unknown key or a failed check.
+- `ICouncilStore` splits its reads: `ListBallotChoicesAsync` (no decrypt; cast counts, quorum and tally), `ListSealedReasonsAsync` (sealed bytes only; used by reveal and decision) and `OpenReasonsAsync` (only the follow-up prompt builder and the owner's audited read).
+- `ResolveEscalationAsync` seals the owner's reasoning under the owner's principal key.
+- `council.reason` rows use `author_kind = system` (Council service identity), `source_trust = agent` (owner for the owner's row) and `tainted_at_write` copied from the ballot (soft taint, doc 15).
+- Migration: this branch has only `src/Bazaar.Server.Council/Sql/components/council/0001_council.sql`, so the kind row takes `council/0002`. If another council migration lands first, the next free number is used. `common/` stays frozen.
+
+### Counting and erasure [PROPOSED]
+
+- Cast counts, quorum and the tally read choices only and never decrypt. Today `ListBallotsAsync` decrypts every ballot, so one erased voter would block later submits, deadlines, reveal and decision. The split removes that path. Erasure keeps the tally and structure, as C01 requires.
+- Escalation dissent summary: derived on read from the stored reasons, never persisted. One stored summary would mean sealing several people's reasons under one key, which the envelope cannot do.
+
+### Owner reads of sealed ballots [PROPOSED, fail closed]
+
+- Before the reveal, the owner cannot read sealed ballots. This is the fail-closed default. It overrides the owner-readable default in "Private storage and reveal" for the period before the reveal only.
+- Question 1 below stays open. The answer may only loosen by an explicit owner change, recorded in `docs/design/DECISIONS-LOG.md`.
+- After the reveal, reads of reasons go through one audited API (GC read path, doc 04 conventions).
+
+### Open [OPEN]
+
+- Erasure tombstone mechanics for non-message events (a `system` event with `target_seq`) and who appends it: docs 32 and 33, pending counsel.
+- Whether per-voter choices are personal data that must also be sealed. This section keeps them clear, as the tally and structure must stay; counsel decides.
+- Whether crypto-erase is legally sufficient under C01: counsel.
+- Vault files and git history (conflict 11) are not changed by this section.
+- Unverified: whether PostgreSQL 18 accepts `ADD CONSTRAINT ... CHECK ... NOT VALID` on a partitioned parent. It is needed only for an optional `CHECK ((payload_ct IS NULL) = (key_id IS NULL))` on `gc_event`; the writer-side check is enough for v1.
+
+### Work order and tests [PROPOSED]
+
+Work packages, in order: GC-SEAL-1 and GC-SEAL-2 (GC) and CNCL-1 (`council/0002`) in parallel; CNCL-2 after GC-SEAL-1; CNCL-3 after CNCL-2 and the sealed-field primitive; CNCL-4 (payloads and `AppendBatchAsync`); CNCL-5 (reveal and decision batches from sealed bytes); CNCL-6 (production adapter over `AppendManyAsync`); GC-READ-1 after the vote-card wire design; ERASE-HOOK is design only until counsel.
+
+Tests to pin the design:
+- Sealing round trip; wrong AD fails; destroyed key returns `null`; no KEK fails closed; bad format byte rejected.
+- Batch atomicity on real Postgres; retry returns the original rows; sealed plus `Message` rejected.
+- Blob moved to another vote, voter or phase fails to open.
+- Erasing one voter mid-vote: the vote still reveals and decides.
+- Golden JSON: no reasoning key in `council.reveal` or `council.decision`.
+- Real Postgres: a canary string appears nowhere in `gc_event.payload::text` or in `payload_ct`.
 
 ## Testing
 

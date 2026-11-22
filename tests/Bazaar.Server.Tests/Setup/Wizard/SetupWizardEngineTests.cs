@@ -17,7 +17,7 @@ public sealed class SetupWizardEngineTests
 
     private static readonly string[] _mainAnswers =
     [
-        "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", "",
+        "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", "", "", "", "",
     ];
 
     private static readonly string[] _mainFlags =

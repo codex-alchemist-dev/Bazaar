@@ -90,7 +90,7 @@ Section budgets are settings (`runtime.budget.*`). The manifest stores ids, vers
 A subagent is a child turn loop with fresh context, a tool allowlist that is a subset of the parent's, and a model from the parent's whitelist (05 deny-by-default). Its model follows `runtime.subagent_model_rule`. Limits, owned here (C36), are settings: depth (`runtime.subagent_max_depth`, default 2), concurrent children (`runtime.subagent_max_concurrent`, default 3) and a step ceiling per child (`runtime.subagent_step_cap`, default 40). Coding subagents in 17 use depth 1 inside this limit. Children do not post to a GC unless `runtime.subagent_may_post` is on (default off). The child returns a summary and a trace id; the full trace is stored for the parent and reviewers.
 
 ### Loop guards and scheduling [PROPOSED]
-Scheduling of agent wakes (timers, intervals, watchers and one-shot events, the self-reinvoke model) is owned by RyuseiFuda (38). Its trigger fires enter this doc's inbox as the `ryusei_*` wake kinds, and its trigger limits sit beside the guards below. Inbox dedupe key [RESOLVED, doc 38 conflict 1]: `(agent_id, source_key, kind)`, where `source_key` is the GC line's `gc_seq` when the wake comes from a GC line, or the RyuseiFuda `fire_id` when it comes from a ticket. Counters are server-side and keyed by thread. On a trip the runtime stops waking the agents involved, posts a system notice in the GC, and admits them to the Psych Ward (26). Trips are logged to `guard_event`. Limits are settings; loosening one needs owner approval.
+Scheduling of agent wakes (timers, intervals, watchers and one-shot events, the self-reinvoke model) is owned by RyuseiFuda (38). Its trigger fires enter this doc's inbox as the `ryusei_*` wake kinds, and its trigger limits sit beside the guards below. Inbox dedupe key [RESOLVED, doc 38 conflict 1]: `(agent_id, source_key, kind)`, where `source_key` is the GC line's `gc_seq` when the wake comes from a GC line, or the RyuseiFuda `fire_id` when it comes from a ticket. Counters are server-side and keyed by thread. On a trip the runtime stops waking the agents involved, posts a system notice in the GC, and admits them to the Psych Ward (26). Trips are logged to `guard_event`. Implementation of the agent post path: `GcAgentPostSink` hands a trip to `ILoopTripHandler` (`Bazaar.LoopGuard.Abstractions`; `Bazaar.Server.LoopGuard`), which writes the `guard_event` row, appends one idempotent system notice (`loop_guard_tripped`) and calls `IPsychWardGate`, each step independent of the others; the post is then refused. `IPsychWardGate` defaults to a no-op until the Psych Ward (26) is built. Mention depth and the wake-stop are not part of this step. Limits are settings; loosening one needs owner approval.
 | Guard | Setting (default) |
 |---|---|
 | Ping-pong: two agents alternate N messages with no human or tool result between | `runtime.guard.pingpong_limit` (6) |
@@ -98,6 +98,14 @@ Scheduling of agent wakes (timers, intervals, watchers and one-shot events, the 
 | Wakes per agent per hour, all reasons including Skimmer-promoted | `runtime.guard.wakes_per_hour` (30) |
 | Agent messages in a thread without a human message | `runtime.guard.thread_agent_messages` (20) |
 | Identical tool call repeated | `runtime.guard.repeat_tool_call` (3) |
+
+### Wake loop default (overnight plan item 41)
+The wake loop is **on by default**, so a fresh company wakes agents on a card (a RyuseiFuda fire, doc 38) or a mention (a GC mention row) with no flag flipped. The setting is `Bazaar:AgentTurns:Scheduler:Enabled` (default `true`); an operator sets it to `false` to switch wakes off, and the host logs one line at start that says which. The default-on path is guarded:
+- **Kill switch first.** Before every wake the loop asks `IAgentWakeGate`; `Bazaar.Server.AgentSafety` answers from the kill switch (doc 15): a global stop or an agent stop denies the wake, the agent keeps its inbox items, and the guard is not asked, so a stopped agent adds nothing to its counters. With no kill switch composed, the gate denies every wake (fail closed).
+- **Loop guard always on.** The guard is asked before every wake (chain depth, ping-pong, wakes per hour); a trip goes to the Psych Ward as above. No setting turns the guard off, and every limit is validated to be at least 1 (`LoopGuardOptions.Validate`), so no value disables it. Loosening a limit still needs owner approval.
+- **Quota and spend limits still apply.** Each turn goes through the model gateway (doc 05) and the token budgets (doc 15); `RateLimited` or `SpendCapped` moves the agent to Resting.
+- **Stays idle rather than failing.** If the setting was left at its default and the host cannot run turns (no model gateway, turn runner or loop guard), the loop logs why and wakes nothing; the host still starts. Setting `Enabled=true` explicitly keeps the older rule: the host stops at start with an error naming what is missing.
+- **Tests** use fake agents (a fake turn runner and inbox reader, the real loop guard, no network): a mention wakes an agent once, a two-agent loop is stopped by the guard, the kill switch stops wakes, the setting off disables wakes, and a fresh configuration has the loop on.
 
 ### Thinking GCs
 Each agent has a Thinking GC nested under each GC it works in (01; C11). Per-turn reasoning is posted as steps. The owner always reads; peers read on request; thinking is never injected into another agent's context. Vote reasoning is withheld until the tally is revealed. 25 and 26 do not publish Thinking GC text.
@@ -140,7 +148,7 @@ The settings are stored in Postgres and audited on change (03, 15 `audit_log`). 
 
 ## Data and interfaces
 ```sql
-agent(id, name, soul_version_id, state, model_policy_id, created_at)  -- policy -> 05; schedule and timezone -> 09 (agent_schedule)
+agent(id, name, soul_version_id, state, model_policy_id, created_at)  -- soul_version_id names no table; the Soul an agent runs under is `soul_agent_binding` (07, ISoulBindings). policy -> 05; schedule and timezone -> 09 (agent_schedule)
 inbox_item(id, agent_id, kind, gc_id, gc_seq, priority, state, due_at, claimed_by, claimed_at,
   unique(agent_id, gc_id, gc_seq, kind))  -- kind = a wake reason above; digest kind is gc_digest (13); 09, 12, 13, 24 add kinds only
 turn(id, agent_id, session_id, role /*actor|reader*/, parent_turn_id, depth, wake_reason, status, started_at, ended_at, context_manifest jsonb)

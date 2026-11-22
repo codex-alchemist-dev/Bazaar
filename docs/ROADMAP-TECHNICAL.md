@@ -160,7 +160,7 @@ The target is one module contract for all modules, first-party and third-party a
 | Keystore-sealed credentials on Android | Done | PR #324 |
 | CodeQL advanced workflow on every PR | Done | PR #287; `.github/workflows/codeql.yml` |
 | Secret scanning path allowlist for test fixtures only | Done | Project memory |
-| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server/Gateway` |
+| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server.Gateway` |
 | Gateway: floors enforced by settings (tighten only) | Planned (`ST1`) | `docs/design/03`, `docs/design/15` |
 
 **Exit check (T8):** the security review closes with no open blocking finding in the design set, and the taint rules are covered by a rule-table test.
@@ -174,7 +174,7 @@ The target is one module contract for all modules, first-party and third-party a
 | FreeLLMAPI provider: usage, health and expected-set auditor | Partial. Live key check (spike S17) pending | `docs/design/05b`; spike S17 |
 | `custom/*` routing methods | Planned (rules OPEN) | `CLAUDE.md` |
 | Turn runner in production; model tool calls dispatched through `IToolDispatcher` | Done | PRs #447, #457, #461 |
-| Wake loop behind `IAgentScheduler`, off by default | Done | PR #442 |
+| Wake loop behind `IAgentScheduler`; on by default behind the kill switch and loop guard (was off by default) | Done | PR #442; overnight plan item 41 |
 | Loop guard limits from configuration; loop guard mention parsing on the post path | Done | PRs #404, #438 |
 | Psych Ward state machine; loop-guard trips into it | Done | PRs #406, #467, #469 |
 | RyuseiFuda agent tools through the dispatcher; per-agent wake cap; chain depth | Done | PRs #349, #353, #359, #463, #370 |
@@ -247,7 +247,7 @@ The target is one module contract for all modules, first-party and third-party a
 | QEMU/KVM backend, Linux as a first-class tested host | Planned (after v1 candidates) | `docs/ROADMAP.md` |
 | Guest agent project | Partial (project exists) | `src/Bazaar.Guest.Agent` |
 | Browser profiles with credential leases | Planned | `docs/design/16`, `docs/design/14` |
-| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Engines` |
+| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Server.Engines` |
 
 ## T14. Backup, restore and export
 

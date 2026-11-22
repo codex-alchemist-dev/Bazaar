@@ -98,7 +98,7 @@ public sealed class SetupIdentityKekTests
 
         Assert.DoesNotContain(set, s => s.PlanPath == "custody.identityKek");
         Assert.DoesNotContain(set, s => s.Key == "identity.kek_provider");
-        Assert.Null(SetupSettingProjection.DerivedKeyForPath("custody.identityKek"));
+        Assert.Empty(SetupSettingProjection.DerivedKeysForPath("custody.identityKek"));
     }
 
     [Fact]

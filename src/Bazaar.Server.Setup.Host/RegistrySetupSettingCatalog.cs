@@ -1,4 +1,9 @@
 using System.Text.Json;
+using Bazaar.Conduit.Settings;
+using Bazaar.Server.BackupPolicy;
+using Bazaar.Server.Gateway;
+using Bazaar.Server.MailPolicy;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 
@@ -14,8 +19,13 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     private readonly SettingRegistry _registry;
     private readonly Dictionary<string, ISetupSettingDefinition> _byName;
 
-    /// <summary>The catalog of the registry this build ships (<see cref="SettingRegistry.Known"/>).</summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.Known);
+    /// <summary>
+    /// The catalog of the keys this build ships: the built-in registry plus the contributions of the modules whose keys a plan can set
+    /// (the module manager's, the backup policy's, the mail policy's, Conduit's and the gateway's, for the wizard's remote access keys), the same set the host
+    /// composes, for roots that run without the host's service graph.
+    /// </summary>
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.WithContributions(
+        [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution(), new GatewaySettingContribution()]));
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)
     {

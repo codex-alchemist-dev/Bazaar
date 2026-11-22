@@ -26,7 +26,7 @@ public static class SetupPlanLoader
         [""] =
         [
             "schemaVersion", "install", "database", "custody", "owner", "privacy", "backups", "models", "email",
-            "scamMailProtocol", "company", "modules", "network", "settings",
+            "scamMailProtocol", "company", "modules", "network", "firstRun", "settings",
         ],
         ["install"] = ["companyName", "companySlug", "locale", "timezone", "releaseChannel", "updatePolicy"],
         ["install.updatePolicy"] = ["security", "other"],
@@ -39,10 +39,11 @@ public static class SetupPlanLoader
         ["backups"] = ["target", "drillIntervalDays", "acknowledgeNoTarget"],
         ["models"] = ["sources", "defaultPreset"],
         ["models.sources[]"] = ["id", "keyRef"],
-        ["email"] = ["enabled"],
+        ["email"] = ["enabled", "backend"],
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
+        ["firstRun"] = ["seedGeneralGc", "generalGcTitle", "seedDefaultAgent", "defaultAgentName", "defaultAgentPurpose", "defaultAgentSources", "defaultAgentProfile", "acceptConstitution"],
     };
 
     /// <summary>Paths whose value may be JSON null (the typed plan's nullable properties). Every other null is an error.</summary>
