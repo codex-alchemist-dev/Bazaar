@@ -202,6 +202,8 @@
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
+    <Project Path="src/Bazaar.Server.SchemaIdentity.Abstractions/Bazaar.Server.SchemaIdentity.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.SchemaIdentity/Bazaar.Server.SchemaIdentity.csproj" />
     <Project Path="src/Bazaar.Server.Remote.Abstractions/Bazaar.Server.Remote.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity.Abstractions/Bazaar.Server.VmDensity.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity.HostProbes/Bazaar.Server.VmDensity.HostProbes.csproj" />
@@ -382,6 +384,7 @@
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Jobs.Tests/Bazaar.Server.Jobs.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.SchemaIdentity.Tests/Bazaar.Server.SchemaIdentity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Remote.Tests/Bazaar.Server.Remote.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.Tests/Bazaar.Server.BrowserPool.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.Display.Tests/Bazaar.Server.BrowserPool.Display.Tests.csproj" />
