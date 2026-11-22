@@ -4,8 +4,8 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
-using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
