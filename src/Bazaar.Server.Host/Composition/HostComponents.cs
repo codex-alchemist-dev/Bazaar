@@ -6,6 +6,7 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Community.GitHub;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
@@ -48,6 +49,7 @@ public static class HostComponents
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new CommunityGitHubComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),

@@ -172,5 +172,7 @@ public sealed class BridgeTests
         public Task PostReviewAsync(PrRef pr, ReviewRequest review, CancellationToken cancellationToken) => throw new NotSupportedException();
 
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }
