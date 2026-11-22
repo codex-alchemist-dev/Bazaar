@@ -13,6 +13,9 @@ public static class PoolImageScript
 {
     private const string HeredocTag = "BAZAAR_POOL_BWRAP_PROFILE";
 
+    /// <summary>The systemd-tmpfiles entry that recreates the pipe directory's parent at boot.</summary>
+    public const string TmpfilesPath = "/etc/tmpfiles.d/bazaar-pool.conf";
+
     /// <summary>Renders the script.</summary>
     /// <exception cref="ArgumentException">A package name or a path is not acceptable.</exception>
     public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host)
@@ -75,6 +78,12 @@ public static class PoolImageScript
             string parent = PoolImageRequirements.PipeParent(host);
             sb.Append("\n# Parent of the DevTools pipe directory: root only.\n");
             AppendDirectory(sb, parent, "0700");
+
+            // The default parent is under /run, which is emptied at every boot. Without this entry the readiness check would
+            // refuse every session after a restart until the script was run again.
+            sb.Append("\n# Recreate it at every boot.\n");
+            sb.Append("printf 'd %s 0700 root root -\\n' ").Append(parent).Append(" > ").Append(TmpfilesPath).Append('\n');
+            sb.Append("chmod 0644 ").Append(TmpfilesPath).Append('\n');
         }
 
         return sb.ToString();

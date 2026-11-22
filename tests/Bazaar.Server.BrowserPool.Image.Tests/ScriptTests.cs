@@ -40,6 +40,15 @@ public class ScriptTests
     }
 
     [Fact]
+    public void The_pipe_parent_is_recreated_at_boot_when_the_helper_is_set()
+    {
+        string script = Render(host: new LinuxPoolHostOptions { PoolSpawnHelperPath = "/opt/bazaar/bazaar-pool-spawn" });
+
+        Assert.Contains("printf 'd %s 0700 root root -\\n' /run/bazaar-pool > /etc/tmpfiles.d/bazaar-pool.conf\nchmod 0644 /etc/tmpfiles.d/bazaar-pool.conf\n", script);
+        Assert.DoesNotContain("tmpfiles.d", Render());
+    }
+
+    [Fact]
     public void No_pipe_parent_without_the_helper()
     {
         Assert.DoesNotContain("/run/bazaar-pool", Render());
