@@ -65,6 +65,8 @@ using Bazaar.Server.Skimmer;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
+using Bazaar.Server.SoulProfile;
+using Bazaar.Server.Walkthrough;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
@@ -92,6 +94,9 @@ public static class HostComponents
         new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
+        new WalkthroughComponent(),
+        new SoulProfileComponent(),
+        new FirstRunAdaptersComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
         new SkimmerComponent(),
