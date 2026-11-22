@@ -15,6 +15,7 @@ using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers.ClaudeCode;
 using Bazaar.Server.Secrets;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -69,6 +70,7 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
+        services.TryAddSingleton<IEmbeddingProfile, PostgresEmbeddingProfile>();
 
         services.TryAddSingleton<SecretScrubber>();
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
@@ -101,7 +103,9 @@ public static class GatewayCompositionExtensions
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
             onInternalError: ex => GatewayProviderRowSync.LogInternalError(sp.GetRequiredService<ILoggerFactory>().CreateLogger<ModelGateway>(), ex),
-            scrubber: sp.GetRequiredService<SecretScrubber>())));
+            scrubber: sp.GetRequiredService<SecretScrubber>(),
+            embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
+            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
         return services;
     }
 
@@ -143,4 +147,3 @@ public static class GatewayCompositionExtensions
         return new DictionaryAdapterRegistry(adapters);
     }
 }
-
