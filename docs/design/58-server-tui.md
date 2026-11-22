@@ -70,7 +70,7 @@ Terminals cannot do a passkey ceremony. The owner signs in locally on the box th
 **Remote sign-in (DECIDED, owner card 2026-11-18, "Both, owner chooses per machine"; applies if the TUI is ever used over Conduit, which is secondary, see section 2).** The owner's local gate does not travel, so remotely the owner (and any admin) signs in with the same single-use code from a signed-in client. A machine may also be given a device key, registered once from a signed-in client or on the box, after which sign-in from that machine is signed by the key with no code. The owner chooses per machine, and every grant and revocation is audited.
 
 ## Open questions
-1. **GUI installer.** Owner intent recorded; design is with the onboarding thread (see above).
+1. **GUI installer.** DECIDED (owner card 2026-11-22, "Setup thread designs it in doc 45"): the onboarding thread designs the GUI installer in doc 45. This doc only requires that it share the same wizard engine.
 
 ## Testing
 Headless tests of each screen's view model; the wizard conformance suite runs against the plain and the TUI prompter and must produce equal plan hashes; secret canary tests; an architecture test that the module references neither `Bazaar.Server` nor chat client code.
