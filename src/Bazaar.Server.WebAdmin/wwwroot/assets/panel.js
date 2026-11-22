@@ -311,7 +311,15 @@
       note(container, label || httpFailure(res), true);
       return;
     }
-    renderData(container, res.data);
+    renderData(container, unwrapEnvelope(res.data));
+  }
+
+  // Read routes reply {"available":true,"data":...} or {"available":false}; hand back the payload.
+  function unwrapEnvelope(body) {
+    if (isPlainObject(body) && typeof body.available === "boolean") {
+      return body.available ? body.data : body;
+    }
+    return body;
   }
 
   function loadSection(t) {
@@ -485,15 +493,16 @@
         note(t.body, httpFailure(res), true);
         return;
       }
-      if (isPlainObject(res.data) && res.data.available === false) {
+      var catalogue = unwrapEnvelope(res.data);
+      if (isPlainObject(catalogue) && catalogue.available === false) {
         note(t.body, TEXT.unavailable);
         return;
       }
-      if (!isPlainObject(res.data) || !Array.isArray(res.data.modules)) {
+      if (!isPlainObject(catalogue) || !Array.isArray(catalogue.modules)) {
         note(t.body, "The module list has an unexpected shape.", true);
         return;
       }
-      renderModules(t, res.data);
+      renderModules(t, catalogue);
     }).catch(function () {
       setBusy(t.body, false);
       clear(t.body);
