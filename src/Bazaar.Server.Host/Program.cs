@@ -1,3 +1,5 @@
+using Bazaar.Server.SoulProfile;
+using Bazaar.Server.Walkthrough;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Host.Analytics;
 using Bazaar.Archive.Http;
@@ -90,6 +92,8 @@ app.MapCommunityDraftDecision();
 app.MapCommunityDraftReads();
 app.MapBazaarAnalytics(AnalyticsHostAuth.ResolveAsync);
 app.MapBazaarSetup();
+app.MapBazaarWalkthrough();
+app.MapBazaarSoulProfile();
 app.MapBazaarAuthSignOut();
 app.UseBazaarWire();
 if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))

@@ -65,6 +65,11 @@ public static class StatusEndpoints
             || path.Equals("/auth/handoff", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
+    /// The walkthrough preference route (<c>/prefs/walkthrough</c>, doc 45 section 2.9, PROPOSED). It takes GET and PUT and nothing else.
+    /// </summary>
+    private static bool IsPrefsRoute(PathString path) => path.Equals("/prefs/walkthrough", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
     /// Constellation API routes also take POST and PATCH. The refresh route takes POST only. No other write route is allowed here.
     /// </summary>
@@ -85,6 +90,11 @@ public static class StatusEndpoints
         {
             allowed = HttpMethods.IsPost(method);
             allow = "POST";
+        }
+        else if (IsPrefsRoute(path))
+        {
+            allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsPut(method);
+            allow = "GET, HEAD, PUT";
         }
         else
         {

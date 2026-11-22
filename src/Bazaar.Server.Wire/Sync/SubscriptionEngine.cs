@@ -151,20 +151,41 @@ public sealed class SubscriptionSession : ISubscriptionSession
     /// allows the principal. There is no replay: the client fetches current state with a request. Without a gate the answer is
     /// <c>denied</c>, which is also the answer for unknown names.
     /// </summary>
-    private async Task<string> SubscribeGatedAsync(string stream, CancellationToken ct)
+    private async Task<(string Status, Func<Task>? Start)> SubscribeGatedAsync(string stream, CancellationToken ct)
     {
         var gate = Array.Find(_gates, g => string.Equals(g.Stream, stream, StringComparison.Ordinal));
         if (gate is null || !await gate.CanSubscribeAsync(_principalId, _principalKind, ct).ConfigureAwait(false))
         {
-            return SubscribeStatuses.Denied;
+            return (SubscribeStatuses.Denied, null);
         }
 
+        // Recorded before the opening event is built, so a live event published in between is not missed: the client
+        // sees at worst an older revision after the snapshot and ignores it.
         lock (_gate)
         {
             _gated.Add(stream);
         }
 
-        return SubscribeStatuses.Ok;
+        return (SubscribeStatuses.Ok, () => OpenGatedAsync(gate, stream));
+    }
+
+    private async Task OpenGatedAsync(IStreamGate gate, string stream)
+    {
+        try
+        {
+            if (await gate.OpenAsync(_principalId, _principalKind, _cts.Token).ConfigureAwait(false) is { } opening)
+            {
+                await _outbound.EnqueueAsync(_frames.Opening(stream, opening), _cts.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Unsubscribed or the connection closed.
+        }
+        catch (Exception)
+        {
+            // The opening event could not be built: the client keeps the subscription and recovers on its next subscribe.
+        }
     }
 
     private async Task<(string Status, Func<Task>? Start)> SubscribeOneAsync(StreamCursor cursor, CancellationToken ct)
@@ -176,7 +197,7 @@ public sealed class SubscriptionSession : ISubscriptionSession
 
         if (!WireStreams.TryParseGc(cursor.S, out var gcId))
         {
-            return (await SubscribeGatedAsync(cursor.S, ct).ConfigureAwait(false), null);
+            return await SubscribeGatedAsync(cursor.S, ct).ConfigureAwait(false);
         }
 
         if (!await _access.CanReadAsync(_principalId, _principalKind, gcId, ct).ConfigureAwait(false))
