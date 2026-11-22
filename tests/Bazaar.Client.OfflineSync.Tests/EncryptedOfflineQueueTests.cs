@@ -244,7 +244,9 @@ public sealed class EncryptedOfflineQueueTests : IDisposable
             queue.Enqueue(OfflineTestData.Write(OfflineTestData.Device, 3));
         });
         Assert.Equal(tampered, File.ReadAllBytes(FilePath));
-        Assert.Single(Directory.GetFiles(_dir.Root));
+        Assert.Equal(
+            new[] { EncryptedOfflineQueue.FileName, "offline-queue.lock" },
+            Directory.GetFiles(_dir.Root).Select(Path.GetFileName).Order(StringComparer.Ordinal).ToArray());
     }
 
     private EncryptedOfflineQueue Open(OfflineQueueLimits? limits = null) =>

@@ -20,7 +20,7 @@ namespace Bazaar.Client.OfflineSync;
 /// open fails when the file holds fewer records than the anchor allows.
 /// With <see cref="OfflineQueueRepairMode.QuarantineTornTail"/>, a torn or unauthenticated final record is quarantined and the queue
 /// is rebuilt from the valid prefix, reporting the lost write in <see cref="Repair"/>. Any other failure still stops the queue.
-/// Within one process all members are thread safe. Two processes must not open the same queue directory.
+/// Within one process all members are thread safe. A second open of the same queue directory, in this or another process, throws <see cref="OfflineQueueLockedException"/> until the first is disposed.
 /// </remarks>
 [SuppressMessage("Naming", "CA1711", Justification = "The name is fixed by the doc 56 client queue contract.")]
 public sealed class EncryptedOfflineQueue : IDisposable
@@ -45,6 +45,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
     private readonly OfflineQueueLimits _limits;
     private readonly AesGcm _aes;
     private readonly IOfflineQueueAnchorStore? _anchors;
+    private OfflineQueueDirectoryLock? _directoryLock;
     private readonly OfflineQueueRepairMode _repairMode;
     private long _base;
     private long _next;
@@ -95,6 +96,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
         try
         {
             Directory.CreateDirectory(directory);
+            _directoryLock = OfflineQueueDirectoryLock.Acquire(directory);
             _path = Path.Combine(directory, FileName);
             var anchor = _anchors?.Load();
             if (!File.Exists(_path))
@@ -129,6 +131,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
         }
         catch
         {
+            _directoryLock?.Dispose();
             _aes.Dispose();
             throw;
         }
@@ -304,6 +307,7 @@ public sealed class EncryptedOfflineQueue : IDisposable
 
             _disposed = true;
             _aes.Dispose();
+            _directoryLock?.Dispose();
         }
     }
 
