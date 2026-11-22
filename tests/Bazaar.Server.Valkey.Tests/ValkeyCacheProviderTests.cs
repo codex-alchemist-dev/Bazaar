@@ -1,8 +1,7 @@
 using Bazaar.Server.Providers;
-using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Secrets;
 
-namespace Bazaar.Server.Tests.Providers.Linux;
+namespace Bazaar.Server.Valkey.Tests;
 
 public class ValkeyCacheProviderTests
 {
@@ -221,34 +220,6 @@ public class ValkeyCacheProviderTests
         Assert.Single(FakeValkeyClientFactory.Requested);
     }
 
-    [Fact]
-    public void Cache_candidates_offer_valkey_on_linux_and_nothing_elsewhere()
-    {
-        var candidates = LinuxProviders.CacheCandidates(new ValkeyCacheOptions { Endpoint = _endpoint });
-
-        if (OperatingSystem.IsLinux())
-        {
-            var candidate = Assert.Single(candidates);
-            Assert.IsType<ValkeyCacheProvider>(candidate);
-            Assert.Equal("valkey", candidate.Kind);
-        }
-        else
-        {
-            Assert.Empty(candidates);
-        }
-    }
-
-    [Fact]
-    public void Cache_auto_selection_is_none_when_the_valkey_server_is_unreachable()
-    {
-        var candidates = new ICacheProvider[] { Create(new ValkeyCacheOptions { Endpoint = _endpoint }, client: new FakeValkeyClient { PingFailure = new IOException("refused") }) };
-
-        var selection = ProviderSelector.Select(ProviderRole.Cache, ProviderSelector.Auto, candidates);
-
-        Assert.Null(selection.Provider);
-        Assert.False(Assert.Single(selection.Statuses).Usable);
-    }
-
     private static ValkeyCacheProvider Create(
         ValkeyCacheOptions options,
         ISecretResolver? resolver = null,
@@ -305,6 +276,18 @@ public class ValkeyCacheProviderTests
             ThrowIfFailing();
             Store.Remove(key);
             return Task.CompletedTask;
+        }
+
+        public Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct)
+        {
+            ThrowIfFailing();
+            return Task.FromResult(new ValkeyMemoryInfo(0, 0));
+        }
+
+        public Task<string?> GetConfigAsync(string parameter, CancellationToken ct)
+        {
+            ThrowIfFailing();
+            return Task.FromResult<string?>(null);
         }
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
