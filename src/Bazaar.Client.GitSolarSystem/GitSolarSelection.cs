@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Contracts.Graph;
 

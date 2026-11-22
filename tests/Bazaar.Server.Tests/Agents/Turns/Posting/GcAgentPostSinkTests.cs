@@ -1,10 +1,13 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.LoopGuard.Abstractions;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Mentions;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Souls.Abstractions;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -20,12 +23,81 @@ public sealed class GcAgentPostSinkTests
     private static readonly Guid _ana = Guid.Parse("77777777-7777-7777-7777-777777777777");
     private static readonly Guid _ben = Guid.Parse("88888888-8888-8888-8888-888888888888");
     private static readonly Guid _carl = Guid.Parse("99999999-9999-9999-9999-999999999999");
+    private static readonly SoulRef _soul = new(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"), 3);
+
+    private static ISoulBindings Souls => new FixedSoulBindings(_agentId, _soul);
+
+    [Fact]
+    public async Task A_post_is_stamped_with_the_agents_current_soul_version()
+    {
+        var log = new RecordingGcLogWriter();
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
+
+        await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Stamped.", TestContext.Current.CancellationToken);
+
+        Assert.Equal(_soul, Assert.Single(log.Requests).Soul);
+    }
+
+    [Fact]
+    public async Task An_unbound_agent_is_refused_and_the_guard_does_not_count_the_refused_post()
+    {
+        var log = new RecordingGcLogWriter();
+        var guard = new ScriptedLoopGuard();
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), guard, new FixedSoulBindings(Guid.NewGuid(), _soul));
+
+        await Assert.ThrowsAsync<AgentPostUnboundException>(
+            () => sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "No identity.", TestContext.Current.CancellationToken));
+
+        Assert.Empty(log.Requests);
+        Assert.Empty(guard.Events);
+    }
+
+    [Fact]
+    public async Task With_the_binding_requirement_off_an_unbound_agent_posts_without_a_stamp()
+    {
+        var log = new RecordingGcLogWriter();
+        var sink = new GcAgentPostSink(
+            log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), new FixedSoulBindings(Guid.NewGuid(), _soul),
+            options: new GcAgentPostOptions { RequireSoulBinding = false });
+
+        await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Onboarding.", TestContext.Current.CancellationToken);
+
+        Assert.Null(Assert.Single(log.Requests).Soul);
+    }
+
+    [Fact]
+    public async Task A_loop_trip_is_handed_to_the_trip_handler_before_the_post_is_refused()
+    {
+        var log = new RecordingGcLogWriter();
+        var trips = new RecordingTripHandler();
+        var verdict = GuardVerdict.Trip(GuardKind.PingPong, "ana and ben alternate", [_agentId.ToString("D"), _ana.ToString("D")]);
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(verdict), Souls, trips: trips);
+
+        await Assert.ThrowsAsync<AgentPostRefusedException>(
+            () => sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Again.", TestContext.Current.CancellationToken));
+
+        var trip = Assert.Single(trips.Trips);
+        Assert.Equal(_gcId, trip.GcId);
+        Assert.Equal("ping_pong", trip.Kind);
+        Assert.Equal("ana and ben alternate", trip.Reason);
+        Assert.Equal(new[] { _agentId, _ana }.Order(), trip.AgentIds);
+        Assert.Empty(log.Requests);
+    }
+
+    [Theory]
+    [InlineData(GuardKind.PingPong, "ping_pong")]
+    [InlineData(GuardKind.MentionDepth, "mention_depth")]
+    [InlineData(GuardKind.WakesPerHour, "wakes_per_hour")]
+    [InlineData(GuardKind.ThreadAgentMessages, "thread_agent_messages")]
+    [InlineData(GuardKind.RepeatToolCall, "repeat_tool_call")]
+    public void Every_guard_has_a_snake_case_name_for_guard_event(GuardKind kind, string name) =>
+        Assert.Equal(name, GcAgentPostSink.GuardKindName(kind));
 
     [Fact]
     public async Task A_post_reaches_the_log_writer_once_with_the_agent_author_gc_and_text()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Here is my answer.", TestContext.Current.CancellationToken);
 
@@ -45,7 +117,7 @@ public sealed class GcAgentPostSinkTests
     {
         var log = new RecordingGcLogWriter();
         var codec = new PlaintextGcBodyCodec();
-        var sink = new GcAgentPostSink(log, codec, new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, codec, new ScriptedLoopGuard(), Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Sealed text.", TestContext.Current.CancellationToken);
 
@@ -59,7 +131,7 @@ public sealed class GcAgentPostSinkTests
     public async Task A_retry_of_the_same_turn_and_text_uses_the_same_client_message_id_and_is_a_duplicate()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Same text.", TestContext.Current.CancellationToken);
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Same text.", TestContext.Current.CancellationToken);
@@ -74,7 +146,7 @@ public sealed class GcAgentPostSinkTests
     public async Task A_different_text_in_the_same_turn_is_not_swallowed_as_a_duplicate()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "First.", TestContext.Current.CancellationToken);
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Second.", TestContext.Current.CancellationToken);
@@ -97,7 +169,7 @@ public sealed class GcAgentPostSinkTests
     public async Task A_post_to_a_malformed_gc_id_is_refused_before_it_reaches_the_writer()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             sink.PostAsync(_agentId, _turnId, "not-a-guid", "Text.", TestContext.Current.CancellationToken));
@@ -108,7 +180,7 @@ public sealed class GcAgentPostSinkTests
     public async Task An_empty_post_is_refused_before_it_reaches_the_writer()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "   ", TestContext.Current.CancellationToken));
@@ -121,7 +193,7 @@ public sealed class GcAgentPostSinkTests
         var log = new RecordingGcLogWriter();
         var guard = new ScriptedLoopGuard(GuardVerdict.Trip(GuardKind.PingPong, "Two agents alternated.", [_agentId.ToString("D")]));
         var directory = new FixedDirectory(new GcMentionRoster(_owner, [new GcMentionMember(_ana, "ana")]));
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), guard, directory, new RecordingInboxWriter());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), guard, Souls, directory, new RecordingInboxWriter());
 
         var refused = await Assert.ThrowsAsync<AgentPostRefusedException>(() =>
             sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Hi @ana", TestContext.Current.CancellationToken));
@@ -136,7 +208,7 @@ public sealed class GcAgentPostSinkTests
     public async Task The_guard_sees_the_post_as_an_agent_message_in_the_gc_at_depth_zero()
     {
         var guard = new ScriptedLoopGuard();
-        var sink = new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), guard);
+        var sink = new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), guard, Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Text.", TestContext.Current.CancellationToken);
 
@@ -150,7 +222,7 @@ public sealed class GcAgentPostSinkTests
         var log = new RecordingGcLogWriter();
         var inbox = new RecordingInboxWriter();
         var directory = new FixedDirectory(new GcMentionRoster(_owner, [new GcMentionMember(_ana, "ana"), new GcMentionMember(_ben, "ben")]));
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), directory, inbox);
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls, directory, inbox);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Hi @ana, ping @ben and @Ana.", TestContext.Current.CancellationToken);
 
@@ -168,7 +240,7 @@ public sealed class GcAgentPostSinkTests
         var log = new RecordingGcLogWriter();
         var inbox = new RecordingInboxWriter();
         var directory = new FixedDirectory(new GcMentionRoster(_owner, [new GcMentionMember(_ana, "ana")]));
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), directory, inbox);
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls, directory, inbox);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Cc @carl and @ana.", TestContext.Current.CancellationToken);
 
@@ -182,7 +254,7 @@ public sealed class GcAgentPostSinkTests
         var log = new RecordingGcLogWriter();
         var inbox = new RecordingInboxWriter();
         var directory = new FixedDirectory(new GcMentionRoster(_owner, [new GcMentionMember(_agentId, "me")]));
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), directory, inbox);
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls, directory, inbox);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Note to @me.", TestContext.Current.CancellationToken);
 
@@ -194,7 +266,7 @@ public sealed class GcAgentPostSinkTests
     public async Task Without_a_directory_the_post_carries_no_mentions_and_writes_no_inbox_rows()
     {
         var log = new RecordingGcLogWriter();
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard());
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Hi @ana.", TestContext.Current.CancellationToken);
 
@@ -207,7 +279,7 @@ public sealed class GcAgentPostSinkTests
         var log = new RecordingGcLogWriter();
         var inbox = new RecordingInboxWriter();
         var directory = new FixedDirectory(new GcMentionRoster(_owner, [new GcMentionMember(_ana, "ana")]));
-        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), directory, inbox);
+        var sink = new GcAgentPostSink(log, new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls, directory, inbox);
 
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Hi @ana.", TestContext.Current.CancellationToken);
         await sink.PostAsync(_agentId, _turnId, _gcId.ToString("D"), "Hi @ana.", TestContext.Current.CancellationToken);
@@ -224,14 +296,30 @@ public sealed class GcAgentPostSinkTests
         var directory = new FixedDirectory(new GcMentionRoster(_owner, []));
 
         Assert.Throws<ArgumentException>(() =>
-            new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), directory));
+            new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), new ScriptedLoopGuard(), Souls, directory));
     }
 
     [Fact]
     public void A_sink_without_a_loop_guard_cannot_be_built()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), null!));
+            new GcAgentPostSink(new RecordingGcLogWriter(), new PlaintextGcBodyCodec(), null!, Souls));
+    }
+
+    [Fact]
+    public void The_soul_binding_requirement_is_on_by_default_and_the_operator_can_turn_it_off()
+    {
+        static GcAgentPostOptions Resolve(Dictionary<string, string?> settings)
+        {
+            var services = new ServiceCollection();
+            services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(settings).Build());
+            services.AddGcAgentPostSink();
+            using var provider = services.BuildServiceProvider();
+            return provider.GetRequiredService<GcAgentPostOptions>();
+        }
+
+        Assert.True(Resolve([]).RequireSoulBinding);
+        Assert.False(Resolve(new() { ["Bazaar:Gc:AgentPost:RequireSoulBinding"] = "false" }).RequireSoulBinding);
     }
 
     [Fact]
@@ -241,6 +329,7 @@ public sealed class GcAgentPostSinkTests
         services.AddSingleton<IGcLogWriter>(new RecordingGcLogWriter());
         services.AddSingleton<IGcBodyCodec, PlaintextGcBodyCodec>();
         services.AddSingleton<ILoopGuard>(new LoopGuardFacade(TimeProvider.System));
+        services.AddSingleton(Souls);
         // The default mention directory and inbox writer take the shared data source. Nothing connects here.
         services.AddSingleton(NpgsqlDataSource.Create("Host=localhost"));
         services.AddGcAgentPostSink();
@@ -261,6 +350,26 @@ public sealed class GcAgentPostSinkTests
 
         using var provider = services.BuildServiceProvider();
         Assert.ThrowsAny<InvalidOperationException>(() => provider.GetRequiredService<IAgentPostSink>());
+    }
+
+    private sealed class FixedSoulBindings(Guid agentId, SoulRef soul) : ISoulBindings
+    {
+        public ValueTask<SoulRef?> ResolveAsync(Guid id, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<SoulRef?>(id == agentId ? soul : null);
+
+        public ValueTask<bool> IsValidStampAsync(Guid id, SoulRef stamp, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(id == agentId && stamp == soul);
+    }
+
+    private sealed class RecordingTripHandler : ILoopTripHandler
+    {
+        public List<LoopTrip> Trips { get; } = [];
+
+        public Task HandleAsync(LoopTrip trip, CancellationToken cancellationToken)
+        {
+            Trips.Add(trip);
+            return Task.CompletedTask;
+        }
     }
 
     /// <summary>Records every append and answers a repeated (author, client message id) with the original, like the real writer.</summary>
@@ -331,7 +440,7 @@ public sealed class GcAgentPostSinkTests
             return Task.FromResult(rows.Count);
         }
 
-        public Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) =>
+        public Task<int> WriteAsync(System.Data.Common.DbTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) =>
             throw new NotSupportedException("The sink writes inbox rows outside the append transaction.");
     }
 }

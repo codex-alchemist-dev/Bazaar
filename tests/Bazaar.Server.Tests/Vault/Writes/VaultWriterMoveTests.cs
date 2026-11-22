@@ -71,14 +71,34 @@ public sealed class VaultWriterMoveTests : IDisposable
     private const string _agentA = "agent:0196a7c4-0000-7000-8000-0000000000a1";
     private const string _agentB = "agent:0196a7c4-0000-7000-8000-0000000000b2";
 
+    private const string _sharedNote = "---\nid: 01J5Q2R0000000000000000002\ntype: summary\ntitle: Shared note\n---\n\nShared body.\n";
+
     [Fact]
     public async Task An_agent_may_move_a_shared_document_when_no_private_document_links_to_it()
     {
+        TempGitRepository.WriteFile(_repo.Checkout, "shared/notes/note.md", _sharedNote);
+        TempGitRepository.CommitAll(_repo.Checkout, "shared note");
+
+        var result = await _writer.MoveAsync(
+            new VaultMoveRequest(_docId, "shared/notes/note.md", "shared/notes/moved.md", "agent-ana", null, null, new VaultCaller(false, _agentA)),
+            CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Merged, result.Outcome);
+    }
+
+    // Regression: a document with no owner used to be movable by any agent. Outside company/ and shared/ it is the owner's.
+    [Fact]
+    public async Task An_agent_cannot_move_an_ownerless_document_outside_an_agent_readable_area()
+    {
+        var head = TempGitRepository.HeadOf(_repo.Checkout);
+
         var result = await _writer.MoveAsync(
             new VaultMoveRequest(_docId, "other.md", "archive/other.md", "agent-ana", null, null, new VaultCaller(false, _agentA)),
             CancellationToken.None);
 
-        Assert.Equal(VaultEditOutcome.Merged, result.Outcome);
+        Assert.Equal(VaultEditOutcome.Refused, result.Outcome);
+        Assert.Equal(head, TempGitRepository.HeadOf(_repo.Checkout));
+        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "other.md")));
     }
 
     [Fact]
@@ -99,19 +119,102 @@ public sealed class VaultWriterMoveTests : IDisposable
     [Fact]
     public async Task A_move_is_refused_whole_when_a_private_document_of_another_agent_links_to_it()
     {
-        TempGitRepository.WriteFile(_repo.Checkout, "memory/b.md", PrivateNote(_agentB, "Secret link to [[other]]."));
+        TempGitRepository.WriteFile(_repo.Checkout, "shared/notes/note.md", _sharedNote);
+        TempGitRepository.WriteFile(_repo.Checkout, "memory/b.md", PrivateNote(_agentB, "Secret link to [[shared/notes/note]]."));
         TempGitRepository.CommitAll(_repo.Checkout, "agent b memory");
         var head = TempGitRepository.HeadOf(_repo.Checkout);
 
         var result = await _writer.MoveAsync(
-            new VaultMoveRequest(_docId, "other.md", "archive/other.md", "agent-ana", null, null, new VaultCaller(false, _agentA)),
+            new VaultMoveRequest(_docId, "shared/notes/note.md", "shared/notes/moved.md", "agent-ana", null, null, new VaultCaller(false, _agentA)),
             CancellationToken.None);
 
         Assert.Equal(VaultEditOutcome.Refused, result.Outcome);
-        Assert.Equal(["other.md"], result.ConflictPaths);
+        Assert.Equal(["shared/notes/note.md"], result.ConflictPaths);
         Assert.Equal(head, TempGitRepository.HeadOf(_repo.Checkout));
-        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "other.md")));
-        Assert.Equal("Secret link to [[other]].\n", TempGitRepository.ReadFile(_repo.Checkout, "memory/b.md").Split("---\n\n").Last());
+        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "shared", "notes", "note.md")));
+        Assert.Equal("Secret link to [[shared/notes/note]].\n", TempGitRepository.ReadFile(_repo.Checkout, "memory/b.md").Split("---\n\n").Last());
+    }
+
+    private const string _projectNote = "---\nid: 01J5Q2R0000000000000000003\ntype: plan\ntitle: X plan\n---\n\nPlan body.\n";
+
+    private static VaultCaller AgentAIn(params string[] projects) =>
+        new(false, _agentA) { Projects = new HashSet<string>(projects) };
+
+    [Fact]
+    public async Task A_project_member_may_move_an_ownerless_document_within_its_project()
+    {
+        TempGitRepository.WriteFile(_repo.Checkout, "projects/x/Plan.md", _projectNote);
+        TempGitRepository.CommitAll(_repo.Checkout, "project note");
+
+        var result = await _writer.MoveAsync(
+            new VaultMoveRequest(_docId, "projects/x/Plan.md", "projects/x/old/Plan.md", "agent-ana", null, null, AgentAIn("x")),
+            CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Merged, result.Outcome);
+        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "projects", "x", "old", "Plan.md")));
+    }
+
+    [Fact]
+    public async Task A_non_member_cannot_move_an_ownerless_project_document()
+    {
+        TempGitRepository.WriteFile(_repo.Checkout, "projects/x/Plan.md", _projectNote);
+        TempGitRepository.CommitAll(_repo.Checkout, "project note");
+        var head = TempGitRepository.HeadOf(_repo.Checkout);
+
+        foreach (var caller in new[] { AgentAIn("y"), AgentAIn(), new VaultCaller(false, null) { Projects = new HashSet<string> { "x" } } })
+        {
+            var result = await _writer.MoveAsync(
+                new VaultMoveRequest(_docId, "projects/x/Plan.md", "projects/x/old/Plan.md", "agent-ana", null, null, caller),
+                CancellationToken.None);
+
+            Assert.Equal(VaultEditOutcome.Refused, result.Outcome);
+            Assert.Equal(["projects/x/Plan.md"], result.ConflictPaths);
+        }
+
+        Assert.Equal(head, TempGitRepository.HeadOf(_repo.Checkout));
+        Assert.True(File.Exists(Path.Combine(_repo.Checkout, "projects", "x", "Plan.md")));
+    }
+
+    // A member of x only may not carry a project document into project y, where it could not read it afterwards.
+    [Fact]
+    public async Task A_member_cannot_move_a_document_into_a_project_it_is_not_a_member_of()
+    {
+        TempGitRepository.WriteFile(_repo.Checkout, "projects/x/Plan.md", _projectNote);
+        TempGitRepository.CommitAll(_repo.Checkout, "project note");
+        var head = TempGitRepository.HeadOf(_repo.Checkout);
+
+        var result = await _writer.MoveAsync(
+            new VaultMoveRequest(_docId, "projects/x/Plan.md", "projects/y/Plan.md", "agent-ana", null, null, AgentAIn("x")),
+            CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Refused, result.Outcome);
+        Assert.Equal(head, TempGitRepository.HeadOf(_repo.Checkout));
+        Assert.False(File.Exists(Path.Combine(_repo.Checkout, "projects", "y", "Plan.md")));
+    }
+
+    // Link rewrite resolves only through documents the caller can read, so a non-member project's link blocks the move.
+    [Fact]
+    public async Task A_move_is_refused_whole_when_a_document_in_a_non_member_project_links_to_it()
+    {
+        TempGitRepository.WriteFile(_repo.Checkout, "projects/x/Plan.md", _projectNote);
+        TempGitRepository.WriteFile(_repo.Checkout, "projects/y/Index.md", "See [[projects/x/Plan]].\n");
+        TempGitRepository.CommitAll(_repo.Checkout, "cross-project link");
+        var head = TempGitRepository.HeadOf(_repo.Checkout);
+
+        var refused = await _writer.MoveAsync(
+            new VaultMoveRequest(_docId, "projects/x/Plan.md", "projects/x/Moved.md", "agent-ana", null, null, AgentAIn("x")),
+            CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Refused, refused.Outcome);
+        Assert.Equal(["projects/x/Plan.md"], refused.ConflictPaths);
+        Assert.Equal(head, TempGitRepository.HeadOf(_repo.Checkout));
+
+        var merged = await _writer.MoveAsync(
+            new VaultMoveRequest(_docId, "projects/x/Plan.md", "projects/x/Moved.md", "agent-ana", null, null, AgentAIn("x", "y")),
+            CancellationToken.None);
+
+        Assert.Equal(VaultEditOutcome.Merged, merged.Outcome);
+        Assert.Equal("See [[projects/x/Moved]].\n", TempGitRepository.ReadFile(_repo.Checkout, "projects/y/Index.md"));
     }
 
     private static string PrivateNote(string owner, string body) =>

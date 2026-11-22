@@ -1,9 +1,10 @@
 using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
-using Bazaar.Client.Core.Constellation;
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Constellation;
 using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Constellation.Rendering.Core;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;

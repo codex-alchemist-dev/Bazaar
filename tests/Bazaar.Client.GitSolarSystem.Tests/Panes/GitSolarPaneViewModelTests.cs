@@ -1,6 +1,7 @@
-using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 
