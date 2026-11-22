@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.GitGui.Diff;
+using Bazaar.Client.GitGui.Merge;
 using Bazaar.Client.GitGui.ViewModels;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Git;
@@ -13,20 +14,24 @@ internal sealed record GitGuiServices(
     IGitProviderUiRegistry Providers,
     IGitRepoSource? Repos,
     IGitGuiSettings Settings,
-    DiffSurfaceRegistry Surfaces)
+    DiffSurfaceRegistry Surfaces,
+    IOwnerMergeApprover? MergeApprover)
 {
     internal static GitGuiServices From(PaneModuleContext context) => new(
         context.Get<IGitGuiClient>() ?? new DisconnectedGitGuiClient(),
         context.Get<IGitProviderUiRegistry>() ?? new GitProviderUiRegistry([]),
         context.Get<IGitRepoSource>(),
         context.Get<IGitGuiSettings>() ?? GitGuiSettings.Default,
-        context.Get<DiffSurfaceRegistry>() ?? new DiffSurfaceRegistry());
+        context.Get<DiffSurfaceRegistry>() ?? new DiffSurfaceRegistry(),
+        context.Get<IOwnerMergeApprover>());
 }
 
 /// <summary>Stands in when a head injected no <see cref="IGitGuiClient"/>: every read fails with a message the pane shows.</summary>
 internal sealed class DisconnectedGitGuiClient : IGitGuiClient
 {
     private static InvalidOperationException Fail() => new("Git is not connected to a server.");
+
+    public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default) => throw Fail();
 
     public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default) => throw Fail();
 
@@ -35,6 +40,8 @@ internal sealed class DisconnectedGitGuiClient : IGitGuiClient
     public Task<IReadOnlyList<GitPrFileDto>> GetFilesAsync(string provider, string repo, long number, string headSha, CancellationToken cancellationToken = default) => throw Fail();
 
     public Task<IReadOnlyList<GitCheckDto>> GetChecksAsync(string provider, string repo, long number, CancellationToken cancellationToken = default) => throw Fail();
+
+    public Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default) => throw Fail();
 }
 
 /// <summary>Pane <c>git.view</c>: repos, branches and recent commits.</summary>
@@ -81,7 +88,7 @@ public sealed class GitPrPaneViewModel : IPaneViewModel
         Kind = descriptor.Kind;
         var (provider, repo) = GitGuiModel.ReadRepo(descriptor);
         Detail = new PrDetailViewModel(
-            services.Client, provider, repo, GitGuiModel.ReadNumber(descriptor), services.Providers.Find(provider), services.Settings.DiffContextLines);
+            services.Client, provider, repo, GitGuiModel.ReadNumber(descriptor), services.Providers.Find(provider), services.Settings.DiffContextLines, services.MergeApprover);
         Title = Detail.Title;
         Surfaces = services.Surfaces;
     }
@@ -103,7 +110,7 @@ public sealed class GitDiffPaneViewModel : IPaneViewModel
         Kind = descriptor.Kind;
         var (provider, repo) = GitGuiModel.ReadRepo(descriptor);
         Detail = new PrDetailViewModel(
-            services.Client, provider, repo, GitGuiModel.ReadNumber(descriptor), services.Providers.Find(provider), services.Settings.DiffContextLines);
+            services.Client, provider, repo, GitGuiModel.ReadNumber(descriptor), services.Providers.Find(provider), services.Settings.DiffContextLines, services.MergeApprover);
         Path = descriptor.Model.TryGetProperty("path", out var path) && path.ValueKind == System.Text.Json.JsonValueKind.String ? path.GetString() : null;
         Title = $"Diff · {Detail.Title}";
         Surfaces = services.Surfaces;

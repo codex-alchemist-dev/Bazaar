@@ -45,6 +45,15 @@ public class CommunityLogSqlTests
         Assert.Contains("@platform", sql, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Select_pages_by_keyset_on_created_at_and_id_with_bound_parameters()
+    {
+        var sql = CommunityLogSqlText.Select;
+
+        Assert.Contains("(created_at, id) < (@after_created_at::timestamptz, @after_id::bigint)", sql, StringComparison.Ordinal);
+        Assert.DoesNotContain("OFFSET", sql, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string SelectList(string sql)
     {
         var start = sql.IndexOf("SELECT", StringComparison.OrdinalIgnoreCase) + "SELECT".Length;
