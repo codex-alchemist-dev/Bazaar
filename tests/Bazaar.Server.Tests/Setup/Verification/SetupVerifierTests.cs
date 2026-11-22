@@ -1,5 +1,7 @@
 using System.Reflection;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup.Verification;
 
@@ -20,7 +22,7 @@ public sealed class SetupVerifierTests
     private static ScriptedCheck Returns(string id, SetupCheckStatus status) =>
         new ScriptedCheck(id, () => new SetupCheckResult(status, $"{id} reports {status}."));
 
-    private static SetupVerificationContext Context() => new(SetupPlanLoader.Load(SetupFixtures.Valid).Plan!);
+    private static SetupVerificationContext Context() => new(SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!);
 
     [Fact]
     public void Red_wins_over_amber_and_not_evaluated()
