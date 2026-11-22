@@ -16,6 +16,8 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.DefaultApp.Linux;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Navigation;
@@ -99,6 +101,8 @@ internal sealed class LinuxHead : IAsyncDisposable
         var context = new PaneModuleContext(Report: message => log($"Bazaar: {message}"))
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current)
             .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => log($"Bazaar: view action failed: {ex.Message}")));
         if (_chat is not null)
         {
