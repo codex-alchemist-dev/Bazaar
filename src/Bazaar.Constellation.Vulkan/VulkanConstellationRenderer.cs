@@ -6,14 +6,15 @@ namespace Bazaar.Constellation.Vulkan;
 /// <summary>
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
-/// Draw clears the background and draws the latest interpolated frame as instanced node discs.
-/// Node styles are one fallback style for now, so per-node colours and radii are not yet mapped from the adapter.
+/// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
+/// radius and ring width from its style: SetScene colours each node by its cluster (the fallback style when the scene has no clusters),
+/// and SetNodeStyles replaces that with explicit per-node styles.
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
 {
     /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
-    private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
+    private static readonly (float R, float G, float B, float A) _background = ConstellationNodeStyles.DefaultTheme.Background;
 
     /// <summary>Style used for every node until per-node styles arrive from the adapter (RGBA, radius in world units).</summary>
     private static readonly NodeStyle _nodeStyle = NodeStyle.Create(0.80f, 0.86f, 0.95f, 1f, 0.012f);
@@ -24,6 +25,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     private readonly FrameInterpolator _interpolator;
     private readonly NodeInstanceBuffer _instances = new();
     private NodeStyleTable? _styles;
+    private NodeStylePalette? _palette;
     private int _dimensions;
     private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
@@ -38,7 +40,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null)
     {
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
-        _createSwapchain = createSwapchain ?? VulkanSwapchain.TryCreate;
+        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface));
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
@@ -76,6 +78,11 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         }
 
         _swapchain = swapchain;
+        if (_palette is not null)
+        {
+            swapchain.SetStyles(NodeStylePacking.Pack(_palette));
+        }
+
         _widthPixels = surface.WidthPixels;
         _heightPixels = surface.HeightPixels;
         return new RenderAttachResult(true, string.Empty);
@@ -86,11 +93,47 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
         _scene = scene;
-        _styles = new NodeStyleTable(scene.NodeCount, _nodeStyle);
+        _styles = ConstellationNodeStyles.BuildColoured(scene, _nodeStyle);
+        RebuildPalette();
         _instances.Clear();
         _dimensions = 0;
         _sequencer.Reset();
         _interpolator.Reset();
+    }
+
+    /// <summary>
+    /// Sets the style of every node of the current scene. The table is read when this is called; later changes to it
+    /// need another call. Throws when no scene is set or the table does not match the scene's node count.
+    /// </summary>
+    public void SetNodeStyles(NodeStyleTable styles)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(styles);
+        if (_scene is null)
+        {
+            throw new InvalidOperationException("Set the scene before its node styles.");
+        }
+
+        if (styles.NodeCount != _scene.NodeCount)
+        {
+            throw new ArgumentException("The style table must have one entry per node of the scene.", nameof(styles));
+        }
+
+        _styles = styles;
+        RebuildPalette();
+    }
+
+    /// <summary>Rebuilds the palette from the current table and sends its packed styles to the swapchain, when one is attached.</summary>
+    private void RebuildPalette()
+    {
+        if (_styles is null)
+        {
+            _palette = null;
+            return;
+        }
+
+        _palette = NodeStylePalette.Build(_styles);
+        _swapchain?.SetStyles(NodeStylePacking.Pack(_palette));
     }
 
     public bool SubmitFrame(RenderFrame frame, double nowSeconds)
@@ -138,13 +181,13 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         }
 
         ReadOnlySpan<float> positions = SamplePositions(nowSeconds);
-        if (positions.IsEmpty || _styles is null)
+        if (positions.IsEmpty || _palette is null)
         {
             _ = _swapchain.Present(_background, ReadOnlySpan<byte>.Empty, 0, NodeView.Identity);
             return;
         }
 
-        _instances.Fill(positions, _dimensions, _styles);
+        _instances.Fill(positions, _dimensions, _palette);
         NodeView view = FitView(positions, _dimensions);
         _ = _swapchain.Present(_background, _instances.Bytes, _instances.InstanceCount, view);
     }

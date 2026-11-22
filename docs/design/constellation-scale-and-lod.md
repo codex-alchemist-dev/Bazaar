@@ -2,7 +2,7 @@
 
 Status: PROPOSED (2026-11-01; tile format decided by the coordinator, owner-approved) · Owner question: "what if we zoomed all the way out and wanted to see the billions?" · Extends: 19-constellation-and-git-solar-system.md (WP7, scale section) · Decision context: DECISIONS-LOG round 17 (Vulkan with GPU instancing; Skia as fallback)
 
-Every number here is a PROPOSED budget or a calculation. Nothing is measured on a GPU yet. Section 7 lists what needs the owner's PC, and the phone numbers need an Android device.
+Every number here is a PROPOSED budget or a calculation. The first GPU measurements are in section 10 (PC, 2026-11-01); phone numbers are still unmeasured. Section 7 lists what needs the owner's PC, and the phone numbers need an Android device.
 
 ## 1. The answer in one paragraph
 At full zoom-out, billions of nodes are not drawn as billions of dots. They are drawn as **density and structure**: cluster glyphs (Louvain communities, server-side) plus a density field accumulated from the nodes. This is how point-cloud and particle systems handle the same problem. Individual nodes appear as the camera moves into a tile, and only that tile's nodes are streamed and drawn. The renderer therefore never holds all billions at once; it holds a bounded working set chosen by the view. At far zoom a node is sub-pixel anyway, so per-node dots would add cost and no information.
@@ -81,3 +81,116 @@ Items that need the owner's PC or an Android device are in section 7, not here.
 - 02: tile blobs (format v1) need a registry entry in the stream and blob registry. The JSON-only wire rule has the scoped binary exception recorded in section 3.
 - 03: the caps in section 6 are settings rows, added with the other `constellation.*` keys.
 - DECISIONS-LOG round 17: the owner decision there says the target is billions; this doc is how the design meets it.
+
+## 10. Measured results: Windows PC, Intel Arc B580 (2026-11-01)
+Measured by `tests/Bazaar.Constellation.Vulkan.Bench` (Release build, offscreen 1280x720 R8G8B8A8 target, dynamic rendering, one instance per node, 16 bytes per node, 30 warm-up and 200 measured frames per row). Frame time is wall clock per submitted frame, fenced each frame. GPU time is from timestamp queries.
+
+Probe: Intel(R) Arc(TM) B580 Graphics (discrete, 11.9 GiB device-local heap), Vulkan 1.4.356 (instance API 1.4.0), `VK_EXT_mesh_shader` present, `pageableDeviceLocalMemory` true. The integrated Intel GPU also reports mesh shaders.
+
+**Node-count sweep** (instances drawn capped at 2 000 000; resident window capped at 1.5 GiB):
+
+| Total nodes | Resident nodes | Instances per frame | Upload (ms) | Resident (GiB) | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|---|---|---|---|
+| 1M | 1M | 1M | 18.8 | 0.015 | 0.62 | 0.92 | 0.50 | 0.79 |
+| 10M | 10M | 2M | 738 | 0.15 | 1.86 | 1.96 | 1.72 | 1.72 |
+| 100M | 100M | 2M | 2 397 | 1.49 | 1.12 | 1.71 | 1.00 | 1.54 |
+| 1B | 100.7M window | 2M | 1 412 | 1.50 | 1.68 | 4.27 | 1.54 | 4.05 |
+
+At 1B the whole graph would be 16 GB at 16 bytes per node, so it cannot be resident. The row measures a 100.7M-node window with 2M instances drawn, which is the tile model in section 4 with the cap applied.
+
+**Instance-count sweep** (100.7M resident):
+
+| Instances per frame | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|
+| 100 000 | 0.63 | 0.66 | 0.37 | 0.37 |
+| 1 000 000 | 1.94 | 3.36 | 1.78 | 3.15 |
+| 2 000 000 | 1.12 | 3.70 | 1.00 | 3.55 |
+| 10 000 000 | 318.2 | 319.6 | 317.9 | 319.3 |
+| 50 000 000 | 2 427.0 | 2 429.1 | 2 426.6 | 2 428.7 |
+| 100 000 000 | not measured | | | |
+
+**What these numbers say, and what they do not.**
+- At the 2M cap the PC is well inside the section 6 frame budget (p95 4.3 ms worst row against 14 ms). Resident data at 100M is 1.49 GiB, which fits the 1.5 GiB PC cap only just.
+- The jump between 2M and 10M instances is not linear: 2M draws in about 1 ms, 10M in about 318 ms. This needs an explanation before the cap is raised. The likely cause is driver-side splitting of very large instance counts, but that is not verified.
+- Frame times at 1M vary between the two sweeps (0.62 ms and 1.94 ms p50). This is probably GPU clock and power state, so treat differences under about 2 ms as noise until a warm-up is longer.
+- The 100M-instance row was not run. A 50M row alone takes about 2.4 s per frame, so the full row would take about 20 minutes. It was stopped.
+
+**Not measured yet.** The swapchain and windowed present path (this benchmark renders offscreen). Mesh-shader culling (the extension is present, the path is not used). Compute culling and density splatting, indirect draws, and tile streaming from the server. Atomic-add throughput. Phone numbers (no Android device here).
+
+**Probe note.** The driver string `0.406.842` is the probe's generic decoding of `driverVersion`. The Vulkan SDK reports the raw value `101.9034` for this Intel driver, so the probe's string formatting is wrong for Intel and needs a vendor-aware decode.
+
+### 10.1 Investigation of the cliff above 2M instances (2026-11-01)
+Experiments at 10M resident nodes, `Bazaar.Constellation.Vulkan.Bench experiments`, 60 measured frames each. GPU p50 in ms.
+
+| Experiment | GPU p50 (ms) |
+|---|---|
+| 10M instances, one draw, quads (baseline) | 317.9 |
+| 10M instances, one draw, degenerate quads (vertex work only) | 5.0 |
+| 10M instances, 2M per draw call (same frame) | 317.9 |
+| 10M instances, 1M per draw call (same frame) | 317.9 |
+| 10M instances, one point per node (point list) | 159.6 |
+| Point list, nodes clustered into 10% of the target | 159.6 |
+| Point list, nodes clustered into 1% of the target | 169.1 |
+| Quads, nodes clustered into 1% of the target | 338.2 |
+| Single draw, quads, 4.0M / 4.1M / 4.2M / 4.5M / 5M / 6M / 8M instances | 2.0 / 7.3 / 12.5 / 28.3 / 54.6 / 107.3 / 212.6 |
+
+What this rules out: a per-draw-call limit (splitting does not help), vertex fetch (degenerate quads are cheap), and scattered render-target writes (clustering makes it no faster).
+
+What it suggests, not proven: the cost grows roughly linearly beyond about 4M instances per frame, at about 50 ms per million. A per-frame work budget in the driver is one candidate. The point-list path roughly halves the cost but is still far from the budget.
+
+Consequence for the design: keep the instance count per frame at or below about 4M, and take the far-zoom density path (section 5) rather than per-node draws beyond that. Revisit once a second driver is measured, and once a multi-submit frame is tried.
+
+### 10.2 Android bench on an emulator (emulator, not a phone; 2026-11-08)
+Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_64 Google APIs emulator, WHPX-accelerated, with `-gpu host`. Vulkan calls go through the emulator's translation layer to the host Intel Arc B580. The emulator reports Vulkan 1.3.0 and no mesh-shader extension. Phone caps: 256 MB resident (16M nodes), 300 000 instances per frame. These numbers are not phone numbers. Section 6 phone budgets still need a physical device.
+
+| Section | Total nodes | Resident nodes | Instances per frame | Upload (ms) | Wall p50 (ms) | Wall p95 (ms) | GPU p50 (ms) | GPU p95 (ms) |
+|---|---|---|---|---|---|---|---|---|
+| nodes | 1M | 1M | 300k | 982 | 2.29 | 5.97 | 1.07 | 1.87 |
+| nodes | 4M | 4M | 300k | 2 538 | 1.90 | 2.90 | 1.07 | 1.91 |
+| nodes | 16M | 16M | 300k | 8 490 | 1.61 | 2.38 | 1.07 | 1.86 |
+| instances | 16.8M | 16.8M | 100k | 8 001 | 0.77 | 1.68 | 0.37 | 1.21 |
+| instances | 16.8M | 16.8M | 300k | 8 001 | 1.69 | 2.42 | 1.07 | 1.96 |
+| instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
+
+The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
+
+## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
+
+**Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
+
+**DECIDED (owner, 2026-11-19 08:18 UTC): the budget is adaptive, not one fixed number.** The owner asked for it to be "dynamic based on current performance", or to read what GPU it has. Both, in two layers:
+1. **Startup tier.** The client detects the GPU (vendor, model, VRAM) and runs a short micro-benchmark, then picks a starting tier: instance cap, edge cap, resident pool size, tile threshold. The tier table is a setting (configurability rule); operators can tighten it, never loosen it above the section 6 floors.
+2. **Closed-loop controller.** Each frame the client measures GPU frame time (rolling p95 over a short window) and raises or lowers detail to hold the target: LOD refine threshold, instance cap, edge density, density-field resolution. It drops detail fast when over budget and recovers slowly, with hysteresis so the picture does not flicker. A frame that would exceed the budget drops detail, never frames.
+3. **Target.** Defaults to the display refresh rate. **Acceptance bar (benchmarks, not the runtime target): the Arc B580 holds 300 fps at every size and mode, 400 fps preferred.** That is a p95 of 3.3 ms (2.5 ms for 400) at 100M, 1B and 2B nodes.
+4. **Quality first (owner, 2026-11-19 08:19 UTC).** Headroom is spent on detail before anything else: when the rolling p95 sits under 80% of the target for a calm stretch, detail rises (more instances, finer refine threshold, denser edges), up to twice the tier's starting caps. Detail only drops to hold the target. `FrameBudgetController` and `RenderTiers` in Rendering Core implement the loop.
+5. Phones keep the section 6 phone tier as their starting tier and the same controller. 60 fps stays their floor.
+
+The numbers in the old fixed table (2 000 000 instances, 100 000 edges, 2.5 / 3.3 ms) are now the B580 starting tier and the benchmark bar, not constants. Graph size is not an input: frame cost depends on the caps and the view, never on node count.
+
+**Method.** Out-of-core and bounded per frame; none of this touches data the view cannot show.
+1. **Selection.** Each frame the client picks a bounded set of tiles by walking the tile tree from the root, splitting the largest on-screen tile first, stopping at the instance cap, the tile cap, or the pixel threshold (below 96 px a tile is drawn from its sample). The CPU reference is `ViewSelector` in `Bazaar.Constellation.Rendering.Core`; the GPU compute pass must produce the same set and is tested against it.
+2. **Tree.** 2D uses the quadtree, 3D the octree from section 3 (tile format v1 already carries `dimensions`). 3D uses a perspective camera and frustum culling; far tiles collapse to density splats and cluster impostors.
+3. **Far and mid.** A density field (compute splat, section 5) and per-tile sampled nodes. Edges are drawn from per-tile bundled summaries (cluster-to-cluster ribbons), not per edge, until a tile is near.
+4. **Near.** All nodes and their real edges for the few visible leaf tiles, under the caps.
+5. **GPU-driven draw.** Compute culling writes indirect arguments; one indirect-count draw per layer. Tile data resident in a fixed GPU pool with LRU, streamed under the section 6 bandwidth limit. A frame that would exceed a cap drops detail (coarser tiles), never frames.
+6. **Not yet measured on the B580:** swapchain present cost, compute culling, density splat, indirect count draws, mesh shaders, 3D. These decide whether 400 fps holds or only 300; they are the first benchmark milestone.
+
+**Fully zoomed out (every node on screen).** Culling cannot help there, since nothing is outside the view, so the cost must not scale with nodes. Three things carry it: (a) a precomputed hierarchical cluster LOD, built on the server (section 3), where the root-level tiles hold cluster summaries and per-tile samples, so the selector never descends below the pixel threshold; (b) a density (heat) splat for every tile whose nodes fall below one pixel: a compute pass adds each tile's count into a screen-resolution texture, one write per tile, not per node, then a log tone map; (c) cost is set by screen pixels and the tile cap, not by node count: at most one splat per tile and one texel read per pixel. The result at 2 billion nodes on a 1080p screen is a few thousand tiles and about two million pixels of work. Edges at this distance are cluster-to-cluster bundles from per-tile summaries, never individual edges. The benchmark's far-zoom script covers this case explicitly in 2D and 3D.
+
+**3D mixed case: close-up detail with distant galaxies (owner, 2026-11-19 08:20 UTC).** This is the hardest 3D view and the one that matters most: the camera is next to a few nodes while far clusters are still in frame.
+- **Per-tile LOD by screen-space error.** Each tile's level is chosen from its projected size (the selector already splits the largest on-screen tile first), so tiles near the camera descend to full nodes and distant tiles stop at a sample, a cluster impostor (one billboard per cluster) or a density splat, all in the same frame under the same caps.
+- **Occlusion.** A Hi-Z pyramid from the previous frame's depth culls tiles hidden behind nearer geometry before they are drawn (compute pass, conservative, one-frame lag; nodes are sparse, so it pays mostly for dense clusters).
+- **Depth range.** Distances span many orders of magnitude, so rendering uses reversed-Z with a float depth buffer and camera-relative coordinates (tile origins are re-based to the eye on the CPU in double precision, so the GPU only sees small offsets). Logarithmic depth is the fallback if a device lacks a float depth format.
+- **Benchmark script.** 3D: the camera sits inside a dense leaf tile at full detail while clusters at 1e3, 1e5 and 1e7 times that distance stay on screen; then a fly-out and fly-in over the same scene. Pass criteria are the same p95 bar, plus no popping beyond one frame of LOD change and no depth fighting or jitter at the close-up nodes.
+
+**Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass on the B580: p95 ≤ 3.3 ms (≤ 2.5 ms for the 400 fps goal) at every size, with the controller on, and the detail level it settles at reported alongside. The owner's PC runs it (benchmark thread).
+
+**Honest limit.** "No matter what" is met by bounding work per frame and adapting to measured cost, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
+
+### 11.1 B580 draw baselines and what they change (measured 2026-11-19, benchmark thread)
+150 cells (5 topologies, 2D and 3D, whole, mid and close views), offscreen 1280x720, one point draw plus one line list of 1M edges generated in the shader, no culling, no depth test, no tile selection:
+- Node count barely matters (100M, 1B and 2B within a few percent at 1M points). Points cost about 0.42 ms per million, except thin-curve overdraw (a 2D ring seen whole: 4.2, 14.5 and 40 ms at 0.5M, 1M and 2M points).
+- **Edges are the problem, not nodes.** A flat 1M-edge line list costs about 6 ms in the whole and mid views and 16 to 17 ms close (uniform topology), 4 to 7 ms for hub-and-spoke, and the cost does not follow the point count. 76 of 150 cells meet p95 ≤ 2.5 ms and p99 ≤ 3.3 ms; edges cause 52 of the 74 misses.
+- **Decision from this (implementation default, a tier setting):** the edge cap drops from 1 000 000 to 100 000 on the B580 tier (30 000 phone, 200 000 high), edges draw only for near tiles, and everything farther uses cluster bundles. Edge density is also the first thing the frame controller sheds.
+- Host-side wall-clock p99 hitches (121 of 150 cells above 3.3 ms while GPU p99 was under 1 ms) look like a per-frame fence wait; to be isolated before a wall-clock fps claim is made.
+

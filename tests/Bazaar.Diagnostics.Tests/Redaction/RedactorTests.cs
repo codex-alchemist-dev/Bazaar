@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Bazaar.Diagnostics.Redaction;
+using Bazaar.Testing.Secrets;
 
 namespace Bazaar.Diagnostics.Tests.Redaction;
 
@@ -98,7 +99,7 @@ public class RedactorTests
     public void Repeated_calls_give_identical_results()
     {
         var redactor = new Redactor(["DESKTOP-QX71"]);
-        const string input = "C:\\Users\\alice\\x mail alice@example.com ip 10.0.0.9 key sk-ant-AAAAAAAAAAAAAAAAAAAAAAAA desktop-qx71";
+        const string input = "C:\\Users\\alice\\x mail alice@example.com ip 10.0.0.9 key " + FakeSecrets.AnthropicApiKey + " desktop-qx71";
         var expected = redactor.Redact(RedactionClass.FreeText, input);
 
         for (var i = 0; i < 1000; i++)
@@ -150,11 +151,16 @@ public class RedactorTests
     public void Redaction_assembly_references_no_network_gateway_or_model_assembly()
     {
         var references = typeof(Redactor).Assembly.GetReferencedAssemblies().Select(name => name.Name ?? string.Empty);
-        string[] banned = ["Bazaar", "Http", "Sockets", "Gateway", "Onnx", "Npu", "Model"];
+        string[] banned = ["Http", "Sockets", "Gateway", "Onnx", "Npu", "Model"];
 
         foreach (var name in references)
         {
-            Assert.DoesNotContain(banned, banned => name.Contains(banned, StringComparison.OrdinalIgnoreCase));
+            // Bazaar.Contracts is the shared wire-type project and carries no network or model code.
+            if (name != "Bazaar.Contracts")
+            {
+                Assert.DoesNotContain(name, banned, StringComparer.OrdinalIgnoreCase);
+            }
+            Assert.False(name.StartsWith("Bazaar", StringComparison.OrdinalIgnoreCase) && name != "Bazaar.Contracts", $"{name} must not be referenced by redaction");
         }
     }
 

@@ -38,7 +38,7 @@ These are not violations of the rules above. They are things that will block a c
 
 1. **Ordering keys are named for Bazaar.** `RenderFrame` and `FrameSequencer` use `GraphVersion` and `LayoutSeq`. They are generic sequence numbers and should get neutral names.
 2. **One spatial grid (done, #473).** The client's hit-testing uses `src/Bazaar.Constellation.Rendering/Core/SpatialGrid.cs`. The duplicate in `Bazaar.Client.Core` was removed. The grid is 2D only; 3D frames need a dimension-aware rebuild before the server sends them.
-3. **No GPU consumer for the instance buffer yet.** The Vulkan backend does not draw nodes yet, so the node instance buffer has no consumer. Its layout is not proven on a device, and it should not be frozen as a public contract until it is.
+3. **GPU consumer for the instance buffer (drawn, not frozen).** The Vulkan backend draws node instances, and the layout is checked on a device by an offscreen readback test. Each instance is x, y and a style index (`NodeInstanceBuffer`, 3 floats). The style table is a separate `NodeStylePalette` of distinct styles (colour, radius, ring width), uploaded to a GPU storage buffer, so a style change does not re-upload the instances. The layout still should not be frozen as a public contract until it is proven across more devices.
 4. **Bazaar service registration in the Vulkan project.** `Bazaar.Constellation.Vulkan` still uses a Bazaar service registration, so the backend cannot be reused on its own.
 
 ## 5. Future extraction steps
@@ -52,3 +52,13 @@ These are not violations of the rules above. They are things that will block a c
 ## 6. Forward-facing rule
 
 Target `net11.0` and current APIs. Do not use obsolete or deprecated APIs, and do not add code paths for an older runtime. Package versions follow the newest stable release. The extracted core must build on the same target without changes.
+
+## 7. Default theme: the night sky (owner, 2026-11-19 08:21 UTC, DECIDED)
+
+The renderer is a standalone module and has its own default theme, separate from any Bazaar theme. The default is a **pitch-black background**: an empty scene is a void, and as nodes fill it the view reads as stars in the night sky.
+- Background is true black (0, 0, 0) with no gradient, grid or vignette.
+- Nodes draw as star-like point sprites: a bright core with a soft glow falloff (additive blend, so overlapping nodes brighten like dense star fields). At far zoom the density field uses the same additive glow, so a billion nodes becomes a galaxy rather than a grey haze.
+- Colour temperature varies per node or cluster, from warm to cool, as stars do; the cluster palette keeps its hues but is drawn in this glow style.
+- Optional subtle twinkle (small, slow per-node brightness modulation). It is a theme setting, off when the frame controller (section 11 of the scale doc) is shedding detail, and off with reduced-motion.
+- It stays a theme: hosts may supply another, and Bazaar's Constellation view may use the Bazaar theme. Nothing in the renderer core hard-codes colours.
+

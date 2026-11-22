@@ -48,13 +48,36 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     private bool _timestampsSupported;
     private VkDebugUtilsMessengerEXT _messenger;
     private NodePipeline _pipeline = null!;
+    private readonly bool _reversedZ;
+    private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
 
-    private VulkanOffscreenRenderer(uint width, uint height)
+    private VulkanOffscreenRenderer(uint width, uint height, bool reversedZ)
     {
         _width = width;
         _height = height;
+        _reversedZ = reversedZ;
     }
+
+    /// <summary>True when the renderer was created with a reversed-Z depth attachment (<see cref="ReversedZDepth"/>).</summary>
+    public bool ReversedZEnabled => _reversedZ;
+
+    /// <summary>Depth image for the Hi-Z pass; null unless created with reversed-Z.</summary>
+    internal VkImage? DepthImage => _depthTarget?.Image;
+
+    /// <summary>Depth-aspect view of <see cref="DepthImage"/>, for <see cref="HiZPyramidPass"/>; null unless created with reversed-Z.</summary>
+    internal VkImageView? DepthView => _depthTarget?.View;
+
+    /// <summary>Device objects for GPU tests in the same assembly family (Hi-Z pass test). Not part of the public surface.</summary>
+    internal VkInstanceApi InstanceApi => _instanceApi;
+
+    internal VkDeviceApi DeviceApi => _deviceApi;
+
+    internal VkPhysicalDevice PhysicalDevice => _physicalDevice;
+
+    internal VkQueue Queue => _queue;
+
+    internal VkCommandPool CommandPool => _commandPool;
 
     /// <summary>True when the Khronos validation layer was enabled on this renderer's instance.</summary>
     public bool ValidationLayerEnabled { get; private set; }
@@ -68,11 +91,12 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     /// <summary>
     /// Creates the renderer. Throws <see cref="InvalidOperationException"/> with the reason when the loader or device is unusable.
     /// </summary>
-    public static VulkanOffscreenRenderer Create(uint width, uint height, bool enableValidation = false)
+    /// <param name="reversedZ">Adds a D32 reversed-Z depth attachment (clear 0, greater-or-equal). Off by default.</param>
+    public static VulkanOffscreenRenderer Create(uint width, uint height, bool enableValidation = false, bool reversedZ = false)
     {
         ArgumentOutOfRangeException.ThrowIfZero(width);
         ArgumentOutOfRangeException.ThrowIfZero(height);
-        var renderer = new VulkanOffscreenRenderer(width, height);
+        var renderer = new VulkanOffscreenRenderer(width, height, reversedZ);
         try
         {
             renderer.Initialise(enableValidation);
@@ -95,6 +119,16 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         }
 
         return messages;
+    }
+
+    /// <summary>
+    /// Replaces the style table with packed bytes from <see cref="NodeStylePacking.Pack"/>. Call before rendering
+    /// instances that refer to styles; without a style table, instances are not drawn.
+    /// </summary>
+    public void SetStyles(ReadOnlySpan<byte> styleBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _pipeline.UploadStyles(styleBytes);
     }
 
     /// <summary>
@@ -145,6 +179,7 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         {
             _deviceApi.vkDeviceWaitIdle();
             _pipeline?.Dispose();
+            _depthTarget?.Dispose();
             if (_readMapped is not null)
             {
                 _deviceApi.vkUnmapMemory(_readMemory);
@@ -392,15 +427,22 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         };
         _deviceApi.vkCreateImageView(&viewInfo, null, out _imageView);
 
-        _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, TargetFormat, VkImageLayout.TransferSrcOptimal);
+        _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, TargetFormat, VkImageLayout.TransferSrcOptimal, _reversedZ);
 
-        VkImageView attachment = _imageView;
+        if (_reversedZ)
+        {
+            _depthTarget = new ReversedZDepthTarget(_instanceApi, _deviceApi, _physicalDevice, _width, _height);
+        }
+
+        VkImageView* attachments = stackalloc VkImageView[2];
+        attachments[0] = _imageView;
+        attachments[1] = _depthTarget?.View ?? default;
         var framebufferInfo = new VkFramebufferCreateInfo
         {
             sType = VkStructureType.FramebufferCreateInfo,
             renderPass = _pipeline.RenderPass,
-            attachmentCount = 1,
-            pAttachments = &attachment,
+            attachmentCount = _reversedZ ? 2u : 1u,
+            pAttachments = attachments,
             width = _width,
             height = _height,
             layers = 1,

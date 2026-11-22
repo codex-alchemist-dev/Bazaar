@@ -25,12 +25,16 @@ public class MainActivity : AvaloniaMainActivity
 {
     private WindowManagerPostureSource? _posture;
 
+    /// <summary>The running activity, or null before OnCreate and after OnDestroy. The app has one activity.</summary>
+    public static MainActivity? Current { get; private set; }
+
     /// <summary>The fold posture source for this activity, or null before OnCreate and after OnDestroy.</summary>
     public WindowManagerPostureSource? Posture => _posture;
 
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+        Current = this;
         _posture = new WindowManagerPostureSource(this);
     }
 
@@ -45,6 +49,11 @@ public class MainActivity : AvaloniaMainActivity
     {
         _posture?.Dispose();
         _posture = null;
+        if (ReferenceEquals(Current, this))
+        {
+            Current = null;
+        }
+
         base.OnDestroy();
     }
 }
