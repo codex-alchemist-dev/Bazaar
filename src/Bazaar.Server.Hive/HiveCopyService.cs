@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Bazaar.Server.Hive.Abstractions;
+using Bazaar.Server.Hive.Settings;
 using Bazaar.Server.Memory.Notes;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
@@ -68,6 +69,7 @@ public sealed partial class HiveCopyService
     private readonly IMemoryBatchSink _sink;
     private readonly HiveCopyOptions _options;
     private readonly TimeProvider _time;
+    private readonly IHiveKindSource _kinds;
 
     /// <summary>Creates the service.</summary>
     public HiveCopyService(
@@ -77,7 +79,8 @@ public sealed partial class HiveCopyService
         IHiveNoteReader reader,
         IMemoryBatchSink sink,
         HiveCopyOptions? options = null,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        IHiveKindSource? kinds = null)
     {
         ArgumentNullException.ThrowIfNull(policy);
         ArgumentNullException.ThrowIfNull(grants);
@@ -91,6 +94,7 @@ public sealed partial class HiveCopyService
         _sink = sink;
         _options = options ?? new HiveCopyOptions();
         _time = time ?? TimeProvider.System;
+        _kinds = kinds ?? new OptionsHiveKindSource(_options);
     }
 
     [GeneratedRegex("^[A-Za-z0-9_./@+:-]+$")]
@@ -161,7 +165,7 @@ public sealed partial class HiveCopyService
             return HiveCopyOutcome.Refused(HiveRefusal.SubjectTagged);
         }
 
-        if (!_options.AllowedKinds.Contains(lesson.Kind))
+        if (!(await _kinds.AllowedKindsAsync(ct).ConfigureAwait(false)).Contains(lesson.Kind))
         {
             return HiveCopyOutcome.Refused(HiveRefusal.KindNotAllowed);
         }

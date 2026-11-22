@@ -30,11 +30,14 @@ public enum UsageStatus
 
     /// <summary>The stream was cut off; the counts are partial and marked estimated.</summary>
     Aborted,
+
+    /// <summary>Policy refused the call before any provider was contacted. The row carries zero tokens.</summary>
+    Denied,
 }
 
 /// <summary>
 /// One row of the <c>gw_usage</c> table: one per model call. No prompt or completion text is stored.
-/// Cost is not stored; it is computed from a dated price table identified by <c>PriceVersion</c>.
+/// <c>Source</c> names where the call went (see <c>UsageSource</c> in the gateway). Cost is not stored; it is computed from a dated price table identified by <c>PriceVersion</c>.
 /// </summary>
 public sealed record GatewayUsageRecord(
     Guid Id,
@@ -52,4 +55,5 @@ public sealed record GatewayUsageRecord(
     string? ErrorCode,
     int? RetryAfterSeconds,
     bool Estimated,
-    string? PriceVersion);
+    string? PriceVersion,
+    string? Source = null);
