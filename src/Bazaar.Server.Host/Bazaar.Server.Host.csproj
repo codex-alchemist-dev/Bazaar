@@ -124,6 +124,8 @@
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Display\Bazaar.Server.BrowserPool.Display.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.LinuxHost\Bazaar.Server.BrowserPool.LinuxHost.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Image\Bazaar.Server.BrowserPool.Image.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.BrowserPool.Gate\Bazaar.Server.BrowserPool.Gate.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.BrowserPool.Audit\Bazaar.Server.BrowserPool.Audit.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />
