@@ -13,6 +13,7 @@ on:
   pull_request:
     paths:
       - 'packaging/linux-flatpak/**'
+      - 'packaging/linux/build-tarball.sh'
       - 'src/Bazaar.Client.Linux/**'
       - '.github/workflows/linux-package-flatpak.yml'
   workflow_dispatch:
@@ -33,17 +34,24 @@ jobs:
     env:
       # Pinned freedesktop runtime branch. Must equal runtime-version in the manifest (checked below).
       FREEDESKTOP_BRANCH: '25.08'
-      # SDK extension for .NET, same branch as the runtime. Name and availability on Flathub for .NET 11
-      # were unverified when this was written; the install step fails loudly if it does not exist.
-      DOTNET_EXTENSION: org.freedesktop.Sdk.Extension.dotnet11
     steps:
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # build-tarball.sh publishes the client, so the runner needs the SDK pinned in global.json (the
+      # Flatpak build itself needs no .NET SDK extension).
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
       - name: Validate packaging metadata
-        run: bash packaging/linux-flatpak/test-flatpak-metadata.sh
+        run: |
+          set -euo pipefail
+          bash packaging/linux-flatpak/test-flatpak-metadata.sh
+          bash packaging/linux-flatpak/test-build-flatpak-render.sh
 
       # The runner's distro is not documented in this repo (other jobs use apt-get, so it is probably
       # Debian or Ubuntu); detect apt or dnf rather than assume.
@@ -64,7 +72,7 @@ jobs:
           flatpak --version
           flatpak-builder --version
 
-      - name: Install the pinned runtime, SDK and .NET extension from Flathub
+      - name: Install the pinned runtime and SDK from Flathub
         run: |
           set -euo pipefail
           manifest_branch="$(sed -n "s/^runtime-version:[[:space:]]*'\{0,1\}\([^'[:space:]#]*\)'\{0,1\}.*/\1/p" packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml | head -n1)"
@@ -75,9 +83,10 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user --noninteractive --assumeyes flathub \
             "org.freedesktop.Platform//$FREEDESKTOP_BRANCH" \
-            "org.freedesktop.Sdk//$FREEDESKTOP_BRANCH" \
-            "$DOTNET_EXTENSION//$FREEDESKTOP_BRANCH"
+            "org.freedesktop.Sdk//$FREEDESKTOP_BRANCH"
 
+      # The Flatpak compiles nothing: build-flatpak.sh builds the self-contained tarball (this needs the .NET SDK
+      # from global.json on the runner) and the manifest installs it.
       - name: Build the Flatpak bundle
         run: bash packaging/linux-flatpak/build-flatpak.sh "$RUNNER_TEMP/flatpak-out"
 
