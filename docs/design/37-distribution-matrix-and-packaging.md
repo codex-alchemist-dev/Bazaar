@@ -88,12 +88,12 @@ Status: PROPOSED. Needs no new owner decision: it applies doc 43's redaction flo
 **Clean-run check** (`packaging/tools/clean-run-windows.ps1`, PowerShell 7 or Windows PowerShell 5.1):
 
 1. Inputs: `-PublishDir` (the output of the release publish, as in `publish-smoke.yml`) and a required `-WorkDir`. The script refuses a `-WorkDir` on the system drive unless `-AllowSystemDrive` is passed, and CI passes it only on disposable hosted runners. On the owner's PC the work directory is on a non-system drive, never `C:`.
-2. It copies nothing into the real user profile. It sets `LOCALAPPDATA`, `APPDATA`, `USERPROFILE` and `TEMP` to folders under `-WorkDir` for the child process, so a "fresh machine" is simulated without touching the real one. No registry write, no service, no handler registration.
+2. It copies nothing into the real user profile. It sets `BAZAAR_DATA_DIR` (the client's data directory override, read by the support-bundle module because the OS known-folder API ignores `LOCALAPPDATA`) and `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` and `TEMP` to folders under `-WorkDir` for the child process, so a "fresh machine" is simulated without touching the real one. No registry write, no service, no handler registration.
 3. Check 1, files: the entry exe exists, and when a `SHA256SUMS` file is next to it every listed hash matches.
 4. Check 2, headless start: it runs `Bazaar.Client.Windows.exe --self-check --report <WorkDir>\selfcheck.json`. The flag runs the same module load and manifest checks as a normal start (doc 41 section 8), builds the pane registry, then exits without showing a window and without opening a network connection. Exit code 0 means every check passed. The report is JSON, schema `bazaar.selfcheck/1`, one entry per check with an id, a pass or fail and a short reason.
-5. Check 3, bounded time: the process must exit within `-TimeoutSeconds` (default 60). A timeout kills the process tree and counts as a failure.
-6. Check 4, log hygiene: the client log written under the isolated profile has no entry at Error or above and no crash sentinel (doc 43 section 7.5).
-7. Check 5, GUI start (optional, `-Gui`): starts the exe normally, waits until the main window handle exists (`MainWindowHandle`) or the timeout, then closes it. Needs an interactive desktop, so hosted runners and the PC run it, a service session does not.
+5. Bounded time (applies to check 2): the process must exit within `-TimeoutSeconds` (default 60). A timeout kills the process tree and counts as a failure.
+6. Check 3, log hygiene: the client log written under the isolated data directory (`logs/client.log`, stderr copied as `WARN`, failures as `ERROR`) has no `ERROR` line. The self-check's own checks (modules load with none skipped, pane registry builds) already cover module-manifest failures.
+7. Check 4, GUI start (optional, `-Gui`): starts the exe normally, waits until the main window handle exists (`MainWindowHandle`) or the timeout, then closes it. Needs an interactive desktop, so hosted runners and the PC run it, a service session does not.
 8. On any failure the script runs `Bazaar.Client.Windows.exe --support-bundle <WorkDir>\bundle.zip` and prints the path. CI uploads the zip as a workflow artifact.
 9. The script prints one checklist line per check (`PASS`, `FAIL` or `SKIP`), exits 0 only when no check failed, and never deletes `-WorkDir` on failure.
 
@@ -102,10 +102,10 @@ The check is read-only toward the build: it never modifies the publish directory
 **Support bundle** (`--support-bundle <path>` on any client head that composes the module, and later a "Save support bundle" command in the palette):
 
 - One zip, schema `bazaar.supportbundle/1`, written to the path given. It is built on the device and never sent anywhere by Bazaar. The person decides whether and how to share it. This keeps doc 43's floor that raw logs never leave a device: the zip holds only redacted text.
-- Contents: `manifest.json` (client version string, channel, commit, OS family and version, architecture, memory bucket, process uptime, time zone offset, locale tag, the loaded modules with version and build id), `selfcheck.json` (the latest self-check report when one exists), `logs/client.log` (the tail of the client log, newest last), `crash/last.json` (the crash sentinel record when the last run crashed, already in the doc 43 report form).
+- Contents: `client/info.txt` (client version string, OS description, runtime, architecture, the loaded modules with versions), `manifest.json` (schema, included files, cut or refused notes), `selfcheck.json` (the latest self-check report when one exists), `logs/client.log` (the client log, newest last), (`crash/last.json`, the crash sentinel record, is added when doc 43's capture module lands).
 - Every text file goes through the doc 43 redactor (`Bazaar.Diagnostics`, rules v1, with the machine name and user name as exact values) before it is written. A file that fails redaction is replaced by a one-line marker, never included raw. A test asserts that a planted secret, path, host name and user name do not appear in the zip.
 - Never included: screenshots, settings values, environment variables, tokens, any Vault, GC or DM content, file listings outside the install directory.
-- Caps: 2 MiB for the log tail (the last lines that fit), 5 MiB for the whole zip. The zip lists what was cut in `manifest.json`.
+- Caps: 2 MiB per file (a larger file keeps its newest lines), 5 MiB of redacted text in total before compression (later files are left out). `manifest.json` lists what was cut or refused.
 - Deterministic: the same inputs give the same zip bytes (sorted entries, fixed timestamps), so tests compare bytes.
 - Sources are pluggable through `ISupportBundleSource` in `Bazaar.SupportBundle.Abstractions`, so other modules can add their own redacted section. A source cannot read another source's output.
 
