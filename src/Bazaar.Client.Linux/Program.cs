@@ -9,8 +9,12 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
@@ -112,6 +116,11 @@ internal static class Program
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window) =>
+    private static void InstallShell(MainWindow window)
+    {
+        // Tinted chrome where the session composites, and a flat desktop posture; the content stays opaque (doc 93).
+        var chat = window.Content as Control;
+        ShellVisuals.Install(window, chat, null, new LinuxMaterialEnvironmentSource(), new FlatPostureSource(), BundledThemes.Load("graphite"), new MotionSettings(MotionPlatform.Desktop));
         ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+    }
 }

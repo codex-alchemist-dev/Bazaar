@@ -21,10 +21,14 @@ using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
 using Bazaar.Localisation;
@@ -103,10 +107,18 @@ internal static class Program
 
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
+            // The chat is the first slot of the posture layout and the panes the second, so a window of 600 dp or more shows both (doc 93).
+            var chatView = window.Content as Control;
+            Control? paneView = null;
             if (showPanes)
             {
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
+                paneView = window.Content as Control;
             }
+
+            // Mica or acrylic on the window chrome and a flat desktop posture; the chat and panes are content and stay opaque (doc 93).
+            var motion = new MotionSettings(MotionPlatform.Desktop);
+            ShellVisuals.Install(window, chatView, paneView, new WindowsMaterialEnvironmentSource(), new FlatPostureSource(), BundledThemes.Load("graphite"), motion);
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
