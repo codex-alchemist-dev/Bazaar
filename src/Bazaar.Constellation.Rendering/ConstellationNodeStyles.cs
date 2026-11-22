@@ -8,6 +8,9 @@ namespace Bazaar.Constellation.Rendering;
 /// </summary>
 public static class ConstellationNodeStyles
 {
+    /// <summary>The theme used when the host supplies none: the night sky (pitch-black background, star colours).</summary>
+    public static NightSkyTheme DefaultTheme => NightSkyTheme.Default;
+
     /// <summary>Cluster colours, cycled by cluster id.</summary>
     public static readonly IReadOnlyList<NodeStyle> Palette =
     [
@@ -46,6 +49,27 @@ public static class ConstellationNodeStyles
         for (int node = 0; node < clusters.Length; node++)
         {
             table.Set(node, ForCluster(clusters[node]));
+        }
+
+        return table;
+    }
+
+    /// <summary>
+    /// Like <see cref="Build"/>, but keeps the palette colours and takes the radius and ring width from
+    /// <paramref name="fallback"/>. A backend whose radius is in world units, not the palette's pixels, uses this.
+    /// </summary>
+    public static NodeStyleTable BuildColoured(ConstellationScene scene, NodeStyle fallback)
+    {
+        NodeStyleTable table = Build(scene, fallback);
+        if (scene.ClusterIds.IsEmpty)
+        {
+            return table;
+        }
+
+        for (int node = 0; node < table.NodeCount; node++)
+        {
+            NodeStyle s = table.Get(node);
+            table.Set(node, new NodeStyle(s.Red, s.Green, s.Blue, s.Alpha, fallback.Radius, fallback.RingWidth));
         }
 
         return table;

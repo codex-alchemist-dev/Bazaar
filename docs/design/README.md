@@ -70,6 +70,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | 29 | [29-android-client.md](29-android-client.md) | Development Console: fold layouts, radial menu, dictation, approvals, push | 13 | 27, 02, 15, 31, 32 |
 | 30 | [30-linux-client-and-packaging.md](30-linux-client-and-packaging.md) | Linux client, packaging, versioning, server upgrade and rollback, signing, release pipeline | 14 | 27, 28, 29, 02, 03, 04, 33 |
 | 31 | [31-local-coworker-npu.md](31-local-coworker-npu.md) | On-device inference: Intel and Qualcomm NPU paths, chips, voice cleanup, guards | 13 | 02, 05, 15, 34 |
+| 90 | [90-wire-transports-and-codecs.md](90-wire-transports-and-codecs.md) | Pluggable wire transports (ws, h3, QUIC, WebTransport, gRPC) and codecs (JSON, MemoryPack, CBOR, MessagePack, Protobuf) as optional modules; negotiation; published schema; benchmark spike | 4 | 02, 39, 40, 42, 15, 32, 03 |
 | 41 | [41-client-gui-customization-and-dsl.md](41-client-gui-customization-and-dsl.md) | Client GUI customization: typed, versioned JSON documents (theme, layout, commands, start) with scopes and sync; DSL question (not warranted in v1); client modules and plugin-pane options | 8 | 27, 02, 03, 15, 20, 38, 19 |
 
 ### Operations and quality
@@ -142,6 +143,8 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 47 | [47-licensing-and-trademarks.md](47-licensing-and-trademarks.md) | Licensing, contributions and trademarks: AGPL-3.0 everywhere, module exception, DCO and CLA, marks and marketplace licence rules | 13 (M1 to M13) | 37, 42, 48, 49 |
 | 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
+| 91 | [91-claude-code-cli-provider.md](91-claude-code-cli-provider.md) | Claude Code CLI provider: runs the unmodified `claude` program per model step on the operator's own login or API key; terms finding, guard rails, process lifecycle, streaming, tool bridging, rate limits (PROPOSED) | 3 | 05, 06, 14, 15, 46 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
+| 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
 | 57 | [57-athanor-ide.md](57-athanor-ide.md) | Athanor IDE and editor: module split, host contract, bridge protocol, saves and drafts (PROPOSED) | 6 | 27, 28, 40, 41, 41b, 49 |
 | 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
