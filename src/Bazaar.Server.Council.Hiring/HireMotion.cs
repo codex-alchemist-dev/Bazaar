@@ -4,8 +4,8 @@ using Bazaar.Server.Council.Service;
 namespace Bazaar.Server.Council.Hiring;
 
 /// <summary>
-/// The Council motion for a hire, with the membership kind the outcome path needs. <see cref="MotionDraft"/> has no
-/// membership kind field, so the kind travels beside the draft and is recorded as the vote's membership metadata.
+/// The Council motion for a hire. The draft itself carries the membership kind and subject, which the vote stores
+/// for the outcome handoff; <see cref="Kind"/> repeats the kind for callers.
 /// </summary>
 /// <param name="Draft">The motion to open with <see cref="ICouncilService.OpenAsync"/>.</param>
 /// <param name="Kind">Always <see cref="MembershipMotionKind.Hire"/>.</param>

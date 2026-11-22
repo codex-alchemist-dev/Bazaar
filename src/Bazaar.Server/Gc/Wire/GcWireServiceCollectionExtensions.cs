@@ -28,6 +28,7 @@ public static class GcWireServiceCollectionExtensions
 
         services.TryAddSingleton<GcReadAccess>();
         services.TryAddSingleton<IGcReadAccess>(sp => sp.GetRequiredService<GcReadAccess>());
+        services.TryAddSingleton<IGcWriteAccess>(sp => sp.GetRequiredService<GcReadAccess>());
 
         // Per-person AES-256-GCM bodies (docs/design/04 Question 2). The KEK provider is optional at registration: without one the
         // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
@@ -39,25 +40,30 @@ public static class GcWireServiceCollectionExtensions
         // host working (reads need no audit sink; writes only come from the settings component).
         services.TryAddSingleton<Bazaar.Server.Settings.ISettingStore>(sp => new Bazaar.Server.Settings.NpgsqlSettingStore(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
-            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink()));
+            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink(),
+            sp.GetService<Bazaar.Server.Settings.SettingRegistry>()));
 
         services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
 
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
+        services.TryAddSingleton<IGcHistorySource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
-        services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
         services.AddSingleton<IWireRequestHandler, GcEditHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Members.PgGcMembershipSource>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.IGcMembershipSource>(sp => sp.GetRequiredService<Bazaar.Server.Gc.Members.PgGcMembershipSource>());
         services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
         services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.IGcMemberListSource>(sp => new Bazaar.Server.Gc.Members.PgGcMemberListSource(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+        services.AddSingleton<IWireRequestHandler, GcListHandler>();
         return services;
     }
 }

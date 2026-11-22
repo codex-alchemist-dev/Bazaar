@@ -1,0 +1,17 @@
+Golden frame: Hello(minimal)
+Codec: cbor (binary)
+Protocol: 1.0
+Schema hash: sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e
+Payload record: Bazaar.Contracts.Wire.Hello
+Envelope: v=1 t=hello k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
+Frame length: 192 bytes
+Payload as JSON: {"versionMin":1,"versionMax":1,"minor":0,"codecs":["json"],"deviceId":"d","deviceClass":"c","clientBuild":"b"}
+Frame hex:
+  A861760161746568656C6C6F616B6365767462696468766563746F722D316173
+  782767633A30313936613666302D303030302D373030302D383030302D303030
+  303030303030303031616E07627473C07818323032362D31312D31395430353A
+  33363A31322E3334355A6170A76A76657273696F6E4D696E016A76657273696F
+  6E4D617801656D696E6F720066636F6465637381646A736F6E68646576696365
+  496461646B646576696365436C61737361636B636C69656E744275696C646162
+
+A foreign client passes when it decodes the .bin file to this envelope and payload, and encodes them back to the same bytes.

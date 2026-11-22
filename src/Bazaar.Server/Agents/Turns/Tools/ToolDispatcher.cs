@@ -5,6 +5,9 @@ using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
+using Bazaar.Server.Security.Taint;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Agents.Turns.Tools;
 
@@ -23,19 +26,29 @@ namespace Bazaar.Server.Agents.Turns.Tools;
 /// outcome Unknown, and the call stays in flight, so a non-idempotent retry reports Unknown.
 /// </para>
 /// <para>
+/// Result taint (doc 15, "Reads for modules"): after a tool returns, <see cref="IToolPolicyEngine.TaintAfterResult"/> gives the
+/// session's taint with the result added. When that differs from the taint the call was evaluated with, it is saved through
+/// <see cref="ISessionTaintStore"/> before the result is returned, so the next call in the session sees it. A tool that declares
+/// <see cref="ToolResultTaint.None"/> leaves the taint as it was, and nothing is saved. A failed save withholds the result (the
+/// fixed failure result is returned, reason <c>taint_save_failed:&lt;type name&gt;</c>); a cancelled save writes the audit
+/// record with reason <c>cancelled</c> and rethrows. A tool that threw adds no taint: its result is the dispatcher's own text.
+/// </para>
+/// <para>
 /// Grants: the dispatch context carries no verified grant yet. The approval lookup belongs to the approval flow
 /// (<c>ApprovalService.VerifyGrantAsync</c>) and is wired in a later package. Until then a Tier 2 call returns
 /// PendingApproval and never runs from this path.
 /// </para>
 /// </remarks>
-public sealed class ToolDispatcher(
+public sealed partial class ToolDispatcher(
     IToolRegistry tools,
     IToolPolicyEngine policy,
     ISessionTaintStore sessionTaint,
     IInFlightCallStore inFlight,
     IAuditLog auditLog,
     TimeProvider time,
-    ToolDispatcherOptions? options = null) : IToolDispatcher
+    ToolDispatcherOptions? options = null,
+    IEnumerable<ITaintRaisedListener>? taintListeners = null,
+    ILogger<ToolDispatcher>? logger = null) : IToolDispatcher
 {
     private const string _readerTurnReason = "reader turn";
     private const string _unknownToolReason = "unknown tool";
@@ -53,6 +66,10 @@ public sealed class ToolDispatcher(
     private readonly IAuditLog _auditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
     private readonly TimeProvider _time = time ?? throw new ArgumentNullException(nameof(time));
     private readonly ToolDispatcherOptions _options = options ?? ToolDispatcherOptions.Default;
+    private readonly ILogger _log = (ILogger?)logger ?? NullLogger.Instance;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A taint-raised listener failed for session {SessionId}.")]
+    private static partial void LogTaintListenerFailed(ILogger logger, Exception exception, Guid sessionId);
 
     /// <inheritdoc />
     public async Task<ToolDispatchResult> InvokeAsync(ToolDispatchRequest request, CancellationToken cancellationToken)
@@ -87,7 +104,7 @@ public sealed class ToolDispatcher(
         }
 
         var taint = await _sessionTaint.LoadAsync(request.SessionId, cancellationToken);
-        var decision = _policy.Evaluate(new DispatchContext(
+        var context = new DispatchContext(
             AgentId: request.AgentId.ToString("D"),
             SessionId: request.SessionId,
             Role: ToSessionRoles(request.Role),
@@ -96,7 +113,8 @@ public sealed class ToolDispatcher(
             Target: null,
             Args: args,
             Taint: taint,
-            Now: _time.GetUtcNow()));
+            Now: _time.GetUtcNow());
+        var decision = _policy.Evaluate(context);
 
         switch (decision.Outcome)
         {
@@ -121,7 +139,7 @@ public sealed class ToolDispatcher(
         {
             // A contextual tool gets the caller the dispatcher already verified (doc 15). Other tools keep the plain call.
             resultJson = implementation is IContextualTool contextual
-                ? await contextual.ExecuteAsync(args, new ToolCallContext(request.AgentId, request.SessionId, request.TurnId, request.ChainDepth), cancellationToken)
+                ? await contextual.ExecuteAsync(args, new ToolCallContext(request.AgentId, request.SessionId, request.TurnId, request.ChainDepth, Guid.TryParse(request.GcId, out var gcId) ? gcId : null), cancellationToken)
                 : await implementation.ExecuteAsync(args, cancellationToken);
         }
         catch (OperationCanceledException)
@@ -137,8 +155,58 @@ public sealed class ToolDispatcher(
         }
 
         await _inFlight.CompleteAsync(callKey, cancellationToken);
-        await WriteAuditAsync(request, argsHash, start, ToolDispatchOutcome.Executed, failure ?? decision.Reason.ToString(), cancellationToken);
+        var reason = failure ?? decision.Reason.ToString();
+
+        // The fixed failure result is the dispatcher's own text, not the tool's, so it adds no taint.
+        if (failure is null)
+        {
+            var raised = _policy.TaintAfterResult(context, Guid.CreateVersion7(_time.GetUtcNow()));
+            if (!raised.Equals(taint))
+            {
+                try
+                {
+                    await _sessionTaint.SaveAsync(request.SessionId, raised, cancellationToken);
+
+                    // Only a rise, and only once the new taint is saved. A new source at the same level says nothing new.
+                    if (raised.State > taint.State)
+                        await NotifyTaintRaisedAsync(request, raised.State, cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // The tool ran, but its result is not delivered: the session never saw content it could not record.
+                    await WriteAuditAsync(request, argsHash, start, ToolDispatchOutcome.Executed, _cancelledReason, CancellationToken.None);
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    // Fail closed: a result whose taint cannot be recorded is withheld from the session.
+                    resultJson = _toolFailedResult;
+                    reason = $"taint_save_failed:{ex.GetType().Name}";
+                }
+            }
+        }
+
+        await WriteAuditAsync(request, argsHash, start, ToolDispatchOutcome.Executed, reason, cancellationToken);
         return new ToolDispatchResult(ToolDispatchOutcome.Executed, resultJson);
+    }
+
+    private async Task NotifyTaintRaisedAsync(ToolDispatchRequest request, TaintState level, CancellationToken cancellationToken)
+    {
+        if (taintListeners is null)
+            return;
+
+        var signal = new TaintRaised(request.AgentId.ToString("D"), request.SessionId, level, _time.GetUtcNow());
+        foreach (var listener in taintListeners)
+        {
+            try
+            {
+                await listener.OnTaintRaisedAsync(signal, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogTaintListenerFailed(_log, ex, request.SessionId);
+            }
+        }
     }
 
     /// <summary>Writes the audit record for a call that did not run, then returns its result.</summary>
