@@ -36,7 +36,11 @@
     <Project Path="src/Bazaar.Server.Constitution.Abstractions/Bazaar.Server.Constitution.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Rubedo.Analysis/Bazaar.Rubedo.Analysis.csproj" />
+    <Project Path="src/Bazaar.Rubedo.Docs/Bazaar.Rubedo.Docs.csproj" />
+    <Project Path="src/Bazaar.Rubedo.Docs.Tool/Bazaar.Rubedo.Docs.Tool.csproj" />
+    <Project Path="src/Bazaar.Rubedo.LanguageServer/Bazaar.Rubedo.LanguageServer.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Rubedo.Playground/Bazaar.Client.Rubedo.Playground.csproj" />
     <Project Path="src/Bazaar.Client.Community/Bazaar.Client.Community.csproj" />
     <Project Path="src/Bazaar.Client.Community.Avalonia/Bazaar.Client.Community.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
@@ -298,8 +302,11 @@
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Analysis.Tests/Bazaar.Rubedo.Analysis.Tests.csproj" />
+    <Project Path="tests/Bazaar.Rubedo.Docs.Tests/Bazaar.Rubedo.Docs.Tests.csproj" />
+    <Project Path="tests/Bazaar.Rubedo.LanguageServer.Tests/Bazaar.Rubedo.LanguageServer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Rubedo.Playground.Tests/Bazaar.Client.Rubedo.Playground.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Studio.Tests/Bazaar.Client.Studio.Tests.csproj" />
