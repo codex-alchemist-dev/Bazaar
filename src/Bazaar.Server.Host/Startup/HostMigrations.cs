@@ -5,6 +5,7 @@ using Bazaar.Server.Calendar;
 using Bazaar.Server.CodingStore.Data;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Health;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
@@ -20,7 +21,7 @@ using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Account Approval, Setup, Setup first-run, Agents, Calendar), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Account Approval, Setup, Setup first-run, Agents, Calendar, Health), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
     /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Account Approval, Setup, Agents, Portability and GitHub migrations, read from their assemblies.</summary>
@@ -32,6 +33,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
         new ComponentMigrationSource(typeof(CompanyMemoryComponent).Assembly),
+        new ComponentMigrationSource(typeof(HealthServerComponent).Assembly),
         new ComponentMigrationSource(typeof(MirrorComponent).Assembly),
         new ComponentMigrationSource(typeof(MailComponent).Assembly),
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),

@@ -37,6 +37,7 @@ using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
+using Bazaar.Server.Health;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Interrupts;
@@ -125,6 +126,7 @@ public static class HostComponents
         new OwnerQueueComponent(),
         new CouncilComponent(),
         new CompanyMemoryComponent(),
+        new HealthServerComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),

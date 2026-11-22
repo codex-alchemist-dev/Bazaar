@@ -1,5 +1,6 @@
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Health;
 using Bazaar.Server.Http;
 using Bazaar.Server.Interrupts;
 using Bazaar.Server.Org;
@@ -30,6 +31,7 @@ internal static class CompanyReadRoutes
         routes.MapCompanyInterrupts(GuardInterruptsAsync);
         // Owner producer: the guard registers the viewer, and the module refuses anyone who is not the company owner with 403.
         routes.MapCompanyInterruptsWrite(GuardInterruptsAsync);
+        routes.MapBazaarProjectHealth(HttpSurfaceEndpoints.GuardAsync);
         return routes;
     }
 
