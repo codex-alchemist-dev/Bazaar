@@ -11,7 +11,7 @@ public static class WindowsSandboxConfig
     public const string GuestAgentFolder = @"C:\Bazaar\agent";
 
     /// <summary>
-    /// Every switch that could leak data or capability is set off: GPU, clipboard, audio, video input and printers.
+    /// Every switch that could leak data or capability is set explicitly: GPU, clipboard, audio, video input and printers off, protected client on (the sandbox window runs isolated from the host session).
     /// The only mapped folder is the guest agent build (<paramref name="agentFolder"/>), always read-only (doc 50 section 9).
     /// There is no logon command: it does not run on the verified host, so the host starts the agent with <c>wsb exec</c>.
     /// Scoped mounts for the Soul folder and workspace come with the mount work package (doc 16 WP8).
@@ -30,9 +30,19 @@ public static class WindowsSandboxConfig
             throw new ArgumentOutOfRangeException(nameof(spec), spec.MemoryMb, "Memory must be positive.");
         }
 
+        if (!Enum.IsDefined(networking))
+        {
+            throw new ArgumentOutOfRangeException(nameof(networking), networking, "Unknown networking mode.");
+        }
+
         var mappedFolders = new XElement("MappedFolders");
         if (!string.IsNullOrWhiteSpace(agentFolder))
         {
+            if (!WindowsSandboxConfigPolicy.IsSafeHostFolder(agentFolder))
+            {
+                throw new ArgumentException("The agent folder must be a local absolute path with a drive letter (no network path, no '..').", nameof(agentFolder));
+            }
+
             mappedFolders.Add(new XElement(
                 "MappedFolder",
                 new XElement("HostFolder", agentFolder),
@@ -50,7 +60,10 @@ public static class WindowsSandboxConfig
                 new XElement("AudioInput", "Disable"),
                 new XElement("VideoInput", "Disable"),
                 new XElement("PrinterRedirection", "Disable"),
+                new XElement("ProtectedClient", "Enable"),
                 mappedFolders));
-        return doc.ToString(SaveOptions.DisableFormatting);
+        var xml = doc.ToString(SaveOptions.DisableFormatting);
+        WindowsSandboxConfigPolicy.Validate(xml);
+        return xml;
     }
 }
