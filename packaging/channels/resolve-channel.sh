@@ -5,14 +5,16 @@
 #   tag   a release tag, vMAJOR.MINOR.PATCH[-pre] (for example v0.1.0 or v0.2.0-beta.1)
 #   ring  optional staged ring name, default "all"
 #
-# Output (stdout): channel=<stable|beta|alpha> and ring=<name>, one per line.
+# Output (stdout): channel=<stable|beta|nightly> and ring=<name>, one per line.
 #   The pre-release identifier decides the channel:
 #     no suffix         -> stable
-#     -alpha.N          -> alpha
+#     -alpha.N          -> nightly (deprecated alias: the owner's channels are stable, beta, nightly
+#                          and LTS, docs/design/49 section 6; a warning goes to stderr)
 #     -beta.N, -rc.N    -> beta   (rc is a beta-track release candidate)
 #   The LTSC and Latest-Commit channels are never produced from a tag: LTSC lives on its own
 #   branch and Latest-Commit is a CI build, not a release tag. The Bazaar.Server operator picks
 #   a channel per install; this script only labels a published release.
+#   LTSC releases are checked by lts-branch.sh (branch ltsc/<codename>, patch-only bumps).
 #
 # Exit 2 on a tag or ring that is not valid, so release workflows fail closed.
 
@@ -40,7 +42,9 @@ fi
 
 case "$pre" in
   "")                       channel="stable" ;;
-  alpha.*)                  channel="alpha" ;;
+  alpha.*)
+    echo "warning: -alpha.N is a deprecated alias for the nightly channel." >&2
+    channel="nightly" ;;
   beta.*|rc.*)              channel="beta" ;;
   *)
     echo "error: pre-release '$pre' has no channel (use alpha.N, beta.N or rc.N)." >&2

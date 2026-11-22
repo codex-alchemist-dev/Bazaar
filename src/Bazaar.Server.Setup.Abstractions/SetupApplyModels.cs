@@ -18,6 +18,7 @@ public enum SetupEntryPath
 /// <param name="TemplateId">The template used, when there is one.</param>
 /// <param name="TemplateVersion">The template version used, when there is one.</param>
 /// <param name="CurrentState">The state the dry run compared against. Null means an empty install.</param>
+/// <param name="TemplateHash">The template hash (doc 45 section 1.8), recorded in the apply row. Null when no template was used.</param>
 public sealed record SetupApplyRequest(
     SetupPlan Plan,
     string PlanHash,
@@ -25,15 +26,25 @@ public sealed record SetupApplyRequest(
     string OperatorIdentity,
     string? TemplateId = null,
     string? TemplateVersion = null,
-    SetupStateSnapshot? CurrentState = null);
+    SetupStateSnapshot? CurrentState = null,
+    string? TemplateHash = null);
 
 /// <summary>The outcome of an apply. Exit 0 applied, 1 refused as invalid, 2 held, 3 failed and rolled back (doc 45 section 1.7).</summary>
 /// <param name="ExitCode">The exit code the command returns.</param>
 /// <param name="PlanHash">The hash of the plan as it was checked.</param>
 /// <param name="AppliedStepIds">The steps that completed, in run order. Empty after a rollback.</param>
 /// <param name="Issues">Errors, holds and failure notes. They name keys and rules, never values.</param>
+/// <param name="UnappliedSections">
+/// Ids of the plan sections the plan asks for that no registered step applies (<see cref="SetupPlanSections"/>). Empty on success.
+/// When it is not empty the apply was held (exit 2) and nothing was changed.
+/// </param>
 public sealed record SetupApplyResult(
     SetupExitCode ExitCode,
     string PlanHash,
     IReadOnlyList<string> AppliedStepIds,
-    IReadOnlyList<SetupValidationIssue> Issues);
+    IReadOnlyList<SetupValidationIssue> Issues,
+    IReadOnlyList<string>? UnappliedSections = null)
+{
+    /// <summary>The unapplied section ids; never null, so a result stored before this field existed reads as empty.</summary>
+    public IReadOnlyList<string> UnappliedSections { get; init; } = UnappliedSections ?? [];
+}
