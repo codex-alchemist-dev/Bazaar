@@ -52,14 +52,20 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     }
 
     [Fact]
+    public void Backup_offsite_keys_reach_the_registry_through_a_contribution()
+    {
+        var registry = SettingRegistry.WithContributions([new BackupSettingContribution()]);
+        Assert.True(registry.TryGet("backup.offsite_target", out _));
+        Assert.True(registry.TryGet("backup.offsite_credentials_ref", out _));
+    }
+
+    [Fact]
     public async Task Settings_store_and_registry_resolve()
     {
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
-        // The host extends the known registry with module-owned keys (backup offsite), so it is a superset, not the same instance.
         var registry = sp.GetRequiredService<SettingRegistry>();
         Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(registry.Contains(d)));
-        Assert.True(registry.TryGet("backup.offsite_target", out _));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 

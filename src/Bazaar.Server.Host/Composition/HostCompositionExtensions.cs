@@ -9,6 +9,7 @@ using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.LoopGuard;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
@@ -16,6 +17,7 @@ using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Souls;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -157,6 +159,8 @@ public static class HostCompositionExtensions
             sp.GetRequiredService<IOptions<LoopGuardOptions>>().Value));
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
+        services.AddBazaarSoulBindings();
+        services.AddBazaarLoopTripHandling();
         return services;
     }
 
@@ -166,10 +170,18 @@ public static class HostCompositionExtensions
     /// </summary>
     public static IServiceCollection AddBazaarBackupOffsite(this IServiceCollection services)
     {
+        // The offsite keys live in the backup module, so the settings registry learns them through a contribution (doc 33).
+        services.AddSingleton<ISettingContribution, BackupSettingContribution>();
         services.Replace(ServiceDescriptor.Singleton<IBackupOffsiteOptions, SettingsBackupOffsiteOptions>());
         services.Replace(ServiceDescriptor.Singleton<IOffsiteCredentialSource, ResolverOffsiteCredentialSource>());
         return services;
     }
+}
+
+/// <summary>The backup module's contribution to the settings registry, so the store knows the offsite keys.</summary>
+internal sealed class BackupSettingContribution : ISettingContribution
+{
+    public IReadOnlyList<SettingDefinition> Settings => BackupSettings.All;
 }
 
 /// <summary>Reads the offsite policy from the settings store on every call, so a changed setting applies to the next upload.</summary>
