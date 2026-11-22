@@ -9,6 +9,7 @@ using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.KillSwitch.Postgres;
 using Bazaar.Server.Security.Quarantine;
+using Bazaar.Server.VmMounts.Abstractions;
 using Bazaar.Server.Vms.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -48,6 +49,7 @@ public static class AgentSafetyModule
                 : new UnavailableVmPauser());
 
         services.AddAgentSafety(configuration);
+        services.TryAddSingleton<ICanarySink, CanaryContainmentSink>();
         services.AddHostedService<KillSwitchStartupGate>();
         return services;
     }
