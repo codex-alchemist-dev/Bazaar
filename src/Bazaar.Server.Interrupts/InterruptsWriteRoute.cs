@@ -107,7 +107,7 @@ public static class InterruptsWriteRoute
         var service = http.RequestServices.GetRequiredService<IInterruptStackService>();
         try
         {
-            var frame = await service.PushAsync(agentId, ownerId, InterruptSource.Owner, reason, gcId, ttlAt, http.RequestAborted);
+            var frame = await service.PushAsync(agentId, ownerId, InterruptSource.Owner, reason, gcId, ttlAt, emergency, http.RequestAborted);
             var bypass = InterruptWakePolicy.BypassesVacation(InterruptSource.Owner, emergency);
             return Json($$"""{"frame":{{FrameJson(frame)}},"wakeBypassesVacation":{{(bypass ? "true" : "false")}}}""");
         }
@@ -137,7 +137,7 @@ public static class InterruptsWriteRoute
     }
 
     private static string FrameJson(InterruptFrame frame) =>
-        $$"""{"id":"{{frame.Id}}","agentId":"{{frame.AgentId}}","source":"{{SourceName(frame.Source)}}","state":"{{frame.State.ToString().ToLowerInvariant()}}","pushedAt":"{{frame.PushedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}"}""";
+        $$"""{"id":"{{frame.Id}}","agentId":"{{frame.AgentId}}","source":"{{SourceName(frame.Source)}}","state":"{{frame.State.ToString().ToLowerInvariant()}}","pushedAt":"{{frame.PushedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture)}}","emergency":{{(frame.Emergency ? "true" : "false")}}}""";
 
     private static string SourceName(InterruptSource source) => source switch
     {

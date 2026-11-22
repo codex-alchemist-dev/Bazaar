@@ -79,6 +79,9 @@ public sealed class InterruptsWriteRouteTests : IAsyncLifetime
 
         using var doc = await JsonAsync(response);
         Assert.Equal(expected, doc.RootElement.GetProperty("wakeBypassesVacation").GetBoolean());
+        Assert.Equal(expected, doc.RootElement.GetProperty("frame").GetProperty("emergency").GetBoolean());
+        Assert.Equal(expected, Assert.Single(_stack.Pushes).Emergency);
+        Assert.Equal(expected, Assert.Single(_stack.Live).Emergency);
     }
 
     [Fact]
@@ -215,7 +218,7 @@ public sealed class InterruptsWriteRouteTests : IAsyncLifetime
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed record PushCall(Guid AgentId, Guid Author, InterruptSource Source, Guid GcId, DateTimeOffset? TtlAt);
+    private sealed record PushCall(Guid AgentId, Guid Author, InterruptSource Source, Guid GcId, DateTimeOffset? TtlAt, bool Emergency);
 
     /// <summary>An in-memory stack with the real service's depth and pop rules.</summary>
     private sealed class FakeStack : IInterruptStackService
@@ -229,14 +232,15 @@ public sealed class InterruptsWriteRouteTests : IAsyncLifetime
         public List<InterruptFrame> Live => [.. _frames.Where(f => f.State is InterruptFrameState.Active or InterruptFrameState.Suspended)];
 
         public Task<InterruptFrame> PushAsync(
-            Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default)
+            Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
+            CancellationToken ct = default)
         {
             if (Live.Count(f => f.AgentId == agentId) >= 2)
             {
                 throw new InterruptDepthExceededException(agentId);
             }
 
-            Pushes.Add(new PushCall(agentId, authorId, source, gcId, ttlAt));
+            Pushes.Add(new PushCall(agentId, authorId, source, gcId, ttlAt, emergency));
             for (var i = 0; i < _frames.Count; i++)
             {
                 if (_frames[i].AgentId == agentId && _frames[i].State == InterruptFrameState.Active)
@@ -245,7 +249,7 @@ public sealed class InterruptsWriteRouteTests : IAsyncLifetime
                 }
             }
 
-            var frame = new InterruptFrame(Guid.NewGuid(), agentId, null, source, reason, gcId, InterruptFrameState.Active, FixedClock.Now, ttlAt, 1);
+            var frame = new InterruptFrame(Guid.NewGuid(), agentId, null, source, reason, gcId, InterruptFrameState.Active, FixedClock.Now, ttlAt, 1, emergency);
             _frames.Add(frame);
             return Task.FromResult(frame);
         }
