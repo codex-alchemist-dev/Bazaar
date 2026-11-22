@@ -46,6 +46,7 @@
     <Project Path="src/Bazaar.Rubedo.Analysis/Bazaar.Rubedo.Analysis.csproj" />
     <Project Path="src/Bazaar.Rubedo.LanguageServer/Bazaar.Rubedo.LanguageServer.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Community/Bazaar.Client.Community.csproj" />
     <Project Path="src/Bazaar.Rubedo.Docs/Bazaar.Rubedo.Docs.csproj" />
     <Project Path="src/Bazaar.Rubedo.Docs.Tool/Bazaar.Rubedo.Docs.Tool.csproj" />
     <Project Path="src/Bazaar.Server.Terminal/Bazaar.Server.Terminal.csproj" />
@@ -61,7 +62,6 @@
     <Project Path="src/Bazaar.Client.Interrupts/Bazaar.Client.Interrupts.csproj" />
     <Project Path="src/Bazaar.Client.Interrupts.Abstractions/Bazaar.Client.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Rubedo.Playground/Bazaar.Client.Rubedo.Playground.csproj" />
-    <Project Path="src/Bazaar.Client.Community/Bazaar.Client.Community.csproj" />
     <Project Path="src/Bazaar.Client.Community.Approvals/Bazaar.Client.Community.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Community.Avalonia/Bazaar.Client.Community.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Layout/Bazaar.Client.Layout.csproj" />
@@ -463,6 +463,8 @@
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Retention.Tests/Bazaar.Server.Gateway.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Terminal.Tests/Bazaar.Server.Terminal.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calcinato.Pty.Tests/Bazaar.Client.Calcinato.Pty.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calcinato.Tests/Bazaar.Client.Calcinato.Tests.csproj" />
@@ -471,9 +473,7 @@
     <Project Path="tests/Bazaar.Client.Calendar.Tests/Bazaar.Client.Calendar.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Interrupts.Tests/Bazaar.Client.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Rubedo.Playground.Tests/Bazaar.Client.Rubedo.Playground.Tests.csproj" />
-    <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Approvals.Tests/Bazaar.Client.Community.Approvals.Tests.csproj" />
-    <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Studio.Tests/Bazaar.Client.Studio.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />

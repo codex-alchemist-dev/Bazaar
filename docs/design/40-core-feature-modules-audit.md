@@ -172,6 +172,8 @@ Recorded 2026-11-18 from doc 36. Nothing here is built yet, and nothing is renam
 - **WP 8, `Bazaar.Client.Community`:** the view model, with no Avalonia reference. It references `Bazaar.Client.Core` only, like other client modules.
 - **WP 8, `Bazaar.Client.Community.Avalonia`:** the view and its `IPaneModule`.
 - **WP 8 card:** the draft-review card shows the exact quoted body, its hash, the gate results, a footer indicator and taint excerpts. Approve is disabled when a gate failed, the footer is missing, or the approval is not pending. Edit-then-approve creates a new draft that needs a new approval.
+- **WP 8 registration:** registration into the client heads waits for the client module registry (section 5, step 7).
+
 - **WP 8, `Bazaar.Client.Community.Approvals` [PROPOSED]:** the two client seams, bound to the client approvals module. `DeviceDecisionSigner` implements `IDecisionSigner` over `IBiometricPrompt` and `IDeviceApprovalSigner`, signing the server's `bazaar.approval.v1` message (approve only for approve-once; deny and edit-then-approve sign deny). `HttpDraftReviewDecisionSender` posts `DraftReviewDecisionDto` to `POST /community/drafts/{id}/decision` (`CommunityRoutes` in Bazaar.Contracts) and never sends an unsigned decision. The server route is a later slice.
 - **WP 8 registration:** registration into the client heads waits for the client module registry (section 5, step 7).
 - **WP 8 registration:** registration into the client heads waits for the client module registry (section 5, step 7).
