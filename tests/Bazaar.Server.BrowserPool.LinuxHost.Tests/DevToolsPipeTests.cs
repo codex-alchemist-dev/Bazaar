@@ -197,7 +197,7 @@ public sealed class LinuxPoolVmHostPipeTests : IDisposable
         new(r => r.Argv.Count > 1 && r.Argv[1] == "list" ? (firewallOk ? FakeProcessRunner.Ok(Listing(_rule)) : FakeProcessRunner.Ok("table inet bazaar_pool\n")) : FakeProcessRunner.Ok());
 
     private LinuxPoolVmHost Host(FakeProcessRunner runner, string? helper = _helper) =>
-        new(runner, _ => _document, new LinuxPoolHostOptions { PoolSpawnHelperPath = helper, PipeDirectory = _dir }, requireLinux: false, fifos: _fifos);
+        new(runner, _ => _document, new LinuxPoolHostOptions { PoolSpawnHelperPath = helper, PipeDirectory = _dir, ProbeEnabled = false }, requireLinux: false, fifos: _fifos);
 
     private static PoolLaunchSpec Spec(string session = "s1", params string[] launch) =>
         new(session, "agent-a", 1, 10001, [], launch.Length == 0 ? ["/usr/bin/setpriv", "--reuid", "10001", "--", "/usr/bin/chromium", "--remote-debugging-pipe"] : launch, [], _rule);
@@ -275,7 +275,9 @@ public sealed class LinuxPoolVmHostPipeTests : IDisposable
 
         runner.Started[0].Exit(0);
         var deadline = DateTime.UtcNow.AddSeconds(10);
-        while (host.TryGetPipe("s1", out _) && DateTime.UtcNow < deadline)
+
+        // The exit continuation removes the pipe from the table first and deletes the FIFOs next, so wait for both.
+        while ((host.TryGetPipe("s1", out _) || _fifos.Deleted.Count < 2) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(10, TestContext.Current.CancellationToken);
         }
