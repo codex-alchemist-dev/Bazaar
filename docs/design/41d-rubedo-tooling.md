@@ -40,6 +40,8 @@ No module references `Bazaar.Server.csproj`. The language server and docs genera
 - Capabilities: diagnostics (push), completion, hover, signature help, formatting, document symbols. No code actions that change meaning in v1.
 - Transport: stdio by default; a loopback-only socket with a random port printed on start. No remote bind.
 - Security: read-only over the text the client sends; it never reads other files, never opens the network, and never executes view actions.
+- Schema: the language server uses `RubedoSchema.Standard` (41a section 3) unless started with `--schema <file>`, a JSON object mapping identifier names to `bool`, `number` or `text`; an invalid file stops startup. Hosts with their own identifiers (a module's view data) pass their schema this way. PROPOSED.
+- View symbols: one symbol per widget node under `root` and `children`, named by the `widget` value (kind Object). PROPOSED.
 - Packaging: a self-contained tool built from the same source as the engine, versioned with it (`dslVersion`). A server whose `dslVersion` is unknown to the editor still works; the response names the version.
 
 ## 6. Docs generator
@@ -47,6 +49,7 @@ No module references `Bazaar.Server.csproj`. The language server and docs genera
 - One command writes a reference folder: identifiers, functions, operators and precedence, limits, widgets, actions, diagnostic codes, with a worked example for each function taken from the golden corpus.
 - Output is deterministic Markdown with stable anchors, so a doc diff in a PR shows real language changes only.
 - A CI check regenerates the reference and fails when the committed copy differs. The function table is the single source of truth.
+- IMPLEMENTED: `Bazaar.Rubedo.Docs` (`RubedoReferenceGenerator.Generate()`), the `bazaar-rubedo-docs` tool (`--out <dir>`, `--check <dir>`, exit 1 on drift) and the committed copy in `docs/reference/rubedo/`. `Bazaar.Rubedo.Docs.Tests` is the drift check, and it also scans the engine source for diagnostic codes missing from the catalog.
 
 ## 7. Playground
 
@@ -65,6 +68,6 @@ Each step lands as its own PR with this doc section named in the body.
 
 ## 9. Open questions
 
-1. Whether the playground should be offered in company builds by default or only through the module list (proposed: module list, off by default).
+1. (Contract gap found while building) `ModuleManifest` and `ClientModuleHost` have no optional or off-by-default flag; the playground carries `EnabledByDefault = false` as a constant and is in no head's module list yet. A real flag belongs in the module-loading design (doc 41 section 8). Whether the playground should be offered in company builds by default or only through the module list (proposed: module list, off by default).
 2. Whether the language server is also exposed to agents through a tool endpoint (proposed: no; agents call the analysis library through their own sandbox tooling).
 3. Editor packages (VS Code extension, Monaco client). Out of scope here; the Monaco hosting spike decides.

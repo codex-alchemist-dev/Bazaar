@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Rubedo playground pane (doc 41d section 7): try an expression or a view document against a chosen context with live diagnostics and result. An optional client module.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+    <ProjectReference Include="..\Bazaar.Rubedo.Analysis\Bazaar.Rubedo.Analysis.csproj" />
+  </ItemGroup>
+</Project>
