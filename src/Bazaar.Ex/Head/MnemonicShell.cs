@@ -7,7 +7,9 @@ namespace Bazaar.Ex.Head;
 /// The one object a head creates to get keyboard mnemonics: it joins the <see cref="MnemonicRuntime"/> to the window through a
 /// <see cref="MnemonicHost"/> and drives the palette from the router's palette actions. When the runtime changes (a remap or reset),
 /// the shell rebuilds the host on the new session, so a remap takes effect on the next key. A command chosen by mnemonic or from the
-/// palette is reported through <see cref="CommandInvoked"/>; the shell never decides what a command does.
+/// palette is reported through <see cref="CommandInvoked"/>; the shell never decides what a command does. The one exception is
+/// the remap command, which the shell reports as <see cref="RemapRequested"/> so the head can open the remap screen from a
+/// mnemonic or from the palette in the same way.
 /// </summary>
 public sealed class MnemonicShell : IDisposable
 {
@@ -31,13 +33,16 @@ public sealed class MnemonicShell : IDisposable
         ArgumentNullException.ThrowIfNull(hidePalette);
 
         _palette = new MnemonicPaletteController(() => _runtime.Rows, showPalette, hidePalette);
-        _palette.CommandChosen += (_, id) => CommandInvoked?.Invoke(this, id);
+        _palette.CommandChosen += (_, id) => Route(id);
         _runtime.Changed += OnRuntimeChanged;
         Attach();
     }
 
     /// <summary>A command was chosen by mnemonic and Enter, or from the palette.</summary>
     public event EventHandler<string>? CommandInvoked;
+
+    /// <summary>The remap command was chosen by mnemonic or from the palette. The head opens <see cref="MnemonicRemapScreen"/>.</summary>
+    public event EventHandler? RemapRequested;
 
     /// <summary>Shift+Enter asked for AI suggestions for the typed text. Proposals only; the user confirms each one.</summary>
     public event EventHandler<string>? AiSuggestRequested;
@@ -71,11 +76,22 @@ public sealed class MnemonicShell : IDisposable
         }
 
         var host = new MnemonicHost(_top, session, _announcer);
-        host.CommandInvoked += (_, id) => CommandInvoked?.Invoke(this, id);
+        host.CommandInvoked += (_, id) => Route(id);
         host.AiSuggestRequested += (_, typed) => AiSuggestRequested?.Invoke(this, typed);
         host.OverlayChanged += (_, overlay) => OverlayChanged?.Invoke(this, overlay);
         host.ActionRaised += (_, action) => _palette.Handle(action);
         _host = host;
+    }
+
+    private void Route(string commandId)
+    {
+        if (commandId == NavigationDefaults.RemapCommandId)
+        {
+            RemapRequested?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        CommandInvoked?.Invoke(this, commandId);
     }
 
     private void Detach()
