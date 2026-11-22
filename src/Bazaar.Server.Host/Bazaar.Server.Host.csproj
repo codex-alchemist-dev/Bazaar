@@ -103,6 +103,9 @@
     <ProjectReference Include="..\Bazaar.Server.ReadAudit.Npgsql\Bazaar.Server.ReadAudit.Npgsql.csproj" />
     <ProjectReference Include="..\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
+    <ProjectReference Include="..\Bazaar.Archive.Gc\Bazaar.Archive.Gc.csproj" />
+    <ProjectReference Include="..\Bazaar.Archive.Http\Bazaar.Archive.Http.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gc.Archive\Bazaar.Server.Gc.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Skimmer\Bazaar.Server.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gc.Skimmer\Bazaar.Server.Gc.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
@@ -111,6 +114,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmDisplay\Bazaar.Server.VmDisplay.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Audit\Bazaar.Server.VmDisplay.Audit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDisplay.Gate\Bazaar.Server.VmDisplay.Gate.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools\Bazaar.Server.VmDisplay.AgentTools.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.HyperV\Bazaar.Server.VmDisplay.HyperV.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Kvm\Bazaar.Server.VmDisplay.Kvm.csproj" />
