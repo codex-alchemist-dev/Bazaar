@@ -39,12 +39,24 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private NodePipeline? _pipeline;
     private VkFormat _pipelineFormat;
     private byte[] _styleBytes = [];
+    private readonly bool _reversedZ;
+    private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
 
-    private VulkanSwapchain(RenderSurface surface)
+    private VulkanSwapchain(RenderSurface surface, bool reversedZ)
     {
         Surface = surface;
+        _reversedZ = reversedZ;
     }
+
+    /// <summary>True when the swapchain renders with a reversed-Z depth attachment (<see cref="ReversedZDepth"/>).</summary>
+    public bool ReversedZEnabled => _reversedZ;
+
+    /// <summary>Depth image for the Hi-Z pass, sized to the current extent; null unless reversed-Z is on or while the swapchain has no drawable area.</summary>
+    internal VkImage? DepthImage => _depthTarget?.Image;
+
+    /// <summary>Depth-aspect view of <see cref="DepthImage"/>, for <see cref="HiZPyramidPass"/>. Replaced on every resize.</summary>
+    internal VkImageView? DepthView => _depthTarget?.View;
 
     /// <summary>The surface this swapchain presents to.</summary>
     public RenderSurface Surface { get; private set; }
@@ -58,9 +70,10 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     /// <summary>
     /// Creates the instance, surface, device and swapchain. Returns the reason when no device can present to the surface.
     /// </summary>
-    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface)
+    /// <param name="reversedZ">Adds a D32 reversed-Z depth attachment (clear 0, greater-or-equal). Off by default.</param>
+    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface, bool reversedZ = false)
     {
-        var swapchain = new VulkanSwapchain(surface);
+        var swapchain = new VulkanSwapchain(surface, reversedZ);
         try
         {
             string reason = swapchain.Initialise();
@@ -187,6 +200,8 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             DestroySwapchainObjects();
             _pipeline?.Dispose();
             _pipeline = null;
+            _depthTarget?.Dispose();
+            _depthTarget = null;
             if (_frameFence.Handle != 0)
             {
                 _deviceApi.vkDestroyFence(_frameFence, null);
@@ -506,7 +521,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         if (_pipeline is null || _pipelineFormat != _format)
         {
             _pipeline?.Dispose();
-            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR);
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR, _reversedZ);
             _pipelineFormat = _format;
             _pipeline.UploadStyles(_styleBytes);
         }
@@ -593,6 +608,12 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     {
         _imageViews = new VkImageView[_images.Length];
         _framebuffers = new VkFramebuffer[_images.Length];
+        _depthTarget?.Dispose();
+        _depthTarget = _reversedZ
+            ? new ReversedZDepthTarget(_instanceApi, _deviceApi, _physicalDevice, _extent.width, _extent.height)
+            : null;
+        VkImageView* attachments = stackalloc VkImageView[2];
+        attachments[1] = _depthTarget?.View ?? default;
         for (int index = 0; index < _images.Length; index++)
         {
             var viewInfo = new VkImageViewCreateInfo
@@ -612,13 +633,13 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             };
             _deviceApi.vkCreateImageView(&viewInfo, null, out _imageViews[index]);
 
-            VkImageView attachment = _imageViews[index];
+            attachments[0] = _imageViews[index];
             var framebufferInfo = new VkFramebufferCreateInfo
             {
                 sType = VkStructureType.FramebufferCreateInfo,
                 renderPass = _pipeline!.RenderPass,
-                attachmentCount = 1,
-                pAttachments = &attachment,
+                attachmentCount = _reversedZ ? 2u : 1u,
+                pAttachments = attachments,
                 width = _extent.width,
                 height = _extent.height,
                 layers = 1,
