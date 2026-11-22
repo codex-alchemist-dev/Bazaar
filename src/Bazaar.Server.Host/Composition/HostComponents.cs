@@ -26,6 +26,7 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
 
@@ -58,6 +59,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
