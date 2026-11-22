@@ -87,4 +87,29 @@ public class ConstellationNodeStylesTests
     {
         Assert.Throws<ArgumentNullException>(() => ConstellationNodeStyles.Build(null!, _fallback));
     }
+
+    [Fact]
+    public void BuildColoured_keeps_cluster_colours_and_takes_size_from_the_fallback()
+    {
+        int[] clusters = [0, 1];
+        var scene = new ConstellationScene(2, ReadOnlyMemory<int>.Empty, clusters);
+        NodeStyle fallback = NodeStyle.Create(0.5f, 0.5f, 0.5f, 1f, 0.02f, 0.3f);
+        NodeStyleTable table = ConstellationNodeStyles.BuildColoured(scene, fallback);
+
+        for (int node = 0; node < 2; node++)
+        {
+            NodeStyle expected = ConstellationNodeStyles.ForCluster(clusters[node]);
+            NodeStyle actual = table.Get(node);
+            Assert.Equal((expected.Red, expected.Green, expected.Blue, expected.Alpha), (actual.Red, actual.Green, actual.Blue, actual.Alpha));
+            Assert.Equal(0.02f, actual.Radius);
+            Assert.Equal(0.3f, actual.RingWidth);
+        }
+    }
+
+    [Fact]
+    public void BuildColoured_without_clusters_gives_the_fallback()
+    {
+        var scene = new ConstellationScene(2, ReadOnlyMemory<int>.Empty, ReadOnlyMemory<int>.Empty);
+        Assert.Equal(_fallback, ConstellationNodeStyles.BuildColoured(scene, _fallback).Get(1));
+    }
 }
