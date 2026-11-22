@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 
 using Bazaar.Contracts.Ryusei;
@@ -46,6 +48,16 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RyuseiTriggerListRequest))]
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(PrListRequest))]
+[JsonSerializable(typeof(PrListReply))]
+[JsonSerializable(typeof(PrSummaryRequest))]
+[JsonSerializable(typeof(PrSummaryReply))]
+[JsonSerializable(typeof(PrHunksRequest))]
+[JsonSerializable(typeof(PrHunksReply))]
+[JsonSerializable(typeof(PrReviewRequest))]
+[JsonSerializable(typeof(PrReviewReply))]
+[JsonSerializable(typeof(PrMergeRequest))]
+[JsonSerializable(typeof(PrMergeReply))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
@@ -54,4 +66,6 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(ViewportRequest))]
 [JsonSerializable(typeof(ClusterGlyph))]
 [JsonSerializable(typeof(TileFrame))]
+[JsonSerializable(typeof(ReleaseManifest))]
+[JsonSerializable(typeof(ReleaseArtifact))]
 public sealed partial class WireJsonContext : JsonSerializerContext;

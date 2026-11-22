@@ -34,6 +34,7 @@ public sealed class PostgresProcessControllerTests : IDisposable
         Assert.Equal("trust", Argument(initdb.Arguments, "-A"));
         Assert.Equal("bazaar_admin", Argument(initdb.Arguments, "-U"));
         Assert.Equal("UTF8", Argument(initdb.Arguments, "-E"));
+        Assert.Contains("--data-checksums", initdb.Arguments);
         Assert.DoesNotContain("--pwfile", initdb.Arguments);
 
         // The password reaches the tools only on stdin, never in an argument list.
