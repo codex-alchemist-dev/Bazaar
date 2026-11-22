@@ -164,8 +164,6 @@ src/Bazaar.Server/Knowledge/Archive/ArchiveChapterRenderer.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveModel.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveVaultWriter.cs
-src/Bazaar.Server/Knowledge/CompanyMemory/DecisionRecordReader.cs
-src/Bazaar.Server/Knowledge/KnowledgeSettings.cs
 src/Bazaar.Server/Mail/MailComponent.cs
 src/Bazaar.Server/Mail/Parsing/MailLimits.cs
 src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
