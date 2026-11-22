@@ -66,6 +66,8 @@ Purpose: sign a human in from a new device with a passkey, then hand off to a na
 - 503 `{"error":"unavailable"}` when no token service or no access-token issuer is registered. With no token service the code is not touched, so the client can retry.
 - Transport: the same rule as `/auth/refresh`: 403 `{"error":"forbidden"}` for plaintext off the machine unless `wire.allow_plaintext_overlay` is set. The route answers 404 unless `signin:enabled` is on, and POST only otherwise.
 - Rate-limit bucket `signin`; enforcement belongs to the rate-limit module.
+- **Development passkey check** [PROPOSED]: while `Bazaar:DevAuth:Enabled` is on, the host registers a development `IPasskeyAssertionVerifier` whose accepted "assertion" is the dev token, signing in as the dev principal on a fresh device id. It gives the dev token nothing it does not already have over the wire. It exists so the end-to-end test (`SignInAgainstRealServerTests`: challenge, assert, handoff, whoami, refresh against the real host) can run before the WebAuthn adapter does. With dev auth off the shipped deny-all verifier stays.
+
 
 ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped to authentication scenarios", "isn't intended as a general-purpose WebAuthn library", needs a WebAuthn browser. So passkeys serve only this page, not native clients. Set the RP ID explicitly (`IdentityPasskeyOptions.ServerDomain`) rather than inferring it from the Host header; passkeys work only on the registered domain, so a hostname change breaks them (recovery codes cover it). Attestation state is unsigned JSON, so keep it server-side. Exact .NET 10 API names are unverified; confirm in a spike.
 
