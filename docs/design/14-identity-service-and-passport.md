@@ -93,6 +93,8 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - **DECIDED:** a vTPM (swtpm, Hyper-V, QEMU) is accepted but classed as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
 - **DECIDED:** on a Linux host that is itself a VM, the default is `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning above.
 
+**KEK location and creation [PROPOSED, doc 63].** The KEK file moves from `<data root>/keys` to `<boot root>/keys`, because the data root becomes an encrypted volume whose key is wrapped by the KEK. The host opens the KEK at start and never creates it: a missing or empty key file is a refusal (`data_volume_not_initialised`), not a reason to mint a key. Only setup and the restore wizard create one.
+
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
 **GitHub Apps** [PROPOSED]
@@ -204,7 +206,7 @@ interface IIdentityService {
 - **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. The provider and recovery location are settings; the recovery gap itself stays open in 33.
 - **Erasure legal sufficiency** (C01): key destruction is not yet validated by counsel.
 - **GitHub App token lifetime** is unverified until test T4 (21 C3).
-- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; 33 Q15 confirms.
+- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; doc 33, "Cookie profile exclusion [PROPOSED]", confirms.
 - **Canary detection and per-agent share and OS account** (for 15): 15 must define the detection event that canary use raises.
 - **Owner approval signing key** (for 32, flagged by 28): the device-held key class is not yet defined.
 - **Already decided, for other docs:** 16 and 17 drop any blanket Passport-free browser VM (C22). 16 Q2's second share stays an explicit exception (C02). 03 and 05 reduce their resolvers to bootstrap values (C05). 27 renames its client store interface (C05).
