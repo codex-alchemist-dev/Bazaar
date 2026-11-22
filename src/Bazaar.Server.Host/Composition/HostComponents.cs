@@ -39,6 +39,7 @@ using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
@@ -100,6 +101,7 @@ public static class HostComponents
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
+        new InterruptsComponent(),
         new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),

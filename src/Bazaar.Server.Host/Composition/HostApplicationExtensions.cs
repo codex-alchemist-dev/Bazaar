@@ -19,6 +19,7 @@ using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -64,6 +65,7 @@ public static class HostApplicationExtensions
         services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
+        services.AddBazaarPresencePostgres();
         services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
