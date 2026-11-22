@@ -103,6 +103,7 @@
     <Project Path="src/Bazaar.Kodo.Testing/Bazaar.Kodo.Testing.csproj" />
     <Project Path="src/Bazaar.Server.Components.Backup/Bazaar.Server.Components.Backup.csproj" />
     <Project Path="src/Bazaar.Server.ReadAudit/Bazaar.Server.ReadAudit.csproj" />
+    <Project Path="src/Bazaar.Server.ReadAudit.Npgsql/Bazaar.Server.ReadAudit.Npgsql.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek.Abstractions/Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Kek/Bazaar.Server.Identity.Kek.csproj" />
     <Project Path="src/Bazaar.Tls/Bazaar.Tls.csproj" />
@@ -287,6 +288,7 @@
     <Project Path="tests/Bazaar.Ex.Tests/Bazaar.Ex.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Components.Backup.Tests/Bazaar.Server.Components.Backup.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.ReadAudit.Tests/Bazaar.Server.ReadAudit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.ReadAudit.Npgsql.Tests/Bazaar.Server.ReadAudit.Npgsql.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Calendar.Tests/Bazaar.Server.Calendar.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Org.Tests/Bazaar.Server.Org.Tests.csproj" />
