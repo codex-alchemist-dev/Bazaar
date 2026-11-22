@@ -2,6 +2,8 @@ using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Bazaar.Server.BrowserPool.Audit;
+using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.VmDensity;
@@ -130,7 +132,9 @@ public sealed class DisplayCompositionTests
         var failure = await Assert.ThrowsAsync<BrowserPoolException>(() => pool.OpenAsync(new PoolSessionRequest("agent-one"), CancellationToken.None));
 
         Assert.Equal(PoolFailure.AgentBlocked, failure.Failure);
-        Assert.IsType<UnconfiguredPoolGate>(host.Services.GetRequiredService<IPoolGate>());
+        var gate = Assert.IsType<KillSwitchPoolGate>(host.Services.GetRequiredService<IPoolGate>());
+        Assert.Same(gate, host.Services.GetRequiredService<IAsyncPoolGate>());
+        Assert.IsType<AuditLogPoolAuditSink>(host.Services.GetRequiredService<IPoolAuditSink>());
         Assert.IsType<UnconfiguredPoolEgressPolicy>(host.Services.GetRequiredService<IPoolEgressPolicy>());
         Assert.Empty(pool.Sessions("agent-one"));
     }
