@@ -32,6 +32,7 @@
     <ProjectReference Include="..\Bazaar.Client.Athanor.Bundle\Bazaar.Client.Athanor.Bundle.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />

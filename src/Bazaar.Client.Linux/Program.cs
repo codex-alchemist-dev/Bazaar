@@ -141,14 +141,18 @@ internal static class Program
     /// </summary>
     private static void ShowAthanor(MainWindow window, ChatConnectionSettings? settings, LinuxPaths paths, Action<AthanorEditorServices> keepAthanor)
     {
-        IClientModule[] modules = [new AthanorPaneModule()];
+        var athanorModule = new AthanorPaneModule();
+        IClientModule[] modules = [athanorModule];
         var load = ClientModuleHost.Load(modules, ClientHostFacts.Current(), Console.Error.WriteLine);
+        var options = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, paths.StateDirectory);
         var athanor = AthanorHeadComposition.Create(
-            AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, paths.StateDirectory),
+            options,
             settings,
             load.Commands,
             Console.Error.WriteLine);
         keepAthanor(athanor);
+        var theme = AthanorHeadComposition.StartTheme(options, athanor, Console.Error.WriteLine);
+        window.Closed += (_, _) => theme.Sync.Dispose();
         var features = new PaneModuleContext()
             .With<IEditorHost>(athanor.Host)
             .With<IEditorFileSource>(athanor.Source)
@@ -158,6 +162,10 @@ internal static class Program
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
         window.ShowPanes([AthanorPaneModule.WindowPane], registry);
+
+        // The editor commands (edopen, ednew, edsave, eddiff) are reached by mnemonic: typed text plus Enter, no Ctrl chord.
+        var commands = AthanorHeadComposition.StartCommands(window, load.Commands, athanorModule, options, Console.Error.WriteLine);
+        window.Closed += (_, _) => commands?.Dispose();
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

@@ -43,7 +43,13 @@ internal sealed class FakeEditorHost : IEditorHost
 
     public Task FocusAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public Task SetThemeAsync(string monacoThemeJson, CancellationToken cancellationToken) => Task.CompletedTask;
+    public List<string> Themes { get; } = [];
+
+    public Task SetThemeAsync(string monacoThemeJson, CancellationToken cancellationToken)
+    {
+        Themes.Add(monacoThemeJson);
+        return Task.CompletedTask;
+    }
 
     public Task SetReadOnlyAsync(EditorDocumentId id, bool isReadOnly, CancellationToken cancellationToken) => Task.CompletedTask;
 

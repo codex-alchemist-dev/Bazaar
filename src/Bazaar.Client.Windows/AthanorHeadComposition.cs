@@ -1,16 +1,21 @@
 using System.Runtime.Versioning;
 using Avalonia;
+using Avalonia.Controls;
 using Bazaar.Client.Athanor;
 using Bazaar.Client.Athanor.AvaloniaEdit;
 using Bazaar.Client.Athanor.Bundle;
 using Bazaar.Client.Athanor.Drafts;
 using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Athanor.WebView2;
 using Bazaar.Client.Athanor.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Input;
+using Bazaar.Client.Theme;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex;
+using Bazaar.Ex.Head;
 
 namespace Bazaar.Client.Windows;
 
@@ -80,6 +85,41 @@ internal static class AthanorHeadComposition
 
         var drafts = new FileEditorDraftStore(options.DraftsDirectory, TimeProvider.System);
         return new AthanorEditorServices(choice.Host, source, drafts, choice.Kind, choice.Skipped, connection);
+    }
+
+    /// <summary>
+    /// Makes the Athanor commands reachable by key (doc 57 §2.2, §8): a mnemonic host on <paramref name="top"/> for the loaded
+    /// modules' commands, with the Athanor commands handed to <paramref name="athanor"/>. Mnemonics are typed text plus Enter;
+    /// no Ctrl chord is claimed. Other modules' commands have no handler yet and are reported as such. Null when the mnemonics
+    /// do not resolve. Call on the UI thread, once the editor pane is registered (so <see cref="AthanorPaneModule.CommandHandler"/> is set).
+    /// </summary>
+    public static MnemonicHeadHost? StartCommands(
+        TopLevel top,
+        IEnumerable<ClientCommandContribution> commands,
+        AthanorPaneModule athanor,
+        AthanorHeadOptions options,
+        Action<string> log)
+    {
+        ArgumentNullException.ThrowIfNull(athanor);
+        ArgumentNullException.ThrowIfNull(options);
+        var dispatcher = new ClientCommandDispatcher();
+        dispatcher.Add(AthanorCommandHandler.Handles, athanor.RunCommandAsync);
+        return MnemonicHeadHost.Start(top, commands, Path.Combine(options.DataDirectory, "mnemonics.json"), dispatcher, log);
+    }
+
+    /// <summary>
+    /// Keeps the editor on the app theme (doc 57 §2.2): the theme comes from <c>theme.json</c> in the data folder when it validates,
+    /// else the built-in dark theme, and the editor host gets it now and on every change of the returned service. Call on the
+    /// UI thread after <see cref="Create"/>. Dispose the sync at exit.
+    /// </summary>
+    public static (ClientThemeService Theme, EditorThemeSync Sync) StartTheme(AthanorHeadOptions options, AthanorEditorServices services, Action<string> log)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(services);
+        var theme = ClientThemeService.Create(Path.Combine(options.DataDirectory, "theme.json"), log);
+        var sync = new EditorThemeSync(new ClientThemeEditorSource(theme), () => services.Host, log);
+        _ = sync.StartAsync();
+        return (theme, sync);
     }
 
     private static bool WebView2Available() =>
