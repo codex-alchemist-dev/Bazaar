@@ -22,5 +22,5 @@ public sealed class GitHubComponent : IBazaarComponent
     public ComponentManifest Manifest => ManifestDefinition;
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddBazaarGitHub(configuration).AddBazaarGitHubAgentTools();
+        services.AddBazaarGitHub(configuration).AddBazaarGitHubAgentTools(configuration);
 }

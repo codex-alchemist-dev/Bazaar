@@ -202,9 +202,11 @@
     <Project Path="src/Bazaar.Admin/Bazaar.Admin.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Abstractions/Bazaar.Server.Setup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Host/Bazaar.Server.Setup.Host.csproj" />
+    <Project Path="src/Bazaar.Server.EngineGcRecorder/Bazaar.Server.EngineGcRecorder.csproj" />
     <Project Path="src/Bazaar.Server.EngineRelay/Bazaar.Server.EngineRelay.csproj" />
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
+    <Project Path="tests/Bazaar.Server.EngineGcRecorder.Tests/Bazaar.Server.EngineGcRecorder.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.EngineRelay.Tests/Bazaar.Server.EngineRelay.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Sanitization.Tests/Bazaar.Server.Sanitization.Tests.csproj" />
