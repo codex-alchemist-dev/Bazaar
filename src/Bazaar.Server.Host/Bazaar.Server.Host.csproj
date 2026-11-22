@@ -106,6 +106,7 @@
     <ProjectReference Include="..\Bazaar.Server.Community.GitHub\Bazaar.Server.Community.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Community.GitHub.Bridge\Bazaar.Server.Community.GitHub.Bridge.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CompanyBuild.Postgres\Bazaar.Server.CompanyBuild.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
