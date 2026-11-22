@@ -13,4 +13,7 @@ internal static partial class GitLog
 
     [LoggerMessage(EventId = 5203, Level = LogLevel.Warning, Message = "Forge read failed ({Error}).")]
     public static partial void ForgeReadFailed(ILogger logger, string error);
+
+    [LoggerMessage(EventId = 5204, Level = LogLevel.Warning, Message = "Forge merge failed ({Error}).")]
+    public static partial void ForgeMergeFailed(ILogger logger, string error);
 }
