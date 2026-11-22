@@ -96,6 +96,7 @@
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />

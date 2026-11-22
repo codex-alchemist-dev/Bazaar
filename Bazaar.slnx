@@ -220,6 +220,8 @@
     <Project Path="src/Bazaar.Roles.Biometric/Bazaar.Roles.Biometric.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
+    <Project Path="src/Bazaar.Server.ThinkingGc.Abstractions/Bazaar.Server.ThinkingGc.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.ThinkingGc/Bazaar.Server.ThinkingGc.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Retention/Bazaar.Server.Gateway.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.LoopGuard.Abstractions/Bazaar.LoopGuard.Abstractions.csproj" />

@@ -43,6 +43,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
@@ -78,6 +79,7 @@ public static class HostComponents
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
