@@ -22,6 +22,23 @@ public sealed class TpmApprovalSigner : IApprovalSigner, IDisposable
         _key = OpenOrCreateTpmKey(keyName);
     }
 
+    /// <summary>
+    /// True when the named approval key is already in the TPM. Reads only: it never creates a key, so the merge path can ask
+    /// before opening a signer (the constructor creates a missing key; enrolment, doc 32 section 5b, is the only place that should).
+    /// </summary>
+    public static bool KeyExists(string keyName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyName);
+        try
+        {
+            return CngKey.Exists(keyName, CngProvider.MicrosoftPlatformCryptoProvider, CngKeyOpenOptions.None);
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>The name of the TPM key this signer uses.</summary>
     public string KeyName { get; }
 

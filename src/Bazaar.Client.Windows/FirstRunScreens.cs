@@ -29,7 +29,7 @@ internal static class FirstRunScreens
         if (!signIn && !company) return null;
 
         var http = ClientServer.Current.CreateHttpClient();
-        var store = new InMemorySessionStore();
+        var store = ClientSessions.Store;
         var panel = new StackPanel { Spacing = 24, Margin = new Avalonia.Thickness(16) };
 
         if (signIn)

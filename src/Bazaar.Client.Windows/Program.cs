@@ -26,6 +26,7 @@ using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
+using Bazaar.Client.SignIn;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
 using Bazaar.Localisation;
@@ -86,6 +87,7 @@ internal static class Program
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
             .WithGitGui(ClientServer.Current);
+        features = ComposeMergeApproval(features);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
@@ -128,6 +130,28 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Registers the merge identity and approver for the saved session (doc 52, Merge identity). Runs off the calling thread with a
+    /// short budget; any failure, or no session, leaves both out and the merge card says this client cannot approve.
+    /// </summary>
+    private static PaneModuleContext ComposeMergeApproval(PaneModuleContext features)
+    {
+        try
+        {
+            using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var whoAmI = new HttpWhoAmIClient(ClientServer.Current.CreateHttpClient());
+            return MergeSessionResolver
+                .ComposeAsync(features, ClientSessions.Store, whoAmI, WindowsDeviceApprovalPlatform.TryCreate(), cancellationToken: budget.Token)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException or HttpRequestException)
+        {
+            Console.Error.WriteLine("Bazaar: merge approval is not available.");
+            return features;
         }
     }
 
