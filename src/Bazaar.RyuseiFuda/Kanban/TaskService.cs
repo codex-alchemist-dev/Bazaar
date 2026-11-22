@@ -149,6 +149,8 @@ public sealed class TaskService
             return TransitionResult.Conflict(task.Version);
         }
 
+        // A claim sets the owner to the actor, so the loop guard makes this a no-op; it is here so every owner change goes one way.
+        await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, owner, actor, task.Version + 1, ct).ConfigureAwait(false);
         var transitionSeq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
             Payload(("from", KanbanText.ToSql(task.State)), ("to", KanbanText.ToSql(to)), ("reason", reason))), ct).ConfigureAwait(false);
         var reasonLines = new List<ReasonLine>
@@ -178,6 +180,44 @@ public sealed class TaskService
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         await PostReasonLinesAsync(reasonLines, actor, ct).ConfigureAwait(false);
+        return TransitionResult.Applied(task.Version + 1);
+    }
+
+    /// <summary>
+    /// Sets or clears a card's assignee (<paramref name="assigneeAgentId"/> null clears it) if <paramref name="expectedVersion"/>
+    /// still matches. When the assignee changes to an agent other than the actor, one <c>assignment</c> inbox item is written in the
+    /// same transaction so the wake loop wakes it (doc 12, "Assignment wake" [PROPOSED]). Assigning the current assignee again
+    /// changes nothing and returns <see cref="TransitionStatus.Refused"/> with <see cref="TransitionOutcome.NotATransition"/>.
+    /// Who may assign is not decided in doc 12, so the caller (a tool or handler) gates authority.
+    /// </summary>
+    public async Task<TransitionResult> AssignAsync(
+        Guid taskId, Guid? assigneeAgentId, TaskActor actor, long expectedVersion, CancellationToken ct = default)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (task.Version != expectedVersion)
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        if (task.OwnerAgentId == assigneeAgentId)
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotATransition, []);
+        }
+
+        if (!await _tasks.UpdateAsync(tx, task with { OwnerAgentId = assigneeAgentId }, task.Version, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, assigneeAgentId, actor, task.Version + 1, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
         return TransitionResult.Applied(task.Version + 1);
     }
 
