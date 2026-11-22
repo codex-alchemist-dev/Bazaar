@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Admin.Composition;
+using Bazaar.Conduit.Settings;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Modules.Settings;
@@ -20,9 +21,9 @@ public sealed class RegistrySetupSettingCatalogTests
         var catalog = RegistrySetupSettingCatalog.Known;
 
         var registry = BuiltInSettingRegistries.WithContributions(
-            [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution()]);
+            [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution()]);
 
-        // The built-in keys plus the module contributions the admin tool composes (module manager, backup policy, mail policy).
+        // The built-in keys plus the module contributions the admin tool composes (module manager, backup policy, mail policy, Conduit).
         Assert.Equal(registry.Definitions.Count, catalog.Definitions.Count);
         Assert.True(catalog.TryGet("update.channel", out _));
         Assert.All(registry.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
