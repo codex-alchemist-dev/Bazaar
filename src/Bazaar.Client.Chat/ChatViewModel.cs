@@ -78,9 +78,38 @@ public sealed class ChatViewModel : IChatViewModel
     public void Refresh()
     {
         var lines = _session.Timeline.Lines();
-        Lines.Clear();
-        foreach (ChatLine line in lines) Lines.Add(line);
+        Merge(lines);
         Status = _session.Status;
+    }
+
+    // Keeps the collection stable across refreshes: a line already shown stays (or is replaced when edited) and only new lines are
+    // added, so the view can tell a live arrival from a reload and animate only the arrival. Any other shape rebuilds the collection.
+    private void Merge(IReadOnlyList<ChatLine> lines)
+    {
+        int shared = Math.Min(Lines.Count, lines.Count);
+        for (int i = 0; i < shared; i++)
+        {
+            if (Lines[i].N != lines[i].N)
+            {
+                Lines.Clear();
+                foreach (ChatLine line in lines) Lines.Add(line);
+                return;
+            }
+        }
+
+        if (lines.Count < Lines.Count)
+        {
+            Lines.Clear();
+            foreach (ChatLine line in lines) Lines.Add(line);
+            return;
+        }
+
+        for (int i = 0; i < shared; i++)
+        {
+            if (Lines[i] != lines[i]) Lines[i] = lines[i];
+        }
+
+        for (int i = shared; i < lines.Count; i++) Lines.Add(lines[i]);
     }
 
     /// <inheritdoc />
