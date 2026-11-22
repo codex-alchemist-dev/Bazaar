@@ -1,6 +1,6 @@
 # Kanban and Dependencies
 
-Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3 · Layer 1 (macro board) of RyuseiFuda (`38-ryusei-fuda.md`); agent scheduling and re-invocation belong to RyuseiFuda, not this board
+Status: RECONCILED with DECISIONS-LOG (2026-10-25), cross-doc pass done · Owner questions: 3 · Folded into RyuseiFuda by owner decision (2026-11-16): this board is RyuseiFuda's macro board, layer 1 (`38-ryusei-fuda.md`). Its rules are unchanged. Agent scheduling and re-invocation belong to RyuseiFuda layer 2, not this board
 Depends on: `01-gc-data-model.md` (GC rows, pinned messages), `02-wire-protocol-and-sync.md` (board stream and resync), `04-postgres-schema-and-migrations.md` (conventions, NOTIFY), `06-agent-runtime.md` (agent ids, wake reasons), `09-work-life-simulation.md` (work-life scheduler), `10-council-and-voting.md` (gates), `15-security-taint-and-approvals.md` (tool dispatch, approvals, taint), `18-vault.md` (VaultWriter, Vault links), `21-github-integration.md` (PR events, merge). Used by: `23-observatory-and-usage.md` (events), `24-company-systems-core.md` (Interrupt System and Calendar consume events), `17-coding-agent-harness.md` (work-start guard), `11-reputation-and-peer-review.md` (outcomes), `27-client-architecture.md`, `28-windows-client.md`, `29-android-client.md` (board UI).
 
 ## Purpose
@@ -36,6 +36,7 @@ Kanban shows what can start, what waits on what, and who is accountable. It is a
 
 - **Reopen** [PROPOSED]: with `kanban.reopen_downstream` = `hold` (default), downstream In progress tasks do not move. They show Blocked, and the assignee must post a decision in the GC: pause, or continue with a stated override. With `return_ready`, they move to Ready with a GC line. Reopening does not undo a merge; further change needs a new PR.
 - **Auto-transitions** [PROPOSED]: with `kanban.auto_ready` on (default), Backlog → Ready runs in the same transaction as the last blocker's Done. Every automatic move writes a GC system line.
+- **Withdrawn state** [PROPOSED]: a sixth stored state, `withdrawn`, for a task that an import withdrawal retracts (doc 44, section 8.8). It is terminal and is not Blocked: Blocked stays derived, never stored. It is hidden from boards by default (the board snapshot and the team schedule leave withdrawn cards out; a reader asks for them explicitly). The only way in is the `IKanbanTaskWithdrawal` port, which the task service implements; no table row in the transition table reaches it, no wire move or `kanban.transition` call can name it, and nothing leaves it. The gates are the transition table's own: the actor is the system or the owner (an agent is refused), a reason is required (doc 44 uses `withdrawn by import`), and a Done task is withdrawn only by the owner (the same rule as reopening). The row keeps its `task_events` history, links and gate decisions; the withdrawal adds one `task.transitioned` event (`to = withdrawn`) and a GC reason line. An edge from another task to a withdrawn task stops counting as a blocker, so its dependents become unblocked and get `task.unblocked`; they are not moved automatically (no auto-Ready from a withdrawal). A withdrawn task is also never blocked itself and is skipped by the deadline scan. Withdrawing a withdrawn task is a no-op that reports `AlreadyWithdrawn`, so a resumed import withdrawal is safe to repeat. Code: `Bazaar.RyuseiFuda.Abstractions` (`TaskState.Withdrawn`, `IKanbanTaskWithdrawal`), migration `kanban/0003`.
 - **PR cards** [PROPOSED]: the merge is the Done signal. Doc 21 emits a merged `pr_event`; the task service moves the linked card to Done in the same transaction and writes a GC line. Reviewer approval sets `review_approved_by` and `review_approved_at` and moves nothing. A PR closed unmerged leaves its card in Review, flagged, until the assignee or owner moves it with a reason (`kanban.pr_closed_unmerged` = `hold_flagged`, default; `return_backlog` moves it to Backlog with a GC reason instead).
 
 ## Interception at tool dispatch [PROPOSED]
@@ -98,7 +99,7 @@ Keys are proposed for doc 03's registry [PROPOSED]. Every change is written to t
 ## Behaviour and edge cases
 - **Concurrency**: a stale `version` returns Conflict with current state. Edge writes lock endpoints in ascending id order. If two agents claim one task, one wins; the other gets a refusal naming the new owner.
 - **Reconnect**: board clients resync from a snapshot with a project revision on the `board` stream (registered in doc 02, which owns the replay rules, C15). `task_events.seq` orders events inside the server and is not a client cursor unless doc 02 adopts it.
-- **Cancellation gap**: the five columns stay, so there is no Cancelled state. By default (`kanban.abandoned_satisfies_blockers` = false) dependents of an abandoned task stay Blocked until the owner re-points or removes the edge.
+- **Cancellation gap**: the five columns stay for work, so there is no Cancelled state (the stored `withdrawn` state is only for an import withdrawal and is not a cancel). By default (`kanban.abandoned_satisfies_blockers` = false) dependents of an abandoned task stay Blocked until the owner re-points or removes the edge.
 - **Deletion**: not in v1; use Ready/In progress/Review → Backlog with a reason.
 - **Limits** [PROPOSED]: `kanban.max_blockers_per_task` (default 50) and `kanban.max_tasks_per_project` (default 10,000), to bound the cycle check. This doc owns these limits (C36; settings per DECISIONS-LOG round 13).
 - **Security**: only the task service writes state, so injected text cannot change the board directly. Owner overrides are logged with the actor.
@@ -169,3 +170,6 @@ Decided by the owner's full-control instruction of 2026-11-16 ("decide yourself,
 
 Docs section this implements: this section; doc 02 (message types); doc 29, work package 9.
 
+## Board names [PROPOSED, 2026-11-22]
+
+A board is a `projectId`; `kanban_project (project_id, name)` stores its display name (module-namespace migration, no foreign key from `tasks` so older tasks keep working). `IBoardDirectoryReader` in `Bazaar.RyuseiFuda.Abstractions` lists boards that have tasks or a name row; a board without a name row shows as `Project <first 8 hex digits>`. Consumers today: the Org read route (doc 24 section 5). Creating and renaming boards is a later Kanban change.
