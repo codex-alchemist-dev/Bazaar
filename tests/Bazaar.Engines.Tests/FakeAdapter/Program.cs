@@ -10,6 +10,12 @@ using Bazaar.Contracts.Engines;
 //   crash:  a command prints one output line and the process exits with code 3 without replying.
 //   slow:   commands reply after slowMilliseconds.
 //   unresponsive: prints one line at startup, then never replies to any request.
+// Hostile modes for the adversarial tests:
+//   flood-line:   writes 20 MiB with no newline, then sleeps forever.
+//   wrong-id:     answers each command first with an unknown request id, then correctly.
+//   double-reply: answers each command twice, the second time with different output.
+//   garbage:      before each command reply, prints invalid UTF-8 bytes, non-JSON text and a JSON array.
+//   env:          the command result's output is the value of BAZAAR_TEST_SECRET (or <unset>) plus the variable count.
 var mode = args.Length > 0 ? args[0] : "normal";
 var slowMilliseconds = args.Length > 1 && int.TryParse(args[1], out var parsed) ? parsed : 0;
 
@@ -22,6 +28,24 @@ var seq = new Dictionary<string, long>(StringComparer.Ordinal);
 if (mode == "unresponsive")
 {
     EmitOutput("boot", "startup", "booting");
+}
+
+if (mode == "flood-line")
+{
+    try
+    {
+        var chunk = new string('a', 1 << 20);
+        for (var i = 0; i < 20; i++)
+        {
+            stdout.Write(chunk);
+        }
+    }
+    catch (IOException)
+    {
+        return 0;
+    }
+
+    Thread.Sleep(Timeout.Infinite);
 }
 
 string? line;
@@ -83,12 +107,35 @@ void HandleCommand(string? requestId, JsonElement parameters)
         case "slow":
             Thread.Sleep(slowMilliseconds);
             break;
+
+        case "wrong-id":
+            Reply("not-an-id", JsonSerializer.SerializeToNode(new CommandResult(commandId, 0, "forged", []), EngineJson.Options));
+            break;
+
+        case "garbage":
+            stdout.Flush();
+            stdout.BaseStream.Write([0xFF, 0xFE, 0xC3, 0x28, (byte)'\n']);
+            stdout.BaseStream.Flush();
+            stdout.WriteLine("this is not json");
+            stdout.WriteLine("[1,2,3]");
+            stdout.WriteLine("{\"id\": 7}");
+            break;
+
+        case "env":
+            var secret = Environment.GetEnvironmentVariable("BAZAAR_TEST_SECRET") ?? "<unset>";
+            var count = Environment.GetEnvironmentVariables().Count;
+            Reply(requestId, JsonSerializer.SerializeToNode(new CommandResult(commandId, 0, $"{secret}|{count}|{Environment.GetEnvironmentVariable("BAZAAR_TEST_EXTRA") ?? "<unset>"}", []), EngineJson.Options));
+            return;
     }
 
     EmitOutput(projectId, commandId, $"{name} line 1");
     EmitOutput(projectId, commandId, $"{name} line 2");
     var result = new CommandResult(commandId, 0, $"{name} line 1\n{name} line 2", []);
     Reply(requestId, JsonSerializer.SerializeToNode(result, EngineJson.Options));
+    if (mode == "double-reply")
+    {
+        Reply(requestId, JsonSerializer.SerializeToNode(new CommandResult(commandId, 0, "second", []), EngineJson.Options));
+    }
 }
 
 void EmitOutput(string projectId, string commandId, string text)
