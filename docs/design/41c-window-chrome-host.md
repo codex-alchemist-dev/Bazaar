@@ -35,6 +35,10 @@ The owner's standing answer is to build everything the docs name, so the helper 
 
 Doc 49 asks that text scales to at least 200 percent without loss of function. `WindowChrome.TextScale` (a `TextScaler`) hosts the wrapped content in a layout transform and scales it between 1.0 and 3.0 (values outside are clamped), so measured size follows the scale and a scrollable pane scrolls instead of clipping. The head sets it from the user's text-size setting; the setting itself is the operator-configurable default (configurability rule).
 
+### 2c. Reduced motion
+
+`Bazaar.Accessibility.MotionPolicy` (also on `WindowChrome.Motion`) is the one place that decides animation length (doc 49: motion can be reduced). Reduced motion makes decorative animation instant, caps meaning-carrying (essential) animation at 120 ms, and turns decorative loops off; a module asks the policy instead of reading the theme flag. The head sets `Reduced` from the theme's `reducedMotion` token or the platform setting.
+
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.
