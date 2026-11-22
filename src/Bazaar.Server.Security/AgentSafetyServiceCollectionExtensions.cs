@@ -11,7 +11,7 @@ namespace Bazaar.Server.Security;
 public static class AgentSafetyServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="KillSwitchEngine"/>, the token budget service (through <see cref="TokenBudgetServiceCollectionExtensions.AddAgentTokenBudgets"/>),
+    /// Registers <see cref="KillSwitchEngine"/> (also as <see cref="IKillSwitchReader"/>), the token budget service (through <see cref="TokenBudgetServiceCollectionExtensions.AddAgentTokenBudgets"/>),
     /// <see cref="KillSwitchAuditAdapter"/> and <see cref="AgentContainmentAdapter"/>, with the in-memory kill switch and
     /// containment stores unless the host registers durable ones (Postgres: Bazaar.Server.Security.KillSwitch.Postgres) first.
     /// All are singletons and use TryAdd, so a host registration made before this call wins.
@@ -37,6 +37,7 @@ public static class AgentSafetyServiceCollectionExtensions
         services.TryAddSingleton<INonceStore, InMemoryNonceStore>();
         services.TryAddSingleton<IAgentContainment, AgentContainmentAdapter>();
         services.TryAddSingleton<KillSwitchEngine>();
+        services.TryAddSingleton<IKillSwitchReader>(sp => sp.GetRequiredService<KillSwitchEngine>());
         return services;
     }
 }
