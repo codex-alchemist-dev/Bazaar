@@ -306,6 +306,7 @@ public sealed class ClaudeCodeAdapter : IModelAdapter, IDisposable
             }
         }
 
+        env[ClaudeCodeOrphanMarker.EnvName] = ClaudeCodeOrphanMarker.For(_options);
         if (_options.AuthMode == ClaudeCodeAuthMode.Login)
         {
             if (!string.IsNullOrWhiteSpace(_options.ConfigDir))

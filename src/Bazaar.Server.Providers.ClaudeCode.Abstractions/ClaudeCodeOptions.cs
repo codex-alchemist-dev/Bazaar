@@ -42,6 +42,12 @@ public sealed class ClaudeCodeOptions
 
     public const string DefaultModel = "claude-haiku-5-5";
 
+    /// <summary>
+    /// Marks this server's CLI children so a Linux start-up sweep can remove the ones a crash left behind. Empty means derive it
+    /// from <see cref="ConfigDir"/>. Set it only when two servers share one login folder, which one login per human forbids.
+    /// </summary>
+    public string RunMarker { get; set; } = "";
+
     public int MaxConcurrent { get; set; } = 2;
 
     public int MaxStepsPerHour { get; set; } = 120;

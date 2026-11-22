@@ -21,7 +21,7 @@ var dump = new Dictionary<string, object?>
     ["args"] = args,
     ["stdin"] = stdin,
     ["cwd"] = Directory.GetCurrentDirectory(),
-    ["env"] = Environment.GetEnvironmentVariables().Keys.Cast<string>().ToDictionary(k => k, k => k.Contains("KEY", StringComparison.OrdinalIgnoreCase) || k.Contains("TOKEN", StringComparison.OrdinalIgnoreCase) || k == "CLAUDE_CONFIG_DIR" ? Environment.GetEnvironmentVariable(k) : "x"),
+    ["env"] = Environment.GetEnvironmentVariables().Keys.Cast<string>().ToDictionary(k => k, k => k.Contains("KEY", StringComparison.OrdinalIgnoreCase) || k.Contains("TOKEN", StringComparison.OrdinalIgnoreCase) || k == "CLAUDE_CONFIG_DIR" || k == "BAZAAR_CLAUDE_CODE_RUN" ? Environment.GetEnvironmentVariable(k) : "x"),
     ["systemPrompt"] = ReadFileAfter("--system-prompt-file"),
     ["mcpConfig"] = ReadFileAfter("--mcp-config"),
 };

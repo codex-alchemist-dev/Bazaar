@@ -39,6 +39,9 @@ public sealed class ClaudeCodeComponent : IBazaarComponent
         services.AddSingleton<IValidateOptions<ClaudeCodeOptions>, ClaudeCodeOptionsValidator>();
         services.AddSingleton(sp => new ClaudeCodeLaneState(sp.GetService<TimeProvider>() ?? TimeProvider.System));
         services.AddSingleton<IClaudeCodeLaneState>(sp => sp.GetRequiredService<ClaudeCodeLaneState>());
+        services.AddHostedService(sp => new ClaudeCodeOrphanSweepService(
+            sp.GetRequiredService<IOptions<ClaudeCodeOptions>>().Value,
+            sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ClaudeCodeOrphanSweepService>>()));
         services.AddSingleton(new ModelAdapterRegistration(
             ClaudeCodeAdapter.WireName,
             sp =>
