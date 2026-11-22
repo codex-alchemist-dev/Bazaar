@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Vms.Density\Bazaar.Server.Vms.Density.csproj" />
+    <!-- The real governor, to prove the adapters and the lifecycle work with it end to end and resolve without a cycle. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.VmDensity\Bazaar.Server.VmDensity.csproj" />
+  </ItemGroup>
+</Project>

@@ -26,6 +26,9 @@ internal sealed class FakeVmBackend : IVmBackend
     /// <summary>The most calls that were in flight across all refs at the same time.</summary>
     public int MaxInFlightTotal { get; private set; }
 
+    /// <summary>What the backend reports for <see cref="IVmBackend.SupportsSaveState"/>. Defaults to false, like the interface.</summary>
+    public bool SupportsSaveState { get; set; }
+
     /// <summary>What <see cref="GetStateAsync"/> reports.</summary>
     public VmState ReportedState { get; set; } = VmState.Stopped;
 

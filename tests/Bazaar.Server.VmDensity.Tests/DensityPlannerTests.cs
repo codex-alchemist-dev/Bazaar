@@ -107,6 +107,21 @@ public sealed class DensityPlannerTests
     }
 
     [Fact]
+    public void Idle_android_guests_go_after_idle_linux_vms()
+    {
+        var running = new[] { Run(1, 1000, DensityGuestOs.Android, idleMin: 100), Run(2, 1000, DensityGuestOs.Linux, idleMin: 5), Run(3, 1000, DensityGuestOs.Windows, idleMin: 5) };
+        var plan = Plan(Req(3000), 10_000, 1000, running);
+        Assert.Equal([3, 2, 1], VictimNumbers(plan));
+    }
+
+    [Fact]
+    public void An_android_guest_whose_backend_cannot_save_is_never_chosen()
+    {
+        var running = new[] { Run(1, 4000, DensityGuestOs.Android, canSave: false) };
+        Assert.IsType<AdmissionPlan.Wait>(Plan(Req(2000), 10_000, 1000, running));
+    }
+
+    [Fact]
     public void Least_recently_used_goes_first_within_a_group()
     {
         var running = new[] { Run(1, 1000, idleMin: 10), Run(2, 1000, idleMin: 50), Run(3, 1000, idleMin: 30) };

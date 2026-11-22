@@ -124,6 +124,7 @@
     <Project Path="src/Bazaar.Server.Vms.Devices/Bazaar.Server.Vms.Devices.csproj" />
     <Project Path="src/Bazaar.Server.Vms.MicroVm/Bazaar.Server.Vms.MicroVm.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Devices.Abstractions/Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Density/Bazaar.Server.Vms.Density.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
@@ -245,6 +246,7 @@
     <Project Path="tests/Bazaar.Server.Vms.Devices.Setup.Tests/Bazaar.Server.Vms.Devices.Setup.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Devices.Tests/Bazaar.Server.Vms.Devices.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.MicroVm.Tests/Bazaar.Server.Vms.MicroVm.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.Density.Tests/Bazaar.Server.Vms.Density.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Devices.Tests/Bazaar.Server.VmDisplay.Devices.Tests.csproj" />
