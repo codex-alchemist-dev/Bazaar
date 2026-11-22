@@ -120,7 +120,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | Update policy | Confirm | Automatic for security; manual for the rest | Owner gap decision, 2026-11-13. |
 | PostgreSQL major version | Yes | The newest bundled version the release marks as default; PG 18 until PG 19 is marked default | PG 19 GA is expected around 2026-11-19. Both versions stay supported (dual-version rule). |
 | GC partition count | Yes | 16 | Fixed after the first GC data (doc 04). |
-| Key-encryption-key provider | Yes | `dpapi` on Windows; systemd-creds on Linux (doc 03) | `openbao` optional (doc 14). |
+| Key-encryption-key provider | Yes | `dpapi` on Windows; `file` (a protected key file) on Linux and other hosts (doc 14, DECIDED) | `tpm` (Linux opt-in, sealed through `systemd-creds` where systemd is present) and `openbao` optional (doc 14). |
 | Audit anchor target | Yes | Required, no default | Mounts stay disabled until set (doc 14). |
 | Owner passkey or hardware key | Yes | Required to finish [PROPOSED] | A second factor is needed for recovery and high-risk actions (gap decision: biometrics and MFA). |
 | Recovery bundle and printed codes | Yes | Bundle created; printed codes per `recovery.printed_codes_enabled` (doc 32) | Backup-owner quorum is an optional list (doc 32). |
