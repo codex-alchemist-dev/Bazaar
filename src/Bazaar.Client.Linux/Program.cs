@@ -6,8 +6,9 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Preload;
+using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Preload;
 
 namespace Bazaar.Client.Linux;
 
@@ -44,21 +45,9 @@ internal static class Program
             return 0;
         }
 
-        using var listenerStop = new CancellationTokenSource();
-        _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
-            .ContinueWith(
-                task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
-                TaskContinuationOptions.OnlyOnFaulted);
-
-        try
-        {
-            var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-            return BuildAvaloniaApp(() => HideIfPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            listenerStop.Cancel();
-        }
+        using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
+        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -79,30 +68,6 @@ internal static class Program
         {
             return false;
         }
-    }
-
-    private static void ActivateMainWindow()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.WindowState = WindowState.Normal;
-            window.Activate();
-        }
-    }
-
-    private static MainWindow HideIfPreloading(MainWindow window, bool preloadStart)
-    {
-        if (preloadStart)
-        {
-            window.Opened += (_, _) => window.Hide();
-        }
-
-        return window;
     }
 
     /// <summary>
@@ -134,31 +99,9 @@ internal static class Program
         }
 
         Directory.CreateDirectory(paths.StateDirectory);
-        GcChatSession session = ChatConnection.Create(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild);
-        var chat = new ChatViewModel(session, action => Dispatcher.UIThread.Post(action));
-        var window = new MainWindow(ChatViewFactory.Instance.Create(chat));
-
-        var cts = new CancellationTokenSource();
-        window.Closed += async (_, _) =>
-        {
-            chat.Dispose();
-            await session.DisposeAsync();
-            cts.Dispose();
-        };
-
-        _ = StartSessionAsync(session, cts.Token);
+        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+        var window = new MainWindow(chat.View);
+        window.Closed += async (_, _) => await chat.DisposeAsync();
         return window;
-    }
-
-    private static async Task StartSessionAsync(GcChatSession session, CancellationToken cancellationToken)
-    {
-        try
-        {
-            await session.StartAsync(cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            Console.Error.WriteLine($"Chat failed to start: {ex.Message}");
-        }
     }
 }
