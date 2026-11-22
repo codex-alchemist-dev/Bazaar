@@ -74,9 +74,9 @@ internal static class MigrateCopier
             return;
         }
 
-        var others = keys.EnumerateFileSystemInfos().Where(e => !e.Name.Equals("kek.bin", PathComparison)).Select(e => e.Name).ToList();
+        var others = keys.EnumerateFileSystemInfos().Where(e => !StorageCommand.IsKekFileName(e.Name)).Select(e => e.Name).ToList();
         if (others.Count > 0)
-            scan.Refusals.Add($"'keys' holds {others.Count} entr{(others.Count == 1 ? "y" : "ies")} besides kek.bin ({string.Join(", ", others.Take(5))}); only the KEK moves to the boot root, so nothing else may be left behind.");
+            scan.Refusals.Add($"'keys' holds {others.Count} entr{(others.Count == 1 ? "y" : "ies")} besides the KEK files ({string.Join(", ", others.Take(5))}); only the KEK moves to the boot root, so nothing else may be left behind.");
     }
 
     private static bool TryResolveInside(FileSystemInfo entry, string from)

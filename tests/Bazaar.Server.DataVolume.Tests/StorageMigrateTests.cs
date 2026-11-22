@@ -424,6 +424,20 @@ public sealed class StorageMigrateTests : IDisposable
     }
 
     [Fact]
+    public async Task A_dpapi_key_file_beside_the_file_kek_is_copied_under_its_own_name()
+    {
+        var legacyDpapi = Path.Combine(_old, "keys", "kek-dpapi.bin");
+        var blob = RandomNumberGenerator.GetBytes(48);
+        File.WriteAllBytes(legacyDpapi, blob);
+
+        Assert.Equal(0, await RunAsync(MigrateArgs()));
+
+        Assert.Equal(blob, File.ReadAllBytes(Path.Combine(_bootRoot, "keys", "kek-dpapi.bin")));
+        Assert.Equal(File.ReadAllBytes(LegacyKek), File.ReadAllBytes(BootKek));
+        Assert.True(File.Exists(legacyDpapi));
+    }
+
+    [Fact]
     public async Task A_different_kek_already_at_the_boot_root_is_never_replaced()
     {
         Directory.CreateDirectory(Path.GetDirectoryName(BootKek)!);
@@ -442,7 +456,7 @@ public sealed class StorageMigrateTests : IDisposable
         File.WriteAllText(Path.Combine(_old, "keys", "notes.txt"), "x");
 
         Assert.Equal(StorageCommand.FailedExitCode, await RunAsync(MigrateArgs()));
-        Assert.Contains("besides kek.bin", _output.ToString());
+        Assert.Contains("besides the KEK files", _output.ToString());
         Assert.Equal(0, _operator.CreateCalls);
     }
 

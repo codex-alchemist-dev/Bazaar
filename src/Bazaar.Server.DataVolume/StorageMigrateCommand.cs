@@ -187,8 +187,17 @@ internal static class StorageMigrateCommand
     /// <summary>Copies the legacy KEK byte for byte to the boot root. Never generates one, never replaces a different one, leaves the legacy file in place.</summary>
     private static async Task CopyKekAsync(string from, DataVolumeOptions options, TextWriter output, CancellationToken cancellationToken)
     {
-        var legacy = Path.Combine(from, "keys", "kek.bin");
-        var target = StorageCommand.KekPath(options);
+        var legacyKeys = Path.Combine(from, "keys");
+        var names = StorageCommand.KekFileNames.Where(n => File.Exists(Path.Combine(legacyKeys, n))).ToList();
+        if (names.Count == 0)
+            throw new MigrateRefusedException($"No legacy KEK ({string.Join(" or ", StorageCommand.KekFileNames)}) exists under '{legacyKeys}'. Existing wrapped keys depend on it, so no new one is generated; a fresh install uses storage init.");
+
+        foreach (var name in names)
+            await CopyKekFileAsync(Path.Combine(legacyKeys, name), Path.Combine(options.BootRoot, "keys", name), output, cancellationToken);
+    }
+
+    private static async Task CopyKekFileAsync(string legacy, string target, TextWriter output, CancellationToken cancellationToken)
+    {
         byte[]? source = null;
         byte[]? existing = null;
         byte[]? copy = null;
@@ -212,7 +221,7 @@ internal static class StorageMigrateCommand
                 if (!CryptographicOperations.FixedTimeEquals(existing, source))
                     throw new MigrateRefusedException($"The boot root already holds a different KEK at '{target}'. It is never replaced.");
 
-                await output.WriteLineAsync("storage migrate: the legacy KEK is already at the boot root, identical", CancellationToken.None);
+                await output.WriteLineAsync($"storage migrate: the legacy KEK is already at '{target}', identical", CancellationToken.None);
                 return;
             }
 
@@ -353,7 +362,7 @@ internal static class StorageMigrateCommand
                 : $"container: {plan.ContainerKind} at {plan.ContainerPath}, {(plan.ContainerKind == "file" ? $"max {FormatBytes(plan.MaxSizeBytes)}" : "the device")}",
             CancellationToken.None);
         await output.WriteLineAsync($"journal: {MigrateJournalStore.PathFor(options)} ({(journal is null ? "will be created" : $"exists, last completed phase {journal.Phase}")})", CancellationToken.None);
-        await output.WriteLineAsync($"legacy KEK: {Path.Combine(from, "keys", "kek.bin")} -> {StorageCommand.KekPath(options)} (copied, not regenerated; the legacy file stays)", CancellationToken.None);
+        await output.WriteLineAsync($"legacy KEK: {Path.Combine(from, "keys")} -> {Path.Combine(options.BootRoot, "keys")} ({string.Join(", ", StorageCommand.KekFileNames)}; copied, not regenerated; the legacy files stay)", CancellationToken.None);
         if (scan is not null)
         {
             await output.WriteLineAsync($"to copy: {scan.Files.Count} files, {scan.Directories.Count} folders, {FormatBytes(scan.TotalBytes)}", CancellationToken.None);

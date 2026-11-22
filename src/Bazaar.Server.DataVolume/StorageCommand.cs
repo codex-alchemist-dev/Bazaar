@@ -237,7 +237,7 @@ public static class StorageCommand
         }
 
         await output.WriteLineAsync($"cipher: {(plan.Plain ? DataVolumeCiphers.None : DataVolumeCiphers.XtsAes256)}", CancellationToken.None);
-        await output.WriteLineAsync($"kek: {(File.Exists(kekPath) ? "exists, will be reused" : "will be created")} at {kekPath}", CancellationToken.None);
+        await output.WriteLineAsync(File.Exists(kekPath) ? $"kek: exists, will be reused at {kekPath}" : $"kek: will be created under {Path.GetDirectoryName(kekPath)}", CancellationToken.None);
         await output.WriteLineAsync($"descriptor: {options.DescriptorPath}", CancellationToken.None);
         await output.WriteLineAsync($"marker: {options.MarkerPath}", CancellationToken.None);
     }
@@ -332,7 +332,21 @@ public static class StorageCommand
         }
     }
 
-    internal static string KekPath(DataVolumeOptions options) => Path.Combine(options.BootRoot, "keys", "kek.bin");
+    /// <summary>
+    /// The host KEK files under <c>keys/</c>: the <c>file</c> provider's and the <c>dpapi</c> provider's (doc 14). Each provider keeps
+    /// its own file, so both can be present while a provider switch re-wraps.
+    /// </summary>
+    internal static IReadOnlyList<string> KekFileNames { get; } = ["kek.bin", "kek-dpapi.bin"];
+
+    /// <summary>True when <paramref name="name"/> is one of <see cref="KekFileNames"/>.</summary>
+    internal static bool IsKekFileName(string name) => KekFileNames.Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The KEK file at the boot root: the one that exists, or the <c>file</c> provider's path when none does yet.</summary>
+    internal static string KekPath(DataVolumeOptions options)
+    {
+        var keys = Path.Combine(options.BootRoot, "keys");
+        return KekFileNames.Select(n => Path.Combine(keys, n)).FirstOrDefault(File.Exists) ?? Path.Combine(keys, KekFileNames[0]);
+    }
 
     /// <summary>True when <paramref name="path"/> is <paramref name="folder"/> or lies below it.</summary>
     internal static bool IsInside(string folder, string path)
