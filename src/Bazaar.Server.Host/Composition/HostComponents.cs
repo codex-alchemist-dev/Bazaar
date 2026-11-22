@@ -35,6 +35,7 @@ using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
+using Bazaar.Server.Wire.Discovery;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -73,6 +74,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new WireDiscoveryComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
@@ -80,6 +82,8 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.ClaudeCodeComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
     ];
