@@ -33,7 +33,7 @@ concurrency:
 jobs:
   cleanup:
     name: Clean up branches
-    # Same routing as ci.yml: owner-triggered runs use the self-hosted runner, everything else a hosted one.
+    # API calls only, so a hosted runner is enough and the job does not queue behind the PC runners.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
