@@ -228,7 +228,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
                 voterId,
                 CouncilText.ParsePhase(reader.GetString(2)),
                 reader.GetString(3),
-                cipher.Decrypt(voterId, sealedText),
+                await cipher.OpenAsync(voterId, sealedText, ct).ConfigureAwait(false),
                 reader.GetBoolean(7),
                 reader.GetFieldValue<DateTimeOffset>(8)));
         }
@@ -279,7 +279,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     public async Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(ballot);
-        var sealedText = cipher.Encrypt(ballot.VoterId, ballot.Reasoning);
+        var sealedText = await cipher.SealAsync(ballot.VoterId, ballot.Reasoning, ct).ConfigureAwait(false);
         var phase = CouncilText.ToSql(ballot.Phase);
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);

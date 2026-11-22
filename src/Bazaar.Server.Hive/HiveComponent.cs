@@ -81,6 +81,11 @@ public sealed class HiveComponent : IBazaarComponent
             sp.GetRequiredService<IHiveGrantStore>(),
             sp.GetRequiredService<HiveCopyOptions>(),
             sp.GetRequiredService<IHiveKindSource>()));
+        services.TryAddSingleton<IHiveGrantApprovals, DenyAllHiveGrantApprovals>();
+        services.TryAddSingleton<IHiveGrantWireHandler>(sp => new HiveGrantWireHandler(sp.GetRequiredService<IHiveGrantApprovals>()));
+        services.TryAddSingleton(sp => new HiveGrantApplier(
+            sp.GetRequiredService<IHiveGrantStore>(),
+            sp.GetRequiredService<HiveCopyService>()));
         services.TryAddSingleton(sp => new HiveCopyService(
             sp.GetRequiredService<IHiveGrantPolicy>(),
             sp.GetRequiredService<IHiveGrantStore>(),

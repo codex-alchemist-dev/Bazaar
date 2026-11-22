@@ -1,4 +1,6 @@
 using Bazaar.Archive;
+using Bazaar.Server.Gc.Skimmer;
+using Bazaar.Server.Skimmer;
 using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
@@ -9,14 +11,17 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Display;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.Council;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -27,12 +32,14 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
+using Bazaar.Server.MailPolicy;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
@@ -40,6 +47,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
@@ -70,11 +78,15 @@ public static class HostComponents
         new SetupComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
+        new SkimmerComponent(),
+        new GcSkimmerComponent(),
         new MirrorComponent(),
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcMetadataComponent(),
+        new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
@@ -92,10 +104,14 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CouncilComponent(),
+        new CompanyMemoryComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new BackupPolicyComponent(),
+        new MailPolicyComponent(),
         new ConduitComponent(),
         new WireDiscoveryComponent(),
         new RemoteComponent(),
