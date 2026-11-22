@@ -16,6 +16,12 @@ public interface IPoolImageFileSystem
 
     /// <summary>Reads a small text file.</summary>
     string ReadAllText(string path);
+
+    /// <summary>The size of the file in bytes.</summary>
+    long GetFileLength(string path);
+
+    /// <summary>Opens the file for reading, to be hashed as a stream.</summary>
+    Stream OpenRead(string path);
 }
 
 /// <summary>The real file system. Permission bits are available on Unix only.</summary>
@@ -28,6 +34,10 @@ internal sealed class PhysicalPoolImageFileSystem : IPoolImageFileSystem
     public UnixFileMode? GetUnixMode(string path) => OperatingSystem.IsWindows() ? null : File.GetUnixFileMode(path);
 
     public string ReadAllText(string path) => File.ReadAllText(path);
+
+    public long GetFileLength(string path) => new FileInfo(path).Length;
+
+    public Stream OpenRead(string path) => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan);
 }
 
 /// <summary>
@@ -120,6 +130,7 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
         PoolImageRequirementKind.Program => CheckProgram(r),
         PoolImageRequirementKind.Directory => CheckDirectory(r),
         PoolImageRequirementKind.AppArmorProfile => CheckAppArmor(),
+        PoolImageRequirementKind.ToolHash => CheckToolHash(r),
         _ => "Unknown requirement kind.",
     };
 
@@ -222,5 +233,34 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
         }
 
         return $"User namespaces are restricted and the AppArmor profile {BwrapAppArmorProfile.ProfileName} is not loaded.";
+    }
+
+    private string? CheckToolHash(PoolImageRequirement r)
+    {
+        // The manifest is the operator's record of what was installed. Anything unclear fails closed.
+        string? manifestPath = _options.ToolManifestPath;
+        if (manifestPath is null || !_fs.FileExists(manifestPath))
+        {
+            return "The tool manifest is missing.";
+        }
+
+        if (!PoolToolBundle.TryParse(_fs.ReadAllText(manifestPath), out PoolToolBundle? bundle, out _))
+        {
+            return "The tool manifest is not valid.";
+        }
+
+        PoolToolEntry? entry = bundle!.Find(r.ToolName ?? string.Empty);
+        if (entry is null)
+        {
+            return $"The tool manifest has no entry for {r.ToolName}.";
+        }
+
+        if (!_fs.FileExists(r.Path))
+        {
+            return $"The tool file {r.Path} is missing.";
+        }
+
+        (string hash, _) = PoolFileHash.Sha256(_fs, r.Path);
+        return hash == entry.Sha256 ? null : $"{r.Path} does not match the hash in the tool manifest.";
     }
 }

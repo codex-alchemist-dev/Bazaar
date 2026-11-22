@@ -153,4 +153,48 @@ public sealed class CompanyBuildPipelineTests : IDisposable
         Assert.False(File.Exists(layout.IncompleteMarkerPath));
         Assert.Equal(2, File.ReadAllLines(layout.HistoryPath).Length);
     }
+
+    [Fact]
+    public async Task The_history_records_the_baked_address_and_pin_and_the_identity_check_reads_them()
+    {
+        await Run(WriteArtifact);
+        var layout = new CompanyBuildOutputLayout(Path.Combine(_root, "out"), "acme");
+
+        var last = CompanyBuildIdentityCheck.ReadLastBuild(layout);
+
+        Assert.Equal("https://company.example/", last?.Address);
+        Assert.Equal(new string('b', 64), last?.KeyHashPin);
+        Assert.Empty(CompanyBuildIdentityCheck.Check(last, new Uri("https://company.example/"), new string('b', 64)));
+    }
+
+    [Fact]
+    public async Task The_identity_check_reports_a_moved_server_and_a_changed_key()
+    {
+        await Run(WriteArtifact);
+        var layout = new CompanyBuildOutputLayout(Path.Combine(_root, "out"), "acme");
+        var last = CompanyBuildIdentityCheck.ReadLastBuild(layout);
+
+        var issues = CompanyBuildIdentityCheck.Check(last, new Uri("https://other.example/"), new string('c', 64));
+
+        Assert.Equal(["address-mismatch", "key-pin-mismatch"], issues.Select(i => i.Code));
+    }
+
+    [Fact]
+    public void The_identity_check_reports_no_build_and_an_unrecorded_identity()
+    {
+        var uri = new Uri("https://company.example/");
+
+        Assert.Equal(["no-build"], CompanyBuildIdentityCheck.Check(null, uri, new string('b', 64)).Select(i => i.Code));
+
+        var old = new CompanyBuildHistoryEntry("acme", DateTimeOffset.UnixEpoch, true, false, []);
+        Assert.Equal(["identity-unrecorded"], CompanyBuildIdentityCheck.Check(old, uri, new string('b', 64)).Select(i => i.Code));
+    }
+
+    [Fact]
+    public void A_company_with_no_history_file_has_no_last_build()
+    {
+        var layout = new CompanyBuildOutputLayout(Path.Combine(_root, "out"), "never-built");
+
+        Assert.Null(CompanyBuildIdentityCheck.ReadLastBuild(layout));
+    }
 }

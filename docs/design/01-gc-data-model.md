@@ -79,6 +79,7 @@ Seeded v1 types [PROPOSED defaults; values are the setting `gc.type_defaults`]:
 - Only the original author may edit (Question 2). Corrections by others are new messages.
 - Every version stays readable through `GetHistory`. More than one version shows "edited".
 - The edit event records its own author and trust; the message's original trust record is kept.
+- **Import withdrawal version [PROPOSED].** Withdrawing an import (doc 44, 8.8) never deletes: it appends a new `message_edit` version whose row carries `gc_message_version.withdrawn_by_import` (the import job id, text, null otherwise). The version is a full copy of the text it withdraws, so every earlier version stays untouched and readable through `GetHistory`. The read view hides the body of a message whose current version is withdrawn and shows a withdrawn marker beside "edited". The flag is set only through `AppendRequest.WithdrawnByImport`, only on a `message_edit` written by the system principal (author kind `system`). The author-only edit rule above does not apply to that principal: withdrawal is a system act with its own audit entry, not an edit by a member. The GC log has no hash chain today; if one is added, the flag must be part of the hashed row so a withdrawal cannot be stripped.
 - Edits to a message software already acted on emit a `system` note "source edited after use" and do not re-fire reactions. The edit window is setting `gc.edit_window_hours` (default unlimited).
 
 ### Mentions
