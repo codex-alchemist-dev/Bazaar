@@ -92,9 +92,7 @@ public sealed class SmokeTests(EndToEndFixture env) : IClassFixture<EndToEndFixt
         Assert.Equal(1L, await count.ExecuteScalarAsync(TestContext.Current.CancellationToken));
     }
 
-    // Found by this harness (GAPS.md gap 6): the insert into gw_usage fails its provider foreign key because the config-defined
-    // FreeLLMAPI provider has no gw_provider row, and the gateway swallows the error. Remove the Skip when that is fixed.
-    [Fact(Skip = "GAP 6: usage is silently dropped for the config-defined FreeLLMAPI provider (gw_usage_provider_id_fkey). See GAPS.md.")]
+    [Fact]
     public async Task The_model_call_is_metered_as_pooled_usage_for_the_agent()
     {
         env.RequireRunning();
