@@ -66,6 +66,9 @@ public sealed class RojoRunner
         string output = RojoPathGuard.ResolveOutputFile(root, outputPath);
         string fullRoot = RojoPathGuard.RequireRoot(root);
 
+        // The project file names source folders; refuse any that leave the root before rojo reads them.
+        RojoProjectValidator.Validate(fullRoot, project);
+
         ProcessResult result = await RunAsync(BuildArguments(project, output), fullRoot, cancellationToken);
         if (result.ExitCode != 0)
         {
