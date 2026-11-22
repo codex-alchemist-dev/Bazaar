@@ -15,7 +15,7 @@ public sealed class SoulDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common);
+        var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
         var source = new InMemoryMigrationSource(files.Where(f => f.Version == 14));
         await new MigrationRunner(DataSource).MigrateAsync(source, MigrationRunner.Common);
     }

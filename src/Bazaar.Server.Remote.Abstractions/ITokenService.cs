@@ -42,7 +42,7 @@ public interface IAccessTokenIssuer
 /// No access-token issuer is configured, so no token can be made. Routes map this to 503 with a generic <c>unavailable</c>; the
 /// reason stays in the host configuration.
 /// </summary>
-public sealed class AccessTokenIssuerUnavailableException(Exception? inner = null) : Exception("No access-token issuer is available.", inner);
+public sealed class AccessTokenIssuerUnavailableException() : Exception("No access-token issuer is available.");
 
 /// <summary>Why a refresh was refused. The client sees one generic refusal; the reason goes to the server log and audit only.</summary>
 public enum TokenRefreshFailure

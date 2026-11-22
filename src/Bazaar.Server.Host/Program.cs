@@ -1,11 +1,12 @@
-using Bazaar.Server.Host.Auth;
 using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
@@ -24,6 +25,7 @@ if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddKekHostConfig();
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);
 
@@ -36,9 +38,10 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 
 var app = builder.Build();
 app.UseBazaarGetOnly();
-app.UseBazaarAuthenticatedCaller();
 app.MapBazaarStatus();
+app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
+app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
 app.MapBazaarSetup();
 app.UseBazaarWire();

@@ -14,7 +14,7 @@ public sealed class InterruptDb : PgFixture, IAsyncLifetime
         if (PgSource.IsUnsupportedHost)
             return;
         await base.InitializeAsync();
-        var embedded = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+        var embedded = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
         // common 0015 creates the table with a plaintext reason; the interrupts namespace 0001 seals it. Both run in order, as on a real install.
         var files = embedded.Load(MigrationRunner.Common).Where(f => f.Version == 15)
             .Concat(embedded.Load("interrupts").Where(f => f.Version == 1));

@@ -15,7 +15,7 @@ public sealed class MentionsBackfillDb : PgFixture, IAsyncLifetime
     /// <summary>The namespace this fixture holds back.</summary>
     public const string Namespace = "mentions";
 
-    private static EmbeddedMigrationSource Embedded => new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+    private static EmbeddedMigrationSource Embedded => new(typeof(MigrationRunner).Assembly);
 
     public override async ValueTask InitializeAsync()
     {

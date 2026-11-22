@@ -140,7 +140,7 @@ public class ThemeValidatorTests
     [Fact]
     public void Unsupported_schema_version_is_rejected()
     {
-        string json = Mutate(root => root["schemaVersion"] = 2);
+        string json = Mutate(root => root["schemaVersion"] = 3);
 
         ThemeLoadResult result = ThemeValidator.Validate(json);
 

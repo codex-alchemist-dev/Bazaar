@@ -52,7 +52,7 @@ public static class ExitCheckServers
         }
 
         await new MigrationRunner(db.DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
 
         var human = new PrincipalRef(Guid.CreateVersion7(), "human");
         var agent = new PrincipalRef(Guid.CreateVersion7(), "agent");
