@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
@@ -15,8 +16,12 @@ using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
+using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
 
@@ -32,6 +37,7 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
         ClientServer.ConnectToCompanyServer();
+        StartVisualSettings();
         var host = new ContentControl
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
@@ -47,6 +53,24 @@ public sealed class App : Avalonia.Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>The OS reduced-motion flag; the activity refreshes it on resume, where Android offers no simple change event.</summary>
+    public static PolledOsReducedMotionSource? ReducedMotion { get; private set; }
+
+    private VisualSettingsBinder? _visual;
+
+    // The person's materials and motion level from the client settings file, the animator scale ("Remove animations") as the OS
+    // flag, and the frame-budget monitor (doc 93). The phone shell has no window chrome and no theme switch yet, so no chrome binds.
+    private void StartVisualSettings()
+    {
+        var context = global::Android.App.Application.Context;
+        string directory = context.FilesDir?.AbsolutePath ?? Path.GetTempPath();
+        var settings = new ClientSettingsStore(VisualSettings.Definitions, Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        var materials = new AndroidMaterialEnvironmentSource(context);
+        ReducedMotion = AndroidReducedMotion.Create(context);
+        _visual?.Dispose();
+        _visual = VisualSettingsBinder.Start(settings, materials.Settings, new MotionSettings(MotionPlatform.Phone), ReducedMotion, null, action => Dispatcher.UIThread.Post(action));
     }
 
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
