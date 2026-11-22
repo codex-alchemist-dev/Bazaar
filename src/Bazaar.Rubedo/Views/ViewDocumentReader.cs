@@ -127,7 +127,10 @@ public static class ViewDocumentReader
             RequireObject(propsElement, $"{path}.props");
             foreach (JsonProperty property in propsElement.EnumerateObject())
             {
-                props[property.Name] = ReadProp(property.Value, $"{path}.props.{property.Name}");
+                string propPath = $"{path}.props.{property.Name}";
+                props[property.Name] = property.Name == ViewArgs.PropName
+                    ? ReadArgs(property.Value, propPath)
+                    : ReadProp(property.Value, propPath);
             }
         }
 
@@ -148,6 +151,19 @@ public static class ViewDocumentReader
         }
 
         return new ViewNode(widget, props, children);
+    }
+
+    /// <summary>Button arguments (doc 41c, section 6.1): a flat object whose values are scalars or expressions. A nested value is rejected.</summary>
+    private static ViewArgs ReadArgs(JsonElement element, string path)
+    {
+        RequireObject(element, path);
+        var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+        foreach (JsonProperty argument in element.EnumerateObject())
+        {
+            values[argument.Name] = ReadProp(argument.Value, $"{path}.{argument.Name}");
+        }
+
+        return new ViewArgs(values);
     }
 
     /// <summary>A prop is a scalar, an expression <c>{ "expr": "..." }</c> or a token reference <c>{ "token": "..." }</c> (doc 41c, sections 2 and 5.1).</summary>
