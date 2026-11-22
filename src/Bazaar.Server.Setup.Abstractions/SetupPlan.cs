@@ -37,6 +37,9 @@ public sealed class SetupPlan
 
     public SetupNetworkSection Network { get; init; } = new();
 
+    /// <summary>The first group chat and default agent (doc 45 section 1.15, PROPOSED).</summary>
+    public SetupFirstRunSection FirstRun { get; init; } = new();
+
     /// <summary>Setting values keyed by registry name (doc 03). Each value is the canonical JSON the registry accepts.</summary>
     public Dictionary<string, JsonElement> Settings { get; init; } = [];
 }
@@ -176,4 +179,22 @@ public sealed class SetupNetworkSection
 
     /// <summary>Maps to the registry key host.status.port. Must be 1 to 65535 in a plan.</summary>
     public int StatusPort { get; init; } = 8443;
+}
+
+/// <summary>First-run seed choices (doc 45 section 1.15, PROPOSED). Every key has a default, so a plan may leave the section out.</summary>
+public sealed class SetupFirstRunSection
+{
+    /// <summary>Create the first group chat of type <c>general</c>.</summary>
+    public bool SeedGeneralGc { get; init; } = true;
+
+    public string GeneralGcTitle { get; init; } = "General";
+
+    /// <summary>Create the default agent on the seeded Claude Code CLI policy.</summary>
+    public bool SeedDefaultAgent { get; init; } = true;
+
+    /// <summary>An operator setting, not a built-in persona.</summary>
+    public string DefaultAgentName { get; init; } = "Assistant";
+
+    /// <summary>The owner's own act: accept the current Constitution so the default agent may activate. Never true by default.</summary>
+    public bool AcceptConstitution { get; init; }
 }

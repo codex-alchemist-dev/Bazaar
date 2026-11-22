@@ -47,6 +47,10 @@ public static class SetupPlanText
             json.WriteBoolean("acknowledgeNoTarget", request.AcknowledgeNoBackupTarget);
             json.WriteEndObject();
 
+            json.WriteStartObject("firstRun");
+            json.WriteBoolean("acceptConstitution", request.AcceptConstitution);
+            json.WriteEndObject();
+
             json.WriteStartObject("company");
             json.WriteString("source", BlankSource);
             json.WriteEndObject();

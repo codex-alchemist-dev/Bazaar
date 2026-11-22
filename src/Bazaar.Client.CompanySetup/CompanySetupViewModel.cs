@@ -46,6 +46,7 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
     private string _kekProvider;
     private string _kekReference;
     private bool _acknowledgeNoBackup;
+    private bool _acceptConstitution;
     private string _bootstrapCode = "";
     private string? _planHash;
     private IReadOnlyList<SetupIssue> _issues = [];
@@ -152,6 +153,13 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
         set { if (Set(ref _acknowledgeNoBackup, value)) Changed(); }
     }
 
+    /// <summary>The owner's own tick that accepts the Constitution so the default agent may start. Never set for the owner, never defaulted on.</summary>
+    public bool AcceptConstitution
+    {
+        get => _acceptConstitution;
+        set { if (Set(ref _acceptConstitution, value)) Changed(); }
+    }
+
     /// <summary>The one-time code the server console printed. Needed until the owner exists. Never stored.</summary>
     public string BootstrapCode
     {
@@ -190,7 +198,7 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
         && _acknowledgeNoBackup;
 
     private CompanySetupRequest Request() => new(
-        _companyName.Trim(), _slug.Trim(), _ownerName.Trim(), _locale.Trim(), _timezone.Trim(), _kekProvider.Trim(), _kekReference.Trim(), _acknowledgeNoBackup);
+        _companyName.Trim(), _slug.Trim(), _ownerName.Trim(), _locale.Trim(), _timezone.Trim(), _kekProvider.Trim(), _kekReference.Trim(), _acknowledgeNoBackup, _acceptConstitution);
 
     private async Task<SetupAccess> AccessAsync() => new(string.IsNullOrWhiteSpace(_bootstrapCode) ? null : _bootstrapCode, await _bearerToken());
 

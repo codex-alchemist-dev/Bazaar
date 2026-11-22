@@ -62,10 +62,24 @@ public static partial class SetupPlanValidator
         ValidateBackups(plan.Backups, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
+        ValidateFirstRun(plan.FirstRun, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
+    }
+
+    private static void ValidateFirstRun(SetupFirstRunSection firstRun, List<SetupValidationIssue> issues)
+    {
+        if (IsBlank(firstRun.GeneralGcTitle) || firstRun.GeneralGcTitle.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.generalGcTitle", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (IsBlank(firstRun.DefaultAgentName) || firstRun.DefaultAgentName.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.defaultAgentName", $"must be 1 to {_maxNameLength} characters."));
+        }
     }
 
     private static void ValidateInstall(SetupInstallSection install, List<SetupValidationIssue> issues)

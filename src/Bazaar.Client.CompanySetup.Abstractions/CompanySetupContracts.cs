@@ -12,6 +12,7 @@ namespace Bazaar.Client.CompanySetup;
 /// <param name="KekProvider">Key-encryption-key provider: <c>dpapi</c>, <c>systemd-creds</c>, <c>file</c> or <c>env</c>.</param>
 /// <param name="KekReference">The bootstrap reference for that provider, for example <c>dpapi:C:\ProgramData\Bazaar\keys\kek.bin</c>.</param>
 /// <param name="AcknowledgeNoBackupTarget">The recorded acknowledgement that no backup target is set yet (doc 45 open question 5).</param>
+/// <param name="AcceptConstitution">The owner's own tick: accept the current Constitution so the default agent may activate (doc 45 section 1.15, PROPOSED). False leaves the agent waiting.</param>
 public sealed record CompanySetupRequest(
     string CompanyName,
     string CompanySlug,
@@ -20,7 +21,8 @@ public sealed record CompanySetupRequest(
     string Timezone,
     string KekProvider,
     string KekReference,
-    bool AcknowledgeNoBackupTarget);
+    bool AcknowledgeNoBackupTarget,
+    bool AcceptConstitution = false);
 
 /// <summary>How the caller proves it may provision (doc 45 section 1.9): the one-time bootstrap code before the owner exists, a bearer token after.</summary>
 /// <param name="BootstrapCode">The code the server console printed. Sent in a header, never logged.</param>

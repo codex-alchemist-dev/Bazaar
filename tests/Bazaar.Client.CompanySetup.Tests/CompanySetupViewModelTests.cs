@@ -17,6 +17,25 @@ public class CompanySetupViewModelTests
     }
 
     [Fact]
+    public async Task Acceptance_is_never_on_by_default_and_is_sent_when_the_owner_ticks_it()
+    {
+        var (model, service) = Make();
+        Fill(model);
+        Assert.False(model.AcceptConstitution);
+
+        model.CheckCommand.Execute(null);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.False(service.Validated[0].Request.AcceptConstitution);
+
+        model.EditCommand.Execute(null);
+        await Task.Delay(20, TestContext.Current.CancellationToken);
+        model.AcceptConstitution = true;
+        model.CheckCommand.Execute(null);
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+        Assert.True(service.Validated[1].Request.AcceptConstitution);
+    }
+
+    [Fact]
     public void The_slug_follows_the_name_until_the_person_edits_it()
     {
         var (model, _) = Make();

@@ -23,6 +23,13 @@ public class SetupPlanTextTests
     }
 
     [Fact]
+    public void Constitution_acceptance_is_off_unless_the_owner_ticks_it()
+    {
+        Assert.False(SetupPlanLoader.Load(SetupPlanText.Build(Request())).Plan!.FirstRun.AcceptConstitution);
+        Assert.True(SetupPlanLoader.Load(SetupPlanText.Build(Request() with { AcceptConstitution = true })).Plan!.FirstRun.AcceptConstitution);
+    }
+
+    [Fact]
     public void The_same_request_always_gives_the_same_plan_hash()
     {
         var first = SetupPlanLoader.Load(SetupPlanText.Build(Request())).PlanHash;

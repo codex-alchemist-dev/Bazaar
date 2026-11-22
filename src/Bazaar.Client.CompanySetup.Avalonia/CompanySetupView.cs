@@ -24,6 +24,7 @@ public static class CompanySetupView
         public const string KekProvider = "company-kek-provider";
         public const string KekReference = "company-kek-reference";
         public const string NoBackup = "company-no-backup";
+        public const string AcceptConstitution = "company-accept-constitution";
         public const string BootstrapCode = "company-bootstrap-code";
         public const string Check = "company-check";
         public const string PlanHash = "company-plan-hash";
@@ -54,6 +55,10 @@ public static class CompanySetupView
         AutomationProperties.SetAutomationId(noBackup, Ids.NoBackup);
         noBackup.IsCheckedChanged += (_, _) => model.AcknowledgeNoBackup = noBackup.IsChecked == true;
 
+        var accept = new CheckBox { Content = "I accept the company Constitution, so the first agent can start" };
+        AutomationProperties.SetAutomationId(accept, Ids.AcceptConstitution);
+        accept.IsCheckedChanged += (_, _) => model.AcceptConstitution = accept.IsChecked == true;
+
         var check = Button("Check the plan", Ids.Check, model.CheckCommand);
         var planHash = new SelectableTextBlock { TextWrapping = TextWrapping.Wrap };
         AutomationProperties.SetAutomationId(planHash, Ids.PlanHash);
@@ -63,7 +68,7 @@ public static class CompanySetupView
         var issues = new TextBlock { TextWrapping = TextWrapping.Wrap };
         AutomationProperties.SetAutomationId(issues, Ids.Issues);
 
-        var fields = new Control[] { name.Panel, slug.Panel, owner.Panel, locale.Panel, timezone.Panel, kekProvider.Panel, kekReference.Panel, code.Panel, noBackup, check };
+        var fields = new Control[] { name.Panel, slug.Panel, owner.Panel, locale.Panel, timezone.Panel, kekProvider.Panel, kekReference.Panel, code.Panel, noBackup, accept, check };
         var review = new Control[] { planHash, apply, edit };
 
         void Refresh()
@@ -74,7 +79,7 @@ public static class CompanySetupView
             foreach (var control in fields) control.IsVisible = editing;
             foreach (var control in review) control.IsVisible = reviewing;
             foreach (var box in new[] { name.Box, slug.Box, owner.Box, locale.Box, timezone.Box, kekProvider.Box, kekReference.Box, code.Box }) box.IsEnabled = model.CanEditForm;
-            noBackup.IsEnabled = model.CanEditForm;
+            noBackup.IsEnabled = accept.IsEnabled = model.CanEditForm;
             Sync(slug.Box, model.Slug);
             Sync(kekProvider.Box, model.KekProvider);
             Sync(kekReference.Box, model.KekReference);
