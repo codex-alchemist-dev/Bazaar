@@ -90,6 +90,9 @@ public sealed class PostgresStoreTests
         Assert.Equal(["shell"], one.Manifest.ToolAllowlist);
         Assert.Equal(2, latest!.Version);
         Assert.Single(await store.ListLatestAsync(ct));
+        int[] versions = [1, 2];
+        Assert.Equal(versions, (await store.ListVersionsAsync("code-reviewer", ct)).Select(t => t.Version).ToArray());
+        Assert.Empty(await store.ListVersionsAsync("nope", ct));
         Assert.Null(await store.FindAsync("nope", null, ct));
         await Assert.ThrowsAsync<PostgresException>(() => store.AddAsync(one, ct));
     }

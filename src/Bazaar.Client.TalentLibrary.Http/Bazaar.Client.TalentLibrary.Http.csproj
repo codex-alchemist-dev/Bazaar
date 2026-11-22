@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.TalentLibrary.Http</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.TalentLibrary\Bazaar.Client.TalentLibrary.csproj" />
+  </ItemGroup>
+</Project>

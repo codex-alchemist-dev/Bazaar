@@ -38,6 +38,9 @@ public interface ITalentTemplateStore
 
     /// <summary>Lists the latest version of each template.</summary>
     Task<IReadOnlyList<TalentTemplate>> ListLatestAsync(CancellationToken ct);
+
+    /// <summary>Lists every version of one template, oldest first. Empty when the template is unknown.</summary>
+    Task<IReadOnlyList<TalentTemplate>> ListVersionsAsync(string templateId, CancellationToken ct);
 }
 
 /// <summary>The install model whitelist (docs/design/25: a template whose model is outside it is refused).</summary>
