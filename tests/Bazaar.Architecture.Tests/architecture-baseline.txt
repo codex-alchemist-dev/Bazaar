@@ -3,9 +3,6 @@ src/Bazaar.Client.Core/MainWindow.axaml.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
 src/Bazaar.Client.Core/Panes/PaneHost.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
-src/Bazaar.Server/Agents/Recovery/AgentLeaseRecoveryHandler.cs
-src/Bazaar.Server/Agents/Responder/AgentResponder.cs
-src/Bazaar.Server/Agents/Responder/AgentResponderService.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Responder/PgResponderGcStore.cs
 src/Bazaar.Server/Agents/Turns/AgentTurnsComponent.cs
@@ -243,9 +240,6 @@ src/Bazaar.Server/Skimmer/Scoring/ScorerOutputParser.cs
 src/Bazaar.Server/Skimmer/Scoring/ScorerParseResult.cs
 src/Bazaar.Server/Souls/Judgments/GcLogJudgmentPoster.cs
 src/Bazaar.Server/Souls/Judgments/JudgmentServiceCollectionExtensions.cs
-src/Bazaar.Server/Souls/Presets/DefaultPresetRoster.cs
-src/Bazaar.Server/Souls/Presets/PresetLoader.cs
-src/Bazaar.Server/Souls/Presets/PresetValidationException.cs
 src/Bazaar.Server/Verification/GateModel.cs
 src/Bazaar.Server/Verification/GitRepo.cs
 src/Bazaar.Server/Verification/PathRules.cs
