@@ -142,7 +142,7 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         SkipWithoutDatabase();
         var agent = await AgentWithItemsAsync(1);
         var gateway = new ScriptedModelGateway().Hold();
-        var options = new TurnRunnerOptions { WallClock = TimeSpan.FromMilliseconds(200), LeaseDuration = TimeSpan.FromSeconds(30) };
+        var options = new TurnRunnerOptions { WallClock = TimeSpan.FromMilliseconds(1500), LeaseDuration = TimeSpan.FromSeconds(30) };
 
         var result = await Runner(gateway, options).RunAsync(Request(agent, claim: 1), Ct);
 

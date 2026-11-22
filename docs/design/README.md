@@ -50,6 +50,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|
 | 16 | [16-agent-vms-and-environments.md](16-agent-vms-and-environments.md) | Two VMs per agent, golden image, guest protocol, mounts, egress, resources, licensing | 13 | 03, 07, 14, 15, 17 |
+| 59 | [59-desktop-density-and-guest-display.md](59-desktop-density-and-guest-display.md) | Screenshots and input for VMs and browsers without a viewer, the light desktop profile, browser placement, and the density governor (PROPOSED) | 2 | 16, 50, 14, 15 |
 | 17 | [17-coding-agent-harness.md](17-coding-agent-harness.md) | Coding tools, edit formats, server-side verification, git workflow, review flow | 12 | 16, 15, 12, 21, 18 |
 | 20 | [20-engine-integration-api.md](20-engine-integration-api.md) | Godot and Roblox adapters, capabilities, pane streaming, Studio bridge | 13 | 15, 16, 27, 28 |
 
@@ -145,6 +146,7 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
 | 91 | [91-claude-code-cli-provider.md](91-claude-code-cli-provider.md) | Claude Code CLI provider: runs the unmodified `claude` program per model step on the operator's own login or API key; terms finding, guard rails, process lifecycle, streaming, tool bridging, rate limits (PROPOSED) | 3 | 05, 06, 14, 15, 46 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
+| 54 | [54-soul-marketplace.md](54-soul-marketplace.md) | Soul Marketplace (PROPOSED): decided nature and exclusions, bundle and import, what is open (v1 scope OPEN) | 5 | 07, 33, 44, 47, 48 |
 | 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
 | 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
 | 63 | [63-encrypted-data-folder.md](63-encrypted-data-folder.md) | Encrypted data folder: the data root and PostgreSQL live in a Bazaar-keyed encrypted volume (BitLocker VHDX, LUKS2), fail-closed start guard, default column sealing | 4 | 03, 04, 14, 33, 42, 45, 46, 48, 61 |
