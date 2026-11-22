@@ -11,7 +11,27 @@ public sealed class InMemoryRefreshCredentialStore : IRefreshCredentialStore
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, DeviceRecord> _devices = [];
+    private readonly Dictionary<Guid, HumanRecord> _humans = [];
     private readonly List<CredentialRow> _credentials = [];
+
+    /// <summary>Adds or replaces a human row. The in-memory store has no pairing flow that creates humans, so tests and dev hosts seed them here.</summary>
+    public void SetHuman(HumanRecord human)
+    {
+        ArgumentNullException.ThrowIfNull(human);
+        lock (_gate)
+        {
+            _humans[human.Id] = human;
+        }
+    }
+
+    public Task<HumanRecord?> FindHumanAsync(Guid humanId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            return Task.FromResult(_humans.GetValueOrDefault(humanId));
+        }
+    }
 
     public Task<RefreshCredentialRecord?> FindByHashAsync(byte[] hash, CancellationToken ct = default)
     {
