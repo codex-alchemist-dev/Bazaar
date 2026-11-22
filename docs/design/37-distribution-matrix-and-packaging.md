@@ -136,3 +136,20 @@ Status: PROPOSED by the Client.Windows thread, 2026-11-17, pending owner review.
 - **Trust.** The client checks the hash first, then the signature, against the company certificate pinned into its build (section 4a). A downgrade or a same-version offer is refused; the client does not install it. Each failed check leaves the installed build in place.
 - **Rollback.** Unresolved here, as S-B5 asks. This contract does not change the installed build until both checks pass, so a failed check never leaves a half-applied update.
 - **Changes.** Any change to the route, the field names or the algorithm is a new docs section, not an edit to this one, so both sides can move together.
+
+## 4c. Update-trust values in the generated company identity
+
+Status: implements the owner's decision #622 (a client is bound to its server by a generated identity constant and a key pin; no pairing), docs PR #937 and doc 30 sections 4, 5 and 7. The Linux client updater (PR #942) and the release manifest contract (PR #941) are not merged on this base; this section fixes only what the generated identity carries for them.
+
+The generated `CompanyBuildIdentity` (section 4a, `Bazaar.CompanyIdentity`) carries four more values, so a client updater needs nothing from outside its own build to decide whom to trust:
+
+- `UpdateSigningKeyFingerprint`: lowercase hex, 40 or 64 characters. The rule is the one `ReleaseManifest.SigningKeyFingerprint` uses in `src/Bazaar.Contracts/Releases/ReleaseValidation.cs` (PR #941); it is copied here, not referenced, so the two stay independent until that PR lands.
+- `UpdateSigningPublicKey`: the ASCII-armoured OpenPGP public key text, embedded as a string constant. The generator also writes it to `UpdateSigningPublicKey.asc` next to the generated source. It must be non-empty and begin with `-----BEGIN PGP PUBLIC KEY BLOCK-----`. The updater compares the key's fingerprint with `UpdateSigningKeyFingerprint` before trusting it; that check lives in the updater, not the generator.
+- `IsOwnerInstall`: `bool`, default `false`. Only the owner's own build sets it. The updater consumes it to allow the Latest-Commit channel and nothing else.
+- `ReleaseManifestUrl`: an `https` URL on the company server's own origin (scheme, host and port equal to the baked `Address`), with no user information. Resolving a relative manifest address is the updater's rule; the generator accepts only the absolute, same-origin form.
+
+Rules:
+
+1. **Opt-in, fail closed.** The existing two-argument `CompanyServerIdentity.Create(address, pin)` is unchanged and builds an identity with no update support. A release build that asks for update support passes an `UpdateTrust` (`CompanyServerIdentity.Create(address, pin, update)`). A malformed fingerprint, an empty or unarmoured key, or a non-https, user-info or cross-origin manifest URL throws; the build stops, the way a bad pin does.
+2. **Same members always.** The generated type and the unset placeholder expose the same four members, so the updater compiles against either. Without update trust they are `null` and `false`, and the updater treats null as "no update support" and stays on the installed build.
+3. **Pure text.** Generation still compiles and runs nothing. The generated file starts with `#nullable enable`, because a file marked auto-generated otherwise has no nullable context.

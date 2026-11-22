@@ -77,9 +77,10 @@ internal static class AdminHelp
           setup apply --config <path> --plan-hash <hash> [--set path=value]... [--json]
               Apply the plan only when the hash matches the one the dry run printed. The entry path recorded in the
               audit row is cli when --set flags were used, env when only environment variables were, and file otherwise.
-              Apply is unavailable in this build: it has no durable audit store yet (doc 15 audit_log). After the
+              Apply needs a reachable, migrated database (doc 15 audit_log). Set BAZAAR__HOST__DATABASECONNECTIONREFERENCE to an
+              env: or file: reference for its connection string. Apply is unavailable when that database cannot be reached: after the
               file and hash checks pass, apply prints that it is unavailable, exits {(int)SetupExitCode.Held}, and changes nothing.
-              The Host adapter provides the audit store and turns apply on. Even then, no setup steps are built yet,
+              It runs under the setup instance lock and writes one hash-chained audit row. No setup steps are built yet,
               so a plan with changes would exit {(int)SetupExitCode.ApplyFailedRolledBack}.
 
         Options:
