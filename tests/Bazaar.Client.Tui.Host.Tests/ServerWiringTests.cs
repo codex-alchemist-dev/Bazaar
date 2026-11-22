@@ -61,8 +61,8 @@ public sealed class ServerWiringTests : IDisposable
         Assert.NotNull(wiring.Ports.Logs);
         Assert.NotNull(wiring.Ports.Events);
         Assert.NotNull(wiring.Ports.Audit);
-        Assert.Null(wiring.Ports.Status);
-        Assert.Null(wiring.Ports.Kodo);
+        Assert.NotNull(wiring.Ports.Status);
+        Assert.NotNull(wiring.Ports.Kodo);
     }
 
     [Fact]

@@ -19,6 +19,7 @@ using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Souls;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -56,6 +57,17 @@ public static class HostCompositionExtensions
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();
         services.AddHostedService<StartupSequence>();
+
+        // The doc 51 status port, and its file for the resident TUI (doc 58). An explicitly empty Bazaar:Ops:StatusFile turns the file off.
+        services.TryAddSingleton<IAdminStatusSource, HostAdminStatusSource>();
+        var statusFile = configuration["Bazaar:Ops:StatusFile"];
+        if (statusFile is not { Length: 0 })
+        {
+            var statusPath = AdminStatusFile.ResolvePath(statusFile, configuration["Bazaar:Ops:DataDirectory"]);
+            services.AddHostedService(sp => new AdminStatusFileService(
+                sp.GetRequiredService<IAdminStatusSource>(), statusPath, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<AdminStatusFileService>>()));
+        }
+
         return services;
     }
 
