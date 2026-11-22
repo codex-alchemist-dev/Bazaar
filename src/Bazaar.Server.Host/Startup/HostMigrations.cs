@@ -1,4 +1,5 @@
 using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Calendar;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
@@ -8,16 +9,17 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.OfflineSync.Postgres;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Postgres;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Setup, Agents), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Setup, Setup first-run, Agents, Calendar), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
-    /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents and Portability migrations, read from their assemblies.</summary>
+    /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents, Portability and GitHub migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
@@ -29,7 +31,10 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
+        new ComponentMigrationSource(typeof(PostgresFirstRunStore).Assembly),
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
+        new ComponentMigrationSource(typeof(CalendarComponent).Assembly),
         new ComponentMigrationSource(OfflineSyncPostgresServiceCollectionExtensions.MigrationAssembly));
 }

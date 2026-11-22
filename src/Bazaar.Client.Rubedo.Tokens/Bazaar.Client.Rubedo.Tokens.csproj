@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion\Bazaar.Client.Motion.csproj" />
   </ItemGroup>
 </Project>
