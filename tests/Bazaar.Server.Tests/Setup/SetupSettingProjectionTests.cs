@@ -15,9 +15,9 @@ public sealed class SetupSettingProjectionTests
         var projected = SetupSettingProjection.Project(ValidPlan());
 
         Assert.Equal(
-            ["host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel"],
+            ["deps.update.autoSecurityPatches", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel"],
             projected.Select(s => s.Key));
-        Assert.Equal(["settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "install.releaseChannel"], projected.Select(s => s.PlanPath));
+        Assert.Equal(["install.updatePolicy.security", "settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "install.releaseChannel"], projected.Select(s => s.PlanPath));
     }
 
     [Fact]
@@ -48,6 +48,7 @@ public sealed class SetupSettingProjectionTests
     [InlineData("network.statusPort", "host.status.port")]
     [InlineData("scamMailProtocol.enabled", "security.scam_mail.protocol_enabled")]
     [InlineData("install.releaseChannel", "update.channel")]
+    [InlineData("install.updatePolicy.security", "deps.update.autoSecurityPatches")]
     public void Each_mapped_plan_path_names_its_registry_key(string path, string key) =>
         Assert.Equal(key, SetupSettingProjection.DerivedKeyForPath(path));
 
@@ -74,5 +75,52 @@ public sealed class SetupSettingProjectionTests
         var result = SetupPlanLoader.Load(plan, RegistrySetupSettingCatalog.Known);
 
         Assert.Contains(result.Issues, issue => issue.Severity == SetupIssueSeverity.Error && issue.Path == "settings.update.channel" && issue.Message.Contains("already set by install.releaseChannel"));
+    }
+
+    [Theory]
+    [InlineData("automatic", JsonValueKind.True)]
+    [InlineData("manual", JsonValueKind.False)]
+    public void The_security_update_policy_projects_the_auto_patch_flag(string security, JsonValueKind expected)
+    {
+        var plan = new SetupPlan { Install = new SetupInstallSection { UpdatePolicy = new SetupUpdatePolicySection { Security = security } } };
+
+        var flag = Assert.Single(SetupSettingProjection.Project(plan), s => s.Key == "deps.update.autoSecurityPatches");
+
+        Assert.Equal(expected, flag.Value.ValueKind);
+        Assert.Equal("install.updatePolicy.security", flag.PlanPath);
+        Assert.True(RegistrySetupSettingCatalog.Known.TryGet(flag.Key, out var definition));
+        Assert.True(definition!.IsInstallScope);
+        Assert.Null(definition.CheckValue(flag.Value));
+        Assert.True(definition.Evaluate("setup:plan", flag.Value).Accepted);
+    }
+
+    [Theory]
+    [InlineData("manual", true)]
+    [InlineData("automatic", false)]
+    public void Only_a_manual_other_update_policy_is_backed(string other, bool backed)
+    {
+        var plan = new SetupPlan { Install = new SetupInstallSection { UpdatePolicy = new SetupUpdatePolicySection { Other = other } } };
+
+        Assert.Equal(backed, SetupSettingProjection.IsOtherUpdatePolicyBacked(plan));
+    }
+
+    [Fact]
+    public void An_automatic_other_update_policy_is_a_validation_error()
+    {
+        var plan = SetupFixtures.With("\"other\": \"manual\"", "\"other\": \"automatic\"");
+
+        var result = SetupPlanLoader.Load(plan, RegistrySetupSettingCatalog.Known);
+
+        Assert.Contains(result.Issues, issue => issue.Severity == SetupIssueSeverity.Error && issue.Path == "install.updatePolicy.other");
+    }
+
+    [Fact]
+    public void Setting_the_auto_patch_flag_in_the_settings_map_too_is_one_error()
+    {
+        var plan = SetupFixtures.With("\"settings\": { \"host.shutdown_timeout_seconds\": 20 }", "\"settings\": { \"deps.update.autoSecurityPatches\": true }");
+
+        var result = SetupPlanLoader.Load(plan, RegistrySetupSettingCatalog.Known);
+
+        Assert.Contains(result.Issues, issue => issue.Severity == SetupIssueSeverity.Error && issue.Path == "settings.deps.update.autoSecurityPatches" && issue.Message.Contains("already set by install.updatePolicy.security"));
     }
 }

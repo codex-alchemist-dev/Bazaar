@@ -248,6 +248,38 @@ A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.06
 
 Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.
 
+### 10.7 Procedural topology benchmark: draw path and density path (2026-11-19)
+Bench modes `topology-draw` and `topology-density`, Release, Intel Arc B580, offscreen 1280x720, 30 warm-up and 200 measured frames per cell (full per-frame splat: 10 frames at 100M, 3 at 1B and 2B, so its p95 and p99 are the maximum). Nodes and edges are generated in the shaders from the node index (`Shaders/topology.glsl`), so nothing is stored. Topologies: uniform random, clustered (64 gaussian blobs), power-law hub and spoke (1024 hubs), grid or lattice, chain or ring, each with one outgoing edge per node. 2D orthographic and 3D perspective (reversed-Z, no depth test), three viewpoints each (whole, mid zoom, close zoom). GPU times are the sum of per-pass timestamps; per-pass medians are in the CSV. Raw CSVs: `tests/Bazaar.Constellation.Vulkan.Bench/results/topo-draw.csv` (150 cells) and `topo-density.csv` (210 cells), one run each.
+
+**Draw path** (M stride-sampled points plus 1 000 000 line segments, no culling). 76 of 150 cells meet GPU p95 <= 2.5 ms and p99 <= 3.3 ms. Cost does not depend on the node count: at M = 1M, N = 100M, 1B and 2B agree within a few percent for the same topology. The edge pass is the larger pass in 52 of the 74 failing cells: uniform random edges cost about 6 ms (2D whole), 6 ms (mid) and 17 ms (2D close); hub and spoke 4 to 7 ms in 2D whole and mid. Points cost about 0.42 ms per million when spread out, but pile up on a thin curve: the ring costs 4.2, 14.5 and 40.1 ms at 0.5M, 1M and 2M points in 2D whole (same-pixel overdraw).
+
+**Density path.** Three variants, all ending in one fullscreen shade of a 1280x720 count grid:
+- Full per-frame splat of every node, generated from its index: 3.1 to 74.7 ms at 100M (median 10.5), 37 to 918 ms at 1B (median 67), 58 to 2 316 ms at 2B (median 90). The worst cases are the grid and the ring in 2D, where many nodes land in one cell and the atomic adds serialise. None of the 30 cells meets the target.
+- Aggregate: the graph is binned once into a voxel grid (2D 2048x2048, 3D 160^3, 16 MiB), then each frame projects the non-empty voxels into the screen grid. Build (one time) takes 4 to 1 438 ms. Clear, reproject and shade together cost at most 1.1 ms in any of the 90 cells (p50) and do not depend on N. 54 of 90 cells meet the target; in every one of the 36 misses the 1M-edge line pass is the larger part.
+- Cached (camera still, grid already built): shade plus the edge pass only; 55 of 90 cells meet the target.
+
+**Limits of what was measured.**
+- The aggregate grid has a fixed resolution; at the close viewpoint one voxel covers many pixels, so a real close view would need a finer tile level. The cost shown for close is that of the coarse grid, not of a close-zoom tile selection.
+- Edges are a fixed stride sample drawn every frame, not culled and not bundled; this is the baseline the culling and bundling work has to beat.
+- The draw cells use no tile selection (`ViewSelector`) and no compute culling or indirect draws yet.
+- Wall-clock p99 shows 5 to 70 ms hitches in many cells whose GPU p99 is under 1 ms (121 of 150 draw cells have wall p99 above 3.3 ms); the cause was not isolated.
+- Single run per cell; run-to-run spread is not measured here (section 10.3 shows the small rows vary by up to a factor of two between runs).
+
+### 10.8 Edge pass options (2026-11-19)
+Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M points drawn every frame, 5 topologies x 2D and 3D x 3 viewpoints (30 cells per option; one run each). Section 11.1 asks for a default cap of 100k edges and no far-zoom line drawing. Results (GPU p95 <= 2.5 ms and p99 <= 3.3 ms counts as meeting the target):
+
+| Option | Cells meeting | Edge pass p50, median / max (ms) | Total GPU p50, median / max (ms) |
+|---|---|---|---|
+| a. 100k edges, plain line list | 24 of 30 | 0.05 / 3.13 | 0.85 / 14.5 |
+| b. 100k edges, screen-length LOD (drop below 2 px or above 400 px, or behind the camera) | 24 of 30 | 0.03 / 0.98 | 0.80 / 14.5 |
+| b'. 1M edges with the same LOD | 19 of 30 | 0.36 / 5.71 | 1.51 / 14.5 |
+| c. edges baked into the aggregate grid at build (4M sampled edges, 32 points each), no lines per frame (no points drawn either) | 30 of 30 | 0 | 0.14 / 0.65 |
+
+- The 100k cap alone fixes most of the 1M-edge cost found in 10.7 (uniform 2D whole went from 6.0 ms to 0.6 ms). The remaining edge-pass cost is 3.1 ms for uniform 2D mid and close, because the edges are long.
+- The screen-length LOD removes those long edges: uniform 2D close 3.1 ms to 0.02 ms, uniform 3D close 1.6 ms to 0.01 ms. It does not fix uniform 2D mid (still 3.07 ms p95 over the target), and it moves clustered and hub and spoke 2D whole slightly higher (edge pass 0.33 to 0.69 ms and 0.75 to 0.98 ms) because the vertex shader now projects both endpoints.
+- With LOD, 1M edges still miss in 11 cells (hub and spoke 2D whole 10.5 ms, uniform 2D whole 9.4 ms): the LOD range keeps many mid-length edges.
+- Option c has no per-frame edge cost. Its cost moves to build time (46 to 777 ms for the baked edges, on top of the node build in 10.7) and its image is edge density in the grid, not lines. It is also a different frame: it draws no points.
+- The remaining misses in a and b are not edges. The ring topology piles its points on a thin curve (14.5 ms 2D whole, 8.6 ms 3D whole, 2.9 ms 3D mid), which is point overdraw, not edge cost.
 
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
 
