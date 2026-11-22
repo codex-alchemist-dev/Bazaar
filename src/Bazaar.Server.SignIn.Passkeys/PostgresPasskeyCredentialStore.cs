@@ -34,6 +34,44 @@ public sealed class PostgresPasskeyCredentialStore(NpgsqlDataSource dataSource) 
         return new PasskeyCredential(reader.GetGuid(0), reader.GetGuid(1), (byte[])reader[2], (byte[])reader[3], reader.GetInt64(4));
     }
 
+    /// <summary>The ids of a person's live credentials. Parameter: human id.</summary>
+    public const string IdsSql = "SELECT credential_id FROM passkey_credential WHERE human_id = $1 AND revoked_at IS NULL";
+
+    /// <summary>The insert. Parameters: id, human id, credential id, public key, sign count.</summary>
+    public const string AddSql = """
+        INSERT INTO passkey_credential (id, human_id, credential_id, public_key, sign_count)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (credential_id) DO NOTHING
+        """;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<byte[]>> CredentialIdsAsync(Guid humanId, CancellationToken cancellationToken = default)
+    {
+        await using var command = dataSource.CreateCommand(IdsSql);
+        command.Parameters.Add(new NpgsqlParameter { Value = humanId });
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        var ids = new List<byte[]>();
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            ids.Add((byte[])reader[0]);
+        }
+
+        return ids;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AddAsync(PasskeyCredential credential, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(credential);
+        await using var command = dataSource.CreateCommand(AddSql);
+        command.Parameters.Add(new NpgsqlParameter { Value = credential.Id });
+        command.Parameters.Add(new NpgsqlParameter { Value = credential.HumanId });
+        command.Parameters.Add(new NpgsqlParameter { Value = credential.CredentialId });
+        command.Parameters.Add(new NpgsqlParameter { Value = credential.PublicKey });
+        command.Parameters.Add(new NpgsqlParameter { Value = credential.SignCount });
+        return await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) == 1;
+    }
+
     /// <inheritdoc />
     public async Task<bool> TryAdvanceSignCountAsync(Guid id, long expected, long updated, CancellationToken cancellationToken = default)
     {

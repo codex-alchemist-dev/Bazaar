@@ -16,6 +16,15 @@ public class PasskeyAssertionVerifierTests
         public Task<PasskeyCredential?> FindAsync(byte[] credentialId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Credentials.FirstOrDefault(c => c.CredentialId.SequenceEqual(credentialId)));
 
+        public Task<IReadOnlyList<byte[]>> CredentialIdsAsync(Guid humanId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<byte[]>>(Credentials.Where(c => c.HumanId == humanId).Select(c => c.CredentialId).ToList());
+
+        public Task<bool> AddAsync(PasskeyCredential credential, CancellationToken cancellationToken = default)
+        {
+            Credentials.Add(credential);
+            return Task.FromResult(true);
+        }
+
         public Task<bool> TryAdvanceSignCountAsync(Guid id, long expected, long updated, CancellationToken cancellationToken = default)
         {
             var i = Credentials.FindIndex(c => c.Id == id);
@@ -157,6 +166,10 @@ public class PasskeyAssertionVerifierTests
     private sealed class RacingStore(MemoryStore inner) : IPasskeyCredentialStore
     {
         public Task<PasskeyCredential?> FindAsync(byte[] credentialId, CancellationToken cancellationToken = default) => inner.FindAsync(credentialId, cancellationToken);
+
+        public Task<IReadOnlyList<byte[]>> CredentialIdsAsync(Guid humanId, CancellationToken cancellationToken = default) => inner.CredentialIdsAsync(humanId, cancellationToken);
+
+        public Task<bool> AddAsync(PasskeyCredential credential, CancellationToken cancellationToken = default) => inner.AddAsync(credential, cancellationToken);
 
         public Task<bool> TryAdvanceSignCountAsync(Guid id, long expected, long updated, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }

@@ -64,3 +64,44 @@ internal sealed class SoftwareAuthenticator
 
     public static string B64(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }
+
+internal static class SoftwareAttestation
+{
+    /// <summary>Builds a "none" attestation response for the creation options JSON the server issued, signed by <paramref name="device"/>.</summary>
+    public static string Create(SoftwareAuthenticator device, string optionsJson, string rpId, string origin, byte flags = 0x45, string type = "webauthn.create")
+    {
+        using var doc = JsonDocument.Parse(optionsJson);
+        var challenge = doc.RootElement.GetProperty("challenge").GetString()!;
+
+        var cose = device.CosePublicKey;
+        var authData = new List<byte>();
+        authData.AddRange(SHA256.HashData(Encoding.UTF8.GetBytes(rpId)));
+        authData.Add(flags);
+        authData.AddRange(new byte[] { 0, 0, 0, 0 });
+        authData.AddRange(new byte[16]);
+        authData.Add((byte)(device.CredentialId.Length >> 8));
+        authData.Add((byte)device.CredentialId.Length);
+        authData.AddRange(device.CredentialId);
+        authData.AddRange(cose);
+
+        var w = new CborWriter(CborConformanceMode.Ctap2Canonical);
+        w.WriteStartMap(3);
+        w.WriteTextString("fmt"); w.WriteTextString("none");
+        w.WriteTextString("attStmt"); w.WriteStartMap(0); w.WriteEndMap();
+        w.WriteTextString("authData"); w.WriteByteString(authData.ToArray());
+        w.WriteEndMap();
+
+        var clientData = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { type, challenge, origin, crossOrigin = false }));
+        return JsonSerializer.Serialize(new
+        {
+            id = SoftwareAuthenticator.B64(device.CredentialId),
+            rawId = SoftwareAuthenticator.B64(device.CredentialId),
+            type = "public-key",
+            response = new
+            {
+                attestationObject = SoftwareAuthenticator.B64(w.Encode()),
+                clientDataJSON = SoftwareAuthenticator.B64(clientData),
+            },
+        });
+    }
+}

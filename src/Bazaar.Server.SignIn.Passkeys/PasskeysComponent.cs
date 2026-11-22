@@ -36,6 +36,15 @@ public sealed class PasskeysComponent : IBazaarComponent
         services.TryAddSingleton(options);
         services.TryAddSingleton<IPasskeyCredentialStore>(sp => new PostgresPasskeyCredentialStore(sp.GetRequiredService<NpgsqlDataSource>()));
 
+        // With no host binding the caller refuses every token, so enrolment answers the generic refusal rather than 501 or a guess.
+        services.TryAddSingleton<IEnrolmentCaller, RefusingEnrolmentCaller>();
+        services.TryAddSingleton<IPasskeyEnrolment>(sp => new PasskeyEnrolmentService(
+            sp.GetRequiredService<IPasskeyCredentialStore>(),
+            sp.GetRequiredService<IEnrolmentCaller>(),
+            sp.GetRequiredService<PasskeyOptions>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System,
+            sp.GetService<Bazaar.Server.Security.Audit.IAuditLog>()));
+
         var existing = services.LastOrDefault(d => d.ServiceType == typeof(IPasskeyAssertionVerifier));
         if (existing is null || existing.ImplementationType == typeof(DenyAllPasskeyVerifier))
         {
@@ -43,4 +52,11 @@ public sealed class PasskeysComponent : IBazaarComponent
                 new PasskeyAssertionVerifier(sp.GetRequiredService<IPasskeyCredentialStore>(), sp.GetRequiredService<PasskeyOptions>())));
         }
     }
+}
+
+/// <summary>Default <see cref="IEnrolmentCaller"/>: refuses every token until the host binds a real one.</summary>
+public sealed class RefusingEnrolmentCaller : IEnrolmentCaller
+{
+    /// <inheritdoc />
+    public Task<EnrolmentPerson?> ResolveAsync(string bearerToken, CancellationToken cancellationToken = default) => Task.FromResult<EnrolmentPerson?>(null);
 }
