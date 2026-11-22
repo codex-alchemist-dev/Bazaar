@@ -121,11 +121,13 @@ github_pr(pr_node_id text pk, repo_node_id text, number int, gc_id uuid unique,
           task_id uuid null, head_sha char(40), base_ref text, state text, draft bool,
           updated_at timestamptz)
 github_delivery(source text, delivery_id text, event text, received_at timestamptz,
-                processed_at timestamptz null, primary key (source, delivery_id))
+                processed_at timestamptz null, primary key (source, delivery_id),
+                payload jsonb null, event_type text null,
+                process_attempts int, next_attempt_at timestamptz null, process_error text null)
 github_rate_state(installation_id bigint, bucket text, remaining int, reset_at timestamptz)
 ```
 
-Delivery rows keep the raw JSON body (`payload jsonb`, null when the body is not JSON) and the event type (`event_type text`), so the PR service and the event mapper read from the table and never need GitHub again. Retention follows the audit rule: rows are kept forever by default, they are crypto-shredded on erasure, and there is no sweeper. A replay never overwrites the first stored payload.
+Delivery rows keep the raw JSON body (`payload jsonb`, null when the body is not JSON) and the event type (`event_type text`), so the PR service and the event mapper read from the table and never need GitHub again. Retention follows the audit rule: rows are kept forever by default, they are crypto-shredded on erasure, and there is no sweeper. A replay never overwrites the first stored payload. The webhook processor claims unprocessed rows with `FOR UPDATE SKIP LOCKED`, counts attempts, retries a failed sink call after `next_attempt_at`, and marks an unparseable row processed with the reason in `process_error`. Webhook rows (`source = github`, key is the delivery guid) and polled rows (`source = poll`, key is the event id) dedupe separately and are not unified.
 
 GC entries for PR events follow the 01 `gc_event` / `gc_message` model (C09). Inbox items are owned by 06 (C04). The owner's merge credential is stored by 14, not in these tables.
 

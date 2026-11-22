@@ -1,6 +1,7 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
 using Bazaar.GitHub.Ingress;
+using Bazaar.GitHub.Processing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -61,6 +62,19 @@ public static class GitHubRegistration
             sp.GetRequiredService<IGitHubEventSink>(),
             sp.GetRequiredService<ILogger<GitHubEventsPollingService>>(),
             sp.GetService<TimeProvider>())));
+        // Webhook processor (doc 21, Ingress): reads stored github_delivery rows. Idle unless a real sink and a database exist.
+        services.TryAddSingleton(section.GetSection("Processor").Get<GitHubWebhookProcessorOptions>() ?? new GitHubWebhookProcessorOptions());
+        services.TryAddSingleton<IGitHubDeliveryInbox>(sp => new PgGitHubDeliveryInbox(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, GitHubWebhookProcessingService>(sp =>
+        {
+            var sink = sp.GetRequiredService<IGitHubEventSink>();
+            var options = sp.GetRequiredService<GitHubWebhookProcessorOptions>();
+            var processor = sink is not UnwiredGitHubEventSink && sp.GetService<NpgsqlDataSource>() is not null
+                ? new GitHubWebhookProcessor(sp.GetRequiredService<IGitHubDeliveryInbox>(), sink, sp.GetRequiredService<GitHubIngressOptions>(),
+                    options, sp.GetRequiredService<ILogger<GitHubWebhookProcessor>>(), sp.GetService<TimeProvider>())
+                : null;
+            return new GitHubWebhookProcessingService(processor, options, sink, sp.GetRequiredService<ILogger<GitHubWebhookProcessingService>>(), sp.GetService<TimeProvider>());
+        }));
         services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.GitHub.Webhooks.GitHubWebhookOptions());
 
         var identityBase = section["IdentityService:BaseAddress"];
