@@ -14,9 +14,12 @@ namespace Bazaar.Server.Git.Reads;
 /// 409 <c>head_moved</c> with the current sha, 429 <c>rate_limited</c> with <c>Retry-After</c>, 502 <c>forge_unavailable</c>.
 /// </summary>
 /// <remarks>
-/// Limit: the repo is one path segment, so a GitLab project in a nested subgroup (<c>group/sub/project</c>) cannot be addressed.
-/// A catch-all would have to sit before the fixed <c>/prs</c> suffix, which ASP.NET routing does not allow. A later route shape
-/// (for example a query parameter or an encoded project id) must lift this limit.
+/// Nested owners (doc 52, PROPOSED): <c>GET /git/gitlab/repos/{**path}</c> takes a GitLab subgroup project such as
+/// <c>group/sub/sub2/project</c>. ASP.NET cannot put a catch-all in front of a fixed suffix, so one catch-all route parses the
+/// fixed tail (<c>prs</c>, <c>prs/{n}</c>, <c>prs/{n}/files</c>, <c>prs/{n}/checks</c>) off the end of the path and the repo is
+/// everything before it. Only providers in <see cref="_nestedOwnerProviders"/> may name a repo with more than one owner segment;
+/// for every other provider such a path has no route (404), as before. Clients send literal slashes: an encoded <c>%2F</c> stays
+/// inside one segment (Kestrel keeps it), so it matches no route.
 /// </remarks>
 public static partial class GitReadRoutes
 {
@@ -29,6 +32,15 @@ public static partial class GitReadRoutes
     [GeneratedRegex(@"^[0-9a-fA-F]{40}\z", RegexOptions.CultureInvariant)]
     internal static partial Regex ShaRegex();
 
+    [GeneratedRegex(@"^[0-9]+\z", RegexOptions.CultureInvariant)]
+    private static partial Regex NumberRegex();
+
+    /// <summary>Providers whose repos may have nested owners (GitLab subgroups). Every other provider keeps one owner segment.</summary>
+    private static readonly string[] _nestedOwnerProviders = ["gitlab"];
+
+    /// <summary>The most segments a repo path may have: GitLab allows twenty groups above a project.</summary>
+    private const int _maxRepoSegments = 21;
+
     public static IEndpointRouteBuilder MapBazaarGitReads(this IEndpointRouteBuilder app, Func<RouteHandlerBuilder, RouteHandlerBuilder> guard)
     {
         ArgumentNullException.ThrowIfNull(app);
@@ -40,19 +52,24 @@ public static partial class GitReadRoutes
 
         guard(app.MapGet("/git/{provider}/repos/{owner}/{repo}/prs",
             (string provider, string owner, string repo, string? state, int? page, int? pageSize, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
-                ListAsync(provider, owner, repo, state, page, pageSize, reads, logs, ct)));
+                ListAsync(provider, $"{owner}/{repo}", state, page, pageSize, reads, logs, ct)));
 
         guard(app.MapGet("/git/{provider}/repos/{owner}/{repo}/prs/{n}",
             (string provider, string owner, string repo, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
-                PrAsync(provider, owner, repo, n, reads, logs, ct)));
+                PrAsync(provider, $"{owner}/{repo}", n, reads, logs, ct)));
 
         guard(app.MapGet("/git/{provider}/repos/{owner}/{repo}/prs/{n}/files",
             (string provider, string owner, string repo, string n, string? head, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
-                FilesAsync(provider, owner, repo, n, head, reads, logs, ct)));
+                FilesAsync(provider, $"{owner}/{repo}", n, head, reads, logs, ct)));
 
         guard(app.MapGet("/git/{provider}/repos/{owner}/{repo}/prs/{n}/checks",
             (string provider, string owner, string repo, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
-                ChecksAsync(provider, owner, repo, n, reads, logs, ct)));
+                ChecksAsync(provider, $"{owner}/{repo}", n, reads, logs, ct)));
+
+        // The catch-all sits last: ASP.NET ranks it below the fixed routes above, so one-segment owners never reach it.
+        guard(app.MapGet("/git/{provider}/repos/{**path}",
+            (string provider, string path, string? state, int? page, int? pageSize, string? head, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
+                NestedAsync(provider, path, state, page, pageSize, head, reads, logs, ct)));
 
         return app;
     }
@@ -70,9 +87,78 @@ public static partial class GitReadRoutes
             return Results.Json(dtos, GitReadContractsJsonContext.Default.GitRepoDtoArray);
         });
 
-    internal static Task<IResult> ListAsync(string provider, string owner, string repo, string? state, int? page, int? pageSize, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    /// <summary>The fixed tail of a nested repo path, after the repo itself.</summary>
+    private enum NestedTail
     {
-        if (!ValidRepo(provider, owner, repo))
+        List,
+        Pr,
+        Files,
+        Checks,
+    }
+
+    internal static Task<IResult> NestedAsync(string provider, string path, string? state, int? page, int? pageSize, string? head, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    {
+        if (!SplitNested(path, out var fullName, out var tail, out var n))
+            return Task.FromResult(Results.NotFound());
+
+        // A repo with more owner segments than GitHub allows has no route for that provider, so it stays a plain 404.
+        if (fullName.Split('/').Length > 2 && !_nestedOwnerProviders.Contains(provider, StringComparer.Ordinal))
+            return Task.FromResult(Results.NotFound());
+
+        return tail switch
+        {
+            NestedTail.List => ListAsync(provider, fullName, state, page, pageSize, reads, logs, ct),
+            NestedTail.Pr => PrAsync(provider, fullName, n, reads, logs, ct),
+            NestedTail.Files => FilesAsync(provider, fullName, n, head, reads, logs, ct),
+            _ => ChecksAsync(provider, fullName, n, reads, logs, ct),
+        };
+    }
+
+    /// <summary>
+    /// Splits <c>{repo}/prs[/{n}[/files|/checks]]</c> into the repo and its tail. The fixed suffix is matched from the end, so the
+    /// repo may hold any number of slashes, and a project named <c>prs</c> still resolves. A PR suffix needs a numeric <paramref name="n"/>;
+    /// any other shape is not a route.
+    /// </summary>
+    private static bool SplitNested(string path, out string fullName, out NestedTail tail, out string n)
+    {
+        var segments = path.Split('/');
+        var count = segments.Length;
+        fullName = string.Empty;
+        tail = NestedTail.List;
+        n = string.Empty;
+
+        int suffix;
+        if (count >= 5 && segments[^3] == "prs" && IsNumber(segments[^2]) && segments[^1] == "files")
+        {
+            (suffix, tail, n) = (3, NestedTail.Files, segments[^2]);
+        }
+        else if (count >= 5 && segments[^3] == "prs" && IsNumber(segments[^2]) && segments[^1] == "checks")
+        {
+            (suffix, tail, n) = (3, NestedTail.Checks, segments[^2]);
+        }
+        else if (count >= 4 && segments[^2] == "prs" && IsNumber(segments[^1]))
+        {
+            (suffix, tail, n) = (2, NestedTail.Pr, segments[^1]);
+        }
+        else if (count >= 3 && segments[^1] == "prs")
+        {
+            (suffix, tail) = (1, NestedTail.List);
+        }
+        else
+        {
+            return false;
+        }
+
+        // The suffix length already keeps at least two segments for the repo.
+        fullName = string.Join('/', segments, 0, count - suffix);
+        return true;
+    }
+
+    private static bool IsNumber(string text) => NumberRegex().IsMatch(text);
+
+    internal static Task<IResult> ListAsync(string provider, string fullName, string? state, int? page, int? pageSize, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    {
+        if (!ValidRepo(provider, fullName))
             return Task.FromResult(BadRequest("bad_repo"));
 
         PrState? parsed = null;
@@ -88,14 +174,14 @@ public static partial class GitReadRoutes
 
         return Run(logs, async () =>
         {
-            var dto = await reads.ListPrsAsync(new RepoRef(provider, $"{owner}/{repo}"), parsed, page ?? 1, pageSize, ct).ConfigureAwait(false);
+            var dto = await reads.ListPrsAsync(new RepoRef(provider, fullName), parsed, page ?? 1, pageSize, ct).ConfigureAwait(false);
             return Results.Json(dto, GitReadContractsJsonContext.Default.GitPrPageDto);
         });
     }
 
-    internal static Task<IResult> PrAsync(string provider, string owner, string repo, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    internal static Task<IResult> PrAsync(string provider, string fullName, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
     {
-        if (!ValidPr(provider, owner, repo, n, out var pr))
+        if (!ValidPr(provider, fullName, n, out var pr))
             return Task.FromResult(BadRequest("bad_request"));
 
         return Run(logs, async () =>
@@ -105,9 +191,9 @@ public static partial class GitReadRoutes
         });
     }
 
-    internal static Task<IResult> FilesAsync(string provider, string owner, string repo, string n, string? head, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    internal static Task<IResult> FilesAsync(string provider, string fullName, string n, string? head, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
     {
-        if (!ValidPr(provider, owner, repo, n, out var pr))
+        if (!ValidPr(provider, fullName, n, out var pr))
             return Task.FromResult(BadRequest("bad_request"));
         if (head is null || !ShaRegex().IsMatch(head))
             return Task.FromResult(BadRequest("bad_head"));
@@ -119,9 +205,9 @@ public static partial class GitReadRoutes
         });
     }
 
-    internal static Task<IResult> ChecksAsync(string provider, string owner, string repo, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
+    internal static Task<IResult> ChecksAsync(string provider, string fullName, string n, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
     {
-        if (!ValidPr(provider, owner, repo, n, out var pr))
+        if (!ValidPr(provider, fullName, n, out var pr))
             return Task.FromResult(BadRequest("bad_request"));
 
         return Run(logs, async () =>
@@ -180,20 +266,30 @@ public static partial class GitReadRoutes
     private static IResult BadRequest(string error) =>
         Results.Json(new Dictionary<string, string> { ["error"] = error }, ErrorContext.Default.DictionaryStringString, statusCode: StatusCodes.Status400BadRequest);
 
-    internal static bool ValidRepo(string provider, string owner, string repo) =>
-        ProviderRegex().IsMatch(provider) && SegmentRegex().IsMatch(owner) && SegmentRegex().IsMatch(repo);
+    /// <summary>A provider id and a repo of two to <see cref="_maxRepoSegments"/> segments, each one a valid name.</summary>
+    internal static bool ValidRepo(string provider, string fullName)
+    {
+        if (!ProviderRegex().IsMatch(provider))
+            return false;
 
-    internal static bool ValidPr(string provider, string owner, string repo, string n, out PrRef pr)
+        var segments = fullName.Split('/');
+        return segments.Length is >= 2 and <= _maxRepoSegments && segments.All(s => SegmentRegex().IsMatch(s));
+    }
+
+    internal static bool ValidPr(string provider, string owner, string repo, string n, out PrRef pr) =>
+        ValidPr(provider, owner + "/" + repo, n, out pr);
+
+    internal static bool ValidPr(string provider, string fullName, string n, out PrRef pr)
     {
         pr = null!;
-        if (!ValidRepo(provider, owner, repo)
+        if (!ValidRepo(provider, fullName)
             || !long.TryParse(n, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var number)
             || number <= 0)
         {
             return false;
         }
 
-        pr = new PrRef(provider, $"{owner}/{repo}", number);
+        pr = new PrRef(provider, fullName, number);
         return true;
     }
 }
