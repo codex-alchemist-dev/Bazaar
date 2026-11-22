@@ -169,3 +169,6 @@ Decided by the owner's full-control instruction of 2026-11-16 ("decide yourself,
 
 Docs section this implements: this section; doc 02 (message types); doc 29, work package 9.
 
+## Board names [PROPOSED, 2026-11-22]
+
+A board is a `projectId`; `kanban_project (project_id, name)` stores its display name (module-namespace migration, no foreign key from `tasks` so older tasks keep working). `IBoardDirectoryReader` in `Bazaar.RyuseiFuda.Abstractions` lists boards that have tasks or a name row; a board without a name row shows as `Project <first 8 hex digits>`. Consumers today: the Org read route (doc 24 section 5). Creating and renaming boards is a later Kanban change.
