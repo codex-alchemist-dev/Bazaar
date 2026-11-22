@@ -5,7 +5,16 @@ using Npgsql;
 
 namespace Bazaar.Server.SchemaIdentity.Tests;
 
-public sealed class SchemaDb : PgFixture, IAsyncLifetime;
+public sealed class SchemaDb : PgFixture, IAsyncLifetime
+{
+    public override async ValueTask InitializeAsync()
+    {
+        // Windows without BAZAAR_TEST_PG has no PostgreSQL; the tests skip themselves, so the fixture must not try to start one.
+        if (PgSource.IsUnsupportedHost)
+            return;
+        await base.InitializeAsync();
+    }
+}
 
 public sealed class PostgresSchemaIdentityProviderTests(SchemaDb db) : IClassFixture<SchemaDb>
 {
