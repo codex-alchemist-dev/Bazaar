@@ -154,12 +154,12 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server/Gateway` |
+| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server.Gateway` |
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
 | Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
-| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
+| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server.Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 
@@ -173,7 +173,8 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
-| Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21` |
+| Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |
+| Git Solar System client | Bazaar.Client.GitSolarSystem (+ .Abstractions): branch orbits, commit bodies and merge comets, from the server's git DAG and orbit layout. | Planned (in progress, 2026-11-18) | `docs/design/19` (Git Solar System client module) |
 | GitLab integration | GitLab as a second git provider on the GitHub contract. | Planned (v1 scope, owner 2026-11-16) | `docs/design/21`, `41` section 4.14 |
 
 ## 10. Storage, backup and platform packaging
@@ -229,7 +230,7 @@ These merged after the 2026-11-09 baseline. Each row names the PRs that landed i
 | Secrets | A per-agent secret store with scopes and audit-first gating (#546), a per-purpose policy table that denies by default (#568), a Secret Service key-encryption provider on Linux (#569) and a Windows key-encryption provider on CNG, using TPM where available (#570). | Partial (store, policy and both key providers merged; the agent credential issuer is still a fail-closed default) | `src/Bazaar.Secrets`, `src/Bazaar.Secrets.Windows`, `docs/design/14` |
 | Audit | Audit rows with a hash chain, signed checkpoints persisted in Postgres (#554), Merkle checkpoints (#532), an inclusion-proof file with an offline verifier (#582) and external anchoring of checkpoints (#573). | Partial (checkpoints and proofs shipped; anchoring slice 2 merged) | `docs/design/48` §10, `src/Bazaar.Server/Security` |
 | Recovery | A sealed recovery bundle with file export and import (#583), a backup-owner quorum policy and a recovery case state machine (#571), and a FIDO2 hardware-key assertion verifier (#584). | Partial (bundle, quorum and verifier merged; applying a restore is out of scope for now) | `docs/design/48`, `docs/design/49` |
-| Module manager | Update policy, channels, dependencies, trust and line moves (#526, #549); auto-restore after a failed line-move switch and bounded retries (#558); operator-configurable retry policy (#567); owner policy document. | Partial (foundations, rollback, dry-run steps and release rings with a health gate are in code; full canary rollout and dry-run migrations still open) | `src/Bazaar.Server.Modules` (implementation) and `src/Bazaar.Server.Modules.Abstractions` (health contract, retry policy, setting names); `ModuleManagerSettings` and `src/Bazaar.Server/Data/Sql/modules` stay in `src/Bazaar.Server`; `docs/design/42`, `docs/design/41b` |
+| Module manager | Update policy, channels, dependencies, trust and line moves (#526, #549); auto-restore after a failed line-move switch and bounded retries (#558); operator-configurable retry policy (#567); owner policy document. | Partial (foundations, rollback, dry-run steps and release rings with a health gate are in code; full canary rollout and dry-run migrations still open) | `src/Bazaar.Server.Modules` (implementation, the settings contribution `ModuleManagerSettingContribution` and the SQL under `Sql/modules`) and `src/Bazaar.Server.Modules.Abstractions` (health contract, retry policy, setting names); `docs/design/42`, `docs/design/41b` |
 | Setup plan | Headless setup plan, canonical hash and `bazaar-setup.json` validation (#548). | Partial (plan and validation merged; the wizard is open) | `src/Bazaar.Server/Setup`, `docs/design/45` |
 | Client self-update | A platform-neutral self-update core (#552). | Partial (core merged; per-platform install open) | `src/Bazaar.Client.Core`, `docs/design/37` |
 | Telemetry and crash reporting | Wave 1 (error codes, redaction, fingerprints, #519) and wave 2 (crash DTOs, capture core, consent model, #550). | Partial (waves 1 and 2 merged as contracts and capture core; server-side GitHub filing and LLM diagnosis are Planned, not in code) | `docs/design/43` |

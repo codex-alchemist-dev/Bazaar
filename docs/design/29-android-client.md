@@ -63,7 +63,7 @@ Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `IT
 | Sketch on Constellation | No | Bottom drawer |
 | Voice idea | Owner-tagged text to the owner "Ideas" GC (a registry type, doc 01) | Same |
 
-Kanban moves carry the board revision. A stale move is rejected and the board is re-fetched.
+Kanban moves carry the board revision. A stale move is rejected and the board is re-fetched. The wire shape (`board.move`, the per-card `revision`) is DECIDED in doc 12, Card revision and client move command.
 
 ### Background delivery [PROPOSED]
 The socket is open only while the app is foreground or unfolded. The server sends a bare wake hint (no GC id, no sequence, no content) for an @mention, a DM or an owner decision, coalesced per device (limits in doc 02; wake reasons owned by doc 06). The phone wakes, opens a short authenticated socket, runs `hello` and `subscribe` from its cursors, posts a local notification and closes. Where FCM is the selected provider, owner-facing wakes use its notification message type, not high-priority data messages (Doze docs; exact API to verify). The lock screen shows only "Bazaar: something needs you". No keep-alive foreground service is planned. The provider is setting `android.push_provider` (default UnifiedPush [PROPOSED], needs counsel: FCM routes wake-up timing through Google; FCM remains selectable).

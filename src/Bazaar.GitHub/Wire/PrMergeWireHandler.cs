@@ -34,7 +34,7 @@ public sealed class PrMergeWireHandler : IWireRequestHandler
     /// and the internal merge executor.
     /// </summary>
     public PrMergeWireHandler(GitHubAdapter adapter, IGitHubPrReadModel reads, IOwnerSignatureVerifier verifier, TimeProvider? time = null)
-        : this(adapter, reads, new OwnerSignedMerge(adapter, adapter, reads, verifier, time), time)
+        : this(adapter, reads, new OwnerSignedMerge(adapter, adapter, verifier, time), time)
     {
     }
 

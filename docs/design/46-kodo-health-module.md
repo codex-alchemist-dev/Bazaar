@@ -128,22 +128,35 @@ The brief's requirement is: signed and verified on every start, read-only runtim
 ### 6.1 Signed manifest
 
 - Every file in a Kodo slot (binaries, managed assemblies, runbook files, probe catalogue, default settings file, the sentinel's verifier) is listed in `kodo.manifest.json` with its SHA-256 and size.
-- The manifest is signed with the Bazaar release signing key (kept on the server build machine, doc 37). The signature is a detached signature over the canonical JSON of the manifest (RFC 8785 canonicalisation). The manifest also carries the Kodo version, the protocol version of the health contract (section 10), the build commit and the SBOM digest (doc 37).
+- The manifest is signed with the Bazaar release signing key (kept on the server build machine, doc 37). The signature is a detached signature over the canonical JSON of the manifest (RFC 8785 canonicalisation). The algorithm is RSASSA-PKCS1-v1_5 with SHA-256, the one doc 37 names for signed release manifests, behind a verifier interface. The canonical form is the Bazaar profile in `src/Bazaar.Kodo/Runtime` (fixed property order, no whitespace, file list sorted by path). It is not RFC 8785 yet, so matching RFC 8785 is an open item. This paragraph is PROPOSED. The manifest also carries the Kodo version, the protocol version of the health contract (section 10), the build commit and the SBOM digest (doc 37).
 - The install trust root is a set of public keys pinned at install time in the sentinel's configuration, with key ids and a validity window. A manifest signed by an unknown key is rejected. Rotation adds a new key under an old-key signature, and a revoked key list is itself signed.
 - Verification runs at four points: every start (before any Kodo code loads), on a timer (default every 5 minutes), before every control action from the Responder, and before any slot switch.
 
 ### 6.2 Read-only runtime, writable data
 
-- The runtime slot is made read-only by the OS provider. Windows: a dedicated directory whose ACL grants read and execute to the Kodo service account and to Administrators, and denies write to everyone except the installer's signed update path. Linux: the slot is read-only at the mount or bind level, and the update path remounts it for the swap. Both are behind `IImmutableRuntimeProvider`, probed at start (a provider that cannot enforce read-only downgrades the module state to degraded and says so in the status, it does not silently run writable).
-- Data and evidence directories are the only places Kodo writes. Kodo never writes into its slot, and the verifier treats any file in the slot that is not in the manifest as tampering.
+Status: PROPOSED (2026-11-18). Replaces the first draft's Windows junction design; see the revision note under 6.3.
+
+- **Layout.** The runtime root is one directory, `kodo-runtime`, on both OSes. It holds `slot-a` and `slot-b` (each a full runtime tree with its manifest) and three pointer files: `kodo.pointer.json` (the active pointer), `kodo.pointer.previous.json` (the pointer that was active before the last swap) and `kodo.pointer.json.tmp` (transient, written before a swap). The two pointer files are the only mutable items in the runtime root. The pointer has one location on Windows and Linux.
+- **Windows.** The runtime root and each slot have a protected DACL, so no parent ACE reaches them. Slots grant read and execute to the Kodo service identity and to Administrators. The signed update principal can write only the inactive slot while it is being staged, and the pointer files. No ACE grants write to Users, Authenticated Users or Everyone. These ACLs stop the service account and ordinary users. They do not stop a full administrator (6.6). The ACE design is checked on the owner's PC before any of this is DECIDED (spike K1, sections 4.1 and 6).
+- **Linux.** Each slot is bind-mounted read-only at `kodo-runtime/slot-a` or `kodo-runtime/slot-b`. A read-only bind is per mount point and leaves the original path writable, so the backing directory is kept out of any path the Kodo service account can write through (spike K2, finding F1). The update path remounts the inactive slot read-write only while it is staged, then remounts it read-only before verification. The pointer files sit in `kodo-runtime` itself, which is never a slot mount, so a pointer swap never needs a remount.
+- **Provider probe.** `IImmutableRuntimeProvider` checks at start that read-only is enforced. A provider that cannot enforce it downgrades the module state to degraded and says so in the status. It does not run writable silently.
+- **Data and evidence.** Data and evidence directories are the only other places Kodo writes. Kodo never writes into a slot. The verifier treats any file in a slot that is not in the manifest as tampering (6.1, 6.4).
 - Config is not in the slot. Operator values are in the settings registry (doc 03) and in `kodo-data`, so changing a value never requires writing the runtime.
 
-### 6.3 Atomic A/B slots and instant rollback
+### 6.3 Atomic pointer swap and instant rollback
 
-- Two slots, `slot-a` and `slot-b`. One pointer file, `current`, names the active slot. The pointer is written by write-to-temp then atomic rename (on Windows, a directory junction swap with the same rule; on Linux, a symlink swap by rename). The pointer is the only mutable item in the runtime area.
-- An update writes the new version into the inactive slot, verifies its manifest (6.1), runs preflight (doc 49), starts the new Kodo in shadow mode for a probation window (default 10 minutes, a setting) where it observes but does not act, and only then flips the pointer. The old slot is kept.
-- Instant rollback is the same pointer flip to the previous slot, after that slot's manifest is re-verified. It needs no network and no database, so it works when the server is down. The sentinel performs rollback on its own when the new slot fails its probation or fails the signature check at start.
-- A rollback writes an audit event and a Kodo journal event before the flip is announced to clients. Rollback never deletes the slot it leaves.
+Status: PROPOSED (2026-11-18). Replaces the first draft's junction swap. The Windows and Linux mechanics are researched (spikes K1 and K2) and have not been run on hardware, so they stay PROPOSED until the host runs in those spikes pass.
+
+Revision note. The first draft swapped a directory junction on Windows "with the same rule" as the file pointer, and put the pointer where 6.2 said the runtime was read-only. Spike K1 (`docs/spikes/K1-windows-readonly-slot.md`, section 3.8) found that `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING` reports an error when the destination names an existing directory, and no primary source documents an atomic replacement of a directory link. Spike K2 (`docs/spikes/K2-linux-bind-mount-swap.md`, finding F3 and open risk 1) found that the pointer must live outside both read-only slot mounts. The most robust option is therefore a small signed pointer file, replaced by an atomic file rename on both OSes, in one location (6.2). Junctions and symlinks are not used for the pointer.
+
+- **Pointer.** `kodo.pointer.json` is a signed record with the slot id (`slot-a` or `slot-b`), the SHA-256 of that slot's signed manifest envelope, the key id and the signature. It uses the same signature scheme and trust root as the manifest (6.1). A pointer that fails verification is never followed.
+- **Swap.** Write the new pointer bytes to `kodo.pointer.json.tmp` in the same directory, flush them to disk, then replace `kodo.pointer.json` atomically: `ReplaceFile` on Windows, `rename(2)` on Linux. The temp file and the target are in the same directory on the same volume and mount, so the replace cannot fail with a cross-device error.
+- **Update.** The new version is written into the inactive slot. Its manifest and files are verified (6.1 and 6.4), preflight runs (doc 49), and the pointer is then swapped to the new slot, which runs its probation window (default 10 minutes, a setting) and is rolled back on failure (PROPOSED, see 7.8; probation runs after the swap, as the sentinel implements it). Before the swap, the current pointer bytes are copied to `kodo.pointer.previous.json` with the same temp-then-replace rule, so the previous slot always has a signed pointer.
+- **Rollback.** Rollback swaps the pointer back: `kodo.pointer.json` is replaced with the bytes of `kodo.pointer.previous.json`, and the pointer that was left takes the previous slot's place, so a second rollback goes forward again. Rollback needs no network, no database and no signing key, because both pointers were signed when they were made and are checked against the install trust root. The target slot's manifest and files are re-verified before the flip. A crash between the two writes leaves both pointers naming the older slot, which is a safe state. Rollback never deletes the slot it leaves. It writes an audit event and a Kodo journal event before the flip is announced to clients.
+- **Start-up recovery.** Start removes a stray `kodo.pointer.json.tmp`. If `kodo.pointer.json` fails verification, the sentinel tries `kodo.pointer.previous.json`. If neither pointer verifies, Kodo runs in sealed mode (6.4).
+- **Durability.** Linux is intended to flush the containing directory after the rename, and Windows flushes the temp file before the replace. Whether a power loss between the two writes leaves a usable state is checked in the host run (spike K2, item 9), not assumed.
+- **Downgrade.** A validly signed pointer to an older slot still verifies. An anti-rollback floor (the sentinel refuses any slot version below the highest it has accepted) is OPEN and needs an owner decision. This section does not decide it.
+- The sentinel performs rollback on its own when the new slot fails its probation or fails the signature check at start. Rollback is the same swap as above and works when the server is down.
 
 ### 6.4 Runtime tamper detection
 
@@ -159,6 +172,17 @@ The brief's requirement is: signed and verified on every start, read-only runtim
 - Every 1,000 records or 15 minutes, whichever is first, Kodo writes a signed checkpoint with the chain head, a Merkle root over the records in the window, and the window's timestamp range. Checkpoints are signed with Kodo's own journal key, which is kept in the Identity Service (doc 14) and is distinct from the release key.
 - Checkpoints are anchored externally (the brief's external anchoring). Anchor sinks are operator choices, and the default is the owner's paired devices (each device stores the latest checkpoint and its own copy of the head). Optional sinks: an RFC 3161 timestamp authority, an S3-compatible object store with object lock, and a public transparency log. Each sink is a module behind `IAnchorSink`.
 - Merkle proofs: any single record can be proven against a checkpoint with a logarithmic-size proof. The API returns the proof on request (section 15.1). An auditor can verify a proof with the public key alone.
+
+### 6.5.1 Anchoring and Merkle proofs: pure core (PROPOSED)
+
+Built in `src/Bazaar.Kodo/Anchoring` (package 14, pure parts only; no sink, file, witness or HTTP code). These choices are PROPOSED, not DECIDED:
+
+- **Tree.** Binary Merkle tree over journal record hashes, RFC 6962 shape (split at the largest power of two below n). Leaf = SHA-256(0x00 || record hash), node = SHA-256(0x01 || left || right), empty root = SHA-256 of nothing. A lone node is never duplicated, so `[a,b,c]` and `[a,b,c,c]` have different roots, and an inner node cannot pass as a leaf. This is the same prefix convention as the audit checkpoint tree in doc 48, but that tree promotes odd nodes and has no consistency proofs, so the two roots are not interchangeable. `Bazaar.Kodo` must not reference `Bazaar.Server` (section 19), so the code is separate; unifying them is an open follow-up.
+- **Proofs.** Inclusion proofs (leaf in a tree of n) and consistency proofs (tree of m is a prefix of the tree of n), with verifiers that need only hashes and sizes (RFC 9162 algorithms). A proof does not bind the tree size by itself; the anchor record does.
+- **Anchor record.** `version`, `sinkId`, `treeSize`, `root`, `journalHead`, `anchoredAt` (UTC). Canonical JSON: compact, camelCase, base64 hashes, source-generated, unknown members rejected.
+- **When to anchor.** Every 1,000 new records or 15 minutes (the checkpoint cadence of 6.5), whichever comes first, and never when nothing is new. After a failed attempt, wait 1 minute before retrying. Ranges: 1 to 10,000,000 records, 1 second to 24 hours, retry 1 second to 1 hour. Not wired to settings yet.
+- **Fail safe.** A sink that throws, declines or hangs (30 second timeout) never blocks the journal or the other sinks. With no accepting sink the journal is simply not anchored; the planner counts an anchor as done only when a sink accepted it.
+- **Verifier.** A stored anchor is compared to the current chain: Verified only when the chain is intact and the anchored prefix hashes to the stored root and head. A rewrite with recomputed hashes, a broken chain or lost anchored records is Tampered. A malformed anchor, malformed records or a failed consistency proof between two anchors is Unknown, never Verified, and the status view must not show Unknown as healthy.
 
 ### 6.6 Threat model and stated limits
 
@@ -222,11 +246,28 @@ The brief's requirement: supervised restart, crash-only design, bulkheads, circu
 - The brief's scale decision is one large company on a single node, splittable to several nodes later. Kodo's probes, journal and API run on that one node by default. Kodo's data volume is bounded by the retention settings (section 20), not by the number of agents.
 - Multi-node splitting is not designed here. When it is, Kodo's journal needs a single writer per install (already true: the journal has one writer, section 5.1) and its probes need a routing table that says which node runs which probe. That design belongs with doc 03's host split and is not started.
 
+### 7.8 Sentinel implementation choices (package 8, PROPOSED 2026-11-18)
+
+The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinelFileStore`, `IKodoProcessLauncher`, `ISentinelJournal` and `ISentinelStatusFile`, and the clock as `TimeProvider`. Every choice below is PROPOSED because the doc leaves it open. Owner to ratify.
+
+- **Stable period.** A run of at least 10 minutes clears the restart backoff. Section 7.1 names no stable period. The schedule's last value is the cap (300 s).
+- **Probation runs after the swap.** The candidate pointer becomes active, then the slot runs its probation window (`kodo.integrity.probation_min`, default 10 minutes). A failed probation rolls back. Section 6.3 now matches this choice (probation after the swap, with rollback on failure). An earlier draft had the new Kodo run in shadow mode before the swap; the coordinator kept probation-after-swap because rollback needs no extra mechanism. Still PROPOSED for owner ratification.
+- **Probation pass.** The process survives the window, and the active pointer and slot verify again at the end.
+- **Probation cannot be skipped (PROPOSED 2026-11-19).** The probation marker `kodo.probation.pending` (runtime root, holds the candidate slot id) is written after the previous pointer and before the swap, and removed only after probation survives. A launcher exception, a cancelled token (sentinel shutdown), a status-file failure when announcing probation, or a marker that cannot be cleared counts as a failed probation and rolls back; cancellation rolls back first and then rethrows. A start check that finds the marker with the active pointer naming the marked slot (or an unreadable or malformed marker) treats the active pointer as unprobated: it rolls back to the previous pointer if that verifies, otherwise it seals (cause `probation_interrupted`). A marker naming another slot is stale and removed. If the previous pointer equals the active pointer, the swap never happened and the marker is just cleared.
+- **Rollback target.** Promotion re-reads and verifies the active pointer from disk. With no verified active pointer it is rejected (`active_pointer_not_verified`), so a stale previous pointer from an older generation is never kept as the rollback target.
+- **Locking.** The gate serialises start and promotion. A second lock guards the restart backoff, the status and the status-file write, so `RecordKodoExit` is safe from any thread, also during probation, and is never held across the probation run. A status-file write that fails after a decision is dropped (the in-memory status carries the truth), except the probation announcement, which is strict.
+- **Rollback order.** Journal event first (`sentinel.rollback`), then the active pointer swap, then the previous pointer is set to the left pointer, then the status file is replaced. A journal write failure does not block the rollback; the status detail records it. The audit event (doc 48) is not written in this slice.
+- **Blocked rollback.** If the previous pointer is missing or does not verify, no flip happens. The candidate stays active with phase `failing` and cause `previous_slot_missing` or `previous_not_verified`.
+- **Startup fallback.** A failed active pointer falls back to the verified previous pointer. The active file is rewritten, and the previous file is left unchanged. Neither pointer verifying gives phase `sealed` with no active slot.
+- **Status file.** `kodo.sentinel.status.json` in the data directory, never in the runtime root. Schema version 1, camelCase, every field always written. Phases: `starting`, `running`, `probation`, `failing`, `sealed`.
+- **Cause codes.** Stable strings in `SentinelCauses`. The verifier's status name goes in `detail`.
+- **Not in this slice.** Crash-loop detection (7.1), the OS launcher and file store, the loopback server, the audit event.
+
 ## 8. State model
 
 ### 8.1 States
 
-Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal.
+Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal. The tokens are `color.health.<state>.background` and `color.health.<state>.text`, one pair for each of the five states and for the client-derived `unobserved` display value (section 8.3). A view paints a state with a `badge` whose `variant` is the state name (doc 41c, section 3).
 
 | State | Word | Meaning | Automatic actions allowed |
 |---|---|---|---|
@@ -257,7 +298,7 @@ Hysteresis is required everywhere. A rule with a grace period cannot flap a stat
 
 ### 8.3 Unobserved
 
-Kodo cannot report its own death. Clients derive a sixth display value, `unobserved`, when the Kodo stream has been silent for longer than its heartbeat budget (default 30 seconds) or when the status snapshot is older than its freshness budget. `unobserved` is not a server state, is never written to the journal by Kodo, and is rendered as its own word and colour. The client writes it to its own local timeline.
+Kodo cannot report its own death. Clients derive a sixth display value, `unobserved`, when the Kodo stream has been silent for longer than its heartbeat budget (default 30 seconds); any event, including a heartbeat, counts as proof of freshness (15.6). `unobserved` is not a server state, is never written to the journal by Kodo, and is rendered as its own word and colour. The client writes it to its own local timeline.
 
 ## 9. Scope: what Kodo watches
 
@@ -397,6 +438,16 @@ Contract tests run in CI on every PR that touches a module, and in the install d
 
 The health contract has its own protocol version (`kodo.contract = 1` at launch). It is a semver contract under doc 49's and the module API stability rules (brief: semver contract, compatibility shims, contract tests, compatibility matrix in the module manager). A module declares the contract version it targets. Kodo keeps the previous major as a shim for one release.
 
+### 10.5 First slice (package 6): PROPOSED
+
+Package 6 builds the abstractions, the loader gate and the contract test base only. No real module is wired. The rest of section 10 (liveness, readiness, dependencies, self-test, the manifest `health` block) comes in later slices. The choices below are PROPOSED where section 10 is silent.
+
+- **Narrowed interface (PROPOSED).** `IModuleHealthProbe` in `Bazaar.Kodo` (not `Bazaar.Kodo.Abstractions`; the project is still one assembly) reports `ModuleId`, `ProbeId` and `ValueTask<ProbeResult> CheckAsync(ct)`. The section 10.1 `IModuleHealth` (liveness, readiness, dependencies, self-test, `HealthResult`) is a later slice and is not reused under the same name.
+- **Probe id rule (PROPOSED).** A contract's `ProbeId` must be `module.<moduleId>.health`, the section 9.1 catalogue id. A contract that reports another module id or probe id is `unknown` with cause `contract_error`.
+- **Loader gate (PROPOSED).** A missing contract is `unknown` with cause `contract_missing`. A contract that throws while loading, checking or returning no result is `unknown` with cause `contract_error`, and keeps the exception in `Error`. Cancellation propagates to the caller and is not a contract failure. Section 9 already requires that `unknown` never counts as green.
+- **Contract test base (PROPOSED location).** `ModuleHealthContractTests<TModule>` is in the `Bazaar.Kodo.Testing` project (the name in section 10.3), which references xUnit v3 and `Bazaar.Kodo`. `Bazaar.Kodo` stays free of xUnit. The checks are pure (`ModuleHealthContractCheck`) and return violations, so they are testable without xUnit. This slice runs these section 10.3 checks: contract presence, expected `ModuleId`, catalogue `ProbeId`, a stable `ModuleId` across reads, and `CheckAsync` completing without throwing. The I/O fakes, budgets, self-test and manifest checks (10.3 items 2 to 8) come later.
+- **Contract causes.** `contract_missing` and `contract_error` are added to `ProbeCauses` beside the other causes.
+
 ## 11. Module manifest (sketch)
 
 Each module ships a manifest that Kodo reads from the module's signed package. Shape only; field names are PROPOSED and align with doc 40's component manifest.
@@ -490,6 +541,20 @@ The brief's requirement: threshold alerts, trend forecasting, learned per-instal
 - Redaction runs on the input before the gateway call, and it is deterministic, never model-based (brief: redaction is never model-dependent).
 - A later on-device explanation path through the NPU (doc 31) is optional and off by default. It follows the same labelling and the same no-action rule.
 
+### 13.6 Predictor implementation choices (package 11, PROPOSED 2026-11-19)
+
+The pure core lives in `src/Bazaar.Kodo/Prediction`. It has no I/O, takes a `TimeProvider` or a time argument, and is advisory only (13.1). Doc 13.2 and 13.3 stay the target; these are the choices where the doc is silent or the first build is simpler. Nothing here is DECIDED.
+
+- **Trend fit.** A robust Theil-Sen line (median of pairwise slopes) over at most 256 samples in the window, not damped Holt. The 10th and 90th percentile slopes give the time-to-threshold band (`earliest`, `latest`); a null `latest` means the shallow end never reaches the threshold. Holt with damping and residual-based bands stays the longer-term target of 13.2.
+- **Confidence class.** `Unknown` (no forecast), `Low`, `Medium`, `High`, from the band width relative to the estimate (at most 0.5 is High, at most 1.5 is Medium, otherwise or unbounded Low). Only Medium and High can raise amber.
+- **Defaults.** Window 14 days and minimum span 72 hours (13.2). Minimum samples 24, sample cap 256, stale after 24 hours, future skew 5 minutes, amber horizon 7 days, forecast cap 365 days, value magnitude cap 1e15. All PROPOSED, all operator settings once the registry carries them; shipped values are the conservative ones.
+- **Insufficient or bad data is Unknown, never green.** NaN, infinity, out-of-range, out-of-order, equal-timestamp, future-stamped and stale samples all produce an Unknown result with a cause (`insufficient_data`, `invalid_sample`, `out_of_order_sample`, `future_sample`, `stale_data`). A rejected sample changes no stored state.
+- **Already past the threshold** is reported as `Breached` and mapped to amber `forecast_threshold_soon`; the deterministic rules own the real state.
+- **Baseline.** One entry per hour-of-week bucket (168, UTC) and week, latest wins, `TrailingWeeks` 4 and `MinWeeks` 3 (13.3). Median and MAD (scaled 1.4826) of earlier weeks only. Memory is at most 168 x 5 values. The scale has a floor of 5 percent of the median and an absolute floor of 1.0 in the series' unit (PROPOSED; set it per series for fractional series). A bucket below `MinWeeks` is warming up: Unknown with `baseline_warming_up`.
+- **Drift.** A two-sided CUSUM on residuals in scale units, slack 0.5, alarm level 5, residual clamped to 4 so one outlier never alarms, statistic capped at 10 times the alarm level. The alarm records the start of the excursion and the magnitude, and clears by itself when the series returns. The Page-Hinkley test from 13.3 is not built yet. Drift is amber with `drift_up` or `drift_down`, never red and never a bare number (13.1). The owner's request for an amber or red drift result is held to amber because 13.1 says a learned signal raises amber at most.
+- **Reset.** `BaselineDriftProbe.Reset` forgets everything learned. The caller writes the audit entry (13.3).
+- **Memory.** `PredictionMemory` (version 1) is source-generated camelCase JSON with unknown members rejected and a 1 MiB parse cap. Restore validates sizes, ranges, order and duplicates, and on any failure the caller keeps or starts fresh state. Times are UTC ticks.
+
 ## 14. Monitor pane in every client
 
 The brief's requirement: every client has a Monitor pane with status, live metrics, logs and traces, history time-travel with audit and update events, a Constellation-style system map, and role-gated controls (restart, isolate, roll back). Each client renders what the server computes (CLAUDE.md); no client computes health.
@@ -531,7 +596,7 @@ Every client honours the same accessibility rules: keyboard reachable views, a s
 ### 14.5 Roles and controls
 
 - Permissions are custom-role grants (brief). Kodo's permissions: `kodo.view.status`, `kodo.view.logs`, `kodo.view.traces`, `kodo.view.fleet`, `kodo.view.audit`, `kodo.control.restart`, `kodo.control.isolate`, `kodo.control.rollback`, `kodo.runbook.run`, `kodo.runbook.approve`, `kodo.incident.enter`, `kodo.incident.exit`, `kodo.failover.approve`, `kodo.chaos.enable`, `kodo.webhook.manage`, `kodo.export`, `kodo.settings.kodo`.
-- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default.
+- Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default. Owner decision (2026-11-19): approval stays the default, and a per-server admin setting, `kodo.recover.unattended` (section 20), may allow only the unattended host restart and slot switch. Isolate and rollback always need step-up; the setting cannot list them.
 - Viewing logs and traces is separately granted because logs can contain personal data. Defaults grant the owner all of these and grant no other role any of them.
 
 ## 15. API
@@ -584,6 +649,22 @@ Errors use one shape: `code`, `message`, `retryable` and `correlationId`. No end
 - The status listener is doc 03's, bound to loopback by default. The `/status` route format is doc 02's. The public status page (12.4) and any non-loopback exposure need owner approval recorded through the settings registry and the Tier 2 approval of doc 15. This follows doc 03's floor: a non-loopback bind is refused unless `Bazaar:Host:Status:OwnerApprovedWideBind` is true.
 - A browser view of the status page is allowed by CLAUDE.md as a read-only server status page. Kodo adds no interactive browser surface. The narrow passkey sign-in page of doc 32 is unrelated and stays separate.
 
+### 15.6 Read API core choices (package 9, PROPOSED 2026-11-18)
+
+The pure core lives in `src/Bazaar.Kodo/Api`: the snapshot builder and the `kodo` stream writer. The wire types (`KodoStatusSnapshotDto`, `KodoComponentDto`, `KodoStreamEventDto`, `KodoStateChangeDto`), their JSON context and codec, and the client-side `unobserved` derivation (`KodoUnobserved`, `KodoDisplayState`) live in `Bazaar.Contracts` under `Kodo`, as section 4 requires, so `Bazaar.Client.Kodo` can use them without the server module. The status payload is the existing `KodoStatusDto` (no second status type); the snapshot wraps it with `revision`, `schemaVersion`, the journal head and the components. JSON is source-generated `System.Text.Json` with nulls omitted, so `underlyingState` is present only while `frozen`. It has no HTTP route, socket or `/ws` registration. Every choice below is PROPOSED because this section or section 15 leaves it open. Owner to ratify.
+
+- **Stream numbering is `revision`, not a sequence.** The package brief said sequence numbers. Doc 02's registry says state streams carry a `revision`, and this section already speaks of "revisioned deltas". The `kodo` stream is state, so each delta (`state_changed`, `heartbeat`) takes the next revision: one counter per stream, rising by exactly one, gap-free. A snapshot is not a delta. The writer builds it under its lock with the current revision and does not raise the counter, so a snapshot sent to one subscriber on connect leaves no gap for the others, and a concurrent publish cannot make the snapshot fail or carry a stale number. Deltas after it apply on top.
+- **Event types** on the stream are `state_changed`, `snapshot` and `heartbeat`. The webhook names of 15.3 keep the `kodo.` prefix. The stream does not need it.
+- **Only displayed-state changes emit `state_changed`.** A change of the underlying state while the display stays `frozen` writes no event. The underlying state is still carried in the snapshot and in each state-change payload.
+- **Revisions are not persisted by the writer.** A restarted Kodo starts from the revision its caller supplies. Clients treat a revision lower than the one they hold as a reset and re-fetch the snapshot. Whether the counter is persisted is open.
+- **One silence budget.** Section 8.3 names a freshness budget but gives no value. A snapshot arrives only on subscribe or after a gap, so measuring freshness from the last snapshot would turn a healthy connected client `unobserved` after a minute. PROPOSED: every event (snapshot, state change or heartbeat) refreshes freshness, and the only budget is the 30-second silence budget. It is a constructor value in this slice and becomes a settings key (for example `kodo.stream.heartbeat_budget_s`) when added to section 20.
+- **The client clock decides `unobserved`.** The budget is measured from the time the client received the last event, so server clock skew does not matter. A receive time later than the client's `now` counts as age zero.
+- **Edges.** Exactly at a budget is still observed. One tick past it is `unobserved`. A client that has never received a state or an event shows `unobserved`.
+- **Heartbeat cadence** is not set in section 8.3 or 15.2. PROPOSED: the server sends a heartbeat every 10 seconds, a third of the budget, so one lost frame does not trip it. Not built in this slice.
+- **Snapshot shape.** `schemaVersion` is the schema field and the status's `asOf` is the `asOf` of section 15.1. Components are sorted by id. A green component carries no cause. A component that is not green needs a cause. The journal head is the lowercase hex of its 32-byte hash, and null while the journal has no records.
+- **Score caps are enforced at the builder.** A score above the section 12.2 caps is rejected, not clamped: critical red 49, integrity or contract failure 10, critical unknown 70, and an underlying `failing` state 49. The builder takes the observation the score was computed from, and `KodoScore.CapFor` is the one cap rule shared with `KodoScore.Compute`.
+- **Wire strings.** The wire carries strings from `KodoWireNames`, never C# member names. Probe statuses are `green`, `amber`, `red` and `unknown`. `unobserved` is a display value only.
+
 ## 16. Recovery: alerts, runbooks and incident mode
 
 ### 16.1 Alerts
@@ -627,10 +708,10 @@ Exit: the incident is closed when all probes that opened it are green for the st
 
 | Trigger | Runbook | Approval | Verify |
 |---|---|---|---|
-| Host not ready, service stopped | Restart host through the sentinel | Auto, step-up not required | `host.ready` green within 2 minutes |
+| Host not ready, service stopped | Restart host through the sentinel | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `host_restart` | `host.ready` green within 2 minutes |
 | Disk near full on data volume | Rotate logs, prune spill past its window, offer Vault archive | Approval | Free space above threshold |
 | Replication broken (7.6) | Re-seed standby from the latest base backup | Approval, step-up | Replication status green |
-| Slot signature failure | Switch to the other verified slot | Auto | `kodo.self.signature_verify` green on the new slot |
+| Slot signature failure | Switch to the other verified slot | Approval by default (14.5); unattended only when `kodo.recover.unattended` lists `slot_switch` | `kodo.self.signature_verify` green on the new slot |
 | New module fails health contract | Disable module, keep data, open an incident if it was in use | Approval | Module state and dependents |
 | Certificate within 7 days of expiry | Renew through the configured method | Approval | `certs.server` green |
 | Backup stale | Run backup now | Auto if the window is set to auto | `db.backup_freshness` green |
@@ -653,6 +734,24 @@ The brief's later addition 1 (2026-11-13, DECIDED): release channels are stable,
 
 - Daily, weekly and monthly reports: score, state history, SLO remaining, incidents, alerts per week and false-positive rate, forecasts with bands, changes in the fleet and the updates applied.
 - Delivered by the chosen channels (16.1). A report is a generated, dated, signed document, and its numbers come from the journal.
+
+### 16.8 Responder implementation choices (package 12, PROPOSED 2026-11-19)
+
+The pure core lives in `src/Bazaar.Kodo/Responder`. It does no I/O, reads time only from a `TimeProvider`, starts no threads and makes no network calls. Channels, step runners, the journal, the state store and the approval gate are interfaces (`IAlertChannel`, `IRunbookActionRunner`, `IRunbookJournal`, `IRunbookStateStore`, `IApprovalGate`). Doc 46 sections 13.4, 16.1 and 16.2 stay the target; these are the choices where the doc is silent or two parts disagree. Nothing here is DECIDED.
+
+- **Severity.** Taken from the state moved into: failing and frozen are critical, degraded is a warning, healthy and recovering are informational. Moving into healthy is a resolution. A flap raises one warning (8.2).
+- **Dedupe, grouping, rate limit.** Same fingerprint and same severity inside 30 minutes is a duplicate; a changed severity is news and is delivered. Alerts of one category inside 60 seconds of the first are grouped, with one summary alert when the window ends (the first alert and any higher-severity alert still go out at once). Each channel takes 6 deliveries per 10 minutes, and critical alerts count apart with a budget of 20. Every window end is exclusive: an event exactly at the boundary starts a new window.
+- **Quiet rule.** A daily UTC window, off by default. It keeps info and warning alerts in the client and the report only. Critical alerts are never quieted.
+- **Breakers.** One breaker per channel (7.4's `CircuitBreaker`, 5 failures, 60 seconds). An open breaker skips the channel and the skip is returned as a suppression, never silent.
+- **Content-free payloads.** A push wake-up carries only an alert id. Email carries the id, severity and rule. Webhook, GC post, in-client and report carry identifiers (category, fingerprint, up to 8 more, all matching the 15.3 identifier shape). A webhook body is built by the existing `KodoWebhookEnvelopeBuilder`; signing, allow list and retry stay in `Export`.
+- **Escalation.** Each category's first segment maps to an owning role (default `owner`). The chain is that role, then `owner`, then `owner-devices`. A critical alert not acknowledged within 15 minutes (setting `kodo.alert.escalation_min.critical`; floor 1 minute, ceiling 24 hours) moves one step up the chain. The caller journals each escalation.
+- **Tracking limit.** At most 1,024 fingerprints and groups are tracked. When the table is full the router delivers instead of suppressing.
+- **Runbooks.** A runbook enters the catalogue only with a valid signature over its canonical bytes (fixed key order, sorted parameters) and a valid definition. An id and version never holds two bodies. A start is refused for an unknown runbook, a digest the caller did not expect, a missing control name, a repeated run id, tainted or malformed input, or a frozen or recovering state (8.1). The step idempotency key is derived as `run id / step id`, not stored in the file.
+- **Approval rule.** A run is unattended only when it is low risk, accepts no approval, is named in `RunbookOptions.AutoRunbookIds` (empty by default), has untainted inputs and starts while the state is healthy. Every other run needs an explicit `Approved` result for each action step, including rollback steps. A pending result pauses the run, a denial ends it (after rolling back finished actions), and a timeout, an error, a mismatched request digest or a missing step-up stops it as needs-human. The executor never approves on timeout; it stops waiting after 4 hours.
+- **Fail-safe.** Journal first, then persist, then act. Any journal or state write failure stops the run as needs-human. An action that was started but has no recorded result is never run again after a restart. A timeout, an exception or a malformed answer from an action is an unknown outcome and stops the run; the same from a read-only step is retried within bounds (3 attempts at most, 5 second delay doubling to 5 minutes). Verify failure and action failure roll back when a rollback is defined; with none defined the run stops for a human. A failed notify step is recorded and does not undo a good fix.
+- **Conflict: restart.** 16.5 lists "restart host through the sentinel" and "switch slot" as auto with no step-up, and 14.5 makes restart, isolate and roll back step-up by default. The shipped fixes follow 14.5. The owner decides whether either may be unattended.
+- **One-click fixes.** The eight actions of 16.5 are runbook definitions in `OneClickFixes` with a single action, a verify step, a precheck and, where reversible, a rollback. They carry no signature, so none can run until the release pipeline signs it. The control is a name only (14.5); nothing here builds roles or approvals. The probe ids of the triggers follow the doc's names and some probes do not exist yet.
+- **State record.** `RunbookRunState` (version 1) is source-generated camelCase JSON with enums as words, unknown members rejected and a 256 KiB parse cap. On any parse or range failure the caller keeps the stored file and treats the run as needs-human.
 
 ## 17. Testing
 
@@ -798,6 +897,7 @@ Every value below is a setting in the registry (doc 03), with the default shown.
 | `kodo.slo.<name>.target` | decimal | per 12.3 | install | operator | No (floor: no lower than 95 percent for server availability) |
 | `kodo.alert.escalation_min.critical` | int | 15 | install | operator | No |
 | `kodo.incident.auto_enter` | list | the four triggers in 16.3 | install | operator | Yes; cannot be removed below the floor |
+| `kodo.recover.unattended` | list | empty | install | operator | Yes; owner. Only `host_restart` and `slot_switch` are accepted; any other value is refused. Each unattended run is still audited, bounded by the retry cap and verified by the runbook's verify step, and a failed verify stops with needs-human |
 | `kodo.failover.enabled` | bool | false | install | operator | Yes; owner |
 | `kodo.failover.auto_failback` | bool | false | install | operator | Yes; owner |
 | `kodo.explain.mode` | enum `off`, `ask`, `auto` | `off` | install | operator | Yes; counsel for `auto` |
@@ -816,7 +916,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 3. Evaluator: states, transitions, hysteresis, flap detection, scoring with caps. Pure, table-driven tests.
 4. Probe runtime: bulkhead pools, timeouts, breakers, `unknown` semantics. Fault tests.
 5. Built-in probes in the order of section 9.1, starting with `host.*`, `db.*`, `secrets.store`, `kodo.self.*`.
-6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle.
+6. Module health contract: abstractions, `ModuleHealthContractTests<T>`, loader gate. Depends on doc 42 for the lifecycle. First slice (probe interface, loader gate, contract test base) is built; its choices are PROPOSED in section 10.5.
 7. Immutable runtime: manifest format, signing and verification (release key from 37), slot pointer, verifier in the sentinel. Spike first (section 22).
 8. Sentinel process: supervision, slot switching, rollback, loopback status file.
 9. Read API and `kodo` stream on doc 02's registry.
@@ -834,19 +934,21 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Part | Status | Notes |
 |---|---|---|
 | Module identity, naming and projects | PLANNED | No project exists |
-| Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Needs spike K1 (Windows read-only slot and junction swap) and spike K2 (Linux bind-mount swap). Proposed for doc 35; not numbered there yet |
+| Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
+| Journal hash chain, checkpoints, anchors, Merkle proofs | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Anchoring` (package 14): Merkle tree, inclusion and consistency proofs with verifiers, anchor record and codec, `IAnchorSink`, planner, fail-safe publisher, anchor verifier. Choices are PROPOSED in 6.5.1. No sinks, checkpoint signing, storage, API route or settings wiring yet. Needs spike K3 (anchor sink latency and object lock support) |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
-| Sentinel process | PLANNED | No code |
+| Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
 | Warm standby and fencing | PLANNED, optional | Needs a fencing spike on the chosen database setup |
 | State model (5 states plus `unobserved` display) | PLANNED | Table design in 8 |
 | Built-in probes | PLANNED | Catalogue in 9.1; most depend on modules that are not built |
 | Module health contract | PLANNED | Depends on doc 42 |
 | Score and SLOs | PLANNED | Formula in 12 |
-| Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
+| Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
-| Read API, stream, webhooks, metrics and OTel export | PLANNED | Depends on doc 02 registry and doc 23 pipeline |
+| Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
+| Alerts, runbooks, incident mode, summaries | PARTIAL | Pure core in `src/Bazaar.Kodo/Responder` (package 12): alert model and router (severity, dedupe, grouping, rate limit, quiet window, breakers, escalation), runbook catalogue and engine (signed definitions, journalled steps, bounded retries, rollback, resume from saved state), approval gate interface, one-click fix catalogue. Choices PROPOSED in 16.8. No channel, runner, journal or store implementations, no doc 15 gate, no incident mode, post-incident summaries or alert-fatigue metrics yet. Depends on doc 15 approval gates and doc 48 roles |
 | Alerts, runbooks, incident mode, summaries | PLANNED | Depends on doc 15 approval gates |
 | Release ring cohort signals and auto-halt | PLANNED | Depends on doc 49 (rings, channels) and doc 37 (signed releases) |
 | Testing: fault harness, self-checks, chaos mode | PLANNED | Depends on doc 17 sandbox and doc 33 restore |
