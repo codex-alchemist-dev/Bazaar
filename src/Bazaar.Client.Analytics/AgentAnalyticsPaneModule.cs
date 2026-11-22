@@ -8,7 +8,7 @@ namespace Bazaar.Client.Analytics;
 /// <summary>Registers the company analytics pane (<see cref="PaneKinds.AgentAnalytics"/>, doc 25).</summary>
 public sealed class AgentAnalyticsPaneModule : IPaneModule, IClientModule
 {
-    public ModuleManifest Manifest { get; } = FirstPartyManifest.Create(typeof(AgentAnalyticsPaneModule), PaneKinds.AgentAnalytics, [PaneKinds.AgentAnalytics], ["ui:pane", "http:analytics.read"]);
+    public ModuleManifest Manifest { get; } = FirstPartyManifest.Create(typeof(AgentAnalyticsPaneModule), PaneKinds.AgentAnalytics, [PaneKinds.AgentAnalytics], ["ui:pane"]);
 
     public void Register(ClientModuleBuilder builder)
     {
