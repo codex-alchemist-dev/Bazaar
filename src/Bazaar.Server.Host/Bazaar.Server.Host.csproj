@@ -41,6 +41,7 @@
     <ProjectReference Include="..\Bazaar.Server.AccountApproval.Postgres\Bazaar.Server.AccountApproval.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AccountApproval.OwnerQueue\Bazaar.Server.AccountApproval.OwnerQueue.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Company\Bazaar.Server.Company.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Gateway\Bazaar.Server.Setup.FirstRun.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
@@ -81,6 +82,8 @@
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Garnet\Bazaar.Server.Garnet.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Kodo\Bazaar.Server.Kodo.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Engines\Bazaar.Server.Engines.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.EngineGcRecorder\Bazaar.Server.EngineGcRecorder.csproj" />
     <ProjectReference Include="..\Bazaar.Server.EngineRelay\Bazaar.Server.EngineRelay.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Postgres\Bazaar.Server.Presence.Postgres.csproj" />
@@ -146,6 +149,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Audit\Bazaar.Server.VmDisplay.Audit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Gate\Bazaar.Server.VmDisplay.Gate.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools\Bazaar.Server.VmDisplay.AgentTools.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools.Vms\Bazaar.Server.VmDisplay.AgentTools.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.HyperV\Bazaar.Server.VmDisplay.HyperV.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Kvm\Bazaar.Server.VmDisplay.Kvm.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity\Bazaar.Server.VmDensity.csproj" />

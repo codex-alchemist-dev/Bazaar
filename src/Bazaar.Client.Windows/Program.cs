@@ -110,6 +110,7 @@ internal static class Program
                 .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
                 .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
                 .WithGitGui(ClientServer.Current)
+                .WithCommunity(ClientServer.Current)
                 // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
                 .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),
             terminals);

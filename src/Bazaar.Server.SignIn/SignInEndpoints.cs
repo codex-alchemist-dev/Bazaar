@@ -29,6 +29,7 @@ public static class SignInEndpoints
         ArgumentNullException.ThrowIfNull(routes);
         routes.Map("/signin/{**rest}", HandleAsync).WithDisplayName("bazaar-signin");
         routes.Map("/signin", HandleAsync).WithDisplayName("bazaar-signin");
+        routes.MapBazaarAuthHandoff();
         return routes;
     }
 
