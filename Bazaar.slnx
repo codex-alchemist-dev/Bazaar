@@ -146,6 +146,8 @@
     <Project Path="src/Bazaar.Server.VmDensity.HostProbes/Bazaar.Server.VmDensity.HostProbes.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity/Bazaar.Server.VmDensity.csproj" />
     <Project Path="src/Bazaar.Server.Remote/Bazaar.Server.Remote.csproj" />
+    <Project Path="src/Bazaar.Server.BrowserPool.Abstractions/Bazaar.Server.BrowserPool.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.BrowserPool/Bazaar.Server.BrowserPool.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
     <Project Path="src/Bazaar.Server.Constellation.Algorithms/Bazaar.Server.Constellation.Algorithms.csproj" />
@@ -211,6 +213,9 @@
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
+    <Project Path="src/Bazaar.Server.Biometric.Abstractions/Bazaar.Server.Biometric.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Biometric/Bazaar.Server.Biometric.csproj" />
+    <Project Path="tests/Bazaar.Server.Biometric.Tests/Bazaar.Server.Biometric.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
@@ -256,6 +261,7 @@
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Jobs.Tests/Bazaar.Server.Jobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Remote.Tests/Bazaar.Server.Remote.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.BrowserPool.Tests/Bazaar.Server.BrowserPool.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.HostProbes.Tests/Bazaar.Server.VmDensity.HostProbes.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.Tests/Bazaar.Server.VmDensity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
