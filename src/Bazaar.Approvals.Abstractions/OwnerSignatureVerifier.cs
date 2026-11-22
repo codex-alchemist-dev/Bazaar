@@ -10,6 +10,12 @@ public enum OwnerSignatureVerdict
     NotTheOwner,
     Expired,
     NonceReplayed,
+
+    /// <summary>ExpiresAt is not after IssuedAt, or is further after it than the maximum lifetime.</summary>
+    InvalidLifetime,
+
+    /// <summary>IssuedAt is in the future beyond the allowed clock skew.</summary>
+    IssuedInFuture,
 }
 
 /// <summary>
