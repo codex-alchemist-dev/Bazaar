@@ -72,6 +72,7 @@
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Athanor.Abstractions/Bazaar.Server.Athanor.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Athanor/Bazaar.Server.Athanor.csproj" />
+    <Project Path="src/Bazaar.Server.Athanor.Vault/Bazaar.Server.Athanor.Vault.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
@@ -255,6 +256,7 @@
     <Project Path="tests/Bazaar.Server.ReadAudit.Tests/Bazaar.Server.ReadAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Athanor.Tests/Bazaar.Server.Athanor.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Athanor.Vault.Tests/Bazaar.Server.Athanor.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
