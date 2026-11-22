@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.Sanitization;
+using Bazaar.Erasure;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -46,6 +47,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+        services.AddBazaarLegalHoldReader();
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.

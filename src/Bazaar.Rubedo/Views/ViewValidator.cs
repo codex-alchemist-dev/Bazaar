@@ -106,6 +106,11 @@ public static class ViewValidator
             problems.Add(new RubedoDiagnostic("view.missing_label", $"{path}: {node.Widget} needs a label (a localisation key or literal)."));
         }
 
+        if (widget == ViewWidget.Icon && !(node.Props.TryGetValue("name", out var iconName) && iconName is string { Length: > 0 }))
+        {
+            problems.Add(new RubedoDiagnostic("view.missing_icon_name", $"{path}: icon needs a name from the icon set."));
+        }
+
         if (widget == ViewWidget.Button && node.Props.TryGetValue("action", out var actionRef))
         {
             if (actionRef is not string actionId || !document.Actions.ContainsKey(actionId))
