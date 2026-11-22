@@ -24,7 +24,7 @@ public sealed class TalentPoolComponent : IBazaarComponent
         Id: "talent-pool",
         Version: "0.1.0",
         Kind: ComponentKind.Feature,
-        DependsOn: [],
+        DependsOn: ["council"],
         Provides: ["feature:talent-pool"],
         SoftDependsOn: []);
 
