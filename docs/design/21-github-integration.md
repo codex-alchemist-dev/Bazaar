@@ -85,6 +85,18 @@ On 403 or 429, honour `retry-after` and reset headers. Repeated breaches freeze 
 
 **Merge request path [PROPOSED].** The client sends a merge request for one PR and one head SHA, signed with the device-held owner key (key class and signing rules in doc 32, PROPOSED). The server verifies the signature, that the head SHA is still current, and that checks pass. It then calls `SquashMergeAsync` with the credential named by `github.merge_credential` (owner-class, held by 14). A changed SHA or failed check voids the approval; the owner re-approves. Agent messages never reach this path.
 
+**Merge route [PROPOSED].** The client sends the merge request as `POST /github/merge` on the authenticated HTTP surface (doc 02 WP10), so clients still never call GitHub. The caller must be the human the approval names: the bearer's principal is a human and its id equals the signed human id; any other caller gets 403. The body is one JSON object: `pr` (owner, repo, number; the server supplies the installation of the merge credential, so a client cannot pick one), `merge` (head sha, commit title, commit message) and `approval` (the signed fields of doc 32 section 5a: action `pr.merge`, approval id, args hash, head sha, human id, device id, issued-at and expiry in Unix milliseconds, nonce, and the 64-byte signature; binary values are base64). The args hash covers the PR and the merge request, so the owner signs exactly what the card showed. The server checks, in order and before any call that changes GitHub, that the approval names this head sha and this merge, that the signature verifies and its nonce is unused (5a), that the PR head is still that sha, and that every check on that sha passes (check runs and commit statuses; a commit with no checks cannot be merged). It then merges with the credential named by `github.merge_credential`, on the installation the operator configured for it (`Bazaar:GitHub:Merge:InstallationId` until the `github_app` table carries the owner App). With no installation configured the route answers 502 `github_unavailable`.
+
+| Result | Status | Body |
+|---|---|---|
+| Merged | 200 | `{"merged": true}` |
+| Approval not valid for this merge, signature refused, head moved or checks not passing | 403 | `{"error": "merge_not_approved", "reason": "<short text>"}` |
+| Caller is not the human the approval names | 403 | `{"error": "forbidden"}` |
+| Malformed body | 400 | `{"error": "bad_request"}` |
+| GitHub or the token source failed | 502 | `{"error": "github_unavailable"}` |
+
+A refused merge spends no nonce unless the signature verified, so a forged or stale request cannot burn the owner's nonce. Any 403 or 502 leaves the PR untouched; the owner re-approves after the cause is fixed.
+
 **Client review and merge [PROPOSED].** Bazaar.Windows and Bazaar.Android show server-proxied PR lists, file hunks keyed by head SHA, checks and the in-app review. The diff view uses Monaco's diff-editor mode only after the Monaco hosting gate (S12, round 5, C26). Android has no Monaco, so it needs a native diff surface (29). Clients never call GitHub.
 
 **Client PR wire [PROPOSED].** Implementation detail of the two paragraphs above; no new authority. All messages are JSON through `IWireCodec` on the authenticated client connection, in `Bazaar.Contracts` under `GitHub/`. The server proxies; clients never see a GitHub token.
