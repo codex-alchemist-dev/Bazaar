@@ -133,6 +133,10 @@ public static class ArchiveRoutes
             var r = await new ArchiveRestorer(store, target).RestoreAsync(unit, http.RequestAborted);
             return Results.Json(new RestoreResult(r.Restored, r.AlreadyPresent, [.. r.Conflicts]), ArchiveHttpJson.Default.RestoreResult);
         }
+        catch (NotSupportedException)
+        {
+            return Error(StatusCodes.Status409Conflict, "cannot_reinsert");
+        }
         catch (InvalidOperationException)
         {
             return Error(StatusCodes.Status422UnprocessableEntity, "verify_failed");
