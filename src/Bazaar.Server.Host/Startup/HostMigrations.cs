@@ -4,10 +4,10 @@ using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
-using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Setup.Postgres;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
