@@ -42,7 +42,16 @@ public sealed class PsychWardService(
             }
 
             var stay = new WardStay(Guid.CreateVersion7(), agentId, trigger, detail, _time.GetUtcNow());
-            await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
+            }
+            catch (WardStayConflictException)
+            {
+                var winner = await stays.GetLatestAsync(agentId, cancellationToken).ConfigureAwait(false);
+                return WardOutcome.Refuse("The agent is already admitted.", winner);
+            }
+
             return WardOutcome.Accept(stay);
         }
         finally

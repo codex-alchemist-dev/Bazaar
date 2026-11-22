@@ -12,6 +12,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.PsychWard\Bazaar.Server.PsychWard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.PsychWard.Abstractions\Bazaar.Server.PsychWard.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Sanitization.Abstractions\Bazaar.Server.Sanitization.Abstractions.csproj" />
