@@ -33,9 +33,10 @@ permissions:
   contents: read
 
 concurrency:
-  # A newer push or pull request update supersedes the older run for the same ref.
+  # A newer pull request update supersedes the older run for the same ref. Runs on main are never cancelled by a
+  # later push, so each merge to main gets a full verification (a newer queued run only replaces an older *waiting* one).
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # Decides whether the change touches code. Docs-only PRs skip the heavy work. The heavy jobs still run (a
