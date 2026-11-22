@@ -61,6 +61,7 @@ The resident TUI follows Kodo's severity grades (doc 46). A serious failure show
 ### 4. Input, access and accessibility
 - Keyboard only. **Navigation (DECIDED, owner card 2026-11-18, "Arrow keys and a menu bar"):** a visible menu bar moved with arrow keys and Enter. This is the owner's choice for the TUI and departs from the client-wide mnemonic-and-palette default of doc 41, which does not bind a terminal head that the owner designs otherwise. **Extras (DECIDED, owner card 2026-11-18, "Yes, both as optional extras"):** letter shortcuts (underlined in the menus) and a type-to-search box are also offered. They are optional; the menu bar stays the main way. Shortcuts are single letters with no Ctrl chords and are remappable.
 - Falls back to the plain wizard when stdout is not a TTY, with `--plain`, with `NO_COLOR` set, or when a screen-reader flag is given. Doc 45 line "Not a TUI" is replaced: the plain wizard stays as the accessible path; the TUI is opt-in beside it.
+- **Look (DECIDED, owner card 2026-11-22, "Fixed built-in look"):** one built-in dark style that works on any terminal. It is not themeable and does not read the Bazaar theme file; this is the owner's choice for the TUI and departs from the themeable-UI default for the apps.
 - Every state word has text, not only colour. Strings go through Localisation.
 - Secrets typed into the TUI are never echoed, logged or kept in the screen buffer (same canary tests as doc 45).
 
