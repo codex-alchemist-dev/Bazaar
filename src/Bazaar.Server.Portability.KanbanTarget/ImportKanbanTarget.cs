@@ -21,6 +21,12 @@ public interface IImportTaskStore
 {
     /// <summary>Returns the new task id, or null when the store refuses the message.</summary>
     Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, CancellationToken ct);
+
+    /// <summary>
+    /// Moves a task from Backlog to Ready as the system actor. Returns false when the transition is refused. Only that move is
+    /// open to the system actor (doc 12 transition table), so the import does not move a task further.
+    /// </summary>
+    Task<bool> MoveToReadyAsync(Guid taskId, CancellationToken ct);
 }
 
 /// <summary>Kanban target for the import commit path. Each record becomes a GC message, then a task pinned to it.</summary>
@@ -44,6 +50,9 @@ public sealed class ImportKanbanTarget(IImportGcSink gcSink, IImportTaskStore ta
             {
                 throw new InvalidOperationException($"Kanban store refused the task for {item.Record.SourceKey} in batch {batchIndex}.");
             }
+
+            // A refused move leaves the task in Backlog. It does not fail the batch, and the marker still counts as imported.
+            if (WantsReady(item)) await tasks.MoveToReadyAsync(taskId.Value, ct).ConfigureAwait(false);
         }
     }
 
@@ -59,6 +68,14 @@ public sealed class ImportKanbanTarget(IImportGcSink gcSink, IImportTaskStore ta
         }
         return keys;
     }
+
+    /// <summary>
+    /// True when the source column is past Backlog. The system actor may only move a task to Ready, so every such column
+    /// is clamped to Ready. The source column stays in the message text.
+    /// </summary>
+    public static bool WantsReady(ImportItem item) =>
+        item.Record.Attributes.TryGetValue("kanban_column", out var column)
+        && column is "Ready" or "In progress" or "Review" or "Done";
 
     /// <summary>Message text: the marker line, the title, then the column the source list had.</summary>
     public static string MessageText(ImportItem item)
@@ -80,5 +97,13 @@ public sealed class TaskServiceImportStore(TaskService tasks) : IImportTaskStore
     {
         var result = await tasks.CreateFromMessageAsync(projectId, gcId, messageId, title, TaskActor.SystemActor, ct).ConfigureAwait(false);
         return result.TaskId;
+    }
+
+    public async Task<bool> MoveToReadyAsync(Guid taskId, CancellationToken ct)
+    {
+        var task = await tasks.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+        if (task is null) return false;
+        var result = await tasks.TransitionAsync(taskId, TaskState.Ready, TaskActor.SystemActor, "imported", task.Version, ct).ConfigureAwait(false);
+        return result.Status == TransitionStatus.Applied;
     }
 }

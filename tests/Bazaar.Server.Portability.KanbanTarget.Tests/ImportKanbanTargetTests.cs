@@ -37,9 +37,18 @@ public class ImportKanbanTargetTests
         }
     }
 
-    private sealed class FakeStore(bool refuse = false) : IImportTaskStore
+    private sealed class FakeStore(bool refuse = false, bool refuseMove = false) : IImportTaskStore
     {
         public List<(Guid ProjectId, Guid GcId, Guid MessageId, string Title)> Created { get; } = [];
+        public List<Guid> MovedToReady { get; } = [];
+
+        public Task<bool> MoveToReadyAsync(Guid taskId, CancellationToken ct)
+        {
+            if (refuseMove) return Task.FromResult(false);
+            MovedToReady.Add(taskId);
+            return Task.FromResult(true);
+        }
+
         public Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, CancellationToken ct)
         {
             if (refuse) return Task.FromResult<Guid?>(null);
@@ -132,5 +141,35 @@ public class ImportKanbanTargetTests
         await target.AppendBatchAsync("job-1", 0, [], CancellationToken.None);
 
         Assert.Empty(gc.GcsCreated);
+    }
+
+    [Theory]
+    [InlineData("Ready", true)]
+    [InlineData("In progress", true)]
+    [InlineData("Review", true)]
+    [InlineData("Done", true)]
+    [InlineData("Backlog", false)]
+    [InlineData("Doing", false)]
+    public async Task Only_columns_past_backlog_move_the_task_to_ready(string column, bool moved)
+    {
+        var store = new FakeStore();
+        var target = new ImportKanbanTarget(new FakeGcSink(), store, _project);
+
+        await target.AppendBatchAsync("job-1", 0, [Item("a", "A", column: column)], CancellationToken.None);
+
+        Assert.Equal(moved, store.MovedToReady.Count == 1);
+    }
+
+    [Fact]
+    public async Task A_refused_move_keeps_the_task_and_does_not_fail_the_batch()
+    {
+        var store = new FakeStore(refuseMove: true);
+        var target = new ImportKanbanTarget(new FakeGcSink(), store, _project);
+
+        await target.AppendBatchAsync("job-1", 0, [Item("a", "A", column: "Ready")], CancellationToken.None);
+
+        Assert.Single(store.Created);
+        Assert.Empty(store.MovedToReady);
+        Assert.Equal(["a"], await target.ReadSourceKeysAsync("job-1", CancellationToken.None));
     }
 }
