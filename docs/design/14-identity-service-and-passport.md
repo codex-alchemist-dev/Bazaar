@@ -92,6 +92,8 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - **DECIDED:** a vTPM (swtpm, Hyper-V, QEMU) is accepted but classed as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
 - **DECIDED:** on a Linux host that is itself a VM, the default is `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning above.
 
+**KEK location and creation [PROPOSED, doc 63].** The KEK file moves from `<data root>/keys` to `<boot root>/keys`, because the data root becomes an encrypted volume whose key is wrapped by the KEK. The host opens the KEK at start and never creates it: a missing or empty key file is a refusal (`data_volume_not_initialised`), not a reason to mint a key. Only setup and the restore wizard create one.
+
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
 **GitHub Apps** [PROPOSED]
