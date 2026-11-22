@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Godot\Bazaar.Server.Godot.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Godot.Abstractions\Bazaar.Server.Godot.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Engines.Abstractions\Bazaar.Server.Engines.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
