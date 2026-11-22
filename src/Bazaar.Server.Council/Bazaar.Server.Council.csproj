@@ -11,6 +11,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
   </ItemGroup>
   <ItemGroup>

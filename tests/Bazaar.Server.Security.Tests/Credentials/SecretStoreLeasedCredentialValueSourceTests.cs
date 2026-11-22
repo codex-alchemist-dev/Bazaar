@@ -42,6 +42,14 @@ public class SecretStoreLeasedCredentialValueSourceTests
         Assert.Null(store.Name);
     }
 
+    [Fact]
+    public async Task No_secret_store_resolves_to_null()
+    {
+        var source = new SecretStoreLeasedCredentialValueSource();
+
+        Assert.Null(await source.ResolveAsync("agent-a", _credential, CancellationToken.None));
+    }
+
     private sealed class FakeStore : ISecretStore
     {
         public string? Value { get; set; }
