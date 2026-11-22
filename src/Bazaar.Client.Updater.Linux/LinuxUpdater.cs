@@ -15,10 +15,10 @@ namespace Bazaar.Client.Updater.Linux;
 /// </summary>
 public sealed class LinuxUpdater : ILinuxUpdater
 {
-    private const UnixFileMode PrivateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
-    private const int MaxChecksumFileBytes = 1024;
-    private const int MaxSignatureFileBytes = 64 * 1024;
-    private const string ReleasesDir = "releases";
+    private const UnixFileMode _privateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+    private const int _maxChecksumFileBytes = 1024;
+    private const int _maxSignatureFileBytes = 64 * 1024;
+    private const string _releasesDir = "releases";
 
     private readonly LinuxUpdaterSettings _settings;
     private readonly IReleaseSource _source;
@@ -74,15 +74,15 @@ public sealed class LinuxUpdater : ILinuxUpdater
         try
         {
             _fs.DeleteDirectory(staging); // Leftovers of a crashed run.
-            _fs.CreateDirectory(work, PrivateDirectory);
+            _fs.CreateDirectory(work, _privateDirectory);
 
             string tarball = UnixPath.Combine(work, "package.tar.gz");
             string checksum = UnixPath.Combine(work, "package.sha256");
             string signature = UnixPath.Combine(work, "package.asc");
 
             var failure = await DownloadAsync(artifact.Url, tarball, artifact.SizeBytes, ct).ConfigureAwait(false)
-                ?? await DownloadAsync(artifact.Sha256Url!, checksum, MaxChecksumFileBytes, ct).ConfigureAwait(false)
-                ?? await DownloadAsync(artifact.SignatureUrl!, signature, MaxSignatureFileBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.Sha256Url!, checksum, _maxChecksumFileBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.SignatureUrl!, signature, _maxSignatureFileBytes, ct).ConfigureAwait(false)
                 ?? await CheckHashAsync(artifact, tarball, checksum, ct).ConfigureAwait(false)
                 ?? await new GpgSignatureVerifier(_settings, _runner, _fs).VerifyAsync(tarball, signature, ct).ConfigureAwait(false);
             if (failure is not null)
@@ -90,8 +90,8 @@ public sealed class LinuxUpdater : ILinuxUpdater
                 return Result(failure.Status, manifest.AppVersion, failure.Detail);
             }
 
-            string releases = UnixPath.Combine(Root, ReleasesDir);
-            _fs.CreateDirectory(releases, PrivateDirectory | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+            string releases = UnixPath.Combine(Root, _releasesDir);
+            _fs.CreateDirectory(releases, _privateDirectory | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
             partial = UnixPath.Combine(releases, ".partial-" + Guid.NewGuid().ToString("N"));
             try
             {
@@ -120,7 +120,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
                 PointLink(PreviousLink, oldTarget);
             }
 
-            PointLink(CurrentLink, ReleasesDir + "/" + manifest.AppVersion);
+            PointLink(CurrentLink, _releasesDir + "/" + manifest.AppVersion);
             Prune();
             return Result(UpdateStatus.Installed, manifest.AppVersion, "Installed.");
         }
@@ -405,7 +405,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
             }
         }
 
-        foreach (string dir in _fs.EnumerateDirectories(UnixPath.Combine(Root, ReleasesDir)))
+        foreach (string dir in _fs.EnumerateDirectories(UnixPath.Combine(Root, _releasesDir)))
         {
             if (!keep.Contains(UnixPath.GetFileName(dir)))
             {
@@ -418,7 +418,7 @@ public sealed class LinuxUpdater : ILinuxUpdater
     private static bool TryVersionOf(string linkTarget, [NotNullWhen(true)] out string? version)
     {
         version = null;
-        string prefix = ReleasesDir + "/";
+        string prefix = _releasesDir + "/";
         if (!linkTarget.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;

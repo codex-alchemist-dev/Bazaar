@@ -5,13 +5,13 @@ namespace Bazaar.Client.Updater.Linux.Tests;
 
 public class SafeTarGzExtractorTests
 {
-    private const string Dest = "/opt/bazaar/releases/.partial";
+    private const string _dest = "/opt/bazaar/releases/.partial";
 
     private static async Task<InMemoryFs> ExtractAsync(byte[] tar, long maxBytes = 1_000_000, int maxEntries = 1000)
     {
         var fs = new InMemoryFs();
         fs.CreateDirectory("/opt/bazaar/releases", UnixFileMode.UserRead);
-        await new SafeTarGzExtractor(fs, maxBytes, maxEntries).ExtractAsync(new MemoryStream(tar), Dest, CancellationToken.None);
+        await new SafeTarGzExtractor(fs, maxBytes, maxEntries).ExtractAsync(new MemoryStream(tar), _dest, CancellationToken.None);
         return fs;
     }
 
@@ -29,10 +29,10 @@ public class SafeTarGzExtractorTests
     {
         var fs = await ExtractAsync(Build(Dir("./"), Dir("lib"), File("lib/a.txt", "hello"), Link("lib/b", "a.txt"), Link("up", "lib/a.txt"), Link("lib/c", "../lib/a.txt")));
 
-        Assert.Equal("hello", Encoding.UTF8.GetString(fs.Content(Dest + "/lib/a.txt")!));
-        Assert.Equal("a.txt", fs.ReadLink(Dest + "/lib/b"));
-        Assert.Equal("lib/a.txt", fs.ReadLink(Dest + "/up"));
-        Assert.Equal("../lib/a.txt", fs.ReadLink(Dest + "/lib/c"));
+        Assert.Equal("hello", Encoding.UTF8.GetString(fs.Content(_dest + "/lib/a.txt")!));
+        Assert.Equal("a.txt", fs.ReadLink(_dest + "/lib/b"));
+        Assert.Equal("lib/a.txt", fs.ReadLink(_dest + "/up"));
+        Assert.Equal("../lib/a.txt", fs.ReadLink(_dest + "/lib/c"));
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class SafeTarGzExtractorTests
     {
         var fs = await ExtractAsync(Build(File("./bin/run", "r")));
 
-        Assert.True(fs.FileExists(Dest + "/bin/run"));
+        Assert.True(fs.FileExists(_dest + "/bin/run"));
     }
 
     [Theory]

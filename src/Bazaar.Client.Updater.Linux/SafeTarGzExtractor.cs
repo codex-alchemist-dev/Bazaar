@@ -22,12 +22,12 @@ public sealed class ArchiveRejectedException : Exception
 /// </summary>
 public sealed class SafeTarGzExtractor
 {
-    private const UnixFileMode AllowedModes =
+    private const UnixFileMode _allowedModes =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
         | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
         | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
 
-    private const UnixFileMode DirectoryMode =
+    private const UnixFileMode _directoryMode =
         UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
         | UnixFileMode.GroupRead | UnixFileMode.GroupExecute
         | UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
@@ -54,7 +54,7 @@ public sealed class SafeTarGzExtractor
         ArgumentNullException.ThrowIfNull(archive);
         ArgumentException.ThrowIfNullOrEmpty(destination);
 
-        _fs.CreateDirectory(destination, DirectoryMode);
+        _fs.CreateDirectory(destination, _directoryMode);
         var links = new HashSet<string>(StringComparer.Ordinal);
         int entries = 0;
         long total = 0;
@@ -110,7 +110,7 @@ public sealed class SafeTarGzExtractor
                     throw new ArchiveRejectedException($"Entry '{relative}' replaces a symbolic link with a directory.");
                 }
 
-                _fs.CreateDirectory(target, DirectoryMode);
+                _fs.CreateDirectory(target, _directoryMode);
                 return total;
 
             case TarEntryType.RegularFile or TarEntryType.V7RegularFile:
@@ -171,7 +171,7 @@ public sealed class SafeTarGzExtractor
             throw new ArchiveRejectedException($"Entry '{relative}' appears twice.");
         }
 
-        _fs.SetUnixMode(target, (entry.Mode & AllowedModes) | UnixFileMode.UserRead);
+        _fs.SetUnixMode(target, (entry.Mode & _allowedModes) | UnixFileMode.UserRead);
         return total;
     }
 
@@ -180,7 +180,7 @@ public sealed class SafeTarGzExtractor
         string? parent = UnixPath.GetDirectoryName(target);
         if (parent is not null)
         {
-            _fs.CreateDirectory(parent, DirectoryMode);
+            _fs.CreateDirectory(parent, _directoryMode);
         }
     }
 

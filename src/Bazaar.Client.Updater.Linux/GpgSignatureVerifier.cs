@@ -8,7 +8,7 @@ namespace Bazaar.Client.Updater.Linux;
 /// </summary>
 internal sealed class GpgSignatureVerifier
 {
-    private const UnixFileMode OwnerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+    private const UnixFileMode _ownerOnly = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
 
     private readonly LinuxUpdaterSettings _settings;
     private readonly IProcessRunner _runner;
@@ -27,7 +27,7 @@ internal sealed class GpgSignatureVerifier
         // A short path under the temp directory: gpg puts its agent socket in the home directory when the per-user runtime
         // directory is unavailable, and a socket path is limited to about 100 characters. 96 random bits keep the name unguessable.
         string home = Path.Combine(Path.GetTempPath(), "bz" + Guid.NewGuid().ToString("N")[..24]);
-        _fs.CreateDirectory(home, OwnerOnly);
+        _fs.CreateDirectory(home, _ownerOnly);
         try
         {
             var import = await RunAsync(home, ["--import", _settings.PinnedKeyPath], ct).ConfigureAwait(false);
