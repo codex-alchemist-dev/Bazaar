@@ -281,14 +281,20 @@ One code change besides the move: `JudgmentDecisionFile.Quote` now uses `JavaScr
 
 Docs section this implements: this section (doc 24 section 1, Company Constitution; the owner's direction to accelerate modularity transfer; Server-extraction rule #719).
 
-Decision: the Constitution is its own module pair, like Org and Calendar, not part of a shared "Company" module. Doc 24 lists four separate company systems, each with its own owning service, and Org and Calendar already extract as their own modules (PR #749). The Constitution has no dependency on either, so a shared `Bazaar.Server.Company` project would only couple them. The namespaces did not change (`Bazaar.Server.Company.Constitution.*`).
+Decision: the Constitution is its own module pair, like Org and Calendar, not part of a shared "Company" module. Doc 24 lists four separate company systems, each with its own owning service, and Org and Calendar extract as their own modules (the section below). The Constitution has no dependency on either, so a shared `Bazaar.Server.Company` project would only couple them. The namespaces did not change (`Bazaar.Server.Company.Constitution.*`).
 
 - `Bazaar.Server.Constitution.Abstractions`: `ConstitutionSection`, `ConstitutionDocument`, `ConstitutionChanged` (the `constitution.changed` event) and `ConstitutionSectionChanges` (the section diff that `ConstitutionChanged.FromDocuments` calls). It references `Bazaar.Contracts` only.
 - `Bazaar.Server.Constitution`: the acceptance check (`ConstitutionAcceptance`), the parser and its result types, the decision-link reader, `ConstitutionChangeNotice` and `ExcerptRefresh`. It references the Constitution and Agents abstractions (`InboxKind`, `InboxCandidate`), not `Bazaar.Server`.
 
 `Bazaar.Server` and `Bazaar.Server.Host` reference both. `tests/Bazaar.Server.Constitution.Tests` holds the 53 moved tests. All of these types are pure, so the module registers no `IBazaarComponent`.
 
-Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), with the reason each one stays:
+## Org Chart and Company Calendar modules (extraction from `Bazaar.Server/Org`, `Calendar` and `Company`)
 
-- `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
-- `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
+Docs section this implements: doc 24 sections 2 (Org Chart) and 4 (Company Calendar); the Server-extraction rule (#719). Decision 2026-11-22: each is its own module pair, as the Constitution section above says.
+
+- `Bazaar.Server.Calendar.Abstractions`: `CalendarKind`, `CalendarStatus`, `CalendarDraft`, `CalendarEventRecord`, `CalendarResult`, `CalendarPolicy`, `CalendarActor`, `ICalendarService` and `CalendarSettings` (the `calendar.*` setting keys, which `HostSettings` still aggregates). It references `Bazaar.Contracts` and `Bazaar.Server.Settings.Abstractions`.
+- `Bazaar.Server.Calendar`: `CalendarRepository`, `CalendarRules`, `CalendarService` (appends through `IGcLogWriter` from `Bazaar.GC.Abstractions`), `CalendarAvailabilityFeed` (moved from `Bazaar.Server/Company/Availability`; it reads `Bazaar.Server.WorkLife`) and `CalendarComponent` (id `calendar`, provides `feature:company-calendar`).
+- `Bazaar.Server.Org.Abstractions`: `OrgRelation`, `NewOrgRelation`, `OrgRelationKind`, `OrgSettings`.
+- `Bazaar.Server.Org`: `OrgRelationRepository`, `LoanRules`, `OrgRouting`, `OrgLoanService` and `OrgComponent` (id `org`, provides `feature:company-org`). Namespaces are now `Bazaar.Server.Org` and `Bazaar.Server.Org.Data` (the old `Bazaar.Server.Company.Org` and `Bazaar.Server.Company.Availability` namespaces are gone).
+- `CompanyComponent` is replaced by `CalendarComponent` and `OrgComponent`, both listed in `HostComponents`. The 15 moved files are off `architecture-baseline.txt`; `Bazaar.Server` has no `Calendar`, `Org` or `Company` folder.
+- Migrations `0017_calendar.sql` and `0018_org.sql` stay in `Bazaar.Server/Data/Sql` (one migration set, `MigrationNamespaceTests`). Tests moved to `tests/Bazaar.Server.Calendar.Tests` and `tests/Bazaar.Server.Org.Tests`.
