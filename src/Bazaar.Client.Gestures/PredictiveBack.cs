@@ -145,6 +145,7 @@ public sealed class PredictiveBackController : IDisposable
         _edge = e.Edge;
         _committing = true;
         _progress.AnimateTo(1, _settings.SettleDamping, _settings.SettleTime);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnCancelled(object? sender, BackGestureEventArgs e)
@@ -164,5 +165,6 @@ public sealed class PredictiveBackController : IDisposable
         }
 
         _progress.AnimateTo(0, _settings.SettleDamping, _settings.SettleTime);
+        Changed?.Invoke(this, EventArgs.Empty);
     }
 }
