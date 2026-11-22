@@ -46,6 +46,9 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     }
 
     /// <inheritdoc />
+    public IReadOnlyCollection<string> CoveredSections => InstallSettingsStep.CoveredSections;
+
+    /// <inheritdoc />
     public bool DurableAuditStoreAvailable => _dataSource is not null;
 
     /// <summary>A gate that is always closed, for when no database is configured or reachable.</summary>
@@ -128,6 +131,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         var settingAudit = new PostgresSettingAuditSink(audit);
         services.AddSingleton<ISettingAuditSink>(settingAudit);
         services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(settingAudit));
+        services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(dataSource, sp.GetRequiredService<ISetupSettingCatalog>()));
     }
 
     /// <summary>Disposes the data source this gate owns. The shared closed gate owns none.</summary>
