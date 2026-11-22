@@ -57,7 +57,7 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
     public async ValueTask<GwModel?> GetModelAsync(ModelRef model, CancellationToken cancellationToken = default)
     {
         await using var cmd = dataSource.CreateCommand(
-            "SELECT provider_id, model_id, family, identity, caps::text, status, first_seen, last_seen, source FROM gw_model WHERE provider_id = $1 AND model_id = $2");
+            "SELECT provider_id, model_id, family, identity, caps::text, status, first_seen, last_seen, source, kind, embed_max_batch, embed_max_input_chars FROM gw_model WHERE provider_id = $1 AND model_id = $2");
         cmd.Parameters.AddWithValue(model.ProviderId);
         cmd.Parameters.AddWithValue(model.ModelId);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -67,7 +67,7 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
     public async Task<IReadOnlyList<GwModel>> ListModelsAsync(string providerId, CancellationToken cancellationToken = default)
     {
         await using var cmd = dataSource.CreateCommand(
-            "SELECT provider_id, model_id, family, identity, caps::text, status, first_seen, last_seen, source FROM gw_model WHERE provider_id = $1 ORDER BY model_id");
+            "SELECT provider_id, model_id, family, identity, caps::text, status, first_seen, last_seen, source, kind, embed_max_batch, embed_max_input_chars FROM gw_model WHERE provider_id = $1 ORDER BY model_id");
         cmd.Parameters.AddWithValue(providerId);
         var result = new List<GwModel>();
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -84,10 +84,11 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
     {
         ArgumentNullException.ThrowIfNull(model);
         await using var cmd = dataSource.CreateCommand("""
-            INSERT INTO gw_model (provider_id, model_id, family, identity, caps, status, first_seen, last_seen, source)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            INSERT INTO gw_model (provider_id, model_id, family, identity, caps, status, first_seen, last_seen, source, kind, embed_max_batch, embed_max_input_chars)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             ON CONFLICT (provider_id, model_id) DO UPDATE SET family = EXCLUDED.family, identity = EXCLUDED.identity,
-                caps = EXCLUDED.caps, status = EXCLUDED.status, last_seen = EXCLUDED.last_seen, source = EXCLUDED.source
+                caps = EXCLUDED.caps, status = EXCLUDED.status, last_seen = EXCLUDED.last_seen, source = EXCLUDED.source,
+                kind = EXCLUDED.kind, embed_max_batch = EXCLUDED.embed_max_batch, embed_max_input_chars = EXCLUDED.embed_max_input_chars
             """);
         cmd.Parameters.AddWithValue(model.ProviderId);
         cmd.Parameters.AddWithValue(model.ModelId);
@@ -98,6 +99,9 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
         cmd.Parameters.AddWithValue(model.FirstSeen);
         cmd.Parameters.AddWithValue(model.LastSeen);
         cmd.Parameters.AddWithValue(model.Source);
+        cmd.Parameters.AddWithValue(model.Kind);
+        cmd.Parameters.AddWithValue((object?)model.EmbedMaxBatch ?? DBNull.Value);
+        cmd.Parameters.AddWithValue((object?)model.EmbedMaxInputChars ?? DBNull.Value);
         await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -162,5 +166,6 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
     private static GwModel ReadModel(NpgsqlDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2),
         GatewayIdentityText.FromText(r.GetString(3)),
-        r.GetString(4), r.GetString(5), r.GetFieldValue<DateTimeOffset>(6), r.GetFieldValue<DateTimeOffset>(7), r.GetString(8));
+        r.GetString(4), r.GetString(5), r.GetFieldValue<DateTimeOffset>(6), r.GetFieldValue<DateTimeOffset>(7), r.GetString(8),
+        r.GetString(9), r.IsDBNull(10) ? null : r.GetInt32(10), r.IsDBNull(11) ? null : r.GetInt32(11));
 }

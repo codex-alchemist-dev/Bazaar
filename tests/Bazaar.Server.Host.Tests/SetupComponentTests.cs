@@ -30,7 +30,7 @@ public sealed class SetupComponentTests
     private const string _agentToken = "agent-token";
     private const string _goodCode = "good-code-0001";
 
-    private const string _plan = """
+    internal const string _plan = """
         {
           "schemaVersion": 1,
           "install": {

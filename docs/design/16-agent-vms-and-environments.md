@@ -96,6 +96,11 @@ Each part is its own module pair on Bazaar.Core: `Bazaar.Server.<Name>` plus `Ba
 - Canary credentials are planted in the Soul share on attach. Any read-use is reported through `ICanarySink`, which the agent-safety module turns into the page-and-freeze action (doc 15, PROPOSED there too).
 - The OS-specific work (SMB share and ACL on Windows, mount and bind on Linux) sits behind `IMountProvider`. The cloud build ships a fake and a directory-based provider for tests.
 - Every attach, detach and write-back writes an audit row through the existing audit abstraction.
+- **Workspace share transport (PROPOSED, 2026-11-19; answers the owner's question on the shared folder between the Windows and Linux VM):** one host directory per agent, exposed to both VMs, behind one `IMountProvider` per transport so no feature code knows which is in use.
+  - **SMB** is the default on Hyper-V, because it is the one transport both guests mount natively (Windows by `net use`, Linux by `cifs`). The share exists only on the agent's virtual switch address, is bound to a per-agent local account on the host, and requires SMB signing and encryption. No SMB traffic leaves the host-only switch, and the egress rules (WP9) do not allow it to any other address.
+  - **virtiofs** is the default on KVM for the Linux guest, with SMB for the Windows guest. It is not used on Hyper-V, which has no virtiofs.
+  - The transport per backend is an operator setting (`vm.share.transport`, shipped default as above, audited changes). Neither transport is a security boundary on its own: the path jail and the deny list in this section are enforced host-side before any directory is exposed.
+  - Which transport is faster for builds and Godot exports is **not decided here**; the SMB throughput benchmark in the benchmark list settles the default, and the setting lets an operator override it without a code change.
 - **Hard taint and kill switch (PROPOSED, from the security review):** detaching the share does not remove the guest-local profile copy. So a hard-taint or kill-switch detach also asks the host to pause the VM and discard or revert its disk (`IGuestScrubber`, wired to the VM lifecycle). Detach never waits on guest I/O and never writes back after taint. Canary fingerprints are stored, not forgotten, so a canary used after detach or a restart still pages. The profile folder is locked per agent, because both VMs of one agent share it.
 
 **Egress (WP9): `Bazaar.Server.VmEgress`**
@@ -195,7 +200,7 @@ Registry owned by doc 03 [PROPOSED]. Changes are written to `audit_log` (doc 15)
 8. Scoped mounts: Soul folder (cookie profile, detach on taint) and workspace share, ACLs, guest mount. (after 2, 5, doc 15 isolation)
 9. Egress enforcement at the switch. (after 5 and the egress design)
 10. Startup reconciliation and audit rows. (after 2, 3)
-11. Benchmark harness and report. (after 5, 6, 8)
+11. Benchmark harness and report. (after 5, 6, 8) Module pair `Bazaar.Server.VmBench` (doc 40): runner, statistics, Markdown and JSON report, run-to-run comparison over an `IVmBenchHost`; the Hyper-V host adapter lands with WP5 to WP8.
 12. KVM provider and Linux host spike. (after 3; later)
 13. Browser profiles in the pair; third VM only if the headed and headless spike needs it. (after 6, 8, 9)
 
