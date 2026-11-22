@@ -60,7 +60,7 @@ public sealed class CalendarMigrationTests(CalendarDb db) : IClassFixture<Calend
     public async Task Reapplying_the_migrations_is_a_no_op()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
         var result = await new MigrationRunner(db.DataSource, new MigrationOptions(16))
             .MigrateAsync(source, "linux", TestContext.Current.CancellationToken);
 
