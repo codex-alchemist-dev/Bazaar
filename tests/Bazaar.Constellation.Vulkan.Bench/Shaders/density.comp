@@ -1,0 +1,44 @@
+#version 450
+
+// Bins every node into a screen-space density grid. One thread per node; atomics accumulate per cell.
+// Work groups are laid out in 2D so more than 65535 groups (16.7M nodes) can be dispatched in one call.
+layout(local_size_x = 256) in;
+
+layout(set = 0, binding = 0) readonly buffer Nodes
+{
+    vec4 nodes[];
+};
+
+layout(set = 0, binding = 1) buffer Density
+{
+    uint cells[];
+};
+
+layout(push_constant) uniform Push
+{
+    uint count;
+    uint cellsX;
+    uint cellsY;
+    uint pad;
+    vec4 transform; // xy scale, zw offset, same as the node vertex shader
+} pc;
+
+void main()
+{
+    uint index = (gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x) * 256u + gl_LocalInvocationID.x;
+    if (index >= pc.count)
+    {
+        return;
+    }
+
+    vec2 clip = nodes[index].xy * pc.transform.xy + pc.transform.zw;
+    vec2 uv = clip * 0.5 + 0.5;
+    if (any(lessThan(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))
+    {
+        return;
+    }
+
+    uint cx = min(uint(uv.x * float(pc.cellsX)), pc.cellsX - 1u);
+    uint cy = min(uint(uv.y * float(pc.cellsY)), pc.cellsY - 1u);
+    atomicAdd(cells[cy * pc.cellsX + cx], 1u);
+}
