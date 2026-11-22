@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gc.Archive\Bazaar.Server.Gc.Archive.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gc.Skimmer\Bazaar.Server.Gc.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.ReadAudit\Bazaar.Server.ReadAudit.csproj" />
