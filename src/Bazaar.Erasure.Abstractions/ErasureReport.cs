@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure.Abstractions;
 
 public enum PersonKeyOutcome
 {

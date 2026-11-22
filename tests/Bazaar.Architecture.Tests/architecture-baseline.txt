@@ -32,12 +32,6 @@ src/Bazaar.Server/Company/Org/LoanRules.cs
 src/Bazaar.Server/Company/Org/OrgLoanService.cs
 src/Bazaar.Server/Company/Org/OrgRouting.cs
 src/Bazaar.Server/Company/Org/OrgSettings.cs
-src/Bazaar.Server/Components/Erasure/ErasureCoordinator.cs
-src/Bazaar.Server/Components/Erasure/ErasureReport.cs
-src/Bazaar.Server/Components/Erasure/ErasureServiceCollectionExtensions.cs
-src/Bazaar.Server/Components/Erasure/IErasureParticipant.cs
-src/Bazaar.Server/Components/Erasure/IPersonKeyEraser.cs
-src/Bazaar.Server/Components/Erasure/PostgresPersonKeyEraser.cs
 src/Bazaar.Server/Constellation/Clustering/LouvainClustering.cs
 src/Bazaar.Server/Constellation/Clustering/WeightedEdge.cs
 src/Bazaar.Server/Constellation/ConstellationComponent.cs
@@ -315,9 +309,6 @@ src/Bazaar.Server/Security/Budgets/TokenBudgetOptions.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetService.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetServiceCollectionExtensions.cs
 src/Bazaar.Server/Security/Budgets/TokenBudgetWindow.cs
-src/Bazaar.Server/Security/Erasure/ErasureProof.cs
-src/Bazaar.Server/Security/Erasure/IErasureProofSigner.cs
-src/Bazaar.Server/Security/Erasure/SubjectRefHasher.cs
 src/Bazaar.Server/Security/KillSwitch/AgentContainmentAdapter.cs
 src/Bazaar.Server/Security/KillSwitch/IAgentContainment.cs
 src/Bazaar.Server/Security/KillSwitch/IContainmentStateStore.cs
