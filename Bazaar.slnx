@@ -420,6 +420,7 @@
     <Project Path="src/Bazaar.Server.ModuleHost/Bazaar.Server.ModuleHost.csproj" />
     <Project Path="src/Bazaar.Server.ModuleHost.Abstractions/Bazaar.Server.ModuleHost.Abstractions.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
+    <Project Path="src/Bazaar.RateLimits.Cache/Bazaar.RateLimits.Cache.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Selection/Bazaar.Server.Gateway.Selection.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Selection.Abstractions/Bazaar.Server.Gateway.Selection.Abstractions.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
@@ -745,6 +746,7 @@
     <Project Path="tests/Bazaar.Server.ModuleHost.Tests/Bazaar.Server.ModuleHost.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vault.Testing/Bazaar.Server.Vault.Testing.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
+    <Project Path="tests/Bazaar.RateLimits.Cache.Tests/Bazaar.RateLimits.Cache.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Health.Tests/Bazaar.Client.Health.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Twin.Tests/Bazaar.Client.Twin.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Archive.Tests/Bazaar.Client.Archive.Tests.csproj" />
