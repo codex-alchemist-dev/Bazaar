@@ -1,7 +1,7 @@
 Golden frame: Ping(no nonce)
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:cfa96d21efb577f6a1582d933eb298fa2dcf83e293ad2df1e01fd7a32000bf06
+Schema hash: sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692
 Payload record: Bazaar.Contracts.Wire.Ping
 Envelope: v=1 t=ping k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 108 bytes
