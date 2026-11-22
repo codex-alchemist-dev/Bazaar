@@ -341,6 +341,17 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 - **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
 - **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.
 
+## 2.7 First-run walkthrough after sign-in [PROPOSED]
+
+One client module, `Bazaar.Client.Walkthrough` with `.Abstractions` and `.Avalonia`, adds no code to Client.Core. It is a short card shown once after sign-in. It guides the person through the first three real actions and uses their own company (section 2.4: no sample data). It is separate from the keyboard-first tour (section 2.3), which teaches navigation; this one teaches what to do first.
+
+- **Steps.** Welcome, create the company, meet the first agent, give a first task, done. Every step is skippable. Nothing advances by itself and nothing depends on animation or a timer (section 2.2); the card has no motion, so reduced motion needs no substitute.
+- **Real actions, not copies.** A step's button opens the real screen (create-company, the agent's profile, the task composer) through the `IWalkthroughActions` port. The head wires those to the shell.
+- **Done is a server fact.** A step shows as done when the server reports it (`IWalkthroughFactsSource`: company exists, first agent name, a first task given). A returning person whose company already exists starts at the first step not yet done. If the server cannot be asked, the walkthrough still works and says so.
+- **Progress.** A human preference saved with `prefs.set` through `IWalkthroughProgressStore` (section 2.3 rule: follows the account, an empty cache never stops the app). Skip hides it until it is replayed. Replay is a palette command and never resets settings.
+- **Look.** Colours come from the theme resources (doc 93), so Void, Graphite, Paper and Rubedo overrides restyle the card. The phone swipe prompts of doc 93 ("First-run coach", package 8) are a separate head concern and are not part of this module.
+- **Testing.** Unit tests for the step flow, skip, replay, facts and failure paths; an Avalonia.Headless test drives the card by its `walkthrough-*` automation ids.
+
 ---
 
 ## Conflicts and gaps
