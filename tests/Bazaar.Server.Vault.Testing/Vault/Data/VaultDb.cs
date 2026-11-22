@@ -4,8 +4,8 @@ using Bazaar.Testing.Postgres;
 namespace Bazaar.Server.Tests.Vault.Data;
 
 /// <summary>
-/// Shared Postgres fixture for the Vault data tests. Also linked into tests/Bazaar.Server.Tests (Constellation/VaultGraphSourceTests),
-/// so keep it self-contained.
+/// Shared Postgres fixture for the Vault tests, referenced by tests/Bazaar.Server.Vault.Tests and tests/Bazaar.Server.Tests
+/// (Constellation/VaultGraphSourceTests), so keep it self-contained.
 /// </summary>
 public sealed class VaultDb : PgFixture, IAsyncLifetime
 {
