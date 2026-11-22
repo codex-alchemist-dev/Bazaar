@@ -59,6 +59,13 @@ if (!volumeSetup.MayStart)
 builder.Configuration.AddVolumeHostConfig();
 builder.Configuration.AddKekHostConfig();
 
+// Doc 63 section 5: a doc 63 install without its KEK is refused with one line and exit code 78, before the service graph opens it.
+var bootRootRefusal = BootRootPreflight.Check(builder.Configuration, Console.Out);
+if (bootRootRefusal != 0)
+{
+    return bootRootRefusal;
+}
+
 builder.Services.AddBazaarHostApplication(builder.Configuration);
 builder.Services.AddBazaarDataVolume(builder.Configuration);
 
@@ -101,7 +108,15 @@ var exitCode = app.Services.GetRequiredService<HostExitCode>();
 
 var setupStart = app.Services.GetService<SetupPlanStartOutcome>();
 
-await app.RunAsync();
+try
+{
+    await app.RunAsync();
+}
+catch (OperationCanceledException) when (exitCode.Value != 0)
+{
+    // A start step refused and stopped the host (for example the data volume guard, doc 63 section 5). The cancelled start is
+    // that refusal, already logged with its reason, and not a crash: the process ends with the step's exit code.
+}
 
 // --setup-only returns the plan's exit code (doc 45 section 1.7); a serving host returns its own.
 return setupStart is { ExitCode: not 0 } ? setupStart.ExitCode : exitCode.Value;

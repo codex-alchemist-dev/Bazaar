@@ -12,6 +12,7 @@ using Bazaar.Client.Interrupts;
 using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Vault;
 
 namespace Bazaar.Client.Linux;
@@ -39,6 +40,7 @@ public static class LinuxModules
         .. GitSolarSystemPanes.Modules,
         .. GitGuiPanes.Modules,
         new AgentAnalyticsPaneModule(),
+        new SettingsPaneModule(),
         // The terminal pane comes last in pager order (doc 55, section 7).
         .. CalcinatoPanes.Modules,
     ];
