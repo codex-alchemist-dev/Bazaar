@@ -154,12 +154,12 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server/Gateway` |
+| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server.Gateway` |
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
 | Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
-| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
+| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server.Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 
@@ -174,6 +174,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
 | Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |
+| Git Solar System client | Bazaar.Client.GitSolarSystem (+ .Abstractions): branch orbits, commit bodies and merge comets, from the server's git DAG and orbit layout. | Planned (in progress, 2026-11-18) | `docs/design/19` (Git Solar System client module) |
 | GitLab integration | GitLab as a second git provider on the GitHub contract. | Planned (v1 scope, owner 2026-11-16) | `docs/design/21`, `41` section 4.14 |
 
 ## 10. Storage, backup and platform packaging
