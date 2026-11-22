@@ -46,6 +46,17 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return ModuleSignatureStatus.KeyNotValid;
         }
 
+        // The key proves who signed. These two checks decide whether that publisher may sign this package at all.
+        if (!string.Equals(key.PublisherId, package.PublisherId, StringComparison.Ordinal))
+        {
+            return ModuleSignatureStatus.PublisherMismatch;
+        }
+
+        if (!key.Covers(package.ModuleId))
+        {
+            return ModuleSignatureStatus.ModuleNotInKeyScope;
+        }
+
         try
         {
             var message = ModuleCanonicalForm.Build(package);
@@ -65,10 +76,12 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
 
     private static bool IsWellFormed(ModulePackage package)
     {
-        if (string.IsNullOrWhiteSpace(package.ModuleId)
-            || string.IsNullOrWhiteSpace(package.Version)
-            || string.IsNullOrWhiteSpace(package.ContentDigestSha256Hex)
-            || string.IsNullOrWhiteSpace(package.SignerKeyId))
+        if (!ModuleText.IsToken(package.ModuleId)
+            || !ModuleText.IsToken(package.Version)
+            || !ModuleText.IsToken(package.PublisherId)
+            || !ModuleText.IsToken(package.SignerKeyId)
+            || !ModuleText.IsSha256Hex(package.ContentDigestSha256Hex)
+            || package.DeclaredPermissions.Count > ModuleText.MaxPermissions)
         {
             return false;
         }
@@ -78,6 +91,6 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return false;
         }
 
-        return package.DeclaredPermissions.All(permission => !string.IsNullOrWhiteSpace(permission));
+        return package.DeclaredPermissions.All(ModuleText.IsToken);
     }
 }
