@@ -109,14 +109,14 @@ public interface IMirrorRewriter
 public sealed record SealedMirrorValue(Guid KeyId, byte[] Nonce, byte[] Ciphertext);
 
 /// <summary>
-/// Seals and opens Mirror payloads and profile bodies (doc 26, C01). The associated data binds a value to its row. Destroying
-/// the key makes every value it sealed unreadable, which is how erasure works for Mirror.
+/// Seals and opens Mirror payloads and profile bodies under the owner's per-person key (doc 04 per-person encrypted fields,
+/// doc 26, C01). The associated data binds a value to its row. Destroying the key makes every value it sealed unreadable,
+/// which is how erasure works for Mirror. Both calls fail closed: no key, no owner or a destroyed key is an exception, never plaintext.
 /// </summary>
 public interface IMirrorCipher
 {
-    Guid KeyId { get; }
-    SealedMirrorValue Seal(string plaintext, ReadOnlySpan<byte> associatedData);
+    ValueTask<SealedMirrorValue> SealAsync(string plaintext, byte[] associatedData, CancellationToken cancellationToken);
 
-    /// <summary>Throws <see cref="System.Security.Cryptography.CryptographicException"/> when the key, the data or the value is wrong.</summary>
-    string Open(SealedMirrorValue value, ReadOnlySpan<byte> associatedData);
+    /// <summary>Throws <see cref="System.Security.Cryptography.CryptographicException"/> when the key is destroyed or the key, the data or the value is wrong.</summary>
+    ValueTask<string> OpenAsync(SealedMirrorValue value, byte[] associatedData, CancellationToken cancellationToken);
 }

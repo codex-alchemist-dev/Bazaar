@@ -16,6 +16,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Mirror.Abstractions\Bazaar.Server.Mirror.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Mirror\Bazaar.Server.Mirror.csproj" />
   </ItemGroup>

@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Bazaar.Server.Identity.Kek;
 using Npgsql;
 
 namespace Bazaar.Server.Mirror;
@@ -24,10 +25,15 @@ public sealed class MirrorComponent : IBazaarComponent
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton(TimeProvider.System);
-        // Postgres with a cipher when the host provides both (rows are sealed, doc 26 C01); otherwise a process-local store.
+        // With a database the cipher is the owner's person key under the KEK (doc 04, doc 26 C01). Without the KEK there is no
+        // cipher and the store refuses to run (fail closed). With no database at all, a process-local store is used.
+        services.TryAddSingleton<IMirrorCipher>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } ds && sp.GetService<IKekProvider>() is { } kek
+                ? new PersonKeyMirrorCipher(ds, kek)
+                : new UnavailableMirrorCipher());
         services.TryAddSingleton<IMirrorStore>(sp =>
-            sp.GetService<NpgsqlDataSource>() is { } ds && sp.GetService<IMirrorCipher>() is { } cipher
-                ? new PostgresMirrorStore(ds, cipher)
+            sp.GetService<NpgsqlDataSource>() is { } ds
+                ? new PostgresMirrorStore(ds, sp.GetRequiredService<IMirrorCipher>())
                 : new InMemoryMirrorStore());
         services.AddSingleton(_ => ReadOptions(configuration));
         services.AddSingleton<IMirrorService, MirrorService>();

@@ -24,13 +24,13 @@ public class PostgresMirrorStoreTests
     [Fact]
     public async Task Cipher_round_trips_and_binds_to_the_row()
     {
+        var ct = TestContext.Current.CancellationToken;
         var cipher = NewCipher();
-        var sealedValue = cipher.Seal("secret", [1, 2]);
+        var sealedValue = await cipher.SealAsync("secret", [1, 2], ct);
 
-        Assert.Equal("secret", cipher.Open(sealedValue, [1, 2]));
-        Assert.Throws<AuthenticationTagMismatchException>(() => cipher.Open(sealedValue, [9]));
-        Assert.Throws<CryptographicException>(() => NewCipher().Open(sealedValue, [1, 2]));
-        await Task.CompletedTask;
+        Assert.Equal("secret", await cipher.OpenAsync(sealedValue, [1, 2], ct));
+        await Assert.ThrowsAsync<AuthenticationTagMismatchException>(async () => await cipher.OpenAsync(sealedValue, [9], ct));
+        await Assert.ThrowsAsync<CryptographicException>(async () => await NewCipher().OpenAsync(sealedValue, [1, 2], ct));
     }
 
     [Fact]

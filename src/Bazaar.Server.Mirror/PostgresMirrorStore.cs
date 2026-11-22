@@ -12,7 +12,7 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
 
     public async Task AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken)
     {
-        var sealedValue = cipher.Seal(signal.Payload, SignalAd(signal.Id));
+        var sealedValue = await cipher.SealAsync(signal.Payload, SignalAd(signal.Id), cancellationToken).ConfigureAwait(false);
         await using var cmd = dataSource.CreateCommand(
             "INSERT INTO mirror_signal (id, kind, topic, direction, source_ref, weight, key_id, nonce, ciphertext, created_at) " +
             "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)");
@@ -38,7 +38,7 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             var id = reader.GetGuid(0);
-            var payload = cipher.Open(new SealedMirrorValue(reader.GetGuid(6), reader.GetFieldValue<byte[]>(7), reader.GetFieldValue<byte[]>(8)), SignalAd(id));
+            var payload = await cipher.OpenAsync(new SealedMirrorValue(reader.GetGuid(6), reader.GetFieldValue<byte[]>(7), reader.GetFieldValue<byte[]>(8)), SignalAd(id), cancellationToken).ConfigureAwait(false);
             list.Add(new MirrorSignal(
                 id,
                 Enum.Parse<MirrorSignalKind>(reader.GetString(1)),
@@ -56,7 +56,7 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
     public async Task AddProfileAsync(MirrorProfile profile, CancellationToken cancellationToken)
     {
         var body = JsonSerializer.Serialize(profile.Rules.Select(r => new RuleDto(r.Topic, r.Direction.ToString(), r.Count, [.. r.EvidenceRefs])).ToList(), MirrorJson.Default.ListRuleDto);
-        var sealedValue = cipher.Seal(body, ProfileAd(profile.Version));
+        var sealedValue = await cipher.SealAsync(body, ProfileAd(profile.Version), cancellationToken).ConfigureAwait(false);
         await using var cmd = dataSource.CreateCommand(
             "INSERT INTO mirror_profile (version, key_id, nonce, ciphertext, created_at) VALUES ($1, $2, $3, $4, $5)");
         cmd.Parameters.AddWithValue(profile.Version);
@@ -78,7 +78,7 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
         }
 
         var version = reader.GetInt32(0);
-        var body = cipher.Open(new SealedMirrorValue(reader.GetGuid(1), reader.GetFieldValue<byte[]>(2), reader.GetFieldValue<byte[]>(3)), ProfileAd(version));
+        var body = await cipher.OpenAsync(new SealedMirrorValue(reader.GetGuid(1), reader.GetFieldValue<byte[]>(2), reader.GetFieldValue<byte[]>(3)), ProfileAd(version), cancellationToken).ConfigureAwait(false);
         var rules = (JsonSerializer.Deserialize(body, MirrorJson.Default.ListRuleDto) ?? [])
             .Select(r => new MirrorRule(r.Topic, Enum.Parse<MirrorDirection>(r.Direction), r.Count, r.EvidenceRefs))
             .ToList();
