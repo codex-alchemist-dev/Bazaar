@@ -21,6 +21,14 @@ cat > "$WORK/bin/fake-dotnet" <<'EOF'
 #!/usr/bin/env bash
 # Records the arguments, then writes the outputs a real publish would leave under bin/.
 printf '%s\n' "$@" > "$FAKE_ARGS_FILE"
+# MSBuild splits a -p: value at a bare ';' (the real failure: "MSB1006: Property is not valid. Switch: apk").
+# Reproduce that so a bare semicolon in a property value fails here, as it does in CI.
+for arg in "$@"; do
+  if [[ "$arg" == -p:* && "$arg" == *';'* ]]; then
+    echo "MSBUILD : error MSB1006: Property is not valid." >&2
+    exit 1
+  fi
+done
 if [[ "${FAKE_DOTNET_FAIL:-0}" == "1" ]]; then exit 1; fi
 out="$(dirname "$FAKE_PROJECT")/bin/Release/net11.0-android/publish"
 mkdir -p "$out"
@@ -50,7 +58,7 @@ if [[ "$code" == 2 && ! -f "$WORK/args.txt" ]]; then pass "missing project exits
 rm -rf "$WORK/out" "$WORK/args.txt"
 code="$(run)"
 if [[ "$code" == 0 ]] && has_arg "-p:BazaarAndroid=true" && has_arg "-p:ApplicationVersion=42" \
-   && has_arg "-f" && has_arg "net11.0-android" && has_arg "-p:AndroidPackageFormats=aab;apk" \
+   && has_arg "-f" && has_arg "net11.0-android" && has_arg "-p:AndroidPackageFormats=aab%3Bapk" \
    && ! grep -q "AndroidKeyStore" "$WORK/args.txt"; then
   pass "unsigned publish passes the Android TFM, BazaarAndroid, versionCode and both formats"
 else

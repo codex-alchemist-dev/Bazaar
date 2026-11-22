@@ -81,7 +81,7 @@ echo "Building $PROJECT ($CONFIG, $TFM, $MODE, versionCode $VERSION_CODE)"
 "$DOTNET_EXE" publish "$PROJECT" -c "$CONFIG" -f "$TFM" \
   "-p:BazaarAndroid=true" \
   "-p:ApplicationVersion=$VERSION_CODE" \
-  "-p:AndroidPackageFormats=aab;apk" \
+  "-p:AndroidPackageFormats=aab%3Bapk" \
   "${SIGN_ARGS[@]}" \
   || die "dotnet publish failed"
 
