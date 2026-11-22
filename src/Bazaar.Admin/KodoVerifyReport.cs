@@ -1,3 +1,5 @@
+using Bazaar.Server.Setup;
+
 namespace Bazaar.Admin;
 
 /// <summary>
@@ -6,7 +8,7 @@ namespace Bazaar.Admin;
 /// </summary>
 public sealed class KodoVerifyReport
 {
-    /// <summary>Always <c>verify</c>. A usage error is an <see cref="AdminReport"/> instead.</summary>
+    /// <summary>Always <c>verify</c>. A usage error is an <see cref="SetupReport"/> instead.</summary>
     public string Command { get; init; } = "verify";
 
     /// <summary>The exit code: 0 green, 1 invalid input, 2 amber (held for acknowledgement), 3 red.</summary>
@@ -28,7 +30,7 @@ public sealed class KodoVerifyReport
     public List<string> AmberItems { get; init; } = [];
 
     /// <summary>Loader errors and holds, each with its key path and rule. Never a value.</summary>
-    public List<AdminIssue> Issues { get; init; } = [];
+    public List<SetupReportIssue> Issues { get; init; } = [];
 }
 
 /// <summary>One verification check's row. <see cref="Status"/> is green, amber, red or not-evaluated.</summary>
