@@ -17,6 +17,7 @@ using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
@@ -48,11 +49,15 @@ public static class HostApplicationExtensions
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarPostgresCredentialLeases();
+        services.AddSecretStoreLeasedCredentialValues();
+        services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
+        services.AddBazaarSecretStore(configuration);
+        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarLegalHoldReader();
@@ -88,6 +93,7 @@ public static class HostApplicationExtensions
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
+        services.AddBazaarCouncilHostAdapters();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);

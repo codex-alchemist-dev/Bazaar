@@ -31,4 +31,14 @@ public sealed class ConduitComponentTests
         Assert.NotNull(key);
         Assert.Equal(Conduit.Settings.ConduitSettings.All.Count, registry.Definitions.Count);
     }
+
+    [Fact]
+    public void Component_provides_the_remote_reachability_check()
+    {
+        var services = new ServiceCollection();
+        new ConduitComponent().AddServices(services, new ConfigurationBuilder().Build());
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Contains(provider.GetServices<Bazaar.Server.Setup.ISetupVerificationCheck>(), check => check.Id == "remote.reachable");
+    }
 }

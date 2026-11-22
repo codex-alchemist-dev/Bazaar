@@ -70,8 +70,10 @@ Seeded v1 types [PROPOSED defaults; values are the setting `gc.type_defaults`]:
 ### Thinking GCs [DECIDED, round 3]
 - Type `thinking`, `parent_gc_id` = the GC the agent works in: one nested Thinking GC per agent per working GC.
 - Readers: the agent and the owner; other members by access request, as for DMs.
-- The parent shows one collapsed pointer event [PROPOSED].
+- The parent shows one collapsed pointer event [PROPOSED]. Built behind the operator setting `Bazaar:ThinkingGc:PointerEvent` (off by default): when a Thinking GC is created, a `system` event with payload kind `thinking_pointer` (ids only, no text) lands in the parent. Still PROPOSED until the owner decides.
+- Other modules ask whether a GC is a Thinking GC through `IThinkingGcLookup` (module `Bazaar.Server.ThinkingGc.Abstractions`); the Archive module uses it to refuse Thinking text.
 - The context builder (06) never loads it into another agent's context. Never a mention or wake target. Vote reasoning enters only after reveal (10).
+- Writer (built, module `Bazaar.Server.ThinkingGc`): the turn runner writes each model step's reasoning, each tool step (name and outcome only, never arguments or results) and the turn end as agent-authored messages. The id is derived from (working GC, agent), so there is one per pair. Entries are idempotent per (turn, ordinal, kind); text over the message limit is split, never cut. Nothing sweeps it: thinking is kept forever.
 
 ### Edits
 - Only the original author may edit (Question 2). Corrections by others are new messages.

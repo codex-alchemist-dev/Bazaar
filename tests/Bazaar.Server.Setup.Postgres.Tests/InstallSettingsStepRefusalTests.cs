@@ -77,13 +77,52 @@ public sealed class InstallSettingsStepRefusalTests
     }
 
     [Fact]
-    public void The_step_covers_the_update_policy_but_not_the_sections_it_cannot_store()
+    public void The_step_covers_the_update_policy_backups_and_email_but_not_the_sections_it_cannot_store()
     {
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none");
         var covers = new InstallSettingsStep(dataSource, RegistrySetupSettingCatalog.Known).Covers;
 
         Assert.Contains("install.updatePolicy", covers);
-        Assert.DoesNotContain(covers, id => id is "privacy" or "backups" or "models" or "git" or "email" or "company" or "modules");
+        Assert.Contains("backups", covers);
+        Assert.Contains("email", covers);
+        Assert.DoesNotContain(covers, id => id is "privacy" or "models" or "git" or "company" or "modules");
         Assert.All(covers, id => Assert.True(SetupPlanSections.IsKnown(id), id));
+    }
+
+    [Fact]
+    public async Task An_enabled_email_with_no_back_end_fails_the_step()
+    {
+        var result = await ApplyAsync(new SetupPlan { Email = new SetupEmailSection { Enabled = true } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("email.backend", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_back_end_while_email_is_off_fails_the_step()
+    {
+        var result = await ApplyAsync(new SetupPlan { Email = new SetupEmailSection { Enabled = false, Backend = "cloudflare" } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("email.backend", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_backup_target_off_the_install_is_held_by_the_registry_and_fails_the_step_naming_the_key_only()
+    {
+        var result = await ApplyAsync(new SetupPlan { Backups = new SetupBackupsSection { Target = "s3:https://" + _canary + ".example.invalid/bucket" } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("backup.target", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_malformed_backup_target_fails_the_step_and_is_not_echoed()
+    {
+        var result = await ApplyAsync(new SetupPlan { Backups = new SetupBackupsSection { Target = _canary } });
+
+        Assert.False(result.Succeeded);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
     }
 }
