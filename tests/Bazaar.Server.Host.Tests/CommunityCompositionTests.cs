@@ -195,8 +195,6 @@ public sealed class CommunityCompositionTests
 
         public Task<bool> TrySupersedeAsync(Guid originalId, CommunityDraft replacement, CancellationToken ct = default) => Task.FromResult(false);
 
-        public Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Guid>>([]);
-
         public Task<bool> TryAddAsync(CommunityDraft draft, CancellationToken ct = default) => Task.FromResult(_drafts.TryAdd(draft.DraftId, draft));
 
         public Task<IReadOnlyList<CommunityDraft>> ListPendingAsync(DateTimeOffset openAt, int limit, CancellationToken ct = default) =>
