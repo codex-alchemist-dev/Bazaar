@@ -37,6 +37,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Approvals.Http\Bazaar.Client.Approvals.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.TalentPool.Http\Bazaar.Client.TalentPool.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
@@ -51,5 +52,6 @@
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitSolarSystem\Bazaar.Client.GitSolarSystem.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
   </ItemGroup>
 </Project>

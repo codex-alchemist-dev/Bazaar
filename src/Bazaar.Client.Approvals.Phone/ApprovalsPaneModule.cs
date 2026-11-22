@@ -2,6 +2,7 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.TalentPool;
 using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Approvals.Phone;
@@ -22,7 +23,7 @@ public sealed class ApprovalsPaneModule : IPaneModule
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(context);
 
-        registry.Register(PaneKinds.Approvals, descriptor => new ApprovalsPaneViewModel(descriptor, context.Get<ApprovalGate>(), context.Get<IPendingApprovalSource>()));
+        registry.Register(PaneKinds.Approvals, descriptor => new ApprovalsPaneViewModel(descriptor, context.Get<ApprovalGate>(), context.Get<IPendingApprovalSource>(), context.Get<ToolGrantGate>(), context.Get<IPendingToolGrantSource>()));
         registry.RegisterView<ApprovalsPaneViewModel>(pane =>
         {
             _ = pane.RefreshAsync();

@@ -47,6 +47,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `gateway/0003` | Gateway | this PR | Gateway runtime grants (`gw_usage` append-only; `gw_provider`, `gw_model`, `gw_route`, `gw_quota_state`, `agent_model_policy` SELECT, INSERT, UPDATE). Lives in the `gateway` namespace (Bazaar.Server.Gateway assembly) because `common/` is frozen; no DELETE or TRUNCATE |
 | `common/` | frozen | | No new files here. New SQL goes in its component namespace (`Data/Sql/<component_id>/`) |
 | `kanban/0001` | KB-WP9 | this PR | `task_gate_decisions` (append-only council and owner gate decisions); adds `task.gate_recorded` and `task.review_approved` to the task event kinds |
+| `kanban/0003` | KB-WD1 | this PR | `tasks.state` CHECK gains `withdrawn` (doc 12, "Withdrawn state", PROPOSED). `0002` is reserved for the import-job link (#1326) |
 | `roadmap/0001` | RYU-WP12 | this PR | Objective roadmap views (doc 38, Layer 3): `roadmap_objectives`, `roadmap_phases`, `roadmap_progress`, `roadmap_phase_gate`; views only, no tables. Reads `vault_docs`, `tasks` and `task_links` (`vault_links` is not needed: `depends_on` comes from front matter) |
 | `ryusei/0001` | WP-R3 | this PR | RyuseiFuda schedule (doc 38, Layer 2): `ryusei_trigger` (attach GC set exactly when `ping_mode = 'attach'`) and append-only `ryusei_fire` with `UNIQUE (trigger_id, scheduled_for)`; FKs to `tasks` and `gc` only |
 | `company_memory/0001` | CM-WP5 | this PR | `decision_links`: derived decision chain edges from Vault decision records (doc 25 WP5); no foreign keys |

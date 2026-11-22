@@ -3,7 +3,7 @@ namespace Bazaar.Server.Wire.Discovery;
 /// <summary>Fixed-window request counter per client key, with a hard cap on tracked keys.</summary>
 internal sealed class FixedWindowClientLimiter(TimeProvider time)
 {
-    private const string Overflow = "*";
+    private const string _overflow = "*";
     private readonly Lock _gate = new();
     private readonly Dictionary<string, (DateTimeOffset Start, int Count)> _clients = new(StringComparer.Ordinal);
 
@@ -18,7 +18,7 @@ internal sealed class FixedWindowClientLimiter(TimeProvider time)
                 Sweep(now, window);
                 if (_clients.Count >= maxKeys)
                 {
-                    key = Overflow;
+                    key = _overflow;
                 }
             }
 

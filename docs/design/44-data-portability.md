@@ -253,6 +253,14 @@ Also built (GC bundle source, head.json and self-check): `GcBundleSource` (id `g
 
 Decisions where this doc was silent (owner may overrule): doc 44 section 4.2 fixes the content of `head.json`, not its field names, so the writer's camelCase names stand and the verifier accepts both; `GcMentionsBundleSource` remains for a bundle whose GC exporter has no mention reader, and the two must not both run for one GC. Not built: the section 6.2 self-check does not replay GC or audit chains at bundle level (the verifier library references this project, so the assembler cannot call it; the sources run their own chain self-checks), and a failed self-check is not yet recorded as `incomplete` in the audit log (the assembler has no audit sink).
 
+### 6.6 Built status of the Postgres export readers
+
+Built in `Bazaar.Server.Portability.Postgres` (raw Npgsql over the shared `NpgsqlDataSource`, no new tables, no migration): `PostgresGcMessageVersionSource` (`IGcMessageVersionSource`, over `gc_message_version`; ciphertext only, paged by seq), `PostgresGcMentionSource` (`IGcMentionSource`, over `gc_mention`; paged by the `(seq, target_principal_id)` primary key, so several mentions on one seq never skip or repeat) and `PostgresKanbanExportSource` (`IKanbanExportSource`, over `tasks`, `task_edges`, `task_links` and `task_events`; tasks in id order, edges by blocker then blocked, transitions by event seq). The two GC readers ask `IGcReadAccess` first, throw `GcAccessDeniedException` on a denied viewer and stop at the grant's last seq, as `GcLogReader` does. Tests run against a real PostgreSQL with only `common/0001` and `common/0012` applied.
+
+Decisions where this doc was silent (owner may overrule): a task's unfinished blockers and a transition's gate are derived at read time. Blockers are the task's blockers whose state is not `done`. A `task.transitioned` event does not store the gate, so the transition carries the task's gate now (the gate is set when the task is created). Only `task.transitioned` events are exported as transitions, and an edge's `createdBy` is the stored uuid in "D" text. Mention paging and sort use PostgreSQL's bytewise `uuid` order, which is the order of lowercase "D" text.
+
+Not built: `IGraphExportSource`. It returns the viewer-filtered Constellation snapshot (doc 19), which the host computes from the Vault, GC, Kanban and PR data. No table holds that graph (the only graph tables are the memory-graph revisions and edges, a different graph), so a Postgres reader would invent a projection. It stays with the Constellation projection.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -363,6 +371,8 @@ Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, 
 
 **Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
 
+**Storage (coordinator picks, 2026-11-22, PROPOSED):** the staging record is table `import_staging`, keyed by (`job_id`, `source_key`), with the relative path of the payload file, its size and SHA-256, the staging time and a `deleted_at` that is set when staging is swept. Payload files live under one staging directory per job, and the table never holds file content. Deleting staging removes the files (injected, so the Postgres project holds no file code) and then marks the rows `deleted_at`; the rows stay as history, with the job's manifest, hashes and counts. The quota of section 8.7 is checked against the sum of `size_bytes` of the job's rows that are not deleted. Built (record side): `PostgresImportStagingStore` in `Bazaar.Server.Portability.Postgres`, migration `portability/0002_import_staging_withdrawal.sql`.
+
 ### 8.7 Large dumps
 
 - **Streaming everywhere.** Parsers yield records; nothing holds a whole dump in memory. Staging is on disk with a quota.
@@ -382,10 +392,19 @@ Undo never deletes history:
 - GC entries from an import get a new version that marks them `withdrawn_by_import: <job>`. The text stays in history, and the view hides it by default.
   **[PROPOSED]** The version is written through the GC log writer (`AppendRequest.WithdrawnByImport`, doc 01 Edits): a new `message_edit` row by the system principal with `gc_message_version.withdrawn_by_import = <job id>`. Original versions are never changed. The editor-must-be-author rule does not apply to this principal.
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
-- Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
+- Kanban tasks from an import move to the stored `withdrawn` state with reason `withdrawn by import` [PROPOSED]. Blocked is derived in doc 12 and never stored, so it cannot be the target, and Kanban has no archive. `withdrawn` is terminal, hidden from boards by default, keeps the task's history, and stops counting as a blocker for other tasks. It is reached only through the Kanban task service's `IKanbanTaskWithdrawal` port, behind the doc 12 gates (system or owner actor, reason required, Done tasks owner only). See doc 12, "Withdrawn state".
 - The withdrawal is itself an audit entry, linked to the job.
 
-**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` (Blocked with reason `withdrawn by import`, or archive) through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates.
+**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates. The Kanban side now exists as `IKanbanTaskWithdrawal` in `Bazaar.RyuseiFuda.Abstractions` (stored `withdrawn` state, PROPOSED). Not built: the Portability adapter that maps `IKanbanWithdrawalWriter` onto that port, and retiring the `Block` and `Archive` modes of `KanbanWithdrawalMode`, which have no Kanban target.
+
+**Storage (coordinator picks, 2026-11-22, PROPOSED):**
+
+- **Withdrawal record.** Table `import_withdrawal` (`job_id`, `source_key`, `target_kind`, `target_id`, `withdrawn_at`) holds one row per withdrawn record and is also the resume record: a re-run reads it and skips what is there. Rows are history and are never deleted. `target_kind` is `gc_message`, `vault_file` or `kanban_task`; for a Kanban task the `source_key` is the task id, because a task has no source key of its own. A row is written after the side effect succeeded, so a crash between the two repeats the side effect, which must therefore be idempotent. Built: `PostgresImportWithdrawalStore`.
+- **GC side.** The `withdrawn_by_import` version is written through the GC log writer and message editor (`IGcAppender`, `IGcMessageEditor`), never by SQL on `gc_message_version`, which is append-only with a per-GC seq and a hash chain. The editor takes text only today and has no way to carry the marker, so this side is a port (`IGcWithdrawalMarker`) with no implementation yet. See the open questions below.
+- **Vault side.** The revert is a git commit, so it is a port (`IVaultWithdrawalReverter`) implemented outside the Postgres project.
+- **Kanban side.** Table `tasks` gets a nullable `import_job_id` (migration `kanban/0002_task_import_job.sql`, in the Kanban namespace) that the import commit sets on the tasks it creates. `PostgresKanbanImportedTaskReader` reads it for `IKanbanWithdrawalWriter.ReadImportedTaskIdsAsync`. The transition goes through the Kanban service and its doc 12 gates, not SQL. Doc 12 derives Blocked from blocker edges and has no archived state, so "transition to Blocked" and "archive" have no service operation yet. See the open questions below.
+
+**Open (8.8):** (1) which field of a GC edit event carries `withdrawn_by_import`, and how the view hides it (the message editor must accept a marker; it also requires the original author as editor). (2) What "Blocked with reason `withdrawn by import`" means when Blocked is derived: a blocker edge to a system task, a new stored state, or archive only. Neither is decided.
 
 ### 8.9 Import audit trail
 

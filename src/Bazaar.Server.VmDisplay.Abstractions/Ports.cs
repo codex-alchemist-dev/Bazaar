@@ -76,3 +76,15 @@ public interface IDisplayAuditSink
     /// <summary>A call was refused or rejected before reaching a source.</summary>
     void Refused(DisplayTarget target, string operation, string reason);
 }
+
+/// <summary>
+/// Read contract: the size of a target's display before any downscaling, learned from the last capture that knew it. Pointer
+/// coordinates are in this space, so a consumer can map a point from a downscaled frame onto the display. Returns
+/// <see langword="null"/> when unknown: no capture yet, or a source that cannot tell (a hypervisor frame may already be reduced, and
+/// a browser screenshot is in device pixels while its input is in CSS pixels).
+/// </summary>
+public interface IDisplayNativeSizeReader
+{
+    /// <summary>The native size of the target's display, or <see langword="null"/> when unknown.</summary>
+    (int Width, int Height)? TryGetNativeSize(DisplayTarget target);
+}
