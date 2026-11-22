@@ -36,3 +36,9 @@ public interface IDisplayNativeSize
     /// <summary>The native size of the target's display, or <see langword="null"/> when unknown.</summary>
     (int Width, int Height)? TryGet(DisplayTarget target);
 }
+
+/// <summary>Adapts the display module's <see cref="IDisplayNativeSizeReader"/> to the tools' <see cref="IDisplayNativeSize"/> port.</summary>
+internal sealed class ReaderNativeSize(IDisplayNativeSizeReader reader) : IDisplayNativeSize
+{
+    public (int Width, int Height)? TryGet(DisplayTarget target) => reader.TryGetNativeSize(target);
+}

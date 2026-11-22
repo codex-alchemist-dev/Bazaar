@@ -39,6 +39,8 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private NodePipeline? _pipeline;
     private VkFormat _pipelineFormat;
     private byte[] _styleBytes = [];
+    private byte[] _sectionBytes = [];
+    private bool _sectionsDirty;
     private readonly bool _reversedZ;
     private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
@@ -112,6 +114,17 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     /// <summary>
+    /// Replaces the section rectangles with bytes from <see cref="SectionPacking.Pack"/>. The bytes are kept and uploaded
+    /// at the next present (after the frame fence), so no in-flight frame reads a half-written buffer.
+    /// </summary>
+    public void SetSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ThrowIfDisposed();
+        _sectionBytes = sectionBytes.ToArray();
+        _sectionsDirty = true;
+    }
+
+    /// <summary>
     /// Acquires the next image, clears it to <paramref name="clear"/> and presents it.
     /// Returns false when the swapchain had to be rebuilt instead, so the caller can retry on the next tick.
     /// </summary>
@@ -147,6 +160,12 @@ public sealed unsafe class VulkanSwapchain : IDisposable
 
         _deviceApi.vkResetFences(1, &fence);
         _pipeline.Upload(instanceBytes);
+        if (_sectionsDirty)
+        {
+            _pipeline.UploadSections(_sectionBytes);
+            _sectionsDirty = false;
+        }
+
         RecordFrame(imageIndex, color, instanceCount, view);
 
         VkSemaphore waitSemaphore = _imageAvailable;
@@ -524,6 +543,7 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR, _reversedZ);
             _pipelineFormat = _format;
             _pipeline.UploadStyles(_styleBytes);
+            _sectionsDirty = true;
         }
 
         uint imageCount = Math.Max(capabilities.minImageCount + 1, 2u);
