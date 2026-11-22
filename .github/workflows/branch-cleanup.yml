@@ -1,0 +1,77 @@
+# Daily branch cleanup. Deletes heads of merged PRs and stale branches. Dry run by default:
+# scheduled runs delete only when the repo variable BRANCH_CLEANUP_ENABLED is 'true'.
+# Logic and rules: .github/scripts/branch-cleanup.py; docs/ci.md, "Branch cleanup".
+
+name: Branch cleanup
+
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'List only, delete nothing'
+        type: boolean
+        default: true
+      stale_days:
+        description: 'Days without commits before an unmerged branch is stale'
+        type: string
+        default: '14'
+      max_deletes:
+        description: 'Maximum branches deleted in one run'
+        type: string
+        default: '500'
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: branch-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Clean up branches
+    # Same routing as ci.yml: owner-triggered runs use the self-hosted runner, everything else a hosted one.
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch') && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Self-test
+        run: python3 .github/scripts/branch-cleanup.py --self-test
+
+      - name: Turn on automatic deletion of merged head branches
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api -X PATCH "repos/$GITHUB_REPOSITORY" -F delete_branch_on_merge=true >/dev/null; then
+            echo "delete_branch_on_merge is on."
+          else
+            echo "::warning::GITHUB_TOKEN cannot change repo settings. Owner: toggle Settings > General > 'Automatically delete head branches'."
+            echo "Could not enable delete_branch_on_merge; toggle Settings > General > Automatically delete head branches." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Plan and delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALE_DAYS: ${{ inputs.stale_days || '14' }}
+          MAX_DELETES: ${{ inputs.max_deletes || '500' }}
+          EXCLUDE_BRANCH_REGEX: ${{ vars.EXCLUDE_BRANCH_REGEX }}
+          # Manual runs follow the dry_run input (default true); scheduled runs delete only when enabled.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && (inputs.dry_run && 'true' || 'false') || (vars.BRANCH_CLEANUP_ENABLED == 'true' && 'false' || 'true') }}
+        run: python3 .github/scripts/branch-cleanup.py run
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: branch-cleanup-report
+          path: branch-cleanup-report.tsv
+          if-no-files-found: ignore
