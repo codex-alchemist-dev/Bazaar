@@ -139,6 +139,20 @@ Keys are install-scoped; the operator changes them in the setup wizard or advanc
 
 Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, doc 04); `security.backup.include_cookie_profiles` (false, doc 15); `vault.push_cadence` (15 min, doc 18).
 
+### Cookie profile exclusion [PROPOSED]
+
+Status: [PROPOSED] (agent decision, 2026-11-18, implementation detail under the configurability rule; owner may reverse it). Governing setting: `security.backup.include_cookie_profiles` (default `false`, doc 15; needs counsel). The rules below apply when it is `false`. When it is `true`, cookie material follows the same path as the Passport ciphertext and the snapshot includes cookie files.
+
+1. **Database level.** Cookie blobs in `IBrowserProfileStore` are already encrypted (doc 14, "Mounted folder"). [PROPOSED] They are sealed under a dedicated cookie key, separate from the DEK table and the KEK. When the setting is `false`, that cookie key is never included in a base backup, WAL archive, `pg_dump`, offsite upload, Vault bundle, or instance bundle. A restored database therefore holds cookie rows that cannot be opened. Account profiles are re-logged in by the owner or the broker after restore. Backups cannot skip rows, so exclusion is by key, not by row. This section documents the rule only; the key plumbing is a later work package and is not built by the change that adds this section.
+2. **File level.** The predicate lives in the backup component (`BackupFileFilter`, `src/Bazaar.Server.Components.Backup`). When the setting is `false`, it excludes:
+   - mounted cookie-profile files (`MountedFileKind.CookieProfile`) and canary decoys, which the mount names `canary-<id>.session.json` (doc 14, "Mounted folder"); the rule is any file whose name ends in `.session.json`. The mount writer must give every cookie-profile file that suffix; this naming rule is [PROPOSED] and not yet enforced in `MountedFolderWriter`;
+   - any browser profile directory, identified by a directory name from a fixed list (`browser-profile`, `browser-profiles`, `chromium-profile`, `cookie-profiles`).
+   The predicate applies to offsite directory uploads (`ResticBackupTarget.PutDirectoryAsync`, as restic `--exclude` patterns of the same rules) and to the Soul-folder snapshot (WP6, same run as the database), which calls the same filter to select files. Matching is case-insensitive. Only the owner may set the flag to `true`, because it is an owner-approved relaxation that needs counsel (doc 15).
+3. **Setting wiring.** The backup component has no settings access yet. It takes `includeCookieProfiles` as a constructor parameter with default `false`. Wiring it to the settings registry (doc 15 settings table) is a follow-up, and until then an operator change has no effect on backups.
+4. **Restore.** Restores are owner-only (see above). With the setting `false`, the restored host has no cookie or browser profile files, and agents that need an account profile request a new login.
+
+Tests: both values of the flag are covered in `tests/Bazaar.Server.Components.Backup.Tests` (predicate, file selection and restic arguments).
+
 ## Testing
 - Real PostgreSQL 18: base backup, write rows, archive, point-in-time restore to a timestamp; GC row counts and max seq per GC match.
 - Archiver: reports failure when the target is full or unwritable; PostgreSQL keeps the WAL.
