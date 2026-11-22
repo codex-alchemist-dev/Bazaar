@@ -48,6 +48,32 @@ public class NativeSizeTests
     }
 
     [Fact]
+    public async Task A_pixel_exact_browser_capture_records_the_size_per_session()
+    {
+        Rig r = SmallLimitsRig();
+        r.PixelExactBrowser = true;
+        GuestDisplayService s = r.Build();
+        ScreenFrame f = await Capture(s, Rig.Linux("session"), DisplaySourceKind.Browser);
+        Assert.Equal((200, 150), (f.Width, f.Height));
+        Assert.Equal((400, 300), s.TryGetNativeSize(Rig.Linux("session")));
+        Assert.Null(s.TryGetNativeSize(Rig.Linux("other")));
+        Assert.Null(s.TryGetNativeSize(Rig.Linux()));
+    }
+
+    [Fact]
+    public async Task Browser_sizes_are_capped_oldest_out()
+    {
+        Rig r = SmallLimitsRig();
+        r.PixelExactBrowser = true;
+        r.Options.CapturesPerMinute = 100_000;
+        GuestDisplayService s = r.Build();
+        for (int i = 0; i <= GuestDisplayService.MaxRememberedDisplays; i++)
+            await Capture(s, Rig.Linux("s" + i), DisplaySourceKind.Browser);
+        Assert.Null(s.TryGetNativeSize(Rig.Linux("s0")));
+        Assert.Equal((400, 300), s.TryGetNativeSize(Rig.Linux("s" + GuestDisplayService.MaxRememberedDisplays)));
+    }
+
+    [Fact]
     public async Task A_browser_session_of_the_same_vm_does_not_see_the_vm_display_size()
     {
         GuestDisplayService s = SmallLimitsRig().Build();
