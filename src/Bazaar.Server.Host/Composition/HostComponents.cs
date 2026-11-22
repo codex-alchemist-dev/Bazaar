@@ -28,6 +28,7 @@ using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Analytics;
+using Bazaar.Server.Analytics.Git;
 using Bazaar.Server.Analytics.Postgres;
 using Bazaar.Server.Vault;
 
@@ -62,6 +63,7 @@ public static class HostComponents
         new HiveComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
+        new AnalyticsGitComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),

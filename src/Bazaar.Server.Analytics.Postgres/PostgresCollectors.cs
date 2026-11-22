@@ -7,12 +7,12 @@ namespace Bazaar.Server.Analytics.Postgres;
 /// not to the Kanban module's code, and only ever runs SELECT.
 /// <list type="bullet">
 /// <item>TaskCompleted: a transition to <c>done</c>, credited to the task's owner agent.</item>
-/// <item>PrMerged: the same transition when the task has a <c>pr</c> link (Done means the PR merged, DECISIONS-LOG round 8, C28).</item>
+/// <item>PrMerged: the same transition when the task has a <c>pr</c> link (Done means the PR merged, DECISIONS-LOG round 8, C28). Left out when <c>includeMerges</c> is false, which is when the forge collector counts merges instead.</item>
 /// <item>ReviewPassed: a <c>task.review_approved</c> event, credited to the task's owner agent.</item>
 /// <item>ReviewChangesRequested: a transition from <c>review</c> back to <c>in_progress</c>.</item>
 /// </list>
 /// </summary>
-public sealed class KanbanWorkEventCollector(NpgsqlDataSource dataSource) : IWorkEventCollector
+public sealed class KanbanWorkEventCollector(NpgsqlDataSource dataSource, bool includeMerges = true) : IWorkEventCollector
 {
     private const string _sql = """
         SELECT t.owner_agent_id::text,
@@ -49,7 +49,7 @@ public sealed class KanbanWorkEventCollector(NpgsqlDataSource dataSource) : IWor
             {
                 case 0:
                     events.Add(new AgentWorkEvent(agent, AgentWorkEventKind.TaskCompleted, at));
-                    if (reader.GetBoolean(2))
+                    if (includeMerges && reader.GetBoolean(2))
                     {
                         events.Add(new AgentWorkEvent(agent, AgentWorkEventKind.PrMerged, at));
                     }

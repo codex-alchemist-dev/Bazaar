@@ -51,6 +51,7 @@
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics\Bazaar.Server.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics.Postgres\Bazaar.Server.Analytics.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Analytics.Git\Bazaar.Server.Analytics.Git.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />

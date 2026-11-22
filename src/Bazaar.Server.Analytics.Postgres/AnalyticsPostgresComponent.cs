@@ -23,8 +23,10 @@ public sealed class AnalyticsPostgresComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
+        // Exactly one source counts merges: Kanban by default, or the forge when MergeSource is Forge (analytics-git).
+        var includeMerges = !string.Equals(configuration["Bazaar:Analytics:MergeSource"], "Forge", StringComparison.OrdinalIgnoreCase);
         var role = configuration["Bazaar:Analytics:RevertAuthorRole"];
-        services.AddSingleton<IWorkEventCollector>(sp => new KanbanWorkEventCollector(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.AddSingleton<IWorkEventCollector>(sp => new KanbanWorkEventCollector(sp.GetRequiredService<NpgsqlDataSource>(), includeMerges));
         services.AddSingleton<IWorkEventCollector>(sp => new RevertWorkEventCollector(
             sp.GetRequiredService<NpgsqlDataSource>(), string.IsNullOrWhiteSpace(role) ? "author" : role.Trim()));
     }
