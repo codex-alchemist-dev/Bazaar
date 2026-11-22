@@ -27,6 +27,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
@@ -84,7 +85,8 @@ internal static class Program
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
@@ -115,6 +117,8 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+            // Keyboard mnemonics and the command palette (doc 41 section 4.12) take the loaded modules' commands plus the shell's own.
+            _ = InstallMnemonicsAsync(window, loaded.Commands);
             return window;
         }
 
@@ -138,6 +142,22 @@ internal static class Program
             name == ChatConnectionSettings.GcVariable && devGc is { } gc
                 ? gc.ToString("D")
                 : Environment.GetEnvironmentVariable(name));
+    }
+
+    private static async Task InstallMnemonicsAsync(Window window, IReadOnlyList<ClientCommandContribution> commands)
+    {
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
+            var shell = await MnemonicHeadSetup.InstallAsync(window, window, commands, path, Console.Error.WriteLine);
+            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
+            shell.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            window.Closed += (_, _) => shell.Dispose();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
+        }
     }
 
     private static string CursorPath() =>

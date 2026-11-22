@@ -11,6 +11,7 @@ using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
@@ -99,7 +100,7 @@ internal static class Program
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
-            InstallShell(plain);
+            InstallShell(plain, paths);
             return plain;
         }
 
@@ -107,11 +108,32 @@ internal static class Program
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
         var window = new MainWindow(chat.View);
         window.Closed += async (_, _) => await chat.DisposeAsync();
-        InstallShell(window);
+        InstallShell(window, paths);
         return window;
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window) =>
+    private static void InstallShell(MainWindow window, LinuxPaths paths)
+    {
         ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+        // Keyboard mnemonics and the command palette (doc 41 section 4.12). This head loads no client modules yet, so only the shell's own commands.
+        _ = InstallMnemonicsAsync(window, paths);
+    }
+
+    private static async Task InstallMnemonicsAsync(MainWindow window, LinuxPaths paths)
+    {
+        try
+        {
+            Directory.CreateDirectory(paths.StateDirectory);
+            var path = Path.Combine(paths.StateDirectory, MnemonicHeadSetup.OverridesFileName);
+            var shell = await MnemonicHeadSetup.InstallAsync(window, window, [], path, Console.Error.WriteLine);
+            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
+            shell.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            window.Closed += (_, _) => shell.Dispose();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
+        }
+    }
 }

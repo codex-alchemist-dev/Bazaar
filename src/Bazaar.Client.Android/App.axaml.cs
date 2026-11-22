@@ -19,6 +19,7 @@ using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 
 namespace Bazaar.Client.Android;
 
@@ -37,6 +38,9 @@ public sealed class App : Avalonia.Application
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
         };
 
+        // Mnemonics serve a hardware keyboard (a foldable or a docked phone). They start once the view has a top level to listen on.
+        host.AttachedToVisualTree += (_, _) => _ = InstallMnemonicsAsync(host);
+
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
             activity.MainViewFactory = () => host;
@@ -48,6 +52,32 @@ public sealed class App : Avalonia.Application
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    private MnemonicShell? _mnemonics;
+
+    private async Task InstallMnemonicsAsync(ContentControl host)
+    {
+        if (_mnemonics is not null || TopLevel.GetTopLevel(host) is not { } top)
+        {
+            return;
+        }
+
+        try
+        {
+            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            _mnemonics = await MnemonicHeadSetup.InstallAsync(top, host, _moduleCommands, path, Console.Error.WriteLine);
+            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
+            _mnemonics.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
+        }
+    }
+
+    // The commands the loaded client modules contributed, kept for the mnemonic shell.
+    private IReadOnlyList<ClientCommandContribution> _moduleCommands = [];
 
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
     private readonly List<IDisposable> _postureBindings = [];
@@ -71,7 +101,9 @@ public sealed class App : Avalonia.Application
             .With<IConstellationTileSource>(tiles)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        _moduleCommands = loaded.Commands;
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
