@@ -88,6 +88,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| `POST /auth/refresh`, `GET /auth/whoami` | Token refresh; the signed-in person behind an access token (`whoami` is PROPOSED, built in its PR) | 32 (section 5) |
 | Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |

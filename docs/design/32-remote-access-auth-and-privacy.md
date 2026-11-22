@@ -68,6 +68,15 @@ ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped t
 
 Reuse of a retired refresh credential revokes the device and audits it. Lifetimes are settings (`auth.*`, Settings table). Revocation is immediate: live sockets close 4403, a device revision is checked on connect and `auth.refresh`, and the device's approval key (5a) is revoked with it. The owner revokes any device; a coworker revokes their own.
 
+**HTTP auth routes (access-token side).** Both routes carry the same transport rule: plaintext off the machine answers 403 `forbidden` unless the operator allowed an overlay (`wire.allow_plaintext_overlay`).
+
+| Route | Purpose | Status |
+|---|---|---|
+| `POST /auth/refresh` | Exchanges a live refresh secret for a new access token and refresh secret; any refusal answers 401 `invalid_grant`, reason in the server log only; 503 `unavailable` with no token issuer | BUILT (code merged) |
+| `GET /auth/whoami` | Reads the signed-in person from an access token (below) | PROPOSED, built in this PR (#TBD); not merged until the PR lands |
+
+`GET /auth/whoami` takes `Authorization: Bearer <access token>` and answers 200 `{ "human_id": "<guid>", "display_name": "...", "role": "owner" | "coworker", "device_id": "<guid>" }`. A missing, malformed, expired or badly signed token, a revoked device, and a suspended or removed human all answer the same 401 `{"error":"invalid_token"}`, byte for byte; the reason goes to the server log only and the token is never logged. 403 `forbidden` for plaintext off the machine (as above); 503 `unavailable` when no access-token verifier is registered. It is read-only and writes no audit entry. The token proves signature and expiry only, so the route also reads the `device` and `human` rows: that is what makes revocation and removal immediate here. GET only; `/auth/whoami` needs no change to the method guard in the host.
+
 WebSocket: credential in the upgrade `Authorization` header, or in the first `hello` frame within 5 s (02). No cookies; `Origin` absent or allow-listed. Membership is re-checked per subscription, not only at connect.
 
 ### 5a. Owner approval signing key [PROPOSED]

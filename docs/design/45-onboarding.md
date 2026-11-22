@@ -314,6 +314,10 @@ The owner has not chosen a sample-data sandbox company. Empty states explain wha
 
 The import wizard is offered after the tour and from the palette. It is the same importer set as the server's import source (section 1.8). Nothing is imported without an explicit choice.
 
+## 2.6 Who is signed in [PROPOSED]
+
+After sign-in a client reads the signed-in person (human id, display name, role, device id) from `GET /auth/whoami` (doc 32 section 5) with its access token, instead of decoding the token itself. A 401 means sign in again.
+
 ---
 
 ## Conflicts and gaps

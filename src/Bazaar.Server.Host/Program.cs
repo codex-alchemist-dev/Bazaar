@@ -37,6 +37,7 @@ app.UseBazaarGetOnly();
 app.UseBazaarAuthenticatedCaller();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapBazaarAuthWhoAmI();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
