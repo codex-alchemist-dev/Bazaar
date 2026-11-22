@@ -50,6 +50,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|
 | 16 | [16-agent-vms-and-environments.md](16-agent-vms-and-environments.md) | Two VMs per agent, golden image, guest protocol, mounts, egress, resources, licensing | 13 | 03, 07, 14, 15, 17 |
+| 59 | [59-desktop-density-and-guest-display.md](59-desktop-density-and-guest-display.md) | Screenshots and input for VMs and browsers without a viewer, the light desktop profile, browser placement, and the density governor (PROPOSED) | 2 | 16, 50, 14, 15 |
 | 17 | [17-coding-agent-harness.md](17-coding-agent-harness.md) | Coding tools, edit formats, server-side verification, git workflow, review flow | 12 | 16, 15, 12, 21, 18 |
 | 20 | [20-engine-integration-api.md](20-engine-integration-api.md) | Godot and Roblox adapters, capabilities, pane streaming, Studio bridge | 13 | 15, 16, 27, 28 |
 
