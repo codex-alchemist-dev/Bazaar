@@ -73,6 +73,7 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
+        var athanorModule = new AthanorPaneModule();
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
@@ -82,7 +83,7 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
-            new AthanorPaneModule(),
+            athanorModule,
             .. GitSolarSystemPanes.Modules,
         ];
         var loadResult = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
@@ -91,6 +92,8 @@ internal static class Program
         var showAthanor = args.Contains("--athanor", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
         AthanorEditorServices? athanor = null;
+        var athanorOptions = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, AthanorHeadComposition.DefaultDataDirectory());
+        Bazaar.Ex.Head.MnemonicHeadHost? commands = null;
 
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
         // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
@@ -106,7 +109,7 @@ internal static class Program
             if (showAthanor)
             {
                 athanor = AthanorHeadComposition.Create(
-                    AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, AthanorHeadComposition.DefaultDataDirectory()),
+                    athanorOptions,
                     chatSettings,
                     loadResult.Commands,
                     Console.Error.WriteLine);
@@ -123,6 +126,8 @@ internal static class Program
             if (showAthanor)
             {
                 window.ShowPanes([AthanorPaneModule.WindowPane], registry);
+                // The editor commands (edopen, ednew, edsave, eddiff) are reached by mnemonic: typed text plus Enter, no Ctrl chord.
+                commands = AthanorHeadComposition.StartCommands(window, loadResult.Commands, athanorModule, athanorOptions, Console.Error.WriteLine);
             }
             else if (showPanes)
             {
@@ -140,6 +145,7 @@ internal static class Program
         }
         finally
         {
+            commands?.Dispose();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }

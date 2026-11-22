@@ -25,6 +25,21 @@ public sealed class AthanorPaneModule : IPaneModule, IClientModule
     /// </summary>
     public AthanorCommandHandler? CommandHandler { get; private set; }
 
+    /// <summary>
+    /// Runs one of the module's commands and returns the line to tell the user, or null when it is done and needs none. A
+    /// head registers this with its command dispatcher next to <see cref="AthanorCommandHandler.Handles"/>.
+    /// </summary>
+    public async Task<string?> RunCommandAsync(string commandId, CancellationToken cancellationToken = default)
+    {
+        if (CommandHandler is null)
+        {
+            return AthanorPaneViewModel.EmptyMessage;
+        }
+
+        var result = await CommandHandler.InvokeAsync(commandId, cancellationToken).ConfigureAwait(true);
+        return result.Status == AthanorCommandStatus.Done ? null : result.Reason ?? "Nothing to do.";
+    }
+
     /// <summary>The pane a head shows in its window when it opens the editor.</summary>
     public static Bazaar.Contracts.Panes.PaneDescriptor WindowPane { get; } =
         new(AthanorPaneKinds.Editor, "Athanor", string.Empty, System.Text.Json.JsonElement.Parse("{}"));

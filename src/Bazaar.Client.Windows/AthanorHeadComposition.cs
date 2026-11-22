@@ -1,16 +1,20 @@
 using System.Runtime.Versioning;
 using Avalonia;
+using Avalonia.Controls;
 using Bazaar.Client.Athanor;
 using Bazaar.Client.Athanor.AvaloniaEdit;
 using Bazaar.Client.Athanor.Bundle;
 using Bazaar.Client.Athanor.Drafts;
 using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Athanor.WebView2;
 using Bazaar.Client.Athanor.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Input;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex;
+using Bazaar.Ex.Head;
 
 namespace Bazaar.Client.Windows;
 
@@ -80,6 +84,26 @@ internal static class AthanorHeadComposition
 
         var drafts = new FileEditorDraftStore(options.DraftsDirectory, TimeProvider.System);
         return new AthanorEditorServices(choice.Host, source, drafts, choice.Kind, choice.Skipped, connection);
+    }
+
+    /// <summary>
+    /// Makes the Athanor commands reachable by key (doc 57 §2.2, §8): a mnemonic host on <paramref name="top"/> for the loaded
+    /// modules' commands, with the Athanor commands handed to <paramref name="athanor"/>. Mnemonics are typed text plus Enter;
+    /// no Ctrl chord is claimed. Other modules' commands have no handler yet and are reported as such. Null when the mnemonics
+    /// do not resolve. Call on the UI thread, once the editor pane is registered (so <see cref="AthanorPaneModule.CommandHandler"/> is set).
+    /// </summary>
+    public static MnemonicHeadHost? StartCommands(
+        TopLevel top,
+        IEnumerable<ClientCommandContribution> commands,
+        AthanorPaneModule athanor,
+        AthanorHeadOptions options,
+        Action<string> log)
+    {
+        ArgumentNullException.ThrowIfNull(athanor);
+        ArgumentNullException.ThrowIfNull(options);
+        var dispatcher = new ClientCommandDispatcher();
+        dispatcher.Add(AthanorCommandHandler.Handles, athanor.RunCommandAsync);
+        return MnemonicHeadHost.Start(top, commands, Path.Combine(options.DataDirectory, "mnemonics.json"), dispatcher, log);
     }
 
     private static bool WebView2Available() =>
