@@ -4,15 +4,15 @@ namespace Bazaar.Client.Theme.Tests;
 
 /// <summary>
 /// Doc 93, Everything is a Rubedo-overridable token: views reference tokens by name only. This scans view source for literal
-/// colours and durations. It covers the shared view layer today; a project joins <see cref="ScannedProjects"/> once it is clean.
+/// colours and durations. It covers the shared view layer today; a project joins <see cref="_scannedProjects"/> once it is clean.
 /// </summary>
 public partial class ViewLiteralScanTests
 {
     /// <summary>Source projects held to the no-literals rule.</summary>
-    private static readonly string[] ScannedProjects = ["src/Bazaar.Client.Views"];
+    private static readonly string[] _scannedProjects = ["src/Bazaar.Client.Views"];
 
     /// <summary>Files that are the token-resolution point and so parse colour text by design.</summary>
-    private static readonly string[] Allowed = ["ViewTheme.cs"];
+    private static readonly string[] _allowed = ["ViewTheme.cs"];
 
     [GeneratedRegex(@"#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\b|Color\.(?:FromRgb|FromArgb)\(|Brushes\.|Colors\.|TimeSpan\.From|Duration\s*=\s*[0-9]")]
     private static partial Regex Literal();
@@ -22,13 +22,13 @@ public partial class ViewLiteralScanTests
     {
         string root = FindRepoRoot();
         var found = new List<string>();
-        foreach (string project in ScannedProjects)
+        foreach (string project in _scannedProjects)
         {
             foreach (string file in Directory.EnumerateFiles(Path.Combine(root, project), "*.*", SearchOption.AllDirectories)
                 .Where(f => (f.EndsWith(".cs", StringComparison.Ordinal) || f.EndsWith(".axaml", StringComparison.Ordinal))
                     && !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                     && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                    && !Allowed.Contains(Path.GetFileName(f), StringComparer.Ordinal)))
+                    && !_allowed.Contains(Path.GetFileName(f), StringComparer.Ordinal)))
             {
                 found.AddRange(Scan(File.ReadAllText(file)).Select(hit => $"{Path.GetRelativePath(root, file)}: {hit}"));
             }
