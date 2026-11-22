@@ -19,6 +19,10 @@
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Analytics/Bazaar.Client.Analytics.csproj" />
+    <Project Path="src/Bazaar.Client.Settings.Abstractions/Bazaar.Client.Settings.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Settings/Bazaar.Client.Settings.csproj" />
+    <Project Path="src/Bazaar.Client.Settings.Avalonia/Bazaar.Client.Settings.Avalonia.csproj" />
+    <Project Path="tests/Bazaar.Client.Settings.Tests/Bazaar.Client.Settings.Tests.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment.Abstractions/Bazaar.Client.DeviceEnrolment.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment/Bazaar.Client.DeviceEnrolment.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
