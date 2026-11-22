@@ -37,6 +37,7 @@
     <Project Path="src/Bazaar.Server.Browser.Abstractions/Bazaar.Server.Browser.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval/Bazaar.Server.AccountApproval.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval.Abstractions/Bazaar.Server.AccountApproval.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.AccountApproval.OwnerQueue/Bazaar.Server.AccountApproval.OwnerQueue.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval.Postgres/Bazaar.Server.AccountApproval.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild/Bazaar.Server.CompanyBuild.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild.Abstractions/Bazaar.Server.CompanyBuild.Abstractions.csproj" />
@@ -453,6 +454,7 @@
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Biometric.Tests/Bazaar.Roles.Biometric.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AccountApproval.OwnerQueue.Tests/Bazaar.Server.AccountApproval.OwnerQueue.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Postgres.Tests/Bazaar.Server.AccountApproval.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
     <Project Path="tests/Bazaar.Erasure.Tests/Bazaar.Erasure.Tests.csproj" />
