@@ -34,6 +34,19 @@ public interface IKodoStatusSource
     /// </summary>
     ValueTask<IReadOnlyList<KodoStateChange>> StateHistoryAsync(long? beforeSequence, int limit, CancellationToken cancellationToken) =>
         ValueTask.FromResult<IReadOnlyList<KodoStateChange>>([]);
+
+    /// <summary>
+    /// The proof route's lookup (doc 46 section 6.5.2): the checkpoint that covers the record first, then <see cref="JournalProofAsync"/>.
+    /// The outcome tells a record whose window was pruned apart from an unknown one. The default answers from <see cref="JournalProofAsync"/>.
+    /// </summary>
+    async ValueTask<KodoProofLookup> LookupJournalProofAsync(long sequence, CancellationToken cancellationToken) =>
+        await JournalProofAsync(sequence, cancellationToken).ConfigureAwait(false) is { } view
+            ? new KodoProofLookup(KodoProofOutcome.Found, view)
+            : new KodoProofLookup(KodoProofOutcome.NotAvailable);
+
+    /// <summary>The newest checkpoints with their anchor marks, newest first. Empty when checkpoints are off. The default is empty.</summary>
+    ValueTask<IReadOnlyList<KodoCheckpointView>> JournalAnchorsAsync(int limit, CancellationToken cancellationToken) =>
+        ValueTask.FromResult<IReadOnlyList<KodoCheckpointView>>([]);
 }
 
 /// <summary>One journal entry as the read API shows it. Hashes are lowercase hex.</summary>
@@ -51,4 +64,41 @@ public sealed record KodoJournalEntryView(long Sequence, DateTimeOffset At, stri
 /// <param name="RecordHash">The hash of the record.</param>
 /// <param name="Root">The Merkle root over the first <paramref name="TreeSize"/> records.</param>
 /// <param name="Path">The sibling hashes from the leaf to the root.</param>
-public sealed record KodoJournalProofView(long Sequence, long TreeSize, string RecordHash, string Root, IReadOnlyList<string> Path);
+/// <param name="WindowStart">For a checkpoint proof, the sequence of the first record in the checkpoint window: the leaf index is <c>Sequence - WindowStart</c>. Null for a whole-journal proof, where the leaf index is the sequence.</param>
+/// <param name="CheckpointSequence">For a checkpoint proof, the last sequence of the checkpoint (its identity). Null for a whole-journal proof.</param>
+public sealed record KodoJournalProofView(long Sequence, long TreeSize, string RecordHash, string Root, IReadOnlyList<string> Path, long? WindowStart = null, long? CheckpointSequence = null);
+
+/// <summary>Why a proof lookup answered as it did.</summary>
+public enum KodoProofOutcome
+{
+    /// <summary>The proof is in <see cref="KodoProofLookup.View"/>.</summary>
+    Found,
+
+    /// <summary>No proof is available (unknown record, or no checkpoint and no full history).</summary>
+    NotAvailable,
+
+    /// <summary>A checkpoint covers the record, but retention removed records of its window. Inclusion cannot be proven; the checkpoint root is kept.</summary>
+    Pruned,
+
+    /// <summary>The stored records or the checkpoint are damaged: the records no longer hash to the checkpoint root.</summary>
+    Inconsistent,
+}
+
+/// <summary>A proof lookup result.</summary>
+public sealed record KodoProofLookup(KodoProofOutcome Outcome, KodoJournalProofView? View = null);
+
+/// <summary>One checkpoint as the read API shows it. Hashes are lowercase hex.</summary>
+public sealed record KodoCheckpointView(
+    long FirstSequence,
+    long LastSequence,
+    long RecordCount,
+    DateTimeOffset FirstAt,
+    DateTimeOffset LastAt,
+    DateTimeOffset CutAt,
+    string HeadHash,
+    string Root,
+    string Digest,
+    bool DigestValid,
+    bool HasSignature,
+    string? SignerId,
+    IReadOnlyList<KodoAnchorMark> Anchors);

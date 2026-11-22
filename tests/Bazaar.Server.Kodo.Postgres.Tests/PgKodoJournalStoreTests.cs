@@ -210,4 +210,119 @@ public class PgKodoJournalStoreTests
         Assert.True(MerkleVerifier.VerifyInclusion(records[6].Hash, inclusion, Convert.FromHexString(proof.Root)));
         Assert.Null(await store.ProofAsync(11, ct));
     }
+
+    private static async Task<(PgKodoJournalStore Store, List<JournalRecord> Records, KodoCheckpoint First, KodoCheckpoint Second)> SeedAsync(PgTestDatabase db, CancellationToken ct)
+    {
+        PgKodoJournalStore store = new(db.DataSource);
+        List<JournalRecord> records = Chains.Build(10);
+        await store.AppendAsync(records, ct);
+        KodoCheckpoint first = KodoCheckpoints.Build(records.GetRange(0, 4), Chains.T0.AddHours(1))!;
+        KodoCheckpoint second = KodoCheckpoints.Build(records.GetRange(4, 4), Chains.T0.AddHours(2))!;
+        Assert.True(await store.SaveCheckpointAsync(first, ct));
+        Assert.True(await store.SaveCheckpointAsync(second, ct));
+        return (store, records, first, second);
+    }
+
+    [Fact]
+    public async Task A_checkpoint_reads_back_unchanged_and_saving_it_again_changes_nothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        var (store, _, first, second) = await SeedAsync(db, ct);
+
+        KodoCheckpoint latest = (await store.GetLatestCheckpointAsync(ct))!;
+
+        Assert.Equal((second.FirstSequence, second.LastSequence, second.FirstAt, second.CutAt), (latest.FirstSequence, latest.LastSequence, latest.FirstAt, latest.CutAt));
+        Assert.Equal(second.Digest, latest.Digest);
+        Assert.True(KodoCheckpoints.DigestIsValid(latest));
+        Assert.False(await store.SaveCheckpointAsync(first, ct));
+        Assert.Equal(0L, await store.GetFirstStoredSequenceAsync(ct));
+    }
+
+    [Fact]
+    public async Task A_different_checkpoint_for_the_same_end_or_an_overlapping_window_is_refused()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        var (store, records, first, _) = await SeedAsync(db, ct);
+        KodoCheckpoint other = KodoCheckpoints.Build(records.GetRange(0, 4), Chains.T0.AddHours(9))!;
+        KodoCheckpoint overlap = KodoCheckpoints.Build(records.GetRange(2, 4), Chains.T0.AddHours(9))!;
+
+        Assert.NotEqual(first.Digest, other.Digest);
+        await Assert.ThrowsAsync<KodoJournalConflictException>(async () => await store.SaveCheckpointAsync(other, ct));
+        await Assert.ThrowsAsync<KodoJournalConflictException>(async () => await store.SaveCheckpointAsync(overlap, ct));
+    }
+
+    [Fact]
+    public async Task Anchor_marks_move_a_checkpoint_out_of_the_unanchored_list_and_repeating_one_changes_nothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        var (store, _, first, second) = await SeedAsync(db, ct);
+
+        Assert.Equal([first.LastSequence, second.LastSequence], (await store.ListUnanchoredAsync(10, ct)).Select(c => c.LastSequence));
+        await store.RecordAnchorAsync(first.LastSequence, "file", Chains.T0.AddHours(3), ct);
+        await store.RecordAnchorAsync(first.LastSequence, "file", Chains.T0.AddHours(4), ct);
+
+        Assert.Equal([second.LastSequence], (await store.ListUnanchoredAsync(10, ct)).Select(c => c.LastSequence));
+        IReadOnlyList<KodoCheckpointEntry> entries = await store.ListCheckpointsAsync(10, ct);
+        Assert.Equal([second.LastSequence, first.LastSequence], entries.Select(e => e.Checkpoint.LastSequence));
+        KodoAnchorMark mark = Assert.Single(entries[1].Anchors);
+        Assert.Equal(("file", Chains.T0.AddHours(3)), (mark.SinkId, mark.AnchoredAt));
+        Assert.Empty(entries[0].Anchors);
+    }
+
+    [Fact]
+    public async Task The_proof_uses_the_covering_checkpoint_and_pruned_records_are_reported_not_hidden()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        var (store, records, first, second) = await SeedAsync(db, ct);
+
+        KodoCheckpointProof proof = await store.ProofFromCheckpointAsync(5, ct);
+        Assert.Equal(KodoCheckpointProofOutcome.Found, proof.Outcome);
+        Assert.Equal(Convert.ToHexStringLower(second.Root), proof.View!.Root);
+        MerkleInclusionProof inclusion = new(5 - proof.View.WindowStart!.Value, proof.View.TreeSize, [.. proof.View.Path.Select(Convert.FromHexString)]);
+        Assert.True(MerkleVerifier.VerifyInclusion(records[5].Hash, inclusion, second.Root));
+        Assert.Equal(KodoCheckpointProofOutcome.NotCheckpointed, (await store.ProofFromCheckpointAsync(9, ct)).Outcome);
+
+        await store.RecordAnchorAsync(first.LastSequence, "file", Chains.T0.AddHours(3), ct);
+        await store.PruneAnchoredAsync(Chains.T0.AddDays(365), ct);
+
+        Assert.Equal(KodoCheckpointProofOutcome.Pruned, (await store.ProofFromCheckpointAsync(2, ct)).Outcome);
+        Assert.Equal(KodoCheckpointProofOutcome.Found, (await store.ProofFromCheckpointAsync(5, ct)).Outcome);
+    }
+
+    [Fact]
+    public async Task Anchored_retention_keeps_the_records_after_the_newest_anchored_checkpoint()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        var (store, _, first, second) = await SeedAsync(db, ct);
+
+        Assert.Equal(0, await store.PruneAnchoredAsync(Chains.T0.AddDays(365), ct));
+
+        await store.RecordAnchorAsync(first.LastSequence, "file", Chains.T0.AddHours(3), ct);
+        Assert.Equal(4, await store.PruneAnchoredAsync(Chains.T0.AddDays(365), ct));
+        Assert.Equal(4L, (await store.ReadRangeAsync(0, 100, ct))[0].Sequence);
+
+        await store.RecordAnchorAsync(second.LastSequence, "file", Chains.T0.AddHours(3), ct);
+        Assert.Equal(4, await store.PruneAnchoredAsync(Chains.T0.AddDays(365), ct));
+        Assert.Equal([8L, 9], (await store.ReadRangeAsync(0, 100, ct)).Select(r => r.Sequence));
+        Assert.Equal(2, (await store.ListCheckpointsAsync(10, ct)).Count);
+    }
+
+    [Fact]
+    public async Task A_stored_checkpoint_cannot_be_updated_or_deleted()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        await SeedAsync(db, ct);
+
+        await using NpgsqlCommand update = db.DataSource.CreateCommand("UPDATE kodo_checkpoint SET cut_at_ticks = 1");
+        await using NpgsqlCommand delete = db.DataSource.CreateCommand("DELETE FROM kodo_checkpoint");
+
+        await Assert.ThrowsAsync<PostgresException>(async () => await update.ExecuteNonQueryAsync(ct));
+        await Assert.ThrowsAsync<PostgresException>(async () => await delete.ExecuteNonQueryAsync(ct));
+    }
 }

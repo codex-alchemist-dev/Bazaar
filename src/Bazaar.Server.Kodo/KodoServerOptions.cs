@@ -65,4 +65,26 @@ public sealed record KodoServerOptions
     /// counsel-gated and not in the settings registry yet, so this wiring key stands in for it. Pruning never removes the head.
     /// </summary>
     public int JournalRetentionDays { get; init; } = 730;
+
+    /// <summary>
+    /// Cuts checkpoints on the stored journal and anchors them (doc 46 section 6.5.2, PROPOSED). Default false: off unless configured.
+    /// Needs the journal store (<see cref="UseJournalStore"/>) and the checkpoint store. When on, retention keeps the journal tail
+    /// after the newest anchored checkpoint, so with no accepting sink nothing is pruned.
+    /// </summary>
+    public bool CheckpointsEnabled { get; init; }
+
+    /// <summary>Records per checkpoint window and the count that makes one due. Range 1 to 100,000. Default 1,000 (section 6.5).</summary>
+    public int CheckpointMaxRecords { get; init; } = 1000;
+
+    /// <summary>Longest time between checkpoints while there are new records. Range 1 second to 24 hours. Default 15 minutes (section 6.5).</summary>
+    public TimeSpan CheckpointInterval { get; init; } = TimeSpan.FromMinutes(15);
+
+    /// <summary>Wait after a failed cut or anchor attempt. Range 1 second to 1 hour. Default 1 minute.</summary>
+    public TimeSpan AnchorRetryInterval { get; init; } = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// File the local append-only anchor sink writes to, one JSON line per anchor. Null registers no sink, so checkpoints are cut but
+    /// stay unanchored. No network sink exists yet.
+    /// </summary>
+    public string? AnchorFilePath { get; init; }
 }

@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Kodo;
+using Bazaar.Kodo.Anchoring;
 using Bazaar.Kodo.Journal;
 using Bazaar.Kodo.Probes.Host;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -64,8 +65,8 @@ internal static class Make
 {
     public static readonly DateTimeOffset Start = new(2026, 11, 22, 12, 0, 0, TimeSpan.Zero);
 
-    public static KodoMonitor Monitor(FakeReadings readings, FakeTimeProvider time, IKodoStreamPublisher? publisher = null, KodoServerOptions? options = null, IKodoJournalStore? store = null) =>
-        new(options ?? new KodoServerOptions(), readings, publisher ?? new NullKodoStreamPublisher(), time, NullLogger<KodoMonitor>.Instance, store);
+    public static KodoMonitor Monitor(FakeReadings readings, FakeTimeProvider time, IKodoStreamPublisher? publisher = null, KodoServerOptions? options = null, IKodoJournalStore? store = null, IKodoCheckpointStore? checkpoints = null) =>
+        new(options ?? new KodoServerOptions(), readings, publisher ?? new NullKodoStreamPublisher(), time, NullLogger<KodoMonitor>.Instance, store, checkpoints);
 
     public static FakeTimeProvider Clock() => new(Start);
 }
@@ -165,5 +166,116 @@ internal sealed class FakeJournalStore : IKodoJournalStore
         {
             throw new IOException("database unreachable");
         }
+    }
+}
+
+/// <summary>An in-memory checkpoint store over a <see cref="FakeJournalStore"/>.</summary>
+internal sealed class FakeCheckpointStore(FakeJournalStore journal) : IKodoCheckpointStore
+{
+    public List<KodoCheckpoint> Checkpoints { get; } = [];
+
+    public List<(long Sequence, string Sink, DateTimeOffset At)> Anchors { get; } = [];
+
+    public bool Down { get; set; }
+
+    public ValueTask<bool> SaveCheckpointAsync(KodoCheckpoint checkpoint, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        if (Checkpoints.Any(c => c.LastSequence == checkpoint.LastSequence))
+        {
+            return ValueTask.FromResult(false);
+        }
+
+        Checkpoints.Add(checkpoint);
+        return ValueTask.FromResult(true);
+    }
+
+    public ValueTask<KodoCheckpoint?> GetLatestCheckpointAsync(CancellationToken cancellationToken)
+    {
+        CheckUp();
+        return ValueTask.FromResult(Checkpoints.OrderBy(c => c.LastSequence).LastOrDefault());
+    }
+
+    public ValueTask<long?> GetFirstStoredSequenceAsync(CancellationToken cancellationToken)
+    {
+        CheckUp();
+        return ValueTask.FromResult<long?>(journal.Records.Count == 0 ? null : journal.Records.Min(r => r.Sequence));
+    }
+
+    public ValueTask<IReadOnlyList<KodoCheckpoint>> ListUnanchoredAsync(int limit, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        return ValueTask.FromResult<IReadOnlyList<KodoCheckpoint>>([.. Checkpoints.Where(c => !Anchors.Any(a => a.Sequence == c.LastSequence)).OrderBy(c => c.LastSequence).Take(limit)]);
+    }
+
+    public ValueTask<IReadOnlyList<KodoCheckpointEntry>> ListCheckpointsAsync(int limit, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        return ValueTask.FromResult<IReadOnlyList<KodoCheckpointEntry>>([.. Checkpoints.OrderByDescending(c => c.LastSequence).Take(limit)
+            .Select(c => new KodoCheckpointEntry(c, [.. Anchors.Where(a => a.Sequence == c.LastSequence).Select(a => new KodoAnchorMark(a.Sink, a.At))]))]);
+    }
+
+    public ValueTask RecordAnchorAsync(long checkpointSequence, string sinkId, DateTimeOffset anchoredAt, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        if (!Anchors.Any(a => a.Sequence == checkpointSequence && a.Sink == sinkId))
+        {
+            Anchors.Add((checkpointSequence, sinkId, anchoredAt));
+        }
+
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask<KodoCheckpointProof> ProofFromCheckpointAsync(long sequence, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        KodoCheckpoint? cover = Checkpoints.OrderBy(c => c.LastSequence).FirstOrDefault(c => c.LastSequence >= sequence && c.FirstSequence <= sequence);
+        if (cover is null)
+        {
+            return ValueTask.FromResult(new KodoCheckpointProof(KodoCheckpointProofOutcome.NotCheckpointed));
+        }
+
+        List<KeyValuePair<long, byte[]>> hashes = [.. journal.Records.Where(r => r.Sequence >= cover.FirstSequence && r.Sequence <= cover.LastSequence)
+            .OrderBy(r => r.Sequence).Select(r => new KeyValuePair<long, byte[]>(r.Sequence, r.Hash))];
+        return ValueTask.FromResult(KodoCheckpoints.BuildProof(sequence, cover, hashes));
+    }
+
+    public ValueTask<long> PruneAnchoredAsync(DateTimeOffset olderThan, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        long? anchored = Checkpoints.Where(c => Anchors.Any(a => a.Sequence == c.LastSequence)).Select(c => (long?)c.LastSequence).Max();
+        long highest = journal.Records.Count == 0 ? -1 : KodoPruneRule.HighestPrunable(journal.Records.Max(r => r.Sequence), anchored);
+        int removed = journal.Records.RemoveAll(r => r.Sequence <= highest && r.At < olderThan);
+        return ValueTask.FromResult((long)removed);
+    }
+
+    private void CheckUp()
+    {
+        if (Down)
+        {
+            throw new IOException("database unreachable");
+        }
+    }
+}
+
+internal sealed class FakeSink(string id, Func<AnchorRecord, bool>? accept = null) : IAnchorSink
+{
+    public string Id { get; } = id;
+
+    public bool Throw { get; set; }
+
+    public bool Accept { get; set; } = true;
+
+    public List<AnchorRecord> Published { get; } = [];
+
+    public ValueTask<bool> PublishAsync(AnchorRecord anchor, CancellationToken cancellationToken)
+    {
+        Published.Add(anchor);
+        if (Throw)
+        {
+            throw new IOException("sink down");
+        }
+
+        return ValueTask.FromResult(Accept && (accept?.Invoke(anchor) ?? true));
     }
 }

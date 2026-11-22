@@ -25,6 +25,7 @@ internal sealed partial class KodoJournalSync
 
     private readonly KodoJournal _journal;
     private readonly IKodoJournalStore _store;
+    private readonly IKodoCheckpointStore? _checkpoints;
     private readonly KodoServerOptions _options;
     private readonly TimeProvider _time;
     private readonly ILogger _logger;
@@ -36,8 +37,9 @@ internal sealed partial class KodoJournalSync
     private DateTimeOffset _lastSnapshot = DateTimeOffset.MinValue;
     private DateTimeOffset _lastPrune = DateTimeOffset.MinValue;
 
-    public KodoJournalSync(KodoJournal journal, IKodoJournalStore store, KodoServerOptions options, TimeProvider time, ILogger logger)
+    public KodoJournalSync(KodoJournal journal, IKodoJournalStore store, KodoServerOptions options, TimeProvider time, ILogger logger, IKodoCheckpointStore? checkpoints = null)
     {
+        _checkpoints = checkpoints;
         _journal = journal ?? throw new ArgumentNullException(nameof(journal));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _options = options ?? throw new ArgumentNullException(nameof(options));
@@ -215,7 +217,11 @@ internal sealed partial class KodoJournalSync
         }
 
         _lastPrune = now;
-        long deleted = await _store.PruneAsync(now - TimeSpan.FromDays(_options.JournalRetentionDays), cancellationToken).ConfigureAwait(false);
+        // With checkpoints on, retention keeps the tail after the newest anchored checkpoint (doc 46 section 6.5.2).
+        DateTimeOffset cutoff = now - TimeSpan.FromDays(_options.JournalRetentionDays);
+        long deleted = _checkpoints is null
+            ? await _store.PruneAsync(cutoff, cancellationToken).ConfigureAwait(false)
+            : await _checkpoints.PruneAnchoredAsync(cutoff, cancellationToken).ConfigureAwait(false);
         if (deleted > 0)
         {
             LogPruned(_logger, deleted);
