@@ -25,6 +25,7 @@ internal static class Program
     public static int Main(string[] args)
     {
         if (DefaultAppCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultAppExit) { return defaultAppExit; }
+        if (DefaultTerminalCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultTerminalExit) { return defaultTerminalExit; }
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
