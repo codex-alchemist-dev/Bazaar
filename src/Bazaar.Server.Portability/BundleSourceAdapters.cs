@@ -43,7 +43,7 @@ public sealed class VaultBundleSource(VaultExporter exporter, string repoPath, s
 /// The exporter audits the export when it runs (doc 44 section 10), before the assembler has finished. If assembly fails later,
 /// the audit entry already exists. The plaintext notice for the owner is kept in <see cref="PlaintextNotice"/>.
 /// </remarks>
-public sealed class PersonalFieldBundleSource(PersonalFieldExporter exporter, PersonalExportScope scope) : IBundleSource
+public sealed class PersonalFieldBundleSource(PersonalFieldExporter exporter, PersonalExportScope scope) : IPlaintextBundleSource
 {
     public const string SourceId = "personal.v1";
 
@@ -52,12 +52,16 @@ public sealed class PersonalFieldBundleSource(PersonalFieldExporter exporter, Pe
     /// <summary>The owner notice from the last run when plaintext was written, otherwise null.</summary>
     public string? PlaintextNotice { get; private set; }
 
+    /// <summary>The plaintext files from the last run (the assembler flags them in the manifest), otherwise empty.</summary>
+    public IReadOnlyList<string> PlaintextPersonalPaths { get; private set; } = [];
+
     public async Task ExportAsync(IExportFileSink sink, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(sink);
         var result = await exporter.ExportAsync(scope, ct);
         await BundleFileWriter.WriteAllAsync(sink, result.Files, ct);
         PlaintextNotice = result.PlaintextNotice;
+        PlaintextPersonalPaths = result.PlaintextPaths ?? [];
     }
 }
 
