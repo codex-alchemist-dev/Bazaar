@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Core;
+using Bazaar.Server.Gateway;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
@@ -58,8 +59,9 @@ public sealed class SettingsAuditCompositionTests : IDisposable
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
         var registry = sp.GetRequiredService<SettingRegistry>();
         Assert.Equal(
-            SettingRegistry.Known.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal),
+            BuiltInSettingRegistries.Known.Definitions.Concat(new GatewaySettingContribution().Settings).Select(d => d.Name).Order(StringComparer.Ordinal),
             registry.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal));
+        Assert.All(GatewaySettings.All, d => Assert.True(registry.Contains(d), d.Name));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 

@@ -1,5 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Erasure;
+using Bazaar.Fun;
+using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -12,10 +14,12 @@ using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
+using Bazaar.Server.Sanitization;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -45,8 +49,17 @@ public static class HostApplicationExtensions
         services.AddBazaarJobs();
         services.AddBazaarLegalHoldReader();
 
+        // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
+        // implementation, and only when the fun-systems component is enabled, as before the split.
+        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
+        {
+            services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
+        }
+
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
+        // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
+        services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
         services.AddBazaarComponents(configuration, HostComponents.All);
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();

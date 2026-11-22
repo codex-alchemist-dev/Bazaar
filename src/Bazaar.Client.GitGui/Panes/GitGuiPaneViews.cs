@@ -124,13 +124,17 @@ internal static class GitGuiPaneViews
 
             if (detail.Merge is { } card)
             {
-                var merge = new Button { Content = "Request owner merge", IsEnabled = card.CanRequestMerge, HorizontalAlignment = HorizontalAlignment.Left };
+                var merge = new Button { Content = "Request owner merge", IsEnabled = detail.CanMerge, HorizontalAlignment = HorizontalAlignment.Left };
                 AutomationProperties.SetName(merge, $"Request owner merge of head {card.HeadSha}");
-                merge.Click += (_, _) => detail.RequestMerge();
+                merge.Click += (_, _) => _ = detail.MergeAsync();
                 body.Children.Add(merge);
                 body.Children.Add(Themed(
                     new TextBlock { Text = card.BlockedReason ?? $"Ready for the owner at head {card.HeadSha}.", TextWrapping = TextWrapping.Wrap },
                     ThemeBrushes.TextSecondary));
+                if (detail.MergeMessage is { } mergeMessage)
+                {
+                    body.Children.Add(Themed(new TextBlock { Text = mergeMessage, TextWrapping = TextWrapping.Wrap }, ThemeBrushes.TextAccent));
+                }
             }
 
             if (detail.SelectedDiff is { } diff)
