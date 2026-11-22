@@ -48,6 +48,13 @@ internal sealed class FakeDraftStore : ICommunityDraftStore
         Task.FromResult<IReadOnlyList<CommunityDraft>>(
             [.. _drafts.Values.Where(d => d.Status == CommunityDraftStatus.Pending && d.ApprovalExpiresAt > openAt).Reverse().Take(limit)]);
 
+    public Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default)
+    {
+        var due = _drafts.Values.Where(d => d.Status == CommunityDraftStatus.Pending && d.ApprovalExpiresAt <= now).ToList();
+        foreach (var d in due) _drafts[d.DraftId] = d with { Status = CommunityDraftStatus.Expired };
+        return Task.FromResult<IReadOnlyList<Guid>>([.. due.Select(d => d.DraftId)]);
+    }
+
     public Task<bool> TrySupersedeAsync(Guid originalId, CommunityDraft replacement, CancellationToken ct = default)
     {
         if (!_drafts.TryGetValue(originalId, out var current) || current.Status != CommunityDraftStatus.Pending) return Task.FromResult(false);

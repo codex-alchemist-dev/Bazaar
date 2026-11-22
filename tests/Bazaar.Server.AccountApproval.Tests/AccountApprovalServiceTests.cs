@@ -195,7 +195,7 @@ public class AccountApprovalServiceTests
     [Fact]
     public async Task The_shipped_default_has_no_listed_approvers_so_the_owner_decides()
     {
-        var service = new AccountApprovalService(new NoApproverDirectory(), new RecordingAudit(), new RecordingHandOff(), Fixtures.Wrap(new AccountApprovalOptions()), new FixedTime(Fixtures.Now));
+        var service = new AccountApprovalService(new NoApproverDirectory(), new RecordingAudit(), new RecordingHandOff(), new InMemoryAccountApprovalStore(), Fixtures.Wrap(new AccountApprovalOptions()), new FixedTime(Fixtures.Now));
 
         Assert.IsType<NeedsOwner>(await service.SubmitAsync(Fixtures.Request(), TestContext.Current.CancellationToken));
     }
@@ -326,7 +326,7 @@ public class AccountApprovalServiceTests
         var options = new AccountApprovalOptions { PeerQuorum = 1 };
 
         Assert.NotEmpty(options.Validate());
-        Assert.Throws<OptionsValidationException>(() => new AccountApprovalService(new FakeDirectory(), new RecordingAudit(), new RecordingHandOff(), Fixtures.Wrap(options)));
+        Assert.Throws<OptionsValidationException>(() => new AccountApprovalService(new FakeDirectory(), new RecordingAudit(), new RecordingHandOff(), new InMemoryAccountApprovalStore(), Fixtures.Wrap(options)));
     }
 
     [Fact]

@@ -10,25 +10,9 @@ namespace Bazaar.Server.Settings;
 /// </summary>
 public static class HostSettings
 {
-    public static readonly SettingKey<ServiceHostProvider> ProviderServiceHost = new(
-        "host.provider.service_host", ServiceHostProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Service host: Windows Service or systemd. Auto picks the one for this OS.");
-
-    public static readonly SettingKey<VmProvider> ProviderVm = new(
-        "host.provider.vm", VmProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "VM backend: Hyper-V, QEMU/KVM, or none.");
-
-    public static readonly SettingKey<CacheProvider> ProviderCache = new(
-        "host.provider.cache", CacheProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Cache and presence: Garnet or Valkey. Auto uses Valkey until Garnet passes spike S2 (doc 03).");
-
-    public static readonly SettingKey<SearchProvider> ProviderSearch = new(
-        "host.provider.search", SearchProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Search: Postgres full-text or pg_search.");
-
     public static readonly SettingKey<IReadOnlyList<string>> ReadinessRequiredRoles = new(
         "host.readiness.required_roles", ["postgres", "search", "service_host"], SettingScope.Install, SettingRole.Operator,
-        "Readiness roles that must be usable before /health/ready passes. Postgres is always required (floor). " +
+        "Readiness roles that must have at least one usable provider before /health/ready passes (a readiness requirement, not a provider selection). Postgres is always required (floor). " +
         "The default adds postgres to the table's list, because doc 03's floor makes it mandatory.",
         validate: CheckRequiredRoles);
 
@@ -101,10 +85,6 @@ public static class HostSettings
     /// <summary>Every host key, in doc 03 table order.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
-        ProviderServiceHost,
-        ProviderVm,
-        ProviderCache,
-        ProviderSearch,
         ReadinessRequiredRoles,
         ShutdownTimeoutSeconds,
         ServiceRestartDelaysMinutes,
@@ -172,4 +152,40 @@ public static class HostSettings
 
     private static Func<int, string?> AtLeast(int min) =>
         value => value >= min ? null : $"must be at least {min}; got {value}.";
+}
+
+/// <summary>
+/// The built-in setting registries for this build. <see cref="SettingRegistry"/> itself lives in
+/// <c>Bazaar.Server.Settings.Abstractions</c> so modules can use it without referencing Bazaar.Server.
+/// </summary>
+public static class BuiltInSettingRegistries
+{
+    /// <summary>Every <c>host.*</c> key from doc 03.</summary>
+    public static SettingRegistry Host { get; } = new(HostSettings.All);
+
+    /// <summary>
+    /// Every built-in setting: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25), the
+    /// constellation keys (doc 19) and the doc 15 security keys. Module keys (the module manager's, doc 42 and doc 49, and the
+    /// gateway's, doc 05) arrive as contributions through <see cref="WithContributions"/>, so the host composes them.
+    /// </summary>
+    public static SettingRegistry Known { get; } = new(BuiltInSettings);
+
+    private static IEnumerable<SettingDefinition> BuiltInSettings =>
+        HostSettings.All
+            .Concat(Calendar.CalendarSettings.All)
+            .Concat(Gc.GcSettings.All)
+            .Concat(Knowledge.KnowledgeSettings.All)
+            .Concat(ConstellationSettings.All)
+            .Concat(SecuritySettings.All)
+            .Concat(SecuritySettings.IdentityKeys);
+
+    /// <summary>
+    /// The built-in keys plus every module contribution. A contributed name that repeats a built-in or another
+    /// contribution is rejected, as a duplicate in the constructor. The host builds its registry this way.
+    /// </summary>
+    public static SettingRegistry WithContributions(IEnumerable<ISettingContribution> contributions) =>
+        SettingRegistry.Combine(BuiltInSettings, contributions);
+
+    /// <summary>Every <c>constellation.*</c> key from doc 19. Kept apart from <see cref="Host"/>, which holds only <c>host.*</c>.</summary>
+    public static SettingRegistry Constellation { get; } = new(ConstellationSettings.All);
 }
