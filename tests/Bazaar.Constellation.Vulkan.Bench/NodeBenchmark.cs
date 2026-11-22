@@ -88,6 +88,9 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
     public long DeviceLocalBytes { get; private set; }
     public bool MeshShaderExtension { get; private set; }
 
+    /// <summary>The device has vkCmdDrawIndirectCount (drawIndirectCount, multiDrawIndirect and drawIndirectFirstInstance) and it was enabled.</summary>
+    public bool IndirectCountSupported { get; private set; }
+
     /// <summary>Creates the instance, device, queue and offscreen target, and builds the pipeline.</summary>
     public void Initialize(string shaderDirectory)
     {
@@ -332,12 +335,29 @@ public sealed unsafe partial class NodeBenchmark : IDisposable
             dynamicRendering = true,
             synchronization2 = true,
         };
+        // Indirect draws with a GPU-written count and per-draw first instance (section 10.10). Enabled only where the device has them.
+        var supported12 = new VkPhysicalDeviceVulkan12Features { sType = VkStructureType.PhysicalDeviceVulkan12Features };
+        var supported2 = new VkPhysicalDeviceFeatures2 { sType = VkStructureType.PhysicalDeviceFeatures2, pNext = &supported12 };
+        _instanceApi.vkGetPhysicalDeviceFeatures2(_physical, &supported2);
+        IndirectCountSupported = supported12.drawIndirectCount && supported2.features.multiDrawIndirect && supported2.features.drawIndirectFirstInstance;
+        var features12 = new VkPhysicalDeviceVulkan12Features
+        {
+            sType = VkStructureType.PhysicalDeviceVulkan12Features,
+            drawIndirectCount = IndirectCountSupported,
+        };
+        features13.pNext = &features12;
+        var coreFeatures = new VkPhysicalDeviceFeatures
+        {
+            multiDrawIndirect = IndirectCountSupported,
+            drawIndirectFirstInstance = IndirectCountSupported,
+        };
         var deviceInfo = new VkDeviceCreateInfo
         {
             sType = VkStructureType.DeviceCreateInfo,
             pNext = &features13,
             queueCreateInfoCount = 1,
             pQueueCreateInfos = &queueInfo,
+            pEnabledFeatures = &coreFeatures,
         };
         Check(_instanceApi.vkCreateDevice(_physical, &deviceInfo, null, out _device), "vkCreateDevice");
         _deviceApi = new VkDeviceApi(_instanceApi, in _device);

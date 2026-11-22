@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Server.Gateway.Adapters;
+using Bazaar.Server.Modules.Health;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
 using Bazaar.Server.Settings;
@@ -48,6 +49,15 @@ public sealed class ClaudeCodeComponent : IBazaarComponent
         services.AddSingleton<IValidateOptions<ClaudeCodeOptions>, ClaudeCodeOptionsValidator>();
         services.AddSingleton(sp => new ClaudeCodeLaneState(sp.GetService<TimeProvider>() ?? TimeProvider.System));
         services.AddSingleton<IClaudeCodeLaneState>(sp => sp.GetRequiredService<ClaudeCodeLaneState>());
+        services.AddSingleton<IModuleHealthContract>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<ClaudeCodeOptions>>().Value;
+            return new ClaudeCodeHealth(
+                options,
+                sp.GetRequiredService<IClaudeCodeLaneState>(),
+                new ClaudeCodeProcessRunner(options.MaxLineChars, sp.GetService<IChildProcessContainer>()),
+                sp.GetService<TimeProvider>() ?? TimeProvider.System);
+        });
         services.AddHostedService(sp => new ClaudeCodeOrphanSweepService(
             sp.GetRequiredService<IOptions<ClaudeCodeOptions>>().Value,
             sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<ClaudeCodeOrphanSweepService>>()));
