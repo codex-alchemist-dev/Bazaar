@@ -1,6 +1,8 @@
 using Bazaar.Fun;
 using Bazaar.Fun.Lucky;
 using Bazaar.Fun.Sidewalk;
+using Bazaar.Sanitization;
+using Bazaar.Server.Sanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +22,8 @@ public class FunComponentWiringTests
             .Build();
 
         var services = new ServiceCollection();
+        // The host supplies ITextSanitizer in production (HostApplicationExtensions); mirror that here.
+        services.AddSingleton<ITextSanitizer, TextSanitizer>();
         var component = new FunComponent();
         component.AddServices(services, config);
         return services.BuildServiceProvider();

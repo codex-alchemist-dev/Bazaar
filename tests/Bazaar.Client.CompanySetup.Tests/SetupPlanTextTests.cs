@@ -1,16 +1,19 @@
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Client.CompanySetup.Tests;
 
 public class SetupPlanTextTests
 {
+    private static SetupLoadResult Load(string json) => SetupPlanLoader.Load(json, RegistrySetupSettingCatalog.Known);
+
     private static CompanySetupRequest Request(string kind = "dpapi", string reference = "dpapi:keys/kek.bin") =>
         new("Example Studio", "example-studio", "Dana", "en", "Europe/London", kind, reference, AcknowledgeNoBackupTarget: true);
 
     [Fact]
     public void The_plan_this_client_writes_is_accepted_by_the_servers_own_loader()
     {
-        var loaded = SetupPlanLoader.Load(SetupPlanText.Build(Request()));
+        var loaded = Load(SetupPlanText.Build(Request()));
 
         Assert.DoesNotContain(loaded.Issues, i => i.Severity == SetupIssueSeverity.Error);
         Assert.NotNull(loaded.Plan);
@@ -25,17 +28,17 @@ public class SetupPlanTextTests
     [Fact]
     public void Constitution_acceptance_is_off_unless_the_owner_ticks_it()
     {
-        Assert.False(SetupPlanLoader.Load(SetupPlanText.Build(Request())).Plan!.FirstRun.AcceptConstitution);
-        Assert.True(SetupPlanLoader.Load(SetupPlanText.Build(Request() with { AcceptConstitution = true })).Plan!.FirstRun.AcceptConstitution);
+        Assert.False(Load(SetupPlanText.Build(Request())).Plan!.FirstRun.AcceptConstitution);
+        Assert.True(Load(SetupPlanText.Build(Request() with { AcceptConstitution = true })).Plan!.FirstRun.AcceptConstitution);
     }
 
     [Fact]
     public void The_first_agent_is_named_Claude_unless_changed_and_carries_its_purpose()
     {
-        var plan = SetupPlanLoader.Load(SetupPlanText.Build(Request())).Plan!;
+        var plan = Load(SetupPlanText.Build(Request())).Plan!;
         Assert.Equal("Claude", plan.FirstRun.DefaultAgentName);
 
-        var custom = SetupPlanLoader.Load(SetupPlanText.Build(Request() with { AgentName = "Sage", AgentPurpose = "Triage the board" })).Plan!;
+        var custom = Load(SetupPlanText.Build(Request() with { AgentName = "Sage", AgentPurpose = "Triage the board" })).Plan!;
         Assert.Equal("Sage", custom.FirstRun.DefaultAgentName);
         Assert.Equal("Triage the board", custom.FirstRun.DefaultAgentPurpose);
     }
@@ -43,9 +46,9 @@ public class SetupPlanTextTests
     [Fact]
     public void The_same_request_always_gives_the_same_plan_hash()
     {
-        var first = SetupPlanLoader.Load(SetupPlanText.Build(Request())).PlanHash;
-        var second = SetupPlanLoader.Load(SetupPlanText.Build(Request())).PlanHash;
-        var different = SetupPlanLoader.Load(SetupPlanText.Build(Request() with { OwnerName = "Sam" })).PlanHash;
+        var first = Load(SetupPlanText.Build(Request())).PlanHash;
+        var second = Load(SetupPlanText.Build(Request())).PlanHash;
+        var different = Load(SetupPlanText.Build(Request() with { OwnerName = "Sam" })).PlanHash;
 
         Assert.Equal(first, second);
         Assert.NotEqual(first, different);
@@ -54,7 +57,7 @@ public class SetupPlanTextTests
     [Fact]
     public void Missing_backup_acknowledgement_is_held_by_the_server_loader()
     {
-        var loaded = SetupPlanLoader.Load(SetupPlanText.Build(Request() with { AcknowledgeNoBackupTarget = false }));
+        var loaded = Load(SetupPlanText.Build(Request() with { AcknowledgeNoBackupTarget = false }));
 
         Assert.Contains(loaded.Issues, i => i.Path.StartsWith("backups", StringComparison.Ordinal));
         Assert.Equal(SetupExitCode.Held, loaded.ExitCode);
@@ -63,7 +66,7 @@ public class SetupPlanTextTests
     [Fact]
     public void A_key_reference_that_does_not_match_its_provider_is_reported_by_the_server_loader()
     {
-        var loaded = SetupPlanLoader.Load(SetupPlanText.Build(Request(kind: "dpapi", reference: "env:KEK")));
+        var loaded = Load(SetupPlanText.Build(Request(kind: "dpapi", reference: "env:KEK")));
 
         Assert.Contains(loaded.Issues, i => i.Path == "custody.kekRef");
     }
@@ -91,6 +94,6 @@ public class SetupPlanTextTests
         var slug = SetupPlanText.SlugFrom(new string('a', 200));
 
         Assert.True(slug.Length <= 63);
-        Assert.DoesNotContain(SetupPlanLoader.Load(SetupPlanText.Build(Request() with { CompanySlug = slug })).Issues, i => i.Path == "install.companySlug");
+        Assert.DoesNotContain(Load(SetupPlanText.Build(Request() with { CompanySlug = slug })).Issues, i => i.Path == "install.companySlug");
     }
 }
