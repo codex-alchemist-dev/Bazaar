@@ -21,4 +21,15 @@ public static class LeasedCredentialMatcherServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ILeaseObserver, LeasedCredentialObserver>());
         return services;
     }
+
+    /// <summary>
+    /// Registers <see cref="SecretStoreLeasedCredentialValueSource"/> as the host's <see cref="ILeasedCredentialValueSource"/>
+    /// (doc 14, "Leased credential values" [PROPOSED]). Needs an <c>ISecretStore</c> from the host.
+    /// </summary>
+    public static IServiceCollection AddSecretStoreLeasedCredentialValues(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        services.TryAddSingleton<ILeasedCredentialValueSource, SecretStoreLeasedCredentialValueSource>();
+        return services;
+    }
 }
