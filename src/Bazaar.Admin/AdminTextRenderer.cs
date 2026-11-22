@@ -51,15 +51,31 @@ internal static class AdminTextRenderer
                 writer.WriteLine(ChangeLine(change));
             }
 
+            WriteUnapplied(report, writer, "An apply would be held");
             writer.WriteLine("Writes: none.");
         }
 
-        if (report.Command == "apply" && report.Outcome != SetupOrchestrator.ApplyUnavailableOutcome)
+        if (report.Command == "apply" && report.Outcome == SetupOrchestrator.UnappliedSectionsOutcome)
+        {
+            WriteUnapplied(report, writer, "Held");
+            writer.WriteLine("Applied steps: none.");
+        }
+        else if (report.Command == "apply" && report.Outcome != SetupOrchestrator.ApplyUnavailableOutcome)
         {
             writer.WriteLine(report.AppliedSteps.Count == 0
                 ? "Applied steps: none."
                 : $"Applied steps: {string.Join(", ", report.AppliedSteps)}");
         }
+    }
+
+    private static void WriteUnapplied(SetupReport report, TextWriter writer, string lead)
+    {
+        if (report.UnappliedSections.Count == 0)
+        {
+            return;
+        }
+
+        writer.WriteLine($"{lead}: no registered step applies these plan sections (unapplied_sections): {string.Join(", ", SetupPlanSections.Describe(SetupPlanSections.ByIds(report.UnappliedSections)))}.");
     }
 
     /// <summary>

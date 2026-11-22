@@ -16,7 +16,7 @@ namespace Bazaar.Server.Gc.Read;
 /// Thinking GC ownership working for the agent reading its own GC. For other agents the owner is not found, so
 /// Thinking GC reads fail closed until doc 14 supplies kinds.
 /// </remarks>
-public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
+public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess, IGcWriteAccess
 {
     private const string _gcSql = "SELECT parent_gc_id, type_key, archived_at FROM gc WHERE gc_id = $1";
 
