@@ -1,19 +1,22 @@
 # Flatpak manifest for the Bazaar Linux desktop client (Bazaar.Client.Linux).
 #
-# Status: SPIKE (doc 30, section 3 and work package 9). Not verified with flatpak-builder.
-# Not for Flathub submission. Local build only until the spike passes.
+# Status: SPIKE (doc 30, section 3 and work package 9). Not for Flathub submission.
 #
-# Build (outside this repo's CI, on a machine with flatpak and flatpak-builder):
-#   1. Regenerate the offline NuGet sources if dependencies changed: packaging/linux-flatpak/generate-sources.sh
-#   2. flatpak-builder --user --install --force-clean build-dir TheBazaarAuthors.BazaarClient.yml
-#   3. flatpak run TheBazaarAuthors.BazaarClient
+# This manifest compiles nothing. It installs the already-built, reproducible self-contained tarball made by
+# packaging/linux/build-tarball.sh, so no .NET SDK extension is needed (there is none for .NET 11).
+# It is a TEMPLATE: build-flatpak.sh stages the tarball, the .desktop, the metainfo and the icon into a scratch
+# directory beside a rendered copy in which @TARBALL@ is the staged tarball name and @SHA256@ its checksum.
+# Do not run flatpak-builder on this file directly.
+#
+# Build (on a machine with flatpak, flatpak-builder, org.freedesktop.Platform and org.freedesktop.Sdk installed):
+#   packaging/linux-flatpak/build-flatpak.sh [--arch x86_64|aarch64] [output-dir]
+#   flatpak install --user out/flatpak/TheBazaarAuthors.BazaarClient.flatpak
+#   flatpak run TheBazaarAuthors.BazaarClient
 
 app-id: TheBazaarAuthors.BazaarClient
 runtime: org.freedesktop.Platform
-runtime-version: '25.08'        # UNVERIFIED: pin the current freedesktop runtime branch before the spike
+runtime-version: '25.08'        # Must equal FREEDESKTOP_BRANCH in .github/workflows/linux-package-flatpak.yml
 sdk: org.freedesktop.Sdk
-sdk-extensions:
-  - org.freedesktop.Sdk.Extension.dotnet11   # UNVERIFIED: extension name and branch for .NET 11 (repo global.json pins 11.0.100-rc)
 command: bazaar-client
 
 finish-args:
@@ -33,45 +36,34 @@ finish-args:
   # The local terminal (doc 30 section 2) runs a shell inside the sandbox only.
   # Any host reach for the terminal is an open decision and must be added deliberately.
 
-build-options:
-  env:
-    DOTNET_CLI_TELEMETRY_OPTOUT: '1'
-    DOTNET_NOLOGO: '1'
-    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
-    NUGET_PACKAGES: /run/build/bazaar-client/nuget-cache
-  append-path: /usr/lib/sdk/dotnet/bin
-  # The SDK extension provides the dotnet SDK during the build only.
-
 modules:
   - name: bazaar-client
     buildsystem: simple
-    # No build-args: the build stays offline and fails loudly if the generated NuGet sources are incomplete.
     build-commands:
-      # Self-contained publish: the app ships its own .NET runtime, so the
-      # runtime does not need a separate .NET extension at run time (doc 30: self-contained builds).
-      - >-
-        dotnet publish src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj
-        --configuration Release
-        --runtime linux-x64
-        --self-contained true
-        --source /run/build/bazaar-client/nuget-sources
-        --output /app/lib/bazaar-client
-      - install -Dm755 /app/lib/bazaar-client/Bazaar.Client.Linux /app/bin/bazaar-client
-      - install -Dm644 packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.desktop /app/share/applications/TheBazaarAuthors.BazaarClient.desktop
-      - install -Dm644 packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.metainfo.xml /app/share/metainfo/TheBazaarAuthors.BazaarClient.metainfo.xml
-      # Application icon: scalable SVG named after the app-id (placeholder artwork, shared with the AppImage).
-      - install -Dm644 packaging/linux-appimage/bazaar-client.svg /app/share/icons/hicolor/scalable/apps/TheBazaarAuthors.BazaarClient.svg
+      # The tarball is self-contained: it carries its own .NET runtime (doc 30: self-contained builds).
+      - mkdir -p /app/lib/bazaar-client
+      - cp -a bazaar-client-tarball/. /app/lib/bazaar-client/
+      - chmod 755 /app/lib/bazaar-client/Bazaar.Client.Linux
+      - install -Dm755 bazaar-client-launcher.sh /app/bin/bazaar-client
+      - install -Dm644 TheBazaarAuthors.BazaarClient.desktop /app/share/applications/TheBazaarAuthors.BazaarClient.desktop
+      - install -Dm644 TheBazaarAuthors.BazaarClient.metainfo.xml /app/share/metainfo/TheBazaarAuthors.BazaarClient.metainfo.xml
+      # Application icon: scalable SVG named after the app-id (placeholder artwork, shared with the AppImage;
+      # build-flatpak.sh stages packaging/linux-appimage/bazaar-client.svg here).
+      - install -Dm644 bazaar-client.svg /app/share/icons/hicolor/scalable/apps/TheBazaarAuthors.BazaarClient.svg
     sources:
-      # Local source tree. Replace with a `type: git` source pinned to a commit before any Flathub submission.
-      - type: dir
-        path: ../..
-        skip:
-          - .git
-          - .claude
-          - .github
-          - tests
-          - docs
-          - spikes
-      # Offline NuGet packages (.nupkg files placed in nuget-sources/, the publish --source above).
-      # Regenerate with packaging/linux-flatpak/generate-sources.sh whenever dependencies change.
-      - generated-sources.json
+      # The reproducible tarball from packaging/linux/build-tarball.sh. Its single top-level directory is stripped.
+      - type: archive
+        path: '@TARBALL@'
+        sha256: '@SHA256@'
+        strip-components: 1
+        dest: bazaar-client-tarball
+      - type: script
+        dest-filename: bazaar-client-launcher.sh
+        commands:
+          - exec /app/lib/bazaar-client/Bazaar.Client.Linux "$@"
+      - type: file
+        path: TheBazaarAuthors.BazaarClient.desktop
+      - type: file
+        path: TheBazaarAuthors.BazaarClient.metainfo.xml
+      - type: file
+        path: bazaar-client.svg

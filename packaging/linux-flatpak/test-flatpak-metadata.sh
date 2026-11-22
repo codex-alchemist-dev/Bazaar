@@ -2,6 +2,7 @@
 # Validates the Flatpak packaging metadata without flatpak-builder (doc 30 section 3, doc 37).
 # Checks: manifest parses, app-id matches the .desktop and metainfo ids, the metainfo release matches
 # VersionPrefix in Directory.Build.props, and finish-args stay within the reviewed minimal set.
+# Also checks the manifest compiles nothing (templated tarball archive source, no SDK extension).
 # Uses python3 -I with the standard library only; PyYAML is used when present, otherwise a line-based parse.
 set -euo pipefail
 
@@ -36,7 +37,7 @@ except Exception as e:
     err("manifest does not parse as YAML: %s" % e)
 
 if data is None and not errors:
-    data = {"finish-args": [], "sdk-extensions": [], "modules": []}
+    data = {"finish-args": [], "modules": []}
     cur = None
     for ln in text.splitlines():
         if not ln.strip() or ln.lstrip().startswith("#"):
@@ -49,7 +50,7 @@ if data is None and not errors:
             if val: data[cur] = val
             elif cur not in data: data[cur] = None
             if cur == "modules": data["modules"] = ["(line-based: present)"]
-        elif cur in ("finish-args", "sdk-extensions"):
+        elif cur == "finish-args":
             m = re.match(r"^\s+-\s+(\S+)", ln)
             if m: data[cur].append(m.group(1).strip("'\""))
 
@@ -132,52 +133,35 @@ for a, kw in ALLOWED.items():
     if not found:
         err("finish-arg %s has no explanatory comment mentioning '%s'" % (a, kw))
 
-# Icon: the manifest must install a scalable SVG named after the app-id, from a file that exists.
+# Icon: the manifest must install a scalable SVG named after the app-id. build-flatpak.sh stages
+# packaging/linux-appimage/bazaar-client.svg under its base name, so that file must exist.
 m = re.search(r"install\s+-Dm644\s+(\S+\.svg)\s+/app/share/icons/hicolor/scalable/apps/(\S+)\.svg", text)
 if not m:
     err("manifest does not install a hicolor scalable SVG icon")
 else:
     if m.group(2) != app_id: err("icon install name %r != app-id %r" % (m.group(2), app_id))
-    if not os.path.isfile(os.path.join(repo, m.group(1))): err("icon source missing: %s" % m.group(1))
+    if not os.path.isfile(os.path.join(repo, "packaging", "linux-appimage", m.group(1))): err("icon source missing: packaging/linux-appimage/%s" % m.group(1))
 
-# generated-sources.json: offline NuGet sources (regenerate with generate-sources.sh).
-import json, shutil, subprocess, tempfile
-gs_path = os.path.join(here, "generated-sources.json")
-try:
-    gs = json.loads(read(gs_path))
-except (OSError, ValueError) as e:
-    gs = None; err("generated-sources.json is not valid JSON: %s" % e)
-if gs is not None:
-    if not isinstance(gs, list) or not gs:
-        err("generated-sources.json is empty (run generate-sources.sh)")
-    else:
-        names = [e.get("dest-filename") for e in gs if isinstance(e, dict)]
-        if len(names) != len(gs) or not all(isinstance(n, str) and n.endswith(".nupkg") for n in names):
-            err("generated-sources.json entries need a .nupkg dest-filename")
-        if len(names) != len(set(names)):
-            err("generated-sources.json has duplicate dest-filename values")
-        if names != sorted(names): err("generated-sources.json is not sorted by dest-filename")
-        for e in gs:
-            if not isinstance(e, dict): continue
-            n = e.get("dest-filename")
-            if e.get("type") != "file": err("%s: type must be 'file'" % n)
-            if not str(e.get("url", "")).startswith("https://"): err("%s: url must be https" % n)
-            if not re.fullmatch(r"[0-9a-f]{128}", str(e.get("sha512", ""))): err("%s: sha512 must be 128 hex chars" % n)
-            if e.get("dest") != "nuget-sources": err("%s: dest must be nuget-sources (the manifest's publish --source)" % n)
-    # Determinism: regenerate and compare, only when dotnet is available (needs network for restore).
-    if shutil.which("dotnet") and not os.environ.get("BAZAAR_FLATPAK_SKIP_REGEN"):
-        tmpd = tempfile.mkdtemp()
-        try:
-            regen = os.path.join(tmpd, "regen.json")
-            r = subprocess.run([os.path.join(here, "generate-sources.sh"), regen], capture_output=True, text=True)
-            if r.returncode != 0:
-                err("generate-sources.sh failed: %s" % r.stderr.strip()[-300:])
-            elif read(regen) != read(gs_path):
-                err("generated-sources.json is stale: regenerate it with generate-sources.sh")
-        finally:
-            shutil.rmtree(tmpd, ignore_errors=True)
-    else:
-        print("note: dotnet not available (or regeneration skipped); determinism check skipped")
+# The manifest compiles nothing: no SDK extension, no dotnet build step, no offline NuGet sources.
+# It installs the self-contained tarball from build-tarball.sh through a templated archive source.
+if "sdk-extensions" in text or "build-options" in text:
+    err("manifest must not use sdk-extensions or build-options (no .NET SDK extension exists; the tarball is prebuilt)")
+for ln in text.splitlines():
+    if not ln.lstrip().startswith("#") and re.search(r"dotnet|nuget|generated-sources", ln, re.I):
+        err("manifest must not reference dotnet or NuGet outside comments: %r" % ln.strip())
+if not re.search(r"^\s*-\s+type:\s+archive\s*$", text, re.M):
+    err("manifest needs a 'type: archive' source for the tarball")
+if not re.search(r"^\s*path:\s*'?@TARBALL@'?\s*$", text, re.M):
+    err("archive source path must be the @TARBALL@ placeholder")
+if not re.search(r"^\s*sha256:\s*'?@SHA256@'?\s*$", text, re.M):
+    err("archive source sha256 must be the @SHA256@ placeholder")
+if not re.search(r"cp\s+-a\s+\S+/\.\s+/app/lib/bazaar-client/", text):
+    err("manifest must extract the tarball into /app/lib/bazaar-client")
+if not re.search(r"install\s+-Dm755\s+\S+\s+/app/bin/bazaar-client\b", text):
+    err("manifest must install the /app/bin/bazaar-client launcher")
+for gone in ("generate-sources.sh", "generated-sources.json"):
+    if os.path.exists(os.path.join(here, gone)):
+        err("%s must not exist (the Flatpak consumes the prebuilt tarball)" % gone)
 
 if errors:
     for e in errors: print("FAIL: " + e, file=sys.stderr)
