@@ -33,6 +33,7 @@ using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
+using Bazaar.Server.WebAdmin;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -60,6 +61,7 @@ public static class HostComponents
         new RoadmapComponent(),
         new CommunityComponent(),
         new RolesComponent(),
+        new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),

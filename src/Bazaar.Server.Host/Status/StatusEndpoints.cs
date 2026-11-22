@@ -66,6 +66,13 @@ public static class StatusEndpoints
     {
         var path = context.Request.Path;
         var method = context.Request.Method;
+        if (path.StartsWithSegments("/admin"))
+        {
+            // The admin panel (doc 51) enforces its own method table and answers 405 itself.
+            await next();
+            return;
+        }
+
         bool allowed;
         string allow;
         if (IsPostOnlyRoute(path))

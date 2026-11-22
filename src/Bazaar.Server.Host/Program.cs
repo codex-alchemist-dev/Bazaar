@@ -6,6 +6,7 @@ using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
@@ -37,6 +38,7 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
+app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
