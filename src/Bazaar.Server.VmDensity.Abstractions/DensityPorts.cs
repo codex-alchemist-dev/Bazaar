@@ -24,3 +24,20 @@ public interface IDensityVmControl
     /// <param name="cancellationToken">Cancellation.</param>
     Task SaveAsync(Guid vmId, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Reads what one VM is doing right now (PROPOSED, doc 59 section 8). Whoever owns the exec channel, the terminals and the browser
+/// sessions implements it; the density module registers a default that reads nothing.
+/// </summary>
+public interface IVmActivityReader
+{
+    /// <summary>
+    /// Reads the activity of one running VM. Returns null when it cannot be read, and a failure counts the same: an unreadable
+    /// activity is treated as busy, so the VM is never saved on a guess. An implementation must report busy when any one of the exec,
+    /// terminal and browser facts is unreadable, and must not report <see cref="VmActivity.HasRunningExec"/> and the others false
+    /// only because it has no source for them.
+    /// </summary>
+    /// <param name="vm">The VM.</param>
+    /// <param name="cancellationToken">Cancellation.</param>
+    Task<VmActivity?> ReadAsync(DensityVm vm, CancellationToken cancellationToken);
+}

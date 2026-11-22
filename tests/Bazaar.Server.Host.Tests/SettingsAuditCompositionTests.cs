@@ -53,13 +53,21 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     }
 
     [Fact]
+    public void Backup_offsite_keys_reach_the_registry_through_a_contribution()
+    {
+        var registry = BuiltInSettingRegistries.WithContributions([new BackupSettingContribution()]);
+        Assert.True(registry.TryGet("backup.offsite_target", out _));
+        Assert.True(registry.TryGet("backup.offsite_credentials_ref", out _));
+    }
+
+    [Fact]
     public async Task Settings_store_and_registry_resolve()
     {
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
         var registry = sp.GetRequiredService<SettingRegistry>();
         Assert.Equal(
-            SettingRegistry.Known.Definitions.Concat(new GatewaySettingContribution().Settings).Select(d => d.Name).Order(StringComparer.Ordinal),
+            BuiltInSettingRegistries.Known.Definitions.Concat(new GatewaySettingContribution().Settings).Select(d => d.Name).Order(StringComparer.Ordinal),
             registry.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal));
         Assert.All(GatewaySettings.All, d => Assert.True(registry.Contains(d), d.Name));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
