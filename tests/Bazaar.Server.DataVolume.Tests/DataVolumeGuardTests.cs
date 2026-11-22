@@ -1,4 +1,5 @@
 using Bazaar.Server.Identity.Kek;
+using Microsoft.Extensions.Configuration;
 
 namespace Bazaar.Server.DataVolume.Tests;
 
@@ -281,5 +282,99 @@ public sealed class DataVolumeGuardTests : IDisposable
         await DataVolumeInitializer.RecordPostgresSystemIdentifierAsync(options, descriptor, "7436920158223411203", _kek, Ct);
 
         Assert.Equal("7436920158223411203", (await Guard(options).VerifyAsync(Ct)).PostgresSystemIdentifier);
+    }
+
+    [Fact]
+    public async Task An_external_database_is_refused_unless_attested()
+    {
+        var options = Options();
+        options.DatabaseIsExternal = true;
+        await InitializeAsync(options);
+
+        var refused = await RefusedAsync(Guard(options));
+
+        Assert.Equal(DataVolumeRefusal.ExternalDatabaseNotAttested, refused.Reason);
+        Assert.Equal("external_database_not_attested", refused.Code);
+    }
+
+    [Fact]
+    public async Task An_attestation_without_a_method_does_not_count()
+    {
+        var options = Options();
+        options.DatabaseIsExternal = true;
+        options.ExternalAtRestAttested = true;
+        options.ExternalAtRestMethod = "  ";
+        await InitializeAsync(options);
+
+        Assert.Equal(DataVolumeRefusal.ExternalDatabaseNotAttested, (await RefusedAsync(Guard(options))).Reason);
+    }
+
+    [Fact]
+    public async Task An_attested_external_database_passes_and_is_reported_as_not_verified()
+    {
+        var options = Options();
+        options.DatabaseIsExternal = true;
+        options.ExternalAtRestAttested = true;
+        options.ExternalAtRestMethod = "LUKS2 on the database server";
+        await InitializeAsync(options);
+
+        var result = await Guard(options).VerifyAsync(Ct);
+
+        Assert.Equal(DatabaseAtRest.AttestedNotVerified, result.DatabaseAtRest);
+        Assert.Equal("attested_not_verified", result.DatabaseAtRestCode);
+    }
+
+    [Fact]
+    public async Task An_attestation_never_excuses_a_data_root_that_is_not_the_volume()
+    {
+        var options = Options();
+        options.DatabaseIsExternal = true;
+        options.ExternalAtRestAttested = true;
+        options.ExternalAtRestMethod = "LUKS2 on the database server";
+        await InitializeAsync(options);
+        File.Delete(options.MarkerPath);
+
+        Assert.Equal(DataVolumeRefusal.MarkerInvalid, (await RefusedAsync(Guard(options))).Reason);
+    }
+
+    [Fact]
+    public async Task A_managed_database_is_reported_as_verified()
+    {
+        var options = Options();
+        await InitializeAsync(options);
+
+        Assert.Equal("verified", (await Guard(options).VerifyAsync(Ct)).DatabaseAtRestCode);
+    }
+
+    [Theory]
+    [InlineData(null, null, true, false)]
+    [InlineData("External", "refuse", true, false)]
+    [InlineData("managed", null, false, false)]
+    [InlineData("External", "Attested", true, true)]
+    public void Options_read_the_database_mode_and_the_at_rest_choice(string? mode, string? atRest, bool external, bool attested)
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [DataVolumeOptions.DatabaseModeKey] = mode,
+            [DataVolumeOptions.ExternalAtRestKey] = atRest,
+            [DataVolumeOptions.ExternalAtRestMethodKey] = " disk encryption ",
+        }).Build();
+
+        var options = DataVolumeComponent.ReadOptions(configuration);
+
+        Assert.Equal(external, options.DatabaseIsExternal);
+        Assert.Equal(attested, options.ExternalAtRestAttested);
+        Assert.Equal("disk encryption", options.ExternalAtRestMethod);
+    }
+
+    [Fact]
+    public void An_unknown_at_rest_choice_is_an_error_and_never_an_attestation()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [DataVolumeOptions.ExternalAtRestKey] = "trust-me",
+        }).Build();
+
+        Assert.Throws<InvalidOperationException>(() => DataVolumeComponent.ReadOptions(configuration));
     }
 }
