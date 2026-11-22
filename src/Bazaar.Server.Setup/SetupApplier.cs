@@ -289,6 +289,7 @@ public sealed class SetupApplier
             ["operator"] = request.OperatorIdentity,
             ["templateId"] = request.TemplateId,
             ["templateVersion"] = request.TemplateVersion,
+            ["templateHash"] = request.TemplateHash,
             // Kodo verification is a later slice, so the result is the literal null for now (doc 45 section 1.12).
             ["kodoResult"] = null,
             ["outcome"] = outcome,
