@@ -18,6 +18,7 @@ public sealed class CompositionTests
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(config ?? []).Build();
         var services = new ServiceCollection();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddLogging();
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
