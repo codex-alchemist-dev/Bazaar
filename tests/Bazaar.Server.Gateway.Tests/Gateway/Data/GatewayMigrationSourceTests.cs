@@ -8,12 +8,12 @@ public class GatewayMigrationSourceTests
     // A file outside the namespace folder (or a missing EmbeddedResource item) is not an error for the runner: it is silently not
     // embedded. These tests fail when the gateway grants migration stops being embedded or discovered.
     [Fact]
-    public void Gateway_namespace_with_grants_migration_0001_is_embedded()
+    public void Gateway_namespace_with_grants_migration_0003_is_embedded()
     {
         var source = new EmbeddedMigrationSource(typeof(UsageRepository).Assembly);
 
         Assert.Contains("gateway", source.Namespaces());
-        Assert.Contains(source.Load("gateway"), f => f.Version == 1 && f.Name == "gateway_grants");
+        Assert.Contains(source.Load("gateway"), f => f.Version == 3 && f.Name == "gateway_grants");
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public class GatewayMigrationSourceTests
 
         var file = Assert.Single(plan);
         Assert.Equal("gateway", file.Namespace);
-        Assert.Equal(1, file.Version);
+        Assert.Equal(3, file.Version);
         Assert.Equal("gateway_grants", file.Name);
     }
 

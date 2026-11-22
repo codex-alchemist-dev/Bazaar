@@ -167,9 +167,9 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; guest agent project `Bazaar.Guest.Agent`; Hyper-V provider blocked on spike S8) | `docs/design/16` |
 | Browser profiles | Full Chromium with an anonymous profile and Passport-backed account profiles. | Planned (credential leases in flight) | `docs/design/16`, `docs/design/14` |
 | Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server/Coding`) | `docs/design/17` |
-| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
-| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Engines/Godot`) | `docs/design/20` |
-| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
+| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Server.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
+| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Server.Engines/Godot`) | `docs/design/20` |
+| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Server.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
 | Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |
