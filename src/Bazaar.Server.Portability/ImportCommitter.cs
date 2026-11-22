@@ -5,6 +5,7 @@ public enum ImportTargetKind
 {
     GcMessage,
     VaultFile,
+    KanbanTask,
 }
 
 /// <summary>Provenance attached to every object a commit creates (doc 44 section 8.1, stage 9).</summary>
@@ -37,6 +38,17 @@ public interface IImportTargetWriter
 
     /// <summary>Source keys currently readable in the Vault for this job.</summary>
     Task<IReadOnlyList<string>> ReadVaultSourceKeysAsync(string jobId, CancellationToken ct);
+
+    /// <summary>
+    /// Creates one batch of Kanban tasks. A writer with no Kanban target keeps this default and throws, so a Kanban
+    /// record fails the job instead of being dropped.
+    /// </summary>
+    Task AppendKanbanTasksAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct) =>
+        throw new NotSupportedException("This import writer has no Kanban target.");
+
+    /// <summary>Source keys currently readable as Kanban tasks for this job. Empty when there is no Kanban target.</summary>
+    Task<IReadOnlyList<string>> ReadKanbanSourceKeysAsync(string jobId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<string>>([]);
 }
 
 /// <summary>Which step of a batch failed.</summary>
@@ -75,6 +87,9 @@ public static class ImportCommitter
 {
     /// <summary>Records with this kind become GC entries. Every other kind becomes a Vault file.</summary>
     public const string GcEntryKind = "chat-entry";
+
+    /// <summary>Records with this kind become Kanban tasks (doc 44 section 8.2). Set by the Trello mapping.</summary>
+    public const string KanbanTaskKind = "kanban-task";
 
     /// <summary>
     /// Commits the new records of a dry-run in batches of at most <paramref name="batchSize"/> records. Batches never mix
@@ -137,13 +152,17 @@ public static class ImportCommitter
             var (target, items) = batches[index];
             try
             {
-                if (target == ImportTargetKind.GcMessage)
+                switch (target)
                 {
-                    await writer.AppendGcMessagesAsync(jobId, index, items, ct);
-                }
-                else
-                {
-                    await writer.WriteVaultFilesAsync(jobId, index, items, ct);
+                    case ImportTargetKind.GcMessage:
+                        await writer.AppendGcMessagesAsync(jobId, index, items, ct);
+                        break;
+                    case ImportTargetKind.KanbanTask:
+                        await writer.AppendKanbanTasksAsync(jobId, index, items, ct);
+                        break;
+                    default:
+                        await writer.WriteVaultFilesAsync(jobId, index, items, ct);
+                        break;
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -195,9 +214,9 @@ public static class ImportCommitter
     public static ImportTargetKind TargetFor(SourceRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
-        return string.Equals(record.Kind, GcEntryKind, StringComparison.Ordinal)
-            ? ImportTargetKind.GcMessage
-            : ImportTargetKind.VaultFile;
+        if (string.Equals(record.Kind, GcEntryKind, StringComparison.Ordinal)) return ImportTargetKind.GcMessage;
+        if (string.Equals(record.Kind, KanbanTaskKind, StringComparison.Ordinal)) return ImportTargetKind.KanbanTask;
+        return ImportTargetKind.VaultFile;
     }
 
     private static ImportCommitResult Refused(string reason) =>

@@ -12,7 +12,7 @@ namespace Bazaar.Client.Windows;
 /// <summary>
 /// Builds the sign-in and create-company screens (doc 45 section 2.6) for the <c>--sign-in</c>, <c>--create-company</c> and
 /// <c>--first-run</c> switches. Both talk to the server this build was made for (<see cref="ClientServer.Current"/>); the session
-/// lives in memory until a protected store exists, so a restart signs out.
+/// is kept sealed with DPAPI under the person's local application data, so a restart stays signed in.
 /// </summary>
 internal static class FirstRunScreens
 {
@@ -49,6 +49,26 @@ internal static class FirstRunScreens
         }
 
         return new ScrollViewer { Content = panel };
+    }
+
+    /// <summary>The session store: DPAPI-sealed file when Windows allows it, memory only when it does not (nothing is written in the clear).</summary>
+    internal static class SessionStores
+    {
+        public static ISessionStore Create()
+        {
+            try
+            {
+                if (!OperatingSystem.IsWindows()) return new InMemorySessionStore();
+                var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                return string.IsNullOrEmpty(root)
+                    ? new InMemorySessionStore()
+                    : new ProtectedFileSessionStore(Path.Combine(root, "Bazaar", "session.bin"), new DpapiSessionProtector());
+            }
+            catch (PlatformNotSupportedException)
+            {
+                return new InMemorySessionStore();
+            }
+        }
     }
 
     /// <summary>Opens an address in the person's default browser.</summary>

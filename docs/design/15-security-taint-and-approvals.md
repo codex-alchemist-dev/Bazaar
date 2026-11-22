@@ -150,7 +150,7 @@ session_taint(session_id, agent_id, state, taint_sources jsonb, updated_at)
 approval(id, agent_id, session_id, tool, args_hash, payload jsonb, taint_sources jsonb,
          status, requested_at, expires_at, decided_by, decided_at, signature)
 handover(id, reader_session_id, schema_id, payload jsonb, source_refs uuid[], status, created_at)
-audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash bytea)
+audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash bytea)  -- actor = Principal text form kind:id (agent, user, service, system); see BAZAAR-COMPONENTS 4.2
 quarantine(id, subject_kind, subject_id, reason, created_by, released_by)
 rate_bucket(agent_id, platform, capability, window_start, count)
 service_terms(service, allows_automation, requires_disclosure, checked_on, source_ref)
@@ -196,6 +196,13 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 - **Doc 21:** its per-agent GitHub caps (2 issues and 2 PRs per day) differ from doc 36's 1 per repository per day. Doc 21 takes its row from the table above.
 - **Doc 22:** its reader model must become the hand-over primitive above.
 - **Doc 08:** must keep T0-T3 and the mapping above.
+
+## Code layout
+Planned extraction under the module sides rule (`BAZAAR-COMPONENTS.md` section 2.1, owner 2026-11-16). No behaviour change.
+- `src/Bazaar.Server.Security.Abstractions`: interfaces, records, enums, options, and the pure value and rule types (taint, policy types, and the audit, approval, quarantine and kill-switch contracts).
+- `src/Bazaar.Server.Security`: implementations (Postgres and in-memory stores, `ToolPolicyEngine`, `ApprovalService`, `KillSwitchEngine`, `AuditAnchorService`, `QuarantineService`, `TokenBudgetService`, DI extensions).
+
+Namespaces stay `Bazaar.Server.Security.*`. Tests move to `tests/Bazaar.Server.Security.Tests`. Consumers bind to `Security.Abstractions` only. The composition root (`Bazaar.Server.Host`) and `Bazaar.Server.AgentSafety` compose the implementation.
 
 ## Questions for the owner
 1. Confirm Claude's reading of C18: reader sessions for all external input in v1; actors never read external content. Default: yes.
