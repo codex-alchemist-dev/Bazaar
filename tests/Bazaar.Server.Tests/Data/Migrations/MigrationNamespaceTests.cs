@@ -180,4 +180,24 @@ public sealed class MigrationNamespaceTests
 
         Assert.All(source.Namespaces(), ns => Assert.True(MigrationNamespaces.IsValid(ns), ns));
     }
+
+    [Fact]
+    public void Plan_leaves_out_the_namespace_of_a_switched_off_component()
+    {
+        var source = new InMemoryMigrationSource([Mig("common", 1), Mig("kanban", 1), Mig("playground", 1)]);
+
+        var plan = MigrationRunner.Plan(source, "linux", [Component("kanban"), Component("playground")], m => m.Id != "playground");
+
+        Assert.Equal(["common", "kanban"], plan.Select(f => f.Namespace));
+    }
+
+    [Fact]
+    public void Plan_with_no_enablement_function_keeps_every_namespace()
+    {
+        var source = new InMemoryMigrationSource([Mig("common", 1), Mig("playground", 1)]);
+
+        var plan = MigrationRunner.Plan(source, "linux", [Component("playground")]);
+
+        Assert.Equal(["common", "playground"], plan.Select(f => f.Namespace));
+    }
 }
