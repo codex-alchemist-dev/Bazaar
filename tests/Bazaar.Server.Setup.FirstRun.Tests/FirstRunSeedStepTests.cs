@@ -1,3 +1,4 @@
+using Bazaar.Server.Setup.Host;
 namespace Bazaar.Server.Setup.FirstRun.Tests;
 
 internal sealed class FakeWorld : IFirstRunOwner, IFirstRunStore, IConstitutionAcceptance, IDefaultAgentRoutes, IFirstRunAudit
@@ -254,7 +255,7 @@ public class FirstRunPlanSectionTests
          FIRSTRUN}
         """;
 
-    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun));
+    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun), RegistrySetupSettingCatalog.Known);
 
     [Fact]
     public void The_section_may_be_left_out_and_its_defaults_apply()
