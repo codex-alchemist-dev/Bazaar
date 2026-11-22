@@ -15,6 +15,23 @@ public sealed class TornTailRepairTests : IDisposable
     public void Dispose() => _dir.Dispose();
 
     [Fact]
+    public async Task AcknowledgingTheRepair_StopsTheNextReplayCountingTheLostWrite()
+    {
+        AppendThree();
+        TruncateBy(5);
+        using var queue = Open(OfflineQueueRepairMode.QuarantineTornTail);
+        var driver = new OfflineReplayDriver(queue, new FakeOfflineServer(), new ConnectionStateTracker());
+
+        var before = await new OfflineReplayDriver(queue, new FakeOfflineServer(), new ConnectionStateTracker()).RunAsync(CancellationToken.None);
+        queue.AcknowledgeRepair();
+        var after = await driver.RunAsync(CancellationToken.None);
+
+        Assert.Equal(1, before.AttentionCount);
+        Assert.Equal(0, after.AttentionCount);
+        Assert.Null(queue.Repair);
+    }
+
+    [Fact]
     public void TornFinalRecord_IsRepaired_AndReportsTheLostWrite()
     {
         AppendThree();

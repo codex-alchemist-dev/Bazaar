@@ -141,7 +141,13 @@ public sealed class EncryptedOfflineQueue : IDisposable
     public Guid DeviceId => _deviceId;
 
     /// <summary>The repair made when the queue was opened, or null when none was needed. The driver raises Attention for a repair.</summary>
-    public RepairReport? Repair => _repair;
+    public RepairReport? Repair => Volatile.Read(ref _repair);
+
+    /// <summary>
+    /// Records that a person has seen the torn-tail repair, so the next replay stops counting its lost write as Attention
+    /// (doc 56 section 9). The quarantine copy stays on disk. Does nothing when no repair was made.
+    /// </summary>
+    public void AcknowledgeRepair() => Volatile.Write(ref _repair, null);
 
     /// <summary>Whether the queue has stopped after a verification failure.</summary>
     public bool IsStopped

@@ -64,6 +64,16 @@ public sealed class OfflineSyncClient : IDisposable
         }
     }
 
+    /// <summary>
+    /// Clears the Attention raised by a torn-tail repair once a person has seen it. The next <see cref="SyncAsync"/> no longer
+    /// counts the lost write. The damaged file's copy stays on disk.
+    /// </summary>
+    public void AcknowledgeRepair()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _queue.AcknowledgeRepair();
+    }
+
     /// <summary>Closes the queue file. Writes already queued stay on disk for the next open.</summary>
     public void Dispose()
     {
