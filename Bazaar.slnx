@@ -298,6 +298,7 @@
     <Project Path="tests/Bazaar.Client.Athanor.Tests/Bazaar.Client.Athanor.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Wire.Tests/Bazaar.Client.Athanor.Wire.Tests.csproj" />
+    <Project Path="tests/Bazaar.Athanor.EndToEnd.Tests/Bazaar.Athanor.EndToEnd.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Gtk.Tests/Bazaar.Client.Athanor.Gtk.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Bundle.Tests/Bazaar.Client.Athanor.Bundle.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.WebView2.Tests/Bazaar.Client.Athanor.WebView2.Tests.csproj" />

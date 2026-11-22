@@ -54,5 +54,6 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />
+    <InternalsVisibleTo Include="Bazaar.Athanor.EndToEnd.Tests" />
   </ItemGroup>
 </Project>
