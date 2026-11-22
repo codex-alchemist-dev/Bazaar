@@ -161,6 +161,13 @@ public sealed class SetupRecoverySection
 {
     public bool PrintedCodes { get; init; }
 
+    /// <summary>
+    /// A <c>secret://bazaar/</c> reference to the encrypted recovery bundle, recorded as given. Never the bundle, a code or a key.
+    /// Optional; left out of the canonical form when absent, so a plan without it keeps its hash.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? BundleRef { get; init; }
+
     /// <summary>Usernames of backup owners. Order is kept; it is a list, not a set.</summary>
     public List<string> BackupOwners { get; init; } = [];
 }

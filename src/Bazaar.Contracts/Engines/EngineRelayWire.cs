@@ -18,6 +18,9 @@ public static class EngineRelayWire
     /// <summary>Client <c>req</c> type carrying an <see cref="EngineRelayResultRequest"/>. Idempotent by envelope id like any request.</summary>
     public const string RequestType = Bazaar.Contracts.Wire.WireTypes.EngineRelayResult;
 
+    /// <summary>Client <c>req</c> type carrying an <see cref="EngineGrantVerifyRequest"/> [PROPOSED].</summary>
+    public const string GrantVerifyType = Bazaar.Contracts.Wire.WireTypes.EngineGrantVerify;
+
     /// <summary>Setting key for the per-call deadline in seconds (doc 20).</summary>
     public const string TimeoutSetting = "engine.relay.timeout_seconds";
 
