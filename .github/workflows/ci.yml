@@ -404,6 +404,8 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Full history: the Play versionCode is the commit count (packaging/android/build-android.sh).
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up .NET SDK from global.json
@@ -416,12 +418,24 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: dotnet workload install android
 
-      - name: Build Android head (Release)
+      - name: Test Android build script
         if: needs.changes.outputs.code == 'true'
-        run: |
-          set -euo pipefail
-          dotnet build src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
-            -c Release -p:BazaarAndroid=true
+        run: bash packaging/android/test-build-android.sh
+
+      # Builds the unsigned AAB and APK the same way the release does (no keystore is read here), so the Play
+      # packaging cannot rot between releases. Signing happens only in the release workflow with the upload key.
+      - name: Build Android head (unsigned AAB and APK)
+        if: needs.changes.outputs.code == 'true'
+        run: bash packaging/android/build-android.sh
+
+      - name: Upload unsigned Android artifacts
+        if: needs.changes.outputs.code == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-unsigned
+          path: artifacts/android/
+          if-no-files-found: error
+          retention-days: 7
 
       # Accessibility gate on Android (doc 49 section 2). The desktop gate cannot construct the Android views, so the
       # gate app runs the same AccessibleControlScan on an emulator. Build only here; the emulator step installs it.
