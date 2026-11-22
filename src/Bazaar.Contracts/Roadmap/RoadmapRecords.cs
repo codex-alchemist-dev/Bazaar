@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Roadmap;
 
 /// <summary>
@@ -9,6 +11,7 @@ namespace Bazaar.Contracts.Roadmap;
 /// <param name="UnphasedObjectives">Objectives whose phase slug names no phase document, ordered by path.</param>
 /// <param name="DependencyCycle">One dependency cycle among objectives, in cycle order; empty when the graph is acyclic.</param>
 /// <param name="Errors">Documents that were left out because their front matter does not meet the contract.</param>
+[WirePayload]
 public sealed record RoadmapBoardSnapshot(
     Guid VaultId,
     IReadOnlyList<RoadmapPhaseDto> Phases,
