@@ -6,7 +6,7 @@ namespace Bazaar.Server.CompanyMemory;
 
 /// <summary>Source-generated JSON for the Company Memory routes (camelCase), so the module stays AOT-safe.</summary>
 [JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
-[JsonSerializable(typeof(RecordDecisionRequest))]
+[JsonSerializable(typeof(RecordDecisionBody))]
 [JsonSerializable(typeof(RecordedDecision))]
 [JsonSerializable(typeof(DecisionChainView))]
 internal sealed partial class CompanyMemoryJson : JsonSerializerContext;

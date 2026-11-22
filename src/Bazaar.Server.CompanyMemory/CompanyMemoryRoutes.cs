@@ -7,34 +7,48 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.CompanyMemory;
 
+/// <summary>The JSON body of <c>POST /company-memory/decisions</c>: a decision without its recorder, who is the caller.</summary>
+public sealed record RecordDecisionBody(
+    Guid DocId,
+    string Slug,
+    string Title,
+    string Body,
+    IReadOnlyList<string>? Supersedes = null,
+    string? DecidedIn = null);
+
 /// <summary>
 /// HTTP routes for Company Memory (doc 25): <c>POST /company-memory/decisions</c> records a decision and
 /// <c>GET /company-memory/decisions/{reference}/chain</c> returns its chain. Bodies are JSON (camelCase).
 /// </summary>
 /// <remarks>
-/// The guard runs first, as in the other module routes: a non-null result is returned as it is, so the host decides who may
-/// call. The recording agent comes from the request body; the host's guard is responsible for authenticating the caller.
+/// The host supplies <c>guarded</c>: it authenticates the caller, applies its limits and then runs the handler with the
+/// caller's id, or answers 401, 429 and the like itself. The recording agent is always that id; a body cannot name another.
 /// Bad input answers 400, an unknown decision 404.
 /// </remarks>
+/// <summary>
+/// The host's authentication wrapper: runs <paramref name="run"/> with the authenticated caller's id, or answers the refusal itself.
+/// </summary>
+public delegate Task<IResult> CompanyMemoryGuard(HttpContext http, Func<HttpContext, string, Task<IResult>> run);
+
 public static class CompanyMemoryRoutes
 {
     /// <summary>Maps both routes onto <paramref name="routes"/>.</summary>
     public static IEndpointRouteBuilder MapCompanyMemory(
         this IEndpointRouteBuilder routes,
-        Func<HttpContext, ValueTask<IResult?>> guard)
+        CompanyMemoryGuard guarded)
     {
         ArgumentNullException.ThrowIfNull(routes);
-        ArgumentNullException.ThrowIfNull(guard);
+        ArgumentNullException.ThrowIfNull(guarded);
 
         // RequestDelegates with method metadata keep the routes free of reflection (AOT-safe).
         RequestDelegate record = async http =>
         {
-            var result = await RecordAsync(http, guard);
+            var result = await guarded(http, RecordAsync);
             await result.ExecuteAsync(http);
         };
         RequestDelegate chain = async http =>
         {
-            var result = await ChainAsync(http, guard);
+            var result = await guarded(http, ChainAsync);
             await result.ExecuteAsync(http);
         };
         routes.Map("/company-memory/decisions", record).WithMetadata(new HttpMethodMetadata(["POST"]));
@@ -42,27 +56,24 @@ public static class CompanyMemoryRoutes
         return routes;
     }
 
-    private static async Task<IResult> RecordAsync(HttpContext http, Func<HttpContext, ValueTask<IResult?>> guard)
+    private static async Task<IResult> RecordAsync(HttpContext http, string callerId)
     {
-        if (await guard(http) is { } refused)
-        {
-            return refused;
-        }
-
-        RecordDecisionRequest? request;
+        RecordDecisionBody? body;
         try
         {
-            request = await JsonSerializer.DeserializeAsync(http.Request.Body, CompanyMemoryJson.Default.RecordDecisionRequest, http.RequestAborted);
+            body = await JsonSerializer.DeserializeAsync(http.Request.Body, CompanyMemoryJson.Default.RecordDecisionBody, http.RequestAborted);
         }
         catch (JsonException)
         {
             return Results.BadRequest();
         }
 
-        if (request is null)
+        if (body is null)
         {
             return Results.BadRequest();
         }
+
+        var request = new RecordDecisionRequest(body.DocId, body.Slug, body.Title, body.Body, callerId, body.Supersedes, body.DecidedIn);
 
         try
         {
@@ -76,13 +87,8 @@ public static class CompanyMemoryRoutes
         }
     }
 
-    private static async Task<IResult> ChainAsync(HttpContext http, Func<HttpContext, ValueTask<IResult?>> guard)
+    private static async Task<IResult> ChainAsync(HttpContext http, string callerId)
     {
-        if (await guard(http) is { } refused)
-        {
-            return refused;
-        }
-
         // The reference is a catch-all so a path such as decisions/0001-x.md also works; the last segment is "chain".
         var raw = http.Request.RouteValues["reference"]?.ToString() ?? string.Empty;
         const string suffix = "/chain";

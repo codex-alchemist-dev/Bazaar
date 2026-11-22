@@ -46,6 +46,13 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
+    /// <summary>
+    /// Runs <paramref name="run"/> behind the same checks as the built-in routes (TLS rule, bearer token, expiry, rate limit).
+    /// For module routes the host maps: the module supplies the handler and never sees the token.
+    /// </summary>
+    public static Task<IResult> RunGuarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run) =>
+        Guarded(http, run);
+
     internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
