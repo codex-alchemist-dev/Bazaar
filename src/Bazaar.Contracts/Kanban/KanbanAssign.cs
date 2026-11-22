@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Kanban;
 
 /// <summary>Payload of the <c>board.assign</c> request: one card, its new assignee, and the revision the client last read (doc 12, Assign authority and command).</summary>
@@ -5,6 +7,7 @@ namespace Bazaar.Contracts.Kanban;
 /// <param name="CardId">Task id of the card.</param>
 /// <param name="AssigneeAgentId">Agent that becomes the assignee, or null to clear the assignee.</param>
 /// <param name="ExpectedRevision">The card's revision as the client last read it. The assignment applies only if it still matches. Must be 1 or more.</param>
+[WirePayload(WireTypes.BoardAssign)]
 public sealed record KanbanAssignRequest(Guid ProjectId, Guid CardId, Guid? AssigneeAgentId, long ExpectedRevision);
 
 /// <summary>The wire spelling of <see cref="KanbanAssignReply.Status"/>. Same words as <see cref="KanbanMoveStatuses"/>.</summary>
@@ -27,4 +30,5 @@ public static class KanbanAssignStatuses
 /// <param name="Status">One of <see cref="KanbanAssignStatuses"/>.</param>
 /// <param name="Revision">New revision when applied, current revision on a conflict, otherwise null.</param>
 /// <param name="Reason">Why the request was refused or invalid, in words the owner can read. Null when applied or in conflict.</param>
+[WirePayload]
 public sealed record KanbanAssignReply(string Status, long? Revision, string? Reason = null);
