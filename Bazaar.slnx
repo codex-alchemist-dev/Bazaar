@@ -102,6 +102,8 @@
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3/Bazaar.Client.Transport.AndroidHttp3.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android/Bazaar.Client.Transport.AndroidHttp3.Android.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android.Head/Bazaar.Client.Transport.AndroidHttp3.Android.Head.csproj" />
+    <Project Path="src/Bazaar.Server.Transport.QuicNative/Bazaar.Server.Transport.QuicNative.csproj" />
+    <Project Path="src/Bazaar.Client.Transport.QuicNative/Bazaar.Client.Transport.QuicNative.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Calendar.Abstractions/Bazaar.Server.Calendar.Abstractions.csproj" />
@@ -462,6 +464,7 @@
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Tests/Bazaar.Client.Transport.AndroidHttp3.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Transport.QuicNative.Tests/Bazaar.Wire.Transport.QuicNative.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Engines.Tests/Bazaar.Server.Engines.Tests.csproj" />
