@@ -44,6 +44,15 @@ internal static class Program
     {
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        // Logging first, so every later line (and a failed start) lands in the client log the support bundle reads (doc 37 section 4d).
+        SupportBundleCommands.InstallLog();
+        // --self-check and --support-bundle run headless and exit, before the single-instance mutex and any window.
+        if (SupportBundleCommands.TryRun(args, WindowsModules.Create) is { } exitCode)
+        {
+            Environment.ExitCode = exitCode;
+            return;
+        }
+
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -74,23 +83,7 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
-        IPaneModule[] modules =
-        [
-            RyuseiFudaPanes.Board,
-            new DashboardPaneModule(),
-            new ConstellationPaneModule(),
-            new GcPaneModule(),
-            new VaultSearchPaneModule(),
-            .. RyuseiFudaPanes.Modules,
-            .. OrgPanes.Modules,
-            .. CalendarPanes.Modules,
-            .. InterruptPanes.Modules,
-            new EnginePaneModule(),
-            .. GitSolarSystemPanes.Modules,
-            .. GitGuiPanes.Modules,
-            // The terminal pane comes last in pager order (doc 55, section 7).
-            .. CalcinatoPanes.Modules,
-        ];
+        var modules = WindowsModules.Create();
         var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = CalcinatoTerminalPanes.AddServices(
