@@ -34,27 +34,31 @@ public static class KekProviderFactory
         var chosen = Normalise(kind);
         if (chosen is "openbao" || !File.Exists(KeyPathFor(chosen, dataRoot)))
             throw new FileNotFoundException($"No existing KEK file for identity.kek_provider '{chosen}'.", KeyPathFor(chosen, dataRoot));
-        return Create(chosen, dataRoot);
+        return Create(chosen, dataRoot, KekOpenMode.OpenExisting);
     }
 
     private static string Normalise(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
 
-    /// <summary>Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under <paramref name="dataRoot"/>.</summary>
-    public static IKekProvider Create(string? kind, string dataRoot)
+    /// <summary>
+    /// Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under
+    /// <paramref name="keyRoot"/>. <paramref name="mode"/> decides whether a missing key is created.
+    /// </summary>
+    /// <exception cref="KekMissingException">The key is missing or empty and <paramref name="mode"/> is <see cref="KekOpenMode.OpenExisting"/>.</exception>
+    public static IKekProvider Create(string? kind, string keyRoot, KekOpenMode mode = KekOpenMode.CreateIfMissing)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        ArgumentException.ThrowIfNullOrWhiteSpace(keyRoot);
         var chosen = Normalise(kind);
-        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, dataRoot) : string.Empty;
+        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, keyRoot) : string.Empty;
 
         switch (chosen)
         {
             case "file":
-                return FileKekProvider.Open(keyPath);
+                return FileKekProvider.Open(keyPath, mode);
             case "dpapi":
                 if (!OperatingSystem.IsWindows())
                     throw new PlatformNotSupportedException("identity.kek_provider 'dpapi' needs a Windows host. Use 'file' on this host (doc 14).");
-                return CreateDpapi(keyPath);
+                return CreateDpapi(keyPath, mode);
             case "openbao":
                 throw new NotSupportedException("identity.kek_provider 'openbao' is not built in this release (doc 14).");
             default:
@@ -64,5 +68,5 @@ public static class KekProviderFactory
     }
 
     [SupportedOSPlatform("windows")]
-    private static DpapiKekProvider CreateDpapi(string keyPath) => DpapiKekProvider.Open(keyPath, new DpapiKeyProtector());
+    private static DpapiKekProvider CreateDpapi(string keyPath, KekOpenMode mode) => DpapiKekProvider.Open(keyPath, new DpapiKeyProtector(), mode);
 }
