@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Athanor;
 using Bazaar.Client.Athanor.Hosting;
@@ -15,7 +16,9 @@ using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
+using Bazaar.Client.Shell;
 using Bazaar.Contracts.Modules;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
 
@@ -127,6 +130,8 @@ internal static class Program
             ShowAthanor(window, settings, paths, keepAthanor);
         }
 
+        // Installed last so it wraps whatever the window now shows.
+        InstallShell(window);
         return window;
     }
 
@@ -154,4 +159,8 @@ internal static class Program
             features: features);
         window.ShowPanes([AthanorPaneModule.WindowPane], registry);
     }
+
+    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
+    private static void InstallShell(MainWindow window) =>
+        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }
