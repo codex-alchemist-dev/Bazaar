@@ -265,6 +265,7 @@
     <Project Path="src/Bazaar.ModulePermissions.Abstractions/Bazaar.ModulePermissions.Abstractions.csproj" />
     <Project Path="src/Bazaar.ModulePermissions.Audit/Bazaar.ModulePermissions.Audit.csproj" />
     <Project Path="src/Bazaar.ModulePermissions.Fs/Bazaar.ModulePermissions.Fs.csproj" />
+    <Project Path="src/Bazaar.ModulePermissions.HostServices/Bazaar.ModulePermissions.HostServices.csproj" />
     <Project Path="src/Bazaar.ModulePermissions.Http/Bazaar.ModulePermissions.Http.csproj" />
     <Project Path="src/Bazaar.ModulePermissions.Process/Bazaar.ModulePermissions.Process.csproj" />
     <Project Path="src/Bazaar.ModulePermissions.Secrets/Bazaar.ModulePermissions.Secrets.csproj" />
@@ -479,6 +480,7 @@
     <Project Path="tests/Bazaar.Server.Vault.Tests/Bazaar.Server.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Audit.Tests/Bazaar.ModulePermissions.Audit.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Fs.Tests/Bazaar.ModulePermissions.Fs.Tests.csproj" />
+    <Project Path="tests/Bazaar.ModulePermissions.HostServices.Tests/Bazaar.ModulePermissions.HostServices.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Http.Tests/Bazaar.ModulePermissions.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Process.Tests/Bazaar.ModulePermissions.Process.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Secrets.Tests/Bazaar.ModulePermissions.Secrets.Tests.csproj" />
