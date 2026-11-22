@@ -1,6 +1,7 @@
+using Bazaar.Erasure.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure;
 
 public static class ErasureServiceCollectionExtensions
 {
