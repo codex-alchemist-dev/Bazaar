@@ -183,6 +183,7 @@
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.LoopGuard.Abstractions/Bazaar.LoopGuard.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.LoopGuard/Bazaar.Server.LoopGuard.csproj" />
+    <Project Path="src/Bazaar.RyuseiFuda.Abstractions/Bazaar.RyuseiFuda.Abstractions.csproj" />
     <Project Path="src/Bazaar.RyuseiFuda/Bazaar.RyuseiFuda.csproj" />
     <Project Path="src/Bazaar.Server.Security.Abstractions/Bazaar.Server.Security.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Security/Bazaar.Server.Security.csproj" />

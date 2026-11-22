@@ -379,10 +379,10 @@ Undo never deletes history:
 
 - GC entries from an import get a new version that marks them `withdrawn_by_import: <job>`. The text stays in history, and the view hides it by default.
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
-- Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
+- Kanban tasks from an import move to the stored `withdrawn` state with reason `withdrawn by import` [PROPOSED]. Blocked is derived in doc 12 and never stored, so it cannot be the target, and Kanban has no archive. `withdrawn` is terminal, hidden from boards by default, keeps the task's history, and stops counting as a blocker for other tasks. It is reached only through the Kanban task service's `IKanbanTaskWithdrawal` port, behind the doc 12 gates (system or owner actor, reason required, Done tasks owner only). See doc 12, "Withdrawn state".
 - The withdrawal is itself an audit entry, linked to the job.
 
-**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` (Blocked with reason `withdrawn by import`, or archive) through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates.
+**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates. The Kanban side now exists as `IKanbanTaskWithdrawal` in `Bazaar.RyuseiFuda.Abstractions` (stored `withdrawn` state, PROPOSED). Not built: the Portability adapter that maps `IKanbanWithdrawalWriter` onto that port, and retiring the `Block` and `Archive` modes of `KanbanWithdrawalMode`, which have no Kanban target.
 
 ### 8.9 Import audit trail
 
