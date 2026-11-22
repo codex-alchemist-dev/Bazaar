@@ -16,5 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Wire.Conformance\Bazaar.Wire.Conformance.csproj" />
   </ItemGroup>
 </Project>
