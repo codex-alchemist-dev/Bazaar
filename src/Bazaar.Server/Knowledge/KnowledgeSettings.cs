@@ -1,3 +1,4 @@
+using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Knowledge;
@@ -49,7 +50,7 @@ public enum LessonReviewer
 /// Changes are audited like every setting. <c>hive.grants</c> and <c>hive.allowed_kinds</c> belong to doc 08, not here.
 /// </summary>
 /// <remarks>
-/// TODO(component): registered in <see cref="SettingRegistry.Known"/> until the component model (PR #125) moves registration
+/// TODO(component): registered in <see cref="BuiltInSettingRegistries.Known"/> until the component model (PR #125) moves registration
 /// to the knowledge component's own AddBazaarKnowledge().
 /// </remarks>
 public static class KnowledgeSettings
@@ -70,12 +71,12 @@ public static class KnowledgeSettings
         "Project-level signals shown as morale. Each is a count or share from recorded facts.");
 
     public static readonly SettingKey<int> HealthCoverageDropPoints = new(
-        "health.coverage_drop_points", 2, SettingScope.Project, SettingRole.Owner,
+        "health.coverage_drop_points", HealthDefaults.CoverageDropPoints, SettingScope.Project, SettingRole.Owner,
         "Coverage drop, in percentage points, that raises an alert. Compared only within one toolchain.",
         validate: Between(0, 100));
 
     public static readonly SettingKey<int> HealthBuildFailureStreak = new(
-        "health.build_failure_streak", 3, SettingScope.Project, SettingRole.Owner,
+        "health.build_failure_streak", HealthDefaults.BuildFailureStreak, SettingScope.Project, SettingRole.Owner,
         "Consecutive failed builds that raise an alert.",
         validate: Between(1, 100));
 

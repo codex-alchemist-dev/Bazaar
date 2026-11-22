@@ -5,7 +5,10 @@ namespace Bazaar.Server.Vms.WindowsSandbox.Tests;
 /// <summary>Tests the <c>wsb.exe</c> adapter against a fake runner. No sandbox is started, so cloud CI stays clean.</summary>
 public sealed class WsbCliSandboxHostTests : IDisposable
 {
-    private const string _configXml = "<Configuration><Networking>Disable</Networking><MemoryInMB>4096</MemoryInMB></Configuration>";
+    // Every switch is stated, as the config policy requires (an omitted switch would default to the permissive value).
+    private const string _configXml = "<Configuration><VGpu>Disable</VGpu><Networking>Disable</Networking><MemoryInMB>4096</MemoryInMB>"
+        + "<ClipboardRedirection>Disable</ClipboardRedirection><AudioInput>Disable</AudioInput><VideoInput>Disable</VideoInput>"
+        + "<PrinterRedirection>Disable</PrinterRedirection><ProtectedClient>Enable</ProtectedClient></Configuration>";
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "bazaar-wsb-tests-" + Guid.NewGuid().ToString("N"));
     private readonly FakeWsbCommandRunner _runner = new();

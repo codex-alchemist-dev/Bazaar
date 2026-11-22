@@ -1,6 +1,6 @@
 // Signs one packaged PostgreSQL bundle as a Bazaar module package (doc 48 section 1, doc 49 section 3). A file-based app:
 //   dotnet run packaging/postgres/source/SignBundle.cs -- sign   --bundle <major dir> --module-id postgresql \
-//       --version 18.7.0 --permission fs.dataRoot --key-id <id> --private-key <pem file> --out <json file>
+//       --version 18.7.0 --permission fs.dataRoot --key-id <id> --publisher-id <id> --private-key <pem file> --out <json file>
 //   dotnet run packaging/postgres/source/SignBundle.cs -- verify --package <json file> --public-key <pem file> --key-id <id> --publisher-id <id>
 // The package is the canonical form of ModulePackage, signed with ECDSA P-256 (SignPackage below). The content digest
 // is the SHA-256 of the bundle's SHA256SUMS file, which lists every file's hash, so the signature covers the whole bundle.
@@ -9,20 +9,20 @@
 // The private key is read from a file the release step provides (a CI secret, or the owner's offline key). This app
 // never creates or stores a key. Key id and publisher id are required arguments with no default. Doc 48 section 1 names the
 // publisher id but does not define its format, so the format is whatever the release owner registers.
-#:project ../../../src/Bazaar.Server/Bazaar.Server.csproj
+#:project ../../../src/Bazaar.Install/Bazaar.Install.csproj
 
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Modules;
-using Bazaar.Server.Modules.Trust;
+using Bazaar.Install.Trust;
 
 static string Arg(string[] args, string name) => args.SkipWhile(a => a != name).Skip(1).FirstOrDefault()
     ?? throw new ArgumentException($"missing {name}");
 
 // Release-side producer of a module signature: it signs the canonical form with ECDSA P-256 (IEEE P1363), the signature
-// EcdsaModuleSignatureVerifier checks. It lives here, not in Bazaar.Server, because the server only verifies (doc 49 section 3).
+// EcdsaModuleSignatureVerifier checks. It lives here, not in the server, because the server only verifies (doc 49 section 3).
 // The private key is an input. This tool never generates or stores one.
 static ModulePackage SignPackage(ModulePackage package, ECDsa privateKey)
 {
@@ -60,6 +60,7 @@ if (args[0] == "sign")
     var unsigned = new ModulePackage(
         Arg(args, "--module-id"),
         version,
+        Arg(args, "--publisher-id"),
         Permissions(args),
         digest,
         Arg(args, "--key-id"),
@@ -71,6 +72,7 @@ if (args[0] == "sign")
     {
         ["moduleId"] = signed.ModuleId,
         ["version"] = signed.Version,
+        ["publisherId"] = signed.PublisherId,
         ["permissions"] = new JsonArray(signed.DeclaredPermissions.Order(StringComparer.Ordinal).Select(p => (JsonNode)p).ToArray()),
         ["contentDigestSha256"] = signed.ContentDigestSha256Hex,
         ["signerKeyId"] = signed.SignerKeyId,
@@ -96,6 +98,7 @@ if (args[0] == "verify")
     var package = new ModulePackage(
         record.GetProperty("moduleId").GetString()!,
         record.GetProperty("version").GetString()!,
+        record.GetProperty("publisherId").GetString()!,
         record.GetProperty("permissions").EnumerateArray().Select(e => e.GetString()!).ToHashSet(StringComparer.Ordinal),
         record.GetProperty("contentDigestSha256").GetString()!,
         record.GetProperty("signerKeyId").GetString()!,
@@ -120,7 +123,11 @@ if (args[0] == "verify")
     using var publicKey = ECDsa.Create();
     publicKey.ImportFromPem(File.ReadAllText(Arg(args, "--public-key")));
     var store = new InMemoryTrustedKeyStore();
-    store.Add(new TrustedModuleKey(Arg(args, "--key-id"), Arg(args, "--publisher-id"), publicKey, DateTimeOffset.UnixEpoch, DateTimeOffset.MaxValue));
+    store.Add(new TrustedModuleKey(Arg(args, "--key-id"), Arg(args, "--publisher-id"), publicKey, DateTimeOffset.UnixEpoch, DateTimeOffset.MaxValue)
+    {
+        // The release key is trusted for this one module only: the id the signed record names.
+        ModuleIdScopes = [package.ModuleId],
+    });
     var status = new EcdsaModuleSignatureVerifier(store, TimeProvider.System).Verify(package);
     Console.WriteLine(status);
     return status == ModuleSignatureStatus.Valid ? 0 : 1;
