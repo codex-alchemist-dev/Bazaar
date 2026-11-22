@@ -48,6 +48,9 @@ public static class WireTypes
     /// <summary>Client request answering one relay event (doc 02, doc 20). Payload <c>EngineRelayResultFrame</c>.</summary>
     public const string EngineRelayResult = "engine.relay.result";
 
+    /// <summary>Client asks whether a grant covers a Studio tool (doc 02, doc 20). Payload <c>EngineGrantVerifyRequest</c>, answered with <c>EngineGrantVerifyReply</c>.</summary>
+    public const string EngineGrantVerify = "engine.grant.verify";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
