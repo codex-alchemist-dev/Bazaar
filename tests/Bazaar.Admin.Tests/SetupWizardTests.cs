@@ -1,5 +1,7 @@
 using Bazaar.Admin;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Admin.Tests;
 
@@ -23,6 +25,7 @@ public sealed class SetupWizardTests
         "",                 // release channel (default: beta)
         "dpapi",            // key-encryption key provider
         _kekRef,            // key reference
+        "",                 // identity KEK provider (default: server default)
         "",                 // company source (default: blank)
         _anchor,            // audit anchor
         _backup,            // backup target
@@ -30,6 +33,9 @@ public sealed class SetupWizardTests
         "",                 // status bind (default: loopback)
         "",                 // status port (default: 8443)
         "",                 // modules (default: none)
+        "",                 // remote access: cloudflared tunnel (default: no)
+        "",                 // remote access: tunnel kind (skipped)
+        "",                 // remote access: tunnel host name (skipped)
         "",                 // apply prompt: stop without applying
     ];
 
@@ -107,7 +113,7 @@ public sealed class SetupWizardTests
         Assert.Equal(wizardHash, HashOf(flags.Stdout));
 
         // File door: the merged document the overlay builds from the same flags, written to a file.
-        var merged = SetupDoorOverlay.Merge(null, _mainFlags, new Dictionary<string, string?>(StringComparer.Ordinal));
+        var merged = SetupDoorOverlay.Merge(null, _mainFlags, new Dictionary<string, string?>(StringComparer.Ordinal), RegistrySetupSettingCatalog.Known);
         using var folder = new TempSetupFolder();
         var config = folder.Write(merged.MergedJson!);
         var file = await RunFlags(new Dictionary<string, string?>(StringComparer.Ordinal), "setup", "--dry-run", "--config", config);
@@ -177,7 +183,7 @@ public sealed class SetupWizardTests
     public async Task A_bad_port_is_asked_again_until_it_is_a_port()
     {
         var answers = _mainAnswers.ToList();
-        var portIndex = 11;
+        var portIndex = 12;
         answers.InsertRange(portIndex, ["abc", "70000"]);
         var prompter = new ScriptedSetupPrompter(answers);
         var run = await RunWizard(prompter);
@@ -190,7 +196,7 @@ public sealed class SetupWizardTests
     public async Task Declining_the_second_factor_warns_and_matches_the_flag_form()
     {
         var answers = _mainAnswers.ToArray();
-        answers[9] = "no";
+        answers[10] = "no";
         var prompter = new ScriptedSetupPrompter(answers);
         var run = await RunWizard(prompter);
 
@@ -205,8 +211,8 @@ public sealed class SetupWizardTests
     {
         // No backup target, then the acknowledgement. The flags carry the same two answers.
         var answers = _mainAnswers.ToArray();
-        answers[8] = "";
-        var prompter = new ScriptedSetupPrompter(answers.Take(8).Append("").Append("yes").Concat(answers.Skip(9)).ToArray());
+        answers[9] = "";
+        var prompter = new ScriptedSetupPrompter(answers.Take(9).Append("").Append("yes").Concat(answers.Skip(10)).ToArray());
         var run = await RunWizard(prompter);
 
         Assert.Equal((int)SetupExitCode.Ok, run.ExitCode);
@@ -220,7 +226,7 @@ public sealed class SetupWizardTests
     {
         // Numbers 1 and 3 are Bazaar.Constellation and Bazaar.KODO; Bazaar.GC is always first.
         var answers = _mainAnswers.ToArray();
-        answers[12] = "1, 3";
+        answers[13] = "1, 3";
         var prompter = new ScriptedSetupPrompter(answers);
         var run = await RunWizard(prompter);
 
@@ -251,7 +257,7 @@ public sealed class SetupWizardTests
     {
         // lan is a registry value that needs owner approval (Tier 2), so the plan is held, not refused.
         var answers = _mainAnswers.ToArray();
-        answers[10] = "lan";
+        answers[11] = "lan";
         var prompter = new ScriptedSetupPrompter(answers);
         var run = await RunWizard(prompter);
 

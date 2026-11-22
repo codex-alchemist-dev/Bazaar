@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Core;
+using Bazaar.Server.Gateway;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
@@ -54,7 +55,7 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     [Fact]
     public void Backup_offsite_keys_reach_the_registry_through_a_contribution()
     {
-        var registry = SettingRegistry.WithContributions([new BackupSettingContribution()]);
+        var registry = BuiltInSettingRegistries.WithContributions([new BackupSettingContribution()]);
         Assert.True(registry.TryGet("backup.offsite_target", out _));
         Assert.True(registry.TryGet("backup.offsite_credentials_ref", out _));
     }
@@ -65,7 +66,10 @@ public sealed class SettingsAuditCompositionTests : IDisposable
         await using var sp = Build();
         Assert.IsType<NpgsqlSettingStore>(sp.GetRequiredService<ISettingStore>());
         var registry = sp.GetRequiredService<SettingRegistry>();
-        Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(registry.Contains(d)));
+        Assert.Equal(
+            BuiltInSettingRegistries.Known.Definitions.Concat(new GatewaySettingContribution().Settings).Select(d => d.Name).Order(StringComparer.Ordinal),
+            registry.Definitions.Select(d => d.Name).Order(StringComparer.Ordinal));
+        Assert.All(GatewaySettings.All, d => Assert.True(registry.Contains(d), d.Name));
         Assert.IsType<AuditLogSettingSink>(sp.GetRequiredService<ISettingAuditSink>());
     }
 
