@@ -13,7 +13,7 @@ public class DesktopSidebarTests
 {
     private static void Press(Window window, Key key) => window.KeyPress(key, RawInputModifiers.None, PhysicalKey.None, null);
 
-    private static double Unit(ChromeRig rig) => new ChromeTheme(rig.Theme).Length("space.lg");
+    private static double Token(ChromeRig rig, string name) => new ChromeTheme(rig.Theme).Length(name);
 
     [AvaloniaFact]
     public void The_surfaces_are_drawn_with_the_chrome_strip_and_sheet_materials()
@@ -38,7 +38,7 @@ public class DesktopSidebarTests
 
         Assert.False(shell.Sidebar.IsExpanded);
         Assert.Equal(0, shell.Sidebar.Progress);
-        Assert.Equal(shell.Sidebar.View.Width, new ChromeMetrics().SidebarCollapsedUnits * Unit(rig));
+        Assert.Equal(shell.Sidebar.View.Width, Token(rig, "layout.sidebar.width.collapsed"));
 
         // A button takes Space on key-up, like a real keyboard.
         Press(window, Key.Space);
@@ -46,7 +46,7 @@ public class DesktopSidebarTests
         rig.Frames.Settle();
 
         Assert.True(shell.Sidebar.IsExpanded);
-        Assert.Equal(new ChromeMetrics().SidebarExpandedUnits * Unit(rig), shell.Sidebar.View.Width);
+        Assert.Equal(Token(rig, "layout.sidebar.width.expanded"), shell.Sidebar.View.Width);
     }
 
     [AvaloniaFact]
@@ -100,30 +100,57 @@ public class DesktopSidebarTests
     }
 
     [AvaloniaFact]
-    public void Subtle_collapse_never_overshoots_and_ends_at_the_collapsed_width()
+    public void Collapse_animates_opacity_and_transform_only_and_snaps_the_width_at_the_end()
     {
         var rig = new ChromeRig();
         DesktopChromeShell shell = rig.Create();
         ChromeRig.Show(shell);
-        double unit = Unit(rig);
-        double min = double.MaxValue;
-        double max = double.MinValue;
-        shell.Sidebar.View.PropertyChanged += (_, e) =>
-        {
-            if (e.Property == Layoutable.WidthProperty)
-            {
-                double width = shell.Sidebar.View.Width;
-                min = Math.Min(min, width);
-                max = Math.Max(max, width);
-            }
-        };
+        var widths = new HashSet<double>();
+        double maxOpacity = 0;
 
         shell.Sidebar.SetExpanded(false);
-        TimeSpan took = rig.Frames.Settle();
+        while (rig.Frames.Step())
+        {
+            widths.Add(shell.Sidebar.View.Width);
+            maxOpacity = Math.Max(maxOpacity, shell.Sidebar.ListSlot.Opacity);
+            if (shell.Sidebar.Progress > 0)
+            {
+                Assert.Equal(Token(rig, "layout.sidebar.width.expanded"), shell.Sidebar.View.Width);
+            }
+        }
 
-        Assert.True(min >= new ChromeMetrics().SidebarCollapsedUnits * unit);
-        Assert.True(max <= new ChromeMetrics().SidebarExpandedUnits * unit);
-        Assert.InRange(took.TotalMilliseconds, 150, 230);
+        Assert.True(maxOpacity <= 1.0);
+        Assert.Equal(0, shell.Sidebar.ListSlot.Opacity);
+        Assert.Equal(Token(rig, "layout.sidebar.width.collapsed"), shell.Sidebar.View.Width);
+        Assert.True(widths.Count <= 2);
+    }
+
+    [AvaloniaFact]
+    public void Expand_snaps_the_width_first_then_fades_and_slides_the_list_in_without_overshoot()
+    {
+        var rig = new ChromeRig();
+        DesktopChromeShell shell = rig.Create();
+        shell.Sidebar.SetExpanded(false);
+        rig.Frames.Settle();
+
+        shell.Sidebar.SetExpanded(true);
+
+        Assert.Equal(Token(rig, "layout.sidebar.width.expanded"), shell.Sidebar.View.Width);
+        double max = 0;
+        double maxShift = 0;
+        while (rig.Frames.Step())
+        {
+            max = Math.Max(max, shell.Sidebar.ListSlot.Opacity);
+            if (shell.Sidebar.ListSlot.RenderTransform is Avalonia.Media.TranslateTransform t)
+            {
+                maxShift = Math.Max(maxShift, Math.Abs(t.X));
+            }
+        }
+
+        Assert.True(max <= 1.0);
+        Assert.True(maxShift <= rig.Settings.Tokens.SubtleSlide + 1e-9);
+        Assert.Equal(1, shell.Sidebar.ListSlot.Opacity);
+        Assert.Null(shell.Sidebar.ListSlot.RenderTransform);
     }
 
     [AvaloniaFact]
@@ -149,5 +176,23 @@ public class DesktopSidebarTests
         var after = (global::Avalonia.Media.SolidColorBrush)((Border)shell.Sidebar.View).BorderBrush!;
 
         Assert.NotEqual(before.Color, after.Color);
+    }
+
+    [AvaloniaFact]
+    public void Widths_follow_the_theme_tokens_when_a_theme_overrides_them()
+    {
+        var rig = new ChromeRig();
+        DesktopChromeShell shell = rig.Create();
+        var tokens = rig.Theme.Tokens.ToDictionary(kv => kv.Key, kv => kv.Value);
+        tokens["layout.sidebar.width.expanded"] = "300";
+        tokens["layout.sidebar.width.collapsed"] = "60";
+
+        shell.Theme.Use(rig.Theme with { Tokens = tokens });
+        shell.Sidebar.SetExpanded(false);
+        rig.Frames.Settle();
+
+        Assert.Equal(60, shell.Sidebar.View.Width);
+        shell.Sidebar.SetExpanded(true);
+        Assert.Equal(300, shell.Sidebar.View.Width);
     }
 }

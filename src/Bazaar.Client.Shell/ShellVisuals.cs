@@ -65,7 +65,7 @@ public sealed class ShellVisuals : IDisposable
     /// chrome surfaces are drawn through <see cref="Materials"/>, so they follow the OS and the person's setting like the window does.
     /// Call it once, before <see cref="ShellHost.Install"/>.
     /// </summary>
-    public DesktopChromeShell MountDesktopChrome(Window window, ThemeDefinition theme, IFrameDriver? frames = null, ChromeMetrics? metrics = null, ChromeLabels? labels = null)
+    public DesktopChromeShell MountDesktopChrome(Window window, ThemeDefinition theme, IFrameDriver? frames = null, ChromeLabels? labels = null)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(theme);
@@ -77,7 +77,7 @@ public sealed class ShellVisuals : IDisposable
         Control? content = window.Content as Control;
         window.Content = null;
         var placeholder = new Border();
-        DesktopChromeShell chrome = DesktopChromeShell.Create(Materials.Surface, theme, _motion, frames ?? new TopLevelFrameDriver(placeholder), content, metrics, labels);
+        DesktopChromeShell chrome = DesktopChromeShell.Create(Materials.Surface, theme, _motion, frames ?? new TopLevelFrameDriver(placeholder), content, labels);
         _chrome = chrome;
         window.Content = chrome.View;
         return chrome;

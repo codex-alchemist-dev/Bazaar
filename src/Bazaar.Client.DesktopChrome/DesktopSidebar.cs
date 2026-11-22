@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
+using Avalonia.Media;
 using Bazaar.Client.Materials;
 using Bazaar.Client.Motion.Avalonia;
 
@@ -17,13 +18,12 @@ public delegate Border ChromeSurface(MaterialSurface surface, Control? content);
 /// The desktop sidebar (doc 93, Desktop and phone split: the GC rail): a translucent chrome surface with a toggle that collapses it to
 /// a narrow rail and a slot for the group chat list, which this module does not own. Keyboard operable: the toggle is the first tab stop,
 /// takes Enter and Space, and a collapsed sidebar takes its list out of the tab order. No chord is bound; the head maps its mnemonic to
-/// <see cref="Toggle"/>. The width follows <c>motion.duration.tab</c> on a critically damped spring (no overshoot); reduced motion snaps.
+/// <see cref="Toggle"/>. The list fades and slides on <c>motion.duration.tab</c> with a critically damped spring (no overshoot) while the width snaps at the start of an expand or the end of a collapse (doc 93: opacity and transform only); reduced motion snaps everything.
 /// </summary>
 public sealed class DesktopSidebar
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeMetrics _metrics;
     private readonly ChromeLabels _labels;
     private readonly ProgressAnimator _progress;
     private readonly Border _surface;
@@ -35,7 +35,6 @@ public sealed class DesktopSidebar
         ChromeTheme theme,
         ChromeMotion motion,
         IFrameDriver frames,
-        ChromeMetrics? metrics = null,
         ChromeLabels? labels = null,
         bool expanded = true)
     {
@@ -45,7 +44,6 @@ public sealed class DesktopSidebar
         ArgumentNullException.ThrowIfNull(frames);
         _theme = theme;
         _motion = motion;
-        _metrics = (metrics ?? ChromeMetrics.Default).Clamped();
         _labels = labels ?? ChromeLabels.Default;
         IsExpanded = expanded;
         _progress = new ProgressAnimator(frames, expanded ? 1 : 0);
@@ -121,18 +119,20 @@ public sealed class DesktopSidebar
             _progress.Snap(target);
         }
 
+        ApplyProgress();
         ApplyLabels();
         ExpandedChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    // Doc 93: only opacity and transform animate. The layout width never tweens: it snaps to the expanded width when an expand
+    // starts and to the collapsed width when a collapse has finished, and the list fades and slides in between.
     private void ApplyProgress()
     {
         double v = Math.Clamp(_progress.Value, 0, 1);
-        double unit = _theme.Length("space.lg");
-        double collapsed = _metrics.SidebarCollapsedUnits * unit;
-        double expanded = _metrics.SidebarExpandedUnits * unit;
-        _surface.Width = collapsed + ((expanded - collapsed) * v);
+        bool wide = IsExpanded || v > 0;
+        _surface.Width = _theme.Length(wide ? "layout.sidebar.width.expanded" : "layout.sidebar.width.collapsed");
         ListSlot.Opacity = v;
+        ListSlot.RenderTransform = v >= 1 || !_motion.Travels ? null : new TranslateTransform(-(1 - v) * _motion.Travel, 0);
 
         // A collapsed list leaves the tab order and the accessibility tree.
         ListSlot.IsVisible = v > 0;
@@ -151,6 +151,7 @@ public sealed class DesktopSidebar
         _glyph.Foreground = _theme.Brush("color.text.primary");
         _glyph.FontSize = _theme.Length("font.size.body");
         _glyph.FontFamily = _theme.Family("font.family.ui");
+        ApplyProgress();
         ApplyLabels();
     }
 

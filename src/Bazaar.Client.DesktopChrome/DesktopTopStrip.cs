@@ -18,7 +18,6 @@ public sealed class DesktopTopStrip
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeMetrics _metrics;
     private readonly ChromeLabels _labels;
     private readonly ProgressAnimator _fade;
     private readonly Border _surface;
@@ -30,7 +29,6 @@ public sealed class DesktopTopStrip
         ChromeTheme theme,
         ChromeMotion motion,
         IFrameDriver frames,
-        ChromeMetrics? metrics = null,
         ChromeLabels? labels = null)
     {
         ArgumentNullException.ThrowIfNull(surface);
@@ -39,7 +37,6 @@ public sealed class DesktopTopStrip
         ArgumentNullException.ThrowIfNull(frames);
         _theme = theme;
         _motion = motion;
-        _metrics = (metrics ?? ChromeMetrics.Default).Clamped();
         _labels = labels ?? ChromeLabels.Default;
         _title = new TextBlock { VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis, FontWeight = FontWeight.SemiBold };
         AutomationProperties.SetControlTypeOverride(_title, AutomationControlType.Header);
@@ -101,9 +98,8 @@ public sealed class DesktopTopStrip
 
     private void ApplyTheme()
     {
-        double unit = _theme.Length("space.lg");
         double md = _theme.Length("space.md");
-        _surface.Height = _metrics.StripHeightUnits * unit;
+        _surface.Height = _theme.Length("layout.strip.height");
         _surface.Padding = new Thickness(md, 0);
         _surface.BorderBrush = _theme.Brush("color.border.default");
         _surface.BorderThickness = new Thickness(0, 0, 0, 1);

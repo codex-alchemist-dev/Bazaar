@@ -42,7 +42,6 @@ public sealed class DesktopChromeShell
         MotionSettings motion,
         IFrameDriver frames,
         Control? content = null,
-        ChromeMetrics? metrics = null,
         ChromeLabels? labels = null)
     {
         ArgumentNullException.ThrowIfNull(surface);
@@ -52,9 +51,9 @@ public sealed class DesktopChromeShell
 
         var chromeTheme = new ChromeTheme(theme);
         var chromeMotion = new ChromeMotion(chromeTheme, motion);
-        var sidebar = new DesktopSidebar(surface, chromeTheme, chromeMotion, frames, metrics, labels);
-        var strip = new DesktopTopStrip(surface, chromeTheme, chromeMotion, frames, metrics, labels);
-        var sheets = new SheetHost(surface, chromeTheme, chromeMotion, frames, metrics, labels);
+        var sidebar = new DesktopSidebar(surface, chromeTheme, chromeMotion, frames, labels);
+        var strip = new DesktopTopStrip(surface, chromeTheme, chromeMotion, frames, labels);
+        var sheets = new SheetHost(surface, chromeTheme, chromeMotion, frames, labels);
         var contentSlot = new Border { Child = content };
 
         var main = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };

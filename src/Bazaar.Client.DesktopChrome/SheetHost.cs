@@ -33,7 +33,6 @@ public sealed class SheetHost
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeMetrics _metrics;
     private readonly ChromeLabels _labels;
     private readonly ProgressAnimator _open;
     private readonly ProgressAnimator _drag;
@@ -55,7 +54,6 @@ public sealed class SheetHost
         ChromeTheme theme,
         ChromeMotion motion,
         IFrameDriver frames,
-        ChromeMetrics? metrics = null,
         ChromeLabels? labels = null)
     {
         ArgumentNullException.ThrowIfNull(surface);
@@ -64,7 +62,6 @@ public sealed class SheetHost
         ArgumentNullException.ThrowIfNull(frames);
         _theme = theme;
         _motion = motion;
-        _metrics = (metrics ?? ChromeMetrics.Default).Clamped();
         _labels = labels ?? ChromeLabels.Default;
         _open = new ProgressAnimator(frames);
         _drag = new ProgressAnimator(frames);
@@ -283,7 +280,7 @@ public sealed class SheetHost
     // Past the fraction the sheet goes the rest of the way and closes; short of it, it comes back.
     private void SettleDrag()
     {
-        bool dismiss = _drag.Value >= _metrics.DismissDragFraction;
+        bool dismiss = _drag.Value >= _theme.Number("gesture.sheet.dismiss.fraction");
         _drag.AnimateTo(dismiss ? 1 : 0, _motion.Sheet, _motion.UsesSpring);
     }
 
@@ -322,7 +319,7 @@ public sealed class SheetHost
         {
             _panel.HorizontalAlignment = HorizontalAlignment.Right;
             _panel.VerticalAlignment = VerticalAlignment.Stretch;
-            _panel.Width = _metrics.SideSheetUnits * unit;
+            _panel.Width = _theme.Length("layout.sheet.side.width");
             _panel.Height = double.NaN;
             _panel.Margin = default;
             _panel.CornerRadius = new CornerRadius(_theme.Length("radius.md"), 0, 0, _theme.Length("radius.md"));
@@ -331,7 +328,7 @@ public sealed class SheetHost
         {
             _panel.HorizontalAlignment = HorizontalAlignment.Center;
             _panel.VerticalAlignment = VerticalAlignment.Center;
-            _panel.Width = _metrics.ModalSheetUnits * unit;
+            _panel.Width = _theme.Length("layout.sheet.width");
             _panel.Height = double.NaN;
             _panel.Margin = new Thickness(unit);
             _panel.CornerRadius = new CornerRadius(_theme.Length("radius.md"));
@@ -342,7 +339,7 @@ public sealed class SheetHost
     {
         double sm = _theme.Length("space.sm");
         double md = _theme.Length("space.md");
-        _scrim.Background = _theme.Brush("color.background.editor", _metrics.ScrimOpacity);
+        _scrim.Background = _theme.Brush("color.background.editor", _theme.Number("material.scrim.opacity"));
         _panel.BorderBrush = _theme.Brush("color.border.default");
         _panel.BorderThickness = new Thickness(1);
         _header.Padding = new Thickness(md, sm);

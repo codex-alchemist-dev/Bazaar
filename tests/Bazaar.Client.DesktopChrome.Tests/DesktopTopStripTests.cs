@@ -70,7 +70,7 @@ public class DesktopTopStripTests
         var rig = new ChromeRig();
         DesktopChromeShell shell = rig.Create();
 
-        Assert.Equal(new ChromeMetrics().StripHeightUnits * new ChromeTheme(rig.Theme).Length("space.lg"), shell.Strip.View.Height);
+        Assert.Equal(new ChromeTheme(rig.Theme).Length("layout.strip.height"), shell.Strip.View.Height);
     }
 
     private static TextBlock FindTitle(DesktopChromeShell shell) =>
