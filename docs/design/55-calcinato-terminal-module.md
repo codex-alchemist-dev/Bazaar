@@ -125,6 +125,17 @@ The pane view model (`TerminalPaneViewModel`) exposes the visible cells, cursor,
 
 Sequence numbers start at 1 per terminal and never repeat. The `pane` stream is state (doc 02): a client that resubscribes sends `TerminalReplay` and gets the ring, not an event log. Terminal frames are never part of the GC log and never persisted beyond the ring.
 
+### 6.1 Carriage in the doc 02 envelope (PROPOSED)
+
+Terminal frames ride the connection's normal envelope, so every transport and codec in doc 90 carries them unchanged. One new message type, `pane.frame` (`WireTypes.PaneFrame`), used on stream `pane:<terminalId>`:
+
+- Server to client: an `event` envelope, `s` = `pane:<terminalId>`, payload `{ "frame": <the terminal frame as JSON text> }`.
+- Client to server: a `request` envelope with the same type and payload. The server answers `ok` once the frame is accepted or an `error` envelope with a `TerminalError` code. Request ids make a resent frame idempotent after a reconnect (doc 02).
+- The frame stays JSON text inside the payload, so the codec of the connection (JSON, CBOR, MessagePack and others) only has to carry one string field and a terminal never depends on the connection codec.
+- Subscribe, unsubscribe, `lagged` and `stream.revoked` work as for any stream. The pane stream is state: the server ignores the cursor and a resubscribe is answered by the client sending `TerminalReplay`.
+
+The client side adapter lives in the wire client module as a `pane` stream sink (new `StreamSink` extension point on `WireClient`: a handler per stream prefix, so Client.Core gains no terminal code). Calcinato's `IPaneStreamConnection` is implemented on that sink.
+
 ## 7. Registration and distribution
 
 - **Manifest.** `Bazaar.Client.Calcinato` declares module id `calcinato`, the commands it contributes (`terminal`, `newterm`, `attach`, `intr`), the `Bazaar.Ex` scope, the permission classes it needs from doc 48 section 1 (a local process class for the PTY, a network class for remote attach), and its optional dependency on `Bazaar.Client.LocalInference`. Server module id `terminal`.
