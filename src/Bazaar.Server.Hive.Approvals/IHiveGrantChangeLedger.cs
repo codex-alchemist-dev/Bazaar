@@ -10,34 +10,39 @@ namespace Bazaar.Server.Hive.Approvals;
 public interface IHiveGrantChangeLedger
 {
     /// <summary>Records the change an approval stands for.</summary>
-    void Add(Guid ticketId, HiveGrantChange change);
+    Task AddAsync(Guid ticketId, HiveGrantChange change, CancellationToken ct);
 
     /// <summary>Every change still waiting for a decision.</summary>
-    IReadOnlyList<(Guid TicketId, HiveGrantChange Change)> Snapshot();
+    Task<IReadOnlyList<(Guid TicketId, HiveGrantChange Change)>> SnapshotAsync(CancellationToken ct);
 
     /// <summary>Forgets a ticket once it is decided or applied.</summary>
-    void Remove(Guid ticketId);
+    Task RemoveAsync(Guid ticketId, CancellationToken ct);
 }
 
 /// <summary>
-/// In-process ledger. A restart forgets pending changes: their cards expire unused and the owner asks again, so a lost entry
-/// can only fail to apply, never apply something wrong.
+/// In-process ledger, used when the host has no database. A restart forgets pending changes: their cards expire unused and the
+/// owner asks again, so a lost entry can only fail to apply, never apply something wrong.
 /// </summary>
 public sealed class InMemoryHiveGrantChangeLedger : IHiveGrantChangeLedger
 {
     private readonly ConcurrentDictionary<Guid, HiveGrantChange> _changes = new();
 
     /// <inheritdoc />
-    public void Add(Guid ticketId, HiveGrantChange change)
+    public Task AddAsync(Guid ticketId, HiveGrantChange change, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(change);
         _changes[ticketId] = change;
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc />
-    public IReadOnlyList<(Guid TicketId, HiveGrantChange Change)> Snapshot() =>
-        [.. _changes.Select(p => (p.Key, p.Value))];
+    public Task<IReadOnlyList<(Guid TicketId, HiveGrantChange Change)>> SnapshotAsync(CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<(Guid TicketId, HiveGrantChange Change)>>([.. _changes.Select(p => (p.Key, p.Value))]);
 
     /// <inheritdoc />
-    public void Remove(Guid ticketId) => _changes.TryRemove(ticketId, out _);
+    public Task RemoveAsync(Guid ticketId, CancellationToken ct)
+    {
+        _changes.TryRemove(ticketId, out _);
+        return Task.CompletedTask;
+    }
 }

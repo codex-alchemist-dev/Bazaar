@@ -92,7 +92,9 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
-| `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
+| `GET /community/drafts/{id}` | Owner-only review card (`DraftReviewCardDto`) of one community draft [PROPOSED] | 36 |
+| `GET /community/drafts?status=pending` | Owner-only list of open pending drafts as review cards, newest first (`limit` 1 to 100) [PROPOSED] | 36 |
+| `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
 | `POST /auth/refresh`, `GET /auth/whoami`, `POST /auth/signout` | Token refresh; the signed-in person behind an access token; sign this device out (`whoami` and `signout` are PROPOSED, built in their PRs) | 32 (section 5) |
 | Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |

@@ -113,4 +113,12 @@ public sealed class HostMigrationsTests
         Assert.Contains("account_approval", ordered);
         Assert.True(ordered.ToList().IndexOf("account_approval") > 0);
     }
+
+    [Fact]
+    public void Mail_namespace_is_read_from_the_mail_module_at_version_21()
+    {
+        var source = HostMigrations.Source();
+        Assert.Contains("mail", source.Namespaces());
+        Assert.Contains(source.Load("mail"), f => f.Version == 21 && f.Name == "mail_core");
+    }
 }

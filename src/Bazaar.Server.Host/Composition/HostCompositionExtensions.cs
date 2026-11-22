@@ -2,6 +2,8 @@ using Bazaar.Components.ManagedPostgres;
 using Bazaar.Components.ManagedPostgres.Secrets;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Recovery;
+using Bazaar.Server.Components.Backup;
+using Bazaar.Server.Components.Backup.Offsite;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
@@ -15,6 +17,7 @@ using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.PsychWard;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Souls;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -162,4 +165,48 @@ public static class HostCompositionExtensions
         services.AddBazaarLoopTripHandling();
         return services;
     }
+
+    /// <summary>
+    /// Feeds the backup component's offsite policy from the settings store and its credentials reference from the secret
+    /// resolver (doc 33, "Offsite composition [PROPOSED]"). Replaces the component's fail-closed defaults. Run after the components.
+    /// </summary>
+    public static IServiceCollection AddBazaarBackupOffsite(this IServiceCollection services)
+    {
+        // The offsite keys live in the backup module, so the settings registry learns them through a contribution (doc 33).
+        services.AddSingleton<ISettingContribution, BackupSettingContribution>();
+        services.Replace(ServiceDescriptor.Singleton<IBackupOffsiteOptions, SettingsBackupOffsiteOptions>());
+        services.Replace(ServiceDescriptor.Singleton<IOffsiteCredentialSource, ResolverOffsiteCredentialSource>());
+        return services;
+    }
+}
+
+/// <summary>The backup module's contribution to the settings registry, so the store knows the offsite keys.</summary>
+internal sealed class BackupSettingContribution : ISettingContribution
+{
+    public IReadOnlyList<SettingDefinition> Settings => BackupSettings.All;
+}
+
+/// <summary>Reads the offsite policy from the settings store on every call, so a changed setting applies to the next upload.</summary>
+internal sealed class SettingsBackupOffsiteOptions(ISettingStore settings) : IBackupOffsiteOptions
+{
+    // The shipped key object from the registry, so the store's registry check (same instance) accepts it.
+    private static readonly SettingKey<bool> _includeCookieProfiles =
+        (SettingKey<bool>)SecuritySettings.All.Single(d => d.Name == "security.backup.include_cookie_profiles");
+
+    public async Task<BackupOffsiteSettings> GetAsync(CancellationToken ct) => new(
+        await settings.GetAsync(BackupSettings.OffsiteTarget, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteResticPath, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteRepository, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteCredentialsRef, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(_includeCookieProfiles, cancellationToken: ct).ConfigureAwait(false));
+}
+
+/// <summary>
+/// Resolves the offsite credentials reference through <see cref="ISecretResolver"/> (bootstrap families only for now; the
+/// <c>secret://bazaar/</c> store scheme has no resolver yet, so such a reference fails the upload closed, doc 14).
+/// </summary>
+internal sealed class ResolverOffsiteCredentialSource(ISecretResolver resolver) : IOffsiteCredentialSource
+{
+    public async Task<string> ReadAsync(string reference, CancellationToken ct) =>
+        await resolver.ResolveAsync(reference, ct).ConfigureAwait(false);
 }

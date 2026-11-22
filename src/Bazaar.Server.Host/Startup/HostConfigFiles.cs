@@ -1,4 +1,6 @@
+using Bazaar.Server.DataVolume;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.Setup.Storage;
 using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using Microsoft.Extensions.Configuration.Json;
 using Microsoft.Extensions.FileProviders;
@@ -32,6 +34,47 @@ public static class HostConfigFiles
         }
 
         var path = KekFilePath(dataRoot);
+        if (builder.Sources.OfType<JsonConfigurationSource>().Any(s => IsFile(s, path)))
+        {
+            return builder;
+        }
+
+        var source = new JsonConfigurationSource { Path = path, Optional = true, ReloadOnChange = false };
+        source.ResolveFileProvider();
+
+        var at = builder.Sources.ToList().FindIndex(s => s is EnvironmentVariablesConfigurationSource);
+        if (at < 0)
+        {
+            builder.Sources.Add(source);
+        }
+        else
+        {
+            builder.Sources.Insert(at, source);
+        }
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Reads <c>Bazaar:Host:BootRoot</c> from what the builder already holds and inserts the volume settings file
+    /// (<c>config/volume.json</c> on the boot root, doc 63 section 10) before the first environment-variable source. The
+    /// volume bootstrap writes it with the data root, the install id, the volume id and the instance class. Does nothing
+    /// when the boot root is blank or relative. Idempotent. Call it before <see cref="AddKekHostConfig"/>, which needs the
+    /// data root this file may supply.
+    /// </summary>
+    public static IConfigurationBuilder AddVolumeHostConfig(this IConfigurationBuilder builder)
+    {
+        var bootRoot = builder.Build()[DataVolumeOptions.BootRootKey];
+        if (string.IsNullOrWhiteSpace(bootRoot) || !Path.IsPathFullyQualified(bootRoot))
+        {
+            return builder;
+        }
+
+        return InsertBelowEnvironment(builder, VolumeHostConfigFile.PathFor(bootRoot));
+    }
+
+    private static IConfigurationBuilder InsertBelowEnvironment(IConfigurationBuilder builder, string path)
+    {
         if (builder.Sources.OfType<JsonConfigurationSource>().Any(s => IsFile(s, path)))
         {
             return builder;

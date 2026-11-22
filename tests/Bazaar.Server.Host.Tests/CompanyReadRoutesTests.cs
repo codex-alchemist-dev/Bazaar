@@ -52,10 +52,11 @@ public sealed class CompanyReadRoutesTests
         public int Calls;
 
         public Task<InterruptFrame> PushAsync(
-            Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default)
+            Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
+            CancellationToken ct = default)
         {
             Calls++;
-            return Task.FromResult(new InterruptFrame(Guid.NewGuid(), agentId, null, source, reason, gcId, InterruptFrameState.Active, DateTimeOffset.UnixEpoch, ttlAt, 1));
+            return Task.FromResult(new InterruptFrame(Guid.NewGuid(), agentId, null, source, reason, gcId, InterruptFrameState.Active, DateTimeOffset.UnixEpoch, ttlAt, 1, emergency));
         }
 
         public Task<InterruptFrame?> PopAsync(Guid agentId, Guid frameId, CancellationToken ct = default)
