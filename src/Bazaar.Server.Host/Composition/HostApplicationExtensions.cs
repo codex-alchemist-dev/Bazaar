@@ -1,9 +1,9 @@
 using Bazaar.Core;
+using Bazaar.Erasure;
 using Bazaar.Fun;
 using Bazaar.Sanitization;
-using Bazaar.Erasure;
-using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;

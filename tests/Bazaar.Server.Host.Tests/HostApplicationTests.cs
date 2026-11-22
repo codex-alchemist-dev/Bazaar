@@ -1,6 +1,6 @@
-using Bazaar.Sanitization;
 using Bazaar.Approvals;
 using Bazaar.GitHub.Adapter;
+using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Wire.Sync;
