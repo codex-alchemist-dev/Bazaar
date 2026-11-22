@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <!-- Working name of the command (doc 45 section 1.1). AdminConstants.CommandName must match; a test checks it. -->
+    <AssemblyName>bazaar-admin</AssemblyName>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Constitution\Bazaar.Server.Setup.Constitution.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Constitution.Abstractions\Bazaar.Server.Setup.Constitution.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun\Bazaar.Server.Setup.FirstRun.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
+  </ItemGroup>
+</Project>

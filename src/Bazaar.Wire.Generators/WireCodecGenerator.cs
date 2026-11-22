@@ -6,7 +6,7 @@ namespace Bazaar.Wire.Generators;
 
 /// <summary>
 /// Reads every <c>[WirePayload]</c> record in the referenced <c>Bazaar.Contracts</c> assembly and, for a project that opts in with
-/// <c>[assembly: GenerateWireCodec("cbor")]</c>, <c>"msgpack"</c>, <c>"protobuf"</c> or <c>"memorypack"</c>, emits a closed registry of payload types plus direct reader and writer code
+/// <c>[assembly: GenerateWireCodec("cbor")]</c> or <c>"msgpack"</c>, emits a closed registry of payload types plus direct reader and writer code
 /// (doc 90 section 3). No reflection, no runtime type discovery: the output is plain C# that is trim and AOT safe.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
@@ -19,7 +19,7 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
         #nullable enable
         namespace Bazaar.Wire.Generators
         {
-            /// <summary>Opts an assembly in to generated wire codec code (doc 90). Codec names built so far: "cbor", "msgpack", "protobuf" and "memorypack".</summary>
+            /// <summary>Opts an assembly in to generated wire codec code (doc 90). Codec names built so far: "cbor", "msgpack", "memorypack", "protobuf" and "schema" (the published schema artifacts, doc 90 section 5).</summary>
             [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
             internal sealed class GenerateWireCodecAttribute : global::System.Attribute
             {
@@ -35,7 +35,11 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(c => c.AddSource("GenerateWireCodecAttribute.g.cs", SourceText.From(TargetAttributeSource, System.Text.Encoding.UTF8)));
 
-        var generated = context.CompilationProvider.Select(static (compilation, ct) => Run(compilation, ct));
+        var locks = context.AdditionalTextsProvider
+            .Where(static t => string.Equals(System.IO.Path.GetFileName(t.Path), "schema.lock.json", StringComparison.OrdinalIgnoreCase))
+            .Select(static (t, ct) => t.GetText(ct)?.ToString())
+            .Collect();
+        var generated = context.CompilationProvider.Combine(locks).Select(static (pair, ct) => Run(pair.Left, pair.Right.FirstOrDefault(), ct));
         context.RegisterSourceOutput(generated, static (spc, result) =>
         {
             foreach (var diagnostic in result.Diagnostics) spc.ReportDiagnostic(diagnostic.ToDiagnostic());
@@ -43,7 +47,7 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
         });
     }
 
-    private static GeneratorResult Run(Compilation compilation, System.Threading.CancellationToken ct)
+    private static GeneratorResult Run(Compilation compilation, string? lockText, System.Threading.CancellationToken ct)
     {
         var codecs = new List<string>();
         foreach (var attribute in compilation.Assembly.GetAttributes())
@@ -71,6 +75,10 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
             else if (codec == "msgpack")
             {
                 files.Add(new GeneratedFile("WireMsgPack.g.cs", MsgPackEmitter.Emit(compilation, payloads, diagnostics, ct)));
+            }
+            else if (codec == "schema")
+            {
+                files.Add(new GeneratedFile("WireSchema.g.cs", SchemaOutput.Emit(compilation, payloads, codecs.Contains("cbor"), lockText, diagnostics, ct)));
             }
             else if (codec == "protobuf")
             {
@@ -171,17 +179,79 @@ internal static class Descriptors
         "BWG005", "Duplicate wire field name", "{0} has two members with the same wire name", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor ProtobufUnsupportedShape = new(
-        "BWG007", "Protobuf cannot express this field", "{0} is a list of lists or of nullable items, which wire.proto cannot express", Category, DiagnosticSeverity.Error, true);
+        "BWG010", "Protobuf cannot express this field", "{0} is a list of lists or of nullable items, which wire.proto cannot express", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor ProtobufNameClash = new(
-        "BWG008", "Protobuf type name clash", "The wire type name {0} is used twice or is reserved (Envelope, Instant); wire.proto names are flat", Category, DiagnosticSeverity.Error, true);
+        "BWG011", "Protobuf type name clash", "The wire type name {0} is used twice or is reserved (Envelope, Instant); wire.proto names are flat", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor ProtobufReservedName = new(
-        "BWG009", "Property name reserved by protoc", "{0} would collide with a member of the C# class protoc generates; rename the property", Category, DiagnosticSeverity.Error, true);
+        "BWG012", "Property name reserved by protoc", "{0} would collide with a member of the C# class protoc generates; rename the property", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor TooManyFields = new(
-        "BWG010", "Record has too many fields", "{0} has more members than a MemoryPack object header can announce (249)", Category, DiagnosticSeverity.Error, true);
+        "BWG007", "Record has too many fields", "{0} has more members than a MemoryPack object header can announce (249)", Category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor DuplicateMessageType = new(
         "BWG006", "Message type claimed twice", "Message type {0} is declared on two payload records", Category, DiagnosticSeverity.Error, true);
+
+    public static readonly DiagnosticDescriptor BreakingSchemaChange = new(
+        "BWG007", "Breaking wire schema change", "Breaking change against docs/wire/schema.lock.json: {0}. A breaking change needs a protocol major bump (WireProtocol.Major, doc 02 versioning) and a regenerated lock; otherwise revert it.", Category, DiagnosticSeverity.Error, true);
+
+    public static readonly DiagnosticDescriptor StaleSchemaLock = new(
+        "BWG008", "Wire schema lock is out of date", "The wire schema changed compatibly but docs/wire/schema.lock.json was not regenerated ({0}). Run the Bazaar.Wire.Schema.Tests update step (BAZAAR_UPDATE_WIRE_SCHEMA=1 dotnet test) and commit the result.", Category, DiagnosticSeverity.Info, true);
+
+    public static readonly DiagnosticDescriptor LockUnreadable = new(
+        "BWG009", "Wire schema lock is unreadable", "{0} is not valid schema JSON; regenerate it", Category, DiagnosticSeverity.Error, true);
+}
+
+internal static class SchemaOutput
+{
+    /// <summary>Renders every schema artifact, checks them against the checked-in lock and returns one C# file holding them as constants.</summary>
+    public static string Emit(Compilation compilation, List<PayloadInfo> payloads, bool cborAlsoReports, string? lockText, List<DiagnosticInfo> diagnostics, System.Threading.CancellationToken ct)
+    {
+        var doc = SchemaBuilder.Build(compilation, payloads, cborAlsoReports ? null : diagnostics, ct);
+        doc.Hash = SchemaEmitters.ComputeHash(doc);
+        var schema = SchemaEmitters.SchemaJson(doc, doc.Hash);
+        var jsonSchema = SchemaEmitters.JsonSchema(doc, doc.Hash);
+        var cddl = SchemaEmitters.Cddl(doc, doc.Hash);
+
+        if (lockText is { } lockContent && !string.IsNullOrWhiteSpace(lockContent))
+        {
+            var locked = MiniJson.ToDoc(lockContent);
+            if (locked is null)
+            {
+                diagnostics.Add(new DiagnosticInfo(Descriptors.LockUnreadable, "schema.lock.json"));
+            }
+            else
+            {
+                var changes = SchemaDiff.Compare(locked, doc);
+                var breaking = changes.Where(c => c.Breaking).ToList();
+                if (breaking.Count > 0)
+                {
+                    diagnostics.Add(new DiagnosticInfo(Descriptors.BreakingSchemaChange, string.Join("; ", breaking.Select(c => c.Message))));
+                }
+                else if (changes.Count > 0 || locked.Hash != doc.Hash)
+                {
+                    diagnostics.Add(new DiagnosticInfo(Descriptors.StaleSchemaLock, changes.Count == 0 ? "contents differ" : string.Join("; ", changes.Select(c => c.Message))));
+                }
+            }
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("// <auto-generated/>");
+        sb.AppendLine("// Generated by Bazaar.Wire.Generators from the [WirePayload] records in Bazaar.Contracts. Do not edit.");
+        sb.AppendLine("#nullable enable");
+        sb.AppendLine("namespace " + (compilation.AssemblyName is { Length: > 0 } name ? name : "Generated") + ".Generated;");
+        sb.AppendLine();
+        sb.AppendLine("/// <summary>The published wire schema artifacts as built from the payload records (doc 90 section 5).</summary>");
+        sb.AppendLine("internal static class WireSchemaArtifacts");
+        sb.AppendLine("{");
+        sb.AppendLine("    public const int ProtocolMajor = " + doc.Major.ToString(System.Globalization.CultureInfo.InvariantCulture) + ";");
+        sb.AppendLine("    public const int ProtocolMinor = " + doc.Minor.ToString(System.Globalization.CultureInfo.InvariantCulture) + ";");
+        sb.AppendLine("    public const string SchemaHash = " + SchemaEmitters.Quote(doc.Hash) + ";");
+        sb.AppendLine("    public const string SchemaJson = " + SchemaEmitters.Quote(schema) + ";");
+        sb.AppendLine("    public const string JsonSchema = " + SchemaEmitters.Quote(jsonSchema) + ";");
+        sb.AppendLine("    public const string Cddl = " + SchemaEmitters.Quote(cddl) + ";");
+        sb.AppendLine("}");
+        return sb.ToString();
+    }
 }

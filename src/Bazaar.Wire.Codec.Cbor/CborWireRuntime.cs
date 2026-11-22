@@ -13,7 +13,7 @@ namespace Bazaar.Wire.Codec.Cbor;
 internal static class CborWireRuntime
 {
     /// <summary>RFC 8746 tag for a typed array of little-endian IEEE 754 binary32 values.</summary>
-    private const CborTag Float32LittleEndianArray = (CborTag)85;
+    private const CborTag _float32LittleEndianArray = (CborTag)85;
 
     public static void ReadMapStart(CborReader r, CborLimits l)
     {
@@ -81,7 +81,7 @@ internal static class CborWireRuntime
 
     public static void WriteFloat32Array(CborWriter w, ReadOnlySpan<float> values)
     {
-        w.WriteTag(Float32LittleEndianArray);
+        w.WriteTag(_float32LittleEndianArray);
         if (BitConverter.IsLittleEndian)
         {
             w.WriteByteString(MemoryMarshal.AsBytes(values));
@@ -95,7 +95,7 @@ internal static class CborWireRuntime
 
     public static float[] ReadFloat32Array(CborReader r, CborLimits l)
     {
-        if (r.ReadTag() != Float32LittleEndianArray) throw new WireFormatException("A float array does not carry the little-endian binary32 tag.");
+        if (r.ReadTag() != _float32LittleEndianArray) throw new WireFormatException("A float array does not carry the little-endian binary32 tag.");
         var bytes = r.ReadByteString();
         if (bytes.Length % sizeof(float) != 0) throw new WireFormatException("A float array is not a whole number of floats.");
         var count = bytes.Length / sizeof(float);

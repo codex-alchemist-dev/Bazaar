@@ -71,6 +71,7 @@ internal static class ProtobufEmitter
     {
         private readonly List<DiagnosticInfo> _diagnostics;
         private readonly System.Threading.CancellationToken _ct;
+        private readonly TypeResolver _resolver;
         private readonly Queue<INamedTypeSymbol> _queue = new();
         private readonly HashSet<string> _seen = new(StringComparer.Ordinal);
 
@@ -78,6 +79,7 @@ internal static class ProtobufEmitter
         {
             _diagnostics = diagnostics;
             _ct = ct;
+            _resolver = new TypeResolver(diagnostics);
         }
 
         public SortedDictionary<string, Message> Messages { get; } = new(StringComparer.Ordinal);
@@ -122,7 +124,7 @@ internal static class ProtobufEmitter
                 if (property.DeclaredAccessibility != Accessibility.Public || property.GetMethod is not { DeclaredAccessibility: Accessibility.Public }) continue;
                 if (property.GetAttributes().Any(a => a.AttributeClass?.Name == "JsonIgnoreAttribute")) continue;
 
-                var type = new TypeResolver(_diagnostics).Resolve(property.Type, property.NullableAnnotation);
+                var type = _resolver.Resolve(property.Type, property.NullableAnnotation);
                 if (type is null) continue;
                 if (!Accept(property, type, symbol)) continue;
 

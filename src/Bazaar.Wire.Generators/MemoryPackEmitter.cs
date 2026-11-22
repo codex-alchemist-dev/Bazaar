@@ -100,7 +100,7 @@ internal static class MemoryPackEmitter
     private sealed class EmitContext
     {
         private readonly List<DiagnosticInfo> _diagnostics;
-        private readonly WireTypeResolver _resolver;
+        private readonly TypeResolver _resolver;
         private readonly System.Threading.CancellationToken _ct;
         private readonly Dictionary<string, int> _ids = new(StringComparer.Ordinal);
         private readonly Queue<(int Id, TypeRef Type)> _queue = new();
@@ -108,7 +108,7 @@ internal static class MemoryPackEmitter
         public EmitContext(List<DiagnosticInfo> diagnostics, System.Threading.CancellationToken ct)
         {
             _diagnostics = diagnostics;
-            _resolver = new WireTypeResolver(diagnostics);
+            _resolver = new TypeResolver(diagnostics);
             _ct = ct;
         }
 
@@ -235,7 +235,7 @@ internal static class MemoryPackEmitter
             foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>())
             {
                 if (!field.IsConst) continue;
-                values.Add(Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(field.ConstantValue!, false, false));
+                values.Add(Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(field.ConstantValue!, false, false)!);
                 if (field.Name == "Unknown" || (field.Name == "Unspecified" && fallback is null)) fallback = field.Name;
             }
 
@@ -291,7 +291,7 @@ internal static class MemoryPackEmitter
         private void EmitRecord(int id, string display, TypeRef type)
         {
             var symbol = (INamedTypeSymbol)type.Symbol;
-            if (WireRecordShape.Analyze(symbol, _resolver, _diagnostics) is not { } shape) return;
+            if (RecordShape.Analyze(symbol, _resolver, _diagnostics) is not { } shape) return;
             var fields = shape.Fields;
             var constructor = shape.Constructor;
             if (fields.Count > MaxMembers)
@@ -386,14 +386,14 @@ internal static class MemoryPackEmitter
             Methods.AppendLine();
         }
 
-        private static string InitialValue(RecordField field)
+        private static string InitialValue(WireField field)
         {
             if (field.Parameter is { HasExplicitDefaultValue: true } p)
             {
                 var value = p.ExplicitDefaultValue;
                 if (value is null) return "default";
                 if (field.ReadType.Kind == WireKind.Enum) return $"({field.ReadType.NonNull.Display()}){Convert.ToString(value, CultureInfo.InvariantCulture)}";
-                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(value, true, false);
+                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(value, true, false)!;
             }
 
             return field.ReadType.Nullable || field.ReadType.Symbol.IsValueType ? "default" : "default!";

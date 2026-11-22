@@ -172,21 +172,21 @@ internal static class CborEmitter
     private sealed class EmitContext
     {
         private readonly List<DiagnosticInfo> _diagnostics;
-        private readonly WireTypeResolver _resolver;
         private readonly System.Threading.CancellationToken _ct;
+        private readonly TypeResolver _resolver;
         private readonly Dictionary<string, int> _ids = new(StringComparer.Ordinal);
         private readonly Queue<(int Id, TypeRef Type)> _queue = new();
 
         public EmitContext(List<DiagnosticInfo> diagnostics, System.Threading.CancellationToken ct)
         {
             _diagnostics = diagnostics;
-            _resolver = new WireTypeResolver(diagnostics);
             _ct = ct;
+            _resolver = new TypeResolver(diagnostics);
         }
 
-        public TypeRef? Resolve(ITypeSymbol symbol, NullableAnnotation annotation) => _resolver.Resolve(symbol, annotation);
-
         public StringBuilder Methods { get; } = new();
+
+        public TypeRef? Resolve(ITypeSymbol symbol, NullableAnnotation annotation) => _resolver.Resolve(symbol, annotation);
 
         public int IdOf(TypeRef type)
         {
@@ -358,10 +358,10 @@ internal static class CborEmitter
 
         private void EmitRecord(int id, string display, INamedTypeSymbol symbol)
         {
-            if (WireRecordShape.Analyze(symbol, _resolver, _diagnostics) is not { } shape) return;
+            var shape = RecordShape.Analyze(symbol, _resolver, _diagnostics);
+            if (shape is null) return;
             var fields = shape.Fields;
             var constructor = shape.Constructor;
-            foreach (var field in fields) field.Local = "f" + fields.IndexOf(field).ToString(CultureInfo.InvariantCulture);
 
             Methods.AppendLine($"    private static void W{id}(CborWriter w, {display} v)");
             Methods.AppendLine("    {");
@@ -392,7 +392,7 @@ internal static class CborEmitter
             foreach (var f in readable)
             {
                 var localType = f.ReadType.Display();
-                var initial = InitialValue(f);
+                var initial = RecordShape.InitialValue(f);
                 Methods.AppendLine($"        {localType} {f.Local} = {initial}; var h{f.Local} = false;");
             }
 
@@ -417,25 +417,9 @@ internal static class CborEmitter
                 Methods.AppendLine($"        if (!h{f.Local}) throw Rt.MissingField(\"{Escape(f.Key)}\");");
             }
 
-            var args = string.Join(", ", constructor.Parameters.Select(p => readable.First(f => f.Parameter is not null && SymbolEqualityComparer.Default.Equals(f.Parameter, p)).Local));
-            var initializers = readable.Where(f => f.Parameter is null).ToList();
-            var tail = initializers.Count == 0 ? "" : " { " + string.Join(", ", initializers.Select(f => $"{f.Property.Name} = {f.Local}")) + " }";
-            Methods.AppendLine($"        return new {display}({args}){tail};");
+            Methods.AppendLine($"        return {shape.Construct(display, readable)};");
             Methods.AppendLine("    }");
             Methods.AppendLine();
-        }
-
-        private static string InitialValue(RecordField field)
-        {
-            if (field.Parameter is { HasExplicitDefaultValue: true } p)
-            {
-                var value = p.ExplicitDefaultValue;
-                if (value is null) return "default";
-                if (field.ReadType.Kind == WireKind.Enum) return $"({field.ReadType.NonNull.Display()}){Convert.ToString(value, CultureInfo.InvariantCulture)}";
-                return SymbolDisplay.FormatPrimitive(value, true, false);
-            }
-
-            return field.ReadType.Nullable || field.ReadType.Symbol.IsValueType ? "default" : "default!";
         }
     }
 }
