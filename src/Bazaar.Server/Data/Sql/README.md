@@ -39,6 +39,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `remote/0004` | Owner signature nonces (#632, doc 32 section 5a) | #632 | `owner_nonce` (single-spend nonces for owner-signed requests). Renumbered from `0003` because #622 took `remote/0003` first. Applies with `RemoteComponent` |
 | `0019` | ID1 | this PR | Identity keys: `soul_dek` (one live DEK per scope), `credential`, `credential_lease`, `browser_profile`; no cross-table foreign keys beyond the DEK links |
 | `council/0001` | Council | this PR | Council (doc 10, WP3): `council_vote` (compare-and-set on version), `council_ballot`, `council_ballot_ver`, `council_transition`; reasoning is per-person encrypted |
+| `council/0002` | Council high-impact | this PR | `council_vote.high_impact boolean NOT NULL DEFAULT false` (doc 10, Follow-up on dissent; doc 04). Own namespace, because `common/` is frozen |
 | `interrupts/0001` | INT1 follow-up | this PR | `interrupt_frame.reason` is replaced by sealed columns (`reason_sealed`, `reason_nonce`, `reason_key_id`); AES-256-GCM, bound to frame and agent ids. Lives in the `interrupts` namespace because `common/` is frozen |
 | `0021` | EMAIL1 | this PR | Namespace `mail` (not `common`, which is frozen): mail core (doc 22 tables): `mail_domain`, `mail_mailbox`, `mail_message`, `mail_outbound`, `mail_blob`; personal bodies encrypted per person |
 | `engines/0001` | WP2 | this PR | Engine registry, `engines` namespace (doc 20): `engine_projects`, `engine_grants` (default deny for write and exec; approval link is a TODO(component) to doc 15) |
@@ -62,6 +63,7 @@ The runner applies any not-yet-applied file in numeric order, even below a numbe
 | `identity/0001` | LEASE-DURABLE | this PR | `credential_lease.approval_id` with a unique partial index, so an approval backs at most one lease across restarts (`PostgresCredentialLeaseStore`). Own namespace, because `common/` is frozen |
 | `constellation/0001` | WP-D (memory graph) | this PR | `constellation_memory_revision` and `constellation_memory_edge`: append-only memory graph revisions with one active revision per note (docs/design/constellation-memory-graph.md, "Store"). Owned by `ConstellationComponent`; the migration lives in the `constellation` namespace because `common/` is frozen; no foreign keys |
 | `erasure/0001` | ERASE-HOLD | this PR | `legal_hold_event` (append-only, refuse trigger, `bazaar_app` insert and select only) and view `active_legal_hold`: legal holds (doc 48 section 9). Holds are created and released only through the owner's signed path, which is not on main yet. No foreign keys |
+| `roles/0001` | ROLES | this PR | `role`, `role_grant`, `role_assignment`: custom roles with capability-over-scope grants and role assignments for human, agent and service principals (doc 48 section 4). Built-in templates are inserted by `RoleService`, not by SQL. No foreign keys to people or agents |
 | `0022+` | free | | Claim one by adding a row here in your PR, or ask the main session |
 
 ## Component namespaces
