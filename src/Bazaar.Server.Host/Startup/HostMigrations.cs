@@ -4,6 +4,7 @@ using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Mirror;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
@@ -23,6 +24,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
+        new ComponentMigrationSource(typeof(MirrorComponent).Assembly),
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),

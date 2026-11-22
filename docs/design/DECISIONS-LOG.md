@@ -491,3 +491,12 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 |---|---|---|
 | Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
 
+
+## Round 34 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |

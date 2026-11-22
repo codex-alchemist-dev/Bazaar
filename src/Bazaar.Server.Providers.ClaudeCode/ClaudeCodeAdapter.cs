@@ -21,6 +21,8 @@ public sealed class ClaudeCodeAdapter : IModelAdapter, IDisposable
         "PATH", "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "SystemRoot", "windir", "COMSPEC", "TEMP", "TMP", "TMPDIR", "LANG", "LC_ALL", "APPDATA", "LOCALAPPDATA",
     ];
 
+    internal static IReadOnlyList<string> BaseEnvironmentNames => _baseEnv;
+
     private readonly ClaudeCodeOptions _options;
     private readonly IClaudeCodeProcessRunner _runner;
     private readonly ClaudeCodeLaneState _state;

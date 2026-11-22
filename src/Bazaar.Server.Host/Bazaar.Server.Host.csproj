@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Jobs\Bazaar.Server.Jobs.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Selection\Bazaar.Server.Gateway.Selection.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.ClaudeCode\Bazaar.Server.Providers.ClaudeCode.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.ClaudeCode.Windows\Bazaar.Server.Providers.ClaudeCode.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
@@ -38,6 +39,7 @@
     <ProjectReference Include="..\Bazaar.Server.GcReactions\Bazaar.Server.GcReactions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Portability.Postgres\Bazaar.Server.Portability.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mirror\Bazaar.Server.Mirror.csproj" />
     <ProjectReference Include="..\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Wire.Discovery\Bazaar.Server.Wire.Discovery.csproj" />
     <ProjectReference Include="..\Bazaar.Wire.Schema\Bazaar.Wire.Schema.csproj" />
@@ -75,6 +77,7 @@
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />
   </ItemGroup>
   <ItemGroup>
