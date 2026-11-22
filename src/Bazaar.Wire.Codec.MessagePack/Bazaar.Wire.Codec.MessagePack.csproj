@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>MessagePack wire codec, name "msgpack" (doc 90). MessagePack-CSharp low-level reader and writer called from generated code; no resolvers, no typeless mode, no reflection.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Wire.Generators\Bazaar.Wire.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Wire.Codec.MessagePack.Tests" />
+  </ItemGroup>
+</Project>

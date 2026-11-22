@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Bazaar.Rubedo;
+using Bazaar.Rubedo.Rules;
 
 namespace Bazaar.Client.Layout;
 
@@ -18,7 +20,7 @@ public static partial class LayoutValidator
 
     private static readonly HashSet<string> _topLevelFields = new(StringComparer.Ordinal) { "schemaVersion", "name", "locks", "slots" };
     private static readonly HashSet<string> _slotFields = new(StringComparer.Ordinal) { "deviceClass", "display", "posture", "root" };
-    private static readonly HashSet<string> _nodeFields = new(StringComparer.Ordinal) { "container", "children", "paneKind", "paneId", "paneConfig" };
+    private static readonly HashSet<string> _nodeFields = new(StringComparer.Ordinal) { "container", "children", "paneKind", "paneId", "paneConfig", "visibleWhen" };
 
     /// <summary>Loads and validates a layout document from JSON text.</summary>
     public static LayoutLoadResult Validate(string json)
@@ -235,6 +237,8 @@ public static partial class LayoutValidator
             paneId = id;
         }
 
+        string? visibleWhen = CheckVisibleWhen(element, path, issues);
+
         if (hasPane)
         {
             if (!element.TryGetProperty("paneKind", out JsonElement kindValue) || kindValue.ValueKind != JsonValueKind.String
@@ -246,7 +250,7 @@ public static partial class LayoutValidator
 
             panes.Add(kindValue.GetString()!);
             JsonElement? config = element.TryGetProperty("paneConfig", out JsonElement configValue) ? configValue.Clone() : null;
-            return new LayoutNode(null, [], kindValue.GetString(), paneId, config);
+            return new LayoutNode(null, [], kindValue.GetString(), paneId, config, visibleWhen);
         }
 
         if (!element.TryGetProperty("container", out JsonElement containerValue) || containerValue.ValueKind != JsonValueKind.String
@@ -281,7 +285,33 @@ public static partial class LayoutValidator
             }
         }
 
-        return new LayoutNode(containerValue.GetString(), nodes, null, paneId, null);
+        return new LayoutNode(containerValue.GetString(), nodes, null, paneId, null, visibleWhen);
+    }
+
+    private static string? CheckVisibleWhen(JsonElement element, string path, List<LayoutIssue> issues)
+    {
+        if (!element.TryGetProperty("visibleWhen", out JsonElement value))
+        {
+            return null;
+        }
+
+        string pointer = path + "/visibleWhen";
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { Length: > 0 } source)
+        {
+            issues.Add(new LayoutIssue(pointer, "bad-visible-when", "visibleWhen must be a non-empty Rubedo expression string."));
+            return null;
+        }
+
+        (VisibilityRule? rule, IReadOnlyList<RubedoDiagnostic> diagnostics) = VisibilityRule.Compile(source);
+        if (rule is not null)
+        {
+            return source;
+        }
+
+        RubedoDiagnostic first = diagnostics[0];
+        string code = first.Code == "result-type" ? "visible-when-type" : "visible-when-invalid";
+        issues.Add(new LayoutIssue(pointer, code, $"visibleWhen rule rejected ({first.Code}): {first.Message}"));
+        return null;
     }
 
     private static string? ReadEnum(JsonElement item, string field, string[] allowed, string path, List<LayoutIssue> issues)
@@ -344,6 +374,12 @@ public static partial class LayoutValidator
                 {
                     string childPath = $"{path}/{property.Name}";
                     CheckText(property.Name, childPath, issues);
+                    if (IsRuleText(property, path))
+                    {
+                        // A rule needs < and >, so the Rubedo compiler (data only, bounded) checks it instead of the fragment scan.
+                        continue;
+                    }
+
                     ScanStrings(property.Value, childPath, issues);
                 }
 
@@ -361,6 +397,10 @@ public static partial class LayoutValidator
                 break;
         }
     }
+
+    private static bool IsRuleText(JsonProperty property, string parentPath) =>
+        property.Name == "visibleWhen" && property.Value.ValueKind == JsonValueKind.String
+        && !parentPath.Contains("/paneConfig", StringComparison.Ordinal);
 
     private static void CheckText(string text, string path, List<LayoutIssue> issues)
     {

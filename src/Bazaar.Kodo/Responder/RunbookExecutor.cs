@@ -27,6 +27,7 @@ public sealed class RunbookExecutor
     private readonly IApprovalGate _gate;
     private readonly RunbookOptions _options;
     private readonly TimeProvider _time;
+    private readonly IReadOnlySet<UnattendedRecovery> _unattendedRecoveries;
 
     /// <summary>Creates the engine. The options are validated.</summary>
     public RunbookExecutor(
@@ -46,6 +47,7 @@ public sealed class RunbookExecutor
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(timeProvider);
         options.Validate();
+        _unattendedRecoveries = UnattendedRecoveries.Parse(options.UnattendedRecoveries);
         _catalogue = catalogue;
         _runner = runner;
         _journal = journal;
@@ -101,11 +103,20 @@ public sealed class RunbookExecutor
         }
 
         RunbookDefinition definition = entry!.Definition;
-        bool unattended = definition.Risk == RunbookRisk.Low
+
+        // Two ways to run without approval, both only for untainted input and a run that starts healthy. Frozen and recovering starts were
+        // refused above, so an open incident never reaches here. The signature, retry cap and verify step apply to both.
+        //  1. The operator named a low-risk, no-approval runbook in AutoRunbookIds (unchanged).
+        //  2. The owner-approved setting kodo.recover.unattended names the shipped host restart or slot switch. Those two are Medium risk
+        //     with a step-up tier, so rule 1 can never match them. The match is by canonical digest of the shipped definition (a custom
+        //     runbook with the same id does not match), and only these two actions are in the enum, so isolate, rollback and every other
+        //     risk class stay gated whatever the setting says.
+        bool healthyClean = !request.InputsTainted && request.State == KodoState.Healthy;
+        bool listed = definition.Risk == RunbookRisk.Low
             && definition.ApprovalTier == RunbookApprovalTier.None
-            && _options.AutoRunbookIds.Contains(definition.Id)
-            && !request.InputsTainted
-            && request.State == KodoState.Healthy;
+            && _options.AutoRunbookIds.Contains(definition.Id);
+        bool enabledByRecoverySetting = OneClickFixes.RecoveryOf(entry) is { } recovery && _unattendedRecoveries.Contains(recovery);
+        bool unattended = healthyClean && (listed || enabledByRecoverySetting);
 
         RunbookRunState state = new(
             RunbookRunState.CurrentVersion,
@@ -491,6 +502,14 @@ public sealed class RunbookExecutor
         if (!state.ActionsAttempted)
         {
             return await TerminalAsync(state, after == RunbookPhase.Denied ? RunbookPhase.Denied : RunbookPhase.Failed, cause, cancellationToken).ConfigureAwait(false);
+        }
+
+        // A failed unattended host restart or slot switch (a failed verify included) stops here. Rollback of the slot switch is a roll back
+        // and always needs step-up, so it is never run on the setting's authority: a human takes over.
+        if (!state.Gated && _catalogue.TryGet(state.RunbookId, state.RunbookVersion, out CatalogueEntry? current)
+            && current is not null && OneClickFixes.RecoveryOf(current) is not null)
+        {
+            return await TerminalAsync(state, RunbookPhase.NeedsHuman, "unattended_recovery_failed", cancellationToken).ConfigureAwait(false);
         }
 
         if (definition.Rollback.Count == 0)
