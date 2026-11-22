@@ -26,6 +26,19 @@ public interface ISessionStore
     Task ClearAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// Seals a few bytes so only this person on this device can read them back (DPAPI on Windows, Keystore on Android, the secret
+/// service on Linux). A head supplies one; the protected session store uses it and never sees the key.
+/// </summary>
+public interface ISecretProtector
+{
+    /// <summary>Seals <paramref name="plain"/> and returns the sealed bytes.</summary>
+    byte[] Protect(ReadOnlySpan<byte> plain);
+
+    /// <summary>Opens bytes this protector sealed, or returns null when they cannot be opened (another user, another device, damage).</summary>
+    byte[]? Unprotect(ReadOnlySpan<byte> sealedBytes);
+}
+
 /// <summary>Opens a web address in the person's own browser. The sign-in page is a browser page, so the client never draws a password or passkey prompt itself.</summary>
 public interface IUrlLauncher
 {
