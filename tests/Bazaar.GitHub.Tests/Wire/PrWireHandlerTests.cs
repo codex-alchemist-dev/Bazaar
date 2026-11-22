@@ -67,6 +67,17 @@ public sealed class PrWireHandlerTests
 
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => Task.FromResult(Head);
 
+        public Func<PrChecksRollup> ChecksSource { get; set; } = () => PrChecksRollup.Passing;
+
+        public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) =>
+            Task.FromResult(ChecksSource() switch
+            {
+                PrChecksRollup.Passing => PrChecksState.Passing,
+                PrChecksRollup.Failing => PrChecksState.Failing,
+                PrChecksRollup.Pending => PrChecksState.Pending,
+                _ => PrChecksState.NoChecks,
+            });
+
         public Task SquashMergeAsync(PrRef pr, MergeRequest merge, CancellationToken cancellationToken)
         {
             if (MergeFailure is not null)
@@ -109,7 +120,8 @@ public sealed class PrWireHandlerTests
             Key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
             var deviceKey = new OwnerDeviceKey(_ownerHuman.ToString("D"), _ownerDeviceId, Key.ExportSubjectPublicKeyInfo());
             var verifier = new OwnerSignatureVerifier(new SingleKeyRegistry(deviceKey), new InMemoryOwnerNonceStore());
-            Merge = new PrMergeWireHandler(Adapter, Reads, new OwnerSignedMerge(Adapter, Adapter, Reads, verifier));
+            Adapter.ChecksSource = () => Reads.Checks;
+            Merge = new PrMergeWireHandler(Adapter, Reads, new OwnerSignedMerge(Adapter, Adapter, verifier));
         }
 
         public ECDsa Key { get; }
@@ -142,8 +154,8 @@ public sealed class PrWireHandlerTests
             approvedHead,
             _ownerHuman,
             _ownerDeviceId,
-            now.AddMinutes(-1),
-            now.AddMinutes(10),
+            now.AddSeconds(-30),
+            now.AddMinutes(4),
             Enumerable.Repeat(nonceSeed, OwnerSignedPayload.NonceLength).ToArray());
         var signature = signer.SignData(OwnerSignedPayload.Build(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         var wire = new PrOwnerPayload(payload.Action, payload.ApprovalId, payload.ArgsHash, payload.HeadSha, payload.HumanId, payload.DeviceId, payload.IssuedAt, payload.ExpiresAt, payload.Nonce);
@@ -237,6 +249,7 @@ public sealed class PrWireHandlerTests
             throw new GitHubStaleHeadException(pr.Number, headSha, _moved);
         public Task PostReviewAsync(PrRef pr, ReviewRequest review, CancellationToken cancellationToken) => throw new NotSupportedException();
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => Task.FromResult(_head);
+        public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => Task.FromResult(PrChecksState.Passing);
     }
 
     // ---- review ----
@@ -385,18 +398,21 @@ public sealed class PrWireHandlerTests
     }
 
     [Fact]
-    public async Task A_stale_or_red_merge_does_not_spend_the_owner_nonce()
+    public async Task A_red_merge_is_refused_and_the_owner_must_approve_again()
     {
+        // The gate verifies the signature before it reads the head and the checks (doc 21, doc 32 section 5a), so a refused
+        // merge has spent the single-use nonce and the same signed request cannot be replayed.
         using var f = new Fixture();
         var request = SignedMerge(f.Key);
         f.Reads.Checks = PrChecksRollup.Failing;
         var red = await MergeAsync(f, request);
         f.Reads.Checks = PrChecksRollup.Passing;
 
-        var green = await MergeAsync(f, request);
+        var replay = await MergeAsync(f, request);
 
         Assert.Equal(PrMergeStatus.ChecksFailed, red.Status);
-        Assert.Equal(PrMergeStatus.Merged, green.Status);
+        Assert.Equal(PrMergeStatus.BadSignature, replay.Status);
+        Assert.Empty(f.Adapter.Merges);
     }
 
     [Fact]
