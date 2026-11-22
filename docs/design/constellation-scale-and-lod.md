@@ -248,6 +248,7 @@ A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.06
 
 Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.
 
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
