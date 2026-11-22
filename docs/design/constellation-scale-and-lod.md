@@ -281,6 +281,30 @@ Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M poi
 - Option c has no per-frame edge cost. Its cost moves to build time (46 to 777 ms for the baked edges, on top of the node build in 10.7) and its image is edge density in the grid, not lines. It is also a different frame: it draws no points.
 - The remaining misses in a and b are not edges. The ring topology piles its points on a thin curve (14.5 ms 2D whole, 8.6 ms 3D whole, 2.9 ms 3D mid), which is point overdraw, not edge cost.
 
+### 10.9 Point overdraw, decimation and frame pipelining (2026-11-19)
+Bench modes `topology-overdraw`, `topology-pipeline` and `hostjitter`. Same machine and method as 10.7 (one run per cell, 30 warm-up and 200 measured frames; the pipelining table uses 600 measured frames). 150 draw cells: N = 1B with M = 0.5M, 1M and 2M points, plus N = 100M and N = 2B at M = 1M, 5 topologies, 2D and 3D, 3 viewpoints. Edges are 100k with the screen-length LOD of 10.8 in every variant. "Meets" means GPU p95 <= 2.5 ms and p99 <= 3.3 ms. Raw CSVs: `results/topo-overdraw*.csv`, `results/topo-pipeline*.csv`.
+
+**Cause.** The ring puts 400 to 800 points on each of about 2 400 pixels, and the rasteriser pays for the same-pixel writes: ring 2D whole costs 3.9, 14.5 and 40 ms for 0.5M, 1M and 2M points. 1 px points with no blending (option a) does not change this.
+
+**Variants.**
+- a. 1 px points, no blending: of the 30 cells that fail today, 18 meet; the ring whole views are unchanged.
+- b. Density path when estimated points per pixel exceeds T: the aggregate path (clear, reproject, shade, 100k edges) costs at most 0.7 ms.
+- c. Decimation: a compute pass lets one sampled point claim each 2x2-pixel cell (atomic max), a second pass appends the winners to a survivor list behind a draw-indirect header, then one indirect draw. Points outside the view are dropped. GPU p50 median 0.33 ms, max 3.6 ms.
+- d. c, with b when points per pixel exceeds T. Points per pixel is estimated as M divided by the number of non-empty cells of the aggregate screen grid (counting costs at most 0.19 ms GPU and is not included in the frame totals).
+
+| Variant | Cells meeting (GPU) |
+|---|---|
+| Plain draw, 100k LOD edges | 113 of 150 (the earlier 1M-edge draw: 76 of 150) |
+| c. decimation | 148 of 150 |
+| b. density path above T = 1 point per pixel over the plain draw | 150 of 150 (T = 2: 145, T = 4: 138) |
+| d. decimation plus density above T = 2 | 150 of 150, worst p99 2.10 ms (T = 4: 149, T = 8: 148) |
+
+Recommended threshold: T = 2 estimated points per pixel. The density path is a count image, not points, so the switch changes what is on screen. The two decimation misses are hub and spoke 2D mid (N = 1B, M = 2M, p99 4.19 ms, the LOD edge pass is 2.06 ms) and hub and spoke 3D whole (N = 100M, M = 1M, p99 3.64 ms, claim pass 0.98 ms). The decimation winner is the highest sample index in a cell, not the most important node.
+
+**Wall-time hitches.** Fps is judged on wall time. With the benchmark at normal priority, wall p99 meets 3.3 ms in only 57 of 150 cells even under policy d, while GPU p99 is under it in all of them. Frames in flight (1, 2 and 3, draw frame with 500k points, N = 1B, 30 cells, 600 frames) lowers the wall p50 (median 0.90, 0.61, 0.38 ms) but not the p99 (median 6.81, 6.11, 5.38 ms; cells meeting 2, 2, 7 of 30). A host-only 0.5 ms busy-wait (`hostjitter`) shows the cause: p99 3.98 ms and max 24.4 ms at normal priority (110 of 6 000 intervals over 2 ms), against p99 0.506 ms and max 2.2 ms at High process priority and Highest thread priority. The machine runs CI runners and builds, so the thread is being preempted. With `BAZAAR_BENCH_BOOST=1` (High priority): the 30-cell pipeline table has wall p99 median 0.43, 0.37 and 0.41 ms for 1, 2 and 3 frames in flight and 29 of 30 cells meet 3.3 ms in each (the exception is one cell with 4.2 to 4.3 ms), so pipelining does not matter once the scheduler stops interfering. In the boosted overdraw table, plain draw meets in 135 of 150 cells (GPU) and 136 of 150 (wall p99), decimation in 150 and 149, and policy d (T = 1, 2 or 4) in 150 of 150 for both GPU and wall p99.
+
+The real client therefore needs its render thread at a raised priority (or a dedicated high-priority thread) to hold a wall p99 near its GPU p99 on a busy machine.
+
 ## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
