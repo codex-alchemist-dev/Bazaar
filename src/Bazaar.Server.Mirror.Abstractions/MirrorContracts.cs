@@ -104,3 +104,19 @@ public interface IMirrorRewriter
     bool IsHosted { get; }
     Task<string?> RewriteAsync(MirrorItem item, IReadOnlyList<MirrorRule> applicableRules, CancellationToken cancellationToken);
 }
+
+/// <summary>A sealed value as stored in Postgres. <see cref="Ciphertext"/> is the sealed bytes followed by the 16-byte tag.</summary>
+public sealed record SealedMirrorValue(Guid KeyId, byte[] Nonce, byte[] Ciphertext);
+
+/// <summary>
+/// Seals and opens Mirror payloads and profile bodies (doc 26, C01). The associated data binds a value to its row. Destroying
+/// the key makes every value it sealed unreadable, which is how erasure works for Mirror.
+/// </summary>
+public interface IMirrorCipher
+{
+    Guid KeyId { get; }
+    SealedMirrorValue Seal(string plaintext, ReadOnlySpan<byte> associatedData);
+
+    /// <summary>Throws <see cref="System.Security.Cryptography.CryptographicException"/> when the key, the data or the value is wrong.</summary>
+    string Open(SealedMirrorValue value, ReadOnlySpan<byte> associatedData);
+}

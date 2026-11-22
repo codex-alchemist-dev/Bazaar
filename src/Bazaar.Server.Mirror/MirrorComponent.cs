@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Mirror;
 
@@ -23,7 +24,11 @@ public sealed class MirrorComponent : IBazaarComponent
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton(TimeProvider.System);
-        services.TryAddSingleton<IMirrorStore, InMemoryMirrorStore>();
+        // Postgres with a cipher when the host provides both (rows are sealed, doc 26 C01); otherwise a process-local store.
+        services.TryAddSingleton<IMirrorStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } ds && sp.GetService<IMirrorCipher>() is { } cipher
+                ? new PostgresMirrorStore(ds, cipher)
+                : new InMemoryMirrorStore());
         services.AddSingleton(_ => ReadOptions(configuration));
         services.AddSingleton<IMirrorService, MirrorService>();
     }
