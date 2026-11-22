@@ -26,7 +26,7 @@ public sealed class WalkthroughFactsPostgresTests(HostDb db) : IClassFixture<Hos
         var scoped = NpgsqlDataSource.Create(builder.ConnectionString);
         await using var create = scoped.CreateCommand("""
             CREATE TABLE firstrun_seed (kind text PRIMARY KEY, entity_id uuid NOT NULL, detail jsonb NOT NULL DEFAULT '{}'::jsonb);
-            CREATE TABLE agent (agent_id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, role text NULL);
+            CREATE TABLE agent (agent_id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, role text NULL, model text NULL);
             CREATE TABLE gc_message (gc_id uuid NOT NULL, message_id uuid NOT NULL DEFAULT gen_random_uuid(), author_id uuid NOT NULL);
             """);
         await create.ExecuteNonQueryAsync(ct);
@@ -77,13 +77,13 @@ public sealed class WalkthroughFactsPostgresTests(HostDb db) : IClassFixture<Hos
     }
 
     [Fact]
-    public async Task The_agent_identity_carries_the_stored_role_and_an_empty_role_when_unset()
+    public async Task The_agent_identity_carries_the_stored_role_and_model_and_empty_text_when_unset()
     {
         var ct = TestContext.Current.CancellationToken;
         await using var source = await CreateAsync(ct);
         var withRole = Guid.NewGuid();
         var withoutRole = Guid.NewGuid();
-        await using (var seed = source.CreateCommand("INSERT INTO agent (agent_id, name, role) VALUES (@a, 'Charles', 'Engineer'), (@b, 'Claude', NULL)"))
+        await using (var seed = source.CreateCommand("INSERT INTO agent (agent_id, name, role, model) VALUES (@a, 'Charles', 'Engineer', 'Haiku 5.5'), (@b, 'Claude', NULL, NULL)"))
         {
             seed.Parameters.AddWithValue("a", withRole);
             seed.Parameters.AddWithValue("b", withoutRole);
@@ -91,7 +91,7 @@ public sealed class WalkthroughFactsPostgresTests(HostDb db) : IClassFixture<Hos
         }
 
         var reader = new AgentRepositoryIdentityReader(source);
-        Assert.Equal(new Bazaar.Server.SoulProfile.AgentIdentity("Charles", "Engineer", ""), await reader.ReadAsync(withRole, ct));
+        Assert.Equal(new Bazaar.Server.SoulProfile.AgentIdentity("Charles", "Engineer", "Haiku 5.5"), await reader.ReadAsync(withRole, ct));
         Assert.Equal(new Bazaar.Server.SoulProfile.AgentIdentity("Claude", "", ""), await reader.ReadAsync(withoutRole, ct));
         Assert.Null(await reader.ReadAsync(Guid.NewGuid(), ct));
     }
