@@ -47,4 +47,7 @@ public static class PaneKinds
 
     /// <summary>Interrupt stacks: agents with a pushed frame, depth 0 to 2 (doc 24 section 5).</summary>
     public const string InterruptStack = "bazaar.interrupt-stack";
+
+    /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
+    public const string GitSolarSystem = "bazaar.git-solar-system";
 }
