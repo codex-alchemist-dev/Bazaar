@@ -8,6 +8,7 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.LoopGuard;
+using Bazaar.Server.PsychWard;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
@@ -157,6 +158,7 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
         services.AddBazaarSoulBindings();
+        services.AddBazaarPsychWard();
         services.AddBazaarLoopTripHandling();
         return services;
     }
