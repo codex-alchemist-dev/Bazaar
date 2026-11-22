@@ -1,3 +1,4 @@
+using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.Embeddings;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Tools;
@@ -59,7 +60,8 @@ public static class MemoryContextRegistration
         services.TryAddSingleton(sp => new MemoryGraphRetriever(
             sp.GetRequiredService<IConstellationNodeReader>(),
             sp.GetRequiredService<IVaultAccess>(),
-            sp.GetRequiredService<MemoryVectorSeedRegistration>().Source));
+            sp.GetRequiredService<MemoryVectorSeedRegistration>().Source,
+            sp.GetService<IMemoryReadLog>()));
         services.TryAddSingleton<IMemoryContextService>(sp => new MemoryContextService(
             sp.GetRequiredService<MemoryGraphRetriever>(),
             sp.GetRequiredService<IMemoryContextReader>(),

@@ -5,6 +5,7 @@ using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Memory.Context;
+using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -61,6 +62,10 @@ public static class HostApplicationExtensions
             // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
             // vector seeds through the Embeddings module when it is enabled, the service and the memory.context wire command.
             services.AddMemoryContext(new MemoryContextHostOptions(constellationVault));
+
+            // The durable owner-read log (constellation/0003): owner reads of another agent's memory are recorded and hash-chained,
+            // and a read that cannot be logged is refused.
+            services.AddMemoryReadLog();
         }
 
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.

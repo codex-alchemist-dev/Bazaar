@@ -1,3 +1,4 @@
+using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Retrieval;
 
@@ -27,6 +28,7 @@ public sealed class MemoryGraphRetriever
     private readonly IConstellationNodeReader _nodes;
     private readonly IVaultAccess _access;
     private readonly IMemoryVectorSeedSource? _vectorSeeds;
+    private readonly IMemoryReadLog? _readLog;
 
     /// <param name="nodes">Source of the doc nodes, their memory attributes and their edges.</param>
     /// <param name="access">The Vault access layer; every candidate must pass it.</param>
@@ -34,13 +36,23 @@ public sealed class MemoryGraphRetriever
     /// Vector seeds for query retrieval (<see cref="RetrieveForQueryAsync"/>). Null means no embedding is wired: every query call is
     /// lexical only with reason <see cref="MemoryLexicalOnlyReasons.ProfileNone"/>.
     /// </param>
-    public MemoryGraphRetriever(IConstellationNodeReader nodes, IVaultAccess access, IMemoryVectorSeedSource? vectorSeeds = null)
+    /// <param name="readLog">
+    /// The owner-read log (docs/design/constellation-memory-graph.md, "Owner-read access log"). Null means no logging. When set, a
+    /// retrieval whose reader is not the subject agent of the notes it returns records the read before the result is handed back; if
+    /// the record cannot be written the call throws <see cref="MemoryReadLogException"/> and returns nothing (fail closed).
+    /// </param>
+    public MemoryGraphRetriever(
+        IConstellationNodeReader nodes,
+        IVaultAccess access,
+        IMemoryVectorSeedSource? vectorSeeds = null,
+        IMemoryReadLog? readLog = null)
     {
         ArgumentNullException.ThrowIfNull(nodes);
         ArgumentNullException.ThrowIfNull(access);
         _nodes = nodes;
         _access = access;
         _vectorSeeds = vectorSeeds;
+        _readLog = readLog;
     }
 
     /// <summary>
@@ -58,7 +70,8 @@ public sealed class MemoryGraphRetriever
         int tokenBudget,
         MemoryGraphOptions options,
         int vectorCandidates,
-        CancellationToken ct)
+        CancellationToken ct,
+        MemoryReadContext? readContext = null)
     {
         ArgumentNullException.ThrowIfNull(who);
         ArgumentNullException.ThrowIfNull(queryText);
@@ -71,7 +84,7 @@ public sealed class MemoryGraphRetriever
             ? MemoryVectorSeeds.LexicalOnly(MemoryLexicalOnlyReasons.ProfileNone)
             : await _vectorSeeds.GetSeedsAsync(who, queryText, options.ScopePrefixes, vectorCandidates, ct).ConfigureAwait(false);
 
-        MemoryGraphRetrieval result = await RetrieveCoreAsync(who, lexical, vector.Seeds, tokenCounts, tokenBudget, options, ct)
+        MemoryGraphRetrieval result = await RetrieveCoreAsync(who, lexical, vector.Seeds, tokenCounts, tokenBudget, options, readContext, ct)
             .ConfigureAwait(false);
         return vector.Seeds.Count == 0
             ? result with { LexicalOnly = true, LexicalOnlyReason = vector.LexicalOnlyReason ?? MemoryLexicalOnlyReasons.NoVectorsYet }
@@ -92,10 +105,11 @@ public sealed class MemoryGraphRetriever
         IReadOnlyDictionary<string, int> tokenCounts,
         int tokenBudget,
         MemoryGraphOptions options,
-        CancellationToken ct)
+        CancellationToken ct,
+        MemoryReadContext? readContext = null)
     {
         ArgumentNullException.ThrowIfNull(tokenCounts);
-        return await RetrieveCoreAsync(who, lexical, vector, (_, _) => Task.FromResult(tokenCounts), tokenBudget, options, ct)
+        return await RetrieveCoreAsync(who, lexical, vector, (_, _) => Task.FromResult(tokenCounts), tokenBudget, options, readContext, ct)
             .ConfigureAwait(false);
     }
 
@@ -106,6 +120,7 @@ public sealed class MemoryGraphRetriever
         MemoryTokenCounter countTokens,
         int tokenBudget,
         MemoryGraphOptions options,
+        MemoryReadContext? readContext,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(who);
@@ -279,8 +294,70 @@ public sealed class MemoryGraphRetriever
             .Select(hit => ToHit(byId[hit.Id]))
             .ToList();
 
+        await RecordReadAsync(who, hits, readContext, ct).ConfigureAwait(false);
         return new MemoryGraphRetrieval(hits, lexicalOnly);
     }
+
+    /// <summary>
+    /// Writes the owner-read log entries for a result, one per subject agent whose private area (or, for a null subject, a non-agent
+    /// area) was read by a principal other than that agent. An agent reading its own area, or an agent reading a non-memory doc, is not
+    /// logged here (the retrieval audit entry covers it). Nothing is written for an empty result: nothing was read.
+    /// </summary>
+    private async Task RecordReadAsync(VaultPrincipal who, List<MemoryGraphHit> hits, MemoryReadContext? context, CancellationToken ct)
+    {
+        if (_readLog is null || hits.Count == 0)
+        {
+            return;
+        }
+
+        // A cover agent never reads the primary's private memory (doc 08 section 8), so its own id is its own area.
+        string? ownAgent = who.Kind is VaultPrincipalKind.Agent or VaultPrincipalKind.Cover ? who.AgentId : null;
+        bool isAgent = who.Kind is VaultPrincipalKind.Agent or VaultPrincipalKind.Cover;
+
+        var entries = new List<MemoryReadEntry>();
+        foreach (var group in hits.GroupBy(hit => hit.ScopeAgentId, StringComparer.Ordinal))
+        {
+            // An agent's reads of its own area, and of docs outside any agent's area, go to the audit log only.
+            if (isAgent && (group.Key is null || string.Equals(group.Key, ownAgent, StringComparison.Ordinal)))
+            {
+                continue;
+            }
+
+            entries.Add(new MemoryReadEntry(
+                context?.ReaderPrincipal ?? DefaultReader(who),
+                context?.Session,
+                context?.Route ?? MemoryReadContext.DefaultRoute,
+                group.Key,
+                MemoryReadOperations.Retrieve,
+                [.. group.Where(hit => hit.NoteId is not null).Select(hit => hit.NoteId!)],
+                [.. group.Select(hit => hit.DocId)],
+                context?.TaintTags ?? [],
+                context?.Purpose));
+        }
+
+        if (entries.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await _readLog.RecordAsync(entries, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not MemoryReadLogException)
+        {
+            throw new MemoryReadLogException("The memory read could not be logged.", ex);
+        }
+    }
+
+    private static string DefaultReader(VaultPrincipal who) => who.Kind switch
+    {
+        VaultPrincipalKind.Owner => "owner",
+        VaultPrincipalKind.Maintenance => "maintenance",
+        VaultPrincipalKind.MemberHuman => "member:" + who.MemberId,
+        VaultPrincipalKind.Cover => "agent:" + who.AgentId,
+        _ => "agent:" + who.AgentId,
+    };
 
     /// <summary>
     /// Admits a loaded, visible candidate. A node with no readable current superseder is kept as current and returned for
