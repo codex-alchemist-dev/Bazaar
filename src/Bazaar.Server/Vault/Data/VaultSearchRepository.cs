@@ -22,8 +22,16 @@ public sealed record VaultBlockRow(
 /// </summary>
 public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
 {
-    // Access, shared by every query. $1 is the caller's IsOwner and $2 the caller's agent owner (or null).
-    private const string _accessClause = "($1::boolean OR d.owner IS NULL OR d.owner = $2::text)";
+    // Access, shared by every query; the same rule as VaultAccess.CanRead, and it fails closed. $1 is the caller's IsOwner
+    // and $2 the caller's agent owner (or null). An owned document is its agent's only; an ownerless one is readable by an
+    // agent only under company/, shared/ or its own agents/<id>/ area. Everything else is the owner's.
+    private const string _accessClause = """
+        ($1::boolean
+         OR ($2::text IS NOT NULL AND d.owner IS NOT NULL AND d.owner = $2::text)
+         OR ($2::text IS NOT NULL AND d.owner IS NULL
+             AND (starts_with(d.path, 'company/') OR starts_with(d.path, 'shared/')
+                  OR (starts_with($2::text, 'agent:') AND starts_with(d.path, 'agents/' || substr($2::text, 7) || '/')))))
+        """;
 
     private const string _filterClause = """
         AND ($3::text IS NULL OR d.project = $3::text)

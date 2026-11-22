@@ -161,7 +161,7 @@ Rules: unknown keys are rejected (the file fails closed); every key is either a 
   },
   "custody": {
     "kekProvider": "dpapi",
-    "kekRef": "dpapi:C:\\ProgramData\\Bazaar\\kek.bin",
+    "kekRef": "dpapi:C:\\ProgramData\\Bazaar\\keys\\kek-dpapi.bin",
     "auditAnchorTarget": "https://anchor.example.invalid/bazaar-audit",
     "mergeCredential": { "kind": "owner_app", "appIdRef": "secret://bazaar/owner/app-id" }
   },

@@ -3,7 +3,8 @@
 # Generates a CycloneDX 1.6 JSON SBOM of the NuGet dependency graph for the
 # solution and uploads it as the `sbom` artifact. It never touches the installer
 # set: the artifact name is not installer-*, so release.yml verify keeps refusing
-# it. The SBOM is attached to a release by hand or by a later step that names it.
+# it. release.yml verify downloads this artifact from the run for the tag commit
+# and adds bazaar.cdx.json to the checksummed release set.
 #
 # Read-only: the default token is read-only and no secrets are used.
 #
@@ -58,10 +59,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Refuse to produce an empty SBOM: the repo must contain exactly one solution at the root.
-          mapfile -t solutions < <(find . -maxdepth 1 -name '*.sln' | sort)
+          # Refuse to produce an empty SBOM: the repo must contain exactly one solution
+          # at the root. The repo uses the .slnx format (Bazaar.slnx); .sln is accepted too.
+          mapfile -t solutions < <(find . -maxdepth 1 \( -name '*.sln' -o -name '*.slnx' \) | sort)
           if [ "${#solutions[@]}" -ne 1 ]; then
-            echo "::error::Expected exactly one .sln at the repository root, found ${#solutions[@]}."
+            echo "::error::Expected exactly one .sln or .slnx at the repository root, found ${#solutions[@]}."
             exit 1
           fi
           mkdir -p sbom
