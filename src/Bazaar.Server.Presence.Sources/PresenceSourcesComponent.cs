@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Server.Presence.Abstractions;
 using Bazaar.Server.Presence.Sources.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public sealed class PresenceSourcesComponent : IBazaarComponent
 /// <summary>Registers the presence sources.</summary>
 public static class PresenceSourcesServiceCollectionExtensions
 {
-    /// <summary>Adds the five adapters and the default tool classifier. Each can be replaced by registering the port first.</summary>
+    /// <summary>Adds the five adapters, the restart seed source and the default tool classifier. Each can be replaced by registering the port first.</summary>
     public static IServiceCollection AddBazaarPresenceSources(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -43,6 +44,12 @@ public static class PresenceSourcesServiceCollectionExtensions
         services.TryAddSingleton<IQuotaCapacitySink>(sp => sp.GetRequiredService<QuotaPresenceSource>());
         services.TryAddSingleton<IKanbanWaitSink, KanbanPresenceSource>();
         services.TryAddSingleton<IWardStateSink, WardPresenceSource>();
+        // The restart seed reads whichever of the three readers the host registers; the hosted service finds it by its port.
+        services.TryAddSingleton<IPresenceSeedSource>(sp => new ReadersPresenceSeedSource(
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IAvailabilityStateReader>(),
+            sp.GetService<IAgentScheduleReader>(),
+            sp.GetService<IOpenTurnReader>()));
         return services;
     }
 }
