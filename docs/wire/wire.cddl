@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:c1c849d3359acca5d6f5f957d0660697511dba990dabe7c80aed7e460adb66c5.
+; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -42,7 +42,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
@@ -151,6 +151,7 @@ kanban-board-card = {
   ? ownerAgentId: uuid-text,  ; 4
   unfinishedBlockerIds: [* uuid-text],  ; 5
   blockerTitles: [* tstr],  ; 6
+  ? revision: int,  ; 7
   * tstr => any
 }
 kanban-board-request = {
@@ -160,6 +161,28 @@ kanban-board-request = {
 kanban-board-snapshot = {
   projectId: uuid-text,  ; 1
   cards: [* kanban-board-card],  ; 2
+  * tstr => any
+}
+release-artifact = {
+  os: tstr,  ; 1
+  architecture: tstr,  ; 2
+  format: tstr,  ; 3
+  url: tstr,  ; 4
+  sizeBytes: int,  ; 5
+  sha256: tstr,  ; 6
+  ? sha256Url: tstr,  ; 7
+  ? signatureUrl: tstr,  ; 8
+  ? signature: tstr,  ; 9
+  * tstr => any
+}
+release-manifest = {
+  channel: tstr,  ; 1
+  appVersion: tstr,  ; 2
+  minProtocol: tstr,  ; 3
+  maxProtocol: tstr,  ; 4
+  schemaVersion: tstr,  ; 5
+  signingKeyFingerprint: tstr,  ; 6
+  artifacts: [* release-artifact],  ; 7
   * tstr => any
 }
 roadmap-board-snapshot = {
@@ -353,6 +376,8 @@ welcome = {
   uiRevision: int,  ; 10
   ? upgradeRequired: bool,  ; 11
   ? minimumBuild: tstr,  ; 12
+  ? schemaVersion: tstr,  ; 13
+  ? previousMajorSupported: bool,  ; 14
   * tstr => any
 }
 wire-error = {

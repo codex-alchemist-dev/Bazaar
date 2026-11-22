@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:c1c849d3359acca5d6f5f957d0660697511dba990dabe7c80aed7e460adb66c5. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:c1c849d3359acca5d6f5f957d0660697511dba990dabe7c80aed7e460adb66c5",
+  "x-schemaHash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
   "x-messages": {
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
@@ -188,7 +188,8 @@
         "state": { "type": "string" },
         "ownerAgentId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
         "unfinishedBlockerIds": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } },
-        "blockerTitles": { "type": "array", "items": { "type": "string" } }
+        "blockerTitles": { "type": "array", "items": { "type": "string" } },
+        "revision": { "type": "integer" }
       },
       "required": ["id", "title", "state", "unfinishedBlockerIds", "blockerTitles"],
       "additionalProperties": true
@@ -208,6 +209,36 @@
         "cards": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardCard" } }
       },
       "required": ["projectId", "cards"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Releases.ReleaseArtifact": {
+      "type": "object",
+      "properties": {
+        "os": { "type": "string" },
+        "architecture": { "type": "string" },
+        "format": { "type": "string" },
+        "url": { "type": "string" },
+        "sizeBytes": { "type": "integer" },
+        "sha256": { "type": "string" },
+        "sha256Url": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "signatureUrl": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "signature": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["os", "architecture", "format", "url", "sizeBytes", "sha256"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Releases.ReleaseManifest": {
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string" },
+        "appVersion": { "type": "string" },
+        "minProtocol": { "type": "string" },
+        "maxProtocol": { "type": "string" },
+        "schemaVersion": { "type": "string" },
+        "signingKeyFingerprint": { "type": "string" },
+        "artifacts": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Releases.ReleaseArtifact" } }
+      },
+      "required": ["channel", "appVersion", "minProtocol", "maxProtocol", "schemaVersion", "signingKeyFingerprint", "artifacts"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Roadmap.RoadmapBoardSnapshot": {
@@ -518,7 +549,9 @@
         "capabilities": { "type": "array", "items": { "type": "string" } },
         "uiRevision": { "type": "integer" },
         "upgradeRequired": { "anyOf": [ { "type": "boolean" }, { "type": "null" } ] },
-        "minimumBuild": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+        "minimumBuild": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "schemaVersion": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "previousMajorSupported": { "anyOf": [ { "type": "boolean" }, { "type": "null" } ] }
       },
       "required": ["version", "minor", "codec", "principalId", "serverTime", "heartbeatIntervalS", "heartbeatTimeoutS", "limits", "capabilities", "uiRevision"],
       "additionalProperties": true

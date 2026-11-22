@@ -29,13 +29,15 @@ public sealed record LayoutSlot(string DeviceClass, string Display, string Postu
 /// <summary>
 /// A node of the layout tree. A container node has <see cref="Container"/> and <see cref="Children"/>; a pane leaf has
 /// <see cref="PaneKind"/>. <see cref="PaneConfig"/> is free JSON that the pane's module reads; the host never interprets it.
+/// <see cref="VisibleWhen"/> is an optional Rubedo rule (doc 41a section 7); the node and its children show only while it is true.
 /// </summary>
 public sealed record LayoutNode(
     string? Container,
     IReadOnlyList<LayoutNode> Children,
     string? PaneKind,
     string? PaneId,
-    JsonElement? PaneConfig);
+    JsonElement? PaneConfig,
+    string? VisibleWhen = null);
 
 /// <summary>One validation problem. Path is a JSON pointer into the document; Code is stable for tests.</summary>
 public sealed record LayoutIssue(string Path, string Code, string Message);
