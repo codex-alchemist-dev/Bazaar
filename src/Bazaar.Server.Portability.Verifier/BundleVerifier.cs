@@ -490,12 +490,16 @@ public static class BundleVerifier
                     return false;
                 }
 
-                if (!TryOptionalString(e, "prev_event_hash", out prev))
+                // gc.jsonl.v1 (what the exporter writes) spells the chain prevHash and hash; the older spelling is still read.
+                var prevName = e.TryGetProperty("prevHash", out _) ? "prevHash" : "prev_event_hash";
+                var hashName = e.TryGetProperty("hash", out _) ? "hash" : "event_hash";
+                if (!TryOptionalString(e, prevName, out prev))
                 {
                     return false;
                 }
 
-                hash = ReadString(e, "event_hash");
+                prev = NormalizeGenesis(prev);
+                hash = ReadString(e, hashName);
                 return !string.IsNullOrEmpty(hash);
             }
             catch (JsonException)
@@ -503,6 +507,10 @@ public static class BundleVerifier
                 return false;
             }
         }
+
+        /// <summary>The all-zero genesis hash gc.jsonl.v1 gives a file's first line means the same as no previous hash.</summary>
+        private static string? NormalizeGenesis(string? value) =>
+            !string.IsNullOrEmpty(value) && value.All(c => c == '0') ? null : value;
 
         private static bool TryOptionalString(JsonElement element, string name, out string? value)
         {
@@ -516,6 +524,11 @@ public static class BundleVerifier
             return value is not null;
         }
 
+        /// <summary>
+        /// Reads head.json in either spelling: <c>last_seq</c>, <c>head_hash</c> and a <c>counts</c> object, or what
+        /// <c>GcExportHead</c> writes (<c>headSeq</c>, <c>eventHeadHash</c> and flat <c>eventCount</c>, <c>messageCount</c>,
+        /// <c>versionCount</c> and, when mentions are exported, <c>mentionCount</c>). Doc 44 names the content, not the fields.
+        /// </summary>
         private void ReadHead(string relativePath, out long? lastSeq, out string? headHash, out Dictionary<string, long>? counts)
         {
             lastSeq = null;
@@ -531,13 +544,16 @@ public static class BundleVerifier
             {
                 using var doc = JsonDocument.Parse(File.ReadAllBytes(path));
                 var e = doc.RootElement;
-                if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty("last_seq", out var s) || !s.TryGetInt64(out var seq)
-                    || !TryOptionalString(e, "head_hash", out headHash))
+                var seqName = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("headSeq", out _) ? "headSeq" : "last_seq";
+                var hashName = e.ValueKind == JsonValueKind.Object && e.TryGetProperty("eventHeadHash", out _) ? "eventHeadHash" : "head_hash";
+                if (e.ValueKind != JsonValueKind.Object || !e.TryGetProperty(seqName, out var s) || !s.TryGetInt64(out var seq)
+                    || !TryOptionalString(e, hashName, out headHash))
                 {
-                    Add("gc_head_malformed", relativePath, "head.json needs last_seq, head_hash and counts.");
+                    Add("gc_head_malformed", relativePath, "head.json needs a last sequence, a head hash and row counts.");
                     return;
                 }
 
+                headHash = NormalizeGenesis(headHash);
                 lastSeq = seq;
                 if (e.TryGetProperty("counts", out var c) && c.ValueKind == JsonValueKind.Object)
                 {
@@ -550,9 +566,20 @@ public static class BundleVerifier
                         }
                     }
                 }
+                else if (e.TryGetProperty("eventCount", out _))
+                {
+                    counts = [];
+                    foreach (var (name, field) in new[] { ("events", "eventCount"), ("messages", "messageCount"), ("versions", "versionCount"), ("mentions", "mentionCount") })
+                    {
+                        if (e.TryGetProperty(field, out var v) && v.TryGetInt64(out var n))
+                        {
+                            counts[name] = n;
+                        }
+                    }
+                }
                 else
                 {
-                    Add("gc_head_malformed", relativePath, "head.json needs last_seq, head_hash and counts.");
+                    Add("gc_head_malformed", relativePath, "head.json needs a last sequence, a head hash and row counts.");
                     lastSeq = null;
                 }
             }

@@ -3,7 +3,7 @@ namespace Bazaar.Kodo.Rings;
 /// <summary>
 /// How one channel runs its rings (doc 46 section 16.6): the halt thresholds, the probation a ring must stay live and healthy before the
 /// next ring starts, and whether canary may be skipped. Nightly and beta halt more readily and have a shorter probation; LTS is slower
-/// and never skips canary, whatever a setting says. Doc 49 owns the channel policy; these defaults are PROPOSED (section 16.9).
+/// and never skips canary, whatever a setting says. Doc 49 owns the channel policy; these defaults are PROPOSED (section 16.11).
 /// </summary>
 /// <param name="Channel">The channel.</param>
 /// <param name="Halt">The halt thresholds, validated against the floors.</param>

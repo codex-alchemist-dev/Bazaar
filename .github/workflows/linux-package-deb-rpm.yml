@@ -1,0 +1,130 @@
+# Builds the Bazaar Linux client .deb and .rpm (doc 30, section 3; doc 37) on the owner's self-hosted Linux runner ONLY.
+# There is no hosted fallback on purpose: the job runs only when the owner account started the run (github.actor and
+# triggering_actor are Cookiesmuch) and, for pull requests, the head branch is in this repository. For any other actor
+# or a fork PR the job is skipped, so nothing reaches the owner's machine. The packages are built from a real
+# self-contained publish of Bazaar.Client.Linux; the two script tests run first.
+#
+# Every third-party action is pinned to a full commit SHA (same pins as ci.yml); the version tag is kept in a trailing
+# comment. Permissions: the workflow token is read-only and nothing here uses a secret.
+
+name: Linux package (deb and rpm)
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/linux-deb/**'
+      - 'packaging/linux-rpm/**'
+      - 'packaging/linux/**'
+      - 'src/Bazaar.Client.Linux/**'
+      - '.github/workflows/linux-package-deb-rpm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Build deb and rpm
+    if: github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: [self-hosted, bazaar-linux]
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The packaging scripts never install tools themselves; this step does, once, with the distro package manager.
+      # It installs only what is missing and uses sudo when the runner user is not root.
+      - name: Install dpkg-dev and rpm
+        shell: bash
+        run: |
+          set -euo pipefail
+          need_dpkg=0; need_rpm=0
+          command -v dpkg-deb >/dev/null 2>&1 || need_dpkg=1
+          command -v rpmbuild >/dev/null 2>&1 || need_rpm=1
+          if [[ "${need_dpkg}" -eq 0 && "${need_rpm}" -eq 0 ]]; then
+            echo "dpkg-deb and rpmbuild are already installed."
+            exit 0
+          fi
+          SUDO=""
+          if [[ "$(id -u)" -ne 0 ]]; then SUDO="sudo -n"; fi
+          if command -v apt-get >/dev/null 2>&1; then
+            ${SUDO} apt-get update
+            packages=()
+            [[ "${need_dpkg}" -eq 1 ]] && packages+=(dpkg-dev)
+            [[ "${need_rpm}" -eq 1 ]] && packages+=(rpm)
+            ${SUDO} env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${packages[@]}"
+          elif command -v dnf >/dev/null 2>&1; then
+            packages=()
+            [[ "${need_dpkg}" -eq 1 ]] && packages+=(dpkg-dev)
+            [[ "${need_rpm}" -eq 1 ]] && packages+=(rpm-build rpm)
+            ${SUDO} dnf install -y "${packages[@]}"
+          else
+            echo "Neither apt-get nor dnf is available on this runner." >&2
+            exit 1
+          fi
+          dpkg-deb --version | head -n1
+          rpmbuild --version
+
+      # The SDK version comes from global.json at the repo root (.NET 11, pinned), installed per user into ~/.dotnet.
+      - name: Install .NET SDK from global.json
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' global.json | head -n1)"
+          [[ -n "${version}" ]] || { echo "No SDK version in global.json" >&2; exit 1; }
+          curl -sSL --fail https://dot.net/v1/dotnet-install.sh -o "${RUNNER_TEMP}/dotnet-install.sh"
+          bash "${RUNNER_TEMP}/dotnet-install.sh" --version "${version}" --install-dir "${HOME}/.dotnet"
+          echo "DOTNET_ROOT=${HOME}/.dotnet" >> "${GITHUB_ENV}"
+          echo "${HOME}/.dotnet" >> "${GITHUB_PATH}"
+
+      - name: Test the deb script
+        shell: bash
+        run: bash packaging/linux-deb/test-build-deb.sh
+
+      - name: Test the rpm script
+        shell: bash
+        run: bash packaging/linux-rpm/test-build-rpm.sh
+
+      # One real self-contained publish feeds both packages, so they carry the same bytes.
+      - name: Publish the client (self-contained, linux-x64)
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's:.*<VersionPrefix>\(.*\)</VersionPrefix>.*:\1:p' Directory.Build.props | head -n1)"
+          dotnet publish src/Bazaar.Client.Linux/Bazaar.Client.Linux.csproj \
+            --configuration Release \
+            --runtime linux-x64 \
+            --self-contained true \
+            -p:Version="${version}" \
+            --output "${RUNNER_TEMP}/client-publish"
+
+      - name: Build the .deb
+        shell: bash
+        run: bash packaging/linux-deb/build-deb.sh --publish-dir "${RUNNER_TEMP}/client-publish" --arch amd64 --out-dir artifacts/linux-packages
+
+      - name: Build the .rpm
+        shell: bash
+        run: bash packaging/linux-rpm/build-rpm.sh --publish-dir "${RUNNER_TEMP}/client-publish" --arch x86_64 --out-dir artifacts/linux-packages
+
+      - name: Upload packages and checksums
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: linux-client-packages
+          path: |
+            artifacts/linux-packages/*.deb
+            artifacts/linux-packages/*.rpm
+            artifacts/linux-packages/*.sha256
+          if-no-files-found: error
+          retention-days: 14

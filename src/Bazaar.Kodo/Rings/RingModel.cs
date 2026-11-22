@@ -28,7 +28,7 @@ public enum ReleaseChannel
 
 /// <summary>
 /// Ring sizes (doc 46 section 16.6). Sizes are shares of the fleet in basis points (100 is 1 percent), exclusive of each other: canary,
-/// then early, then broad as the rest. Defaults are PROPOSED (section 16.9): canary 3 percent (the doc says 1 to 5), early 25 percent.
+/// then early, then broad as the rest. Defaults are PROPOSED (section 16.11): canary 3 percent (the doc says 1 to 5), early 25 percent.
 /// </summary>
 public sealed record RingOptions
 {

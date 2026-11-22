@@ -60,7 +60,7 @@ public sealed record RingEvaluation(
 /// <summary>
 /// Halt thresholds (doc 46 sections 16.6 and 20). The documented defaults are the loosest values a setting may take: it may make a halt
 /// easier to trigger (a lower multiple, fewer events, a shorter window) and may demand more data before a ring counts as healthy (more
-/// devices, more sessions), never the reverse. Values for rules the doc leaves open are PROPOSED (section 16.9).
+/// devices, more sessions), never the reverse. Values for rules the doc leaves open are PROPOSED (section 16.11).
 /// </summary>
 public sealed record RingHaltOptions
 {

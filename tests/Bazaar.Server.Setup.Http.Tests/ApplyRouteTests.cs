@@ -114,6 +114,54 @@ public sealed class ApplyRouteTests
     }
 
     [Fact]
+    public async Task A_plan_with_sections_no_step_covers_answers_422_with_the_list_and_changes_nothing()
+    {
+        await using var harness = new SetupHarness();
+        harness.Owners.Exists = true;
+        harness.Step.Covers = ["database", "settings"];
+        await harness.StartAsync();
+
+        using var response = await harness.SendAsync(HttpMethod.Post, ApplyPath(PlanFixtures.ValidHash), Owner, PlanFixtures.Valid);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        var text = await SetupHarness.TextOf(response);
+        var body = SetupHarness.Parse(text);
+        Assert.Equal(2, body.GetProperty("exitCode").GetInt32());
+        var sections = body.GetProperty("unappliedSections").EnumerateArray().Select(item => item.GetString()).ToList();
+        Assert.Contains("owner", sections);
+        Assert.DoesNotContain("database", sections);
+        Assert.Equal("unapplied_sections", body.GetProperty("issues")[0].GetProperty("path").GetString());
+        Assert.DoesNotContain(PlanFixtures.Canary, text, StringComparison.Ordinal);
+        Assert.Equal(0, harness.Step.ApplyCalls);
+        Assert.Equal(0, harness.Lock.Acquisitions);
+        Assert.Equal(0, harness.Results.Count);
+
+        // The call row and the apply row both carry the list, and neither carries a secret.
+        var callRow = Assert.Single(harness.RowsOf(SetupHttpConstants.AuditKind));
+        Assert.Equal("held:unapplied_sections", SetupHarness.Parse(callRow.Payload).GetProperty("outcome").GetString());
+        Assert.Contains("owner", SetupHarness.Parse(callRow.Payload).GetProperty("unappliedSections").EnumerateArray().Select(item => item.GetString()));
+        var appliedRow = Assert.Single(harness.RowsOf("setup.plan.applied"));
+        Assert.Contains("\"unappliedSections\":[", appliedRow.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(PlanFixtures.Canary, callRow.Payload + appliedRow.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_plan_route_lists_the_sections_an_apply_would_hold_for()
+    {
+        await using var harness = new SetupHarness();
+        harness.Owners.Exists = true;
+        harness.Step.Covers = ["database"];
+        await harness.StartAsync();
+
+        using var response = await harness.SendAsync(HttpMethod.Post, "/setup/plans", Owner, PlanFixtures.Valid);
+
+        var body = SetupHarness.Parse(await SetupHarness.TextOf(response));
+        Assert.Equal(0, body.GetProperty("exitCode").GetInt32());
+        Assert.Contains("owner", body.GetProperty("unappliedSections").EnumerateArray().Select(item => item.GetString()));
+        Assert.Empty(harness.RowsOf("setup.plan.applied"));
+    }
+
+    [Fact]
     public async Task A_held_apply_answers_422_changes_nothing_and_is_not_stored()
     {
         await using var harness = new SetupHarness();
