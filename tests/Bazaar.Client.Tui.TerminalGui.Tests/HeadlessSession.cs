@@ -12,7 +12,8 @@ namespace Bazaar.Client.Tui.TerminalGui.Tests;
 /// </summary>
 internal sealed class HeadlessSession : IDisposable
 {
-    private readonly Queue<Action> _steps = new();
+    private readonly Queue<Func<bool>> _steps = new();
+    private readonly DateTime _deadline = DateTime.UtcNow.AddSeconds(30);
     private int _idle;
 
     /// <summary>True when the script ran out and the session was stopped for it, so the code under test never ended the run itself.</summary>
@@ -37,7 +38,27 @@ internal sealed class HeadlessSession : IDisposable
 
     public HeadlessSession Do(Action step)
     {
-        _steps.Enqueue(step);
+        _steps.Enqueue(() =>
+        {
+            step();
+            return true;
+        });
+        return this;
+    }
+
+    /// <summary>Waits (one loop iteration at a time, so the loop keeps running) until <paramref name="ready"/> is true, then runs <paramref name="then"/>.</summary>
+    public HeadlessSession Until(Func<bool> ready, Action then)
+    {
+        _steps.Enqueue(() =>
+        {
+            if (!ready())
+            {
+                return false;
+            }
+
+            then();
+            return true;
+        });
         return this;
     }
 
@@ -45,9 +66,9 @@ internal sealed class HeadlessSession : IDisposable
     {
         foreach (var key in keys)
         {
-            _steps.Enqueue(() => Application.InjectKey(key));
-            _steps.Enqueue(() => { });
-            _steps.Enqueue(() => { });
+            Do(() => Application.InjectKey(key));
+            Do(() => { });
+            Do(() => { });
         }
 
         return this;
@@ -58,9 +79,9 @@ internal sealed class HeadlessSession : IDisposable
         foreach (var letter in text)
         {
             var key = new Key(letter);
-            _steps.Enqueue(() => Application.InjectKey(key));
-            _steps.Enqueue(() => { });
-            _steps.Enqueue(() => { });
+            Do(() => Application.InjectKey(key));
+            Do(() => { });
+            Do(() => { });
         }
 
         return this;
@@ -68,20 +89,30 @@ internal sealed class HeadlessSession : IDisposable
 
     public HeadlessSession Capture(List<string> screens)
     {
-        _steps.Enqueue(() =>
+        return Do(() =>
         {
             Application.TopRunnableView?.SetNeedsDraw();
             Application.LayoutAndDraw(true);
             screens.Add(Screen);
         });
-        return this;
     }
 
     private void OnIteration(object? sender, EventArgs<IApplication?> e)
     {
-        if (_steps.Count > 0)
+        if (DateTime.UtcNow > _deadline)
         {
-            _steps.Dequeue()();
+            // A step that waits for something that never comes must not hang the test run.
+            StoppedByScriptEnd = true;
+            Application.RequestStop();
+        }
+        else if (_steps.Count > 0)
+        {
+            if (_steps.Peek()())
+            {
+                _steps.Dequeue();
+            }
+
+            _idle = 0;
         }
         else if (++_idle > 3)
         {

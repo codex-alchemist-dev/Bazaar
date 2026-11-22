@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
+using Bazaar.RateLimits;
 using Bazaar.Server.Agents.Turns.Tools;
 
 namespace Bazaar.GitHub.Tools;
@@ -12,7 +13,7 @@ namespace Bazaar.GitHub.Tools;
 /// REQUEST_CHANGES are accepted; APPROVE and anything else is refused before GitHub is touched, as for the client <c>pr.review</c>
 /// (reviewer approval is data, not merge authority). There is no merge path here. A moved head is reported stale and nothing is posted.
 /// </summary>
-public sealed class GitHubPrReviewTool(IGitHubAdapter adapter, IGitHubTokenProvider tokens, IGitHubAgentInstallations installations) : IContextualTool
+public sealed class GitHubPrReviewTool(IGitHubAdapter adapter, IGitHubTokenProvider tokens, IGitHubAgentInstallations installations, IRateLimiter limiter, GitHubAgentToolsOptions options) : IContextualTool
 {
     /// <summary>The exact registered name.</summary>
     public const string ToolName = "github.pr_review";
@@ -37,6 +38,12 @@ public sealed class GitHubPrReviewTool(IGitHubAdapter adapter, IGitHubTokenProvi
           "additionalProperties": false
         }
         """);
+
+    /// <summary>Counts one write against the installation's hourly limit; a refusal carries no GitHub or secret detail.</summary>
+    private JsonObject? WriteGate(long installationId) =>
+        limiter.TryAcquire(options.WritesPerHourPolicy, installationId.ToString(System.Globalization.CultureInfo.InvariantCulture)).Allowed
+            ? null
+            : GitHubToolSupport.Refuse("rate_limited", "This GitHub App installation reached its writes-per-hour limit. Nothing was sent; try again later.");
 
     /// <inheritdoc />
     public async Task<string> ExecuteAsync(JsonElement args, ToolCallContext context, CancellationToken cancellationToken)
@@ -71,7 +78,7 @@ public sealed class GitHubPrReviewTool(IGitHubAdapter adapter, IGitHubTokenProvi
 
         try
         {
-            var (installation, failure) = await GitHubToolSupport.ResolveAsync(installations, adapter, tokens, context.AgentId, owner, repo, cancellationToken).ConfigureAwait(false);
+            var (installation, failure) = await GitHubToolSupport.ResolveAsync(installations, adapter, tokens, context.AgentId, owner, repo, cancellationToken, WriteGate).ConfigureAwait(false);
             if (failure is not null)
             {
                 return failure.ToJsonString();

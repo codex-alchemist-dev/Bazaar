@@ -341,4 +341,40 @@ public sealed class TokenServiceTests
     {
         public string Issue(Guid deviceId, Guid humanId, DateTimeOffset expiresAt) => throw new AccessTokenIssuerUnavailableException();
     }
+
+    [Fact]
+    public async Task IssueAsync_creates_a_device_whose_first_pair_then_refreshes()
+    {
+        var h = await CreateAsync();
+        var deviceId = Guid.CreateVersion7(_start);
+        var humanId = Guid.CreateVersion7(_start);
+
+        var pair = await h.Service.IssueAsync(deviceId, humanId, DeviceOf(deviceId, "android"), Ct);
+
+        Assert.Equal((deviceId, humanId), (h.Issuer.Issued[^1].DeviceId, h.Issuer.Issued[^1].HumanId));
+        var stored = await h.Store.FindDeviceAsync(deviceId, Ct);
+        Assert.Equal("android", stored?.Class);
+        Assert.Equal(humanId, stored?.HumanId);
+        var next = await h.Service.RefreshAsync(pair.RefreshToken, DeviceOf(deviceId, "android"), Ct);
+        Assert.NotEqual(pair.RefreshToken, next.RefreshToken);
+    }
+
+    [Fact]
+    public async Task IssueAsync_refuses_a_device_that_already_exists()
+    {
+        var h = await CreateAsync();
+        var ex = await Assert.ThrowsAsync<TokenIssueException>(
+            () => h.Service.IssueAsync(h.DeviceId, h.HumanId, DeviceOf(h.DeviceId), Ct));
+        Assert.Equal(TokenIssueFailure.DeviceAlreadyExists, ex.Failure);
+    }
+
+    [Fact]
+    public async Task IssueAsync_refuses_an_empty_class()
+    {
+        var h = await CreateAsync();
+        var id = Guid.CreateVersion7(_start);
+        var ex = await Assert.ThrowsAsync<TokenIssueException>(() => h.Service.IssueAsync(id, h.HumanId, DeviceOf(id, " "), Ct));
+        Assert.Equal(TokenIssueFailure.InvalidDevice, ex.Failure);
+        Assert.Null(await h.Store.FindDeviceAsync(id, Ct));
+    }
 }

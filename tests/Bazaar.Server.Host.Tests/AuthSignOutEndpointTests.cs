@@ -25,6 +25,9 @@ public sealed class AuthSignOutEndpointTests
         public Task<TokenPair> RefreshAsync(string refresh, DeviceInfo device, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<TokenPair> IssueAsync(Guid deviceId, Guid humanId, DeviceInfo device, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task RevokeDeviceAsync(Guid deviceId, PrincipalRef by, CancellationToken ct = default)
         {
             Revoked.Add((deviceId, by));

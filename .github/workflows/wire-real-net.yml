@@ -49,21 +49,25 @@ jobs:
           global-json-file: global.json
 
       # PowerShell 7 is on the hosted Windows image.
+      # Every project runs even if an earlier one fails; the step fails at the end if any did.
       - name: Run the real-network wire tests
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $projects = @(Get-ChildItem -Path 'tests/Bazaar.Wire.Transport.*.Tests', 'tests/Bazaar.Transport.*.Tests' -Directory -ErrorAction SilentlyContinue)
           if (-not $projects) { throw 'No wire transport test projects found.' }
+          $failed = @()
           foreach ($p in $projects) {
             Write-Host "== $($p.Name)"
             dotnet test --project $p.FullName --configuration Release --output Detailed
-            if ($LASTEXITCODE -ne 0) { throw "Tests failed in $($p.Name)" }
+            if ($LASTEXITCODE -ne 0) { $failed += $p.Name }
           }
+          if ($failed) { throw "Tests failed in: $($failed -join ', ')" }
 
       # Spike S-WTX (doc 90 section 10): the codec benchmark, three process runs per row.
       # Results go to the job log and an artifact; transport rows join this step when the harness grows them.
       - name: Run the S-WTX codec benchmark
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -72,6 +76,7 @@ jobs:
           Get-Content "$env:RUNNER_TEMP/wire-bench.md"
 
       - name: Upload the benchmark results
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: wire-bench-windows

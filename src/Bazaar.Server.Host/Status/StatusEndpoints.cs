@@ -55,13 +55,19 @@ public static class StatusEndpoints
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
 
     /// <summary>
-    /// The refresh and sign-out routes (<c>/auth/refresh</c>, <c>/auth/signout</c>, doc 32 section 5). They take POST and
+    /// The refresh, sign-out and handoff routes (<c>/auth/refresh</c>, <c>/auth/signout</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
         && (path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase));
+            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/handoff", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// The walkthrough preference route (<c>/prefs/walkthrough</c>, doc 45 section 2.9, PROPOSED). It takes GET and PUT and nothing else.
+    /// </summary>
+    private static bool IsPrefsRoute(PathString path) => path.Equals("/prefs/walkthrough", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
@@ -84,6 +90,11 @@ public static class StatusEndpoints
         {
             allowed = HttpMethods.IsPost(method);
             allow = "POST";
+        }
+        else if (IsPrefsRoute(path))
+        {
+            allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsPut(method);
+            allow = "GET, HEAD, PUT";
         }
         else
         {

@@ -193,6 +193,13 @@ exec_log(id, vm_id, started_at, argv_hash, timeout_s, exit_code, bytes_out)
                -- exec metadata only; security audit goes to doc 15's audit_log
 ```
 
+### Read and control port for other modules [PROPOSED, 2026-11-22]
+Other modules (the density governor, the screen tools of doc 59) need to know an agent's VMs and to stop or save one, and no module may reference `Bazaar.Server.Vms`. Proposed: a project `Bazaar.Server.Vms.Abstractions` (namespace `Bazaar.Server.Vms.Abstractions`) with:
+- `IAgentVmDirectory`: `ListForAgentAsync(agentId)` (non-retired VMs of the agent, oldest first) and `ListRunningAsync()` (VMs recorded as Running, of any agent). Each entry is an `AgentVmInfo(VmId, AgentId, Os, BackendRef, State)`; `BackendRef` is never null when `State` is `Running`. It reads records and calls no backend. A Running row without a backend reference is reported as `Other`, never as running.
+- `VmRunState` is `Provisioning`, `Stopped`, `Running`, `Saved` or `Other` (a checkpoint, or a restore whose power state the record does not say). Retired VMs are never listed.
+- `IVmControl`: `SaveAsync(vmId)` and `StopAsync(vmId, Graceful | Force)`, both through `VmLifecycleService`, so the transition table and the per-VM lock apply. A refused request is a result (`VmControlOutcome`), a backend failure is an exception.
+The host registers the directory always and the control port only when a VM backend is configured. A different, older `IAgentVmDirectory` exists in `Bazaar.Server.AgentSafety.Containment` (it returns the module's own records, retired included, to the agent pauser); the two are in different namespaces and the older one is unchanged.
+
 ### Settings
 Registry owned by doc 03 [PROPOSED]. Changes are written to `audit_log` (doc 15).
 
