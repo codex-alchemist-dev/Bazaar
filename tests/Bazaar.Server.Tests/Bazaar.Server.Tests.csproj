@@ -39,7 +39,6 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Twin\Bazaar.Server.Twin.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.GcMetadata\Bazaar.Server.GcMetadata.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gc.Archive\Bazaar.Server.Gc.Archive.csproj" />
