@@ -1,5 +1,7 @@
 # Forward-facing dependency tracking
 
+Docs section this implements: docs/FORWARD-FACING.md, "Known limits" (Renovate mechanism).
+
 Status: PROPOSED (tracking doc and mechanisms; adoption items are follow-up issues).
 Owner: Bazaar maintainers (per-row owner to be confirmed by the owner).
 Last audit: 2026-11-12 (dated table below; the 2026-11-11 inventory is kept and corrected by it).
@@ -93,6 +95,7 @@ Known limits:
   Installing an app is a GitHub settings change, so the owner's Cowork session does it
   (see the GitHub permissions note in project memory). Until then `renovate.json` does
   nothing.
+- **Prerelease major bumps are skipped** (2026-11-19). A `renovate.json` rule sets `ignoreUnstable: true` for major updates of every tracked package except `Microsoft.*` and `Npgsql`, which stay on prerelease tracking because they follow .NET 11 and the Npgsql 11 previews. A major version is proposed only once it is stable; prerelease minor and patch updates and the .NET SDK and runtime pins are unchanged.
 - Once Renovate is installed, its tracked list overlaps Dependabot's stable updates for
   the same packages. The fix is to add `ignore` entries in `dependabot.yml` for exactly
   the packages Renovate tracks, while security updates stay on Dependabot. Do this in
@@ -135,7 +138,7 @@ and the `net11.0`/`net11.0-android` target frameworks in the project files.
 | Npgsql | `10.0.3` | Npgsql 11.0 previews: `11.0.0-preview.1-ci` builds on the `npgsql-vnext` MyGet feed (latest seen 2026-10-26). EF Core provider `11.0.0-preview.6` on NuGet. Reported features: failover, load balancing, multi-host. The EF provider notes PG 18 temporal constraints. | Reported (MyGet, NuGet listings). The Npgsql 11 release notes page is still a stub. | Multi-host and failover matter for the server's Postgres connection when it runs on Linux and Windows. | Track 11.0 previews through Renovate. Run a canary build against the preview when it is on NuGet.org. Do not adopt before GA. | Renovate (tracked, prerelease). Follow-up issue for the canary. |
 | Testcontainers.PostgreSql | `4.16.0` | A newer line is listed on the NuGet feed (a `2.1.0-beta` build was seen). The version scheme and changes are not verified. | Not found (only listings). | Test container lifecycle. | Check the official Testcontainers .NET releases before any bump. | Renovate (tracked, prerelease). |
 | Valkey (cache and presence on Linux) | Not pinned in the repo. Design uses Valkey on Linux and Garnet on Windows (`docs/design/03`). | Valkey 9.1 GA on 2026-05-19 (Linux Foundation). Adds TLS certificate reload, database-level ACLs, client-side caching support, and Valkey GLIDE 2.4 with C# and PHP. Valkey 9.0.x security patches (CVE fixes in TLS and streams) followed. | Confirmed (Linux Foundation, Valkey release pages). | Client-side caching for GC presence. Security patches must be deployed. | When the cache provider is built, pin Valkey at 9.1 or later, with the latest 9.x patch. Compare StackExchange.Redis with Valkey GLIDE for C# before choosing. | Follow-up issue. |
-| StackExchange.Redis | `3.4.5` | 4.x not found. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build. | Renovate (tracked, prerelease). |
+| StackExchange.Redis | `3.4.5` | 4.0.x alpha exists (PR #596 was closed for targeting it). Renovate now skips prerelease major bumps until 4.x is stable. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build, and when 4.x reaches stable. | Renovate (tracked; prerelease majors skipped). |
 | Garnet (Windows cache) | Not pinned in the repo. | Not searched in this audit. | Not found. | Windows cache provider. | Searched without result; re-check before the Windows cache provider is built. | Follow-up issue. |
 
 ### AI, inference and tests
