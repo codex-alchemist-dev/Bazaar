@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Published wire schema artifacts (doc 90 section 5): schema.json, JSON Schema, CDDL and golden frames, embedded for the discovery route. Also hosts the schema.lock.json gate.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Wire.Abstractions\Bazaar.Wire.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Wire.Generators\Bazaar.Wire.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The generator checks the schema against the lock at build time (BWG007, BWG008). -->
+    <AdditionalFiles Include="..\..\docs\wire\schema.lock.json" />
+    <EmbeddedResource Include="..\..\docs\wire\schema.lock.json" LogicalName="schema.json" />
+    <EmbeddedResource Include="..\..\docs\wire\json-schema.json" LogicalName="json-schema.json" />
+    <EmbeddedResource Include="..\..\docs\wire\wire.cddl" LogicalName="wire.cddl" />
+    <EmbeddedResource Include="..\..\docs\wire\vectors\**\*" LogicalName="vectors/%(RecursiveDir)%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Wire.Schema.Tests" />
+  </ItemGroup>
+</Project>

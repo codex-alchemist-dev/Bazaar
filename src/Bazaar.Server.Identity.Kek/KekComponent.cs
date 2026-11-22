@@ -38,6 +38,7 @@ public sealed class KekComponent : IBazaarComponent
         });
         // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
         services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
+        services.AddHostedService<KekStartupOpener>();
         services.AddSingleton<ISoulDekStore>(sp => new PostgresSoulDekStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.AddSingleton(sp => new SoulDekService(
             sp.GetRequiredService<IKekProvider>(),
