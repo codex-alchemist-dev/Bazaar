@@ -27,6 +27,9 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Org\Bazaar.Client.Org.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui\Bazaar.Client.GitGui.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui.Github\Bazaar.Client.GitGui.Github.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui.Gitlab\Bazaar.Client.GitGui.Gitlab.csproj" />

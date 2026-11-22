@@ -104,6 +104,27 @@ public class ReleaseManifestTests
     public void Schema_version_must_be_a_short_token(string schema) =>
         Assert.Throws<ArgumentException>(() => Manifest(schema: schema));
 
+    [Fact]
+    public void Schema_version_accepts_a_real_schema_digest()
+    {
+        string digest = SchemaDigest.Compute([("common", 3), ("kodo", 1)]);
+
+        Assert.Equal(71, digest.Length);
+        Assert.Equal(digest, Manifest(schema: digest).SchemaVersion);
+    }
+
+    [Theory]
+    [InlineData("sha256:")] // No hex.
+    [InlineData("sha256:0123456789abcdef")] // Too short.
+    [InlineData("sha256:0123456789ABCDEF0123456789abcdef0123456789abcdef0123456789abcdef")] // Uppercase hex.
+    [InlineData("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdeg")] // Not hex.
+    [InlineData("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0")] // Too long.
+    [InlineData("sha512:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")] // Wrong prefix.
+    [InlineData("SHA256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")] // Prefix is case sensitive.
+    [InlineData("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef")] // No prefix, over 32 characters.
+    public void Schema_version_refuses_a_malformed_digest(string schema) =>
+        Assert.Throws<ArgumentException>(() => Manifest(schema: schema));
+
     [Theory]
     [InlineData("")]
     [InlineData("0123456789ABCDEF0123456789ABCDEF01234567")]

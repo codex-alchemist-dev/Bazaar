@@ -57,6 +57,28 @@ public class WireClientTests : IAsyncLifetime
     private async Task<WireGcMessage> Next() => await _client.Messages.ReadAsync(_cts.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
 
     [Fact]
+    public async Task OnWelcome_callback_receives_each_welcome_and_a_throwing_callback_is_ignored()
+    {
+        var seen = new List<Welcome>();
+        var client = new WireClient(_transport, _transport.Codec, _cursors,
+            new WireClientOptions
+            {
+                DeviceId = "dev-1",
+                DeviceClass = "windows",
+                ClientBuild = "test",
+                Jitter = () => 1.0,
+                OnWelcome = w => { seen.Add(w); throw new InvalidOperationException("observer bug"); },
+            }, _clock);
+        await client.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
+        _run = client.RunAsync(_cts.Token);
+
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Subscribe).Any());
+
+        Assert.Single(seen);
+        Assert.Null(client.Stopped);
+    }
+
+    [Fact]
     public async Task Hello_then_subscribe_carries_the_stored_cursor()
     {
         _cursors.Save(new StreamCursor(_stream, 11, 39));
