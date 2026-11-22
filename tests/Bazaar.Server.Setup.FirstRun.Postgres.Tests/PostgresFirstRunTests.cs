@@ -173,4 +173,30 @@ public sealed class PostgresFirstRunTests(FirstRunDb db) : IClassFixture<FirstRu
         Assert.Equal("operator", entry.Actor);
         Assert.Equal($"{{\"gcId\":\"{gc:D}\",\"agentId\":null,\"constitutionAccepted\":true}}", entry.Payload);
     }
+
+    private async Task InsertConstitutionAsync(Guid vaultId, string path, string? commit, DateTimeOffset updated)
+    {
+        await using var cmd = db.DataSource.CreateCommand(
+            "INSERT INTO vault_docs (vault_id, path, title, type, area, head_commit, updated_at) VALUES ($1, $2, 'Constitution', 'constitution', 'company', $3, $4)");
+        cmd.Parameters.Add(new Npgsql.NpgsqlParameter<Guid> { TypedValue = vaultId });
+        cmd.Parameters.Add(new Npgsql.NpgsqlParameter<string> { TypedValue = path });
+        cmd.Parameters.Add(new Npgsql.NpgsqlParameter { Value = (object?)commit ?? DBNull.Value, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Char });
+        cmd.Parameters.Add(new Npgsql.NpgsqlParameter<DateTimeOffset> { TypedValue = updated });
+        await cmd.ExecuteNonQueryAsync(Ct);
+    }
+
+    [Fact]
+    public async Task Vault_lookup_returns_the_newest_constitution_commit_or_null()
+    {
+        NeedDb();
+        var lookup = new VaultCurrentConstitutionCommit(db.DataSource);
+        Assert.Null(await lookup.GetCurrentCommitShaAsync(Ct));
+
+        var vault = Guid.CreateVersion7();
+        await InsertConstitutionAsync(vault, "company/constitution-old.md", new string('1', 40), DateTimeOffset.UtcNow.AddHours(-2));
+        await InsertConstitutionAsync(vault, "company/constitution.md", new string('2', 40), DateTimeOffset.UtcNow);
+        await InsertConstitutionAsync(vault, "company/constitution-draft.md", null, DateTimeOffset.UtcNow.AddHours(1));
+
+        Assert.Equal(new string('2', 40), await lookup.GetCurrentCommitShaAsync(Ct));
+    }
 }
