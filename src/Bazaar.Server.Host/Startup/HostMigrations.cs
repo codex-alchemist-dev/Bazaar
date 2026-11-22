@@ -1,5 +1,6 @@
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Modules;
@@ -19,6 +20,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
+        new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly));

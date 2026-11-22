@@ -20,6 +20,7 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -52,6 +53,7 @@ public static class HostComponents
         new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
         new CompanyBuildComponent(),
