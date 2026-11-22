@@ -188,6 +188,19 @@ message Hello {
   StreamCursorList cursors = 9;
 }
 
+message KanbanAssignReply {
+  string status = 1;
+  optional int64 revision = 2;
+  optional string reason = 3;
+}
+
+message KanbanAssignRequest {
+  bytes project_id = 1;
+  bytes card_id = 2;
+  optional bytes assignee_agent_id = 3;
+  int64 expected_revision = 4;
+}
+
 message KanbanBoardCard {
   bytes id = 1;
   string title = 2;
@@ -217,6 +230,10 @@ message LayoutFrame {
   int64 layout_seq = 2;
   string focus_id = 3;
   repeated float xyz = 4;
+}
+
+message PaneFrame {
+  string frame = 1;
 }
 
 message Ping {

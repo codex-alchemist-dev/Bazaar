@@ -1,7 +1,8 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0",
+  "hash": "sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692",
   "messages": [
+    { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
     { "type": "gc.history", "payload": "Bazaar.Contracts.Wire.GcHistory" },
@@ -13,6 +14,7 @@
     { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
     { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
+    { "type": "pane.frame", "payload": "Bazaar.Contracts.Wire.PaneFrame" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
     { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
     { "type": "presence.snapshot", "payload": "Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
@@ -208,6 +210,27 @@
         { "name": "far", "value": 0 },
         { "name": "mid", "value": 1 },
         { "name": "near", "value": 2 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanAssignReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanAssignRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "cardId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "assigneeAgentId", "type": "guid", "nullable": true, "default": false },
+        { "n": 4, "name": "expectedRevision", "type": "int64", "nullable": false, "default": false }
       ]
     },
     {
@@ -477,6 +500,14 @@
       "fields": [
         { "n": 1, "name": "s", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "lastSent", "type": "int64", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PaneFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "frame", "type": "string", "nullable": false, "default": false }
       ]
     },
     {

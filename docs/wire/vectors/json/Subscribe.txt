@@ -1,7 +1,7 @@
 Golden frame: Subscribe
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0
+Schema hash: sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692
 Payload record: Bazaar.Contracts.Wire.Subscribe
 Envelope: v=1 t=subscribe k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 300 bytes

@@ -14,6 +14,7 @@ using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Linux;
 
@@ -25,6 +26,7 @@ internal static class Program
     public static int Main(string[] args)
     {
         if (DefaultAppCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultAppExit) { return defaultAppExit; }
+        if (DefaultTerminalCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultTerminalExit) { return defaultTerminalExit; }
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
@@ -36,6 +38,12 @@ internal static class Program
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
+        }
+
+        // Headless modes (doc 37 section 4d) run before the single-instance forward and any window.
+        if (SupportBundleCommands.TryRun(args, ClientDataPaths.DataDir(Environment.GetEnvironmentVariable)) is { } headlessExit)
+        {
+            return headlessExit;
         }
 
         var paths = LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));

@@ -1,8 +1,11 @@
 namespace Bazaar.Server.Agents.Scheduling;
 
 /// <summary>
-/// Settings for the agent wake loop, bound from the <c>Bazaar:AgentTurns:Scheduler</c> section. The loop is off by default:
-/// no background service runs turns until an operator switches it on. Routes and tool grants are per agent (each agent's Soul
+/// Settings for the agent wake loop, bound from the <c>Bazaar:AgentTurns:Scheduler</c> section. The loop is on by default
+/// (overnight plan item 41; doc 06, "Wake loop"): a fresh company wakes agents on a card or a mention with no flag flipped.
+/// The default-on path is guarded: it never wakes while the kill switch is engaged, the loop guard is always asked, and a host
+/// that cannot run a turn (no model gateway, no guard) stays idle with a logged reason instead of failing. An operator turns
+/// the loop off with <c>Enabled=false</c>. Routes and tool grants are per agent (each agent's Soul
 /// and model policy, doc 05), so this section holds only the loop's own limits and never names a route or a tool.
 /// </summary>
 public sealed class AgentSchedulerOptions
@@ -13,8 +16,8 @@ public sealed class AgentSchedulerOptions
     /// <summary>The smallest poll interval accepted. Shorter intervals only add database load.</summary>
     private static readonly TimeSpan _minimumPollInterval = TimeSpan.FromMilliseconds(100);
 
-    /// <summary>Whether the wake loop runs. Off by default.</summary>
-    public bool Enabled { get; init; }
+    /// <summary>Whether the wake loop runs. On by default. Switching it off is the only way to disable wakes besides the kill switch.</summary>
+    public bool Enabled { get; init; } = true;
 
     /// <summary>How long the loop waits between passes.</summary>
     public TimeSpan PollInterval { get; init; } = TimeSpan.FromSeconds(2);

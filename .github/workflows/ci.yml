@@ -34,10 +34,10 @@ permissions:
   contents: read
 
 concurrency:
-  # A newer push or pull request update supersedes the older run for the same ref.
+  # A newer push or pull request update supersedes the older run for the same ref, except on main, where every merge keeps its own run.
   # A label other than `checkpoint` gets its own group so it cannot cancel a real run.
   group: ${{ github.workflow }}-${{ github.ref }}${{ github.event.action == 'labeled' && github.event.label.name != 'checkpoint' && '-label' || '' }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   # Decides whether the change touches code. Docs-only PRs skip the heavy work. The heavy jobs still run (a

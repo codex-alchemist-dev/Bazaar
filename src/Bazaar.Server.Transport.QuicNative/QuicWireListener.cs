@@ -178,7 +178,19 @@ public sealed class QuicWireListener : IAcceptingWireTransportListener, IAsyncDi
         {
             while (!stop.IsCancellationRequested)
             {
-                var connection = await listener.AcceptConnectionAsync(stop).ConfigureAwait(false);
+                QuicConnection connection;
+                try
+                {
+                    connection = await listener.AcceptConnectionAsync(stop).ConfigureAwait(false);
+                }
+                catch (System.Security.Authentication.AuthenticationException ex)
+                {
+                    // One client failed its handshake (it refused our certificate, or the ALPN did not match). That is that client's
+                    // problem; the listener keeps accepting everyone else.
+                    Report(QuicWireSupport.DescribeFailure("accept-handshake-failed", _options.ListenEndPoint.ToString(), QuicWireSupport.CreateApplicationProtocols(), null, ex));
+                    continue;
+                }
+
                 _ = Task.Run(() => HandleAsync(connection, stop), CancellationToken.None);
             }
         }

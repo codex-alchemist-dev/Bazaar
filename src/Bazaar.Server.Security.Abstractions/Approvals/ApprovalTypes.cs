@@ -36,7 +36,7 @@ public enum ApprovalDecision
 /// <summary>One row of the <c>approval</c> table (doc 15). Immutable; the store replaces the whole row on each change.</summary>
 /// <param name="Id">Approval id. Also the id in the signed message.</param>
 /// <param name="AgentId">Agent that asked.</param>
-/// <param name="SessionId">Session the call came from.</param>
+/// <param name="SessionId">Session the call came from. <see cref="Guid.Empty"/> means "no session": the row was enqueued by a module (<c>IOwnerApprovalEnqueuer</c>), not by a tool dispatch. Nothing may treat it as a live session.</param>
 /// <param name="Tool">Tool the approval covers.</param>
 /// <param name="Target">Target of the action, if any. Part of the hash.</param>
 /// <param name="ArgsHash">Dispatch hash at request time (<see cref="Policy.DispatchHash"/>). The only thing a decision is bound to.</param>

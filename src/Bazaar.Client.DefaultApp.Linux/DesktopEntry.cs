@@ -31,7 +31,24 @@ internal static class DesktopEntry
     /// (spec: backslash-escape <c>"</c>, <c>`</c>, <c>$</c> and <c>\</c> inside double quotes), with <c>%</c> doubled so it is
     /// not read as a field code, then the <c>%u</c> field code for one URL or file.
     /// </summary>
-    internal static string ExecLine(string path)
+    internal static string ExecLine(string path) => QuoteExecPath(path) + " %u";
+
+    /// <summary>Renders Bazaar's terminal entry: a terminal emulator xdg-terminal-exec may pick, marked managed.</summary>
+    public static string RenderTerminal(DefaultTerminalSettings settings)
+    {
+        var sb = new StringBuilder();
+        sb.Append("[Desktop Entry]\n");
+        sb.Append("Type=Application\n");
+        sb.Append("Name=").Append(EscapeString(settings.DisplayName)).Append('\n');
+        sb.Append("Exec=").Append(EscapeString(QuoteExecPath(settings.ExecPath))).Append('\n');
+        sb.Append("Terminal=false\n");
+        sb.Append("Categories=TerminalEmulator;System;\n");
+        sb.Append(ManagedMarker).Append('\n');
+        return sb.ToString();
+    }
+
+    /// <summary>The path as one Exec argument: quoted when it holds reserved characters, with <c>%</c> doubled.</summary>
+    internal static string QuoteExecPath(string path)
     {
         string arg = path;
         if (path.AsSpan().IndexOfAny(_execReserved) >= 0)
@@ -50,7 +67,7 @@ internal static class DesktopEntry
             arg = sb.Append('"').ToString();
         }
 
-        return arg.Replace("%", "%%", StringComparison.Ordinal) + " %u";
+        return arg.Replace("%", "%%", StringComparison.Ordinal);
     }
 
     /// <summary>String-value escaping: a backslash becomes two. Control characters are rejected earlier.</summary>

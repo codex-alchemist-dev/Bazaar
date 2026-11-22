@@ -20,6 +20,7 @@ using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -61,6 +62,7 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+        services.TryAddSingleton<Bazaar.Server.Skimmer.IGatekeeperPolicySeed, GatekeeperPolicySeedAdapter>();
 
         // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
         services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
@@ -78,6 +80,8 @@ public static class GatewayCompositionExtensions
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
+        services.TryAddSingleton<ICatalogueSchedule>(sp =>
+            sp.GetService<ISettingStore>() is { } store ? new SettingCatalogueSchedule(store) : new NoCatalogueSchedule());
         services.TryAddSingleton<HealthTracker>(sp =>
             new HealthTracker(sp.GetRequiredService<BreakerOptions>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<UsageRecorder>();

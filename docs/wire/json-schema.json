@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0",
+  "x-schemaHash": "sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692",
   "x-messages": {
+    "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
     "gc.history": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcHistory" },
@@ -16,6 +17,7 @@
     "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
     "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
     "lagged": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Lagged" },
+    "pane.frame": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PaneFrame" },
     "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
     "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
     "presence.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
@@ -182,6 +184,27 @@
       "additionalProperties": true
     },
     "Bazaar.Contracts.Graph.ZoomTier": { "anyOf": [ { "type": "string", "enum": ["far", "mid", "near"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.Kanban.KanbanAssignReply": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "revision": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanAssignRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "cardId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "assigneeAgentId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "expectedRevision": { "type": "integer" }
+      },
+      "required": ["projectId", "cardId", "expectedRevision"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Kanban.KanbanBoardCard": {
       "type": "object",
       "properties": {
@@ -456,6 +479,14 @@
         "lastSent": { "type": "integer" }
       },
       "required": ["s", "lastSent"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.PaneFrame": {
+      "type": "object",
+      "properties": {
+        "frame": { "type": "string" }
+      },
+      "required": ["frame"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Wire.Ping": {

@@ -22,6 +22,9 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
     // The native size of the last guest-source frame per VM: the extent the guest pointer tool maps coordinates onto. Bounded.
     private readonly Dictionary<Guid, (int Width, int Height)> _guestSizes = [];
     private readonly Queue<Guid> _guestSizeOrder = new();
+    // The native size of the last screenshot per browser session, for pixel-exact drivers only. Bounded the same way.
+    private readonly Dictionary<string, (int Width, int Height)> _browserSizes = new(StringComparer.Ordinal);
+    private readonly Queue<string> _browserSizeOrder = new();
     private readonly object _guestSizeLock = new();
     private readonly SlidingWindowRateLimiter _captureLimiter;
     private readonly SlidingWindowRateLimiter _inputLimiter;
@@ -191,13 +194,34 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
 
     /// <inheritdoc />
     /// <remarks>
-    /// Only the guest source records a size. A browser target (one that names a session) is always unknown: its screenshot is in device
-    /// pixels and its input in CSS pixels, and the page's scale factor is not fixed. A hypervisor frame may already be reduced.
+    /// The guest source records a size per VM. A browser target (one that names a session) has its own size, recorded only when its
+    /// driver is an <see cref="IPixelExactBrowserPageDriver"/>; with any other driver the screenshot may be in device pixels while input
+    /// is in CSS pixels, so it stays unknown. A browser target never falls back to its VM's size. A hypervisor frame may already be reduced.
     /// </remarks>
     public (int Width, int Height)? TryGetNativeSize(DisplayTarget target)
     {
         ArgumentNullException.ThrowIfNull(target);
-        return string.IsNullOrEmpty(target.BrowserSessionId) ? GuestSize(target.VmId) : null;
+        return string.IsNullOrEmpty(target.BrowserSessionId) ? GuestSize(target.VmId) : BrowserSize(target.BrowserSessionId);
+    }
+
+    private (int Width, int Height)? BrowserSize(string sessionId)
+    {
+        lock (_guestSizeLock)
+            return _browserSizes.TryGetValue(sessionId, out (int Width, int Height) known) ? known : null;
+    }
+
+    private void RememberBrowserSize(string sessionId, int width, int height)
+    {
+        lock (_guestSizeLock)
+        {
+            if (!_browserSizes.ContainsKey(sessionId))
+            {
+                _browserSizeOrder.Enqueue(sessionId);
+                while (_browserSizeOrder.Count > MaxRememberedDisplays)
+                    _browserSizes.Remove(_browserSizeOrder.Dequeue());
+            }
+            _browserSizes[sessionId] = (width, height);
+        }
     }
 
     private (int Width, int Height)? GuestSize(Guid vmId)
@@ -228,6 +252,12 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
                 {
                     IBrowserPageDriver driver = _browsers.First(b => b.Supports(target));
                     byte[] png = await driver.CaptureScreenshotPngAsync(target.BrowserSessionId!, ct).ConfigureAwait(false);
+                    if (driver is IPixelExactBrowserPageDriver)
+                    {
+                        // Screenshot pixels are input coordinates for this driver, so the size before downscaling is the click space.
+                        PngInfo native = PngInspector.Inspect(png, limits.MaxEncodedBytes);
+                        RememberBrowserSize(target.BrowserSessionId!, native.Width, native.Height);
+                    }
                     return FrameNormalizer.FromPng(png, limits);
                 }
             case DisplaySourceKind.Hypervisor:
