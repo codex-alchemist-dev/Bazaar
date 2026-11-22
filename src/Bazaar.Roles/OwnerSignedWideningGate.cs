@@ -32,7 +32,7 @@ public sealed class OwnerSignedWideningGate(
 
         foreach (var check in biometrics)
         {
-            if (!await check.PassedAsync(request, ct))
+            if (!await check.PassedAsync(request, approval, ct))
                 return false;
         }
 
