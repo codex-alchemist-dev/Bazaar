@@ -55,14 +55,14 @@ public sealed class GitHubWakeEndToEndTests
         await seed.ExecuteNonQueryAsync(ct);
     }
 
-    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource)
+    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = false)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Bazaar:GitHub:Ingress:AgentLogins:0"] = _agentLogin,
             ["Bazaar:GitHub:Ingress:MemberLogins:0"] = "boss",
-            ["Bazaar:GitHub:PrGc:OwnerPrincipalId"] = _owner.ToString(),
-        }).Build();
+        }.Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : []))
+            .Build();
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(dataSource);
@@ -127,9 +127,14 @@ public sealed class GitHubWakeEndToEndTests
             Assert.Equal("open", r.GetString(4));
         }
 
-        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND type_key = 'pr' AND created_by = '{_owner}'", ct));
+        // No owner setting: the bridge creates the GC, and the owner reads it through the implicit owner-reader role (doc 01), with no member row.
+        var bridge = GitHubBridgePrincipal.Id;
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND type_key = 'pr' AND created_by = '{bridge}'", ct));
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_bob}'", ct));
-        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+        var access = new Bazaar.Server.Gc.Read.GcReadAccess(db.DataSource);
+        Assert.Equal(Bazaar.Server.Gc.Read.GcReadGrant.Full, await access.GetGrantAsync(gc, new Bazaar.Contracts.Gc.GcPrincipal(_owner, Bazaar.Contracts.Gc.PrincipalKind.Owner, "owner"), ct));
+        Assert.False((await access.GetGrantAsync(gc, new Bazaar.Contracts.Gc.GcPrincipal(Guid.NewGuid(), Bazaar.Contracts.Gc.PrincipalKind.Human, "stranger"), ct)).Allowed);
 
         // The comment became one GC event, and one pending mention row for the agent points at it.
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_event WHERE gc_id = '{gc}'", ct));
@@ -158,5 +163,21 @@ public sealed class GitHubWakeEndToEndTests
 
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item", ct));
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM github_delivery WHERE processed_at IS NULL", ct));
+    }
+
+    [Fact]
+    public async Task The_optional_owner_override_makes_the_owner_the_creator_and_a_member()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake3", MigrateAsync, ct);
+        var processor = Compose(db.DataSource, ownerOverride: true);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND created_by = '{_owner}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
     }
 }

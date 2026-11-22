@@ -25,8 +25,9 @@ public interface IGitHubPrGcFactory
 public sealed class GitHubPrGcOptions
 {
     /// <summary>
-    /// The owner principal. When set it creates the GC and is a member, which is how the owner reads every PR GC (doc 01: the owner
-    /// reads all). When null the bridge principal creates it and the owner is not a member (OPEN: how the owner gets read access then).
+    /// Optional override. The owner reads every PR GC without a setting or a membership row, through the implicit owner-reader role
+    /// (doc 01, Membership and permissions). When set, this principal also creates the GC and is a member; when null the bridge
+    /// principal creates it and the owner reads implicitly.
     /// </summary>
     public Guid? OwnerPrincipalId { get; init; }
 
