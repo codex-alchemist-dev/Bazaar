@@ -145,6 +145,8 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
         var config = new ConfigurationBuilder()
             .AddConfiguration(Config())
             .AddJsonFile(VolumeHostConfigFile.PathFor(BootRoot))
+            // The installer chooses the bundled database (doc 45); an external one needs an attestation (doc 63 section 5).
+            .AddInMemoryCollection(new Dictionary<string, string?> { [DataVolumeOptions.DatabaseModeKey] = "Managed" })
             .Build();
         var options = DataVolumeComponent.ReadOptions(config);
         options.IsDevelopmentEnvironment = true;

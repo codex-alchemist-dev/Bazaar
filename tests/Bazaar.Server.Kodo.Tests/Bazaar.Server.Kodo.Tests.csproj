@@ -16,5 +16,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Kodo\Bazaar.Server.Kodo.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Kodo.Abstractions\Bazaar.Server.Kodo.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Kodo\Bazaar.Kodo.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Kodo\Bazaar.Client.Kodo.csproj" />
   </ItemGroup>
 </Project>

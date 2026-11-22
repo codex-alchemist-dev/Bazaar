@@ -46,5 +46,8 @@ public sealed class TerminalGuiHost : IDisposable
     /// <summary>Builds the shell for <paramref name="menus"/>, such as <see cref="DefaultMenus.Create"/>.</summary>
     public TuiShell CreateShell(IReadOnlyList<MenuModel> menus, ShellOptions? options = null) => new(_application, menus, options);
 
+    /// <summary>Builds the full-screen installer surface (question dialogs over a log and progress line) for the wizard.</summary>
+    public InstallerScreen CreateInstallerScreen(string title = "Bazaar server installer") => new(_application, title);
+
     public void Dispose() => _application.Dispose();
 }

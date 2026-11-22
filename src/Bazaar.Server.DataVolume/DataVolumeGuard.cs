@@ -93,7 +93,17 @@ public sealed class DataVolumeGuard(DataVolumeOptions options, IKekProvider kek,
         if (!Same(marker.InstallId, descriptor.InstallId) || !Same(marker.VolumeId, descriptor.VolumeId) || marker.InstanceClass != descriptor.InstanceClass)
             throw Refuse(DataVolumeRefusal.MarkerInvalid, "The marker belongs to another install or volume.");
 
-        return new DataVolumeVerification(descriptor, status, marker.PostgresSystemIdentifier);
+        // External database mode (doc 63 section 5): Bazaar cannot inspect that server, so it is refused unless the owner attested how it is encrypted.
+        var atRest = DatabaseAtRest.Verified;
+        if (options.DatabaseIsExternal)
+        {
+            if (!options.ExternalAtRestAttested || string.IsNullOrWhiteSpace(options.ExternalAtRestMethod))
+                throw Refuse(DataVolumeRefusal.ExternalDatabaseNotAttested, $"The database is external and its encryption at rest is not attested. Use the managed database, or set {DataVolumeOptions.ExternalAtRestKey} to attested and name the method in {DataVolumeOptions.ExternalAtRestMethodKey}.");
+
+            atRest = DatabaseAtRest.AttestedNotVerified;
+        }
+
+        return new DataVolumeVerification(descriptor, status, marker.PostgresSystemIdentifier) { DatabaseAtRest = atRest };
     }
 
     public void EnsureInsideDataRoot(IEnumerable<string> paths) => DataRootPaths.EnsureInside(options.DataRoot, paths);

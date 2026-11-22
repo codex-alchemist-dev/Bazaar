@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Core;
+using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.Settings;
 using Bazaar.Server.VmEgress;
 using Bazaar.Server.VmEgress.Approvals;
@@ -7,6 +8,7 @@ using Bazaar.Server.VmEgress.Approvals.Security;
 using Bazaar.Server.VmMounts;
 using Bazaar.Server.VmMounts.Abstractions;
 using Bazaar.Server.VmMounts.Providers;
+using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -35,9 +37,18 @@ namespace Bazaar.Server.Host.Composition;
 /// guest channel adapter and a canary sink that audits and contains. They are registered, and the mount module composed, only when the
 /// <c>vm-mounts</c> component is not off and <c>VmMounts:AgentsRoot</c> is set; otherwise <see cref="IMountManager"/> is absent and the kill
 /// switch's mount leg fails loudly. Gaps left in force (all fail closed): no <c>IVmShareIdentity</c> (per-VM share account) and no
-/// <c>IVmShareEndpoint</c> (virtual switch address), so an SMB attach refuses; no <c>IGuestChannelProvider</c> (a registry of live guest
-/// channels), so every guest file operation reports no channel; the guest protocol has no recursive listing or directory delete, so a Soul
+/// <c>IVmShareEndpoint</c> (virtual switch address), so an SMB attach refuses; the guest channel provider now reads the transport's channel
+/// directory (<see cref="IGuestChannelDirectory"/>), but nothing registers a channel yet (see the channel directory gap below), so every guest
+/// file operation still reports no channel; the guest protocol has no recursive listing or directory delete, so a Soul
 /// attach rolls back at the profile copy and only workspace mounts complete; SMB canary reads cannot be observed; the guest-side mount is unbuilt.</description></item>
+/// <item><description><b>Channel directory and opener</b>: the transport module registers the registry, the directory and <c>GuestChannelRegistrar</c>; the host
+/// supplies <see cref="IAgentVmLookup"/> over the environment repository. <c>GuestChannelOpener</c> (a hosted service) waits for each running VM's guest,
+/// checks its Hello and registers the channel, but it is registered only when an <see cref="IGuestNonceSource"/> is registered, because the open targets
+/// need a Hello nonce per VM. Remaining gaps: <b>no nonce source exists</b> (the VM store has no nonce, no backend issues one at create or delivers it to the
+/// guest, except the Windows Sandbox connector, which makes its own), so the opener is off and the directory is empty; no <c>IGuestPeerIdResolver</c> maps
+/// a backend ref name to the Hyper-V VM GUID or vsock CID the listener reports, so the peer id would be the backend ref and a real listener would refuse it.
+/// The egress target resolver is built from the same lookup inside <c>AddBazaarVmEgressEnforcers</c>, which this host does not call yet; the
+/// lookup has no guest interface, so the nftables enforcer would refuse.</description></item>
 /// <item><description><b>Guest scrubber</b>: the real <c>VmGuestScrubber</c> needs a VM lifecycle service, which exists only when a VM backend is configured
 /// (<c>Bazaar:Vms:WindowsSandbox</c>). Without one the scrubber stays unavailable and refuses.</description></item>
 /// <item><description><b>Approvals</b>: the egress port uses the approvals service from agent safety; the owner-approval verifier is the unbuilt
@@ -81,7 +92,23 @@ public static class VmSecurityCompositionExtensions
                 options => new HvSocketListener(options)));
         }
 
+        // The VM store port for the channel directory and the egress resolver. TryAdd before the transport module's fail-closed default, so a
+        // host override or a test registration wins. Without the Vms module's repository there are no VMs to serve.
+        services.TryAddSingleton<IAgentVmLookup>(sp => sp.GetService<IAgentVmDirectory>() is { } directory
+            ? new RepositoryAgentVmLookup(directory)
+            : new NoAgentVmLookup());
         services.AddBazaarVmTransport();
+
+        // The channel opener (doc 16 "Channel opener", PROPOSED) runs only when a nonce source exists: the targets come from the VM store, but the
+        // Hello nonce does not, and no backend issues or delivers one yet. Without a source there are no targets and no hosted service.
+        if (services.Any(d => d.ServiceType == typeof(IGuestNonceSource)) && services.Any(d => d.ServiceType == typeof(EnvironmentRepository)))
+        {
+            services.TryAddSingleton<IGuestOpenTargets>(sp => new RunningVmGuestOpenTargets(
+                new RepositoryRunningVmSource(sp.GetRequiredService<EnvironmentRepository>()),
+                sp.GetRequiredService<IGuestNonceSource>()));
+        }
+
+        services.AddBazaarVmGuestOpener();
         return services;
     }
 
@@ -96,6 +123,23 @@ public static class VmSecurityCompositionExtensions
         && services.Any(d => d.ServiceType == typeof(IMountProvider))
         && services.Any(d => d.ServiceType == typeof(IMountGuestChannel))
         && services.Any(d => d.ServiceType == typeof(ICanarySink));
+}
+
+/// <summary>
+/// <see cref="IAgentVmLookup"/> over the Vms module's <see cref="IAgentVmDirectory"/> (the environment repository). A VM is retired when its
+/// state is <see cref="VmState.Retired"/>; the VM name is the backend ref. The record carries no guest interface, so none is reported.
+/// </summary>
+internal sealed class RepositoryAgentVmLookup(IAgentVmDirectory directory) : IAgentVmLookup
+{
+    public async ValueTask<IReadOnlyList<AgentVmInfo>> ListAsync(Guid agentId, CancellationToken ct)
+    {
+        var records = await directory.ListAsync(agentId, ct).ConfigureAwait(false);
+        return [.. records.Select(r => new AgentVmInfo(
+            r.Id,
+            r.Os == VmOs.Windows ? GuestOs.Windows : GuestOs.Linux,
+            r.BackendRef,
+            r.State == VmState.Retired))];
+    }
 }
 
 /// <summary>

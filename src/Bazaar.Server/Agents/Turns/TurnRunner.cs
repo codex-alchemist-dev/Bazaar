@@ -286,7 +286,8 @@ public sealed class TurnRunner
                         request.Role,
                         new ModelToolCall(call.CallId, call.Name, call.ArgumentsJson),
                         idempotentNow,
-                        request.ChainDepth);
+                        request.ChainDepth,
+                        request.TriggerGcId);
                     var result = await _dispatcher.InvokeAsync(dispatch, ct).ConfigureAwait(false);
 
                     var stored = new ToolStepResponse(call.CallId, call.Name, result.Outcome, result.ResultJson, result.Reason);

@@ -199,5 +199,8 @@ public sealed class CommunityCompositionTests
 
         public Task<IReadOnlyList<CommunityDraft>> ListPendingAsync(DateTimeOffset openAt, int limit, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<CommunityDraft>>([]);
+
+        public Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<Guid>>([]);
     }
 }

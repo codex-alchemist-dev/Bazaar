@@ -30,6 +30,11 @@ public static class GcSettings
         "gc.unarchive_policy", GcUnarchivePolicy.Owner, SettingScope.Install, SettingRole.Operator,
         "Who may unarchive a GC: the owner (the default), or any active member.");
 
+    /// <summary>Setting <c>gc.default_gc_rule</c> [PROPOSED, doc 02, GC list]: how <c>gc.list</c> picks the caller's default GC.</summary>
+    public static readonly SettingKey<Wire.GcDefaultRule> DefaultGcRuleKey = new(
+        "gc.default_gc_rule", Wire.GcDefaultRule.MostRecentlyActive, SettingScope.Install, SettingRole.Operator,
+        "How gc.list picks the default GC: the most recently active ordinary GC (the default), or none.");
+
     /// <summary>Setting <c>gc.dm_access_approvers</c>. The owner is always an approver; the change needs owner approval.</summary>
     public static readonly SettingKey<GcDmAccessApprovers> DmAccessApproversKey = new(
         "gc.dm_access_approvers", GcDmAccessApprovers.Owner, SettingScope.Install, SettingRole.Operator,
@@ -77,7 +82,7 @@ public static class GcSettings
     /// <summary>Every <c>gc.*</c> key this build reads, plus <c>privacy.owner_dm_read_marker</c>.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
-        InvitePolicyKey, EditWindowHoursKey, UnarchivePolicyKey, DmAccessApproversKey, BroadcastMentionsKey,
+        InvitePolicyKey, EditWindowHoursKey, UnarchivePolicyKey, DefaultGcRuleKey,DmAccessApproversKey, BroadcastMentionsKey,
         BroadcastMentionRatePerHourKey, VaultEmbedPinKey, MessageMaxBytesKey, BlobMaxBytesKey, OwnerDmReadMarkerKey,
     ];
 }
