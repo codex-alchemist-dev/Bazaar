@@ -229,50 +229,50 @@ public sealed class EndpointSelector : IEndpointSelector
                 return [.. group.OrderByDescending(c => c.Breakdown!.Total).ThenBy(c => c.Endpoint.Key.ToString(), StringComparer.Ordinal)];
 
             case SelectionStrategy.Thompson:
-            {
-                foreach (var c in group)
                 {
-                    var alpha = _options.PriorSuccesses + c.Stats.Successes;
-                    var beta = _options.PriorFailures + c.Stats.Failures;
-                    var sampled = _random.NextBeta(Math.Max(1, alpha), Math.Max(1, beta));
-                    c.Sampled = Build(c.Parts, profile.Weights, TotalWeight(profile.Weights), sampled).Total;
-                }
-
-                return [.. group.OrderByDescending(c => c.Sampled).ThenBy(c => c.Endpoint.Key.ToString(), StringComparer.Ordinal)];
-            }
-
-            case SelectionStrategy.WeightedRandom:
-            {
-                var pool = new List<Candidate>(group);
-                var output = new List<Candidate>(group.Count);
-                while (pool.Count > 0)
-                {
-                    output.Add(Take(pool, DrawIndex(pool)));
-                }
-
-                return output;
-            }
-
-            default:
-            {
-                var pool = new List<Candidate>(group);
-                var output = new List<Candidate>(group.Count);
-                while (pool.Count > 0)
-                {
-                    if (pool.Count == 1)
+                    foreach (var c in group)
                     {
-                        output.Add(Take(pool, 0));
-                        continue;
+                        var alpha = _options.PriorSuccesses + c.Stats.Successes;
+                        var beta = _options.PriorFailures + c.Stats.Failures;
+                        var sampled = _random.NextBeta(Math.Max(1, alpha), Math.Max(1, beta));
+                        c.Sampled = Build(c.Parts, profile.Weights, TotalWeight(profile.Weights), sampled).Total;
                     }
 
-                    var a = DrawIndex(pool);
-                    var b = DrawIndexExcluding(pool, a);
-                    var winner = pool[a].Breakdown!.Total >= pool[b].Breakdown!.Total ? a : b;
-                    output.Add(Take(pool, winner));
+                    return [.. group.OrderByDescending(c => c.Sampled).ThenBy(c => c.Endpoint.Key.ToString(), StringComparer.Ordinal)];
                 }
 
-                return output;
-            }
+            case SelectionStrategy.WeightedRandom:
+                {
+                    var pool = new List<Candidate>(group);
+                    var output = new List<Candidate>(group.Count);
+                    while (pool.Count > 0)
+                    {
+                        output.Add(Take(pool, DrawIndex(pool)));
+                    }
+
+                    return output;
+                }
+
+            default:
+                {
+                    var pool = new List<Candidate>(group);
+                    var output = new List<Candidate>(group.Count);
+                    while (pool.Count > 0)
+                    {
+                        if (pool.Count == 1)
+                        {
+                            output.Add(Take(pool, 0));
+                            continue;
+                        }
+
+                        var a = DrawIndex(pool);
+                        var b = DrawIndexExcluding(pool, a);
+                        var winner = pool[a].Breakdown!.Total >= pool[b].Breakdown!.Total ? a : b;
+                        output.Add(Take(pool, winner));
+                    }
+
+                    return output;
+                }
         }
     }
 

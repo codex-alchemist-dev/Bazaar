@@ -224,7 +224,7 @@ public class SelectorTests
         var cheap = Ep(A) with { Price = new EndpointPrice(1, 5) };
         var dear = Ep(B) with { Price = new EndpointPrice(15, 75) };
         var (selector, _, _, _) = Make(SelectionProfiles.Defaults.Single(p => p.Name == SelectionProfiles.Cost) with { Strategy = SelectionStrategy.Best, ExploreFraction = 0 });
-        var d = selector.Rank([dear, cheap], new SelectionRequest { EstimatedInputTokens = 1000, ExpectedOutputTokens = 500 }with { Profile = SelectionProfiles.Cost });
+        var d = selector.Rank([dear, cheap], new SelectionRequest { EstimatedInputTokens = 1000, ExpectedOutputTokens = 500 } with { Profile = SelectionProfiles.Cost });
         Assert.Equal([A, B], d.Ranking.Select(r => r.Endpoint.Key));
     }
 

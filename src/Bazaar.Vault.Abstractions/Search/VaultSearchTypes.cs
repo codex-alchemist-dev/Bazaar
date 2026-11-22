@@ -1,13 +1,44 @@
+using System.Collections.Frozen;
+
 namespace Bazaar.Server.Vault.Search;
 
 /// <summary>
-/// Who is asking. The owner reads every document; an agent reads <c>company/</c>, <c>shared/</c>, its own area and its own
-/// private memory (<see cref="AgentOwner"/>, "agent:&lt;id&gt;"). Other agents' private memory is never returned, and other
-/// documents with no owner (project areas, <c>hive/</c>) are the owner's only until callers carry membership (doc 18, "Access").
+/// Who is asking. The owner reads every document; an agent reads <c>company/</c>, <c>shared/</c>, its own area, its own
+/// private memory (<see cref="AgentOwner"/>, "agent:&lt;id&gt;") and the ownerless project areas of the projects in
+/// <see cref="Projects"/>. Other agents' private memory is never returned, and other documents with no owner (<c>hive/</c>,
+/// <c>decisions/</c>, drafts, <c>archive/</c>, root files) are the owner's only (doc 18, "Access").
 /// </summary>
 public sealed record VaultCaller(bool IsOwner, string? AgentOwner)
 {
+    private readonly FrozenSet<string> _projects = FrozenSet<string>.Empty;
+
     public static VaultCaller Owner { get; } = new(IsOwner: true, AgentOwner: null);
+
+    /// <summary>
+    /// The slugs of the projects the caller is a member of, resolved at request time from project membership (a cover
+    /// carries its primary's projects). Empty by default, so a caller whose membership was not resolved reads no project
+    /// area. The set is copied on assignment and cannot change afterwards. Each slug must be one non-empty path segment.
+    /// </summary>
+    /// <exception cref="ArgumentException">A slug is null, empty or contains a slash.</exception>
+    public IReadOnlySet<string> Projects
+    {
+        get => _projects;
+        init => _projects = CopyProjects(value);
+    }
+
+    private static FrozenSet<string> CopyProjects(IReadOnlySet<string> projects)
+    {
+        ArgumentNullException.ThrowIfNull(projects);
+        foreach (var slug in projects)
+        {
+            if (string.IsNullOrEmpty(slug) || slug.Contains('/', StringComparison.Ordinal))
+            {
+                throw new ArgumentException("A project slug must be one non-empty path segment.", nameof(projects));
+            }
+        }
+
+        return projects.ToFrozenSet(StringComparer.Ordinal);
+    }
 }
 
 /// <summary>
