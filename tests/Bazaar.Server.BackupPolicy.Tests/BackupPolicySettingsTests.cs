@@ -10,7 +10,7 @@ public sealed class BackupPolicySettingsTests
 {
     private static readonly SettingActor _operator = new("setup:plan", SettingRole.Operator);
 
-    private static readonly SettingRegistry _known = SettingRegistry.WithContributions([new BackupPolicySettingContribution()]);
+    private static readonly SettingRegistry _known = BuiltInSettingRegistries.WithContributions([new BackupPolicySettingContribution()]);
 
     private static SettingEvaluation Eval(string name, string json, SettingActor? actor = null)
     {

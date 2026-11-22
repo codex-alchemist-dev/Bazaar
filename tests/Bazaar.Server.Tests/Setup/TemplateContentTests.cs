@@ -147,7 +147,7 @@ public sealed class TemplateContentTests
         // The owner merge credential keys (doc 14) are denied to templates on purpose: a template must never carry the credential choice
         // or its secret reference. Their names stay as doc 14 gives them, so they are the only registry names allowed on the deny list.
         string[] deniedOnPurpose = ["identity.merge_credential", "identity.merge_credential.app_id_ref"];
-        var denied = SettingRegistry.Known.Definitions
+        var denied = BuiltInSettingRegistries.Known.Definitions
             .Where(definition => !deniedOnPurpose.Contains(definition.Name, StringComparer.Ordinal))
             .Where(definition => TemplateContentRules.KeyCategory(definition.Name) is not null)
             .Select(definition => definition.Name)

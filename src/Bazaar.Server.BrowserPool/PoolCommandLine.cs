@@ -109,7 +109,7 @@ public static class PoolCommandLine
 
         // In a per-slot namespace the browser's proxy is the VM-side veth address; the firewall DNATs it to the real endpoint.
         var browserEgress = egress;
-        var prepare = new List<PoolCommand>(PrepareCommands(uid, dir));
+        var prepare = new List<PoolCommand>(PrepareCommands(options, slot));
         if (perSlot)
         {
             if (PoolNetwork.IsInsideRange(options, egress.Host))
@@ -153,7 +153,7 @@ public static class PoolCommandLine
             new PoolFirewallRule(uid, egress.Host, egress.Port));
     }
 
-    /// <summary>Commands that give the slot an empty, private directory tree owned by the slot user.</summary>
+    /// <summary>Commands that give the slot an empty, private directory tree owned by the slot user, on plain disk (no size cap).</summary>
     public static IReadOnlyList<PoolCommand> PrepareCommands(int uid, string slotDir)
     {
         var u = PoolRequestValidator.Invariant(uid);
@@ -166,6 +166,54 @@ public static class PoolCommandLine
         ];
     }
 
+    /// <summary>
+    /// The prepare for a slot under the configured limits. With <see cref="BrowserPoolOptions.DiskMaxMb"/> at 0 it is exactly
+    /// <see cref="PrepareCommands(int, string)"/>. Otherwise the slot directory becomes a size-limited tmpfs:
+    /// <list type="number">
+    /// <item>unmount whatever a crashed session left (exit 32 means nothing was mounted, which is fine);</item>
+    /// <item><c>rm -rf --one-file-system</c>: if a mount is still there (busy, or stacked) the final <c>rmdir</c> fails with EBUSY, so the
+    /// open fails instead of running on a stale tmpfs; it never crosses into another file system;</item>
+    /// <item>create the mount point, mount the tmpfs, and only then create <c>profile</c> and <c>run</c> inside it.</item>
+    /// </list>
+    /// The tmpfs is <c>nosuid,nodev,noexec</c>: Chromium keeps no executable code in its profile or runtime directory (the real-browser
+    /// tests in this repo run with it on), and a slot user that writes a binary there cannot run it.
+    /// </summary>
+    public static IReadOnlyList<PoolCommand> PrepareCommands(BrowserPoolOptions options, int slot)
+    {
+        var uid = SlotUid(options, slot);
+        var dir = SlotDirectory(options, slot);
+        var plain = PrepareCommands(uid, dir);
+        if (options.DiskMaxMb == 0)
+        {
+            return plain;
+        }
+
+        // plain is [rm, install slot, install profile, install run].
+        return
+        [
+            UnmountCommand(options, dir),
+            plain[0],
+            plain[1],
+            new PoolCommand(
+            [
+                options.MountPath,
+                "-t", "tmpfs",
+                "-o", "size=" + PoolRequestValidator.Invariant(options.DiskMaxMb) + "m"
+                    + ",nr_inodes=" + PoolRequestValidator.Invariant(options.DiskMaxInodes)
+                    + ",mode=0711,nosuid,nodev,noexec",
+                "tmpfs",
+                dir,
+            ]),
+            plain[2],
+            plain[3],
+        ];
+    }
+
+    // umount exits 32 both for "not mounted" and "busy". The caller's next step, rm -rf --one-file-system on the same path,
+    // tells them apart: it fails with EBUSY when a mount is still there.
+    private static PoolCommand UnmountCommand(BrowserPoolOptions options, string slotDir) =>
+        new([options.UmountPath, slotDir], [0, 32]);
+
     /// <summary>Commands that run at close, always: kill everything the slot user owns, then wipe the directory.</summary>
     public static IReadOnlyList<PoolCommand> CleanupCommands(int uid, string slotDir) =>
     [
@@ -176,7 +224,7 @@ public static class PoolCommandLine
 
     /// <summary>
     /// The cleanup for a slot under the configured isolation: kill the slot user's processes, remove the slot's namespace and veth
-    /// (per-slot mode, after the kill so nothing is left to use them), then wipe the directory. It is the same list for a session
+    /// (per-slot mode, after the kill so nothing is left to use them), unmount the slot tmpfs when a disk cap is on, then wipe the directory. It is the same list for a session
     /// that failed half-way, so a namespace made by a failed open is removed too.
     /// </summary>
     public static IReadOnlyList<PoolCommand> CleanupCommands(BrowserPoolOptions options, int slot)
@@ -184,16 +232,25 @@ public static class PoolCommandLine
         var uid = SlotUid(options, slot);
         var dir = SlotDirectory(options, slot);
         var baseline = CleanupCommands(uid, dir);
-        if (options.NetworkIsolation != NetworkIsolation.PerSlotNamespace)
+        var network = options.NetworkIsolation == NetworkIsolation.PerSlotNamespace
+            ? PoolNetwork.CleanupCommands(options, slot)
+            : [];
+        if (options.DiskMaxMb == 0)
         {
-            return baseline;
+            // baseline is [pkill, rm]: the network goes between them.
+            return [baseline[0], .. network, baseline[1]];
         }
 
-        // baseline is [pkill, rm]: the network goes between them.
-        return [baseline[0], .. PoolNetwork.CleanupCommands(options, slot), baseline[1]];
+        // Unmount after the kill (nothing is left holding the mount), then rm: it removes what is left and, because rmdir of a
+        // mount point fails with EBUSY, fails the cleanup when the unmount did not take. A lazy unmount is never used, since it
+        // would hide a busy mount. Not mounted, or a missing directory, is fine: umount exits 32 and rm -rf of nothing is 0.
+        return [baseline[0], .. network, UnmountCommand(options, dir), baseline[1]];
     }
 
-    /// <summary>The <c>systemd-run</c> scope prefix. Only the memory properties depend on <see cref="BrowserPoolOptions.MemoryMaxMb"/>.</summary>
+    /// <summary>
+    /// The <c>systemd-run</c> scope prefix with the per-session limits: memory (<see cref="BrowserPoolOptions.MemoryMaxMb"/>), processor
+    /// time (<see cref="BrowserPoolOptions.CpuQuotaPercent"/>) and task count (<see cref="BrowserPoolOptions.TasksMax"/>).
+    /// </summary>
     public static IReadOnlyList<string> SystemdRunPrefix(BrowserPoolOptions options)
     {
         EnsureValid(options);
@@ -203,7 +260,12 @@ public static class PoolCommandLine
             prefix.AddRange(["-p", "MemoryMax=" + PoolRequestValidator.Invariant(options.MemoryMaxMb) + "M", "-p", "MemorySwapMax=0"]);
         }
 
-        prefix.AddRange(["-p", "TasksMax=512", "--"]);
+        if (options.CpuQuotaPercent > 0)
+        {
+            prefix.AddRange(["-p", "CPUQuota=" + PoolRequestValidator.Invariant(options.CpuQuotaPercent) + "%"]);
+        }
+
+        prefix.AddRange(["-p", "TasksMax=" + PoolRequestValidator.Invariant(options.TasksMax), "--"]);
         return prefix;
     }
 
@@ -290,6 +352,8 @@ public static class PoolCommandLine
             "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE " + host,
             "--remote-debugging-pipe",
             "--window-size=" + PoolRequestValidator.Invariant(request.Width) + "," + PoolRequestValidator.Invariant(request.Height),
+            // One CSS pixel is one screenshot pixel, so a click at a screenshot coordinate lands where the agent saw it.
+            "--force-device-scale-factor=1",
         };
 
         if (headed)

@@ -17,7 +17,7 @@ internal static partial class SetupDatabase
 
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new TwoSources(new AuditOnly(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), new SetupFiles()),
+            new TwoSources(new AuditOnly(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)), new SetupFiles()),
             MigrateCommand.CurrentProvider(),
             ct);
 
