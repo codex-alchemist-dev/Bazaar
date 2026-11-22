@@ -120,6 +120,8 @@ public sealed class GeneticMemoryHostTests
     {
         public Task<SessionTaint> LoadAsync(Guid sessionId, CancellationToken cancellationToken) =>
             Task.FromResult(new SessionTaint(state, ImmutableArray<TaintSource>.Empty));
+
+        public Task SaveAsync(Guid sessionId, SessionTaint taint, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     private sealed class FakeState(bool quarantined) : IAgentStateReader
