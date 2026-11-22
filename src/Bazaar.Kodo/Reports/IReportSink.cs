@@ -3,7 +3,7 @@ using Bazaar.Kodo.Journal;
 namespace Bazaar.Kodo.Reports;
 
 /// <summary>
-/// Where a finished report goes (doc 46 sections 16.1 and 16.7): in-client, email, webhook, a GC post. Concrete sinks are not in this
+/// Where a finished report goes (doc 46 sections 16.1 and 16.7): in-client, email, webhook, a group chat post. Concrete sinks are not in this
 /// core. A sink may throw or hang; <see cref="ReportRunner"/> contains both.
 /// </summary>
 public interface IReportSink

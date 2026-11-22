@@ -94,6 +94,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
 | `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| `POST /auth/refresh`, `GET /auth/whoami`, `POST /auth/signout` | Token refresh; the signed-in person behind an access token; sign this device out (`whoami` and `signout` are PROPOSED, built in their PRs) | 32 (section 5) |
 | Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |

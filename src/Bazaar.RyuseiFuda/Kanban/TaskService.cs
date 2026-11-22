@@ -503,12 +503,24 @@ public sealed class TaskService : IKanbanTaskWithdrawal
     /// Creates a Backlog card from a message (doc 12, WP6, "pin"). The card's origin GC is the message's GC, and the message
     /// is kept twice: as <c>origin_message_id</c> (the database checks it against the GC) and as a <c>gc</c> task link.
     /// <paramref name="gcId"/> is the GC the pin is made from; a message in any other GC, or an unknown message, is refused
-    /// and creates nothing.
+    /// and creates nothing. <paramref name="importJobId"/> marks the card as created by a portability import job (doc 44
+    /// section 8.8), stored in <c>tasks.import_job_id</c>; ordinary pins leave it null.
     /// </summary>
+    public Task<CreateFromMessageResult> CreateFromMessageAsync(
+        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, CancellationToken ct = default) =>
+        CreateFromMessageAsync(projectId, gcId, messageId, title, actor, null, ct);
+
+    /// <inheritdoc cref="CreateFromMessageAsync(Guid, Guid, Guid, string, TaskActor, CancellationToken)"/>
+    /// <param name="importJobId">The import job that creates the card, or null for an ordinary pin.</param>
     public async Task<CreateFromMessageResult> CreateFromMessageAsync(
-        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, CancellationToken ct = default)
+        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, string? importJobId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        if (importJobId is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(importJobId);
+        }
+
         var messageGcs = await _tasks.FindMessageGcIdsAsync(messageId, ct).ConfigureAwait(false);
         if (messageGcs.Count == 0)
         {
@@ -523,7 +535,7 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         var taskId = Guid.CreateVersion7();
         await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await _tasks.InsertAsync(tx, new NewTask(taskId, projectId, title, TaskState.Backlog, null, TaskGate.None, gcId, messageId, null), ct)
+        await _tasks.InsertAsync(tx, new NewTask(taskId, projectId, title, TaskState.Backlog, null, TaskGate.None, gcId, messageId, null, importJobId), ct)
             .ConfigureAwait(false);
         await _links.InsertAsync(tx, new TaskLink(taskId, TaskLinkKind.Gc, messageId.ToString("D")), ct).ConfigureAwait(false);
         var seq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Created, actor.ToText(),

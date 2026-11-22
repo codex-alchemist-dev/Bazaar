@@ -96,6 +96,9 @@ public static class WireTypes
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
 
+    /// <summary>One terminal frame on a <c>pane:&lt;terminalId&gt;</c> stream, as JSON text (docs/design/55, section 6.1).</summary>
+    public const string PaneFrame = "pane.frame";
+
     /// <summary>Client asks for its server-driven UI profile.</summary>
     public const string UiGet = "ui.get";
 

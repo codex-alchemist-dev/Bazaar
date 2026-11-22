@@ -15,6 +15,7 @@ using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Mentions;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
+using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,8 +33,10 @@ namespace Bazaar.Server.Agents.Turns;
 /// Registered: the option defaults (<c>TurnRunnerOptions</c>, <c>SubagentOptions</c>, <c>TurnStarterOptions</c>), the wake chain
 /// depth default (<c>NoWakeChainDepthSource</c>, which never reads a depth; RyuseiFuda replaces it), the due-inbox reader, and
 /// <c>TurnStarter</c>. Also the repositories, the context sources and assembler, and the production <c>ITurnRunner</c>
-/// (<c>TurnRunAdapter</c> over <c>TurnRunner</c>). <c>TurnStarter</c> and the runner are factories, so they are built only when
-/// something resolves them; the runner needs an <c>IModelGateway</c> and the GC component at that point.
+/// (<c>SessionRegisteringTurnRunner</c> over <c>TurnRunAdapter</c> over <c>TurnRunner</c>), and the session taint reads for
+/// modules (<c>ISessionTaintReader</c> over the session taint store, and <c>AddAgentSessionTaint</c>). <c>TurnStarter</c> and
+/// the runner are factories, so they are built only when something resolves them; the runner needs an <c>IModelGateway</c> and
+/// the GC component at that point.
 /// <para>
 /// The wake loop is on by default (overnight plan item 41; <c>Enabled=false</c> turns it off). <c>AgentSchedulerOptions</c> is
 /// always bound from <c>Bazaar:AgentTurns:Scheduler</c> and
@@ -91,6 +94,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IAuditLog>(),
             sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        // Modules read session taint through Security.Abstractions (doc 15, "Reads for modules"): the store is the per-session
+        // reader, and the directory the runner below registers each run in feeds the per-agent reader.
+        services.TryAddSingleton<ISessionTaintReader>(sp => sp.GetRequiredService<ISessionTaintStore>());
+        services.AddAgentSessionTaint();
         // Postgres crash markers (turns_inflight/0001). Needs an NpgsqlDataSource from the host.
         services.TryAddSingleton<IInFlightCallStore, PostgresInFlightCallStore>();
         services.TryAddSingleton(new TurnStarterOptions());
@@ -131,12 +138,17 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<IModelGateway>(),
             sp.GetRequiredService<IToolDispatcher>(),
-            sp.GetRequiredService<TurnRunnerOptions>()));
-        services.TryAddSingleton<ITurnRunner>(sp => new TurnRunAdapter(
-            sp.GetRequiredService<TurnRunner>(),
-            sp.GetRequiredService<ITurnContextAssembler>(),
-            // Every tool definition a component added. A turn is offered only the ones its allowlist names.
-            ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())));
+            sp.GetRequiredService<TurnRunnerOptions>(),
+            // Optional: with the Thinking GC module loaded, reasoning and steps go to the agent's Thinking GC (doc 01).
+            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>()));
+        // Every run, a subagent child included, is registered in the agent session directory for as long as it runs.
+        services.TryAddSingleton<ITurnRunner>(sp => new SessionRegisteringTurnRunner(
+            new TurnRunAdapter(
+                sp.GetRequiredService<TurnRunner>(),
+                sp.GetRequiredService<ITurnContextAssembler>(),
+                // Every tool definition a component added. A turn is offered only the ones its allowlist names.
+                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())),
+            sp.GetRequiredService<IAgentSessionRegistrar>()));
 
         AddScheduler(services, configuration);
     }
