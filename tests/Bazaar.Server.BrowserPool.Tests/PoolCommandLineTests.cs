@@ -37,6 +37,7 @@ public class PoolCommandLineTests
         "--disable-background-networking", "--disable-component-update", "--disable-breakpad", "--password-store=basic",
         "--disable-features=Translate,MediaRouter", "--proxy-server=http://10.0.0.1:3128", "--proxy-bypass-list=<-loopback>",
         "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 10.0.0.1", "--remote-debugging-pipe", "--window-size=1280,800",
+        "--force-device-scale-factor=1",
     ];
 
     private static readonly string[] _systemd =

@@ -39,7 +39,7 @@ public class ImportKanbanTargetTests
 
     private sealed class FakeStore(bool refuse = false, bool refuseMove = false) : IImportTaskStore
     {
-        public List<(Guid ProjectId, Guid GcId, Guid MessageId, string Title)> Created { get; } = [];
+        public List<(Guid ProjectId, Guid GcId, Guid MessageId, string Title, string JobId)> Created { get; } = [];
         public List<Guid> MovedToReady { get; } = [];
 
         public Task<bool> MoveToReadyAsync(Guid taskId, CancellationToken ct)
@@ -49,10 +49,10 @@ public class ImportKanbanTargetTests
             return Task.FromResult(true);
         }
 
-        public Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, CancellationToken ct)
+        public Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, string importJobId, CancellationToken ct)
         {
             if (refuse) return Task.FromResult<Guid?>(null);
-            Created.Add((projectId, gcId, messageId, title));
+            Created.Add((projectId, gcId, messageId, title, importJobId));
             return Task.FromResult<Guid?>(Guid.NewGuid());
         }
     }
@@ -95,6 +95,7 @@ public class ImportKanbanTargetTests
             Assert.Equal(gc.Messages[i].MessageId, store.Created[i].MessageId);
         }
         Assert.Equal("Write spec", store.Created[0].Title);
+        Assert.All(store.Created, c => Assert.Equal("job-1", c.JobId));
     }
 
     [Fact]

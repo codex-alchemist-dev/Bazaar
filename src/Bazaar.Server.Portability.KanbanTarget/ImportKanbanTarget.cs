@@ -20,7 +20,7 @@ public interface IImportGcSink
 public interface IImportTaskStore
 {
     /// <summary>Returns the new task id, or null when the store refuses the message.</summary>
-    Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, CancellationToken ct);
+    Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, string importJobId, CancellationToken ct);
 
     /// <summary>
     /// Moves a task from Backlog to Ready as the system actor. Returns false when the transition is refused. Only that move is
@@ -45,7 +45,7 @@ public sealed class ImportKanbanTarget(IImportGcSink gcSink, IImportTaskStore ta
         foreach (var item in items)
         {
             var messageId = await gcSink.AppendMessageAsync(gcId, MessageText(item), ct).ConfigureAwait(false);
-            var taskId = await tasks.CreateFromMessageAsync(projectId, gcId, messageId, item.Record.Title, ct).ConfigureAwait(false);
+            var taskId = await tasks.CreateFromMessageAsync(projectId, gcId, messageId, item.Record.Title, jobId, ct).ConfigureAwait(false);
             if (taskId is null)
             {
                 throw new InvalidOperationException($"Kanban store refused the task for {item.Record.SourceKey} in batch {batchIndex}.");
@@ -93,9 +93,9 @@ public sealed class ImportKanbanTarget(IImportGcSink gcSink, IImportTaskStore ta
 /// <summary>Production task store: pins the task to the message with the system actor, as the Kanban module does for pins.</summary>
 public sealed class TaskServiceImportStore(TaskService tasks) : IImportTaskStore
 {
-    public async Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, CancellationToken ct)
+    public async Task<Guid?> CreateFromMessageAsync(Guid projectId, Guid gcId, Guid messageId, string title, string importJobId, CancellationToken ct)
     {
-        var result = await tasks.CreateFromMessageAsync(projectId, gcId, messageId, title, TaskActor.SystemActor, ct).ConfigureAwait(false);
+        var result = await tasks.CreateFromMessageAsync(projectId, gcId, messageId, title, TaskActor.SystemActor, importJobId, ct).ConfigureAwait(false);
         return result.TaskId;
     }
 
