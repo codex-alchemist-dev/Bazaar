@@ -1,6 +1,9 @@
 using Bazaar.Core;
+using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace Bazaar.Server.Identity.Kek;
@@ -89,5 +92,11 @@ public sealed class KekComponent : IBazaarComponent
             sp.GetRequiredService<IKekProvider>(),
             sp.GetRequiredService<ISoulDekStore>(),
             sp.GetService<IKekAuditSink>()));
+
+        // With a host audit log present, one custody entry is written at start (doc 14). Without one the recorder does nothing.
+        services.AddHostedService(sp => new KekCustodyRecorder(
+            sp.GetService<IAuditLog>() is { } log ? new AuditLogKekSink(log) : null,
+            configuration[KekProviderKey],
+            sp.GetService<ILogger<KekCustodyRecorder>>() ?? NullLogger<KekCustodyRecorder>.Instance));
     }
 }
