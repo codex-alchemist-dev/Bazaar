@@ -22,8 +22,12 @@ public enum AgentDisplayKind
 /// </summary>
 public interface IAgentDisplayTargets
 {
-    /// <summary>The agent's target of this kind, or <see langword="null"/> when the agent has none (no such VM, or no browser session).</summary>
-    DisplayTarget? Resolve(Guid agentId, AgentDisplayKind kind);
+    /// <summary>
+    /// The agent's target of this kind, or <see langword="null"/> when the agent has none (no such VM, or no browser session). The host
+    /// reads its VM registry here, so the call is asynchronous; an implementation answers <see langword="null"/> rather than throw when
+    /// it cannot tell, and lets cancellation propagate.
+    /// </summary>
+    Task<DisplayTarget?> ResolveAsync(Guid agentId, AgentDisplayKind kind, CancellationToken cancellationToken);
 }
 
 /// <summary>
