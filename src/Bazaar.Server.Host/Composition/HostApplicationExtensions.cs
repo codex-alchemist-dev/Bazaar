@@ -58,6 +58,13 @@ public static class HostApplicationExtensions
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
         }
 
+        // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
+        // implementation, and only when the fun-systems component is enabled, as before the split.
+        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
+        {
+            services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
+        }
+
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
@@ -71,6 +78,8 @@ public static class HostApplicationExtensions
             services.AddMemoryGraphProjection();
         }
 
+        // After the components: the Valkey supervisor is one of them, and the deferred cache selection must start after it (doc 40 section 4c.4 item 8).
+        services.AddBazaarCacheSelection();
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);

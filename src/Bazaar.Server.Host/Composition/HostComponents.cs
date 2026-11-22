@@ -7,7 +7,7 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
-using Bazaar.Server.Company;
+using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
@@ -23,8 +23,10 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
+using Bazaar.Server.Valkey;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
@@ -45,7 +47,8 @@ public static class HostComponents
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
-        new CompanyComponent(),
+        new CalendarComponent(),
+        new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
         new KanbanComponent(),
@@ -68,5 +71,6 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new ValkeyComponent(),
     ];
 }
