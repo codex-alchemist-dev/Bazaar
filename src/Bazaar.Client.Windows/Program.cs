@@ -23,6 +23,7 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
@@ -105,6 +106,7 @@ internal static class Program
             new PaneModuleContext()
                 .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
                 .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
                 .WithGitGui(ClientServer.Current)
                 // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
                 .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),

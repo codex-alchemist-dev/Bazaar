@@ -31,7 +31,8 @@ public static class GitHubPrGcRegistration
             return inner;
         var service = new GitHubPrService(
             dataSource, factory, sp.GetRequiredService<IGitHubGcDirectory>(),
-            prOptions, creator, bridge, sp.GetRequiredService<ILogger<GitHubPrService>>());
+            prOptions, creator, bridge, sp.GetRequiredService<ILogger<GitHubPrService>>(),
+            sp.GetService<IGitHubOwnerResolver>() ?? new PgGitHubOwnerResolver(dataSource));
         return new GitHubPrGcEventSink(inner, service);
     }
 
