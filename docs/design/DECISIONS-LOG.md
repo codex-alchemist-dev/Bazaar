@@ -441,3 +441,12 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | C14 sentence "no subscription login can be configured" narrowed: the gateway still never holds a subscription credential; the CLI provider is the one exception route (usage identity `subscription`) | PROPOSED | 05, 05b |
 | One model step per CLI process, tools off in the CLI, tools offered as definitions only through a loopback MCP bridge, calls executed by `ToolDispatcher` | PROPOSED | 91 sections 5 and 7 |
 | Modules: `Bazaar.Server.Gateway.Abstractions` (adapter seam extraction), `Bazaar.Server.Providers.ClaudeCode` and `.Abstractions` | PROPOSED | 91 section 4 |
+
+## Round 31 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
