@@ -2,7 +2,9 @@ using Bazaar.Core;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Providers.ClaudeCode;
@@ -28,7 +30,8 @@ public sealed class ClaudeCodeComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
 
         // Guided setup is how an operator turns the provider on, so it is available while the provider is off.
-        services.AddSingleton<IClaudeCodeAcknowledgementStore, InMemoryClaudeCodeAcknowledgementStore>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, ClaudeCodeSettingContribution>());
+        services.TryAddSingleton<IClaudeCodeAcknowledgementStore, InMemoryClaudeCodeAcknowledgementStore>();
         services.AddSingleton(sp => new ClaudeCodeGuidedSetup(
             sp.GetRequiredService<IClaudeCodeAcknowledgementStore>(),
             sp.GetService<TimeProvider>() ?? TimeProvider.System));

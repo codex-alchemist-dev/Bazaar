@@ -55,6 +55,12 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+
+        // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
+        services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
+            sp.GetService<Bazaar.Server.Settings.ISettingStore>() is { } store
+                ? new SettingsClaudeCodeAcknowledgementStore(store)
+                : new InMemoryClaudeCodeAcknowledgementStore());
         services.AddHostedService<GatewayProviderRowSync>();
         services.AddHostedService<DevAgentPolicySeed>();
         services.TryAddSingleton<IClaudeSourceDirectory, GatewayClaudeSourceDirectory>();
