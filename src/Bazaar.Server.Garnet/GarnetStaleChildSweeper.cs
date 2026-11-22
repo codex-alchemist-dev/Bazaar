@@ -7,7 +7,7 @@ namespace Bazaar.Server.Garnet;
 /// <summary>Checks a process id against the running operating system. Tests inject a fake.</summary>
 public interface IGarnetProcessProbe
 {
-    /// <summary>True when the process exists and is named <paramref name="name"/> (for example <c>Garnet.exe</c>).</summary>
+    /// <summary>True when the process exists and is named <paramref name="name"/> (for example <c>garnet-server.exe</c>).</summary>
     bool IsNamed(int pid, string name);
 
     /// <summary>Kills the process. Never throws when it is already gone.</summary>
