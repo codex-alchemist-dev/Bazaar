@@ -144,7 +144,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Remote access and auth | Remote access, authentication, authorization and privacy settings. | Partial (`src/Bazaar.Server/Remote`, `Tls`, `RateLimits`) | `docs/design/32` |
 | Pairing | Device authorization and pairing for clients (`/pair/*` routes). Linux keeps the refresh credential in the Secret Service keyring (#509, #518). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
 | Privacy audit | Audit of privacy-relevant events. | Partial (`src/Bazaar.Server/Components/PrivacyAudit`) | `docs/design/32` |
-| Erasure | Per-person erasure mechanics. | Partial (`Components/Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
+| Erasure | Per-person erasure mechanics. | Partial (`Bazaar.Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
 | Tls | TLS termination and key pinning. | Partial (`Components/Tls`) | project memory, `docs/design/32` |
 | Rate limits | Server rate limiting. Conduit auth lockout uses exponential backoff with shipped floors (#545). | Partial (`Components/RateLimits`) | `docs/design/32` |
 | Status listener | Read-only server status page and listener. | Partial (`Bazaar.Server.Host`) | `docs/design/03` |

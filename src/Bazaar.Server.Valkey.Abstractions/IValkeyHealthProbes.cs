@@ -21,7 +21,7 @@ public enum ValkeyProbeKind
 /// <param name="Healthy">True when the probe passed, or does not apply (for example liveness of an external server).</param>
 /// <param name="Critical">
 /// Always false for Valkey. The cache is a cache: a failed probe makes the module amber and never opens a readiness gate
-/// (docs/design/40 section 4b.2 and 4b.3, C07).
+/// (docs/design/40 section 4c.2 and 4b.3, C07).
 /// </param>
 /// <param name="Reason">Why the probe failed, or null. Never contains the endpoint, the port or a secret.</param>
 public sealed record ValkeyProbeResult(ValkeyProbeKind Kind, bool Healthy, bool Critical, string? Reason);
