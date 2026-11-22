@@ -126,7 +126,7 @@ Final field set. `ReleaseManifest` is the one shared release contract: the Linux
 - `Channel` is one of the exact `update.channel` values (`LTSC`, `Stable`, `Beta`, `Alpha`, `Latest-Commit`); the version's pre-release suffix must match it (Stable and LTSC none, Beta `-beta.N` or `-rc.N`, Alpha `-alpha.N`, Latest-Commit `-dev.N`), so a feed cannot mislabel a build.
 - `AppVersion` is a SemVer string with no leading `v`, optionally with `+commit` build metadata.
 - `MinProtocol` and `MaxProtocol` are doc 02 `major.minor` strings, min not above max.
-- `SchemaVersion` is the database schema the build needs (doc 04), a short token of letters, digits, `.`, `_` and `-`; the updater uses it with the downgrade refusal of section 6.
+- `SchemaVersion` is the database schema the build needs (doc 04), either the schema digest of doc 04 (`sha256:` plus 64 lowercase hex characters, from `SchemaDigest.Compute`) or a legacy short token of 1 to 32 letters, digits, `.`, `_` and `-`; it is compared for equality only; the updater uses it with the downgrade refusal of section 6.
 - `SigningKeyFingerprint` is the lowercase hex identity (40 or 64 characters) of the key behind every signature in the manifest: the OpenPGP fingerprint for Linux (the updater accepts a `.asc` only from a key it already trusts with that fingerprint, section 7), the pinned certificate thumbprint for Windows (doc 37 section 4b).
 - `Artifacts` holds 1 to 64 builds, all for one `Os` (one signing scheme and key per manifest, so a feed serves one manifest per OS), at most one per architecture and format.
 - `Os` is `linux` or `windows`.

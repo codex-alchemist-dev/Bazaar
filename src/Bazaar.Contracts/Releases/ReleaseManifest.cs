@@ -17,7 +17,7 @@ public sealed record ReleaseManifest : IEquatable<ReleaseManifest>
     /// <param name="appVersion">SemVer string such as <c>0.1.0</c>, <c>0.2.0-beta.1</c> or <c>0.1.0+a1b2c3d</c> (no leading <c>v</c>).</param>
     /// <param name="minProtocol">Lowest wire protocol the build speaks, <c>major.minor</c> (doc 02).</param>
     /// <param name="maxProtocol">Highest wire protocol the build speaks, <c>major.minor</c>; not below <paramref name="minProtocol"/>.</param>
-    /// <param name="schemaVersion">Database schema the build needs (doc 04), 1 to 32 characters of letters, digits, dot, underscore or hyphen.</param>
+    /// <param name="schemaVersion">Database schema the build needs (doc 04): the schema digest from <see cref="Bazaar.Contracts.Wire.SchemaDigest"/> (<c>sha256:</c> plus 64 lowercase hex characters), or a legacy short token of 1 to 32 characters of letters, digits, dot, underscore or hyphen. Compared for equality only.</param>
     /// <param name="signingKeyFingerprint">Lowercase hex (40 or 64 characters) identity of the signing key: the OpenPGP fingerprint for Linux, the pinned certificate's thumbprint for Windows.</param>
     /// <param name="artifacts">At least one, at most <see cref="MaxArtifacts"/>; all for one os; no two share architecture and format.</param>
     /// <exception cref="ArgumentException">A field is missing or malformed.</exception>
@@ -88,7 +88,7 @@ public sealed record ReleaseManifest : IEquatable<ReleaseManifest>
     /// <summary>Highest wire protocol the build speaks (<c>major.minor</c>).</summary>
     public string MaxProtocol { get; }
 
-    /// <summary>Database schema version the build needs.</summary>
+    /// <summary>Database schema the build needs: a schema digest or a legacy short token. Equality only, never ordered.</summary>
     public string SchemaVersion { get; }
 
     /// <summary>Lowercase hex fingerprint of the OpenPGP signing key.</summary>
