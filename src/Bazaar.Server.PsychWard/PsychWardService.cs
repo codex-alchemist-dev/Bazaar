@@ -12,7 +12,8 @@ public sealed class PsychWardService(
     IVentStore vents,
     PsychWardSettings settings,
     TimeProvider? time = null,
-    IWardJournal? journal = null) : IPsychWardService, IDisposable
+    IWardJournal? journal = null,
+    IWardAvailabilityProbe? availability = null) : IPsychWardService, IDisposable
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly IWardJournal _journal = journal ?? new NoOpWardJournal();
@@ -43,7 +44,8 @@ public sealed class PsychWardService(
                 return WardOutcome.Refuse("Admission is owner-only; the owner must admit this agent.", current);
             }
 
-            var stay = new WardStay(Guid.CreateVersion7(), agentId, trigger, detail, _time.GetUtcNow());
+            var admittedAt = await AdmissionTimeAsync(agentId, trigger, cancellationToken).ConfigureAwait(false);
+            var stay = new WardStay(Guid.CreateVersion7(), agentId, trigger, detail, admittedAt);
             try
             {
                 await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
@@ -61,6 +63,22 @@ public sealed class PsychWardService(
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// When the stay counts from. An owner referral and <c>admit_now</c> count from now. Under <c>queue_next_shift</c>, an
+    /// admission during the agent's curfew counts from its next shift start; restrictions still apply at once.
+    /// </summary>
+    private async Task<DateTimeOffset> AdmissionTimeAsync(Guid agentId, WardTrigger trigger, CancellationToken ct)
+    {
+        var now = _time.GetUtcNow();
+        if (availability is null || trigger is WardTrigger.OwnerReferral || _settings.CurfewBehaviour != WardCurfewBehaviour.QueueNextShift)
+        {
+            return now;
+        }
+
+        var curfew = await availability.GetCurfewAsync(agentId, ct).ConfigureAwait(false);
+        return curfew is { InCurfew: true, NextShiftStartsAt: { } next } && next > now ? next : now;
     }
 
     /// <inheritdoc />

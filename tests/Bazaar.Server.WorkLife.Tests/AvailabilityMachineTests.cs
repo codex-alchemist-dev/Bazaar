@@ -311,3 +311,103 @@ public class AvailabilityMachineTests
                 new HashSet<AvailabilityIdempotencyKey>()));
     }
 }
+
+public class AvailabilityWardTests
+{
+    private const string _agent = "agent-a";
+    private static readonly DateTimeOffset _t0 = DateTimeOffset.Parse("2026-06-15T09:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+
+    public static TheoryData<AvailabilityMachineState> AllStates => new()
+    {
+        AvailabilityMachineState.OnShift,
+        AvailabilityMachineState.Draining,
+        AvailabilityMachineState.Break,
+        AvailabilityMachineState.Off,
+        AvailabilityMachineState.Vacation,
+    };
+
+    [Theory]
+    [MemberData(nameof(AllStates))]
+    public void Ward_admission_from_any_state_gives_break_with_the_ward_overlay(AvailabilityMachineState from)
+    {
+        var machine = new AvailabilityMachine(_agent, from);
+
+        var result = machine.Submit(new AvailabilityEvent.WardAdmitted(_t0, "stay-1"));
+
+        Assert.True(result.Applied);
+        Assert.Equal(AvailabilityMachineState.Break, machine.Snapshot.State);
+        Assert.Contains(new AvailabilityOverlay.Ward("stay-1"), machine.Snapshot.Overlays);
+    }
+
+    [Fact]
+    public void A_second_admission_while_in_the_ward_is_rejected()
+    {
+        var machine = new AvailabilityMachine(_agent, AvailabilityMachineState.OnShift);
+        machine.Submit(new AvailabilityEvent.WardAdmitted(_t0, "stay-1"));
+
+        var result = machine.Submit(new AvailabilityEvent.WardAdmitted(_t0.AddMinutes(1), "stay-2"));
+
+        Assert.False(result.Applied);
+        Assert.Contains(new AvailabilityOverlay.Ward("stay-1"), machine.Snapshot.Overlays);
+    }
+
+    [Fact]
+    public void Schedule_break_end_and_owner_emergency_do_not_wake_an_agent_in_the_ward()
+    {
+        var machine = new AvailabilityMachine(_agent, AvailabilityMachineState.OnShift);
+        machine.Submit(new AvailabilityEvent.WardAdmitted(_t0, "stay-1"));
+
+        Assert.False(machine.Submit(new AvailabilityEvent.ScheduleStart(_t0.AddHours(1))).Applied);
+        Assert.False(machine.Submit(new AvailabilityEvent.BreakEnd(_t0.AddHours(1))).Applied);
+        Assert.False(machine.Submit(new AvailabilityEvent.OwnerEmergency(_t0.AddHours(1))).Applied);
+        Assert.Equal(AvailabilityMachineState.Break, machine.Snapshot.State);
+    }
+
+    [Fact]
+    public void Discharge_clears_only_the_ward_overlay_and_the_next_start_puts_the_agent_back_on_shift()
+    {
+        var machine = new AvailabilityMachine(_agent, AvailabilityMachineState.OnShift);
+        machine.Submit(new AvailabilityEvent.RateLimited(_t0, _t0.AddHours(2)));
+        machine.Submit(new AvailabilityEvent.WardAdmitted(_t0, "stay-1"));
+
+        Assert.True(machine.Submit(new AvailabilityEvent.WardDischarged(_t0.AddHours(1))).Applied);
+        Assert.DoesNotContain(machine.Snapshot.Overlays, o => o is AvailabilityOverlay.Ward);
+        Assert.Contains(machine.Snapshot.Overlays, o => o is AvailabilityOverlay.Throttled);
+        Assert.Equal(AvailabilityMachineState.Break, machine.Snapshot.State);
+
+        Assert.True(machine.Submit(new AvailabilityEvent.BreakEnd(_t0.AddHours(1))).Applied);
+        Assert.Equal(AvailabilityMachineState.OnShift, machine.Snapshot.State);
+    }
+
+    [Fact]
+    public void Discharge_outside_the_ward_is_rejected_and_admission_needs_a_stay_id()
+    {
+        var machine = new AvailabilityMachine(_agent, AvailabilityMachineState.OnShift);
+
+        Assert.False(machine.Submit(new AvailabilityEvent.WardDischarged(_t0)).Applied);
+        Assert.False(machine.Submit(new AvailabilityEvent.WardAdmitted(_t0, " ")).Applied);
+    }
+
+    [Fact]
+    public void Ward_events_are_idempotent_per_instant()
+    {
+        var machine = new AvailabilityMachine(_agent, AvailabilityMachineState.OnShift);
+        var admit = new AvailabilityEvent.WardAdmitted(_t0, "stay-1");
+
+        Assert.True(machine.Submit(admit).Applied);
+        Assert.False(machine.Submit(admit).Applied);
+        Assert.Equal(1, machine.Snapshot.Version);
+    }
+
+    [Fact]
+    public void Presence_shows_the_ward_overlay_from_the_input()
+    {
+        var result = PresenceRules.Derive(
+            new PresenceInput(PresenceAvailability.Break, PresenceActivityKind.Idle, PresenceToolClass.None, PresenceGcContext.Other, InWard: true),
+            PresenceRules.DefaultIdleLabel);
+
+        Assert.Equal("sleeping", result.Label);
+        Assert.True(result.Overlays.HasFlag(PresenceOverlay.Ward));
+        Assert.True(result.Overlays.HasFlag(PresenceOverlay.OnBreak));
+    }
+}

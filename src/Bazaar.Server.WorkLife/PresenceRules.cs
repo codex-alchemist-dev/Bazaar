@@ -56,8 +56,8 @@ public enum PresenceLabel
 }
 
 /// <summary>
-/// Overlays shown beside the base label. <see cref="Ward"/> is listed for the display set, but this
-/// derivation never sets it: the Psych Ward state (doc 26) is owned elsewhere.
+/// Overlays shown beside the base label. <see cref="Ward"/> is set from <see cref="PresenceInput.InWard"/>, which the Psych Ward
+/// state (doc 26) supplies.
 /// </summary>
 [Flags]
 public enum PresenceOverlay
@@ -81,6 +81,7 @@ public enum PresenceOverlay
 /// <param name="Throttled">True while the agent is THROTTLED (doc 09).</param>
 /// <param name="Covered">True while a cover is answering for the agent (doc 09).</param>
 /// <param name="WaitingForApproval">True when a Waiting turn is waiting on an approval.</param>
+/// <param name="InWard">True while the agent is in the Psych Ward (doc 09 overlay WARD, doc 26); adds <see cref="PresenceOverlay.Ward"/>.</param>
 public sealed record PresenceInput(
     PresenceAvailability Availability,
     PresenceActivityKind Activity,
@@ -88,7 +89,8 @@ public sealed record PresenceInput(
     PresenceGcContext GcContext,
     bool Throttled = false,
     bool Covered = false,
-    bool WaitingForApproval = false);
+    bool WaitingForApproval = false,
+    bool InWard = false);
 
 /// <summary>The derived presence: a label and the overlays shown beside it.</summary>
 public sealed record PresenceResult(string Label, PresenceOverlay Overlays);
@@ -184,6 +186,11 @@ public static class PresenceRules
         if (input.Availability == PresenceAvailability.Break)
         {
             overlays |= PresenceOverlay.OnBreak;
+        }
+
+        if (input.InWard)
+        {
+            overlays |= PresenceOverlay.Ward;
         }
 
         if (input.Activity == PresenceActivityKind.Waiting && input.WaitingForApproval)

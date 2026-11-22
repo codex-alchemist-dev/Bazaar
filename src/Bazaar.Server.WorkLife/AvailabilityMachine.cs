@@ -34,13 +34,17 @@ public abstract record AvailabilityOverlay
     /// <summary>A cover agent is answering for this agent.</summary>
     /// <param name="CoverAgentId">The agent covering for this one.</param>
     public sealed record Covered(string CoverAgentId) : AvailabilityOverlay;
+
+    /// <summary>The agent is in the Psych Ward (doc 26, section 1): BREAK with overlay WARD until discharge.</summary>
+    /// <param name="StayId">The ward stay this overlay belongs to.</param>
+    public sealed record Ward(string StayId) : AvailabilityOverlay;
 }
 
 /// <summary>
 /// Availability of one agent at one point in its machine's history.
 /// </summary>
 /// <param name="State">Current state.</param>
-/// <param name="Overlays">Current overlays, at most one <see cref="AvailabilityOverlay.Throttled"/> and one <see cref="AvailabilityOverlay.Covered"/>.</param>
+/// <param name="Overlays">Current overlays, at most one each of <see cref="AvailabilityOverlay.Throttled"/>, <see cref="AvailabilityOverlay.Covered"/> and <see cref="AvailabilityOverlay.Ward"/>.</param>
 /// <param name="Version">Starts at 0 and increases by one on each accepted transition.</param>
 /// <param name="Reason">Why the last accepted transition happened, or <c>initial</c>.</param>
 /// <param name="ProviderResetAt">When the provider cap that caused the last vacation resets; null if none.</param>
@@ -208,6 +212,38 @@ public abstract record AvailabilityEvent
         public override string EventName => nameof(CoverAssigned);
     }
 
+    /// <summary>
+    /// The Psych Ward admits the agent (doc 26, section 1). From any state the agent goes to BREAK with the WARD overlay; the
+    /// session ends and the cover takes the inbox (doc 09). Provider overlays and the provider reset time are kept.
+    /// </summary>
+    public sealed record WardAdmitted : AvailabilityEvent
+    {
+        /// <summary>Creates the event.</summary>
+        public WardAdmitted(DateTimeOffset scheduledAt, string stayId) : base(scheduledAt)
+        {
+            StayId = stayId;
+        }
+
+        /// <summary>The ward stay.</summary>
+        public string StayId { get; }
+
+        /// <inheritdoc />
+        public override string EventName => nameof(WardAdmitted);
+    }
+
+    /// <summary>
+    /// The Psych Ward discharges the agent. Clears the WARD overlay and leaves the agent in BREAK; the next schedule start or
+    /// break end puts it back on shift through the normal rows.
+    /// </summary>
+    public sealed record WardDischarged : AvailabilityEvent
+    {
+        /// <summary>Creates the event.</summary>
+        public WardDischarged(DateTimeOffset scheduledAt) : base(scheduledAt) { }
+
+        /// <inheritdoc />
+        public override string EventName => nameof(WardDischarged);
+    }
+
     /// <summary>The cover stops answering for this agent (clears the Covered overlay).</summary>
     public sealed record CoverReleased : AvailabilityEvent
     {
@@ -269,8 +305,42 @@ public static class AvailabilityRules
         }
 
         var state = current.State;
+        var inWard = current.Overlays.Any(o => o is AvailabilityOverlay.Ward);
+
+        // While admitted the agent stays in BREAK: nothing moves it to a working state except the discharge (doc 26: the owner
+        // can always discharge). An owner emergency does not wake it either; the owner discharges first.
+        if (inWard && evt is AvailabilityEvent.ScheduleStart or AvailabilityEvent.BreakEnd or AvailabilityEvent.OwnerEmergency)
+        {
+            return Reject(current, $"{evt.EventName} is not valid while in the ward");
+        }
+
         switch (evt)
         {
+            case AvailabilityEvent.WardAdmitted admitted:
+                if (string.IsNullOrWhiteSpace(admitted.StayId))
+                {
+                    return Reject(current, "WardAdmitted needs a stay id");
+                }
+
+                return inWard
+                    ? Reject(current, "WardAdmitted: the agent is already in the ward")
+                    : Accept(
+                        current,
+                        AvailabilityMachineState.Break,
+                        WithOverlay(current.Overlays, new AvailabilityOverlay.Ward(admitted.StayId), o => o is AvailabilityOverlay.Ward),
+                        "ward admitted",
+                        current.ProviderResetAt);
+
+            case AvailabilityEvent.WardDischarged:
+                return inWard
+                    ? Accept(
+                        current,
+                        state,
+                        current.Overlays.Where(o => o is not AvailabilityOverlay.Ward).ToList(),
+                        "ward discharged",
+                        current.ProviderResetAt)
+                    : Reject(current, "WardDischarged: the agent is not in the ward");
+
             case AvailabilityEvent.ShiftEnd or AvailabilityEvent.BreakDue
                 or AvailabilityEvent.VacationStarts or AvailabilityEvent.TokenBreak:
                 return state == AvailabilityMachineState.OnShift
