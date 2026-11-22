@@ -55,7 +55,7 @@ public sealed class GitReadRoutesTests : IAsyncLifetime
     private const string _base = "/git/fake/repos/acme/widgets/prs";
 
     [Fact]
-    public void Guard_is_applied_to_every_route() => Assert.Equal(4, _guardCalls);
+    public void Guard_is_applied_to_every_route() => Assert.Equal(5, _guardCalls);
 
     [Fact]
     public async Task List_returns_200_with_camel_case_json()

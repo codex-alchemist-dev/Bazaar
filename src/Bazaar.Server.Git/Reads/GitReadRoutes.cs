@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 namespace Bazaar.Server.Git.Reads;
 
 /// <summary>
-/// The guarded read routes (doc 52, Wire and routes): <c>GET /git/{provider}/repos/{owner}/{repo}/prs</c> and its sub-routes.
+/// The guarded read routes (doc 52, Wire and routes): <c>GET /git/repos</c> and <c>GET /git/{provider}/repos/{owner}/{repo}/prs</c> and its sub-routes.
 /// Host composition passes the HTTP surface guard (bearer, rate bucket) as <c>guard</c>, so this module never references
 /// Bazaar.Server. Answers: 200 JSON from the source-generated context, 400 bad input, 404 <c>unknown_provider</c> or <c>not_found</c>,
 /// 409 <c>head_moved</c> with the current sha, 429 <c>rate_limited</c> with <c>Retry-After</c>, 502 <c>forge_unavailable</c>.
@@ -34,6 +34,10 @@ public static partial class GitReadRoutes
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(guard);
 
+        guard(app.MapGet("/git/repos",
+            (IGitRepositoryDirectory directory, ILoggerFactory logs, CancellationToken ct) =>
+                ReposAsync(directory, logs, ct)));
+
         guard(app.MapGet("/git/{provider}/repos/{owner}/{repo}/prs",
             (string provider, string owner, string repo, string? state, int? page, int? pageSize, IGitReadService reads, ILoggerFactory logs, CancellationToken ct) =>
                 ListAsync(provider, owner, repo, state, page, pageSize, reads, logs, ct)));
@@ -52,6 +56,19 @@ public static partial class GitReadRoutes
 
         return app;
     }
+
+    /// <summary>Lists the directory's repos as <see cref="GitRepoDto"/>: provider and full name only, in (provider, full name) order.</summary>
+    internal static Task<IResult> ReposAsync(IGitRepositoryDirectory directory, ILoggerFactory logs, CancellationToken ct) =>
+        Run(logs, async () =>
+        {
+            var repos = await directory.ListAsync(ct).ConfigureAwait(false);
+            var dtos = repos
+                .OrderBy(static r => r.Repo.Provider, StringComparer.Ordinal)
+                .ThenBy(static r => r.Repo.FullName, StringComparer.Ordinal)
+                .Select(static r => new GitRepoDto(r.Repo.Provider, r.Repo.FullName, null))
+                .ToArray();
+            return Results.Json(dtos, GitReadContractsJsonContext.Default.GitRepoDtoArray);
+        });
 
     internal static Task<IResult> ListAsync(string provider, string owner, string repo, string? state, int? page, int? pageSize, IGitReadService reads, ILoggerFactory logs, CancellationToken ct)
     {
