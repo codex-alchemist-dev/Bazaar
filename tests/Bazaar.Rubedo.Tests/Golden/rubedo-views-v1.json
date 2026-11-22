@@ -261,6 +261,7 @@
         "root": {
           "widget": "icon",
           "props": {
+            "name": "check",
             "label": ""
           }
         }
@@ -268,6 +269,24 @@
       "expect": {
         "codes": [
           "view.missing_label"
+        ]
+      }
+    },
+    {
+      "name": "icon_without_name",
+      "document": {
+        "dslVersion": 1,
+        "name": "bazaar.gc.feed",
+        "root": {
+          "widget": "icon",
+          "props": {
+            "label": "gc.feed.mention"
+          }
+        }
+      },
+      "expect": {
+        "codes": [
+          "view.missing_icon_name"
         ]
       }
     },
