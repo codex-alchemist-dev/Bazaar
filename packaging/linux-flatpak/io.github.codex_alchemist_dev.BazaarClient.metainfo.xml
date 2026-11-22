@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>TheBazaarAuthors.BazaarClient</id>
+  <id>io.github.codex_alchemist_dev.BazaarClient</id>
   <name>Bazaar</name>
   <summary>Native client for the Bazaar AI software company platform</summary>
   <metadata_license>CC0-1.0</metadata_license>
@@ -11,7 +11,7 @@
   <description>
     <p>Bazaar is an open-source platform for a persistent AI software company. Agents with their own identity, memory and accounts coordinate in group chats. This desktop client renders the chat, Kanban, Constellation, Vault and palette views; the server does all compute.</p>
   </description>
-  <launchable type="desktop-id">TheBazaarAuthors.BazaarClient.desktop</launchable>
+  <launchable type="desktop-id">io.github.codex_alchemist_dev.BazaarClient.desktop</launchable>
   <categories>
     <category>Development</category>
     <category>Utility</category>
