@@ -110,9 +110,17 @@ internal static partial class ReleaseValidation
 
     public static string SchemaVersion(string? value, string name)
     {
+        if (value is not null && value.StartsWith(Wire.SchemaDigest.Prefix, StringComparison.Ordinal))
+        {
+            // A schema digest (doc 04): "sha256:" plus 64 lowercase hex characters. Same rule as the fingerprint.
+            LowerHex(value[Wire.SchemaDigest.Prefix.Length..], 64, name);
+            return value;
+        }
+
         if (value is null || !SchemaPattern().IsMatch(value))
         {
-            throw new ArgumentException("Expected 1 to 32 characters of letters, digits, '.', '_' or '-'.", name);
+            throw new ArgumentException(
+                "Expected a schema digest ('sha256:' plus 64 lowercase hex characters) or 1 to 32 characters of letters, digits, '.', '_' or '-'.", name);
         }
 
         return value;

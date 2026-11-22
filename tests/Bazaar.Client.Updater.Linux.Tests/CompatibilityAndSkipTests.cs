@@ -90,6 +90,23 @@ public class CompatibilityTests
         Assert.Equal(UpdateStatus.Available, (await rig.Updater.CheckAsync(_ct)).Status);
     }
 
+    [Fact]
+    public async Task A_matching_schema_digest_is_accepted_and_a_different_one_is_a_mismatch()
+    {
+        const string digest = "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+        const string other = "sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+
+        var rig = new Rig();
+        rig.Compat.ServerSchemaVersion = digest;
+        rig.Publish("0.2.0", schema: digest);
+        Assert.Equal(UpdateStatus.Available, (await rig.Updater.CheckAsync(_ct)).Status);
+
+        var mismatch = new Rig();
+        mismatch.Compat.ServerSchemaVersion = digest;
+        mismatch.Publish("0.2.0", schema: other);
+        Assert.Equal(UpdateStatus.SchemaMismatch, (await mismatch.Updater.CheckAsync(_ct)).Status);
+    }
+
     [Theory]
     [InlineData("1")]
     [InlineData("one.zero")]

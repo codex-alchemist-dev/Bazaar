@@ -9,6 +9,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
 using Bazaar.Localisation;
@@ -49,8 +50,10 @@ internal static class Program
         }
 
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart), backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -93,7 +96,7 @@ internal static class Program
     }
 
     /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
-    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args)
+    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates)
     {
         if (settings is null)
         {
@@ -105,7 +108,7 @@ internal static class Program
         }
 
         Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
         ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
