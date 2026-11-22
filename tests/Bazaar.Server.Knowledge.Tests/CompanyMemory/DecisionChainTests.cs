@@ -1,6 +1,6 @@
 using Bazaar.Server.Knowledge.CompanyMemory;
 
-namespace Bazaar.Server.Tests.Knowledge.CompanyMemory;
+namespace Bazaar.Server.Knowledge.Tests.CompanyMemory;
 
 public sealed class DecisionChainTests
 {
