@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.GitHub;
@@ -118,6 +119,8 @@ public static class PayloadSamples
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
+        Of(null, new HiveGrantChangeRequest("project-a", "project-b", "procedure"), WireTypes.HiveGrantSet),
+        Of(null, new HiveGrantChangeReply(true, null, true)),
         Of(null, new EngineRelayRequestFrame(_gc, DateTimeOffset.Parse("2026-11-18T12:00:00+00:00", System.Globalization.CultureInfo.InvariantCulture), new EngineRelayCallFrame("grant-1", "studio-1", "multi_edit", "{\"x\":1}")), EngineRelayWire.EventType),
         Of(null, new EngineRelayResultFrame(_gc, new EngineRelayCallResultFrame("grant-1", true, "{\"done\":true}")), EngineRelayWire.RequestType),
         Of(null, new EngineGrantVerifyRequest("grant-1", "multi_edit", RiskClass.Write), EngineRelayWire.GrantVerifyType),

@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:8b743ea60894399ddec4d79381beef24db8e2770af530a5af55360aa401913ea",
+  "hash": "sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -16,6 +16,8 @@
     { "type": "gc.send", "payload": "Bazaar.Contracts.Wire.GcSend" },
     { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
     { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
+    { "type": "hive.grant.revoke", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
+    { "type": "hive.grant.set", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
     { "type": "pane.frame", "payload": "Bazaar.Contracts.Wire.PaneFrame" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
@@ -510,6 +512,26 @@
         { "name": "far", "value": 0 },
         { "name": "mid", "value": 1 },
         { "name": "near", "value": 2 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "accepted", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "reason", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "approvalRequired", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "fromProject", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "toProject", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "kind", "type": "string", "nullable": false, "default": false }
       ]
     },
     {
