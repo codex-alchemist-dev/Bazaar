@@ -108,7 +108,7 @@ public static class GitHubMergeEndpoint
         }
         catch (MergeNotApprovedException ex)
         {
-            return Error(StatusCodes.Status403Forbidden, "merge_not_approved", ex.Reason);
+            return Error(StatusCodes.Status403Forbidden, "merge_not_approved", ex.Detail);
         }
         catch (ArgumentException)
         {

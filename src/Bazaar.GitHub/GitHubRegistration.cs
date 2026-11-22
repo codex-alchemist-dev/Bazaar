@@ -38,11 +38,10 @@ public static class GitHubRegistration
             new PgGitHubGcDirectory(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<GitHubIngressOptions>()));
         services.TryAddSingleton<IGitHubInboxWriter>(sp =>
             new InboxRepositoryGitHubInboxWriter(new Bazaar.Server.Agents.Data.InboxRepository(sp.GetRequiredService<NpgsqlDataSource>())));
-        // The real sink needs the GC writer, a database, and the bridge principal; otherwise the poller stays off (Unwired).
+        // The real sink needs the GC writer, and a database (the bridge principal is seeded, see GitHubBridgePrincipal); otherwise the poller stays off (Unwired).
         services.TryAddSingleton<IGitHubEventSink>(sp =>
             sp.GetService<Bazaar.Server.Gc.Write.IGcLogWriter>() is { } writer
             && sp.GetService<NpgsqlDataSource>() is not null
-            && sp.GetRequiredService<GitHubIngressOptions>().BridgePrincipalId is not null
                 ? new GitHubGcEventSink(writer, sp.GetRequiredService<IGitHubInboxWriter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
                     sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>())
                 : new UnwiredGitHubEventSink());

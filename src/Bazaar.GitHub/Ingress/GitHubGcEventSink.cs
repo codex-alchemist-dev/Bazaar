@@ -91,8 +91,7 @@ public sealed partial class GitHubGcEventSink(
         ArgumentNullException.ThrowIfNull(delivery);
         if (!delivery.Apply || delivery.Effects.Count == 0)
             return;
-        var bridge = options.BridgePrincipalId
-            ?? throw new InvalidOperationException("Bazaar:GitHub:Ingress:BridgePrincipalId is not set; GitHub events cannot be written to a GC.");
+        var bridge = options.EffectiveBridgePrincipalId;
 
         for (var i = 0; i < delivery.Effects.Count; i++)
         {

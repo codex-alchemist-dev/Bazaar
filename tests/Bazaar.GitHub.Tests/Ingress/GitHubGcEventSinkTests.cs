@@ -227,12 +227,14 @@ public sealed class GitHubGcEventSinkTests
     }
 
     [Fact]
-    public async Task Without_a_bridge_principal_the_sink_throws_so_the_event_is_redelivered()
+    public async Task Without_an_override_the_sink_writes_under_the_seeded_bridge_principal()
     {
         var h = Build(setBridge: false);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            h.Sink.DeliverAsync(Deliver(Comment("alice", "MEMBER", $"@{_agentLogin}")), TestContext.Current.CancellationToken));
+        await h.Sink.DeliverAsync(Deliver(Comment("alice", "MEMBER", $"@{_agentLogin}")), TestContext.Current.CancellationToken);
+
+        Assert.All(h.Writer.Appended, a => Assert.Equal(GitHubBridgePrincipal.Id, a.AuthorId));
+        Assert.NotEmpty(h.Writer.Appended);
     }
 
     [Theory]
