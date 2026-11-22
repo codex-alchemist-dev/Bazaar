@@ -472,6 +472,7 @@
     <Project Path="src/Bazaar.Server.VmDisplay.AgentTools.Vms/Bazaar.Server.VmDisplay.AgentTools.Vms.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Gate/Bazaar.Server.VmDisplay.Gate.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.GuestChannel/Bazaar.Server.VmDisplay.GuestChannel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -755,6 +756,7 @@
     <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Vms.Tests/Bazaar.Server.VmDisplay.AgentTools.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Gate.Tests/Bazaar.Server.VmDisplay.Gate.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.GuestChannel.Tests/Bazaar.Server.VmDisplay.GuestChannel.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmTransport.Tests/Bazaar.Server.VmTransport.Tests.csproj" />
   </Folder>
 </Solution>

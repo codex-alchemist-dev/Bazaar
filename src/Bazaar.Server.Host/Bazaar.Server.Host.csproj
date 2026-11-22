@@ -146,6 +146,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Audit\Bazaar.Server.VmDisplay.Audit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Gate\Bazaar.Server.VmDisplay.Gate.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDisplay.GuestChannel\Bazaar.Server.VmDisplay.GuestChannel.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools\Bazaar.Server.VmDisplay.AgentTools.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools.Vms\Bazaar.Server.VmDisplay.AgentTools.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.HyperV\Bazaar.Server.VmDisplay.HyperV.csproj" />
