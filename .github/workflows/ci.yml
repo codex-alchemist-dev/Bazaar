@@ -60,7 +60,7 @@ jobs:
     steps:
       # Picks where the heavy jobs run. The repository is public, so GitHub-hosted runners are free; the owner's PC
       # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
-      # Repository variable CI_RUNNER_MODE: hosted (default, never the PC), auto (PC while not backed up), self (always the PC).
+      # Repository variable CI_RUNNER_MODE: hybrid (default: Linux legs on the PC, Windows on hosted), hosted (never the PC), auto (PC while not backed up), self (always the PC).
       # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
       # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
       # behind the PC. The job names of the required checks do not change.
@@ -68,7 +68,7 @@ jobs:
         id: runners
         env:
           GH_TOKEN: ${{ github.token }}
-          MODE: ${{ vars.CI_RUNNER_MODE || 'hosted' }}
+          MODE: ${{ vars.CI_RUNNER_MODE || 'hybrid' }}
           LIMIT: ${{ vars.CI_OVERFLOW_QUEUE || '8' }}
           OWNER_RUN: ${{ github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
@@ -85,6 +85,12 @@ jobs:
           }
           if [ "$OWNER_RUN" != "true" ] || [ "$MODE" = hosted ]; then hosted "not an owner run, or mode=hosted"; exit 0; fi
           if [ "$MODE" = self ]; then self "mode=self"; exit 0; fi
+          if [ "$MODE" = hybrid ]; then
+            echo 'linuxpg=["self-hosted","bazaar-linux-pg"]' >> "$GITHUB_OUTPUT"
+            echo 'win="windows-latest"' >> "$GITHUB_OUTPUT"
+            echo "runners: Linux on the PC, Windows hosted (mode=hybrid)"
+            exit 0
+          fi
           queued="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?status=queued&per_page=1" --jq .total_count 2>/dev/null)" || queued=""
           case "$queued" in ''|*[!0-9]*) hosted "queue count unavailable"; exit 0;; esac
           if [ "$queued" -gt "$LIMIT" ]; then hosted "$queued runs queued, limit $LIMIT"; else self "$queued runs queued, limit $LIMIT"; fi
