@@ -35,16 +35,16 @@ public sealed class SettingDefinitionTests
             "host.log.max_total_mb", "host.health.disk_used_warn_percent", "host.health.memory_growth_warn_percent",
         ];
 
-        var names = SettingRegistry.Host.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var names = BuiltInSettingRegistries.Host.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal), names);
-        Assert.All(SettingRegistry.Host.Definitions, d => Assert.Equal(SettingScope.Install, d.Scope));
-        Assert.All(SettingRegistry.Host.Definitions, d => Assert.Equal(SettingRole.Operator, d.WhoMayChange));
+        Assert.All(BuiltInSettingRegistries.Host.Definitions, d => Assert.Equal(SettingScope.Install, d.Scope));
+        Assert.All(BuiltInSettingRegistries.Host.Definitions, d => Assert.Equal(SettingRole.Operator, d.WhoMayChange));
     }
 
     [Fact]
     public void Every_registered_default_passes_its_own_check()
     {
-        foreach (var definition in SettingRegistry.Host.Definitions)
+        foreach (var definition in BuiltInSettingRegistries.Host.Definitions)
             Assert.Null(Check(definition, definition.DefaultValueJson));
     }
 
