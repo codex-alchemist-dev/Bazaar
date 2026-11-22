@@ -56,6 +56,205 @@ if (args.Length > 0 && args[0] == "density")
     return 0;
 }
 
+// BAZAAR_BENCH_BOOST=1 raises the process and thread priority: on a busy machine the OS scheduler, not the GPU, causes multi-millisecond wall-time hitches.
+if (Environment.GetEnvironmentVariable("BAZAAR_BENCH_BOOST") == "1")
+{
+    System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.High;
+    Thread.CurrentThread.Priority = ThreadPriority.Highest;
+}
+
+if (args.Length > 0 && args[0] == "hostjitter")
+{
+    // No GPU work: how long does a pure host busy-wait of 0.5 ms really take, in this process, on this machine?
+    // If its p99 and max show multi-millisecond spikes, the wall-time hitches in the frame benchmarks are scheduler jitter.
+    foreach (bool boosted in new[] { false, true })
+    {
+        if (boosted)
+        {
+            System.Diagnostics.Process.GetCurrentProcess().PriorityClass = System.Diagnostics.ProcessPriorityClass.High;
+            Thread.CurrentThread.Priority = ThreadPriority.Highest;
+        }
+
+        const int iterations = 6000;
+        var intervals = new double[iterations];
+        long previous = System.Diagnostics.Stopwatch.GetTimestamp();
+        for (int i = 0; i < iterations; i++)
+        {
+            long target = previous + (System.Diagnostics.Stopwatch.Frequency / 2000);
+            while (System.Diagnostics.Stopwatch.GetTimestamp() < target)
+            {
+            }
+
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            intervals[i] = (now - previous) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            previous = now;
+        }
+
+        Array.Sort(intervals);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"hostjitter boosted={boosted} intervals p50={intervals[iterations / 2]:F3} p99={intervals[(int)(iterations * 0.99)]:F3} p999={intervals[(int)(iterations * 0.999)]:F3} max={intervals[^1]:F3} ms; over 2 ms: {intervals.Count(v => v > 2.0)} of {iterations}"));
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-overdraw")
+{
+    // Overdraw mitigations. Per draw cell (N, M points, topology, dim, view), edges are 100k with screen-length LOD in every variant:
+    //   odbase: plain point-list draw (the "before"), odpt1: same with 1 px points, oddec: 2x2-pixel decimation then indirect draw,
+    //   oddens: aggregate path (no points), with the covered-pixel count so points per pixel can be estimated as M / occupied.
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-overdraw.csv");
+    const int edgeCap = 100_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    void Emit(string section, long total, long points, double buildMs, int edges, CellStats s)
+    {
+        csv.Add(NodeBenchmark.CsvLine(section, total, points, buildMs, NodeBenchmark.TopologyGpuBytes, edges, s));
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} N={total} M={points} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} [{breakdown}]"));
+    }
+
+    var cells = new List<(long N, int M)>();
+    foreach (int m in new[] { 500_000, 1_000_000, 2_000_000 })
+    {
+        cells.Add((1_000_000_000L, m));
+    }
+
+    cells.Add((100_000_000L, 1_000_000));
+    cells.Add((2_000_000_000L, 1_000_000));
+    string[] failingToday = ["ring_2d_whole", "ring_3d_whole", "ring_3d_mid", "uniform_2d_mid", "uniform_2d_close", "hubandspoke_2d_whole"];
+    foreach (long n in cells.Select(c => c.N).Distinct())
+    {
+        foreach (int dim in new[] { 2, 3 })
+        {
+            foreach (Topology topology in Enum.GetValues<Topology>())
+            {
+                bench.BuildAggregate(topology, dim, n);
+                foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+                {
+                    string tag = $"{topology}_{dim}d_{view}".ToLowerInvariant();
+                    CellStats dens = bench.MeasureAggregate(topology, dim, n, view, edgeCap, WarmupFrames, MeasuredFrames, 2f, 400f);
+                    (long occupied, double countMs) = bench.EstimateOccupiedPixels(topology, dim, n, view);
+                    var passes = new Dictionary<string, double>(dens.PassP50Ms) { ["occupied_px"] = occupied, ["occupancy_count_ms"] = countMs };
+                    Emit($"oddens_{tag}", n, 0, 0, edgeCap, dens with { PassP50Ms = passes });
+                    foreach ((long cn, int m) in cells.Where(c => c.N == n))
+                    {
+                        Emit($"odbase_{tag}", n, m, 0, edgeCap, bench.MeasureDraw(topology, dim, n, view, m, edgeCap, WarmupFrames, MeasuredFrames, 2f, 400f));
+                        Emit($"oddec_{tag}", n, m, 0, edgeCap, bench.MeasureDecimated(topology, dim, n, view, m, edgeCap, WarmupFrames, MeasuredFrames, 2f, 400f));
+                        if (failingToday.Contains(tag))
+                        {
+                            Emit($"odpt1_{tag}", n, m, 0, edgeCap, bench.MeasureDraw(topology, dim, n, view, m, edgeCap, WarmupFrames, MeasuredFrames, 2f, 400f, 1f));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-cull")
+{
+    // GPU-driven node path (doc section 10.10). Usage: topology-cull [csv] [quick]. Per draw cell, 100k LOD edges in every variant:
+    //   cbase: plain point-list draw, cdec: 2x2 decimation + indirect draw (both from section 10.9, re-measured in this run),
+    //   ctile: tile frustum cull + one vkCmdDrawIndirectCount, cthiz: ctile plus Hi-Z occlusion against the previous frame's depth,
+    //   cthizbig: cthiz with 24 px points as occluders (3D, N = 1B, M = 1M only: shows the Hi-Z test can cull when there is something to hide behind).
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount (drawIndirectCount, multiDrawIndirect, drawIndirectFirstInstance) is not supported on this device");
+        return 3;
+    }
+
+    bench.InitializeCull(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-cull.csv");
+    bool quick = args.Contains("quick");
+    int warm = quick ? 5 : WarmupFrames;
+    int meas = quick ? 20 : MeasuredFrames;
+    const int edgeCap = 100_000;
+    var csv = new List<string> { NodeBenchmark.CullCsvHeader };
+    void Emit(string section, long total, long points, double buildMs, CellStats s, CullCounters c)
+    {
+        csv.Add(NodeBenchmark.CullCsvLine(section, total, points, buildMs, edgeCap, s, c));
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} N={total} M={points} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} tiles drawn/frustum/nonempty={c.DrawnTiles}/{c.FrustumTiles}/{c.NonEmptyTiles} instances={c.Instances} [{breakdown}]"));
+    }
+
+    var none = new CullCounters(0, 0, 0, 0);
+    var cells = new List<(long N, int M)>();
+    foreach (int m in quick ? new[] { 1_000_000 } : new[] { 500_000, 1_000_000, 2_000_000 })
+    {
+        cells.Add((1_000_000_000L, m));
+    }
+
+    if (!quick)
+    {
+        cells.Add((100_000_000L, 1_000_000));
+        cells.Add((2_000_000_000L, 1_000_000));
+    }
+
+    foreach ((long n, int m) in cells)
+    {
+        foreach (int dim in new[] { 2, 3 })
+        {
+            foreach (Topology topology in Enum.GetValues<Topology>())
+            {
+                double buildMs = bench.BuildTiles(topology, dim, n, m);
+                foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+                {
+                    string tag = $"{topology}_{dim}d_{view}".ToLowerInvariant();
+                    Emit($"cbase_{tag}", n, m, 0, bench.MeasureDraw(topology, dim, n, view, m, edgeCap, warm, meas, 2f, 400f), none);
+                    Emit($"cdec_{tag}", n, m, 0, bench.MeasureDecimated(topology, dim, n, view, m, edgeCap, warm, meas, 2f, 400f), none);
+                    (CellStats tile, CullCounters tileCounters) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, false, warm, meas, 2f, 400f);
+                    Emit($"ctile_{tag}", n, m, buildMs, tile, tileCounters);
+                    (CellStats hizStats, CullCounters hizCounters) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, true, warm, meas, 2f, 400f);
+                    Emit($"cthiz_{tag}", n, m, buildMs, hizStats, hizCounters);
+                    if (dim == 3 && n == 1_000_000_000L && m == 1_000_000 && view != Viewpoint.Whole)
+                    {
+                        (CellStats big, CullCounters bigCounters) = bench.MeasureCulled(topology, dim, n, view, m, edgeCap, true, warm, meas, 2f, 400f, 24f);
+                        Emit($"cthizbig_{tag}", n, m, buildMs, big, bigCounters);
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-pipeline")
+{
+    // Wall-time hitches: the draw frame (500k points, 100k LOD edges) at N = 1B with 1, 2 and 3 frames in flight.
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-pipeline.csv");
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    foreach (int dim in new[] { 2, 3 })
+    {
+        foreach (Topology topology in Enum.GetValues<Topology>())
+        {
+            foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+            {
+                foreach (int inFlight in new[] { 1, 2, 3 })
+                {
+                    CellStats s = bench.MeasureDrawPipelined(topology, dim, 1_000_000_000L, view, 500_000, 100_000, inFlight, WarmupFrames, 600, 2f, 400f);
+                    string section = $"pipe{inFlight}_{topology}_{dim}d_{view}".ToLowerInvariant();
+                    csv.Add(NodeBenchmark.CsvLine(section, 1_000_000_000L, 500_000, 0, NodeBenchmark.TopologyGpuBytes, 100_000, s));
+                    File.WriteAllLines(csvPath, csv);
+                    Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                        $"{section} gpu p50/p99={s.GpuP50:F3}/{s.GpuP99:F3} wall interval p50/p95/p99/max={s.WallP50:F3}/{s.WallP95:F3}/{s.WallP99:F3}/{s.WallMax:F3} fps(p50)={1000.0 / s.WallP50:F0} fps(p99)={1000.0 / s.WallP99:F0}"));
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "topology-edges")
 {
     // Edge pass options at N = 1B, M = 1M points. a: fixed 100k edge cap. b: 100k cap plus screen-length LOD (drop below 2 px or
