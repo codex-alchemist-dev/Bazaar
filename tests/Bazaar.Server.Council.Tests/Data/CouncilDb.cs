@@ -7,7 +7,7 @@ namespace Bazaar.Server.Council.Tests.Data;
 
 /// <summary>
 /// A cloned test database with the core GC schema (0001, for <c>gc</c> and the append-only trigger function) and the
-/// Council tables (council/0001). Council needs nothing else, so the vault migration (0009, which needs pgvector halfvec) is not applied.
+/// Council tables (council/0001 and council/0002). Council needs nothing else, so the vault migration (0009, which needs pgvector halfvec) is not applied.
 /// </summary>
 public sealed class CouncilDb : PgFixture, IAsyncLifetime
 {
@@ -22,22 +22,32 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
             return;
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
-        var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
-        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat([CouncilMigration()]));
+        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common);
+        var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat(CouncilMigrations()));
         await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "council", CancellationToken.None);
     }
 
     /// <summary>
-    /// The council/0001 file, read from the Council module assembly where it is embedded as a component file
-    /// (Sql/components/council). The host's ComponentMigrationSource does the same read at run time.
+    /// The council/0001 and council/0002 files, read from the Council module assembly where they are embedded as component
+    /// files (Sql/components/council). The host's ComponentMigrationSource does the same read at run time.
     /// </summary>
-    private static MigrationFile CouncilMigration()
+    private static MigrationFile[] CouncilMigrations()
     {
         var assembly = typeof(CouncilStore).Assembly;
-        using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Council.Sql.components.council.0001_council.sql")
-            ?? throw new InvalidOperationException("council/0001 is not embedded in Bazaar.Server.Council.");
+        return
+        [
+            Read(assembly, 1, "0001_council", "council"),
+            Read(assembly, 2, "0002_council_high_impact", "council_high_impact"),
+            Read(assembly, 3, "0003_council_membership", "council_membership"),
+        ];
+    }
+
+    private static MigrationFile Read(System.Reflection.Assembly assembly, int version, string file, string name)
+    {
+        using var stream = assembly.GetManifestResourceStream($"Bazaar.Server.Council.Sql.components.council.{file}.sql")
+            ?? throw new InvalidOperationException($"council/{version:0000} is not embedded in Bazaar.Server.Council.");
         using var reader = new StreamReader(stream);
-        return new MigrationFile("council", 1, "council", reader.ReadToEnd());
+        return new MigrationFile("council", version, name, reader.ReadToEnd());
     }
 
     /// <summary>Creates a GC for vote origins and returns its id.</summary>

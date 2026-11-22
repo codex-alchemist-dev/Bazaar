@@ -53,6 +53,7 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 - **Motion class:** `bigger_change` or `ordinary`, set by `council.bigger_change_classes` (Settings below). [PROPOSED] Default: every membership or role motion and every Constitution change is a `bigger_change`. This closes the C32 follow-up on which motions are bigger changes as a per-install setting (DECISIONS-LOG round 13, rule 4); the owner's C32 statement still governs the escalation rule.
 - **Rule:** a `bigger_change` passes without the owner only when unanimous; split or tied outcomes escalate. An `ordinary` motion uses the vote-type rules above.
 - **Effect:** the Council emits `council.decision`; the owning doc applies the change (doc 07 for Soul and lifecycle state, doc 25 for hiring). This doc writes no agent tables (C04).
+- **Membership handoff** [PROPOSED]: the vote stores what the handoff needs. A membership motion carries a `membership_kind` (`hire`, `promote`, `retire`, `role_change`, `constitution_change`) and a `membership_subject_id` (the agent, or for a hire the template id), both set when the vote opens: `OpenAsync` requires both or neither, and a vote with neither is not a membership vote and has no handoff. When the vote is decided (by the tally or by the owner's resolution), `RecordDecisionAsync` maps the outcome (`MembershipOutcomeMapper`; an owner resolution maps as an escalated tally plus `OwnerResolution`) and calls every registered `IMembershipOutcomeSink`, after the `council.decision` event is written. Sinks are idempotent by vote id. The vote row carries `membership_outcome_delivered_at` (null until every sink accepted the outcome). A sink failure never undoes the decision: the vote stays Decided and undelivered, and the deadline sweeper re-drives every decided membership vote with no delivery mark, regardless of the recovery lookback, until delivery succeeds. A withdrawn vote has no handoff in this change.
 - **Context:** reputation (doc 11) is shown beside the vote; it does not weight it in v1.
 
 ### Eligibility, quorum and deadlines [PROPOSED]
@@ -68,7 +69,8 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 
 This rule adds a follow-up trigger for ordinary motions only. A bigger change keeps the unanimity rule above unchanged: any split still goes to follow-up, and a split after follow-up escalates.
 
-- **High-impact flag:** a motion carries a boolean `high_impact`, set by the proposer when the motion opens. The default is false, so an ordinary motion without the flag is decided exactly as before. The flag is not yet stored on `council_vote`; until it is, the Council opens every vote with it false. Adding the column is a schema change for doc 04 and needs its own item.
+- **High-impact flag:** a motion carries a boolean `high_impact`, set by the proposer when the motion opens. The default is false, so an ordinary motion without the flag is decided exactly as before. It is stored on `council_vote` as `high_impact boolean not null default false` (migration `council/0002`, doc 04 Data and interfaces), written once when the vote opens and never changed after. Rows opened before the column existed read as false. The `council.open` event carries it, and every tally of the vote reads it from the stored row. [PROPOSED]
+- **Setting at decision time:** the Council reads `council.followup_dissent_share` from the settings store each time it tallies a round, so a change applies to the next tally without a restart. A vote already in follow-up is not re-tallied by a later change. [PROPOSED]
 - **Dissent share:** the number of non-abstaining ballots cast against the choice that would otherwise be decided, divided by the number of non-abstaining ballots cast in that round. For approve/reject, a Yes result counts each No as dissent; for option choice, each ballot for another option counts. Abstentions are in neither count. The denominator is ballots cast, not the eligible electorate, so quorum and the vote-type majority are unchanged.
 - **Trigger:** in the independent round only, a high-impact ordinary motion that would otherwise be decided goes to follow-up when at least one ballot dissents and the dissent share is at least `council.followup_dissent_share` (default 0.33). A share exactly equal to the setting triggers.
 - **After follow-up:** the one-round cap is fixed (DECIDED), so the follow-up tally decides as the vote-type rules say. Dissent after follow-up does not escalate on its own. [PROPOSED]
@@ -138,7 +140,11 @@ Doc 10 owns these tables (C16). Shared conventions come from doc 04.
 ```
 council_vote        (vote_id PK, gc_id, subject_ref, kind, motion_class {ordinary|bigger_change},
                      state, version, options jsonb, deadline_at, extensions int,
-                     eligible_snapshot jsonb, reveal_seed, vault_decision_no int null, created_at)
+                     eligible_snapshot jsonb, reveal_seed, vault_decision_no int null,
+                     high_impact bool not null default false [PROPOSED],
+                     membership_kind text null, membership_subject_id text null,
+                     membership_outcome_delivered_at timestamptz null [PROPOSED, migration council/0003],
+                     created_at)
 council_ballot      (vote_id, voter_id, phase {independent|followup}, choice,
                      reasoning (per-person encrypted), revealed bool, tainted_at_write bool,
                      submitted_at, PK (vote_id, voter_id, phase))

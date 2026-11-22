@@ -3,7 +3,9 @@ using Bazaar.Server.Gc.Provenance;
 using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using Npgsql;
 
 namespace Bazaar.Server.Gc;
 
@@ -20,6 +22,9 @@ public static class GcLogServiceCollectionExtensions
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<CoalescingGcNotifier>());
         services.AddBazaarGcProvenance();
         services.AddSingleton<IGcLogWriter, GcLogWriter>();
+        // The provisioner other modules use to create GCs and add members (doc 40 section 5a); the Ryusei component registers the same service.
+        services.TryAddSingleton(sp => new Create.GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IGcProvisioner>(sp => sp.GetRequiredService<Create.GcCreateService>());
         services.AddSingleton<IGcLogReader, GcLogReader>();
         services.AddSingleton<GcNotifyListener>();
         services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<GcNotifyListener>());

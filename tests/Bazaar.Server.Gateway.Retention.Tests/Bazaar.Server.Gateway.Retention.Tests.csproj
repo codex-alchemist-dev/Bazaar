@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\src\Bazaar.Server\Data\Sql\common\0002_gateway.sql" LogicalName="0002_gateway.sql" />
+    <EmbeddedResource Include="..\..\src\Bazaar.Server\Data\Sql\gateway\0001_gw_usage_soft_delete.sql" LogicalName="gateway_0001.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+  </ItemGroup>
+</Project>

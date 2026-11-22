@@ -8,6 +8,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Navigation.Abstractions\Bazaar.Client.Navigation.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Preferences.Abstractions\Bazaar.Client.Preferences.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
   </ItemGroup>
 </Project>

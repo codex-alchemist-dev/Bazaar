@@ -24,7 +24,7 @@ expect() {
 
 expect v0.1.0 ""              $'channel=stable\nring=all'
 expect v2.4.10 ""             $'channel=stable\nring=all'
-expect v0.2.0-alpha.4 ""      $'channel=alpha\nring=all'
+expect v0.2.0-alpha.4 ""      $'channel=nightly\nring=all'
 expect v0.2.0-beta.1 ""       $'channel=beta\nring=all'
 expect v0.2.0-rc.2 ""         $'channel=beta\nring=all'
 expect v1.0.0 canary          $'channel=stable\nring=canary'
