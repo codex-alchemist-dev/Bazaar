@@ -18,6 +18,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -29,9 +30,11 @@ using Bazaar.Server.Modules;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
+using Bazaar.Server.WebAdmin;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -48,6 +51,7 @@ public static class HostComponents
         new SetupComponent(),
         new RetentionComponent(),
         new MirrorComponent(),
+        new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
         new CalendarComponent(),
@@ -59,11 +63,13 @@ public static class HostComponents
         new RoadmapComponent(),
         new CommunityComponent(),
         new RolesComponent(),
+        new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),

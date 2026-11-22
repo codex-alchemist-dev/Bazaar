@@ -14,6 +14,7 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Secrets;
+using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -55,6 +56,9 @@ public static class GatewayCompositionExtensions
         services.TryAddSingleton<AgentModelPolicyRepository>();
         services.AddHostedService<GatewayProviderRowSync>();
         services.AddHostedService<DevAgentPolicySeed>();
+        services.TryAddSingleton<IClaudeSourceDirectory, GatewayClaudeSourceDirectory>();
+        services.TryAddSingleton<IDefaultAgentPolicyStore, GatewayDefaultAgentPolicyStore>();
+        services.AddFirstRunGatewayRoutes();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
