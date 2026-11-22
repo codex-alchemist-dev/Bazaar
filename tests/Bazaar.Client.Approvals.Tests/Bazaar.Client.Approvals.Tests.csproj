@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Approvals.Avalonia\Bazaar.Client.Approvals.Avalonia.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
     <!-- Only the cross-check that the phone signs the server's exact message layout. -->
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>

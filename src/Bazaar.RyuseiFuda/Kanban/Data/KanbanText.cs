@@ -1,6 +1,6 @@
 namespace Bazaar.RyuseiFuda.Kanban.Data;
 
-/// <summary>Maps Kanban enums to the text values the 0012 CHECK constraints accept. Unknown text is an error, never a default.</summary>
+/// <summary>Maps Kanban enums to the text values the CHECK constraint accepts (0012, widened by kanban/0003). Unknown text is an error, never a default.</summary>
 internal static class KanbanText
 {
     public static string ToSql(TaskState state) => state switch
@@ -10,6 +10,7 @@ internal static class KanbanText
         TaskState.InProgress => "in_progress",
         TaskState.Review => "review",
         TaskState.Done => "done",
+        TaskState.Withdrawn => "withdrawn",
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Not a stored Kanban state."),
     };
 
@@ -20,6 +21,7 @@ internal static class KanbanText
         "in_progress" => TaskState.InProgress,
         "review" => TaskState.Review,
         "done" => TaskState.Done,
+        "withdrawn" => TaskState.Withdrawn,
         _ => throw new InvalidOperationException($"Unknown task state '{text}'."),
     };
 
