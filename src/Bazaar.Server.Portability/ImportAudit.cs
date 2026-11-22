@@ -16,10 +16,14 @@ public sealed record ImportAuditRecord(
     DateTimeOffset At,
     string? SourceKey = null,
     string? ReplacedObjectId = null,
-    string? ReplacedVersion = null)
+    string? ReplacedVersion = null,
+    string? Detail = null)
 {
     /// <summary>The audit kind written for each batch.</summary>
     public const string BatchKind = "portability.import.batch";
+
+    /// <summary>The audit kind written for each owner decision on a quarantined record (doc 44 section 8.5). Detail holds the choice and rule ids, never the secret.</summary>
+    public const string SecretDecisionKind = "portability.import.secret_decision";
 
     /// <summary>The audit kind written for each owner replace (doc 44 section 8.10), with the replaced object's version.</summary>
     public const string ReplaceKind = "portability.import.replace";

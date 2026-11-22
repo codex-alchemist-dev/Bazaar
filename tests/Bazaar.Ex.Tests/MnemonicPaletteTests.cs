@@ -58,4 +58,17 @@ public class MnemonicPaletteTests
         Assert.Equal(lower, upper);
         Assert.NotEmpty(lower);
     }
+
+    [Fact]
+    public void Matching_ignores_case_and_diacritics()
+    {
+        var rows = new[]
+        {
+            new MnemonicListRow("rgl", "Réglages", "settings.open", MnemonicTier.BuiltIn, "core", false, false),
+            new MnemonicListRow("zzz", "Other", "other.open", MnemonicTier.BuiltIn, "core", false, false),
+        };
+
+        Assert.Equal("rgl", Assert.Single(MnemonicPalette.Filter(rows, "REGL")).Mnemonic);
+        Assert.Equal("rgl", Assert.Single(MnemonicPalette.Filter(rows, "re\u0301gl")).Mnemonic);
+    }
 }
