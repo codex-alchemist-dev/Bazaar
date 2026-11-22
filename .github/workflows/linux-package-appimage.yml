@@ -1,0 +1,98 @@
+# Real AppImage build of the Bazaar Linux client (doc 30 section 3, doc 37; owner card 2026-11-19).
+#
+# Runs on a GitHub-hosted runner (the repository is public, so it is free; owner 2026-11-22, no PC runner needed).
+#
+# Every third-party action is pinned to a full commit SHA (same pins as ci.yml); the version tag is
+# kept in a trailing comment. The workflow token is read-only and no secret is used.
+
+name: Linux package (AppImage)
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/linux-appimage/**'
+      - 'packaging/linux/**'
+      - 'src/Bazaar.Client.Linux/**'
+      - '.github/workflows/linux-package-appimage.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  appimage:
+    name: Build AppImage
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+      # Pinned appimagetool release (MIT). The vendor publishes no checksum file for it, so the SHA-256 below was
+      # computed over TLS from the release asset at the time of pinning; the binary is checked against it before it
+      # runs. Bumping the version means recomputing the hash and reviewing it in the same change.
+      APPIMAGETOOL_VERSION: '1.9.1'
+      APPIMAGETOOL_SHA256: 'ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Test the build script
+        run: bash packaging/linux-appimage/test-build-appimage.sh
+
+      - name: Install Xvfb (for --verify)
+        run: |
+          set -euo pipefail
+          if command -v xvfb-run >/dev/null 2>&1; then
+            echo "xvfb-run already installed"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends xvfb
+          elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y xorg-x11-server-Xvfb
+          else
+            echo "Neither apt-get nor dnf found on this runner; install xvfb by hand." >&2
+            exit 1
+          fi
+
+      - name: Install appimagetool (checksum verified)
+        run: |
+          set -euo pipefail
+          tool="$RUNNER_TEMP/appimagetool"
+          curl -fsSL -o "$tool" \
+            "https://github.com/AppImage/appimagetool/releases/download/${APPIMAGETOOL_VERSION}/appimagetool-x86_64.AppImage"
+          echo "${APPIMAGETOOL_SHA256}  ${tool}" | sha256sum --check --strict
+          chmod +x "$tool"
+          echo "APPIMAGETOOL=$tool" >> "$GITHUB_ENV"
+          # appimagetool is itself an AppImage; extract-and-run avoids needing FUSE on the runner.
+          echo "APPIMAGE_EXTRACT_AND_RUN=1" >> "$GITHUB_ENV"
+
+      - name: Build the AppImage and start it on Xvfb
+        run: OUT_DIR="$RUNNER_TEMP/appimage-out" bash packaging/linux-appimage/build-appimage.sh --verify
+
+      - name: Verify the checksum
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/appimage-out"
+          sha256sum --check ./*.AppImage.sha256
+
+      - name: Upload the AppImage and checksum
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: bazaar-client-appimage
+          path: |
+            ${{ runner.temp }}/appimage-out/*.AppImage
+            ${{ runner.temp }}/appimage-out/*.AppImage.sha256
+          if-no-files-found: error
+          retention-days: 14
