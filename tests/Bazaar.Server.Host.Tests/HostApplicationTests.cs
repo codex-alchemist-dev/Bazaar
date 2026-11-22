@@ -47,6 +47,11 @@ public sealed class HostApplicationTests
             Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
             Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
+            // The module host (doc 48 section 1) is in the graph and fails closed: nothing is packaged, so nothing is in force.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.ModuleHost.ModuleActivationHost>());
+            Assert.IsType<DenyAllOwnerApprovalVerifier>(sp.GetRequiredService<Bazaar.Install.Abstractions.IOwnerApprovalVerifier>());
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleActivationHostedService);
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleHealthPoller);
         }
         finally
         {

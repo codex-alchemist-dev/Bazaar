@@ -53,7 +53,7 @@ public sealed class ModuleHostRegistrationTests
         services.AddBazaarModuleHost([new ComponentManifest("gc", "1.0.0", ComponentKind.Feature, [], [])]);
 
         await using var provider = services.BuildServiceProvider();
-        var hosted = Assert.Single(provider.GetServices<IHostedService>());
+        var hosted = Assert.Single(provider.GetServices<IHostedService>().OfType<ModuleActivationHostedService>());
 
         await hosted.StartAsync(TestContext.Current.CancellationToken);
         var state = Assert.Single(provider.GetRequiredService<ModuleActivationHost>().Snapshot());
