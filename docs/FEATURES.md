@@ -116,7 +116,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
 | Bazaar.Client.Core | Shared Avalonia UI library: shell, theme model, connection client, key router, panes, module manifest validator (#521), self-update core (#552). | Partial | `src/Bazaar.Client.Core`, `docs/design/27` |
-| Command palette (Ex) | Fuzzy palette opened by a mnemonic. No Ctrl chords. Client-wide mnemonic navigation is `Bazaar.Ex` (#511); the palette filters mnemonic rows (#553). | Partial (`src/Bazaar.Ex`); remapping and the full palette UI open | `docs/design/27`, CLAUDE.md |
+| Command palette (Ex) | Fuzzy palette opened by a mnemonic. No Ctrl chords. Client-wide mnemonic navigation is `Bazaar.Ex` (#511); the palette filters mnemonic rows (#553). | Partial (`src/Bazaar.Ex`); the remap screen (`MnemonicRemapScreen`) is in place, opening it from a mnemonic and the full palette UI are open | `docs/design/27`, CLAUDE.md |
 | Theme | One theme file drives Avalonia and Monaco. | Partial (theme model merged) | `docs/design/27` |
 | Discord-style GC view | GC messages with avatar, role badge, model badge, cost chip, presence, timestamp, profile cards. | Partial (`Bazaar.Client.Components.Chat`) | CLAUDE.md, `docs/design/27` |
 | Start screen dashboard | What changed while away: unread GCs and mentions, PRs and decisions awaiting you, agents and board, build health and usage. | Planned | CLAUDE.md |
