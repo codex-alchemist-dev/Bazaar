@@ -135,6 +135,9 @@ internal sealed class InMemoryResponderGc(Guid gcId) : IResponderGcStore, IGcLog
 /// <summary>Presents the scripted <see cref="FakeProvider"/> as the gateway the responder calls.</summary>
 internal sealed class ScriptedGateway(FakeProvider provider) : IModelGateway
 {
+
+    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("ScriptedGateway does not support embeddings.");
     public IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, CancellationToken cancellationToken) =>
         provider.StreamAsync(request, cancellationToken);
 }

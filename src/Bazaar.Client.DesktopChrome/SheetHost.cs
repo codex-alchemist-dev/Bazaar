@@ -1,5 +1,5 @@
-using Avalonia;
 using System.Globalization;
+using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
