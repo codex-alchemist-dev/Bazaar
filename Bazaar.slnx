@@ -341,6 +341,7 @@
     <Project Path="src/Bazaar.Server.VmEgress.Enforcers/Bazaar.Server.VmEgress.Enforcers.csproj" />
     <Project Path="src/Bazaar.Server.VmMounts.Abstractions/Bazaar.Server.VmMounts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmMounts/Bazaar.Server.VmMounts.csproj" />
+    <Project Path="src/Bazaar.Server.VmMounts.Providers/Bazaar.Server.VmMounts.Providers.csproj" />
     <Project Path="src/Bazaar.Server.Vms.WindowsSandbox/Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <Project Path="src/Bazaar.Server.VmTransport/Bazaar.Server.VmTransport.csproj" />
     <Project Path="src/Bazaar.Server.VmTransport.Abstractions/Bazaar.Server.VmTransport.Abstractions.csproj" />
@@ -713,6 +714,7 @@
     <Project Path="tests/Bazaar.Server.VmEgress.Tests/Bazaar.Server.VmEgress.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Approvals.Tests/Bazaar.Server.VmEgress.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Approvals.Security.Tests/Bazaar.Server.VmEgress.Approvals.Security.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmMounts.Providers.Tests/Bazaar.Server.VmMounts.Providers.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Enforcers.Tests/Bazaar.Server.VmEgress.Enforcers.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmMounts.Tests/Bazaar.Server.VmMounts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
