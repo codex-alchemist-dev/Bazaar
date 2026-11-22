@@ -34,6 +34,9 @@ public sealed class StorageVolumeBootstrap(IConfiguration configuration, Storage
             output);
     }
 
+    /// <summary>The host configuration key of <c>identity.kek_provider</c> (doc 14).</summary>
+    public const string KekProviderKey = "Bazaar:Identity:KekProvider";
+
     /// <inheritdoc />
     public async Task<StorageBootstrapResult> EnsureAsync(SetupPlan plan, CancellationToken cancellationToken)
     {
@@ -52,6 +55,12 @@ public sealed class StorageVolumeBootstrap(IConfiguration configuration, Storage
 
         if (!Enum.TryParse<InstanceClass>(plan.Storage.InstanceClass, ignoreCase: true, out var instanceClass))
             return Refuse(DataVolumeRefusal.NotInitialised, "storage.instanceClass must be production or development.");
+
+        // The volume key hangs off the identity KEK, and the KEK is created here, so the kind must be one this release can
+        // create on disk. Absent means the server default, which the host resolves the same way at every start.
+        var kekProvider = plan.Custody.IdentityKek;
+        if (kekProvider is not (null or "file" or "dpapi"))
+            return Refuse(DataVolumeRefusal.NotInitialised, "custody.identityKek must be file or dpapi (or omitted) for an install with a data volume in this release.");
 
         var descriptorPath = Path.Combine(bootRoot, "volume", "descriptor.json");
         DataVolumeDescriptor? existing;
@@ -73,18 +82,20 @@ public sealed class StorageVolumeBootstrap(IConfiguration configuration, Storage
             if (File.Exists(VolumeHostConfigFile.PathFor(bootRoot)) && !string.IsNullOrWhiteSpace(configuredDataRoot) && !SamePath(configuredDataRoot, dataRoot))
                 return Refuse(DataVolumeRefusal.AlreadyInitialised, "The existing volume is mounted at another data root than the plan names. A volume is never moved by setup.");
 
-            await VolumeHostConfigFile.WriteAsync(bootRoot, dataRoot, existing, cancellationToken);
+            await VolumeHostConfigFile.WriteAsync(bootRoot, dataRoot, existing, kekProvider, cancellationToken);
             return new StorageBootstrapResult(StorageBootstrapOutcome.Unchanged, 0, null, $"volume {existing.VolumeId} already exists");
         }
 
-        var overlay = new ConfigurationBuilder()
+        var overlayBuilder = new ConfigurationBuilder()
             .AddConfiguration(configuration)
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 [DataVolumeOptions.DataRootKey] = dataRoot,
                 [DataVolumeOptions.InstanceClassKey] = instanceClass.ToString(),
-            })
-            .Build();
+            });
+        if (kekProvider is not null)
+            overlayBuilder.AddInMemoryCollection(new Dictionary<string, string?> { [KekProviderKey] = kekProvider });
+        var overlay = overlayBuilder.Build();
 
         var exitCode = await runInit(BuildArguments(volume), overlay, output, cancellationToken);
         if (exitCode != 0)
@@ -97,7 +108,7 @@ public sealed class StorageVolumeBootstrap(IConfiguration configuration, Storage
         if (created is null)
             return new StorageBootstrapResult(StorageBootstrapOutcome.Refused, StorageCommand.FailedExitCode, "storage_init_failed", "storage init reported success but wrote no descriptor.");
 
-        await VolumeHostConfigFile.WriteAsync(bootRoot, dataRoot, created, cancellationToken);
+        await VolumeHostConfigFile.WriteAsync(bootRoot, dataRoot, created, kekProvider, cancellationToken);
         return new StorageBootstrapResult(StorageBootstrapOutcome.Created, 0, null, $"volume {created.VolumeId} created");
     }
 

@@ -1,7 +1,7 @@
 Golden frame: LayoutFrame(empty)
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c
+Schema hash: sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526
 Payload record: Bazaar.Contracts.Graph.LayoutFrame
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 194 bytes

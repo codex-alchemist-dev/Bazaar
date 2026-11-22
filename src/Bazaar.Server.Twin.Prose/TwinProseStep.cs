@@ -11,6 +11,15 @@ public sealed record TwinProseOptions
 {
     /// <summary>The page written under <c>twin/&lt;project&gt;/</c>. Lowercase letters, digits and single hyphens.</summary>
     public string PageName { get; init; } = "overview";
+
+    /// <summary>The page title handed to a custom <see cref="Renderer"/>. Null means the page name.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>
+    /// Renders the page Markdown. Null keeps the step's built-in rendering. A host can set one (for example the Twin module's
+    /// renderer, which adds document id and type front matter) without this project depending on it.
+    /// </summary>
+    public ITwinPageRenderer? Renderer { get; init; }
 }
 
 /// <summary>
@@ -73,7 +82,9 @@ public sealed partial class TwinProseStep : ITwinProseStep
         var previous = await _writer.GetLatestAsync(project, _options.PageName, ct);
         var version = (previous?.Version ?? 0) + 1;
         var path = $"twin/{project}/{_options.PageName}.md";
-        var markdown = Render(project, version, previous, validated);
+        var markdown = _options.Renderer is { } renderer
+            ? renderer.Render(new TwinPageRenderInput(project, _options.PageName, _options.Title ?? _options.PageName, version, _time.GetUtcNow(), previous, validated))
+            : Render(project, version, previous, validated);
         var written = await _writer.WriteAsync(new TwinPageWrite(project, _options.PageName, path, markdown), ct);
         return new TwinProseResult(TwinProseOutcome.Written, written, validated.Trust, validated.Sentences.Count, validated.Dropped);
     }

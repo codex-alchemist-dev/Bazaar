@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c.
+; Schema hash sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -22,6 +22,7 @@ float32-array = #6.85(bstr)
 ; Message types and the payload rule each carries.
 ; board.assign = kanban-assign-request
 ; board.snapshot = kanban-board-request
+; engine.grant.verify = engine-grant-verify-request
 ; engine.relay.request = engine-relay-request-frame
 ; engine.relay.result = engine-relay-result-frame
 ; gc.edit = gc-edit
@@ -55,8 +56,18 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
+engine-grant-verify-reply = {
+  covers: bool,  ; 1
+  * tstr => any
+}
+engine-grant-verify-request = {
+  grantId: tstr,  ; 1
+  tool: tstr,  ; 2
+  riskClass: risk-class,  ; 3
+  * tstr => any
+}
 engine-relay-call-frame = {
   grantId: tstr,  ; 1
   studioId: tstr,  ; 2
@@ -81,6 +92,7 @@ engine-relay-result-frame = {
   result: engine-relay-call-result-frame,  ; 2
   * tstr => any
 }
+risk-class = "read" / "write" / "exec"
 principal-kind = "owner" / "human" / "agent"
 pr-author-kind = "agent" / "human"
 pr-changed-file = {

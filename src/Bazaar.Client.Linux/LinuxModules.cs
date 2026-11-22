@@ -1,3 +1,4 @@
+using Bazaar.Client.Analytics;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.ColdArchive;
@@ -5,6 +6,8 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
@@ -15,7 +18,7 @@ namespace Bazaar.Client.Linux;
 
 /// <summary>
 /// The pane modules this head ships, in pager order (doc 30 section 1, mirroring the Windows head). Only the cross-platform
-/// Avalonia modules are here. GitGui (merge approval needs a device-bound signer) and Git Solar System are not composed yet.
+/// Avalonia modules are here. GitGui is composed without merge approval, which needs a device-bound signer (the merge card says so).
 /// </summary>
 public static class LinuxModules
 {
@@ -33,6 +36,9 @@ public static class LinuxModules
         .. InterruptPanes.Modules,
         .. ColdArchivePanes.Modules,
         new EnginePaneModule(),
+        .. GitSolarSystemPanes.Modules,
+        .. GitGuiPanes.Modules,
+        new AgentAnalyticsPaneModule(),
         // The terminal pane comes last in pager order (doc 55, section 7).
         .. CalcinatoPanes.Modules,
     ];
