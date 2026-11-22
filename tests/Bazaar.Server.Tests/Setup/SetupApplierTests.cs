@@ -291,6 +291,31 @@ public sealed class SetupApplierTests
         Assert.Empty(harness.SettingAudit.Entries);
     }
 
+    [Fact]
+    public async Task Applied_row_records_the_template_id_version_and_hash_and_null_hash_when_no_template()
+    {
+        var harness = new Harness();
+        var calls = new List<string>();
+        var plan = ValidPlan();
+        const string templateHash = "3f9c2a7e1b4d8f60a5c1e2d3b4a59687766554433221100ffeeddccbbaa9988";
+
+        var withTemplate = new SetupApplyRequest(plan, SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator, "starter", "1.0.0", null, templateHash);
+        await Applier(harness, Step("database.schema", 10, calls)).ApplyAsync(withTemplate, TestContext.Current.CancellationToken);
+
+        var row = PayloadOf(Assert.Single(harness.Audit.Entries));
+        Assert.Equal("starter", row["templateId"]!.GetValue<string>());
+        Assert.Equal("1.0.0", row["templateVersion"]!.GetValue<string>());
+        Assert.Equal(templateHash, row["templateHash"]!.GetValue<string>());
+
+        var plainHarness = new Harness();
+        var withoutTemplate = new SetupApplyRequest(plan, SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator);
+        await Applier(plainHarness, Step("database.schema", 10, calls)).ApplyAsync(withoutTemplate, TestContext.Current.CancellationToken);
+
+        var plainRow = PayloadOf(Assert.Single(plainHarness.Audit.Entries));
+        Assert.Null(plainRow["templateHash"]);
+        Assert.Null(plainRow["templateId"]);
+    }
+
     /// <summary>Holds the fakes one test uses. Each test makes its own, so nothing is shared.</summary>
     private sealed class Harness
     {
