@@ -46,6 +46,7 @@
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
