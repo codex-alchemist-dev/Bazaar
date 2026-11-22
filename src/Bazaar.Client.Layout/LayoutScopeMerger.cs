@@ -195,7 +195,7 @@ public static class LayoutScopeMerger
 
     private static bool SameNode(LayoutNode a, LayoutNode b)
     {
-        if (a.Container != b.Container || a.PaneKind != b.PaneKind || a.PaneId != b.PaneId || a.Children.Count != b.Children.Count)
+        if (a.Container != b.Container || a.PaneKind != b.PaneKind || a.PaneId != b.PaneId || a.VisibleWhen != b.VisibleWhen || a.Children.Count != b.Children.Count)
         {
             return false;
         }
