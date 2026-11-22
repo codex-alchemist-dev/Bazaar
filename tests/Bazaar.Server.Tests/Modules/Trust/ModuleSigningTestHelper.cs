@@ -10,13 +10,14 @@ internal static class ModuleSigningTestHelper
 {
     public static readonly DateTimeOffset Now = new(2026, 11, 16, 12, 0, 0, TimeSpan.Zero);
     public const string KeyId = "publisher-key-2";
+    public const string PublisherId = "publisher-2";
     public const string Digest = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
     public static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup()
     {
         var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(KeyId, "publisher-2", key, Now.AddYears(-1), Now.AddYears(1), false));
+        store.Add(new TrustedModuleKey(KeyId, PublisherId, key, Now.AddYears(-1), Now.AddYears(1), false) { ModuleIdScopes = ["bazaar"] });
         return (new EcdsaModuleSignatureVerifier(store, new FakeTimeProvider(Now)), key);
     }
 
@@ -24,8 +25,12 @@ internal static class ModuleSigningTestHelper
     public static ModulePackage Sign(HostRequirements host, ECDsa key, IEnumerable<string>? permissions = null, string moduleId = "bazaar.sandbox")
     {
         var declared = new HashSet<string>(permissions ?? ["storage:local"], StringComparer.Ordinal);
-        var unsigned = new ModulePackage(moduleId, "0.1.0", declared, Digest, KeyId, host, []);
+        var unsigned = new ModulePackage(moduleId, "0.1.0", PublisherId, declared, Digest, KeyId, host, []);
         var signature = key.SignData(ModuleCanonicalForm.Build(unsigned), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
         return unsigned with { Signature = signature };
     }
+
+    /// <summary>Signs an already built package again, after a test changed one of its signed fields on purpose.</summary>
+    public static ModulePackage Resign(ModulePackage package, ECDsa key) =>
+        package with { Signature = key.SignData(ModuleCanonicalForm.Build(package with { Signature = [] }), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation) };
 }
