@@ -4,6 +4,7 @@ using System.Net.WebSockets;
 using System.Threading.Channels;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.SchemaIdentity;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Logging;
 
@@ -32,6 +33,7 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
     private readonly TimeProvider _time;
     private readonly ILogger _log;
     private readonly SubscriptionEngine? _subscriptions;
+    private readonly ISchemaIdentityProvider? _schemaIdentity;
 
     // _cts stops this connection's own work (heartbeat, requests). _abort is the only token a pending receive sees:
     // cancelling a WebSocket receive aborts the socket, so it fires only to give up on a peer that will not finish the close handshake.
@@ -67,8 +69,10 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         IReadOnlyDictionary<string, IWireRequestHandler> handlers,
         TimeProvider time,
         ILogger log,
-        SubscriptionEngine? subscriptions = null)
+        SubscriptionEngine? subscriptions = null,
+        ISchemaIdentityProvider? schemaIdentity = null)
     {
+        _schemaIdentity = schemaIdentity;
         _socket = socket;
         _subscriptions = subscriptions;
         _headerCredential = headerCredential;
@@ -297,11 +301,12 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         // The codec is final now, so the subscription frames it writes match what the client negotiated.
         Subscriptions = _subscriptions?.CreateSession(Principal.Id, Principal.GcKind(), _codec, new EventOutbound(this));
 
+        // Doc 04 "Schema identity": null (unknown, fail closed for a client updater) when no provider is registered or the history is unreadable.
+        var schemaVersion = _schemaIdentity is null ? null : await _schemaIdentity.GetAsync(helloCts.Token).ConfigureAwait(false);
         var welcome = new Welcome(
             _version, _serverMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
-            // SchemaVersion stays null: doc 04 defines no single schema version value yet (see doc 02 Versioning).
             _options.HeartbeatTimeoutS, Limits(), _options.Capabilities.ToArray(), 0, null, null,
-            PreviousMajorSupported: _options.PreviousMajorSupported);
+            SchemaVersion: schemaVersion, PreviousMajorSupported: _options.PreviousMajorSupported);
         await SendDirectAsync(Frame(WireTypes.Welcome, EnvelopeKind.Response, hello.Id, null, _time.GetUtcNow(), _codec.EncodePayload(welcome))).ConfigureAwait(false);
         return true;
     }
