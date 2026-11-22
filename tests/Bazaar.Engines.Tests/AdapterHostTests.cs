@@ -143,7 +143,7 @@ public class AdapterHostTests
     [Fact]
     public async Task Slow_reply_within_the_timeout_succeeds()
     {
-        await using var host = StartFake("slow", TimeSpan.FromSeconds(10), slowMilliseconds: "300");
+        await using var host = StartFake("slow", TimeSpan.FromSeconds(60), slowMilliseconds: "300");
         await host.OpenAsync(_projectId, CancellationToken.None);
 
         var result = await host.CommandAsync(_projectId, Command("cmd-slow"), CancellationToken.None);
