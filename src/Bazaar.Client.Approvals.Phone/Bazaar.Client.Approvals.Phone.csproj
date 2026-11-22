@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Approvals.Avalonia\Bazaar.Client.Approvals.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.TalentPool.Avalonia\Bazaar.Client.TalentPool.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
   </ItemGroup>
 </Project>
