@@ -27,7 +27,7 @@ public sealed class ReplayWireAdapterTests
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;
@@ -196,5 +196,72 @@ public sealed class ReplayWireAdapterTests
         Assert.Contains("time_machine", namespaces);
         Assert.Contains("playtest", namespaces);
         Assert.Contains("what_if", namespaces);
+    }
+}
+
+/// <summary>The GC-backed fork target provisioner and how the host binds it.</summary>
+public sealed class GcForkTargetProvisionerTests
+{
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
+    private sealed class RecordingProvisioner : Bazaar.Server.Gc.Write.IGcProvisioner
+    {
+        public List<(Guid Id, string Title, GcPrincipal Owner)> Created { get; } = [];
+        private readonly HashSet<Guid> _ids = [];
+
+        public Task<bool> CreateProjectGcAsync(Guid gcId, string title, GcPrincipal owner, CancellationToken ct)
+        {
+            var created = _ids.Add(gcId);
+            if (created)
+                Created.Add((gcId, title, owner));
+            return Task.FromResult(created);
+        }
+
+        public Task<bool> CreateAsync(Guid gcId, string typeKey, string title, GcPrincipal owner, IReadOnlyDictionary<string, string>? metadata, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<Guid?> FindAsync(string typeKey, Guid ownerId, string metadataKey, string metadataValue, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<bool> AddMemberAsync(Guid gcId, GcPrincipal member, CancellationToken ct) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task A_fork_creates_one_project_gc_for_the_requester_and_a_retry_finds_the_same_one()
+    {
+        var gcs = new RecordingProvisioner();
+        var provisioner = new GcForkTargetProvisioner(gcs);
+        var requester = new GcPrincipal(Guid.NewGuid(), PrincipalKind.Owner, "Owner");
+        var request = Guid.NewGuid();
+        var source = Guid.NewGuid();
+
+        var first = await provisioner.ProvisionAsync(request, source, 7, requester, Ct);
+        var again = await provisioner.ProvisionAsync(request, source, 7, requester, Ct);
+
+        Assert.Equal(first.NewGcId, again.NewGcId);
+        Assert.Equal(GcForkTargetProvisioner.TargetId(request), first.NewGcId);
+        Assert.Null(first.VaultCommit);
+        var created = Assert.Single(gcs.Created);
+        Assert.Equal(requester, created.Owner);
+        Assert.Contains("seq 7", created.Title, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Different_requests_get_different_target_gcs()
+    {
+        Assert.NotEqual(GcForkTargetProvisioner.TargetId(Guid.NewGuid()), GcForkTargetProvisioner.TargetId(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void The_extension_binds_the_provisioner_only_when_a_gc_provisioner_is_registered()
+    {
+        var none = new ServiceCollection().AddBazaarGcForkTarget();
+        Assert.DoesNotContain(none, d => d.ServiceType == typeof(IForkTargetProvisioner));
+
+        var bound = new ServiceCollection();
+        bound.AddSingleton<Bazaar.Server.Gc.Write.IGcProvisioner>(new RecordingProvisioner());
+        bound.AddBazaarGcForkTarget();
+        using var provider = bound.BuildServiceProvider();
+        Assert.IsType<GcForkTargetProvisioner>(provider.GetRequiredService<IForkTargetProvisioner>());
     }
 }
