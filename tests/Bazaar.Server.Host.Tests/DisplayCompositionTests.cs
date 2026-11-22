@@ -14,6 +14,8 @@ using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
+using Bazaar.Server.VmDensity.Vms;
+using Bazaar.Server.Vms.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
@@ -39,7 +41,7 @@ public sealed class DisplayCompositionTests
     private static readonly string[] _componentIds =
     [
         "vm-display", "vm-display-gate", "vm-display-guest-channel", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
-        "vm-density", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
+        "vm-density", "vm-density-vms", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
         "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
 
@@ -273,16 +275,25 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public async Task The_density_governor_resolves_and_admits_everything_until_the_vm_ports_exist()
+    public async Task The_density_governor_has_all_its_ports_but_every_vm_counts_as_busy_and_nothing_is_saved_or_stopped()
     {
         using var host = BuildHost();
         var governor = host.Services.GetRequiredService<IDensityGovernor>();
 
-        Assert.False(Assert.IsType<DensityGovernor>(governor).IsActive);
+        // The adapter and the default activity reader are registered. No VM backend is configured, so there is no control port behind them.
+        Assert.IsType<VmDensityVmAdapter>(host.Services.GetRequiredService<IDensityVmDirectory>());
+        Assert.Same(host.Services.GetRequiredService<IDensityVmDirectory>(), host.Services.GetRequiredService<IDensityVmControl>());
+        Assert.IsType<UnreadableVmActivityReader>(host.Services.GetRequiredService<IVmActivityReader>());
+        Assert.Null(host.Services.GetService<IVmControl>());
+        // The memory probe exists on Windows and Linux, so the governor is active there.
+        Assert.Equal(OperatingSystem.IsLinux() || OperatingSystem.IsWindows(), Assert.IsType<DensityGovernor>(governor).IsActive);
+
+        // The save path is closed: with no control port the adapter refuses to save anything.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.Services.GetRequiredService<IDensityVmControl>().SaveAsync(Guid.NewGuid(), CancellationToken.None));
+
+        // Nothing in the host calls the governor; a caller that did would still be admitted, because the unreachable database fails the VM listing.
         await using var ticket = await governor.AdmitAsync(new DensityVm(Guid.NewGuid(), "agent-one", DensityGuestOs.Linux, 2048), CancellationToken.None);
         Assert.Equal(0, governor.Snapshot().Running);
-        // The memory probe is the one density port the host can supply today.
-        Assert.Equal(OperatingSystem.IsLinux() || OperatingSystem.IsWindows(), host.Services.GetService<IHostMemoryProbe>() is not null);
     }
 
     [Fact]

@@ -395,6 +395,7 @@
     <Project Path="src/Bazaar.Server.VmDensity.Abstractions/Bazaar.Server.VmDensity.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity.HostProbes/Bazaar.Server.VmDensity.HostProbes.csproj" />
     <Project Path="src/Bazaar.Server.VmDensity/Bazaar.Server.VmDensity.csproj" />
+    <Project Path="src/Bazaar.Server.VmDensity.Vms/Bazaar.Server.VmDensity.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Remote/Bazaar.Server.Remote.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool.Abstractions/Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool/Bazaar.Server.BrowserPool.csproj" />
@@ -729,6 +730,7 @@
     <Project Path="tests/Bazaar.Server.BrowserPool.Audit.Tests/Bazaar.Server.BrowserPool.Audit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.HostProbes.Tests/Bazaar.Server.VmDensity.HostProbes.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.Tests/Bazaar.Server.VmDensity.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDensity.Vms.Tests/Bazaar.Server.VmDensity.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vault.Tests/Bazaar.Server.Vault.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyMemory.Tests/Bazaar.Server.CompanyMemory.Tests.csproj" />
