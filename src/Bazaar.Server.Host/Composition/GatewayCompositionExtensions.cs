@@ -13,6 +13,7 @@ using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Providers.ClaudeCode;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
@@ -69,13 +70,21 @@ public static class GatewayCompositionExtensions
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         // Config-defined sources overlay the stored directory: FreeLLMAPI first, then the owner's Anthropic key on top.
-        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => AnthropicDirectWiring.CreateDirectory(
-            FreeLlmApiWiring.CreateDirectory(
-                sp.GetRequiredService<GatewayDirectoryRepository>(),
-                FreeLlmApiOptionsOf(sp),
-                sp.GetRequiredService<TimeProvider>()),
-            AnthropicDirectOptionsOf(sp),
-            sp.GetRequiredService<TimeProvider>())));
+        // The Claude Code CLI provider (doc 91) goes on top, so its default route can fall back to the owner's key inside the Claude family.
+        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp =>
+        {
+            var anthropic = AnthropicDirectOptionsOf(sp);
+            IGatewayDirectory directory = AnthropicDirectWiring.CreateDirectory(
+                FreeLlmApiWiring.CreateDirectory(
+                    sp.GetRequiredService<GatewayDirectoryRepository>(),
+                    FreeLlmApiOptionsOf(sp),
+                    sp.GetRequiredService<TimeProvider>()),
+                anthropic,
+                sp.GetRequiredService<TimeProvider>());
+            return sp.GetService<IOptions<ClaudeCodeOptions>>()?.Value is { Enabled: true } claudeCode
+                ? new ClaudeCodeGatewayDirectory(directory, claudeCode, anthropic, sp.GetRequiredService<TimeProvider>())
+                : directory;
+        }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
             sp.GetRequiredService<RouteResolver>(),
