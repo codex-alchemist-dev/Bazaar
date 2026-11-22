@@ -1,0 +1,46 @@
+{
+  "candidates": [
+    { "project": "Bazaar.Rubedo" },
+    { "project": "Bazaar.Kodo" },
+    { "project": "Bazaar.Updates" },
+    { "project": "Bazaar.Constellation.Rendering" },
+    { "project": "Bazaar.Secrets.Abstractions" },
+    { "project": "Bazaar.Testing" },
+    { "project": "Cdax.Core" }
+  ],
+  "forbiddenTerms": [
+    { "term": "AgentId", "ignoreCase": false },
+    { "term": "Resibo", "ignoreCase": true },
+    { "term": "Soul", "ignoreCase": false },
+    { "term": "GC", "ignoreCase": false },
+    { "term": "company", "ignoreCase": true }
+  ],
+  "namespaceTerms": [ "Bazaar" ],
+  "keyPrefixes": [ "bazaar" ],
+  "hostReferences": [ "Npgsql", "Bazaar.Server", "Bazaar.Contracts" ],
+  "providerTerms": [ "Postgres", "PostgreSql", "Npgsql", "Testcontainers", "Vulkan", "Vortice", "Windows", "Keyring", "Dpapi", "Skia" ],
+  "allowlist": [
+    {"id": "R1", "rule": "P-01", "path": "src/Bazaar.Rubedo", "term": "Bazaar", "reason": "Namespace and assembly still carry the product name until the rename to a neutral name."},
+    {"id": "K7", "rule": "P-01", "path": "src/Bazaar.Kodo", "term": "Bazaar", "reason": "Namespace still carries the product name until the library is renamed."},
+    {"id": "K1", "rule": "P-01", "path": "src/Bazaar.Kodo", "term": "company", "reason": "Setting description says company server availability; reword when keys are re-prefixed."},
+    {"id": "O2", "rule": "P-01", "path": "src/Bazaar.Updates", "term": "Bazaar", "reason": "Namespace and version-scheme wording still carry the product name."},
+    {"id": "O3", "rule": "P-01", "path": "src/Bazaar.Updates", "term": "company", "reason": "Company vocabulary in feed, manifest and verifier docs; reword to publisher and feed."},
+    {"id": "CR1", "rule": "P-01", "path": "src/Bazaar.Constellation.Rendering", "term": "Bazaar", "reason": "Namespace still carries the product name until the renderer gets a neutral name."},
+    {"id": "A4", "rule": "P-01", "path": "src/Bazaar.Secrets.Abstractions", "term": "Bazaar", "reason": "Namespaces still carry the product name and mismatch the project."},
+    {"id": "A1", "rule": "P-01", "path": "src/Bazaar.Secrets.Abstractions", "term": "AgentId", "reason": "AgentId in the secrets contracts is to become the generic Principal and Scope."},
+    {"id": "T5", "rule": "P-01", "path": "src/Bazaar.Testing", "term": "Bazaar", "reason": "Namespace still carries the product name until the kit is renamed."},
+    {"id": "T1", "rule": "P-01", "path": "src/Bazaar.Testing/Postgres", "term": "GC", "reason": "System.GC.SuppressFinalize inside the Postgres provider code, which leaves the kit with T1."},
+    {"id": "R2", "rule": "P-02", "path": "src/Bazaar.Rubedo/Views/ViewValidator.cs", "term": "bazaar", "reason": "View-name example text uses a bazaar-prefixed name; goes with the view split."},
+    {"id": "T2", "rule": "P-02", "path": "src/Bazaar.Testing", "term": "bazaar", "reason": "BAZAAR_TEST_* environment variables, bazaar_ database prefixes and seed key; to become caller-supplied or cdax-prefixed."},
+    {"id": "T1", "rule": "P-03", "path": "src/Bazaar.Testing/Bazaar.Testing.csproj", "term": "Npgsql", "reason": "Npgsql in the core kit; Postgres folder moves to a provider project."},
+    {"id": "T1", "rule": "P-03", "path": "src/Bazaar.Testing/Bazaar.Testing.csproj", "term": "Testcontainers.PostgreSql", "reason": "Testcontainers in the core kit; Postgres folder moves to a provider project."},
+    {"id": "T3", "rule": "P-03", "path": "src/Bazaar.Testing/Bazaar.Testing.csproj", "term": "Microsoft.Extensions.TimeProvider.Testing", "reason": "FakeClock wraps FakeTimeProvider; reimplement over TimeProvider."},
+    {"id": "UNAUDITED-1", "rule": "P-07", "path": "src/Bazaar.Kodo", "term": "Bazaar.Contracts", "reason": "Kodo gained a Bazaar.Contracts reference (Api folder) after the audit, which listed it as reference-free."},
+    {"id": "A4", "rule": "P-07", "path": "src/Bazaar.Secrets.Abstractions", "term": "Bazaar.Server", "reason": "ISecretResolver and SecretResolutionException are in the Bazaar.Server.Secrets namespace."},
+    {"id": "T4", "rule": "P-07", "path": "src/Bazaar.Testing/LiveEval/LiveEvalRunner.cs", "term": "Bazaar.Server", "reason": "Doc comment names Bazaar.Server."},
+    {"id": "T1", "rule": "P-07", "path": "src/Bazaar.Testing", "term": "Npgsql", "reason": "Npgsql use in the Postgres fixtures."},
+    {"id": "T1", "rule": "P-08", "path": "src/Bazaar.Testing/Bazaar.Testing.csproj", "term": "Npgsql", "reason": "Provider package in the core kit."},
+    {"id": "T1", "rule": "P-08", "path": "src/Bazaar.Testing/Bazaar.Testing.csproj", "term": "Testcontainers.PostgreSql", "reason": "Provider package in the core kit."},
+    {"id": "T1", "rule": "P-08", "path": "src/Bazaar.Testing/Postgres", "term": "Postgres", "reason": "Postgres provider code in the core kit; moves to Bazaar.Testing.Postgres."}
+  ]
+}
