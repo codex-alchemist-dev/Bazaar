@@ -8,10 +8,11 @@ namespace Bazaar.Server.Tests.Settings;
 public sealed class GatewaySettingsTests
 {
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
+    private static readonly SettingRegistry _registry = SettingRegistry.WithContributions([new GatewaySettingContribution()]);
 
     private static SettingDefinition Lookup(string name)
     {
-        Assert.True(SettingRegistry.Known.TryGet(name, out var definition), $"'{name}' is not registered.");
+        Assert.True(_registry.TryGet(name, out var definition), $"'{name}' is not registered.");
         return definition!;
     }
 
@@ -38,7 +39,7 @@ public sealed class GatewaySettingsTests
             "gateway.long_prompt.hard_cap_tokens", "gateway.freellmapi.warn_on_version_change", "gateway.usage.retention_days",
         ];
 
-        var gateway = SettingRegistry.Known.Definitions
+        var gateway = _registry.Definitions
             .Where(d => d.Name.StartsWith("gateway.", StringComparison.Ordinal))
             .Select(d => d.Name)
             .ToList();

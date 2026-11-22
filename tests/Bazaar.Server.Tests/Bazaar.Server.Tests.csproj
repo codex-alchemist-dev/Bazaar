@@ -25,16 +25,14 @@
     <Compile Include="..\Bazaar.Server.Souls.Tests\Retirement\RetirementFakes.cs" Link="Souls\Retirement\RetirementFakes.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Gateway\Adapters\OpenAi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Gateway\Adapters\Anthropic\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
-    <None Include="Gateway\Adapters\Gemini\Fixtures\*.sse" CopyToOutputDirectory="PreserveNewest" />
-    <None Update="Gateway\FreeLlmApi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Testing\Replay\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.ReadAudit\Bazaar.Server.ReadAudit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
