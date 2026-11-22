@@ -56,24 +56,6 @@ public sealed class StatusEndpointsTests
     }
 
     [Fact]
-    public async Task The_setup_write_routes_take_post_only_and_the_rest_of_setup_stays_get_only()
-    {
-        var (app, client, _) = await StartAsync();
-        await using (app)
-        {
-            var ct = TestContext.Current.CancellationToken;
-            var hash = new string('a', 64);
-            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/plans", new StringContent(string.Empty), ct)).StatusCode);
-            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, (await client.PostAsync($"/setup/plans/{hash}/apply", new StringContent(string.Empty), ct)).StatusCode);
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.DeleteAsync("/setup/plans", ct)).StatusCode);
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PutAsync($"/setup/plans/{hash}/apply", new StringContent(string.Empty), ct)).StatusCode);
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/status", new StringContent(string.Empty), ct)).StatusCode);
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/plans/x/y/apply", new StringContent(string.Empty), ct)).StatusCode);
-            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/other", new StringContent(string.Empty), ct)).StatusCode);
-        }
-    }
-
-    [Fact]
     public async Task Live_is_ok_even_before_startup_finishes()
     {
         var (app, client, _) = await StartAsync();
@@ -171,6 +153,20 @@ public sealed class StatusEndpointsTests
         {
             var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData("/setup/plans")]
+    [InlineData("/setup/plans/abc/apply")]
+    public async Task Setup_provisioning_paths_accept_post(string path)
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // The setup component is not mapped in this test app, so the guard lets POST through and routing answers 404.
+            var response = await client.PostAsync(path, new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
     }
 

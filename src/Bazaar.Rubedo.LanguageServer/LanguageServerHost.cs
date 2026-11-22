@@ -1,5 +1,5 @@
-using Bazaar.Rubedo.Semantics;
 using System.Text;
+using Bazaar.Rubedo.Semantics;
 
 namespace Bazaar.Rubedo.LanguageServer;
 

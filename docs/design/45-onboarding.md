@@ -212,7 +212,7 @@ The file is a plan input. It is never executed and never contains a secret value
 - **Exit codes:** 0 valid or applied; 1 invalid input; 2 blocked by a floor or by a change that needs approval (the change is held, not refused); 3 apply failed and rolled back.
 - **Output:** plain text by default, written so a screen reader reads it in order. `--json` gives the same content for scripts. Error text names the key and the rule, never a value.
 
-## 1.8 Company templates [PLANNED]
+## 1.8 Company templates [BUILT: loader, resolver, folder source, git catalog; PLANNED: exporter and wizard picker]
 
 **What a template is.** A versioned folder in a git repository (the operator's own, or one Bazaar ships), containing:
 
@@ -228,6 +228,24 @@ The file is a plan input. It is never executed and never contains a secret value
 **Import.** Choosing an import as the company source hands the dump to a doc 44 importer. Importers are modules and handle docx, md, txt, Milanote, Miro, Trello, Obsidian and similar sources.
 
 One company per install. A template creates the install's one company; it does not create a second one.
+
+**Build status (2026-11-19).**
+
+| Part | Status | Notes |
+|---|---|---|
+| Template model, strict loader, hash, resolver and overlay | **BUILT** | `Bazaar.Server.Setup/Templates`. Lookups are exact on id and version. |
+| Folder source | **BUILT** | `FileSystemTemplateSource`. Links and paths outside the folder are refused. |
+| Git catalog and fetch | **BUILT** | `GitTemplateCatalog`, `GitCliFetcher` behind `IGitFetcher`, `GitTemplateCatalogParser`. No forge API and no git server: any plain git URL the git CLI can read. See below. |
+| Wiring the git catalog into the host (config file path, DI) | PLANNED | The catalog is a library type; no host setting names a catalog file yet. |
+| Private-repository credentials | PLANNED | Entries carry no credentials. A private repository works only through the server's own ssh agent or git credential setup. A secret reference field is a later change. |
+| Exporter (doc 44) and wizard template picker | PLANNED | Needs doc 44 and the wizard's company-source step. |
+
+**Git catalog.** The operator lists template versions in a catalog file (`schemaVersion` 1, `templates[]`). Each entry pins `id`, an exact `version`, a plain `url`, a full `commit` id (40 or 64 lower-case hex; branch and tag names are refused), an optional `path` to the template folder, and the `templateHash` (section 1.8 hash). The file is strict JSON (no comments, no duplicate or unknown keys, 256 KB, 256 entries). Rules:
+
+- **URL:** https and ssh by default; `file` only when the operator lists it. No credentials, query or fragment; an ssh user name without a password is allowed. Errors never echo the URL.
+- **Fetch:** `git init --template=`, a shallow fetch of the one commit (a full fetch if the remote refuses a bare commit id), HEAD must equal the pinned commit, checkout with symlinks off, then the `.git` folder is removed. The process runs without a shell, with no prompt, no system or user git config, no hooks, no submodules, no LFS smudge, `GIT_ALLOW_PROTOCOL` set to the allowed schemes, and a time limit (default two minutes). Git's own output is dropped.
+- **Pin:** the resolver refuses a template whose computed hash differs from the entry's `templateHash`, on every resolve, including a cached checkout. A fetch failure is a `company.source` error with fixed text.
+- **Cache:** one folder per URL and commit under an operator-set cache root; a repeat resolve reuses it.
 
 ## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
