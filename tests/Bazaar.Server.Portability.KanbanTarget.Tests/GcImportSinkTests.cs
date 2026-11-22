@@ -29,6 +29,8 @@ public class GcImportSinkTests
         }
 
         public Task<bool> AddMemberAsync(Guid gcId, GcPrincipal member, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<Guid> EnsureDmAsync(GcPrincipal first, GcPrincipal second, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class FakeMessages : IImportGcMessages

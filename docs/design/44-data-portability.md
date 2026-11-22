@@ -239,6 +239,20 @@ Decisions where this doc was silent (owner may overrule): an unsigned bundle fai
 
 Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
 
+### 6.5 Built status of the bundle sources (work packages 2, 4, 5, 7 and 8)
+
+Built: `ExportBundleAssembler` runs registered `IBundleSource` implementations into one signed bundle and hashes every byte as it streams. Three adapters feed it from the existing exporters: `VaultBundleSource` (id `vault.v1`; places `repo.bundle`, `tree/` and `vault-manifest.json` under `vault/`), `PersonalFieldBundleSource` (id `personal.v1`; writes the files the personal exporter returns, under `personal/`) and `AuditBundleSource` (id `audit.v1`; writes `audit/entries.jsonl`, `checkpoints.jsonl` and `archive.json`, after the exporter's own replay self-check). A refusal or self-check failure throws and leaves no bundle. The assembler computes the manifest entries, so the adapters report none of their own.
+
+Decisions where this doc was silent (owner may overrule): the source ids above (ordinal order makes the run `audit`, `personal`, `vault`); the Vault exporter's own `vault-manifest.json` ships as `vault/vault-manifest.json` and is also hashed in `manifest.json`; the personal exporter audits the export when it runs, before assembly ends, so a later assembly failure leaves that audit entry in place; the plaintext owner notice is exposed on the source (`PlaintextNotice`), not written into the bundle. Not built: `audit/proofs/` and `audit/verify/`, and Vault principal filtering.
+
+Also built (README, mentions and plaintext flag): the assembler writes `README.txt` after the sources have run (`BundleReadme`): plain language, one line for each top-level folder that is in the bundle, the loose files, and, when a plaintext file exists, a notice that erasure cannot reach it. It is hashed and listed in `manifest.json` like any file (the verifier fails an unlisted file), and sources cannot write that path. `GcMentionsBundleSource` (id `gc.mentions.v1`, reads through `IGcMentionSource`) writes `gc/<gc_id>/mentions.jsonl`, one line per `gc_mention` row (`seq`, `targetPrincipalId`), cut at the GC head read first, and an empty file for a GC with none. A source that writes decrypted personal data implements `IPlaintextBundleSource`; the assembler sets `plaintextPersonal: true` on those files' manifest entries (the field is absent on every other entry). `PersonalFieldBundleSource` flags `personal/<subject>.json`.
+
+Decisions where this doc was silent (owner may overrule): the README wording (the doc fixes only that it is generated, explains the layout and is not authoritative); the flag is per file and spelled `plaintextPersonal` (camelCase like the other manifest fields; section 4.6 writes `plaintext_personal`), with no bundle-level flag; mention lines use the same sealed hash-chain line (`prevHash`, `hash`) as the other `gc.jsonl.v1` files, and the mention reader pages by (seq, target) because one event can mention several principals; the mentions source does not write or change `head.json`. Open: the in-memory `ExportBundleWriter.Build` does not generate a README or flags.
+
+Also built (GC bundle source, head.json and self-check): `GcBundleSource` (id `gc.jsonl.v1`) runs `GcJsonlExporter` for each requested GC and copies `events.jsonl`, `messages.jsonl`, `versions.jsonl`, `mentions.jsonl` (when the exporter is given an `IGcMentionSource`) and `head.json` into the bundle, so a full GC bundle assembles and passes `ExportBundleWriter.Verify`, `BundleSigner.Verify` and `bazaar-verify`. Each GC is exported into a scratch directory, re-read by `GcExportSelfCheck`, then copied; a GC that fails throws and aborts the bundle. `GcExportHead` now writes `mentionCount` and `mentionHeadHash` when mentions are exported, and the self-check verifies `mentions.jsonl` (bytes, chain, count, head hash). The verifier reads `head.json` in either spelling (`last_seq`, `head_hash`, `counts`, or `headSeq`, `eventHeadHash` and flat `eventCount`, `messageCount`, `versionCount`, `mentionCount`) and event chain fields in either spelling (`prev_event_hash`/`event_hash` or `prevHash`/`hash`), and treats the all-zero genesis hash as no previous hash. `ExportBundleAssembler` now runs a file-level self-check on the directory it wrote (the manifest is the signed bytes, the signature verifies, every listed file hashes to its entry, no file is unlisted) before the bundle is moved into place or encrypted; a failure throws and leaves no bundle.
+
+Decisions where this doc was silent (owner may overrule): doc 44 section 4.2 fixes the content of `head.json`, not its field names, so the writer's camelCase names stand and the verifier accepts both; `GcMentionsBundleSource` remains for a bundle whose GC exporter has no mention reader, and the two must not both run for one GC. Not built: the section 6.2 self-check does not replay GC or audit chains at bundle level (the verifier library references this project, so the assembler cannot call it; the sources run their own chain self-checks), and a failed self-check is not yet recorded as `incomplete` in the audit log (the assembler has no audit sink).
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -317,7 +331,7 @@ OS confinement actually applied:
 - The Linux group kill is skipped once the child has exited (its pid may be reused), so descendants that outlive an already-exited leader are not killed by the sandbox.
 - Windows (`WindowsJobObjectConfinement` in `Bazaar.Server.Providers.Windows`, compiled but not run on Windows; `ParserConfinements.CreateDefault()` picks it up by name when that assembly is deployed, else it falls back to tree-kill only): job object with per-process memory and CPU limits, an active-process limit of one, kill on close, and `TerminateJobObject` as the tree kill. The child is assigned to the job right after it starts (.NET cannot start a process suspended).
 - Not applied anywhere yet: file-system read scoping ("read access only to its staging input") and write confinement (a zero file-size limit kills the .NET runtime at startup), a child-process cap on Linux, and network isolation on Windows. Each run reports these in `ParserRunInfo.NotApplied`; `RequireFullConfinement` makes a job refuse to run when anything is missing.
-- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and the health-contract self-test over the sandbox.
+- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and a sandbox dependency probe (the self-test over the importers is built, section 11).
 
 ### 8.4 Idempotent re-import
 
@@ -359,13 +373,14 @@ Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, 
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
 
-**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Observatory and health reporting are not wired.
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Health reporting is built (section 11 built status); Observatory events are not wired, because doc 23 defines no portability events.
 
 ### 8.8 Withdrawing an import
 
 Undo never deletes history:
 
 - GC entries from an import get a new version that marks them `withdrawn_by_import: <job>`. The text stays in history, and the view hides it by default.
+  **[PROPOSED]** The version is written through the GC log writer (`AppendRequest.WithdrawnByImport`, doc 01 Edits): a new `message_edit` row by the system principal with `gc_message_version.withdrawn_by_import = <job id>`. Original versions are never changed. The editor-must-be-author rule does not apply to this principal.
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
 - Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
 - The withdrawal is itself an audit entry, linked to the job.
@@ -439,6 +454,8 @@ Erasure is planned in doc 48. Its mechanics are in doc 04 (erasure hook), doc 08
 - Import and export jobs appear in Observatory (doc 23) and in the health contract (doc 46). Kodo (the health module, DECIDED) reads job status and raises alerts for `failed_verify`, `stalled`, and parser crash loops.
 - Every export and import writes audit entries (section 4.1, section 8.9). Plaintext personal exports and secret-scanner decisions are audited with the actor.
 - A job that holds the owner's approval needed for a plaintext export or a size-limit raise stops at that decision and waits for it.
+
+**Built status (2026-11-22):** `PortabilityHealth` (in `Bazaar.Server.Portability`, module id `portability`) implements `IModuleHealthContract` of doc 46 section 10. Liveness does no I/O. Readiness reports `failed_verify`, `stalled` and `parser_crash_loop` alerts (`PortabilityJobAlerts`, pure) as Degraded, from counts that the host supplies through `IImportJobHealthSource` (the job store has no listing). Dependencies come from `IPortabilityDependencyProbe` items the host registers; a throwing probe is Unknown. The self-test runs every `IMappingImporter.SelfTest` over its built-in fixture, is the same for Quick and Full (no I/O, no residue), is Unknown when no importer is registered, and names importer ids only. Not built: the host implementations of the two source interfaces, DI registration, a sandbox dependency probe, the manifest `health` block, and Observatory events (doc 23 defines none for portability). Open: whether job alerts belong in readiness or in a separate Kodo probe, since doc 46 section 9.1 has no portability probe.
 
 ## 12. Settings
 

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text;
 using Bazaar.Contracts.Engines;
+using Bazaar.Server.Engines.Abstractions;
 using Bazaar.Server.Luau.Abstractions;
 
 namespace Bazaar.Server.Luau.Tests;
@@ -63,9 +64,9 @@ public class LuauCheckerTests
         using var project = new TempProject();
         var runner = new FakeLuauToolRunner((file, _) => Task.FromResult(file switch
         {
-            "luau-analyze" => new LuauProcessResult(1, "scripts/Main.lua(1,1): TypeError: bad\n", string.Empty, false),
-            "selene" => new LuauProcessResult(1, string.Empty, string.Empty, false),
-            _ => new LuauProcessResult(1, "Diff in scripts/Main.lua:\n", string.Empty, false),
+            "luau-analyze" => new ProcessResult(1, "scripts/Main.lua(1,1): TypeError: bad\n", string.Empty, false),
+            "selene" => new ProcessResult(1, string.Empty, string.Empty, false),
+            _ => new ProcessResult(1, "Diff in scripts/Main.lua:\n", string.Empty, false),
         }));
         LuauChecker checker = CheckerWith(runner);
 
@@ -87,7 +88,7 @@ public class LuauCheckerTests
         using var project = new TempProject();
         var runner = new FakeLuauToolRunner((file, _) => file == "luau-analyze"
             ? throw new Win32Exception(2, "No such file or directory")
-            : Task.FromResult(new LuauProcessResult(0, string.Empty, string.Empty, false)));
+            : Task.FromResult(new ProcessResult(0, string.Empty, string.Empty, false)));
         LuauChecker checker = CheckerWith(runner);
 
         LuauCheckResult result = await checker.CheckAsync(Request(project, "scripts/Main.lua"), TestContext.Current.CancellationToken);
@@ -115,8 +116,8 @@ public class LuauCheckerTests
     {
         using var project = new TempProject();
         var runner = new FakeLuauToolRunner((file, _) => Task.FromResult(file == "selene"
-            ? new LuauProcessResult(-1, "{\"code\":\"x\",\"level\":\"error\",\"message\":\"m\"}", string.Empty, TimedOut: true)
-            : new LuauProcessResult(0, string.Empty, string.Empty, false)));
+            ? new ProcessResult(-1, "{\"code\":\"x\",\"level\":\"error\",\"message\":\"m\"}", string.Empty, TimedOut: true)
+            : new ProcessResult(0, string.Empty, string.Empty, false)));
         LuauChecker checker = CheckerWith(runner);
 
         LuauCheckResult result = await checker.CheckAsync(Request(project, "scripts/Main.lua"), TestContext.Current.CancellationToken);
@@ -136,7 +137,7 @@ public class LuauCheckerTests
         {
             cancel.Cancel();
             await Task.Delay(Timeout.Infinite, ct);
-            return new LuauProcessResult(0, string.Empty, string.Empty, false);
+            return new ProcessResult(0, string.Empty, string.Empty, false);
         });
         LuauChecker checker = CheckerWith(runner);
 
@@ -150,8 +151,8 @@ public class LuauCheckerTests
         var output = new StringBuilder("scripts/Main.lua(1,1): TypeError: first\n");
         output.Append('x', 5000);
         var runner = new FakeLuauToolRunner((file, _) => Task.FromResult(file == "luau-analyze"
-            ? new LuauProcessResult(1, output.ToString(), string.Empty, false)
-            : new LuauProcessResult(0, string.Empty, string.Empty, false)));
+            ? new ProcessResult(1, output.ToString(), string.Empty, false)
+            : new ProcessResult(0, string.Empty, string.Empty, false)));
         LuauChecker checker = CheckerWith(runner, new LuauToolOptions { MaxOutputCharacters = 1000 });
 
         LuauCheckResult result = await checker.CheckAsync(Request(project, "scripts/Main.lua"), TestContext.Current.CancellationToken);
