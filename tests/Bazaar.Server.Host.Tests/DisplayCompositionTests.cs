@@ -2,15 +2,23 @@ using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Bazaar.Server.BrowserPool.Audit;
+using Bazaar.Server.BrowserPool.Egress;
+using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Security.Credentials;
+using Bazaar.Server.Security.KillSwitch;
+using Bazaar.Server.Security.Taint;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.Audit;
+using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.VmEgress;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -24,8 +32,9 @@ public sealed class DisplayCompositionTests
 {
     private static readonly string[] _componentIds =
     [
-        "vm-display", "vm-display-audit", "vm-display-agent-tools", "vm-display-hyperv", "vm-display-kvm",
+        "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-hyperv", "vm-display-kvm",
         "vm-density", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
+        "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
 
     private static readonly DisplayTarget _target = new("agent-one", Guid.NewGuid(), DisplayGuestOs.Linux, "vm-one");
@@ -50,29 +59,101 @@ public sealed class DisplayCompositionTests
 
         // The listed order is the registration order, so the dependency also comes first in the list itself.
         var listed = manifests.Select(m => m.Id).ToList();
+        Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-gate"));
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-audit"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-display"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-linux-host"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-image"));
+        Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-egress"));
+        Assert.True(listed.IndexOf("browser-pool-gate") < listed.IndexOf("browser-pool-egress"));
+        Assert.True(listed.IndexOf("browser-pool-audit") < listed.IndexOf("browser-pool-egress"));
     }
 
     [Fact]
-    public async Task With_default_configuration_capture_and_input_are_refused_by_the_resolved_display_service()
+    public async Task With_default_configuration_the_real_gate_has_every_reader_and_refuses_while_the_stop_state_cannot_be_read()
     {
         using var host = BuildHost();
         var display = host.Services.GetRequiredService<IGuestDisplay>();
 
+        // The gate is the real one, not the display module's unconfigured default.
+        Assert.IsType<SecurityDisplayGate>(host.Services.GetRequiredService<IDisplayGate>());
+        // The host registers all three security readers. This test host has no database, so the kill switch state is never
+        // loaded, which counts as frozen, and the gate refuses. With a live database the gate decides per call (frozen, tainted, leased credential).
+        Assert.NotNull(host.Services.GetService<IKillSwitchReader>());
+        Assert.NotNull(host.Services.GetService<IAgentSessionTaintReader>());
+        Assert.NotNull(host.Services.GetService<ILeasedCredentialMatcher>());
+
         var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
         Assert.Equal(DisplayFailure.Refused, capture.Failure);
+        Assert.Equal("Display capture refused: agent is frozen.", capture.Message);
 
         var batch = new InputBatch(_target, [new KeyStroke("Enter")]);
         var input = await Assert.ThrowsAsync<DisplayException>(() => display.SendInputAsync(batch, CancellationToken.None));
         Assert.Equal(DisplayFailure.Refused, input.Failure);
+        Assert.Equal("Display input refused: agent is frozen.", input.Message);
 
         // Nothing is known about any display size until a capture succeeds.
         Assert.Null(host.Services.GetRequiredService<IDisplayNativeSizeReader>().TryGetNativeSize(_target));
         // The audit sink is the audit log's, not the module's no-op sink.
         Assert.IsType<AuditLogDisplayAuditSink>(host.Services.GetRequiredService<IDisplayAuditSink>());
+    }
+
+    [Fact]
+    public async Task The_gate_can_be_switched_off_by_configuration_and_then_refuses_everything()
+    {
+        using var host = BuildHost(
+            new Dictionary<string, string?> { ["Bazaar:VmDisplayGate:Enabled"] = "false" },
+            services => services.AddSingleton<ILeasedCredentialMatcher>(new InMemoryLeasedCredentialMatcher()));
+        var display = host.Services.GetRequiredService<IGuestDisplay>();
+
+        var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
+
+        Assert.Equal(DisplayFailure.Refused, capture.Failure);
+        Assert.Equal("Display capture refused: display gate not enabled.", capture.Message);
+    }
+
+    [Fact]
+    public async Task With_every_security_reader_present_the_gate_allows_and_the_call_then_fails_for_lack_of_a_source()
+    {
+        using var host = BuildHost(services =>
+        {
+            services.AddSingleton<ILeasedCredentialMatcher>(new InMemoryLeasedCredentialMatcher());
+            services.AddSingleton<IKillSwitchReader>(new FixedKillSwitch(frozen: false));
+        });
+        var display = host.Services.GetRequiredService<IGuestDisplay>();
+
+        var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
+
+        // The gate said yes; no source serves a VM target that no hypervisor knows (there is no guest source and no browser session).
+        Assert.NotEqual(DisplayFailure.Refused, capture.Failure);
+        Assert.NotEqual(DisplayFailure.Disabled, capture.Failure);
+    }
+
+    [Fact]
+    public async Task A_frozen_kill_switch_refuses_capture_and_input_through_the_host_graph()
+    {
+        using var host = BuildHost(services =>
+        {
+            services.AddSingleton<ILeasedCredentialMatcher>(new InMemoryLeasedCredentialMatcher());
+            services.AddSingleton<IKillSwitchReader>(new FixedKillSwitch(frozen: true));
+        });
+        var display = host.Services.GetRequiredService<IGuestDisplay>();
+
+        var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
+        Assert.Equal(DisplayFailure.Refused, capture.Failure);
+        Assert.Equal("Display capture refused: agent is frozen.", capture.Message);
+
+        var input = await Assert.ThrowsAsync<DisplayException>(() => display.SendInputAsync(new InputBatch(_target, [new KeyStroke("Enter")]), CancellationToken.None));
+        Assert.Equal(DisplayFailure.Refused, input.Failure);
+        Assert.Equal("Display input refused: agent is frozen.", input.Message);
+    }
+
+    private sealed class FixedKillSwitch(bool frozen) : IKillSwitchReader
+    {
+        public ValueTask<bool> IsFrozenAsync(string agentId, CancellationToken ct = default) => ValueTask.FromResult(frozen);
+
+        public ValueTask<KillSwitchDecision> EvaluateAsync(string agentId, ToolEffect effect, CancellationToken ct = default) =>
+            throw new NotSupportedException();
     }
 
     [Fact]
@@ -130,9 +211,27 @@ public sealed class DisplayCompositionTests
         var failure = await Assert.ThrowsAsync<BrowserPoolException>(() => pool.OpenAsync(new PoolSessionRequest("agent-one"), CancellationToken.None));
 
         Assert.Equal(PoolFailure.AgentBlocked, failure.Failure);
-        Assert.IsType<UnconfiguredPoolGate>(host.Services.GetRequiredService<IPoolGate>());
-        Assert.IsType<UnconfiguredPoolEgressPolicy>(host.Services.GetRequiredService<IPoolEgressPolicy>());
+        var gate = Assert.IsType<KillSwitchPoolGate>(host.Services.GetRequiredService<IPoolGate>());
+        Assert.Same(gate, host.Services.GetRequiredService<IAsyncPoolGate>());
+        Assert.IsType<AuditLogPoolAuditSink>(host.Services.GetRequiredService<IPoolAuditSink>());
+        Assert.IsType<AllowlistStorePoolEgressPolicy>(host.Services.GetRequiredService<IPoolEgressPolicy>());
         Assert.Empty(pool.Sessions("agent-one"));
+    }
+
+    [Fact]
+    public async Task The_pool_egress_policy_answers_from_the_egress_store_and_has_no_proxy_for_an_agent_nobody_set_up()
+    {
+        using var host = BuildHost();
+        var policy = host.Services.GetRequiredService<IPoolEgressPolicy>();
+
+        Assert.IsType<AllowlistStorePoolEgressPolicy>(policy);
+        // No database is needed: the default store is in memory and empty, and nothing starts a proxy at load.
+        Assert.Null(await policy.ResolveAsync("agent-one", CancellationToken.None));
+
+        var store = host.Services.GetRequiredService<IEgressAllowlistStore>();
+        await store.SaveAsync("agent-one", new EgressRules([], System.Net.IPAddress.Parse("10.20.0.1"), 3128), CancellationToken.None);
+        Assert.Equal(new PoolEgressEndpoint("10.20.0.1", 3128), await policy.ResolveAsync("agent-one", CancellationToken.None));
+        Assert.Null(await policy.ResolveAsync("agent-two", CancellationToken.None));
     }
 
     [Fact]
@@ -153,7 +252,9 @@ public sealed class DisplayCompositionTests
         }
     }
 
-    private static IHost BuildHost(Dictionary<string, string?>? extra = null)
+    private static IHost BuildHost(Action<IServiceCollection> configureServices) => BuildHost(null, configureServices);
+
+    private static IHost BuildHost(Dictionary<string, string?>? extra = null, Action<IServiceCollection>? configureServices = null)
     {
         // Process-wide and unique to this class: the secrets resolve when a service first needs them, after Build returns.
         const string dbEnv = "BAZAAR_HOST_DISPLAY_TEST_DB";
@@ -176,6 +277,7 @@ public sealed class DisplayCompositionTests
         var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(values);
         builder.Services.AddBazaarHostApplication(builder.Configuration);
+        configureServices?.Invoke(builder.Services);
         return builder.Build();
     }
 }

@@ -117,6 +117,7 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 | `gateway.freellmapi.warn_on_version_change` | bool | true | install | operator | No |
 | `gateway.usage.retention_days` | int; 0 = indefinite (needs counsel) | 0 | install | operator | Yes, owner, when set to a non-zero value |
 | `gateway.embedding.route` [PROPOSED] | string: empty, a provider-qualified model id, or a route name (no wildcard, no auto) | empty (unset) | install | operator | No |
+| `gateway.default_preset` | lower-case slug (doc 45 step 9, `models.defaultPreset`); a name only, members come from the configured sources | `free-lane` | install | operator | No |
 
 **Default catalogue** (shipped as a secret-free file; each entry carries `freeTier`, `termsRisk`, `trainsOnFreeData` and `verification` fields. V = primary page read; P = partly; U = unverified; re-check raw pages before release):
 
