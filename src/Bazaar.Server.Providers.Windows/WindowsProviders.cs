@@ -1,3 +1,4 @@
+using Bazaar.Server.Portability.Sandbox;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
@@ -39,4 +40,11 @@ public static class WindowsProviders
             new WindowsSandboxOptions(Guid.Empty));
         return [sandbox];
     }
+
+    /// <summary>
+    /// The job-object confinement for the portability parser child (doc 44 section 8.3), or null when the host is not Windows
+    /// (the runner then uses its own OS default).
+    /// </summary>
+    public static IParserConfinement? ParserConfinement() =>
+        OperatingSystem.IsWindows() ? new WindowsJobObjectConfinement() : null;
 }

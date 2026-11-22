@@ -40,17 +40,30 @@ public sealed class ImportPipeline
     private const double _marginEpsilon = 1e-9;
 
     private readonly List<IPortabilityImporter> _importers;
+    private readonly ImportLimits _limits;
 
-    public ImportPipeline(IEnumerable<IPortabilityImporter> importers)
+    public ImportPipeline(IEnumerable<IPortabilityImporter> importers) : this(importers, ImportLimits.Default)
+    {
+    }
+
+    public ImportPipeline(IEnumerable<IPortabilityImporter> importers, ImportLimits limits)
     {
         ArgumentNullException.ThrowIfNull(importers);
+        ArgumentNullException.ThrowIfNull(limits);
         _importers = [.. importers];
+        _limits = limits;
     }
 
     public ImportPipelineResult Run(ImportSource source, IReadOnlySet<string> committedKeys, string? preferredImporterId = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(committedKeys);
+
+        // Checked before any importer sees the bytes (doc 44 sections 8.3 and 12, max_upload_bytes).
+        if (source.Content.LongLength > _limits.MaxSourceBytes)
+        {
+            return Failed(null, [], $"source is {source.Content.LongLength} bytes, over the limit of {_limits.MaxSourceBytes}");
+        }
 
         var detected = new List<(IPortabilityImporter Importer, ImportCandidate Candidate)>();
         try
@@ -100,6 +113,14 @@ public sealed class ImportPipeline
         try
         {
             var parsed = chosen.Parse(source);
+            foreach (var record in parsed)
+            {
+                var bytes = Encoding.UTF8.GetByteCount(record.Body);
+                if (bytes > _limits.MaxRecordBytes)
+                {
+                    return Failed(chosen.Id, candidates, $"record '{record.Title}' is {bytes} bytes, over the limit of {_limits.MaxRecordBytes}");
+                }
+            }
             var preview = ImportPlanner.Plan(parsed, committedKeys);
             var hash = MappingHashOf(chosen.Id, chosen.Version, preview.New);
             return new ImportPipelineResult(ImportStatus.Ready, chosen.Id, candidates, preview, hash);
