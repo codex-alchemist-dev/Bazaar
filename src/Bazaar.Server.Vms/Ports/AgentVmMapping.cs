@@ -33,7 +33,9 @@ public static class AgentVmMapping
     /// Maps a record, or returns null for a retired VM. A row recorded as Running without a backend reference breaks the contract that
     /// a running VM has one, so it is reported as <see cref="VmRunState.Other"/>, never as running.
     /// </summary>
-    public static AgentVmInfo? ToInfo(EnvironmentVmRecord record)
+    /// <param name="record">The VM record.</param>
+    /// <param name="canSaveState">What the backend says about saving, or null when no backend is known.</param>
+    public static AgentVmInfo? ToInfo(EnvironmentVmRecord record, bool? canSaveState = null)
     {
         ArgumentNullException.ThrowIfNull(record);
         if (ToRunState(record.State) is not { } state)
@@ -42,6 +44,6 @@ public static class AgentVmMapping
         var backendRef = string.IsNullOrWhiteSpace(record.BackendRef) ? null : record.BackendRef;
         if (state == VmRunState.Running && backendRef is null)
             state = VmRunState.Other;
-        return new AgentVmInfo(record.Id, record.AgentId, ToGuestOs(record.Os), backendRef, state);
+        return new AgentVmInfo(record.Id, record.AgentId, ToGuestOs(record.Os), backendRef, state, record.MemoryMb, canSaveState);
     }
 }

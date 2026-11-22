@@ -66,6 +66,7 @@
     <ProjectReference Include="..\Bazaar.ModulePermissions.Audit\Bazaar.ModulePermissions.Audit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Probes\Bazaar.Server.Setup.Probes.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Walkthrough\Bazaar.Server.Walkthrough.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SoulProfile\Bazaar.Server.SoulProfile.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Storage\Bazaar.Server.Setup.Storage.csproj" />
@@ -162,6 +163,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmDensity\Bazaar.Server.VmDensity.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity.Abstractions\Bazaar.Server.VmDensity.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity.HostProbes\Bazaar.Server.VmDensity.HostProbes.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDensity.Vms\Bazaar.Server.VmDensity.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Display\Bazaar.Server.BrowserPool.Display.csproj" />
