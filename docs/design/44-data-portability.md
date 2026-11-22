@@ -290,6 +290,8 @@ upload -> stage -> detect -> parse -> map -> preview -> dry-run -> commit -> aud
 
 Provenance is always attached. Every imported object carries `source` (importer id and version), `import_job`, `source_key` and `source_hash`. Nothing from an import looks native.
 
+**Import GC and the Kanban adapter (PROPOSED, 2026-11-22; coordinator decision while the owner was away, reversible).** Each import job creates one GC named after its source and the time it started. The import's Kanban tasks are created from messages in that GC, so every task has an origin message. Each message starts with `[import:<source key>]`, which lets a re-run see the record as done. Cards land in Backlog for now; moving them to their source column is a follow-up through the task transition path. The adapter is `Bazaar.Server.Portability.KanbanTarget`. Its GC sink and the Postgres-backed GC writer are not built yet.
+
 ### 8.3 Parser isolation
 
 Parsing untrusted files is the riskiest step, so it runs in a separate process:
