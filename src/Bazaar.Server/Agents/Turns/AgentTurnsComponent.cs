@@ -140,7 +140,8 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IToolDispatcher>(),
             sp.GetRequiredService<TurnRunnerOptions>(),
             // Optional: with the Thinking GC module loaded, reasoning and steps go to the agent's Thinking GC (doc 01).
-            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>()));
+            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>(),
+            ActivityReporter(sp)));
         // Every run, a subagent child included, is registered in the agent session directory for as long as it runs.
         services.TryAddSingleton<ITurnRunner>(sp => new SessionRegisteringTurnRunner(
             new TurnRunAdapter(
@@ -150,11 +151,18 @@ public sealed class AgentTurnsComponent : IBazaarComponent
                 ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>()),
                 // A reply to a wake with no trigger GC (a card assignment) is posted through the GC post sink when the Gc component is present.
                 sp.GetService<IAgentPostSink>(),
-                sp.GetServices<ITurnReplyTarget>()),
+                sp.GetServices<ITurnReplyTarget>(),
+                ActivityReporter(sp)),
             sp.GetRequiredService<IAgentSessionRegistrar>()));
 
         AddScheduler(services, configuration);
     }
+
+    /// <summary>Reports turn activity to the presence port when a presence module registered one; null otherwise.</summary>
+    private static TurnActivityReporter? ActivityReporter(IServiceProvider sp) =>
+        sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.ITurnActivitySink>() is { } sink
+            ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>())
+            : null;
 
     /// <summary>Binds the wake loop options and, only when the loop is enabled, registers the scheduler and its hosted service.</summary>
     private static void AddScheduler(IServiceCollection services, IConfiguration configuration)

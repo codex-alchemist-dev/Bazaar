@@ -6,6 +6,7 @@ using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gateway;
+using Bazaar.Server.Presence.Sources.Abstractions;
 
 namespace Bazaar.Server.Agents.Turns.Runner;
 
@@ -38,6 +39,7 @@ public sealed class TurnRunner : ITurnRunner
     private readonly TurnRunnerOptions _options;
     private readonly HashSet<string> _idempotent;
     private readonly IRunningTurnRegistrar? _running;
+    private readonly TurnActivityReporter? _activity;
 
     public TurnRunner(
         LeaseRepository leases,
@@ -50,7 +52,8 @@ public sealed class TurnRunner : ITurnRunner
         IAgentPostSink posts,
         TimeProvider time,
         TurnRunnerOptions options,
-        IRunningTurnRegistrar? running = null)
+        IRunningTurnRegistrar? running = null,
+        TurnActivityReporter? activity = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
@@ -66,6 +69,7 @@ public sealed class TurnRunner : ITurnRunner
         _options = options;
         _idempotent = new HashSet<string>(options.IdempotentTools, StringComparer.Ordinal);
         _running = running;
+        _activity = activity;
     }
 
     public Task<TurnRunOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken) =>
@@ -121,6 +125,8 @@ public sealed class TurnRunner : ITurnRunner
                     ct).ConfigureAwait(false);
             }
 
+            await ReportAsync(run, TurnActivityKind.TurnStarted, null, ct).ConfigureAwait(false);
+
             // The lease is held and the turn exists: it is now a running turn (doc 06, "Running-turn registry").
             run.Registration = _running?.Register(new RunningTurnInfo(
                 run.TurnId,
@@ -166,12 +172,36 @@ public sealed class TurnRunner : ITurnRunner
         }
         finally
         {
-            await _leases.ReleaseAsync(request.AgentId, request.Holder, CancellationToken.None).ConfigureAwait(false);
+            try
+            {
+                // The turn is over, whatever ended it. Reported without the caller's token, like the rest of the cleanup.
+                await EndApprovalWaitAsync(run, CancellationToken.None).ConfigureAwait(false);
+                await ReportAsync(run, TurnActivityKind.TurnEnded, null, CancellationToken.None).ConfigureAwait(false);
+            }
+            finally
+            {
+                await _leases.ReleaseAsync(request.AgentId, request.Holder, CancellationToken.None).ConfigureAwait(false);
+            }
         }
 
         if (failure is not null)
             ExceptionDispatchInfo.Throw(failure);
         return new TurnRunOutcome(run.TurnId, run.Reason ?? throw new InvalidOperationException("A run ended without a reason."), run.Summary, run.StepCount);
+    }
+
+    /// <summary>Reports one lifecycle event for the run's turn. A no-op with no reporter or before the turn exists.</summary>
+    private ValueTask ReportAsync(RunState run, TurnActivityKind kind, string? toolName, CancellationToken ct) =>
+        _activity is not null && run.TurnId != Guid.Empty
+            ? _activity.ReportAsync(run.Request.AgentId, run.TurnId, run.Request.TriggerGcId, kind, toolName, ct)
+            : ValueTask.CompletedTask;
+
+    /// <summary>Ends an approval wait the run reported and has not yet ended.</summary>
+    private async ValueTask EndApprovalWaitAsync(RunState run, CancellationToken ct)
+    {
+        if (!run.ApprovalWaiting)
+            return;
+        run.ApprovalWaiting = false;
+        await ReportAsync(run, TurnActivityKind.ApprovalWaitEnded, null, ct).ConfigureAwait(false);
     }
 
     /// <summary>The loop of doc 06 step 4. Returns the reason the turn ended, with the final text in <see cref="RunState.Summary"/>.</summary>
@@ -247,6 +277,9 @@ public sealed class TurnRunner : ITurnRunner
 
         var request = new ModelRequest(run.Request.AgentId.ToString(), run.Request.Route, snapshot, tools, TurnId: run.TurnId.ToString());
         var collector = new ModelResponseCollector();
+        // The tool result that needed approval has gone back to the model, so the turn goes on.
+        await EndApprovalWaitAsync(run, ct).ConfigureAwait(false);
+        await ReportAsync(run, TurnActivityKind.ModelCallStarted, null, ct).ConfigureAwait(false);
         try
         {
             await foreach (var ev in _gateway.CallAsync(request, ct).ConfigureAwait(false))
@@ -309,7 +342,17 @@ public sealed class TurnRunner : ITurnRunner
         run.InFlight = new InFlight(n, TurnStepKind.Tool, idempotent);
 
         var request = new ToolDispatchRequest(run.Request.AgentId, run.TurnId, run.Request.SessionId, run.Request.Role, call, idempotent, run.Request.ChainDepth);
+        await ReportAsync(run, TurnActivityKind.ToolStarted, call.Name, ct).ConfigureAwait(false);
         var result = await _dispatcher.InvokeAsync(request, ct).ConfigureAwait(false);
+        await ReportAsync(run, TurnActivityKind.ToolFinished, call.Name, ct).ConfigureAwait(false);
+        if (result.Outcome == ToolDispatchOutcome.PendingApproval)
+        {
+            // The dispatcher parked the call for the owner. The turn does not block on it: the model is told and the wait
+            // ends when its next call starts or the turn ends.
+            run.ApprovalWaiting = true;
+            await ReportAsync(run, TurnActivityKind.ApprovalWaitStarted, null, ct).ConfigureAwait(false);
+        }
+
         await CompleteStepAsync(
             run.TurnId, n, JsonSerializer.Serialize(new ToolStepPayload(call.Id, result.Outcome, result.ResultJson, result.Reason), TurnRunnerJson.Default.ToolStepPayload), ct)
             .ConfigureAwait(false);
@@ -328,6 +371,7 @@ public sealed class TurnRunner : ITurnRunner
         var n = await _steps.BeginAsync(run.TurnId, TurnStepKind.Post, TurnStepHash.Post(gcId, text), false, ct).ConfigureAwait(false);
         run.StepCount++;
         run.InFlight = new InFlight(n, TurnStepKind.Post, false);
+        await ReportAsync(run, TurnActivityKind.Drafting, null, ct).ConfigureAwait(false);
         try
         {
             await _posts.PostAsync(run.Request.AgentId, run.TurnId, gcId, text, ct).ConfigureAwait(false);
@@ -467,6 +511,9 @@ public sealed class TurnRunner : ITurnRunner
         public string? Summary { get; set; }
         public TurnEndReason? Reason { get; set; }
         public bool PostDone { get; set; }
+
+        /// <summary>True between an approval wait reported as started and its end.</summary>
+        public bool ApprovalWaiting { get; set; }
         public InFlight? InFlight { get; set; }
         public IDisposable? Registration { get; set; }
 

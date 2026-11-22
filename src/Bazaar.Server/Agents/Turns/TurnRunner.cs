@@ -4,6 +4,7 @@ using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
+using Bazaar.Server.Presence.Sources.Abstractions;
 using Bazaar.Server.ThinkingGc;
 using Npgsql;
 
@@ -28,6 +29,10 @@ namespace Bazaar.Server.Agents.Turns;
 /// When an <see cref="IThinkingRecorder"/> is given, the model's reasoning, each tool step and the turn's end are written to the
 /// agent's Thinking GC under the GC that woke the turn (doc 01, Thinking GCs). A recorder failure never fails the turn.
 /// </para>
+/// <para>
+/// When a <see cref="TurnActivityReporter"/> is given, the turn's claim, each model call, each tool call, an approval wait and the
+/// turn's end go to presence (doc 06, docs/design/23). A presence failure never fails the turn.
+/// </para>
 /// </summary>
 public sealed class TurnRunner
 {
@@ -43,9 +48,10 @@ public sealed class TurnRunner
     private readonly TurnStepRepository _steps;
     private readonly InboxRepository _inbox;
     private readonly IThinkingRecorder? _thinking;
+    private readonly TurnActivityReporter? _activity;
 
     /// <exception cref="ArgumentException">The options are inconsistent (see <see cref="TurnRunnerOptions.Validate"/>).</exception>
-    public TurnRunner(NpgsqlDataSource dataSource, IModelGateway gateway, IToolDispatcher dispatcher, TurnRunnerOptions? options = null, IThinkingRecorder? thinking = null)
+    public TurnRunner(NpgsqlDataSource dataSource, IModelGateway gateway, IToolDispatcher dispatcher, TurnRunnerOptions? options = null, IThinkingRecorder? thinking = null, TurnActivityReporter? activity = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(gateway);
@@ -60,6 +66,7 @@ public sealed class TurnRunner
         _steps = new TurnStepRepository(dataSource);
         _inbox = new InboxRepository(dataSource);
         _thinking = thinking;
+        _activity = activity;
     }
 
     /// <summary>
@@ -112,9 +119,33 @@ public sealed class TurnRunner
             }
             finally
             {
-                await _leases.ReleaseAsync(request.AgentId, holder, CancellationToken.None).ConfigureAwait(false);
+                try
+                {
+                    // The turn is over, whatever ended it (completed, failed, cancelled, wall clock).
+                    await EndApprovalWaitAsync(progress, CancellationToken.None).ConfigureAwait(false);
+                    await ReportAsync(progress, TurnActivityKind.TurnEnded, null, CancellationToken.None).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await _leases.ReleaseAsync(request.AgentId, holder, CancellationToken.None).ConfigureAwait(false);
+                }
             }
         }
+    }
+
+    /// <summary>Reports one lifecycle event for the run's turn. A no-op with no reporter or before the turn exists.</summary>
+    private ValueTask ReportAsync(Progress progress, TurnActivityKind kind, string? toolName, CancellationToken ct) =>
+        _activity is not null && progress.TurnId is { } turnId
+            ? _activity.ReportAsync(progress.Request.AgentId, turnId, progress.Request.TriggerGcId, kind, toolName, ct)
+            : ValueTask.CompletedTask;
+
+    /// <summary>Ends an approval wait the run reported and has not yet ended.</summary>
+    private async ValueTask EndApprovalWaitAsync(Progress progress, CancellationToken ct)
+    {
+        if (!progress.ApprovalWaiting)
+            return;
+        progress.ApprovalWaiting = false;
+        await ReportAsync(progress, TurnActivityKind.ApprovalWaitEnded, null, ct).ConfigureAwait(false);
     }
 
     private async Task<TurnResult> RunTurnAsync(TurnRequest request, Progress progress, CancellationToken ct)
@@ -122,6 +153,7 @@ public sealed class TurnRunner
         var turnId = await _turns.StartAsync(
             new TurnStart(request.AgentId, request.SessionId, request.Role, request.WakeReason), ct).ConfigureAwait(false);
         progress.TurnId = turnId;
+        await ReportAsync(progress, TurnActivityKind.TurnStarted, null, ct).ConfigureAwait(false);
 
         if (request.InboxItemIds is { Count: > 0 } named)
         {
@@ -230,6 +262,9 @@ public sealed class TurnRunner
         }
 
         var modelRequest = new ModelRequest(request.AgentId.ToString("D"), request.Route, messages, tools, turnId.ToString("D"));
+        // The tool result that needed approval has gone back to the model, so the turn goes on.
+        await EndApprovalWaitAsync(progress, ct).ConfigureAwait(false);
+        await ReportAsync(progress, TurnActivityKind.ModelCallStarted, null, ct).ConfigureAwait(false);
         var response = await ReadResponseAsync(modelRequest, progress, ct).ConfigureAwait(false);
         await CompleteStepAsync(turnId, n, JsonSerializer.Serialize(response, TurnJsonContext.Default.ModelStepResponse), ct).ConfigureAwait(false);
         progress.PendingStep = null;
@@ -287,7 +322,16 @@ public sealed class TurnRunner
                         new ModelToolCall(call.CallId, call.Name, call.ArgumentsJson),
                         idempotentNow,
                         request.ChainDepth);
+                    await ReportAsync(progress, TurnActivityKind.ToolStarted, call.Name, ct).ConfigureAwait(false);
                     var result = await _dispatcher.InvokeAsync(dispatch, ct).ConfigureAwait(false);
+                    await ReportAsync(progress, TurnActivityKind.ToolFinished, call.Name, ct).ConfigureAwait(false);
+                    if (result.Outcome == ToolDispatchOutcome.PendingApproval)
+                    {
+                        // The dispatcher parked the call for the owner. The turn does not block on it: the model is told and the
+                        // wait ends when its next call starts or the turn ends.
+                        progress.ApprovalWaiting = true;
+                        await ReportAsync(progress, TurnActivityKind.ApprovalWaitStarted, null, ct).ConfigureAwait(false);
+                    }
 
                     var stored = new ToolStepResponse(call.CallId, call.Name, result.Outcome, result.ResultJson, result.Reason);
                     await CompleteStepAsync(turnId, n, JsonSerializer.Serialize(stored, TurnJsonContext.Default.ToolStepResponse), ct).ConfigureAwait(false);
@@ -469,6 +513,9 @@ public sealed class TurnRunner
         }
 
         public Guid? TurnId { get; set; }
+
+        /// <summary>True between an approval wait reported as started and its end.</summary>
+        public bool ApprovalWaiting { get; set; }
 
         public List<Guid> ClaimedIds { get; } = [];
 
