@@ -6,6 +6,7 @@ namespace Bazaar.Contracts.Releases;
 /// Immutable and validated on construction (<see cref="ArgumentException"/>), including when decoded from JSON.
 /// The Windows Velopack path (<c>Bazaar.Updates.UpdateManifest</c>) is separate and unchanged.
 /// </summary>
+[Bazaar.Contracts.Wire.WirePayload]
 public sealed record ReleaseManifest : IEquatable<ReleaseManifest>
 {
     /// <summary>Upper bound for the number of artifacts in one manifest.</summary>
