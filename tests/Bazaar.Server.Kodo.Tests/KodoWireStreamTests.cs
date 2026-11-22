@@ -162,32 +162,13 @@ public class KodoWireStreamTests
     }
 
     /// <summary>Reads a frame with the server codec and maps it to the shape the client tracker consumes.</summary>
-    /// <remarks>
-    /// The client's snapshot record is flat (<c>generatedAt</c>, <c>state</c>, <c>underlying</c>, <c>score</c>) while the server's
-    /// snapshot nests a <c>status</c> object, so the client's own reader rejects a server snapshot today. The mapping here stands in
-    /// for the client reader until the two are aligned (reported in doc 46 15.2).
-    /// </remarks>
     private static KodoFrameWire Read(Envelope frame)
     {
         Assert.Equal(WireTypes.KodoEvent, frame.T);
         Assert.Equal(WireStreams.Kodo, frame.S);
         Assert.Equal(EnvelopeKind.Event, frame.K);
-        var e = KodoWireCodec.DecodeEvent(frame.P.Span)!;
-        KodoSnapshotWire? snapshot = e.Snapshot is { } s
-            ? new KodoSnapshotWire(
-                s.SchemaVersion,
-                s.Revision,
-                s.Status.AsOf,
-                s.Status.State,
-                s.Status.UnderlyingState ?? s.Status.State,
-                s.Status.Score,
-                s.JournalHead,
-                [.. s.Components.Select(c => new KodoComponentWire(c.Id, c.State, c.Cause, c.Since))])
-            : null;
-        KodoStateChangeWire? change = e.StateChange is { } c2
-            ? new KodoStateChangeWire(c2.Previous, c2.State, c2.UnderlyingState ?? c2.State)
-            : null;
-        return new KodoFrameWire(e.Revision, e.Type, e.At, change, snapshot);
+        Assert.True(KodoStreamCodec.TryReadFrame(frame.P.Span, out KodoFrameWire? read, out string? error), error);
+        return read!;
     }
 
     [Fact]
