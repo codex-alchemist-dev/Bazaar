@@ -22,11 +22,43 @@ public class AdminKodoSourceTests
             holder.Publish(snapshot);
         }
 
-        return new AdminKodoSource(holder, new FakeIncidents(incidents));
+        return new AdminKodoSource(holder, new FakeIncidents(incidents), new FixedTime(_t0));
     }
 
     private static KodoStatusSnapshotDto Snapshot(string state, int score, string? underlying = null, params KodoComponentDto[] components) =>
         new(KodoStatusSnapshotDto.CurrentSchemaVersion, 7, new KodoStatusDto(state, underlying, score, _t0, []), "ab".PadRight(64, 'c'), components);
+
+    [Fact]
+    public async Task Old_snapshot_is_shown_as_stale_with_no_score_and_no_green_components()
+    {
+        var holder = new KodoSnapshotHolder();
+        holder.Publish(Snapshot("healthy", 98, null, new KodoComponentDto("db.ping", "green", null, _t0)));
+        var source = new AdminKodoSource(holder, new FakeIncidents(), new FixedTime(_t0.AddMinutes(10)));
+
+        AdminKodoView view = await source.GetAsync(TestContext.Current.CancellationToken);
+
+        Assert.Null(view.Score);
+        AdminKodoCheck check = Assert.Single(view.Checks);
+        Assert.Equal("stale", check.State);
+        Assert.Contains("2026-11-22T10:00:00Z", check.Detail);
+    }
+
+    [Fact]
+    public async Task Fresh_snapshot_within_the_budget_is_not_stale()
+    {
+        var holder = new KodoSnapshotHolder();
+        holder.Publish(Snapshot("healthy", 98));
+        var source = new AdminKodoSource(holder, new FakeIncidents(), new FixedTime(_t0.AddSeconds(90)));
+
+        AdminKodoView view = await source.GetAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(98, view.Score);
+    }
+
+    private sealed class FixedTime(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 
     [Fact]
     public async Task No_data_yet_gives_null_score_and_empty_lists()
@@ -132,7 +164,7 @@ public class AdminKodoSourceTests
     [Fact]
     public async Task Registration_wires_the_port_to_the_holder()
     {
-        var services = new ServiceCollection().AddBazaarKodo().AddBazaarKodoWebAdmin().BuildServiceProvider();
+        var services = new ServiceCollection().AddBazaarKodo().AddBazaarKodoWebAdmin().AddSingleton<TimeProvider>(new FixedTime(_t0)).BuildServiceProvider();
         services.GetRequiredService<IKodoSnapshotPublisher>().Publish(Snapshot("healthy", 91));
         AdminKodoView view = await services.GetRequiredService<IAdminKodoSource>().GetAsync(TestContext.Current.CancellationToken);
         Assert.Equal(91, view.Score);

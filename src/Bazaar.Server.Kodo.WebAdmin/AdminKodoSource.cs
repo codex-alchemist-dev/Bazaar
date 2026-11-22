@@ -12,8 +12,14 @@ namespace Bazaar.Server.Kodo.WebAdmin;
 /// Maps the held Kodo snapshot and the open incidents to the admin panel's read view (doc 51 section 5, doc 46 section 15.7).
 /// The view carries ids, state words, cause codes, titles and runbook links only: no journal head, no controls, no evidence.
 /// </summary>
-public sealed class AdminKodoSource(IKodoSnapshotProvider snapshots, IKodoIncidentSource incidents) : IAdminKodoSource
+public sealed class AdminKodoSource(IKodoSnapshotProvider snapshots, IKodoIncidentSource incidents, TimeProvider? time = null, TimeSpan? maxAge = null) : IAdminKodoSource
 {
+    /// <summary>A snapshot older than this is shown as stale, with no score and no component states (doc 46 section 8.3, never show stale green).</summary>
+    public static readonly TimeSpan DefaultMaxAge = TimeSpan.FromMinutes(2);
+
+    private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly TimeSpan _maxAge = maxAge ?? DefaultMaxAge;
+
     public const string StateCheckName = "kodo.state";
     internal const int MaxIncidents = 50;
     internal const int MaxTitleLength = 200;
@@ -24,7 +30,12 @@ public sealed class AdminKodoSource(IKodoSnapshotProvider snapshots, IKodoIncide
         IReadOnlyList<KodoIncidentSummary> open = await incidents.ListOpenAsync(ct).ConfigureAwait(false);
 
         List<AdminKodoCheck> checks = [];
-        if (snapshot is not null)
+        bool stale = snapshot is not null && _time.GetUtcNow() - snapshot.Status.AsOf > _maxAge;
+        if (stale)
+        {
+            checks.Add(new(StateCheckName, "stale", $"last update {snapshot!.Status.AsOf.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}"));
+        }
+        else if (snapshot is not null)
         {
             KodoStatusDto status = snapshot.Status;
             checks.Add(new(StateCheckName, status.State, status.UnderlyingState is null ? null : $"underlying: {status.UnderlyingState}"));
@@ -41,7 +52,7 @@ public sealed class AdminKodoSource(IKodoSnapshotProvider snapshots, IKodoIncide
             .Select(i => new AdminKodoIncident(i.Id, Title(i.Title), i.Severity, i.OpenedAt, SafeLink(i.RunbookLink)))
             .ToList();
 
-        return new(snapshot?.Status.Score, checks, list);
+        return new(stale ? null : snapshot?.Status.Score, checks, list);
     }
 
     private static string Title(string title)
@@ -75,7 +86,7 @@ public static class KodoWebAdminRegistration
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<IAdminKodoSource>(sp =>
-            new AdminKodoSource(sp.GetRequiredService<IKodoSnapshotProvider>(), sp.GetRequiredService<IKodoIncidentSource>()));
+            new AdminKodoSource(sp.GetRequiredService<IKodoSnapshotProvider>(), sp.GetRequiredService<IKodoIncidentSource>(), sp.GetService<TimeProvider>()));
         return services;
     }
 }
