@@ -60,6 +60,20 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   that is also idle is closed.
 - The owning thread still owns each PR until it is merged or closed (see CONTRIBUTING.md).
 
+## Temporary owner override: CI paused on pull requests (2026-11-22)
+
+The owner paused CI on pull requests so merging never waits on a runner. On `pull_request` and `merge_group` every required job is skipped at job level: `Build and test (ubuntu-latest)`, `Build and test (windows-latest)`, `Secret scan (full history)`, `Analyze (csharp)`, `Analyze (actions)` and `Signed-off-by line in PR description`. A skipped job needs no runner and counts as a pass for a required check. The build jobs and the CodeQL jobs are now two literal-name jobs each instead of a matrix, because a skipped matrix job reports an unexpanded name and would leave the check pending.
+
+The full suite still runs:
+
+- on every push to main, and on a schedule against main every 6 hours;
+- on `workflow_dispatch` (run it at a major checkpoint, on any branch);
+- on a pull request carrying the `checkpoint` label (build, tests, secret scan; CodeQL and the sign-off check run by dispatch).
+
+Until then, authors run `dotnet build` and their own tests locally before marking a PR ready. The Signed-off-by line and the secret scan are not checked on pull requests while this is in force; the 6-hourly main run covers the secret scan.
+
+To revert in one step: remove the `&& !(...)` paused condition from the `changes` and `secret-scan` jobs in `ci.yml`, restore the job-level `if` lines in `codeql.yml` and `pr-sponsor.yml` (git history has them), and delete this section.
+
 ## Known gap: CodeQL on docs-only PRs
 
 The two `Analyze` checks come from CodeQL default setup, which skips docs-only PRs. On such
