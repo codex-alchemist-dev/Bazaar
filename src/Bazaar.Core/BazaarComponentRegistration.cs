@@ -8,7 +8,7 @@ public static class BazaarComponentRegistration
     /// <summary>
     /// The kernel's registration step. Validates and orders every component, then registers the enabled ones in dependency order.
     /// A disabled component is validated but not registered. An enabled component that depends on a disabled one fails the start.
-    /// Enablement is <c>Bazaar:Components:&lt;id&gt;:Enabled</c>, default true.
+    /// Enablement is <c>Bazaar:Components:&lt;id&gt;:Enabled</c>; with no setting it is the manifest's <c>EnabledByDefault</c> (true unless the manifest says otherwise).
     /// </summary>
     /// <exception cref="ComponentGraphException">The graph cannot start.</exception>
     public static IServiceCollection AddBazaarComponents(
@@ -22,7 +22,7 @@ public static class BazaarComponentRegistration
         var all = components.ToList();
         var ordered = ComponentGraph.Order(all.Select(c => c.Manifest));
         var enabled = new HashSet<string>(
-            all.Where(c => IsEnabled(configuration, c.Manifest.Id)).Select(c => c.Manifest.Id),
+            all.Where(c => IsEnabled(configuration, c.Manifest)).Select(c => c.Manifest.Id),
             StringComparer.Ordinal);
 
         foreach (var manifest in ordered.Where(m => enabled.Contains(m.Id)))
@@ -51,8 +51,17 @@ public static class BazaarComponentRegistration
     public static IReadOnlyDictionary<string, string> LegacyIds { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal) { ["ryusei"] = "ryusei-schedule" };
 
-    /// <summary>Whether a component is enabled by configuration. Missing settings mean enabled.</summary>
-    public static bool IsEnabled(IConfiguration configuration, string componentId)
+    /// <summary>Whether a component is enabled by configuration. Missing settings mean enabled; use the manifest overload for optional components.</summary>
+    public static bool IsEnabled(IConfiguration configuration, string componentId) => IsEnabled(configuration, componentId, enabledByDefault: true);
+
+    /// <summary>Whether a component is enabled: an explicit setting wins, otherwise the manifest's <see cref="ComponentManifest.EnabledByDefault"/>.</summary>
+    public static bool IsEnabled(IConfiguration configuration, ComponentManifest manifest)
+    {
+        ArgumentNullException.ThrowIfNull(manifest);
+        return IsEnabled(configuration, manifest.Id, manifest.EnabledByDefault);
+    }
+
+    private static bool IsEnabled(IConfiguration configuration, string componentId, bool enabledByDefault)
     {
         var value = configuration["Bazaar:Components:" + componentId + ":Enabled"];
         if (value is null && LegacyIds.TryGetValue(componentId, out var legacy))
@@ -60,6 +69,6 @@ public static class BazaarComponentRegistration
             value = configuration["Bazaar:Components:" + legacy + ":Enabled"];
         }
 
-        return value is null || !bool.TryParse(value, out var enabled) || enabled;
+        return value is null || !bool.TryParse(value, out var enabled) ? enabledByDefault : enabled;
     }
 }

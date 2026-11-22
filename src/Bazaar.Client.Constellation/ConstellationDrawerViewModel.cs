@@ -1,5 +1,5 @@
 using System.ComponentModel;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Panes;
 

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Analytics.Abstractions\Bazaar.Server.Analytics.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Git.Abstractions\Bazaar.Server.Git.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

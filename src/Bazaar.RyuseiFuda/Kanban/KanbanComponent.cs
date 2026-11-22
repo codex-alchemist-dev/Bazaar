@@ -53,9 +53,18 @@ public sealed class KanbanComponent : IBazaarComponent
         services.AddSingleton(TransitionCapability);
         services.AddSingleton(KanbanTransitionTool.Definition);
 
+        // The card a turn woken by an assignment shows the model (doc 12, Assignment wake). Without it that turn has no context.
+        services.AddSingleton<Bazaar.Server.Agents.Turns.Context.IContextSource>(sp => new AssignmentContextSource(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
+        services.AddSingleton<Bazaar.Server.Agents.Turns.ITurnReplyTarget>(sp => new AssignmentReplyTarget(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
+        // Owner move (doc 12, Card revision and client move command): the authorised UI command, owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardMoveHandler>();
+        // Owner assign (doc 12, Assign authority and command [PROPOSED]): owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardAssignHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();

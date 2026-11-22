@@ -1,17 +1,48 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Accessibility;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
+using Bazaar.Client.Calendar;
+using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
+using Bazaar.Client.Constellation;
+using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Constellation;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Preload;
-using Bazaar.Client.Core.Server;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Dashboard;
+using Bazaar.Client.Engines;
+using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.ColdArchive;
+using Bazaar.Client.Interrupts;
+using Bazaar.Client.Launcher;
+using Bazaar.Client.Modules;
+using Bazaar.Client.Navigation;
+using Bazaar.Client.Org;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Preferences;
+using Bazaar.Client.Preferences.Abstractions;
+using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Shell;
+using Bazaar.Client.SignIn;
+using Bazaar.Client.Vault;
+using Bazaar.Client.Views;
+using Bazaar.Contracts.Modules;
+using Bazaar.Contracts.Panes;
+using Bazaar.Ex.Head;
+using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Windows;
 
@@ -22,6 +53,15 @@ internal static class Program
     {
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        // Logging first, so every later line (and a failed start) lands in the client log the support bundle reads (doc 37 section 4d).
+        SupportBundleCommands.InstallLog();
+        // --self-check and --support-bundle run headless and exit, before the single-instance mutex and any window.
+        if (SupportBundleCommands.TryRun(args, WindowsModules.Create) is { } exitCode)
+        {
+            Environment.ExitCode = exitCode;
+            return;
+        }
+
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -44,30 +84,42 @@ internal static class Program
             Console.Error.WriteLine("Bazaar: the running instance did not answer; this launch will not be forwarded.");
         }
 
-        using var listenerStop = new CancellationTokenSource();
-        if (isPrimary)
-        {
-            // TODO(component): pane routing for --open and --terminal lands with the pane host; for now every
-            // forwarded launch only brings the main window forward.
-            _ = LaunchPipe.ListenAsync(pipeName, _ => Dispatcher.UIThread.InvokeAsync(ActivateMainWindow).GetTask(), listenerStop.Token)
-                .ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: launcher listener stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
-        }
+        using var launcher = isPrimary ? LauncherHost.Start(pipeName, Console.Error.WriteLine) : null;
 
         var chatSettings = ChatSettings(args);
-        GcChatSession? chat = null;
-        ChatViewModel? chatView = null;
-        using var chatStop = new CancellationTokenSource();
+        ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        IPaneModule[] modules = [RyuseiFudaPanes.Board, .. FirstPartyPanes.Modules, .. RyuseiFudaPanes.Modules];
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
+        var modules = WindowsModules.Create();
+        // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
+        // once the registry and the window exist; until then a pane cannot be shown. Preferences stay on this device until a wire sync is attached.
+        var paneSurface = new LatePaneSurface();
+        var preferences = new PreferenceStore(
+            modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
+            new FilePreferenceStorage(PreferencesPath(), Console.Error.WriteLine));
+        var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext()
+                .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current)
+                // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+                .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),
+            terminals);
+        features = ComposeMergeApproval(features);
+        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>().Append(new SupportBundleClientModule()), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
-            modules,
+            shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            tiles: HttpConstellationTileSource.Create(ClientServer.Current));
+            features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -77,24 +129,40 @@ internal static class Program
         {
             if (chatSettings is not null)
             {
-                chat = ChatConnection.Create(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows");
-                chatView = new ChatViewModel(chat, action => Dispatcher.UIThread.Post(action));
-                _ = chat.StartAsync(chatStop.Token).ContinueWith(
-                    task => Console.Error.WriteLine($"Bazaar: chat stopped: {task.Exception?.GetBaseException().Message}"),
-                    TaskContinuationOptions.OnlyOnFaulted);
+                chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
-            var window = chatView is null ? new MainWindow() : new MainWindow(chatView);
-            if (preloadStart)
+            // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
+            var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
+            if (FirstRunScreens.TryBuild(args) is { } firstRun)
             {
-                // The warm process (doc 40) builds the window hidden; a forwarded launch shows it (ActivateMainWindow).
-                window.Opened += (_, _) => window.Hide();
+                window.Content = firstRun;
             }
+
             if (showPanes)
             {
-                window.ShowPanes(FirstPartyPanes.WindowPanes(), registry);
+                window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
+            paneSurface.Bind(
+                registry.Contains,
+                (kind, _) => Dispatcher.UIThread.InvokeAsync(() => window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry)).GetTask());
+            // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
+            ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) =>
+            {
+                var head = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                // "Save support bundle" (doc 37 section 4d): written off the UI thread, then the path goes to the client log.
+                head.Shell.CommandInvoked += (_, id) =>
+                {
+                    if (id == SupportBundleClientModule.SaveCommandId)
+                    {
+                        _ = Task.Run(() => SupportBundleCommands.SaveFromPalette(modules, ClientDataPaths.DataDir(), TimeProvider.System, Console.Error.WriteLine));
+                    }
+                };
+            };
             return window;
         }
 
@@ -104,9 +172,30 @@ internal static class Program
         }
         finally
         {
-            chatStop.Cancel();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            listenerStop.Cancel();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Registers the merge identity and approver for the saved session (doc 52, Merge identity). Runs off the calling thread with a
+    /// short budget; any failure, or no session, leaves both out and the merge card says this client cannot approve.
+    /// </summary>
+    private static PaneModuleContext ComposeMergeApproval(PaneModuleContext features)
+    {
+        try
+        {
+            using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var whoAmI = new HttpWhoAmIClient(ClientServer.Current.CreateHttpClient());
+            return MergeSessionResolver
+                .ComposeAsync(features, ClientSessions.Store, whoAmI, WindowsDeviceApprovalPlatform.TryCreate(), cancellationToken: budget.Token)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException or HttpRequestException)
+        {
+            Console.Error.WriteLine("Bazaar: merge approval is not available.");
+            return features;
         }
     }
 
@@ -122,23 +211,12 @@ internal static class Program
                 : Environment.GetEnvironmentVariable(name));
     }
 
+    private static string PreferencesPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "preferences.json");
+
     private static string CursorPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");
 
     private static AppBuilder BuildAvaloniaApp(Func<Window> createMainWindow) =>
         AppBuilder.Configure(() => new App(createMainWindow)).UsePlatformDetect();
-
-    private static void ActivateMainWindow()
-    {
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime { MainWindow: { } window })
-        {
-            if (!window.IsVisible)
-            {
-                window.Show();
-            }
-
-            window.WindowState = WindowState.Normal;
-            window.Activate();
-        }
-    }
 }

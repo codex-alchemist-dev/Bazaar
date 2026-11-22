@@ -2,14 +2,18 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Bazaar.Accessibility.Avalonia;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Chat;
+using Bazaar.Client.Chat.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Mobile;
 using Bazaar.Client.Core.Panes;
-using Bazaar.Client.Core.Souls;
-using Bazaar.Client.Core.Vault;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Engines;
+using Bazaar.Client.Mobile;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Workday;
+using Bazaar.Client.Souls;
+using Bazaar.Client.Vault;
 using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Soul;
 using Bazaar.Contracts.Wire.Codec;
@@ -54,7 +58,7 @@ public class ShownViewsAccessibilityTests
         var session = new GcChatSession(client, new ChatConnectionSettings(new Uri("ws://gate.invalid/ws"), "t", _gc, "me"), timeline);
         using var chat = new ChatViewModel(session);
 
-        var window = new MainWindow(chat);
+        var window = new MainWindow(ChatViewFactory.Instance.Create(chat));
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));
@@ -63,7 +67,7 @@ public class ShownViewsAccessibilityTests
     [AvaloniaFact]
     public void Phone_shell_has_named_controls()
     {
-        var window = new Window { Content = new PhoneShell(), Width = 360, Height = 740 };
+        var window = new Window { Content = new PhoneShell(new PaneRegistry(PaneViews.Instance)), Width = 360, Height = 740 };
         window.Show();
 
         Assert.Empty(AccessibleControlScan.Find(window));
