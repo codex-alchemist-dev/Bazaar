@@ -39,6 +39,12 @@ public static class PaneKinds
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
 
+    /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
+    public const string CommunityDrafts = "bazaar.community-drafts";
+
+    /// <summary>Community log: what agents did on outside platforms, never what they said (doc 36, work package 9).</summary>
+    public const string CommunityLog = "bazaar.community-log";
+
     /// <summary>Org chart: reports-to and loan edges, by company or project lens (doc 24 section 5).</summary>
     public const string Org = "bazaar.org";
 
