@@ -50,7 +50,7 @@ Defines the environment each agent works in: one Windows VM and one Linux VM per
 - Limits: exec timeout, output cap and concurrent execs per VM are settings (`vm.exec.*`). Execs run as a non-admin guest user, and a timeout kills the whole process tree. [PROPOSED]
 - Guest-supplied paths are checked against the VM's mount list.
 
-**Network and egress** [PROPOSED]: default-deny at the host switch or bridge (mechanism to verify on the owner's PC). The only route is a host egress proxy with a per-agent domain allowlist, used by browser profiles too. DNS goes through the proxy. Guest firewalls are not trusted. Allowlist changes need approval (`vm.egress.allowlist_change_approval`).
+**Network and egress** [PROPOSED; build design below]: default-deny at the host switch or bridge (mechanism to verify on the owner's PC). The only route is a host egress proxy with a per-agent domain allowlist, used by browser profiles too. DNS goes through the proxy. Guest firewalls are not trusted. Allowlist changes need approval (`vm.egress.allowlist_change_approval`).
 
 **Resources** [PROPOSED starting values; the Windows estimate is unsourced]
 
@@ -68,6 +68,41 @@ Defines the environment each agent works in: one Windows VM and one Linux VM per
 - Design direction (C23): Linux guests carry no Microsoft licence, so work that does not need Windows runs in the Linux VM. Windows VM cost still scales with agents (C03).
 
 **Hyper-V control from .NET** [PROPOSED]: a long-lived, out-of-process PowerShell runspace inside the provider (CIM `root\virtualization\v2` is the alternative, unverified). The service account is in Hyper-V Administrators only; parameters are typed, never string-built; agent IDs are validated.
+
+## Build design for WP7 to WP9 (PROPOSED, 2026-11-18)
+Each part is its own module pair on Bazaar.Core: `Bazaar.Server.<Name>` plus `Bazaar.Server.<Name>.Abstractions`. None references `Bazaar.Server.csproj`; they meet only through abstractions, `Bazaar.Contracts` and the `vms` tables. The host composes them (doc 40 lists them). The cloud builds and tests them against fakes and loopback; the Hyper-V and KVM checks run later from the spike runbooks (S8, S9, S26) on the owner's PC.
+
+**Transports (WP7): `Bazaar.Server.VmTransport`**
+- The guest dials the host, never the reverse. The host listens, so a guest cannot be reached from outside.
+- Host on Windows: one `AF_HYPERV` listener per service GUID (operator setting `vm.transport.service_guid`, PROPOSED and not yet in the settings registry; until it is registered the listener uses the fixed shipped default, `HvSocketAddress.DefaultServiceId`, the GUID template for the default port). It accepts only the VM ID the hypervisor reports for the peer, matched to `environment_vm.backend_ref`, so a guest cannot claim another VM. Both Windows and Linux guests use it; a Linux guest sees it as `AF_VSOCK` (Hyper-V transport of the Linux `vsock` stack).
+- Host on Linux (KVM, later): `AF_VSOCK` on the host CID and a fixed port, peer CID matched to the VM. A Windows guest on a Linux host has no transport and stays deferred (Question 1).
+- .NET has no endpoint type for either family, so the module builds the socket address by hand behind `IGuestConnectionListener`. Platform checks sit in the listener, never at call sites. A loopback listener (in-memory duplex) is the test implementation and is also what the guest-agent and channel tests use.
+- `GuestChannel` (the host's `IGuestChannel`, doc 17 `IWorkspace` facade) speaks the existing `GuestFrameCodec` frames over one accepted connection: the first frame must be `Hello` with the expected `vmId` and the nonce the server issued at create; anything else closes the channel. Unknown types close the channel. Heartbeat misses are counted (3 intervals, then `Lost`).
+- Exec limits come from the `vm.exec.*` settings. Output beyond `vm.exec.output_cap_mb` is dropped and flagged. The server, not the guest, stores output.
+- Guest side, in `Bazaar.Guest.Agent` (the guest binary, not a server module): `HvSocketGuestTransport` (Windows guest, `AF_HYPERV` to the parent partition) and `VsockGuestTransport` (Linux guest, `AF_VSOCK` to CID 2) implement the existing `IGuestTransport`. `--transport stdio|hvsock|vsock` selects one; `stdio` stays the default for tests and Windows Sandbox.
+- Per-VM key: doc 16 asks for host-signed requests. The signing envelope is a wire change, so it is **not** part of this build. Until the owner decides, identity rests on the hypervisor-authenticated peer ID plus the `Hello` nonce. This is recorded as a known gap, not a hidden one.
+- Hostile-guest limits: a guest `PutFile` header over `MaxFileBytes` faults the channel at once (no draining); one file read has an overall `FileTransferTimeout` (default 30 minutes) so a trickling guest cannot hold the file gate. The guest agent takes its nonce from `--nonce-file` (deleted after reading), then `BAZAAR_GUEST_NONCE` (removed from the environment), then `--nonce`; `--nonce` is visible to every process in the guest, so boot units should use the file. The nonce is never passed to an exec, whatever the allowlist says.
+
+**Scoped mounts (WP8): `Bazaar.Server.VmMounts`**
+- Resolves Conflict 1: **the Soul mount is read-only on the host share, and the cookie profile is a working copy.** On attach the manager copies the profile into the guest's local disk through the guest channel (hash-checked `PutFile`); on detach and at clean session end it reads it back (`GetFile`, hash-checked), validates it, and writes it host-side. Hard taint detaches without write-back. This keeps doc 15's read-only rule and lets Chromium write its profile.
+- The workspace share is read-write, on its own share and its own guest OS account, separate from the Soul share. Both VMs of one agent write it; single-writer lanes per subtree stay as stated above.
+- The manager owns `scoped_mount` rows through `IScopedMountStore`. It never mounts a path that is outside the agent's own root, holds a key file, or sits under the audit or secrets paths (a deny list checked after path normalisation, symlink resolution and case folding). Guest paths come from the server, never from the guest.
+- Canary credentials are planted in the Soul share on attach. Any read-use is reported through `ICanarySink`, which the agent-safety module turns into the page-and-freeze action (doc 15, PROPOSED there too).
+- The OS-specific work (SMB share and ACL on Windows, mount and bind on Linux) sits behind `IMountProvider`. The cloud build ships a fake and a directory-based provider for tests.
+- Every attach, detach and write-back writes an audit row through the existing audit abstraction.
+- **Hard taint and kill switch (PROPOSED, from the security review):** detaching the share does not remove the guest-local profile copy. So a hard-taint or kill-switch detach also asks the host to pause the VM and discard or revert its disk (`IGuestScrubber`, wired to the VM lifecycle). Detach never waits on guest I/O and never writes back after taint. Canary fingerprints are stored, not forgotten, so a canary used after detach or a restart still pages. The profile folder is locked per agent, because both VMs of one agent share it.
+
+**Egress (WP9): `Bazaar.Server.VmEgress`**
+- Resolves Conflict 2: the egress owner is doc 15 ("Egress and ingress", `IEgressPolicy`); this doc owns the VM side (switch rules and the proxy). Doc 15 WP7 and this WP9 are one deliverable.
+- Layers: (1) default-deny at the host virtual switch or bridge, allowing only the guest to the host proxy address and port; (2) a per-agent host proxy that checks each CONNECT and each plain HTTP request against that agent's domain allowlist, resolves names itself, and refuses private, loopback and link-local addresses after resolution; (3) the guest firewall is not trusted and is not used.
+- (PROPOSED) The proxy also refuses the host's own interface addresses, so an allowlisted name that points at this server's public IP cannot reach host services, and on a CONNECT to a name it reads the first TLS ClientHello and requires the SNI to equal that name (any mismatch, missing name or encrypted_client_hello is refused), so a tunnel to an allowlisted name cannot be pointed at another site on the same CDN by its TLS server name (fronting by the HTTP Host header inside the TLS stream is not stopped, because the proxy does not intercept TLS); other protocols on an allowlisted host and port are relayed unchanged, and a protocol where the server speaks first must have the client send something within the header timeout.
+- DNS: the guest has no resolver route. Proxy-unaware software gets nothing, by design; browser and tool profiles are set to the proxy. A DNS stub is not built (PROPOSED: not needed while the proxy resolves names).
+- `IEgressPolicy.ApplyAsync(agent, rules)` sets the allowlist; `BlockAllAsync(agent)` is the kill-switch call and drops the proxy listener and the switch allow rule together. Allowlist growth goes through the approval gate (`vm.egress.allowlist_change_approval`, floor Tier 2); a shrink applies at once.
+- Rule generation is pure and tested: Hyper-V extended port ACLs and an nftables ruleset are built from `EgressRules`. Executing them needs the Hyper-V runspace (PR #688) or a root helper, so it sits behind `IEgressEnforcer`; the cloud build ships a recording fake.
+- Model traffic goes only to the gateway, which the default allowlist names. Credentials never cross the proxy in plain text from the guest: cookie injection at the proxy (doc 15) is a hook (`IProxyRequestFilter`), built later with the credential broker.
+- Every allow, deny and rule change is an audit row (rate-limited per agent so a flood cannot swamp the log).
+
+**Browser profiles (WP13)** wait for these three. They are one follow-up module, `Bazaar.Server.VmBrowser`, after WP7 to WP9 merge. The Windows Sandbox guest delivery question (doc 50 section 7) is separate and stays open.
 
 ## Data and interfaces
 
@@ -158,9 +193,16 @@ Registry owned by doc 03 [PROPOSED]. Changes are written to `audit_log` (doc 15)
 12. KVM provider and Linux host spike. (after 3; later)
 13. Browser profiles in the pair; third VM only if the headed and headless spike needs it. (after 6, 8, 9)
 
+## Browser module build notes (WP13) [PROPOSED]
+- Own module pair `Bazaar.Server.Browser` and `Bazaar.Server.Browser.Abstractions` (doc 40). It owns launch, session registry and cookie hand-off; Identity (doc 14) keeps profile storage, encryption and leases.
+- Chromium runs in the agent's existing VM pair (`BrowserGuestOs`), headless by default. Argv is built host-side: profile directory in the guest, `--proxy-server` to the per-agent egress proxy, `--host-resolver-rules` so DNS only resolves through the proxy, `--remote-debugging-pipe` (no TCP debug port), never `--no-sandbox`.
+- Account profiles get cookies over the guest channel by CDP `Network.setCookies` after the process starts (the cookie never goes on argv or disk in the guest beyond Chromium's own profile). Anonymous profiles never call the cookie source.
+- Hard taint calls `DetachAccountSessionsAsync`: account sessions stop and cookies drop; anonymous sessions are unaffected. No egress route means no browser (fail closed).
+- Conflict 1 (mount mode) stays open for doc 15; this module uses a guest-local profile directory and does not depend on the answer.
+
 ## Conflicts
-1. **Soul folder mount mode vs cookie profile.** The mount mode (`scoped_mount.mode`) is not decided here. A read-only mount conflicts with Chromium writing its profile: either the profile is copied into the guest on attach and written back on detach, or the mount is read-write. Doc 15 must decide; no decision here.
-2. **Egress has no owner.** This doc depends on an egress design, but the doc index has no egress entry. The owner must assign it (doc 15 or a new doc).
+1. **Soul folder mount mode vs cookie profile.** The mount mode (`scoped_mount.mode`) is not decided here. A read-only mount conflicts with Chromium writing its profile: either the profile is copied into the guest on attach and written back on detach, or the mount is read-write. PROPOSED resolution (2026-11-18): read-only share plus a guest-local working copy of the profile, written back on detach; see the build design above. Doc 15 confirms.
+2. **Egress has no owner.** This doc depends on an egress design, but the doc index has no egress entry. PROPOSED resolution (2026-11-18): doc 15 owns the policy, this doc owns the VM-side enforcement; see the build design above. The owner confirms.
 3. **Other docs must conform (not fixed here).** Doc 03 defines a different `IVmBackend` and must adopt this one. Doc 17 has a "Browser VM" role (C22) and a 10-minute command timeout (C36; the exec limits are now `vm.exec.*` settings here). Docs 14 (Q2) and 15 ("no-secrets VM") must drop the separate browser VM. Doc 15 must state that cookie profiles are mountable (C02).
 4. **Superseded Soul deep-dive text.** `Bazaar.Soul.md` lines 26, 43 and 51 keep the WSL2 image, the unsourced "sub-second boot" claim and the Cloud Hypervisor question (C03, C22).
 5. **Unverified platform facts**: the differencing-disk invalidation gotcha (no primary source), `AF_HYPERV` from .NET, Hyper-V management classes, saved-state sizes. Windows guest on a Linux host has no transport (OPEN, Question 1). Windows licensing gates deployment (Question 2).

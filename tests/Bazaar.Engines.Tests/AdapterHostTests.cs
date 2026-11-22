@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bazaar.Contracts.Engines;
 using Bazaar.Engines.Adapters;
+using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Engines.Tests;
 
@@ -13,10 +14,24 @@ public class AdapterHostTests
         AppContext.BaseDirectory,
         OperatingSystem.IsWindows() ? "FakeAdapter.exe" : "FakeAdapter");
 
-    private static AdapterHost StartFake(string mode, TimeSpan commandTimeout, string? slowMilliseconds = null)
+    private static AdapterHost StartFake(string mode, TimeSpan commandTimeout, string? slowMilliseconds = null, TimeProvider? clock = null)
     {
         var arguments = slowMilliseconds is null ? new[] { mode } : new[] { mode, slowMilliseconds };
-        return AdapterHost.Start(new AdapterProcessOptions(FakeAdapterPath, arguments, commandTimeout));
+        return AdapterHost.Start(new AdapterProcessOptions(FakeAdapterPath, arguments, commandTimeout, TimeProvider: clock));
+    }
+
+    /// <summary>
+    /// Waits until the host has read <paramref name="text"/> from the child. The bound is generous and only guards a hung test:
+    /// the wait ends as soon as the line arrives, so a slow machine makes the test slower, never wrong.
+    /// </summary>
+    private static async Task WaitForOutputAsync(AdapterHost host, string text)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromMinutes(2);
+        while (!host.RecentOutput().Any(line => line.Contains(text, StringComparison.Ordinal)))
+        {
+            Assert.True(DateTime.UtcNow < deadline, $"The adapter never printed '{text}'.");
+            await Task.Delay(10, TestContext.Current.CancellationToken);
+        }
     }
 
     private static EngineCommand Command(string commandId, string name = "echo") =>
@@ -51,11 +66,15 @@ public class AdapterHostTests
     [Fact]
     public async Task Timeout_kills_the_child_fails_the_session_and_reports_last_output()
     {
-        await using var host = StartFake("hang", TimeSpan.FromSeconds(5));
+        // A fake clock decides when the timeout fires: only after the child has printed its output, so the report is complete.
+        var clock = new FakeTimeProvider();
+        await using var host = StartFake("hang", TimeSpan.FromSeconds(5), clock: clock);
         await host.OpenAsync(_projectId, CancellationToken.None);
 
-        var error = await Assert.ThrowsAsync<EngineAdapterException>(
-            () => host.CommandAsync(_projectId, Command("cmd-hang"), CancellationToken.None));
+        var pending = host.CommandAsync(_projectId, Command("cmd-hang"), CancellationToken.None);
+        await WaitForOutputAsync(host, "step 2");
+        clock.Advance(TimeSpan.FromSeconds(5));
+        var error = await Assert.ThrowsAsync<EngineAdapterException>(() => pending);
 
         Assert.Equal(EngineErrorCodes.Timeout, error.Code);
         Assert.Contains("step 2", error.LastOutput);
@@ -70,9 +89,13 @@ public class AdapterHostTests
     [Fact]
     public async Task Hanging_health_call_times_out_like_a_command()
     {
-        await using var host = StartFake("unresponsive", TimeSpan.FromSeconds(5));
+        var clock = new FakeTimeProvider();
+        await using var host = StartFake("unresponsive", TimeSpan.FromSeconds(5), clock: clock);
+        await WaitForOutputAsync(host, "booting");
 
-        var error = await Assert.ThrowsAsync<EngineAdapterException>(() => host.HealthAsync(CancellationToken.None));
+        var pending = host.HealthAsync(CancellationToken.None);
+        clock.Advance(TimeSpan.FromSeconds(5));
+        var error = await Assert.ThrowsAsync<EngineAdapterException>(() => pending);
 
         Assert.Equal(EngineErrorCodes.Timeout, error.Code);
         Assert.Contains("booting", error.LastOutput);
@@ -120,7 +143,7 @@ public class AdapterHostTests
     [Fact]
     public async Task Slow_reply_within_the_timeout_succeeds()
     {
-        await using var host = StartFake("slow", TimeSpan.FromSeconds(10), slowMilliseconds: "300");
+        await using var host = StartFake("slow", TimeSpan.FromSeconds(60), slowMilliseconds: "300");
         await host.OpenAsync(_projectId, CancellationToken.None);
 
         var result = await host.CommandAsync(_projectId, Command("cmd-slow"), CancellationToken.None);

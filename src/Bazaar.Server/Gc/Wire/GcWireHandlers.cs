@@ -10,13 +10,7 @@ namespace Bazaar.Server.Gc.Wire;
 /// <summary>Maps the wire's principal kind (<c>owner</c>, <c>human</c>, <c>agent</c>) onto the GC model.</summary>
 internal static class GcWirePrincipals
 {
-    public static PrincipalKind KindOf(PrincipalRef principal) => principal.Kind switch
-    {
-        "owner" => PrincipalKind.Owner,
-        "human" => PrincipalKind.Human,
-        "agent" => PrincipalKind.Agent,
-        _ => throw new InvalidOperationException($"Unknown principal kind '{principal.Kind}'."),
-    };
+    public static PrincipalKind KindOf(PrincipalRef principal) => principal.GcKind();
 
     public static GcPrincipal PrincipalOf(PrincipalRef principal) =>
         new(principal.Id, KindOf(principal), string.Empty);
@@ -49,10 +43,10 @@ public sealed class SubscribeHandler : IWireRequestHandler
 /// original). Denied and missing GCs get the same answer. The commit notifies listeners, so subscribers receive the message
 /// through the dispatcher; this handler does not fan out.
 /// </summary>
-public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcReadAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
+public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, IGcWriteAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
 {
     /// <summary>Longest accepted message text, in characters. Replaced by the <c>gc.message_max_bytes</c> setting when it is wired.</summary>
-    public const int MaxTextLength = 64 * 1024;
+    public const int MaxTextLength = GcLimits.MaxTextLength;
 
     /// <inheritdoc />
     public string Type => WireTypes.GcSend;
@@ -137,7 +131,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
 }
 
 /// <summary><c>gc.history</c>: older message entries, for paging back past a hole or a <c>resync</c>.</summary>
-public sealed class GcHistoryHandler(PgGcStreamSource source, GcReadAccess access) : IWireRequestHandler
+public sealed class GcHistoryHandler(IGcHistorySource source, IGcReadAccess access) : IWireRequestHandler
 {
     /// <summary>Largest page a client may ask for.</summary>
     public const int MaxPage = 200;

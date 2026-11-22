@@ -23,6 +23,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Passport store** [PROPOSED]: ciphertext rows in host Postgres, in a schema that agent-facing database roles cannot reach.
 - **Identity Service** [PROPOSED]: a low-privilege host process. It is the only holder of decryption keys (through the KEK provider). It exposes `RequestAccess`, brokered calls, a credential-lease broker and a token minter.
 - **`ISecretStore`** (C05): the one server-side store for every secret that is not a bootstrap value. It holds provider API keys (Anthropic, FreeLLMAPI, other gateway upstreams), GitHub App private keys, OAuth refresh tokens and owner-class credentials. Only the KEK reference and the database credential are bootstrap values, resolved by 03. Consumers are host-side: the gateway (05) and the git provider (`IGitProvider`, C12). No VM, agent tool or browser reads the store. [PROPOSED] Each read names a purpose that policy must allow.
+- **`secret://bazaar/` resolution** [PROPOSED]: `SecretStoreResolver` (in `Bazaar.Secrets`) implements `ISecretResolver` over `ISecretStore`, so setup, gateway and backup references resolve one way. `secret://bazaar/<a>/<b>/...` maps to the installation scope, and the secret name is the segments joined with `.` and lowercased (`secret://bazaar/providers/anthropic/key` reads `providers.anthropic.key`). A path whose name fails `SecretName` is refused. The read is made by host component `secret-reference-resolver` with purpose `secret-reference.resolve`, so policy must hold `SecretGrant("secret-reference-resolver", "installation", null, "secret-reference.resolve")` (narrow it with a name per secret where the operator wants). A missing secret, a denial, an empty value or a store fault all throw `SecretResolutionException` with a fixed reason; no value or inner message is surfaced. Host wiring waits for a durable record repository, audit sink and agent registry.
 - **Owner-class credentials:** the owner merge credential, in either form from C25. No agent lease can name an owner-class credential. The server performs merges only on signed owner approval (21, 28).
 - **Owner approval signing key:** the device-held key that signs a merge approval is not defined here. Doc 32 owns that key class (28 flagged the gap). Until 32 defines it, this doc makes no claim about it.
 - **Approvals and audit** are owned by 15 (`approval`, `audit_log`). This doc calls them and defines no tables for either.
@@ -63,7 +64,36 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 |---|---|---|
 | Windows DPAPI, machine scope | Default for the first host | Protects from other OS users and a copied disk, not from administrators. [verified, Microsoft Learn] |
 | OpenBao transit | Possible if self-hosted | Windows server support not documented on the fetched page. [unverified] |
-| Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | Not researched. |
+| Linux (TPM-bound or systemd credentials) | Needed for the Linux provider | PROPOSED option; see "Linux TPM-sealed KEK" below. The decided Linux default remains `file`. |
+
+**Linux TPM-sealed KEK** [research PROPOSED; the five open questions are DECIDED (owner, 2026-11-19), see the end of this section]
+
+Facts (sources are the official tpm2-software docs, the tpm2-tools man pages and the systemd man pages):
+- tpm2-tools can seal a small secret under a TPM primary key: `tpm2_createprimary -C o`, then `tpm2_create -C <primary> -i <secret> -u obj.pub -r obj.priv` (the secret is a sealing object, input from a file or `-` for stdin), `tpm2_load`, and `tpm2_unseal -c <ctx>`; `tpm2_evictcontrol` can persist the object at a handle. The sealed object has a stated maximum size of 128 bytes, so the sealed value is a 32-byte KEK, never bulk data. [tpm2-tools `tpm2_create` man page; tpm2-software "Disk Encryption" article, 2020-04-13]
+- Unsealing can be bound to PCR state: `tpm2_policypcr -l sha256:<pcrs> -L policy`, then seal with `-L policy` and unseal inside a policy session. A raw PCR policy breaks on legitimate firmware, bootloader or kernel changes. The same article describes authorized policies (`tpm2_policyauthorize` with an offline signing key) so intended updates do not need a reseal. [tpm2-software "Disk Encryption" article]
+- Setting a policy on `tpm2_create` clears `userwithauth` unless a password is also set, so an empty password cannot bypass the policy. [`tpm2_create` man page]
+- Authorization is not identity: the TPM cannot tell who presents the authorization, and anyone holding both the disk and the TPM can unseal if the policy is satisfied. Examples that write the secret to disk must be avoided. Losing the TPM or the policy signing key can make the sealed secret unrecoverable. [tpm2-software "Disk Encryption" article]
+- systemd already wraps this: `systemd-creds encrypt --with-key=` accepts `host` (`/var/lib/systemd/credential.secret`, root-only), `tpm2`, or `host+tpm2` (the default when a TPM2 is present). `--tpm2-pcrs=` binds to PCR indexes (empty by default, meaning no PCR binding); `--tpm2-public-key=` binds to a signed PCR policy (default PCR 11, signatures from `systemd-measure`). Encryption is AES256-GCM. Credentials are pinned to the TPM2 SRK from systemd v262. `--with-key=null` gives no confidentiality and must not be used for the KEK. [systemd-creds man page]
+
+PCR policy options (the shipped default is DECIDED below: option 3):
+1. No PCR binding: the KEK is tied to the one TPM chip only. Survives updates; weakest against a booted, compromised OS.
+2. Raw PCR policy (for example secure-boot state): stronger, but breaks on legitimate updates, so a recovery path through the escrowed KEK copy is mandatory.
+3. Signed PCR policy (`tpm2_policyauthorize` or `systemd-creds --tpm2-public-key`): survives updates; adds a policy signing key to custody.
+
+Fallback: a host with no TPM, a container, or a failed unseal uses the decided `file` provider (a protected key file). Any TPM option is a separate provider choice, never a silent downgrade: a TPM-configured host that cannot unseal fails closed and reports to the operator. Key escrow (above) applies unchanged, because a TPM-sealed KEK is not recoverable on other hardware.
+
+VM caveats:
+- A Bazaar.Server running inside a VM sees only a virtual TPM. QEMU provides one through swtpm (`--tpmstate dir=<path>`, TIS or CRB front ends), and its state is a host directory that the hypervisor operator can read. Snapshots and migration need identical swtpm and QEMU command lines, and mismatched swtpm or libtpms versions can make the destination reject the state, so a restored or migrated VM may be unable to unseal. [QEMU TPM device docs]
+- Agent VMs (doc 35) never hold the KEK; this applies only to the host that runs the Identity Service.
+
+Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
+- **DECIDED:** `identity.kek_provider` gains an explicit `tpm` value (enum: `dpapi`, `file`, `tpm`, `openbao`). It is auditable and fails closed; it is not folded into `file`.
+- **DECIDED:** the shipped PCR policy is a signed one: PCR 7 plus a policy authorised by an offline-held signing key, so firmware and kernel updates do not brick unseal. The signing key is held in the owner's recovery bundle. If the owner declines to hold a key, the fallback is a raw PCR-7-only policy, with the escrowed KEK copy as the recovery path.
+- **DECIDED:** use `systemd-creds` where systemd is present (maintained sealing UX, less custom code). A direct tpm2-tools path is used only on non-systemd hosts.
+- **DECIDED:** a vTPM (swtpm, Hyper-V, QEMU) is accepted but classed as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
+- **DECIDED:** on a Linux host that is itself a VM, the default is `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning above.
+
+**KEK location and creation [PROPOSED, doc 63].** The KEK file moves from `<data root>/keys` to `<boot root>/keys`, because the data root becomes an encrypted volume whose key is wrapped by the KEK. The host opens the KEK at start and never creates it: a missing or empty key file is a refusal (`data_volume_not_initialised`), not a reason to mint a key. Only setup and the restore wizard create one.
 
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
@@ -123,7 +153,7 @@ interface IIdentityService {
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `identity.kek_provider` | enum: `dpapi`, `file`, `openbao` | **DECIDED (owner, 2026-11-16):** `dpapi` on a Windows host, `file` (a protected key file) on other hosts | install | owner, in setup wizard | yes (DEK re-wrap) |
+| `identity.kek_provider` | enum: `dpapi`, `file`, `tpm`, `openbao` | **DECIDED (owner, 2026-11-16):** `dpapi` on a Windows host, `file` (a protected key file) on other hosts. **DECIDED (owner, 2026-11-19):** `tpm` is an explicit opt-in value on Linux (see "Linux TPM-sealed KEK"); a Linux VM host defaults to `file` | install | owner, in setup wizard | yes (DEK re-wrap) |
 | `identity.kek_recovery_location` | text (write-once location for the sealed KEK copy) | sealed offline copy held by the owner | install | owner | yes |
 | `identity.lease_ttl_minutes` | int | 15 | install | owner | yes if raised |
 | `identity.approval_expiry_hours` | int | 24 | install | owner | yes if raised |
@@ -176,7 +206,7 @@ interface IIdentityService {
 - **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. The provider and recovery location are settings; the recovery gap itself stays open in 33.
 - **Erasure legal sufficiency** (C01): key destruction is not yet validated by counsel.
 - **GitHub App token lifetime** is unverified until test T4 (21 C3).
-- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; 33 Q15 confirms.
+- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; doc 33, "Cookie profile exclusion [PROPOSED]", confirms.
 - **Canary detection and per-agent share and OS account** (for 15): 15 must define the detection event that canary use raises.
 - **Owner approval signing key** (for 32, flagged by 28): the device-held key class is not yet defined.
 - **Already decided, for other docs:** 16 and 17 drop any blanket Passport-free browser VM (C22). 16 Q2's second share stays an explicit exception (C02). 03 and 05 reduce their resolvers to bootstrap values (C05). 27 renames its client store interface (C05).

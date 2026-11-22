@@ -13,7 +13,7 @@
 #      release with gh and uploads the verified files and SHA256SUMS.
 #
 # Nothing is published automatically. The draft is never marked latest. It is a
-# prerelease only when the tag has a pre-release suffix (-alpha.N, -beta.N, -rc.N),
+# prerelease only when the tag has a pre-release suffix (-beta.N, -rc.N; -alpha.N is a deprecated alias for nightly),
 # which is how docs/VERSIONING.md section 4 picks the channel. A human reviews the
 # draft on GitHub and publishes it.
 #
