@@ -160,6 +160,79 @@ public class CouncilServiceTests
         Assert.Contains("\"decided_by\":\"tally\"", h.Events.OfKind("council.decision").Single().PayloadJson);
     }
 
+    private static async Task<VoteState> RunThreeToOneAsync(CouncilHarness h, bool highImpact)
+    {
+        h.AddAgents("ada", "cal", "dot", "eve", "fin");
+        var service = h.CreateService();
+        var id = await service.OpenAsync("ada", h.Motion(highImpact: highImpact), CancellationToken.None);
+        await service.SubmitBallotAsync(id, "cal", Ballots.Independent("cal", "yes"), CancellationToken.None);
+        await service.SubmitBallotAsync(id, "dot", Ballots.Independent("dot", "yes"), CancellationToken.None);
+        await service.SubmitBallotAsync(id, "eve", Ballots.Independent("eve", "yes"), CancellationToken.None);
+        await service.SubmitBallotAsync(id, "fin", Ballots.Independent("fin", "no"), CancellationToken.None);
+        return (await VoteOf(h, id)).State;
+    }
+
+    [Fact]
+    public async Task Open_stores_the_high_impact_flag_and_puts_it_in_the_open_event()
+    {
+        var h = new CouncilHarness();
+        h.AddThreeVoters();
+        var service = h.CreateService();
+        var flagged = await service.OpenAsync("ada", h.Motion(highImpact: true), CancellationToken.None);
+        Assert.True((await VoteOf(h, flagged)).HighImpact);
+        Assert.Contains("\"high_impact\":true", h.Events.OfKind("council.open").Single().PayloadJson);
+    }
+
+    [Fact]
+    public async Task A_motion_without_the_flag_is_not_high_impact()
+    {
+        var h = new CouncilHarness();
+        h.AddThreeVoters();
+        var id = await h.CreateService().OpenAsync("ada", h.Motion(), CancellationToken.None);
+        Assert.False((await VoteOf(h, id)).HighImpact);
+    }
+
+    [Fact]
+    public async Task A_stored_high_impact_vote_goes_to_follow_up_when_the_setting_share_is_met()
+    {
+        var h = new CouncilHarness { Settings = new FixedDissentShareSettings { Share = 0.2m } };
+        Assert.Equal(VoteState.FollowUp, await RunThreeToOneAsync(h, highImpact: true));
+    }
+
+    [Fact]
+    public async Task The_same_dissent_on_an_unflagged_vote_is_decided()
+    {
+        var h = new CouncilHarness { Settings = new FixedDissentShareSettings { Share = 0.2m } };
+        Assert.Equal(VoteState.Decided, await RunThreeToOneAsync(h, highImpact: false));
+    }
+
+    [Fact]
+    public async Task The_dissent_share_is_read_at_decision_time_so_a_change_applies_without_a_restart()
+    {
+        var settings = new FixedDissentShareSettings();
+        var h = new CouncilHarness { Settings = settings };
+
+        // Default 0.33: 1 of 4 is 0.25, so the high-impact vote is decided.
+        Assert.Equal(VoteState.Decided, await RunThreeToOneAsync(h, highImpact: true));
+
+        // Same service graph, lower share: the next tally follows up.
+        settings.Share = 0.2m;
+        var second = new CouncilHarness { Settings = settings };
+        Assert.Equal(VoteState.FollowUp, await RunThreeToOneAsync(second, highImpact: true));
+
+        // And the same harness (one service instance per call here, but one settings store) sees a raise too.
+        settings.Share = 1m;
+        var third = new CouncilHarness { Settings = settings };
+        Assert.Equal(VoteState.Decided, await RunThreeToOneAsync(third, highImpact: true));
+    }
+
+    [Fact]
+    public async Task Without_a_settings_store_the_options_share_applies()
+    {
+        var h = new CouncilHarness { Options = new CouncilOptions { FollowupDissentShare = 0.2m } };
+        Assert.Equal(VoteState.FollowUp, await RunThreeToOneAsync(h, highImpact: true));
+    }
+
     [Fact]
     public async Task Follow_up_tie_escalates_and_an_independent_split_has_no_second_round()
     {
