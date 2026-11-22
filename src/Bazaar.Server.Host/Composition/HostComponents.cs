@@ -1,4 +1,6 @@
+using Bazaar.Archive;
 using Bazaar.Community;
+using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
@@ -17,6 +19,7 @@ using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
+using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
@@ -28,10 +31,11 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
-using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
@@ -51,7 +55,10 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new ArchiveComponent(),
+        new MirrorComponent(),
         new GatewayRetentionComponent(),
+        new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
         new GcReactionsComponent(),
@@ -74,6 +81,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new ConduitComponent(),
         new WireDiscoveryComponent(),
         new RemoteComponent(),
         new GitHubComponent(),

@@ -1,3 +1,5 @@
+using Bazaar.Server.Host.Auth;
+using Bazaar.GitHub;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.Server.Host.Composition;
@@ -50,12 +52,16 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 
 var app = builder.Build();
 app.UseBazaarGetOnly();
+app.UseBazaarAuthenticatedCaller();
 app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
+app.MapBazaarAuthWhoAmI();
+app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
 app.MapBazaarSetup();
+app.MapBazaarAuthSignOut();
 app.UseBazaarWire();
 if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
 {
