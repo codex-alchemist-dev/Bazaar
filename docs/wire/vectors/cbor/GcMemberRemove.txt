@@ -1,7 +1,7 @@
 Golden frame: GcMemberRemove
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12
+Schema hash: sha256:13b89ac3e43f32f4e1986ae8f5b803d384ceacda223c2f4a6534706cf53217e7
 Payload record: Bazaar.Contracts.Wire.GcMemberRemove
 Envelope: v=1 t=gc.member.remove k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 213 bytes

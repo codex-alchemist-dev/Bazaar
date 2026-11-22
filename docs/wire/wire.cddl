@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12.
+; Schema hash sha256:13b89ac3e43f32f4e1986ae8f5b803d384ceacda223c2f4a6534706cf53217e7.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -20,6 +20,7 @@ decimal-fraction = #6.4([exponent: int, mantissa: int])
 float32-array = #6.85(bstr)
 
 ; Message types and the payload rule each carries.
+; board.assign = kanban-assign-request
 ; board.snapshot = kanban-board-request
 ; gc.edit = gc-edit
 ; gc.history = gc-history
@@ -34,6 +35,11 @@ float32-array = #6.85(bstr)
 ; pane.frame = pane-frame
 ; ping = ping
 ; pong = pong
+; pr.hunks = pr-hunks-request
+; pr.list = pr-list-request
+; pr.merge = pr-merge-request
+; pr.review = pr-review-request
+; pr.summary = pr-summary-request
 ; resync = resync
 ; ryusei.trigger.list = ryusei-trigger-list-request
 ; ryusei.trigger.pause = ryusei-trigger-change-request
@@ -43,9 +49,132 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
+pr-author-kind = "agent" / "human"
+pr-changed-file = {
+  path: tstr,  ; 1
+  status: tstr,  ; 2
+  additions: -2147483648..2147483647,  ; 3
+  deletions: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-checks-rollup = "none" / "pending" / "passing" / "failing"
+pr-hunk = {
+  header: tstr,  ; 1
+  oldStart: -2147483648..2147483647,  ; 2
+  oldCount: -2147483648..2147483647,  ; 3
+  newStart: -2147483648..2147483647,  ; 4
+  newCount: -2147483648..2147483647,  ; 5
+  lines: [* tstr],  ; 6
+  * tstr => any
+}
+pr-hunks-reply = {
+  status: pr-hunks-status,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  hunks: [* pr-hunk],  ; 4
+  ? nextCursor: tstr,  ; 5
+  * tstr => any
+}
+pr-hunks-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  ? cursor: tstr,  ; 4
+  * tstr => any
+}
+pr-hunks-status = "ok" / "stale"
+pr-list-reply = {
+  rows: [* pr-list-row],  ; 1
+  ? nextCursor: tstr,  ; 2
+  * tstr => any
+}
+pr-list-request = {
+  ? repo: tstr,  ; 1
+  state: pr-list-state,  ; 2
+  ? cursor: tstr,  ; 3
+  ? limit: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-list-row = {
+  prId: tstr,  ; 1
+  repo: tstr,  ; 2
+  number: -2147483648..2147483647,  ; 3
+  title: tstr,  ; 4
+  author: tstr,  ; 5
+  authorKind: pr-author-kind,  ; 6
+  draft: bool,  ; 7
+  headSha: tstr,  ; 8
+  checks: pr-checks-rollup,  ; 9
+  revision: int,  ; 10
+  ? installationId: int,  ; 11
+  ? owner: tstr,  ; 12
+  ? repoName: tstr,  ; 13
+  * tstr => any
+}
+pr-list-state = "open" / "closed" / "merged" / "all"
+pr-merge-reply = {
+  status: pr-merge-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-merge-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  commitTitle: tstr,  ; 3
+  commitMessage: tstr,  ; 4
+  owner: pr-owner-payload,  ; 5
+  signature: [* 0..255],  ; 6
+  * tstr => any
+}
+pr-merge-status = "merged" / "stale" / "checks_failed" / "bad_signature" / "not_mergeable" / "conflict" / "refused"
+pr-owner-payload = {
+  action: tstr,  ; 1
+  approvalId: uuid-text,  ; 2
+  argsHash: [* 0..255],  ; 3
+  ? headSha: tstr,  ; 4
+  humanId: uuid-text,  ; 5
+  deviceId: tstr,  ; 6
+  issuedAt: #6.0(tstr),  ; 7
+  expiresAt: #6.0(tstr),  ; 8
+  nonce: [* 0..255],  ; 9
+  * tstr => any
+}
+pr-review-reply = {
+  status: pr-review-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-review-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  event: tstr,  ; 3
+  body: tstr,  ; 4
+  * tstr => any
+}
+pr-review-status = "applied" / "stale" / "refused"
+pr-summary-reply = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  summary: tstr,  ; 3
+  files: [* pr-changed-file],  ; 4
+  checks: pr-checks-rollup,  ; 5
+  reviewerApproved: bool,  ; 6
+  ? linkedCardId: uuid-text,  ; 7
+  ? installationId: int,  ; 8
+  ? owner: tstr,  ; 9
+  ? repoName: tstr,  ; 10
+  ? number: -2147483648..2147483647,  ; 11
+  * tstr => any
+}
+pr-summary-request = {
+  prId: tstr,  ; 1
+  * tstr => any
+}
 cluster-glyph = {
   clusterId: tstr,  ; 1
   memberCount: -2147483648..2147483647,  ; 2
@@ -145,6 +274,19 @@ viewport-request = {
   * tstr => any
 }
 zoom-tier = "far" / "mid" / "near"
+kanban-assign-reply = {
+  status: tstr,  ; 1
+  ? revision: int,  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-request = {
+  projectId: uuid-text,  ; 1
+  cardId: uuid-text,  ; 2
+  ? assigneeAgentId: uuid-text,  ; 3
+  expectedRevision: int,  ; 4
+  * tstr => any
+}
 kanban-board-card = {
   id: uuid-text,  ; 1
   title: tstr,  ; 2
