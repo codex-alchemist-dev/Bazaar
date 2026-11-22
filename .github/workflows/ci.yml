@@ -1,4 +1,7 @@
-# CI for Bazaar. Runs on GitHub-hosted runners only (public repo: never self-hosted).
+# CI for Bazaar. Runs on GitHub-hosted runners, except that required jobs go to the owner's self-hosted
+# runners (labels bazaar-win, bazaar-linux, bazaar-linux-pg) when the run was started by the owner account
+# (github.actor and triggering_actor are Cookiesmuch) and, for pull requests, the head branch is in this
+# repository. Fork PRs and every other actor stay on hosted runners and never reach the owner's machine.
 #
 # Every third-party action is pinned to a full commit SHA; the version tag is
 # kept in a trailing comment. Dependabot (github-actions ecosystem) proposes
@@ -42,7 +45,7 @@ jobs:
   build-test:
     name: Build and test (${{ matrix.os }})
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
     timeout-minutes: 45
     permissions:
       contents: read
@@ -80,15 +83,18 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            pgvector/pgvector:pg18
+            pgvector/pgvector:pg18 -c max_locks_per_transaction=512
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux)
         if: runner.os == 'Linux'
@@ -100,6 +106,10 @@ jobs:
         run: ./build.ps1
 
       # Test output is only kept when the run fails, to keep artifact storage small.
+      - name: Remove the PostgreSQL container
+        if: always() && env.PG_NAME != ''
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
+
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -214,10 +224,50 @@ jobs:
         if: steps.scope.outputs.heavy == 'true'
         run: bash scripts/ci/android-a11y-gate.sh
 
+  # Start-up gate for the Linux head (doc 30, testing). The headless tests cannot see a client that aborts on a real
+  # display, so this starts the built client on Xvfb. Runs on every PR (no path filter, see the note above build-test).
+  linux-client-startup:
+    name: Linux client start-up (Xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/*.csproj', '**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Install Xvfb
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb
+
+      - name: Start the Linux client on Xvfb
+        run: bash scripts/ci/linux-client-startup.sh
+
   secret-scan:
     name: Secret scan (full history)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
@@ -263,7 +313,7 @@ jobs:
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork
-    runs-on: ubuntu-latest
+    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
     timeout-minutes: 45
     continue-on-error: true
     permissions:
@@ -310,20 +360,27 @@ jobs:
         if: steps.scope.outputs.heavy == 'true'
         run: |
           set -euo pipefail
+          PG_NAME=bazaar-pg-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index || github.job }}
           docker build -t bazaar-pg19:ci --build-arg PG_MAJOR=19 --build-arg PG_BASE=postgres:19rc1-bookworm packaging/postgres
-          docker run -d --name bazaar-pg -e POSTGRES_PASSWORD=bazaar -p 5432:5432 \
+          docker run -d --name "$PG_NAME" -e POSTGRES_PASSWORD=bazaar -p 127.0.0.1::5432 \
             --health-cmd "pg_isready -U postgres" --health-interval 2s --health-retries 30 \
-            bazaar-pg19:ci
+            bazaar-pg19:ci -c max_locks_per_transaction=512
           for _ in $(seq 1 60); do
-            [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ] && break
+            [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ] && break
             sleep 1
           done
-          [ "$(docker inspect -f '{{.State.Health.Status}}' bazaar-pg)" = healthy ]
-          echo "BAZAAR_TEST_PG=Host=localhost;Port=5432;Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          [ "$(docker inspect -f '{{.State.Health.Status}}' "$PG_NAME")" = healthy ]
+          PG_PORT="$(docker port "$PG_NAME" 5432/tcp | head -n1 | sed 's/.*://')"
+          echo "BAZAAR_TEST_PG=Host=127.0.0.1;Port=${PG_PORT};Username=postgres;Password=bazaar" >> "$GITHUB_ENV"
+          echo "PG_NAME=$PG_NAME" >> "$GITHUB_ENV"
 
       - name: Build and test (Linux, PostgreSQL 19 RC)
         if: steps.scope.outputs.heavy == 'true'
         run: ./build.sh
+
+      - name: Remove the PostgreSQL container
+        if: always() && env.PG_NAME != ''
+        run: docker rm -f "$PG_NAME" >/dev/null 2>&1 || true
 
       - name: Upload test results on failure
         if: failure() && steps.scope.outputs.heavy == 'true'

@@ -3,13 +3,17 @@ using System.Runtime.InteropServices;
 namespace Bazaar.Constellation.Rendering.Core;
 
 /// <summary>
-/// Packs node positions and styles into one flat instance array for a GPU upload. Storage is reused between
-/// fills and only grows.
+/// Packs node positions and style indices into one flat instance array for a GPU upload. The colour, radius and
+/// ring width of each style live in <see cref="NodeStylePalette"/>, not here. Storage is reused between fills and
+/// only grows.
 /// </summary>
 public sealed class NodeInstanceBuffer
 {
-    /// <summary>Floats per instance, in order: x, y, radius, red, green, blue, alpha. z is never stored.</summary>
-    public const int FloatsPerInstance = 7;
+    /// <summary>
+    /// Floats per instance, in order: x, y, style index. z is never stored. The style index is an exact integer
+    /// stored as a float; it is below <see cref="NodeStylePalette.MaxStyles"/>, so the conversion is exact.
+    /// </summary>
+    public const int FloatsPerInstance = 3;
 
     private float[] _floats = [];
     private int _instanceCount;
@@ -24,18 +28,19 @@ public sealed class NodeInstanceBuffer
     public ReadOnlySpan<byte> Bytes => MemoryMarshal.AsBytes(Floats);
 
     /// <summary>
-    /// Packs one instance per node. Only x and y are read from <paramref name="positions"/> (z is ignored for
-    /// 3D input). Nothing changes when the arguments are rejected.
+    /// Packs one instance per node: its x and y, and the index of its style in <paramref name="palette"/>.
+    /// Only x and y are read from <paramref name="positions"/> (z is ignored for 3D input). Nothing changes when the
+    /// arguments are rejected.
     /// </summary>
-    public void Fill(ReadOnlySpan<float> positions, int dimensions, NodeStyleTable styles)
+    public void Fill(ReadOnlySpan<float> positions, int dimensions, NodeStylePalette palette)
     {
-        ArgumentNullException.ThrowIfNull(styles);
+        ArgumentNullException.ThrowIfNull(palette);
         if (dimensions is not (2 or 3))
         {
             throw new ArgumentOutOfRangeException(nameof(dimensions), dimensions, "Dimensions must be 2 or 3.");
         }
 
-        int nodeCount = styles.NodeCount;
+        int nodeCount = palette.NodeCount;
         if (positions.Length != nodeCount * dimensions)
         {
             throw new ArgumentException("Positions must hold NodeCount times dimensions values.", nameof(positions));
@@ -51,14 +56,9 @@ public sealed class NodeInstanceBuffer
         {
             int source = node * dimensions;
             int target = node * FloatsPerInstance;
-            NodeStyle style = styles.Get(node);
             _floats[target] = positions[source];
             _floats[target + 1] = positions[source + 1];
-            _floats[target + 2] = style.Radius;
-            _floats[target + 3] = style.Red;
-            _floats[target + 4] = style.Green;
-            _floats[target + 5] = style.Blue;
-            _floats[target + 6] = style.Alpha;
+            _floats[target + 2] = palette.IndexOf(node);
         }
 
         _instanceCount = nodeCount;
