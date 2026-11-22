@@ -5,7 +5,6 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />

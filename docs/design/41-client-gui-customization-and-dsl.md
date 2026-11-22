@@ -175,7 +175,8 @@ Open for the owner: size-class breakpoints, the multi-monitor rule and the densi
 - **AI fallback.** Unknown phrases go to AI matching, which suggests only (section 4.11). Latency and locality rules follow doc 31.
 - **Enter is always syntax (owner, 2026-11-12).** Enter runs the typed syntax or named target. Syntax input shows an overlay before it runs, stating exactly what it will do and where (for example "Move to: RyuseiFuda Workday"). The overlay sits beside the typed text.
 - **AI matching is a separate key (owner, 2026-11-12, proposed).** As the user types, the overlay shows the syntax result immediately. AI loads slowly beside it and shows what the AI thinks the user wants, as a suggestion only (section 4.11). The AI key is Shift+Enter (owner decided, 2026-11-12). Ctrl+Enter was rejected because it conflicts with the no-Ctrl-chord rule. Android needs a non-chord route too (open).
-- **No Ctrl chords.** Mnemonics and the command bar are the only entry points. Open: exact verb set and whether abbreviations are per-module.
+- **Counts, verbs and the suggest key are configurable (added 2026-11-20, under the configurability rule of 2026-10-25).** Each is on by default and the operator can tighten it (`MnemonicOptions` in `Bazaar.Ex`). **Counts:** digits typed before a command are a count, as in Vim (`3ngc1`); a mnemonic that itself starts with those digits wins over a count, a leading zero is never a count, and the count is capped (default 999). The overlay shows the count, and the shell decides what a count means for each command. **Verb letters:** `n` and `m` both start a navigation compound by default (`ngc1`, `mgc1`); the letter-to-verb map is a setting. `i` stays the reserved Insert key, and `j`, `k` and `l` have no verb until a module defines a target for them. **AI suggest:** Shift+Enter asks for suggestions for the typed text and never runs anything; it can be turned off. This is the owner's configurability rule applied to the open items above, not a new owner decision on the exact letters or on what counts mean.
+- **No Ctrl chords.** Mnemonics and the command bar are the only entry points. Open: whether abbreviations are per-module.
 
 ## 4.13 Company client builds from the server (owner, 2026-11-12)
 
@@ -278,7 +279,7 @@ public sealed record UiDocument<T>(string Kind, int SchemaVersion, long Revision
 
 // Layout tree (extends the LayoutDescriptor in 27). Pane leaves carry a kind and an optional config object.
 public sealed record LayoutNode(string Container, IReadOnlyList<LayoutNode>? Children, string? PaneKind,
-    string? PaneId, JsonElement? PaneConfig, string? VisibleWhen /* reserved, unused in v1 */);
+    string? PaneId, JsonElement? PaneConfig, string? VisibleWhen /* Rubedo bool rule, doc 41a section 10 */);
 
 // Manifest every client module declares. The host enforces it identically for every module.
 public sealed record ModuleManifest(string Id, string Version, int ContractVersion,
