@@ -42,11 +42,14 @@ internal static class FirstRunScreens
         }
 
         var facts = new LocalFacts();
+        var server = new HttpWalkthroughService(http, async () => (await store.LoadAsync())?.AccessToken);
         if (both)
         {
-            // The walkthrough card sits above the screens it guides to. Facts come from this run's own screens until the server
-            // reports them; progress is cached in a local file (doc 45 section 2.7).
-            var walkthrough = new WalkthroughViewModel(new FileWalkthroughProgressStore(WalkthroughPath()), facts, new NoScreenActions());
+            // The walkthrough card sits above the screens it guides to. Facts come from the server, or from this run's own screens when it cannot say; progress is cached in a local file (doc 45 section 2.7).
+            var walkthrough = new WalkthroughViewModel(
+                new CachedWalkthroughProgressStore(server, new FileWalkthroughProgressStore(WalkthroughPath())),
+                new FallbackFacts(server, facts),
+                new NoScreenActions());
             panel.Children.Insert(0, WalkthroughView.Create(walkthrough));
             Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = walkthrough.StartAsync());
         }
@@ -75,6 +78,22 @@ internal static class FirstRunScreens
         public void Set(WalkthroughFacts facts) => _facts = facts;
 
         public Task<WalkthroughFacts> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_facts);
+    }
+
+    /// <summary>Asks the server first; when it cannot answer (routes not built yet, server down) the run's own screens answer.</summary>
+    private sealed class FallbackFacts(IWalkthroughFactsSource first, IWalkthroughFactsSource second) : IWalkthroughFactsSource
+    {
+        public async Task<WalkthroughFacts> ReadAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                return await first.ReadAsync(cancellationToken);
+            }
+            catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException && !cancellationToken.IsCancellationRequested)
+            {
+                return await second.ReadAsync(cancellationToken);
+            }
+        }
     }
 
     /// <summary>The agent profile and task composer are not in this head yet, so those steps report that they cannot open.</summary>
