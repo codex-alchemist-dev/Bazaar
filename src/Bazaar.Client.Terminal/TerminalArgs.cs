@@ -8,20 +8,80 @@ namespace Bazaar.Client.Terminal;
 /// <param name="Members">Display names for other members; agents are marked.</param>
 public sealed record TerminalOptions(Uri Server, string Token, Guid GcId, string Name, IReadOnlyDictionary<Guid, Speaker> Members);
 
+/// <summary>Settings for a local Calcinato terminal (<c>--calcinato</c>). No server is involved.</summary>
+/// <param name="Shell">Shell path or name, or null for the default.</param>
+public sealed record CalcinatoOptions(string? Shell);
+
 /// <summary>Parses command-line arguments with environment fallbacks. Pure: the environment is passed in.</summary>
 public static class TerminalArgs
 {
     /// <summary>Usage text shown for <c>--help</c> and for argument errors.</summary>
     public const string Usage = """
         usage: bazaar-terminal --server <ws-url> --gc <gc-id> [options]
+               bazaar-terminal --calcinato [--shell <path>]
           --server <url>         WebSocket endpoint, ws:// or wss:// (env BAZAAR_SERVER)
           --gc <id>              group chat id (env BAZAAR_GC)
           --token <token>        bearer token (env BAZAAR_TOKEN; prefer the env var, arguments show in shell history)
           --name <name>          label for your own messages (default: you)
           --member <id>=<name>   name another member (repeatable)
           --agent <id>=<name>    name an agent; its messages are marked [agent] (repeatable)
-        Type a line and press Enter to send. /quit leaves; Ctrl+C also exits.
+          --calcinato            open a local Calcinato terminal instead of chat; no server needed (also: calcinato)
+          --shell <path>         shell for --calcinato (default: SHELL, then pwsh or cmd, bash or sh)
+        Chat: type a line and press Enter to send. /quit leaves; Ctrl+C also exits.
+        Calcinato: i enters Insert mode, Esc returns to Normal, :q closes a terminal, :q! kills it.
         """;
+
+    /// <summary>True when the arguments ask for the local Calcinato terminal (<c>--calcinato</c> or the <c>calcinato</c> subcommand).</summary>
+    /// <param name="args">Command-line arguments.</param>
+    public static bool IsCalcinato(IReadOnlyList<string> args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        return (args.Count > 0 && args[0] == "calcinato") || args.Contains("--calcinato");
+    }
+
+    /// <summary>Parses the arguments of the local Calcinato terminal. Chat options are rejected here.</summary>
+    /// <param name="args">Command-line arguments, for which <see cref="IsCalcinato"/> is true.</param>
+    /// <exception cref="ArgumentException">An option is unknown, has no value, or a stray argument is present.</exception>
+    public static CalcinatoOptions ParseCalcinato(IReadOnlyList<string> args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        string? shell = null;
+        for (int i = args.Count > 0 && args[0] == "calcinato" ? 1 : 0; i < args.Count; i++)
+        {
+            string arg = args[i];
+            if (arg == "--calcinato")
+            {
+                continue;
+            }
+
+            if (!arg.StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException($"Unexpected argument '{arg}'.");
+
+            string key = arg;
+            string? value = null;
+            int eq = arg.IndexOf('=', StringComparison.Ordinal);
+            if (eq > 0)
+            {
+                key = arg[..eq];
+                value = arg[(eq + 1)..];
+            }
+
+            if (key != "--shell")
+            {
+                throw new ArgumentException($"Unknown option '{key}' in Calcinato mode. Chat options need the chat mode without --calcinato.");
+            }
+
+            if (value is null && i + 1 < args.Count)
+            {
+                value = args[++i];
+            }
+
+            if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("--shell needs a path.");
+            shell = value.Trim();
+        }
+
+        return new CalcinatoOptions(shell);
+    }
 
     /// <summary>Parses <paramref name="args"/>; values from the command line win over <paramref name="env"/>.</summary>
     /// <exception cref="ArgumentException">An argument or required setting is missing or invalid.</exception>

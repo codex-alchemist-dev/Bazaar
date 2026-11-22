@@ -1,6 +1,9 @@
 using Bazaar.Core;
 using Bazaar.RateLimits;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Setup.Constitution;
+using Bazaar.Server.Setup.FirstRun;
+using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Http;
 using Bazaar.Server.Setup.Postgres;
 using Microsoft.AspNetCore.Builder;
@@ -20,7 +23,8 @@ namespace Bazaar.Server.Setup.Host;
 /// adapters bind <c>Bazaar.Server</c> types to the setup seams; the setup libraries themselves never reference the server.
 /// </summary>
 /// <remarks>
-/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings). A host or test
+/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings) and
+/// <see cref="ConstitutionSeedStep"/> (the default Constitution in the Vault) and <see cref="FirstRunSeedStep"/> (the first GC and default agent, over the Postgres stores in <c>Bazaar.Server.Setup.FirstRun.Postgres</c>). A host or test
 /// can pass its own steps to the constructor instead, and those replace the defaults. A step whose backing store is not in the tree
 /// is not registered (see doc 45 section 1.3 status rows). With no step registered, an apply of a plan that changes anything ends in
 /// exit 3 with one audit row. The routes are gated: before an owner exists a call needs loopback and the one-time bootstrap code,
@@ -63,13 +67,19 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         // The setup rate bucket needs a limiter; this registers the in-process one unless the host already has a limiter.
         services.AddBazaarRateLimits();
 
+        // The verifier (doc 45 section 1.12). Probes answer infrastructure checks by id. Any ISetupVerificationCheck a module registers
+        // replaces the placeholder with the same id, so a module owns its own check without Setup referencing it.
+        services.TryAddSingleton<ISetupVerifier>(sp => new SetupVerifier(SetupVerificationChecks.Create(
+            sp.GetServices<ISetupInfrastructureProbe>(),
+            replacements: sp.GetServices<ISetupVerificationCheck>())));
+
         services.AddBazaarSetupPostgres();
-        RegisterSteps(services);
+        RegisterSteps(services, configuration);
         services.AddSetupApply();
         services.AddSetupHttp();
     }
 
-    private void RegisterSteps(IServiceCollection services)
+    private void RegisterSteps(IServiceCollection services, IConfiguration configuration)
     {
         if (Steps.Count > 0)
         {
@@ -83,6 +93,14 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+
+        // The default Constitution in the Vault (doc 24), drafted just before the first-run seed so there is a commit to accept. The Vault
+        // repository and writer identity come from the same Memory:Vault keys as the memory module. Unset, the step fails with a message.
+        services.AddConstitutionSeed(ConstitutionVaultOptions.FromSettings(key => configuration[key]));
+
+        // The first-run seed (doc 45 section 1.15) with its Postgres stores. It needs the owner step's row, so it runs after it.
+        services.AddFirstRunPostgres();
+        services.AddFirstRunSeed();
     }
 }
 

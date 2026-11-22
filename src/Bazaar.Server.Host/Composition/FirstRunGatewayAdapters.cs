@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Policy;
@@ -45,4 +46,20 @@ public sealed class GatewayDefaultAgentPolicyStore(AgentModelPolicyRepository po
     /// <inheritdoc />
     public Task SaveAsync(string agentId, IReadOnlyList<string> entries, string? defaultRoute, string changedBy, CancellationToken cancellationToken = default) =>
         policies.SaveAsync(agentId, entries, defaultRoute, changedBy, cancellationToken);
+}
+
+/// <summary>Binds the Agents module's grant port to the default-policy grant of the first-run seed (doc 45 section 1.15).</summary>
+public sealed class AgentDefaultPolicyGrantAdapter(DefaultAgentGrantService grants) : IAgentDefaultPolicyGrant
+{
+    /// <inheritdoc />
+    public async Task GrantAsync(Guid agentId, CancellationToken ct) =>
+        await grants.GrantAsync(agentId, ct).ConfigureAwait(false);
+}
+
+/// <summary>Tells the repair pass which agents have no policy row.</summary>
+public sealed class AgentPolicyPresenceAdapter(DefaultAgentGrantService grants) : IAgentPolicyPresence
+{
+    /// <inheritdoc />
+    public Task<IReadOnlyList<Guid>> FilterWithoutPolicyAsync(IEnumerable<Guid> agentIds, CancellationToken ct) =>
+        grants.FilterWithoutPolicyAsync(agentIds, ct);
 }

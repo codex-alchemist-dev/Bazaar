@@ -50,7 +50,8 @@ public sealed class VmDisplayAgentToolsComponent : IBazaarComponent
             sp.GetRequiredService<IGuestDisplay>(),
             sp.GetRequiredService<IAgentDisplayTargets>(),
             sp.GetRequiredService<ScreenToolsOptions>(),
-            sp.GetService<IDisplayNativeSize>()));
+            // A native size port the host registered wins; otherwise the display module's reader is used when it is there.
+            sp.GetService<IDisplayNativeSize>() ?? (sp.GetService<IDisplayNativeSizeReader>() is { } reader ? new ReaderNativeSize(reader) : null)));
 
         services.AddSingleton(sp => new ToolRegistration(ScreenCaptureTool.ToolName, sp.GetRequiredService<ScreenCaptureTool>()));
         services.AddSingleton(sp => new ToolRegistration(ScreenInputTool.ToolName, sp.GetRequiredService<ScreenInputTool>()));

@@ -31,7 +31,7 @@ public sealed class CalendarDb : PgFixture, IAsyncLifetime
     /// <summary>The server's files plus the calendar component's own namespace (the visibility column), as the host composes them.</summary>
     public static IMigrationSource MigrationSource()
     {
-        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
         return new InMemoryMigrationSource(source.Namespaces().SelectMany(source.Load).Concat(CalendarComponentFiles()));
     }
 

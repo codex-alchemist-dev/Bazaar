@@ -35,7 +35,11 @@
          from Activity and Fragment (NU1608). Avalonia.Android brings Window 1.5.1.2 transitively, which resolves cleanly. -->
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Http\Bazaar.Client.Approvals.Http.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.TalentPool.Http\Bazaar.Client.TalentPool.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Mobile\Bazaar.Client.Mobile.csproj" />
@@ -49,5 +53,6 @@
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitSolarSystem\Bazaar.Client.GitSolarSystem.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
   </ItemGroup>
 </Project>
