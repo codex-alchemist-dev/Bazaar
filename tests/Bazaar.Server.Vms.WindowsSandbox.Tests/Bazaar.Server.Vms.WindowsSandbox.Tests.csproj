@@ -13,7 +13,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Guest.Agent\Bazaar.Guest.Agent.csproj" />
-    <!-- Test-only: the selection tests drive the Server's ProviderSelector. The module itself does not reference Bazaar.Server. -->
-    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <!-- Test-only: the report test lists the backend next to another VM provider. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />
   </ItemGroup>
 </Project>

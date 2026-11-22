@@ -52,6 +52,10 @@ public sealed class HostApplicationTests
             Assert.IsType<DenyAllOwnerApprovalVerifier>(sp.GetRequiredService<Bazaar.Install.Abstractions.IOwnerApprovalVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleActivationHostedService);
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleHealthPoller);
+            // The display, density and browser pool components (doc 59) are in the graph; DisplayCompositionTests proves they refuse by default.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDisplay.Abstractions.IGuestDisplay>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDensity.Abstractions.IDensityGovernor>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.BrowserPool.Abstractions.IBrowserPool>());
         }
         finally
         {

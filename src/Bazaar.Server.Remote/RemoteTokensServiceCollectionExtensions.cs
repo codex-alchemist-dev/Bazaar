@@ -21,6 +21,7 @@ public static class RemoteTokensServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IRefreshCredentialStore, PostgresRefreshCredentialStore>();
         services.TryAddSingleton<ITokenService, TokenService>();
+        services.TryAddSingleton<SignedInPersonLookup>();
         return services;
     }
 }

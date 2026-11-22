@@ -6,7 +6,7 @@ public class ImportKanbanWithdrawalTests
     {
         private readonly HashSet<string> _done = new(StringComparer.Ordinal);
 
-        public List<(string[] Ids, KanbanWithdrawalMode Mode, string Reason)> Calls { get; } = [];
+        public List<(string[] Ids, string Reason)> Calls { get; } = [];
 
         public bool Fail { get; set; }
 
@@ -15,13 +15,13 @@ public class ImportKanbanWithdrawalTests
         public Task<IReadOnlySet<string>> ReadWithdrawnTaskIdsAsync(string jobId, CancellationToken ct) =>
             Task.FromResult<IReadOnlySet<string>>(_done.ToHashSet(StringComparer.Ordinal));
 
-        public Task WithdrawTasksAsync(string jobId, int batchIndex, IReadOnlyList<string> taskIds, KanbanWithdrawalMode mode, string reason, CancellationToken ct)
+        public Task WithdrawTasksAsync(string jobId, int batchIndex, IReadOnlyList<string> taskIds, string reason, CancellationToken ct)
         {
             if (Fail)
             {
                 throw new InvalidOperationException("gate refused");
             }
-            Calls.Add(([.. taskIds], mode, reason));
+            Calls.Add(([.. taskIds], reason));
             foreach (var id in taskIds)
             {
                 _done.Add(id);
@@ -36,7 +36,7 @@ public class ImportKanbanWithdrawalTests
         var tasks = new FakeTasks("t2", "t1", "t3");
         var audit = new InMemoryAuditSink();
 
-        var result = await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, KanbanWithdrawalMode.Block, 2, TimeProvider.System, CancellationToken.None);
+        var result = await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, 2, TimeProvider.System, CancellationToken.None);
 
         Assert.True(result.Succeeded);
         Assert.Equal(["t1", "t2", "t3"], result.WithdrawnSourceKeys);
@@ -49,8 +49,8 @@ public class ImportKanbanWithdrawalTests
     {
         var tasks = new FakeTasks("t1");
         var audit = new InMemoryAuditSink();
-        await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, KanbanWithdrawalMode.Archive, 5, TimeProvider.System, CancellationToken.None);
-        var second = await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, KanbanWithdrawalMode.Archive, 5, TimeProvider.System, CancellationToken.None);
+        await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, 5, TimeProvider.System, CancellationToken.None);
+        var second = await ImportKanbanWithdrawer.WithdrawAsync("j", tasks, audit, 5, TimeProvider.System, CancellationToken.None);
         Assert.Equal(0, second.BatchCount);
         Assert.Equal(1, second.SkippedCount);
     }
@@ -58,7 +58,7 @@ public class ImportKanbanWithdrawalTests
     [Fact]
     public async Task A_refusing_gate_stops_the_job()
     {
-        var result = await ImportKanbanWithdrawer.WithdrawAsync("j", new FakeTasks("t1") { Fail = true }, new InMemoryAuditSink(), KanbanWithdrawalMode.Block, 5, TimeProvider.System, CancellationToken.None);
+        var result = await ImportKanbanWithdrawer.WithdrawAsync("j", new FakeTasks("t1") { Fail = true }, new InMemoryAuditSink(), 5, TimeProvider.System, CancellationToken.None);
         Assert.False(result.Succeeded);
         Assert.Equal(ImportBatchStage.Write, result.FirstFailure!.Stage);
     }
