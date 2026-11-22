@@ -37,6 +37,8 @@ public static class PresenceSourcesServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(new PresenceSourcesOptions());
+        services.TryAddSingleton<IGcKindLookup>(sp => new GcKindLookup(
+            sp.GetService<Bazaar.Server.GcMetadata.IGcHeaderSource>(), sp.GetRequiredService<TimeProvider>(), TimeSpan.FromSeconds(60)));
         services.TryAddSingleton<IPresenceToolClassifier, NameTableToolClassifier>();
         services.TryAddSingleton<IAvailabilityTransitionSink, AvailabilityPresenceSource>();
         services.TryAddSingleton<ITurnActivitySink, TurnPresenceSource>();
