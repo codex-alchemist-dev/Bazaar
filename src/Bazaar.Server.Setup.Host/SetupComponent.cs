@@ -63,6 +63,12 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         // The setup rate bucket needs a limiter; this registers the in-process one unless the host already has a limiter.
         services.AddBazaarRateLimits();
 
+        // The verifier (doc 45 section 1.12). Probes answer infrastructure checks by id. Any ISetupVerificationCheck a module registers
+        // replaces the placeholder with the same id, so a module owns its own check without Setup referencing it.
+        services.TryAddSingleton<ISetupVerifier>(sp => new SetupVerifier(SetupVerificationChecks.Create(
+            sp.GetServices<ISetupInfrastructureProbe>(),
+            replacements: sp.GetServices<ISetupVerificationCheck>())));
+
         services.AddBazaarSetupPostgres();
         RegisterSteps(services);
         services.AddSetupApply();
