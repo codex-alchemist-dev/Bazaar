@@ -6,6 +6,7 @@ using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -58,6 +59,7 @@ public static class HostApplicationExtensions
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();

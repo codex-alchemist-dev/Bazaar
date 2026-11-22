@@ -45,6 +45,7 @@
     <Project Path="src/Bazaar.Server.GcReactions/Bazaar.Server.GcReactions.csproj" />
     <Project Path="src/Bazaar.Server.GcReactions.Abstractions/Bazaar.Server.GcReactions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
+    <Project Path="src/Bazaar.Server.Hive.Approvals/Bazaar.Server.Hive.Approvals.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.GcMetadata.Abstractions/Bazaar.Server.GcMetadata.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.GcMetadata/Bazaar.Server.GcMetadata.csproj" />
@@ -712,6 +713,7 @@
     <Project Path="tests/Bazaar.Client.ColdArchive.Tests/Bazaar.Client.ColdArchive.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.CompanyMemory.Tests/Bazaar.Client.CompanyMemory.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Hive.Tests/Bazaar.Client.Hive.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Hive.Approvals.Tests/Bazaar.Server.Hive.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Twin.Prose.Tests/Bazaar.Server.Twin.Prose.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Selection.Tests/Bazaar.Server.Gateway.Selection.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Diagnostics.Tests/Bazaar.Client.Diagnostics.Tests.csproj" />
