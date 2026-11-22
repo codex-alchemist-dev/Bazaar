@@ -156,3 +156,27 @@ public class WalkthroughViewModelTests
         Assert.Equal(5, WalkthroughText.StepCount);
     }
 }
+
+public class FileWalkthroughProgressStoreTests
+{
+    private static string TempFile() => Path.Combine(Path.GetTempPath(), "bazaar-wt-" + Guid.NewGuid().ToString("N"), "walkthrough.json");
+
+    [Fact]
+    public async Task Progress_round_trips_and_a_missing_or_corrupt_file_reads_as_none()
+    {
+        var path = TempFile();
+        var store = new FileWalkthroughProgressStore(path);
+        Assert.Null(await store.LoadAsync(TestContext.Current.CancellationToken));
+
+        var progress = new WalkthroughProgress(true, false, WalkthroughStep.MeetAgent, [WalkthroughStep.CreateCompany]);
+        await store.SaveAsync(progress, TestContext.Current.CancellationToken);
+        var loaded = await store.LoadAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(progress.Current, loaded!.Current);
+        Assert.True(loaded.Dismissed);
+        Assert.Equal(progress.Completed, loaded.Completed);
+
+        await File.WriteAllTextAsync(path, "{ not json", TestContext.Current.CancellationToken);
+        Assert.Null(await store.LoadAsync(TestContext.Current.CancellationToken));
+        Directory.Delete(Path.GetDirectoryName(path)!, true);
+    }
+}

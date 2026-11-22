@@ -5,6 +5,8 @@ using Bazaar.Client.CompanySetup;
 using Bazaar.Client.CompanySetup.Avalonia;
 using Bazaar.Client.SignIn;
 using Bazaar.Client.SignIn.Avalonia;
+using Bazaar.Client.Walkthrough;
+using Bazaar.Client.Walkthrough.Avalonia;
 using Bazaar.Contracts;
 
 namespace Bazaar.Client.Windows;
@@ -39,16 +41,46 @@ internal static class FirstRunScreens
             Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = model.StartAsync());
         }
 
+        var facts = new LocalFacts();
+        if (both)
+        {
+            // The walkthrough card sits above the screens it guides to. Facts come from this run's own screens until the server
+            // reports them; progress is cached in a local file (doc 45 section 2.7).
+            var walkthrough = new WalkthroughViewModel(new FileWalkthroughProgressStore(WalkthroughPath()), facts, new NoScreenActions());
+            panel.Children.Insert(0, WalkthroughView.Create(walkthrough));
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = walkthrough.StartAsync());
+        }
+
         if (company)
         {
             var model = new CompanySetupViewModel(
                 new HttpCompanySetupService(http),
                 new WindowsKeyCustodyDefaults(),
                 async () => (await store.LoadAsync())?.AccessToken);
+            model.Completed += (_, _) => facts.Set(new WalkthroughFacts(true, string.IsNullOrWhiteSpace(model.AgentName) ? null : model.AgentName, false));
             panel.Children.Add(CompanySetupView.Create(model));
         }
 
         return new ScrollViewer { Content = panel };
+    }
+
+    private static string WalkthroughPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "walkthrough.json");
+
+    /// <summary>What this run's screens have seen done. A server-backed source replaces it when the routes exist.</summary>
+    private sealed class LocalFacts : IWalkthroughFactsSource
+    {
+        private WalkthroughFacts _facts = WalkthroughFacts.None;
+
+        public void Set(WalkthroughFacts facts) => _facts = facts;
+
+        public Task<WalkthroughFacts> ReadAsync(CancellationToken cancellationToken = default) => Task.FromResult(_facts);
+    }
+
+    /// <summary>The agent profile and task composer are not in this head yet, so those steps report that they cannot open.</summary>
+    private sealed class NoScreenActions : IWalkthroughActions
+    {
+        public Task<bool> OpenAsync(WalkthroughStep which, CancellationToken cancellationToken = default) => Task.FromResult(false);
     }
 
     /// <summary>Opens an address in the person's default browser.</summary>
