@@ -181,6 +181,7 @@
     <Project Path="src/Bazaar.Server.VmDisplay.Abstractions/Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay/Bazaar.Server.VmDisplay.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.AgentTools/Bazaar.Server.VmDisplay.AgentTools.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -281,9 +282,10 @@
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.VmTransport.Tests/Bazaar.Server.VmTransport.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Tests/Bazaar.Server.VmDisplay.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Tests/Bazaar.Server.VmDisplay.AgentTools.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmTransport.Tests/Bazaar.Server.VmTransport.Tests.csproj" />
   </Folder>
 </Solution>
