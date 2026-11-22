@@ -117,7 +117,9 @@ public sealed class KvmConsole : IHypervisorConsole
 
     private async Task<(bool Ok, byte[] Data, string? Error)> TryDumpAsync(string domain, string? format, CancellationToken ct)
     {
-        string path = Path.Combine(_options.ScreendumpDirectory, Guid.NewGuid().ToString("N") + (format is null ? ".ppm" : ".png"));
+        // The path is read by QEMU on the KVM host, which is Linux, so it is joined with '/' whatever
+        // system this code runs on. Path.Combine would use a backslash on Windows.
+        string path = _options.ScreendumpDirectory.TrimEnd('/') + "/" + Guid.NewGuid().ToString("N") + (format is null ? ".ppm" : ".png");
         try
         {
             string response = await _transport.ExecuteAsync(domain, QmpCommands.Screendump(path, format), ct).ConfigureAwait(false);
