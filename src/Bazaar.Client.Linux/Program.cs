@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -9,6 +10,8 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Preload;
+using Bazaar.Client.Shell;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
 
@@ -95,13 +98,20 @@ internal static class Program
         if (settings is null)
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
-            return new MainWindow();
+            var plain = new MainWindow();
+            InstallShell(plain);
+            return plain;
         }
 
         Directory.CreateDirectory(paths.StateDirectory);
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
         var window = new MainWindow(chat.View);
         window.Closed += async (_, _) => await chat.DisposeAsync();
+        InstallShell(window);
         return window;
     }
+
+    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
+    private static void InstallShell(MainWindow window) =>
+        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }
