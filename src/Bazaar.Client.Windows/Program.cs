@@ -125,6 +125,11 @@ internal static class Program
 
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
+            if (FirstRunScreens.TryBuild(args) is { } firstRun)
+            {
+                window.Content = firstRun;
+            }
+
             if (showAthanor)
             {
                 window.ShowPanes([AthanorPaneModule.WindowPane], registry);
