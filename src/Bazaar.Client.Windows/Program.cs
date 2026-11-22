@@ -17,6 +17,7 @@ using Bazaar.Client.Dashboard;
 using Bazaar.Client.Devices;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -80,6 +81,7 @@ internal static class Program
             new EnginePaneModule(),
             new DevicesPaneModule(),
             .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
         ];
         // The Devices pane reads its list over the chat session's wire connection, which is built later; it hides until then.
         var deviceRequests = new DeferredWireRequester();
@@ -87,7 +89,8 @@ internal static class Program
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IDeviceListSource>(new WireDeviceListSource(deviceRequests))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
