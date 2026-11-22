@@ -15,23 +15,39 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Launcher\Bazaar.Client.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Navigation\Bazaar.Client.Navigation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Org\Bazaar.Client.Org.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.GitGui\Bazaar.Client.GitGui.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.GitGui.Github\Bazaar.Client.GitGui.Github.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.GitGui.Gitlab\Bazaar.Client.GitGui.Gitlab.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.GitSolarSystem\Bazaar.Client.GitSolarSystem.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Chat\Bazaar.Client.Components.Chat.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Avalonia\Bazaar.Client.Calcinato.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Pty\Bazaar.Client.Calcinato.Pty.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
   </ItemGroup>
 </Project>

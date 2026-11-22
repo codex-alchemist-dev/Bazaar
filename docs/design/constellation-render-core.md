@@ -52,3 +52,17 @@ These are not violations of the rules above. They are things that will block a c
 ## 6. Forward-facing rule
 
 Target `net11.0` and current APIs. Do not use obsolete or deprecated APIs, and do not add code paths for an older runtime. Package versions follow the newest stable release. The extracted core must build on the same target without changes.
+
+## 7. Default theme: the night sky (owner, 2026-11-19 08:21 UTC, DECIDED)
+
+The renderer is a standalone module and has its own default theme, separate from any Bazaar theme. The default is a **pitch-black background**: an empty scene is a void, and as nodes fill it the view reads as stars in the night sky.
+- Background is true black (0, 0, 0) with no gradient, grid or vignette.
+- Nodes draw as star-like point sprites: a bright core with a soft glow falloff (additive blend, so overlapping nodes brighten like dense star fields). At far zoom the density field uses the same additive glow, so a billion nodes becomes a galaxy rather than a grey haze.
+- Colour temperature varies per node or cluster, from warm to cool, as stars do; the cluster palette keeps its hues but is drawn in this glow style.
+- Optional subtle twinkle (small, slow per-node brightness modulation). It is a theme setting, off when the frame controller (section 11 of the scale doc) is shedding detail, and off with reduced-motion.
+- It stays a theme: hosts may supply another, and Bazaar's Constellation view may use the Bazaar theme. Nothing in the renderer core hard-codes colours.
+
+## 8. Node kinds, sections and frame pacing (owner, 2026-11-20, DECIDED)
+
+The renderer (Constellation.Renderer) is the standalone shared module, and the Constellation module in Bazaar is its consumer. Node icons by kind, sections, and the on-demand frame pacer belong to the renderer core; deciding what a node is, what a section holds and where connections come from stays in the Bazaar adapter. Details: `constellation-node-detail-and-pacing.md`.
+

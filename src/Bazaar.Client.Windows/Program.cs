@@ -3,9 +3,12 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -16,18 +19,27 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Navigation;
+using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
+using Bazaar.Ex.Head;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
 
@@ -66,9 +78,8 @@ internal static class Program
         ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda (pager order).
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
@@ -77,7 +88,14 @@ internal static class Program
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            .. OrgPanes.Modules,
+            .. CalendarPanes.Modules,
+            .. InterruptPanes.Modules,
             new EnginePaneModule(),
+            .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
+            // The terminal pane comes last in pager order (doc 55, section 7).
+            .. CalcinatoPanes.Modules,
         ];
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the registry and the window exist; until then a pane cannot be shown. Preferences stay on this device until a wire sync is attached.
@@ -86,16 +104,24 @@ internal static class Program
             modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
             new FilePreferenceStorage(PreferencesPath(), Console.Error.WriteLine));
         var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
-        var features = new PaneModuleContext()
-            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
-            .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}")));
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext()
+                .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current)
+                // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+                .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),
+            terminals);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -110,6 +136,11 @@ internal static class Program
 
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
+            if (FirstRunScreens.TryBuild(args) is { } firstRun)
+            {
+                window.Content = firstRun;
+            }
+
             if (showPanes)
             {
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
@@ -118,6 +149,11 @@ internal static class Program
             paneSurface.Bind(
                 registry.Contains,
                 (kind, _) => Dispatcher.UIThread.InvokeAsync(() => window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry)).GetTask());
+            // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
+            ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
             return window;
         }
 
@@ -128,6 +164,7 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 
