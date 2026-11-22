@@ -42,14 +42,53 @@ jobs:
     # Draft pull requests skip CI. A draft cannot merge, and marking it ready runs the full set once. Every other job
     # either needs this job (and is skipped with it) or carries the same condition. Pushes and manual runs are not drafts.
     if: github.event.pull_request.draft != true
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
       code: ${{ steps.diff.outputs.code }}
+      all: ${{ steps.affected.outputs.all }}
+      android: ${{ steps.affected.outputs.android }}
+      linux_client: ${{ steps.affected.outputs.linux_client }}
+      projects: ${{ steps.affected.outputs.projects }}
+      tests: ${{ steps.affected.outputs.tests }}
+      linuxpg: ${{ steps.runners.outputs.linuxpg }}
+      win: ${{ steps.runners.outputs.win }}
     steps:
+      # Picks where the heavy jobs run. The repository is public, so GitHub-hosted runners are free; the owner's PC
+      # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
+      # Repository variable CI_RUNNER_MODE: auto (default), self (always the PC), hosted (never the PC).
+      # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
+      # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
+      # behind the PC. The job names of the required checks do not change.
+      - name: Choose runners
+        id: runners
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ vars.CI_RUNNER_MODE || 'auto' }}
+          LIMIT: ${{ vars.CI_OVERFLOW_QUEUE || '8' }}
+          OWNER_RUN: ${{ github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        run: |
+          set -uo pipefail
+          hosted() {
+            echo 'linuxpg="ubuntu-latest"' >> "$GITHUB_OUTPUT"
+            echo 'win="windows-latest"' >> "$GITHUB_OUTPUT"
+            echo "runners: hosted ($1)"
+          }
+          self() {
+            echo 'linuxpg=["self-hosted","bazaar-linux-pg"]' >> "$GITHUB_OUTPUT"
+            echo 'win=["self-hosted","bazaar-win"]' >> "$GITHUB_OUTPUT"
+            echo "runners: self-hosted ($1)"
+          }
+          if [ "$OWNER_RUN" != "true" ] || [ "$MODE" = hosted ]; then hosted "not an owner run, or mode=hosted"; exit 0; fi
+          if [ "$MODE" = self ]; then self "mode=self"; exit 0; fi
+          queued="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?status=queued&per_page=1" --jq .total_count 2>/dev/null)" || queued=""
+          case "$queued" in ''|*[!0-9]*) hosted "queue count unavailable"; exit 0;; esac
+          if [ "$queued" -gt "$LIMIT" ]; then hosted "$queued runs queued, limit $LIMIT"; else self "$queued runs queued, limit $LIMIT"; fi
+
       - name: List changed files
         id: diff
         env:
@@ -78,11 +117,37 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Works out, from the project reference graph, which projects a pull request can affect (scripts/ci/affected.py).
+      # Build and test then covers only those, and the Android and Linux start-up jobs skip when their head cannot be
+      # affected. Anything unclear (a shared file, a file outside every project, an API error) means "all". Pushes to
+      # main, manual and scheduled runs always run everything.
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find affected projects
+        id: affected
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          everything() { printf 'all=true\nandroid=true\nlinux_client=true\nprojects=\ntests=\n' >> "$GITHUB_OUTPUT"; exit 0; }
+          [ "$EVENT" = "pull_request" ] || everything
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt" || everything
+          [ -s "$RUNNER_TEMP/files.txt" ] || everything
+          [ "$(wc -l < "$RUNNER_TEMP/files.txt")" -lt 3000 ] || everything
+          python3 scripts/ci/affected.py "$RUNNER_TEMP/files.txt" > "$RUNNER_TEMP/affected.txt" || everything
+          cat "$RUNNER_TEMP/affected.txt"
+          cat "$RUNNER_TEMP/affected.txt" >> "$GITHUB_OUTPUT"
+
   # No paths filter on purpose, here or on the workflow trigger: the required checks always report.
   # Docs-only PRs skip the work step by step (`changes` job); do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
     name: Build and test (${{ matrix.os }})
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON(matrix.os == 'windows-latest' && '["self-hosted","bazaar-win"]' || '["self-hosted","bazaar-linux-pg"]') || matrix.os }}
+    runs-on: ${{ fromJSON(matrix.os == 'windows-latest' && needs.changes.outputs.win || needs.changes.outputs.linuxpg) }}
     needs: changes
     timeout-minutes: 45
     permissions:
@@ -164,12 +229,24 @@ jobs:
 
       - name: Build and test (Linux)
         if: needs.changes.outputs.code == 'true' && (runner.os == 'Linux')
-        run: ./build.sh
+        env:
+          ALL: ${{ needs.changes.outputs.all }}
+          PROJECTS: ${{ needs.changes.outputs.projects }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: |
+          # Pull requests build and test only the affected projects; main and unclear cases run everything.
+          if [ "$ALL" = "false" ]; then scripts/ci/build-affected.sh "$PROJECTS" "$TESTS"; else ./build.sh; fi
 
       - name: Build and test (Windows)
         if: needs.changes.outputs.code == 'true' && (runner.os == 'Windows')
         shell: pwsh
-        run: ./build.ps1
+        env:
+          ALL: ${{ needs.changes.outputs.all }}
+          PROJECTS: ${{ needs.changes.outputs.projects }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: |
+          if ($env:ALL -eq 'false') { ./scripts/ci/build-affected.ps1 -Projects $env:PROJECTS -Tests $env:TESTS } else { ./build.ps1 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Test output is only kept when the run fails, to keep artifact storage small.
       - name: Remove the PostgreSQL container
@@ -194,6 +271,8 @@ jobs:
     name: Build Android head
     runs-on: ubuntu-latest
     needs: changes
+    # Skipped when no project the Android head or its gate depends on changed (scripts/ci/affected.py).
+    if: needs.changes.outputs.android == 'true'
     timeout-minutes: 45
     permissions:
       contents: read
@@ -286,6 +365,8 @@ jobs:
     name: Linux client start-up (Xvfb)
     runs-on: ubuntu-latest
     needs: changes
+    # Skipped when no project the Linux head depends on changed (scripts/ci/affected.py).
+    if: needs.changes.outputs.linux_client == 'true'
     timeout-minutes: 30
     permissions:
       contents: read
@@ -339,7 +420,7 @@ jobs:
   secret-scan:
     name: Secret scan (full history)
     if: github.event.pull_request.draft != true
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
@@ -395,7 +476,7 @@ jobs:
   # Not required until PostgreSQL 19 is GA; then drop continue-on-error and add it to branch protection.
   build-test-pg19:
     name: Build and test (Linux, PostgreSQL 19 RC)
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux-pg"]') || 'ubuntu-latest' }}
+    runs-on: ${{ fromJSON(needs.changes.outputs.linuxpg) }}
     needs: changes
     timeout-minutes: 45
     continue-on-error: true
