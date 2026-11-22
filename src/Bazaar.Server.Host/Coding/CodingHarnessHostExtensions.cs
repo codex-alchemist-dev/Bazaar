@@ -76,6 +76,7 @@ public static class CodingHarnessHostExtensions
         services.AddBazaarCodingGit();
         services.AddBazaarCodingReview();
         services.AddBazaarSubagents();
+        services.AddBazaarCodingToolDispatch();
 
         // Durable traces over tool_calls when the host has a Postgres data source (checked at resolution, so registration order does
         // not matter); in-process sinks otherwise, which is for tests only. A host that registers its own trace first keeps it.

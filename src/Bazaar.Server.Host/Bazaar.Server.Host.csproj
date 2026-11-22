@@ -102,6 +102,7 @@
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingPermissions\Bazaar.Server.CodingPermissions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingRunner\Bazaar.Server.CodingRunner.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingEdit\Bazaar.Server.CodingEdit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.RepoMap\Bazaar.Server.RepoMap.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingGit\Bazaar.Server.CodingGit.csproj" />
