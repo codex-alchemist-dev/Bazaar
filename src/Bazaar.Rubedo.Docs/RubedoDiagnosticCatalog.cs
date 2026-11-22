@@ -53,6 +53,7 @@ public static class RubedoDiagnosticCatalog
             ("view.list_source", "A list's `over` does not name a declared list source."),
             ("view.list_template", "A list does not have exactly one item template."),
             ("view.missing_label", "A `button`, `icon` or `input` has no label."),
+            ("view.missing_icon_name", "An `icon` has no `name` from the icon set."),
             ("view.shape", "The document's JSON has the wrong shape: a missing or mistyped field."),
             ("view.tab_child", "A child of `tabs` is not a tab."),
             ("view.tab_page", "A tab does not have exactly one page child."),
