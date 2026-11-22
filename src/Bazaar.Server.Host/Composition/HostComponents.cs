@@ -1,3 +1,4 @@
+using Bazaar.Archive;
 using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
@@ -54,6 +55,7 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new ArchiveComponent(),
         new MirrorComponent(),
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
