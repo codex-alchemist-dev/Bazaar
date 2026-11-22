@@ -85,11 +85,12 @@ public sealed partial class GitHubPrService(
         var inserted = false;
         if (ev.Number is { } number)
         {
+            // No conflict target: gc_id is unique too, and a concurrent insert of the same PR can otherwise trip that index instead of the key.
             // A row first made by a comment-type event holds the epoch, so the first pull_request event is never "older".
             const string insert = """
                 INSERT INTO github_pr (pr_node_id, repo_node_id, number, gc_id, head_sha, base_ref, state, draft, updated_at, title, author_login)
                 VALUES (@node, @repo, @number, @gc, @head, @base, COALESCE(@state, 'open'), COALESCE(@draft, false), @updated, @title, @author)
-                ON CONFLICT (pr_node_id) DO NOTHING
+                ON CONFLICT DO NOTHING
                 """;
             await using var cmd = new NpgsqlCommand(insert, conn, tx);
             Bind(cmd, ev, gcId, number, isState);

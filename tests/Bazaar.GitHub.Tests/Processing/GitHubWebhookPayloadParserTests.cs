@@ -168,4 +168,40 @@ public sealed class GitHubWebhookPayloadParserTests
     {
         Assert.IsType<WebhookParseResult.Malformed>(GitHubWebhookPayloadParser.Parse("pull_request", "g", json, _received, _members));
     }
+
+    [Fact]
+    public void Pull_request_fills_the_registration_fields_like_the_Events_API_parser()
+    {
+        var e = ParseOk("pull_request", """
+            {"action": "opened", "sender": {"login": "boss"}, "repository": {"node_id": "R_1", "full_name": "codex-alchemist-dev/Bazaar"},
+             "pull_request": {"node_id": "PR_1", "number": 12, "title": "Add wake", "state": "closed", "merged": true, "draft": false,
+               "updated_at": "2026-11-22T08:00:00Z", "head": {"sha": "abc"}, "base": {"ref": "main"}, "user": {"login": "carol"},
+               "assignees": [{"login": "bob-bazaar[bot]"}], "requested_reviewers": [{"login": "ada-bazaar[bot]"}, {"login": "BOB-bazaar[bot]"}]}}
+            """);
+
+        Assert.Equal(12, e.Number);
+        Assert.Equal("Add wake", e.Title);
+        Assert.Equal("merged", e.PrState);
+        Assert.False(e.Draft);
+        Assert.Equal("main", e.BaseRef);
+        Assert.Equal("codex-alchemist-dev/Bazaar", e.RepoFullName);
+        Assert.Equal(["bob-bazaar[bot]", "ada-bazaar[bot]"], e.AssigneeLogins);
+    }
+
+    [Fact]
+    public void A_PR_comment_takes_number_title_and_state_from_the_issue()
+    {
+        var e = ParseOk("issue_comment", """
+            {"action": "created", "sender": {"login": "boss"}, "repository": {"node_id": "R_1", "full_name": "o/r"},
+             "issue": {"node_id": "PR_1", "number": 12, "title": "Add wake", "state": "open", "pull_request": {}},
+             "comment": {"node_id": "IC_1", "body": "hi", "updated_at": "2026-11-22T08:30:00Z", "user": {"login": "boss"}}}
+            """);
+
+        Assert.Equal("PR_1", e.PrNodeId);
+        Assert.Equal(12, e.Number);
+        Assert.Equal("Add wake", e.Title);
+        Assert.Equal("open", e.PrState);
+        Assert.Null(e.Draft);
+        Assert.Empty(e.AssigneeLogins);
+    }
 }

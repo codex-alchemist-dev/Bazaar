@@ -20,18 +20,24 @@ public static class GitHubPrGcRegistration
 
     /// <summary>
     /// Wraps <paramref name="inner"/> so PR GCs exist before events are written to them. Returns <paramref name="inner"/> unchanged when
-    /// the creator principal (owner, else bridge), the database or an <see cref="IGitHubPrGcFactory"/> is missing.
+    /// the creator principal (owner, else bridge), the database, or both an <see cref="IGitHubPrGcFactory"/> and an <c>IGcProvisioner</c> are missing.
     /// </summary>
     internal static IGitHubEventSink Decorate(IServiceProvider sp, IGitHubEventSink inner)
     {
         var prOptions = sp.GetRequiredService<GitHubPrGcOptions>();
-        var bridge = sp.GetRequiredService<GitHubIngressOptions>().BridgePrincipalId;
+        Guid? bridge = sp.GetRequiredService<GitHubIngressOptions>().EffectiveBridgePrincipalId;
         if ((prOptions.OwnerPrincipalId ?? bridge) is not { } creator || sp.GetService<NpgsqlDataSource>() is not { } dataSource
-            || sp.GetService<IGitHubPrGcFactory>() is not { } factory)
+            || (sp.GetService<IGitHubPrGcFactory>() ?? FromProvisioner(sp, prOptions)) is not { } factory)
             return inner;
         var service = new GitHubPrService(
             dataSource, factory, sp.GetRequiredService<IGitHubGcDirectory>(),
             prOptions, creator, bridge, sp.GetRequiredService<ILogger<GitHubPrService>>());
         return new GitHubPrGcEventSink(inner, service);
     }
+
+    // The real factory exists whenever the GC module's provisioner does (doc 40, GitHub PR GC creation); a registered factory wins, so tests can substitute one.
+    private static GcProvisionerPrGcFactory? FromProvisioner(IServiceProvider sp, GitHubPrGcOptions prOptions) =>
+        sp.GetService<Bazaar.Server.Gc.Write.IGcProvisioner>() is { } provisioner
+            ? new GcProvisionerPrGcFactory(provisioner, prOptions, sp.GetRequiredService<GitHubIngressOptions>())
+            : null;
 }
