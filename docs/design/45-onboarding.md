@@ -88,6 +88,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
 | 13 | Company source | Blank company, a template at a version (section 1.8), or an import (doc 44). The Constitution is drafted here and must be accepted by the owner before any Soul activates. | 24, 44 |
+| 13b | First-run seed [PROPOSED] | Creates the first group chat and the default agent, and records the owner's Constitution acceptance. Section 1.15. | 01, 06, 24 |
 | 14 | Modules | The first module set (Bazaar.GC is always present; Constellation, Conduit, KODO, RyuseiFuda and others by choice). Each module's licence is shown and checked against the licence policy. | 37, brief |
 | 15 | Status and network | Status listener bind (loopback by default; any other bind needs Tier 2 approval). No inbound internet connection by default (doc 03). | 03, 02 |
 | 16 | Plan review and apply | Shows the change list and the plan hash. Apply runs under the lock. | 1.2 |
@@ -265,6 +266,19 @@ Kodo is the Health API module (module name Bazaar.KODO). It runs as the final se
 ## 1.14 No server tour [DECIDED]
 
 The server has no tour, no first-run screen and no onboarding page. Setup is complete when the plan is applied and Kodo reports, whichever door was used. Tours exist only in the client apps (Part 2).
+
+## 1.15 First-run seed [PROPOSED]
+
+A blank company has nobody to talk to. This step gives a fresh install one place to start, so "install, sign in, create a company, do real work" has something to do. It is a module of its own (`Bazaar.Server.Setup.FirstRun` with `.Abstractions`) that registers one apply step, `firstrun.seed`, after the owner (step 6) and company source (step 13) steps. Everything here is PROPOSED until the owner decides.
+
+- **Plan section `firstRun`.** Keys: `seedGeneralGc` (bool, default true), `generalGcTitle` (default `General`), `seedDefaultAgent` (bool, default true), `defaultAgentName` (default `Assistant`; an operator setting, not a built-in persona), `acceptConstitution` (bool, default false). Unknown keys are rejected like every other section.
+- **General group chat.** One GC of the seeded type `general` (doc 01), with the owner as a member and the default agent added when it exists. Created once; the step finds it again by a fixed marker on later applies, so a second apply changes nothing.
+- **Default agent.** One agent with its own identity, in the `general` GC, with the Claude Code CLI provider as its only whitelisted route (`claude-code-cli:*` entries from the seeded policy of doc 91; deny by default, doc 05). No Soul content ships with it. It is created `provisioned` and **does not activate until the Constitution is accepted** (doc 24: no activation without an accepted Constitution commit). If the provider module is not installed, the agent is still created with an empty whitelist and the step reports that it cannot answer yet; it never falls back to another route.
+- **Constitution acceptance.** `acceptConstitution` is the owner's own act, made on the create-company screen (a checkbox the owner ticks) or in the plan file the owner wrote. When true, the step records the acceptance for the current Constitution commit and the agent activates. When false, the agent waits and the dashboard says so. An acceptance is never inferred, never set by a default, and never made on the owner's behalf by an agent.
+- **Audit.** One `setup.firstrun.seeded` row with the GC id, the agent id and whether acceptance was recorded. No secret appears.
+- **Rollback.** Rolling back removes a seeded agent and its membership and leaves the GC row (the GC log is append-only, doc 01); a rolled-back GC is archived, not deleted.
+- **Ports, not stores.** The step talks to three ports (GC creation, agent provisioning, Constitution acceptance) so it can run with fakes before the stores that back them land. The Postgres adapters are separate slices.
+- **Testing.** Idempotent apply; seed with and without acceptance; provider missing; the agent is not active before acceptance; rollback; and a canary secret check. The end-to-end smoke harness (gap 2) runs it through `POST /setup/plans/{hash}/apply`.
 
 ---
 
