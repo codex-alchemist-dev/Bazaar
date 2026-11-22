@@ -9,13 +9,14 @@ namespace Bazaar.Server.AccountApproval.Postgres;
 public static class AccountApprovalPostgresServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="PostgresAccountApprovalStore"/> as <see cref="IAccountApprovalStore"/> (TryAdd). Call it before the account
-    /// approval component's services, so this store wins over the in-memory default.
+    /// Registers <see cref="PostgresAccountApprovalStore"/> as <see cref="IAccountApprovalStore"/>, replacing any earlier registration.
+    /// It wins over the in-memory default whether it is called before or after the account approval component's services, because the
+    /// component only adds its default when no store is registered.
     /// </summary>
     public static IServiceCollection AddBazaarAccountApprovalPostgres(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IAccountApprovalStore, PostgresAccountApprovalStore>();
+        services.Replace(ServiceDescriptor.Singleton<IAccountApprovalStore, PostgresAccountApprovalStore>());
         return services;
     }
 }
