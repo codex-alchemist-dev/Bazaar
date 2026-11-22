@@ -25,7 +25,7 @@ public class WireCodecGeneratorTests
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] Files, string Text) Run(string source)
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location) && a.GetName().Name != "Bazaar.Contracts")
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
         var compilation = CSharpCompilation.Create(
@@ -137,7 +137,7 @@ public class WireCodecGeneratorTests
     public void A_missing_contracts_marker_is_reported()
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location) && a.GetName().Name != "Bazaar.Contracts")
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
         var compilation = CSharpCompilation.Create("NoContracts", [CSharpSyntaxTree.ParseText(_optIn, cancellationToken: TestContext.Current.CancellationToken)], references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

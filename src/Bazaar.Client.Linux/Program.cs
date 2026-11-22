@@ -12,6 +12,7 @@ using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
@@ -113,6 +114,7 @@ internal static class Program
         ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
         InstallShell(window);
+        AttachMnemonics(window, paths);
         return window;
     }
 
@@ -123,6 +125,13 @@ internal static class Program
         {
             window.Content = firstRun;
         }
+    }
+
+    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
+    private static void AttachMnemonics(MainWindow window, LinuxPaths paths)
+    {
+        Directory.CreateDirectory(paths.StateDirectory);
+        window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

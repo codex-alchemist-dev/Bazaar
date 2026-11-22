@@ -19,7 +19,7 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
         #nullable enable
         namespace Bazaar.Wire.Generators
         {
-            /// <summary>Opts an assembly in to generated wire codec code (doc 90). Codec names built so far: "cbor", "msgpack" and "schema" (the published schema artifacts, doc 90 section 5).</summary>
+            /// <summary>Opts an assembly in to generated wire codec code (doc 90). Codec names built so far: "cbor", "msgpack", "protobuf" and "schema" (the published schema artifacts, doc 90 section 5).</summary>
             [global::System.AttributeUsage(global::System.AttributeTargets.Assembly, AllowMultiple = true)]
             internal sealed class GenerateWireCodecAttribute : global::System.Attribute
             {
@@ -79,6 +79,11 @@ public sealed class WireCodecGenerator : IIncrementalGenerator
             else if (codec == "schema")
             {
                 files.Add(new GeneratedFile("WireSchema.g.cs", SchemaOutput.Emit(compilation, payloads, codecs.Contains("cbor"), lockText, diagnostics, ct)));
+            }
+            else if (codec == "protobuf")
+            {
+                var (_, source) = ProtobufEmitter.Emit(compilation, payloads, diagnostics, ct);
+                files.Add(new GeneratedFile("WireProtobuf.g.cs", source));
             }
             else
             {
@@ -168,6 +173,15 @@ internal static class Descriptors
 
     public static readonly DiagnosticDescriptor DuplicateKey = new(
         "BWG005", "Duplicate wire field name", "{0} has two members with the same wire name", _category, DiagnosticSeverity.Error, true);
+
+    public static readonly DiagnosticDescriptor ProtobufUnsupportedShape = new(
+        "BWG010", "Protobuf cannot express this field", "{0} is a list of lists or of nullable items, which wire.proto cannot express", _category, DiagnosticSeverity.Error, true);
+
+    public static readonly DiagnosticDescriptor ProtobufNameClash = new(
+        "BWG011", "Protobuf type name clash", "The wire type name {0} is used twice or is reserved (Envelope, Instant); wire.proto names are flat", _category, DiagnosticSeverity.Error, true);
+
+    public static readonly DiagnosticDescriptor ProtobufReservedName = new(
+        "BWG012", "Property name reserved by protoc", "{0} would collide with a member of the C# class protoc generates; rename the property", _category, DiagnosticSeverity.Error, true);
 
     public static readonly DiagnosticDescriptor DuplicateMessageType = new(
         "BWG006", "Message type claimed twice", "Message type {0} is declared on two payload records", _category, DiagnosticSeverity.Error, true);

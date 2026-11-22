@@ -179,7 +179,7 @@ OPEN: the default external target set and the public transparency log choice. Th
 - Every containment has an undo. The undo window is a setting with a floor. Undo restores the prior state and is itself audited. Undo of a containment that is still in force needs the owner's biometric check (section 8).
 - Alerts go to the owner's devices and to security reviewers, through the notice channels in `15`.
 
-Built status: PLANNED. The audit paragraph of `15` is updated to point here.
+Built status: BUILT-IN-PART. `Bazaar.Server.AuditAnomaly` has the rules, evaluator, containment and undo behind ports (`40`); the host adapters (kill switch, notice channels, event source, biometric) are not wired. The undo window is the time after a containment in which an undo is allowed; the owner may set it longer than the one-minute floor. The audit paragraph of `15` is updated to point here.
 
 OPEN: the default threshold values, which are settings and start from safe drafts in the spike. Retention of raw read records is in section 9.
 

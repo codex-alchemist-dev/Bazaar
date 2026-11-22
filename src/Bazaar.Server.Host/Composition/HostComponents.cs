@@ -18,6 +18,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -47,6 +48,7 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
         new CalendarComponent(),
