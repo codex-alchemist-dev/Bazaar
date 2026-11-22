@@ -1,3 +1,4 @@
+using Bazaar.Server.Security;
 using Bazaar.Core;
 using Bazaar.Erasure;
 using Bazaar.Fun;
@@ -14,6 +15,7 @@ using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
@@ -55,12 +57,14 @@ public static class HostApplicationExtensions
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.AddBazaarOwnerApprovals();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarSecretStore(configuration);
         services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
+        services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
         // Coding harness (doc 17). Off unless Coding:Harness:Enabled is true. When on, the ports with no production source yet
