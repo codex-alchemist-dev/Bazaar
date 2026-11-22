@@ -26,7 +26,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 ## Design
 **Composition root [PROPOSED].** Only `Bazaar.Server.Host` builds the host. It calls `AddBazaarServer(options)` from `Bazaar.Server`, then registers each provider module whose `Supports(os)` returns true. Modules are an explicit list, not assembly scanning, which keeps Native AOT open.
 
-**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` and `.Linux` hold the OS-bound modules; the Windows assembly never loads on Linux.
+**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` holds the OS-bound Windows modules and never loads on Linux. The Linux modules are still in `src/Bazaar.Server/Providers/Linux/`; the approved name `Bazaar.Server.Providers.Linux` is not created yet.
 
 **Provider kinds [PROPOSED].** A role is just the interface a family of provider modules implements; the table lists the first-party modules.
 
@@ -175,6 +175,6 @@ ANSWERED: VM topology is two VMs per agent; S8 is for sizing only (DECISIONS-LOG
 ANSWERED: GC fan-out is Postgres NOTIFY; Valkey or Garnet serve cache and presence only (DECISIONS-LOG round 1, C07).
 
 1. **Windows KEK store.** Default: DPAPI-protected file. Alternative: Windows Credential Manager. This is key custody, so it stays a question. Blocked on doc 33 C1 (recovery on new hardware).
-2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI stays OPEN. This is product scope.
+2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI is DECIDED as a separate client module (doc 58, owner 2026-11-19); `bazaar-admin` stays the plain, scriptable path.
 
 MOVED TO SETTINGS: host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)

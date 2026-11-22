@@ -28,14 +28,17 @@
     <ProjectReference Include="..\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Navigation\Bazaar.Client.Navigation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Studio\Bazaar.Client.Studio.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Org\Bazaar.Client.Org.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.ColdArchive\Bazaar.Client.ColdArchive.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui\Bazaar.Client.GitGui.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui.Github\Bazaar.Client.GitGui.Github.csproj" />
