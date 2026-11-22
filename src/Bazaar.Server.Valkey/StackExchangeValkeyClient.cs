@@ -1,6 +1,7 @@
+using System.Globalization;
 using StackExchange.Redis;
 
-namespace Bazaar.Server.Providers.Linux;
+namespace Bazaar.Server.Valkey;
 
 /// <summary>
 /// Creates <see cref="StackExchangeValkeyClient"/> instances. StackExchange.Redis speaks the Redis protocol that Valkey implements.
@@ -27,6 +28,8 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
         ArgumentException.ThrowIfNullOrWhiteSpace(connectionString);
         _options = ConfigurationOptions.Parse(connectionString);
         _options.AbortOnConnectFail = false;
+        // CONFIG GET (the eviction check) needs admin mode in StackExchange.Redis. The client issues only read commands of that kind.
+        _options.AllowAdmin = true;
         _options.ClientName ??= "bazaar-server";
     }
 
@@ -60,6 +63,25 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
     }
 
     /// <inheritdoc />
+    public async Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct)
+    {
+        var database = await DatabaseAsync(ct);
+        RedisResult info = await database.ExecuteAsync("INFO", "memory").WaitAsync(ct);
+        var text = (string?)info ?? string.Empty;
+        return new ValkeyMemoryInfo(InfoValue(text, "used_memory"), InfoValue(text, "maxmemory"));
+    }
+
+    /// <inheritdoc />
+    public async Task<string?> GetConfigAsync(string parameter, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(parameter);
+        var database = await DatabaseAsync(ct);
+        RedisResult reply = await database.ExecuteAsync("CONFIG", "GET", parameter).WaitAsync(ct);
+        var pairs = (RedisResult[]?)reply;
+        return pairs is { Length: 2 } ? (string?)pairs[1] : null;
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         Task<ConnectionMultiplexer>? connecting;
@@ -73,6 +95,23 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
         {
             await connecting.Result.DisposeAsync();
         }
+    }
+
+    /// <summary>Reads one numeric field of an INFO section. Returns 0 when the field is missing or not a number.</summary>
+    internal static long InfoValue(string text, string field)
+    {
+        foreach (var line in text.Split('\n'))
+        {
+            var separator = line.IndexOf(':', StringComparison.Ordinal);
+            if (separator > 0
+                && string.Equals(line[..separator], field, StringComparison.Ordinal)
+                && long.TryParse(line.AsSpan(separator + 1).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
+            {
+                return value;
+            }
+        }
+
+        return 0;
     }
 
     private async Task<IDatabase> DatabaseAsync(CancellationToken ct)
