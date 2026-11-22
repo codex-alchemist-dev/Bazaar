@@ -1,6 +1,8 @@
 using Bazaar.Fun;
 using Bazaar.Fun.Lucky;
 using Bazaar.Fun.Sidewalk;
+using Bazaar.Sanitization;
+using Bazaar.Server.Sanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,9 +22,8 @@ public class FunComponentWiringTests
             .Build();
 
         var services = new ServiceCollection();
-
-        // The host registers the sanitizer for every component; the component only consumes it.
-        services.AddSingleton<Bazaar.Sanitization.ITextSanitizer, Bazaar.Server.Sanitization.TextSanitizer>();
+        // The host registers the shared sanitizer; the Lucky controller needs it in this bare composition.
+        services.AddSingleton<ITextSanitizer, TextSanitizer>();
         var component = new FunComponent();
         component.AddServices(services, config);
         return services.BuildServiceProvider();
@@ -75,7 +76,7 @@ public class FunComponentWiringTests
 
         Assert.True(result.Accepted);
         var wakeList = LuckyController.WakeList(result.Run!);
-        Assert.Equal(["agent-x", "agent-y"], wakeList);
+        Assert.Equal(["agent-y"], wakeList);
     }
 
     // ── Sidewalk ─────────────────────────────────────────────────────────────

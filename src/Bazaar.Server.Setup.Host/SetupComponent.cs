@@ -20,7 +20,9 @@ namespace Bazaar.Server.Setup.Host;
 /// adapters bind <c>Bazaar.Server</c> types to the setup seams; the setup libraries themselves never reference the server.
 /// </summary>
 /// <remarks>
-/// No apply step is registered by this slice (<see cref="Steps"/> is empty), so an apply of a plan that changes anything ends in
+/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings). A host or test
+/// can pass its own steps to the constructor instead, and those replace the defaults. A step whose backing store is not in the tree
+/// is not registered (see doc 45 section 1.3 status rows). With no step registered, an apply of a plan that changes anything ends in
 /// exit 3 with one audit row. The routes are gated: before an owner exists a call needs loopback and the one-time bootstrap code,
 /// and afterwards the owner role.
 /// </remarks>
@@ -33,7 +35,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         DependsOn: ["audit", "settings"],
         Provides: ["feature:setup"]);
 
-    /// <summary>The apply steps this component registers. Empty until the database and custody steps land.</summary>
+    /// <summary>The apply steps passed to the constructor. Empty means the component registers its default steps.</summary>
     public IReadOnlyList<ISetupStep> Steps { get; } = [.. steps ?? []];
 
     public ComponentManifest Manifest => ManifestDefinition;
@@ -48,7 +50,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         services.TryAddSingleton<ISetupSettingAudit>(sp => new SettingAuditSinkSetupAudit(sp.GetRequiredService<ISettingAuditSink>()));
         services.TryAddSingleton<ISetupCallerAuthenticator, ConnectionSetupCallerAuthenticator>();
         services.TryAddSingleton<ISetupTransportPolicy, WireSetupTransportPolicy>();
-        services.TryAddSingleton<ISetupProgressSource>(_ => new StepListProgressSource(Steps));
+        services.TryAddSingleton<ISetupProgressSource>(sp => new StepListProgressSource([.. sp.GetServices<ISetupStep>()]));
 
         // Durable owner and bootstrap-code stores on the one shared data source.
         services.TryAddSingleton<ISetupOwnerDirectory>(sp => new PostgresSetupOwnerDirectory(sp.GetRequiredService<NpgsqlDataSource>()));
@@ -62,8 +64,25 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         services.AddBazaarRateLimits();
 
         services.AddBazaarSetupPostgres();
-        services.AddSetupApply(Steps);
+        RegisterSteps(services);
+        services.AddSetupApply();
         services.AddSetupHttp();
+    }
+
+    private void RegisterSteps(IServiceCollection services)
+    {
+        if (Steps.Count > 0)
+        {
+            foreach (var step in Steps)
+            {
+                services.AddSingleton(step);
+            }
+
+            return;
+        }
+
+        services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
+            sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
     }
 }
 

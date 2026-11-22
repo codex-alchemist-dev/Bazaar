@@ -1,0 +1,59 @@
+{
+  "dslVersion": 1,
+  "name": "bazaar.kodo.alerts",
+  "data": {
+    "alerts": {
+      "capability": "kodo.alerts",
+      "type": "list",
+      "fields": {
+        "id": "text",
+        "isCritical": "bool",
+        "isWarning": "bool",
+        "isInfo": "bool",
+        "severity": "text",
+        "rule": "text",
+        "when": "text",
+        "canAck": "bool",
+        "ackedText": "text",
+        "ackedVisible": "bool"
+      }
+    },
+    "emptyText": { "capability": "kodo.alerts", "type": "text" },
+    "emptyVisible": { "capability": "kodo.alerts", "type": "bool" }
+  },
+  "actions": {
+    "ack": { "kind": "invoke", "target": "kodo.alert.ack" }
+  },
+  "root": {
+    "widget": "stack",
+    "children": [
+      { "widget": "text", "props": { "value": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
+      {
+        "widget": "list",
+        "props": { "over": "alerts", "key": "id" },
+        "children": [
+          {
+            "widget": "row",
+            "children": [
+              { "widget": "badge", "props": { "value": { "expr": "severity" }, "variant": "failing", "visibleWhen": { "expr": "isCritical" } } },
+              { "widget": "badge", "props": { "value": { "expr": "severity" }, "variant": "degraded", "visibleWhen": { "expr": "isWarning" } } },
+              { "widget": "badge", "props": { "value": { "expr": "severity" }, "variant": "neutral", "visibleWhen": { "expr": "isInfo" } } },
+              { "widget": "text", "props": { "value": { "expr": "rule" } } },
+              { "widget": "text", "props": { "value": { "expr": "when" }, "style": "small" } },
+              { "widget": "text", "props": { "value": { "expr": "ackedText" }, "style": "small", "visibleWhen": { "expr": "ackedVisible" } } },
+              {
+                "widget": "button",
+                "props": {
+                  "label": "Acknowledge",
+                  "action": "ack",
+                  "args": { "id": { "expr": "id" } },
+                  "visibleWhen": { "expr": "canAck" }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
