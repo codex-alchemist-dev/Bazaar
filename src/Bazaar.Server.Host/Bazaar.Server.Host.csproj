@@ -63,6 +63,7 @@
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.HyperV\Bazaar.Server.Vms.HyperV.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Kvm\Bazaar.Server.Vms.Kvm.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress\Bazaar.Server.VmEgress.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals\Bazaar.Server.VmEgress.Approvals.csproj" />
@@ -101,6 +102,7 @@
     <ProjectReference Include="..\Bazaar.Server.Analytics\Bazaar.Server.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics.Postgres\Bazaar.Server.Analytics.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics.Git\Bazaar.Server.Analytics.Git.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.ReadAudit.Npgsql\Bazaar.Server.ReadAudit.Npgsql.csproj" />
     <ProjectReference Include="..\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Skimmer\Bazaar.Server.Skimmer.csproj" />

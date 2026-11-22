@@ -36,6 +36,7 @@ using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
@@ -77,6 +78,7 @@ public static class HostComponents
     public static IReadOnlyList<IBazaarComponent> All { get; } =
     [
         new AuditComponent(),
+        new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
