@@ -1,5 +1,5 @@
+using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
-using Bazaar.Server.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Gateway.SystemPolicy;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Gateway.SystemPolicy;
 /// default route. Empty means embeddings are not configured and nothing is declared.
 /// </summary>
 public sealed partial class EmbeddingsPolicySource(
-    ISettingStore settings,
+    IEmbeddingRouteSource settings,
     IGatewayDirectory directory,
     ILogger<EmbeddingsPolicySource> logger) : ISystemAgentPolicySource
 {
@@ -22,7 +22,7 @@ public sealed partial class EmbeddingsPolicySource(
 
     public async ValueTask<SystemAgentPolicyDeclaration?> DeclareAsync(CancellationToken cancellationToken = default)
     {
-        var value = (await settings.GetAsync(GatewaySettings.EmbeddingRoute, cancellationToken: cancellationToken).ConfigureAwait(false)).Trim();
+        var value = (await settings.GetEmbeddingRouteAsync(cancellationToken).ConfigureAwait(false)).Trim();
         if (value.Length == 0)
         {
             LogNotConfigured(logger, AgentId);

@@ -3,7 +3,8 @@ using System.Security.Cryptography;
 namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
-/// Opens the KEK file at an absolute path, creating it with a fresh random key when it is absent. The bytes on disk go
+/// Opens the KEK file at an absolute path. In <see cref="KekOpenMode.CreateIfMissing"/> it is created with a fresh random key when absent;
+/// in <see cref="KekOpenMode.OpenExisting"/> a missing or empty file throws <see cref="KekMissingException"/> and nothing is created. The bytes on disk go
 /// through <c>seal</c> when created and <c>open</c> when read, so DPAPI and the plain file share one create-race and
 /// permission path. Key bytes are never logged or returned outside the caller.
 /// </summary>
@@ -11,7 +12,7 @@ internal static class KekKeyFile
 {
     public const int KeySize = 32;
 
-    public static byte[] OpenOrCreate(string keyPath, Func<byte[], byte[]> seal, Func<byte[], byte[]> open)
+    public static byte[] OpenOrCreate(string keyPath, Func<byte[], byte[]> seal, Func<byte[], byte[]> open, KekOpenMode mode = KekOpenMode.CreateIfMissing)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyPath);
         if (!Path.IsPathFullyQualified(keyPath))
@@ -19,7 +20,19 @@ internal static class KekKeyFile
 
         var directory = Path.GetDirectoryName(keyPath)
             ?? throw new ArgumentException("The KEK file path has no directory.", nameof(keyPath));
-        Directory.CreateDirectory(directory);
+
+        if (mode == KekOpenMode.OpenExisting)
+        {
+            // Nothing is created here, not even the folder: an unmounted root must stay visibly empty.
+            var existing = new FileInfo(keyPath);
+            if (!existing.Exists || existing.Length == 0)
+                throw new KekMissingException(
+                    $"No KEK at '{keyPath}'. The host does not create one at start. Mount the boot root, restore the key, or run setup (doc 63).");
+        }
+        else
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         if (!File.Exists(keyPath))
         {

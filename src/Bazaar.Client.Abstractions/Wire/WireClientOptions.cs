@@ -29,6 +29,12 @@ public sealed class WireClientOptions
     /// <summary>Longest reconnect delay (<c>wire.reconnect_backoff_max_s</c>).</summary>
     public TimeSpan BackoffMax { get; init; } = TimeSpan.FromSeconds(60);
 
+    /// <summary>
+    /// Called with every <see cref="Welcome"/> the server sends, on each (re)connect, before the client acts on it (so also
+    /// when the welcome demands an upgrade). A throwing callback is ignored; it never breaks the connection.
+    /// </summary>
+    public Action<Welcome>? OnWelcome { get; init; }
+
     /// <summary>Source of jitter in [0, 1). Tests pass a fixed value.</summary>
     public Func<double> Jitter { get; init; } = Random.Shared.NextDouble;
 }

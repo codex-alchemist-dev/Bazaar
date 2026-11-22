@@ -8,7 +8,6 @@ using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Secrets;
 using Bazaar.Server.Gateway.Usage;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Gateway.Pipeline;
 
@@ -52,7 +51,7 @@ public sealed class ModelGateway : IModelGateway
     private readonly Action<Exception>? _onInternalError;
     private readonly SecretScrubber _scrubber;
     private readonly IEmbeddingProfile _embeddingProfile;
-    private readonly ISettingStore? _settings;
+    private readonly IEmbeddingRouteSource? _embeddingRoute;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, bool> _lastPublishedAvailable = [];
 
@@ -75,7 +74,7 @@ public sealed class ModelGateway : IModelGateway
         Action<Exception>? onInternalError = null,
         SecretScrubber? scrubber = null,
         IEmbeddingProfile? embeddingProfile = null,
-        ISettingStore? settings = null)
+        IEmbeddingRouteSource? embeddingRoute = null)
     {
         _resolver = resolver ?? throw new ArgumentNullException(nameof(resolver));
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
@@ -91,7 +90,7 @@ public sealed class ModelGateway : IModelGateway
         _onInternalError = onInternalError;
         _scrubber = scrubber ?? new SecretScrubber();
         _embeddingProfile = embeddingProfile ?? NullEmbeddingProfile.Instance;
-        _settings = settings;
+        _embeddingRoute = embeddingRoute;
     }
 
     /// <summary>Streams the call's events. Failure and warning text is scrubbed of every resolved key before it is yielded.</summary>
@@ -109,6 +108,7 @@ public sealed class ModelGateway : IModelGateway
         var resolution = await _resolver.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
         if (resolution is RouteResolution.Denied denied)
         {
+            await RecordDeniedSafeAsync(request, denied).ConfigureAwait(false);
             yield return new ModelEvent.Failure("policy_denied", $"{denied.Reason}: {denied.Detail}");
             yield break;
         }
@@ -273,9 +273,9 @@ public sealed class ModelGateway : IModelGateway
         var routeName = request.Route;
         if (string.IsNullOrWhiteSpace(routeName))
         {
-            routeName = _settings is null
+            routeName = _embeddingRoute is null
                 ? ""
-                : await _settings.GetAsync(GatewaySettings.EmbeddingRoute, cancellationToken: cancellationToken).ConfigureAwait(false);
+                : await _embeddingRoute.GetEmbeddingRouteAsync(cancellationToken).ConfigureAwait(false);
             if (string.IsNullOrWhiteSpace(routeName))
             {
                 throw new GatewayModelException(
@@ -737,6 +737,41 @@ public sealed class ModelGateway : IModelGateway
             NotifyInternalError(ex);
         }
     }
+
+    private async ValueTask RecordDeniedSafeAsync(ModelRequest request, RouteResolution.Denied denied)
+    {
+        try
+        {
+            var provider = denied.Dropped.Count > 0
+                ? denied.Dropped[0].Model.ProviderId
+                : ModelRef.TryParse(request.Route, out var asked) ? asked.ProviderId : null;
+            await _recorder.RecordDeniedAsync(
+                request.AgentId, request.TurnId, request.Route, provider, UsageDenyCode(denied.Reason), _time.GetUtcNow(), CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            NotifyInternalError(ex);
+        }
+    }
+
+    private static string UsageDenyCode(DenyReason reason) => "policy_denied:" + reason switch
+    {
+        DenyReason.UnknownAgent => "unknown_agent",
+        DenyReason.InvalidRoute => "invalid_route",
+        DenyReason.NoRoute => "no_route",
+        DenyReason.ModelNotAllowed => "model_not_allowed",
+        DenyReason.RouteNotAllowed => "route_not_allowed",
+        DenyReason.UnknownRoute => "unknown_route",
+        DenyReason.ToolsNotAllowed => "tools_not_allowed",
+        DenyReason.DelegatedSetExceedsPolicy => "delegated_set_exceeds_policy",
+        DenyReason.CredentialRefused => "credential_refused",
+        DenyReason.ProviderUnavailable => "provider_unavailable",
+        DenyReason.ModelUnavailable => "model_unavailable",
+        DenyReason.DeniedByTightening => "denied_by_tightening",
+        DenyReason.FamilyMismatch => "family_mismatch",
+        _ => "no_eligible_candidate",
+    };
 
     private async ValueTask RecordSafeAsync(UsageAccumulator acc)
     {

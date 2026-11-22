@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Policy;
-using Bazaar.Server.Settings;
+using Bazaar.Server.Gateway.Pipeline;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Gateway.SystemPolicy.Tests;
@@ -163,20 +163,10 @@ public sealed class SystemAgentPolicySeederTests
             ValueTask.FromResult(Routes.GetValueOrDefault(routeId));
     }
 
-    private sealed class FakeSettings : ISettingStore
+    private sealed class FakeSettings : IEmbeddingRouteSource
     {
         public string Value { get; set; } = "";
 
-        public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default)
-        {
-            Assert.Equal(GatewaySettings.EmbeddingRoute.Name, key.Name);
-            return Task.FromResult((T)(object)Value);
-        }
-
-        public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
-
-        public Task<SettingWriteResult> SetJsonAsync(string key, JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
-            throw new NotSupportedException();
+        public Task<string> GetEmbeddingRouteAsync(CancellationToken cancellationToken = default) => Task.FromResult(Value);
     }
 }

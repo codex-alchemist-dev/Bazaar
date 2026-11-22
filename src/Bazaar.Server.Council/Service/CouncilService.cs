@@ -14,7 +14,7 @@ namespace Bazaar.Server.Council.Service;
 /// <para>GC event payloads (snake_case JSON; keys are the idempotency keys):</para>
 /// <list type="bullet">
 /// <item><description><c>council.open</c>, key <c>open:&lt;voteId&gt;</c>: <c>vote_id</c>, <c>gc_id</c>, <c>subject_ref</c>,
-/// <c>kind</c>, <c>motion_class</c>, <c>options</c>, <c>proposer_id</c>, <c>subject_author_id</c>, <c>eligible_voter_ids</c>,
+/// <c>kind</c>, <c>motion_class</c>, <c>high_impact</c>, <c>options</c>, <c>proposer_id</c>, <c>subject_author_id</c>, <c>eligible_voter_ids</c>,
 /// <c>deadline_at</c>, <c>reveal_seed</c>. No reasoning.</description></item>
 /// <item><description><c>council.transition</c>, key <c>transition:&lt;voteId&gt;:&lt;version&gt;</c>: <c>vote_id</c>,
 /// <c>from</c>, <c>to</c>, <c>reason</c>, <c>version</c>, <c>deadline_at</c>, <c>extensions</c>. Opening writes no
@@ -46,6 +46,7 @@ public sealed class CouncilService : ICouncilService
     private readonly TimeProvider _clock;
     private readonly CouncilOptions _options;
     private readonly ICouncilDecisionWriter? _decisionWriter;
+    private readonly ICouncilDissentShareSource? _dissentShare;
 
     /// <summary>Creates the service. The decision writer is optional until the Vault adapter exists (WP7).</summary>
     /// <exception cref="ArgumentException">The options are out of range.</exception>
@@ -55,7 +56,8 @@ public sealed class CouncilService : ICouncilService
         IGcMembership membership,
         CouncilOptions options,
         TimeProvider clock,
-        ICouncilDecisionWriter? decisionWriter = null)
+        ICouncilDecisionWriter? decisionWriter = null,
+        ICouncilDissentShareSource? dissentShare = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _gcEvents = gcEvents ?? throw new ArgumentNullException(nameof(gcEvents));
@@ -63,6 +65,7 @@ public sealed class CouncilService : ICouncilService
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _decisionWriter = decisionWriter;
+        _dissentShare = dissentShare;
         _options.Validate();
     }
 
@@ -108,7 +111,8 @@ public sealed class CouncilService : ICouncilService
             SubjectAuthorId: motion.SubjectAuthorId,
             RevealSeed: RandomSeed(),
             VaultDecisionNo: null,
-            CreatedAt: now);
+            CreatedAt: now,
+            HighImpact: motion.HighImpact);
 
         await _store.InsertVoteAsync(record, ct);
         await AppendAsync(
@@ -121,6 +125,7 @@ public sealed class CouncilService : ICouncilService
                 SubjectRef = record.SubjectRef,
                 Kind = Wire(record.Kind),
                 MotionClass = Wire(record.MotionClass),
+                HighImpact = record.HighImpact,
                 Options = record.Options,
                 ProposerId = record.ProposerId,
                 SubjectAuthorId = record.SubjectAuthorId,
@@ -254,7 +259,7 @@ public sealed class CouncilService : ICouncilService
         var scope = followedUp
             ? ballots
             : ballots.Where(ballot => ballot.Phase == BallotPhase.Independent).ToList();
-        var decision = DecideRound(vote, round, scope, await UnanimityBlockedAsync(vote, ct));
+        var decision = await DecideRoundAsync(vote, round, scope, await UnanimityBlockedAsync(vote, ct), ct);
         if (decision.Kind != TallyDecisionKind.Decided || decision.Choice is null)
         {
             throw new InvalidOperationException($"Council vote {voteId:D} is Decided but its ballots no longer decide it.");
@@ -360,11 +365,12 @@ public sealed class CouncilService : ICouncilService
     {
         var ballots = await _store.ListBallotsAsync(revealed.VoteId, ct);
         var independent = ballots.Where(ballot => ballot.Phase == BallotPhase.Independent).ToList();
-        var decision = DecideRound(
+        var decision = await DecideRoundAsync(
             revealed,
             TallyRound.Independent,
             independent,
-            await UnanimityBlockedAsync(revealed, ct));
+            await UnanimityBlockedAsync(revealed, ct),
+            ct);
 
         var order = RevealOrder.Arrange(
             independent.Select(ballot => ballot.VoterId),
@@ -404,11 +410,12 @@ public sealed class CouncilService : ICouncilService
     private async Task CompleteFollowUpAsync(CouncilVoteRecord vote, CancellationToken ct)
     {
         var ballots = await _store.ListBallotsAsync(vote.VoteId, ct);
-        var decision = DecideRound(
+        var decision = await DecideRoundAsync(
             vote,
             TallyRound.FollowUp,
             ballots,
-            await UnanimityBlockedAsync(vote, ct));
+            await UnanimityBlockedAsync(vote, ct),
+            ct);
         await ApplyTallyAsync(vote, decision, ct);
     }
 
@@ -451,12 +458,17 @@ public sealed class CouncilService : ICouncilService
             ct);
     }
 
-    private TallyDecision DecideRound(
+    private async Task<TallyDecision> DecideRoundAsync(
         CouncilVoteRecord vote,
         TallyRound round,
         IReadOnlyList<StoredBallot> ballots,
-        bool unanimityBlocked)
+        bool unanimityBlocked,
+        CancellationToken ct)
     {
+        // Read at decision time so an operator change applies without a restart; without a source the options value stands.
+        var dissentShare = _dissentShare is null
+            ? _options.FollowupDissentShare
+            : await _dissentShare.GetFollowupDissentShareAsync(ct).ConfigureAwait(false);
         var request = new TallyRequest(
             vote.Kind,
             vote.MotionClass,
@@ -465,9 +477,8 @@ public sealed class CouncilService : ICouncilService
             ballots.Select(ballot => new Ballot(ballot.VoterId, ballot.Choice, ballot.Reasoning, ballot.Phase)).ToList(),
             vote.Options,
             _options.QuorumMin,
-            // No stored vote carries the high-impact flag yet (doc 10, Follow-up on dissent), so it is always false here.
-            HighImpact: false,
-            FollowupDissentShare: _options.FollowupDissentShare);
+            HighImpact: vote.HighImpact,
+            FollowupDissentShare: dissentShare);
         var decision = Tally.Decide(request);
 
         // Under the all-members electorate, a member who cannot vote makes a bigger change not unanimous.

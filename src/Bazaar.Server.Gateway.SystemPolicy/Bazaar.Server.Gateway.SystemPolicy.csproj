@@ -10,7 +10,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
-    <!-- Settings types (ISettingStore) and the policy repository arrive through the gateway module, never by a direct Bazaar.Server reference. -->
+    <!-- The embedding route source (IEmbeddingRouteSource) and the policy repository arrive through the gateway module, never by a direct Bazaar.Server reference. -->
     <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.SystemPolicy.Abstractions\Bazaar.Server.Gateway.SystemPolicy.Abstractions.csproj" />

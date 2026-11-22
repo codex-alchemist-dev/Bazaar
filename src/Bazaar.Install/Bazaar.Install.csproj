@@ -8,5 +8,6 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Install.Abstractions\Bazaar.Install.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.ModulePermissions.Abstractions\Bazaar.ModulePermissions.Abstractions.csproj" />
   </ItemGroup>
 </Project>

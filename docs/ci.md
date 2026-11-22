@@ -20,8 +20,15 @@ draft pull requests. The workflows are in `.github/workflows/`.
   check (a skipped job passes), so a required check is never left missing. The
   secret scan always runs. See `docs/pr-flow.md` for the rules and the dedupe of
   push and pull request runs.
-- `ci.yml` has no draft filter, so drafts build and test too. This keeps
-  feedback fast while the work is in progress.
+- `ci.yml` skips draft pull requests (owner, 2026-11-20): the `changes` and
+  `secret-scan` jobs carry `github.event.pull_request.draft != true`, and every
+  other job needs `changes`. Marking the PR ready (`ready_for_review`) starts the
+  first full run. A draft cannot merge, so nothing required is lost; while a PR is a
+  draft its CI checks show as skipped or pending, which is intended. Run `workflow_dispatch`
+  on the branch if a draft needs a build before it is ready.
+- `codeql.yml` runs on every branch push, which is what links the required Analyze
+  checks to a PR. Its `pull_request` run is skipped for pull requests from this
+  repository (it only ran as an unlinked duplicate) and still runs for fork pull requests.
 - `pr-sponsor.yml` runs only when `draft == false`. It also runs again on
   `ready_for_review`. A draft cannot be merged, so the sign-off line is not
   needed until the PR is ready. While a PR is a draft, this check shows as
@@ -51,6 +58,22 @@ run on pull requests. It is marked `continue-on-error`, so a red canary is a
 signal to file a follow-up, not a blocked merge. It also writes a report of
 outdated and prerelease NuGet packages to the job summary. See
 `docs/FORWARD-FACING.md` for what it covers and what is still to be added.
+
+## Branch cleanup
+
+`branch-cleanup.yml` runs daily and on demand. It lists branches and pull requests
+(`gh api` REST) and deletes the heads of merged PRs, plus branches with no PR or a
+closed-unmerged PR whose last commit is older than `stale_days` (default 14). It always
+keeps the default branch, `release/*`, protected branches, `claude/project-thread-2xmtpj`,
+heads and bases of open PRs, and anything matching the repo variable `EXCLUDE_BRANCH_REGEX`.
+A merged-PR head with commits newer than the merge is treated as stale-by-age instead.
+
+Manual runs default to `dry_run: true`. Scheduled runs delete only when the repo variable
+`BRANCH_CLEANUP_ENABLED` is `true`; otherwise they dry-run. Every run writes the plan,
+with each branch's tip SHA, to the job summary and the `branch-cleanup-report` artifact.
+Restore a branch with `git push origin <sha>:refs/heads/<name>`. Deletions are capped by
+`max_deletes` (default 500) per run. The workflow also tries to turn on "Automatically
+delete head branches"; if the token lacks admin, toggle it in Settings > General.
 
 ## Local checks
 
