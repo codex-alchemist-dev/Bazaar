@@ -65,6 +65,8 @@
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Analytics.Abstractions/Bazaar.Server.Analytics.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Analytics/Bazaar.Server.Analytics.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics.Postgres/Bazaar.Server.Analytics.Postgres.csproj" />
+    <Project Path="tests/Bazaar.Server.Analytics.Postgres.Tests/Bazaar.Server.Analytics.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Analytics.Tests/Bazaar.Server.Analytics.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Analytics.Tests/Bazaar.Client.Analytics.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />

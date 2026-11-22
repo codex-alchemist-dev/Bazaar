@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Bazaar.Server.Analytics;
 
 /// <summary>
@@ -37,9 +39,33 @@ public sealed class AgentAnalyticsService(IWorkEventSource source, AnalyticsOpti
 /// <summary>Install settings for analytics (doc 25 Settings).</summary>
 public sealed record AnalyticsOptions(AnalyticsVisibility AgentMetricsVisibility = AnalyticsVisibility.OwnerAndSelf);
 
-/// <summary>The default source: no collectors registered yet, so every read is a gap.</summary>
-public sealed class EmptyWorkEventSource : IWorkEventSource
+/// <summary>
+/// The default source: merges every registered <see cref="IWorkEventCollector"/>. With none registered every read is a gap. A
+/// collector that throws is skipped and the rest still count, so one broken store cannot blank the pane.
+/// </summary>
+public sealed partial class CompositeWorkEventSource(IEnumerable<IWorkEventCollector> collectors, ILogger<CompositeWorkEventSource>? log = null) : IWorkEventSource
 {
-    public Task<IReadOnlyList<AgentWorkEvent>> ReadAsync(AnalyticsWindow window, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<AgentWorkEvent>>([]);
+    public async Task<IReadOnlyList<AgentWorkEvent>> ReadAsync(AnalyticsWindow window, CancellationToken ct)
+    {
+        var all = new List<AgentWorkEvent>();
+        foreach (var collector in collectors)
+        {
+            try
+            {
+                all.AddRange(await collector.CollectAsync(window, ct).ConfigureAwait(false));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                if (log is not null)
+                {
+                    CollectorFailed(log, ex, collector.GetType().Name);
+                }
+            }
+        }
+
+        return all;
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Analytics collector {Collector} failed and was skipped.")]
+    private static partial void CollectorFailed(ILogger log, Exception ex, string collector);
 }

@@ -25,7 +25,7 @@ public sealed class AnalyticsComponent : IBazaarComponent
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddSingleton(_ => ReadOptions(configuration));
-        services.TryAddSingleton<IWorkEventSource, EmptyWorkEventSource>();
+        services.TryAddSingleton<IWorkEventSource, CompositeWorkEventSource>();
         services.AddSingleton<IAgentAnalytics, AgentAnalyticsService>();
     }
 

@@ -124,7 +124,7 @@ public class AnalyticsTests
     }
 
     [Fact]
-    public async Task Component_registers_a_working_service_with_the_empty_source()
+    public async Task Component_registers_a_working_service_with_no_collectors()
     {
         var services = new ServiceCollection();
         new AnalyticsComponent().AddServices(services, new ConfigurationBuilder().Build());
@@ -134,6 +134,16 @@ public class AnalyticsTests
 
         Assert.Empty(r.Agents);
         Assert.Null(r.Company.RevertRate);
+    }
+
+    [Fact]
+    public async Task Composite_source_merges_collectors_and_skips_one_that_throws()
+    {
+        var composite = new CompositeWorkEventSource([new FixedCollector(_events), new ThrowingCollector(), new FixedCollector([E("zed", AgentWorkEventKind.TaskCompleted)])]);
+
+        var all = await composite.ReadAsync(_window, TestContext.Current.CancellationToken);
+
+        Assert.Equal(_events.Length + 1, all.Count);
     }
 
     [Fact]
@@ -168,6 +178,18 @@ public class AnalyticsTests
         var refs = marker.Assembly.GetReferencedAssemblies().Select(a => a.Name!);
 
         Assert.DoesNotContain(refs, r => forbidden.Contains(r) || r.StartsWith("Bazaar.Server.Reputation", StringComparison.Ordinal));
+    }
+
+    private sealed class FixedCollector(AgentWorkEvent[] events) : IWorkEventCollector
+    {
+        public Task<IReadOnlyList<AgentWorkEvent>> CollectAsync(AnalyticsWindow window, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<AgentWorkEvent>>(events);
+    }
+
+    private sealed class ThrowingCollector : IWorkEventCollector
+    {
+        public Task<IReadOnlyList<AgentWorkEvent>> CollectAsync(AnalyticsWindow window, CancellationToken ct) =>
+            throw new InvalidOperationException("store down");
     }
 
     private sealed class FixedSource(AgentWorkEvent[] events) : IWorkEventSource
