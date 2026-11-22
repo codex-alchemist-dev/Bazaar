@@ -1,4 +1,7 @@
 using Bazaar.Core;
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Gateway.Data;
+using Bazaar.Server.Souls;
 using Bazaar.Server.Council.Hiring;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,9 +36,14 @@ public sealed class TalentPoolComponent : IBazaarComponent
         services.TryAddSingleton<ITalentTemplateStore>(sp => new PostgresTalentTemplateStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IHireDecisionStore>(sp => new PostgresHireDecisionStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(sp => new PostgresToolGrantApproval(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IToolGrantRecorder>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
         services.TryAddSingleton<ITalentToolGrantApproval>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
         services.TryAddSingleton<ITalentModelWhitelist, GatewayTalentModelWhitelist>();
+        services.TryAddSingleton<IAgentCreator>(sp => new AgentRepositoryCreator(sp.GetRequiredService<AgentRepository>()));
+        services.TryAddSingleton<ISoulVersionAppender>(sp => new SoulVersionAppender(sp.GetRequiredService<SoulVersioningService>()));
+        services.TryAddSingleton<IAgentModelPolicyWriter>(sp => new GatewayModelPolicyWriter(sp.GetRequiredService<AgentModelPolicyRepository>()));
         services.TryAddSingleton<ITalentInstantiator, SoulTalentInstantiator>();
+        services.TryAddSingleton<TalentToolGrantApprover>();
         services.AddBazaarCouncilHiring();
         services.AddBazaarTalentPool();
     }

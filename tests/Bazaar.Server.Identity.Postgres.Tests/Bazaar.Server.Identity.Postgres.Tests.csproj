@@ -11,8 +11,12 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

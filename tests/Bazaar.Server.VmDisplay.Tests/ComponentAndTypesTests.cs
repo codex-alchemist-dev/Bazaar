@@ -20,6 +20,13 @@ public class ComponentAndTypesTests
     }
 
     [Fact]
+    public void The_native_size_reader_is_the_same_instance_as_the_display_service()
+    {
+        using ServiceProvider sp = Provider();
+        Assert.Same(sp.GetRequiredService<IGuestDisplay>(), sp.GetRequiredService<IDisplayNativeSizeReader>());
+    }
+
+    [Fact]
     public void Manifest_matches_the_design()
     {
         ComponentManifest m = new VmDisplayComponent().Manifest;

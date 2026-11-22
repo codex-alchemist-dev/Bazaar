@@ -6,6 +6,7 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
@@ -13,7 +14,6 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
-using Bazaar.Ex.Head;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
@@ -32,6 +32,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
@@ -43,6 +44,15 @@ internal static class Program
     {
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        // Logging first, so every later line (and a failed start) lands in the client log the support bundle reads (doc 37 section 4d).
+        SupportBundleCommands.InstallLog();
+        // --self-check and --support-bundle run headless and exit, before the single-instance mutex and any window.
+        if (SupportBundleCommands.TryRun(args, WindowsModules.Create) is { } exitCode)
+        {
+            Environment.ExitCode = exitCode;
+            return;
+        }
+
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -73,32 +83,23 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
-        IPaneModule[] modules =
-        [
-            RyuseiFudaPanes.Board,
-            new DashboardPaneModule(),
-            new ConstellationPaneModule(),
-            new GcPaneModule(),
-            new VaultSearchPaneModule(),
-            .. RyuseiFudaPanes.Modules,
-            .. OrgPanes.Modules,
-            .. CalendarPanes.Modules,
-            .. InterruptPanes.Modules,
-            new EnginePaneModule(),
-            .. GitSolarSystemPanes.Modules,
-            .. GitGuiPanes.Modules,
-        ];
+        var modules = WindowsModules.Create();
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        var features = new PaneModuleContext()
-            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
-            .WithGitGui(ClientServer.Current);
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext()
+                .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current),
+            terminals);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -127,7 +128,7 @@ internal static class Program
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
             // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
-            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"));
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
             return window;
         }
 
@@ -138,6 +139,7 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 

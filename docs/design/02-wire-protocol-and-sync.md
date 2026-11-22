@@ -58,6 +58,9 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `graph:<id>` | state; carries `GraphSnapshot` and `LayoutFrame` entries (each with `GraphVersion`). `FocusRequest` is a client command, not a stream entry | 19 |
 | `pane` | state (server-streamed agent terminal panes) | 20 |
 | `approvals` | state (pending owner and Tier 2 decisions) | 15 |
+| `engine.relay` | state, no snapshot, no replay (server-to-client relay requests, owner's Windows desktop device only) [PROPOSED, 2026-11-18, coordinator brief] | 20 |
+
+**Server-to-client relay requests [PROPOSED, 2026-11-18, coordinator brief].** The wire has no server-to-client request, and this adds none. A relay request is a server `evt` of type `engine.relay.request` on stream `engine.relay`, payload `{ relayId, deadline, call: { grantId, studioId, tool, args } }`. The client answers with an ordinary client `req` of type `engine.relay.result`, payload `{ relayId, result: { grantId, ok, payload } }`, idempotent by envelope id like any request. Rules: the stream is subscribable only by the owner's Windows desktop device; a result is accepted only from the device the event went to and only once; an unknown, expired or foreign `relayId` is ignored and answered `err`; with no connected target the server call fails `Unavailable` at once and nothing is queued; the deadline defaults to 60 s (`engine.relay.timeout_seconds`, doc 20); on connection close every relay pending on it fails `Unavailable`. The event is not replayed after a reconnect: a client drops events past `deadline`, and the server has already failed the call. Wire names are `EngineRelayWire` in `Bazaar.Contracts.Engines`.
 
 **Subscriptions.** `subscribe { streams: [{ s, after, editAfter }] }`. The server checks access per stream (membership; DM rules: owner reads all, others by granted access) and replies `ok`, `denied` or `resync` per stream. Access is rechecked on subscribe and on membership change (`stream.revoked`).
 
@@ -91,6 +94,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
 | `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| `POST /auth/refresh`, `GET /auth/whoami`, `POST /auth/signout` | Token refresh; the signed-in person behind an access token; sign this device out (`whoami` and `signout` are PROPOSED, built in their PRs) | 32 (section 5) |
 | Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |

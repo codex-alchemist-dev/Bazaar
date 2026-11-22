@@ -399,6 +399,9 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+| Providers are just modules on Core (owner, 2026-11-19). Core has no provider selector, no per-role one-or-many declaration and no `auto`/`none`/`all` strings. Any number of provider modules can be installed and all load; they are configured in the app; each consuming module decides how to use several. Supersedes the "one provider per role" text in doc 03 (#2, #16). | DECIDED | 03 |
+| Actor attribution uses one `Principal` type (kind agent/user/service/system plus id) in Cdax.Core (no package references; `Scope` lives there too), text form `kind:id`, for audit, settings changes, module and install decisions, secret scopes and callers, approvals and telemetry consent; not AgentId-only (owner, 2026-11-19). Audit keeps its `actor` column and hash chain. | DECIDED | BAZAAR-COMPONENTS 4.2, 15, 14 |
+| Resibo exchange (owner, 2026-11-19): incorporate every Resibo feature that benefits Bazaar as modules; conflicts become separate modules; docs 70 to 84 (ledger in 84) are PROPOSED designs. Resibo's repo is proprietary, so designs only, no code copied. Open owner questions are listed at the end of each doc and in 84 section 8 | PROPOSED | 70-84 |
 | Wire transports and codecs (owner, 2026-11-19) | **DECIDED**: JSON over WebSocket stays as the default and the floor. Every other transport (HTTP/3 over QUIC, native QUIC, WebTransport, gRPC with gRPC-Web) and every other codec (MemoryPack, CBOR, MessagePack, Protobuf, others later) is its own optional module with `.Abstractions`, picked by the installer; transport and codec are negotiated per connection; the C# contract records are the single source, generated for every codec, with a published schema for outside clients. The Protobuf ban of round 15 is lifted for the gRPC and Protobuf codec modules only. Design details are PROPOSED. | `docs/design/90-wire-transports-and-codecs.md`; docs 02, 39; S6; CLAUDE.md |
 
 ## Round 30 (2026-11-19): Spike S2 result (Garnet on Windows)
@@ -479,3 +482,21 @@ The round number is set at merge; other open PRs also add rounds.
 | Typing is ephemeral presence: `gc.typing` request and a `presence.update` typing delta to subscribers of that GC; not persisted, expires after `wire.typing_ttl_s` (5 s) without refresh, rate-limited | PROPOSED | 02 "Typing signal" |
 | New settings: `gc.reactions_enabled`, `gc.reaction_emoji_max_bytes`, `gc.reaction_max_distinct_per_message`, `gc.reaction_max_per_person_per_message`, `gc.reaction_rate_per_minute`, `wire.typing_enabled`, `wire.typing_ttl_s`, `wire.typing_min_interval_s` (configurability rule, round 13) | PROPOSED | 01, 02 |
 | Module `Bazaar.Server.GcReactions` (+ `.Abstractions`) carries the feature; nothing new lands in Bazaar.Server | PROPOSED | 01 WP15, 40 |
+
+## Round 33 (2026-11-19): crash install binding
+
+Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
+
+| Item | Decision | Docs |
+|---|---|---|
+| Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
+
+
+## Round 34 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |

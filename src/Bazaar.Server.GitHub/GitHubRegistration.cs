@@ -25,6 +25,7 @@ public static class GitHubRegistration
 
         var section = configuration.GetSection(ConfigurationSection);
         services.TryAddSingleton(section.GetSection("Adapter").Get<GitHubAdapterOptions>() ?? new GitHubAdapterOptions());
+        services.TryAddSingleton(section.GetSection("Merge").Get<GitHubMergeOptions>() ?? new GitHubMergeOptions());
         services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();
 
         var identityBase = section["IdentityService:BaseAddress"];
