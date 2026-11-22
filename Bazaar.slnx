@@ -206,6 +206,7 @@
     <Project Path="src/Bazaar.Admin/Bazaar.Admin.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Abstractions/Bazaar.Server.Setup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Host/Bazaar.Server.Setup.Host.csproj" />
+    <Project Path="src/Bazaar.Server.Setup.Probes/Bazaar.Server.Setup.Probes.csproj" />
     <Project Path="src/Bazaar.Server.EngineGcRecorder/Bazaar.Server.EngineGcRecorder.csproj" />
     <Project Path="src/Bazaar.Server.EngineTool/Bazaar.Server.EngineTool.csproj" />
     <Project Path="src/Bazaar.Server.EngineRelay/Bazaar.Server.EngineRelay.csproj" />
