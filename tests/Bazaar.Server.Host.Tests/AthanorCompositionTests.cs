@@ -73,6 +73,7 @@ public sealed class AthanorCompositionTests : IDisposable
         var types = sp.GetServices<IWireRequestHandler>().Select(h => h.Type).ToList();
         Assert.Contains(WireTypes.EditorOpen, types);
         Assert.Contains(WireTypes.EditorSave, types);
+        Assert.Contains(WireTypes.EditorCreate, types);
         Assert.IsType<SettingsAthanorLimits>(sp.GetRequiredService<IAthanorLimits>());
         Assert.IsType<DirectoryEditorWorkspaceStore>(sp.GetRequiredService<IEditorWorkspaceStore>());
         Assert.IsType<RolesEditorAuthorizer>(sp.GetRequiredService<IEditorAuthorizer>());
@@ -138,6 +139,25 @@ public sealed class AthanorCompositionTests : IDisposable
         var denied = await open.HandleAsync(Request(Human(), WireTypes.EditorOpen, new AthanorOpenRequest("vault", "notes/a.md")), Ct);
         Assert.False(denied.IsOk);
         Assert.Equal("editor.forbidden", denied.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Create_over_the_wire_makes_the_file_and_a_second_create_is_editor_exists()
+    {
+        using var sp = Build();
+        _checker.Allow("read", "vault.write");
+        var create = Handler<EditorCreateWireHandler>(sp);
+
+        var first = await create.HandleAsync(Request(Human(), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/new.md", "# new")), Ct);
+        var second = await create.HandleAsync(Request(Human(), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/new.md", "again")), Ct);
+        var agent = await create.HandleAsync(Request(Human("agent"), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/x.md", "x")), Ct);
+
+        Assert.True(first.IsOk);
+        Assert.Equal(Rev("# new"), Decode<Bazaar.Contracts.Athanor.EditorCreateReply>(first).Revision);
+        Assert.Equal("# new", await File.ReadAllTextAsync(Path.Combine(_root, "notes", "new.md"), Ct));
+        Assert.Equal("editor.exists", second.Error!.Code);
+        Assert.Equal("editor.forbidden", agent.Error!.Code);
+        Assert.False(File.Exists(Path.Combine(_root, "notes", "x.md")));
     }
 
     [Fact]

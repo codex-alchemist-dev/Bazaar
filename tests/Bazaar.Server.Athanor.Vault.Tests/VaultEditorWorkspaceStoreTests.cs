@@ -149,6 +149,26 @@ public sealed class VaultEditorWorkspaceStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task A_new_file_lands_as_a_merge_commit_and_exists_afterwards()
+    {
+        var created = await _store.CreateAsync("vault", "notes/b.md", Bytes("# b\n"), Ct);
+        var again = await _store.CreateAsync("vault", "notes/b.md", Bytes("other\n"), Ct);
+        var noFolder = await _store.CreateAsync("vault", "missing/c.md", Bytes("c\n"), Ct);
+        var read = await _store.ReadAsync("vault", "notes/b.md", 1000, Ct);
+
+        Assert.Equal(EditorCreateStatus.Created, created.Status);
+        Assert.Equal(Rev("# b\n"), created.Revision);
+        Assert.Equal(EditorCreateStatus.Exists, again.Status);
+        Assert.Equal(EditorCreateStatus.ParentMissing, noFolder.Status);
+        Assert.Equal("# b\n", File.ReadAllText(Path.Combine(_repoPath, "notes", "b.md")));
+        Assert.Equal(Rev("# b\n"), read.Revision);
+        using var repo = new Repository(_repoPath);
+        Assert.Equal(2, repo.Head.Tip.Parents.Count());
+        Assert.False(repo.RetrieveStatus(new StatusOptions()).IsDirty);
+        Assert.DoesNotContain(repo.Branches, b => b.FriendlyName.StartsWith("athanor/", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Deleting_a_branch_keeps_one_that_is_not_merged_and_the_checked_out_one()
     {
         using (var repo = new Repository(_repoPath))

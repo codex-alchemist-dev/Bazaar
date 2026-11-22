@@ -8,6 +8,9 @@ public static class EditorWireTypes
 
     /// <summary>Save a file with a revision check. Request <see cref="EditorSaveRequest"/>, reply <see cref="EditorSaveReply"/>.</summary>
     public const string Save = "editor.save";
+
+    /// <summary>Create a new file (doc 57 section 8, PROPOSED). Request <see cref="EditorCreateRequest"/>, reply <see cref="EditorCreateReply"/>.</summary>
+    public const string Create = "editor.create";
 }
 
 /// <summary>
@@ -23,6 +26,9 @@ public static class EditorErrorCodes
     public const string Binary = "editor.binary";
     public const string ReadOnlyWorkspace = "editor.read_only_workspace";
     public const string Unavailable = "editor.unavailable";
+
+    /// <summary>PROPOSED (doc 57 section 8): a create over a file that already exists.</summary>
+    public const string Exists = "editor.exists";
 
     /// <summary>Envelope code for a path or payload that fails validation (same value as <c>WireErrorCodes.BadRequest</c>).</summary>
     public const string BadRequest = "bad_request";
@@ -47,6 +53,12 @@ public sealed record EditorSaveRequest(string WorkspaceId, string Path, string B
 
 /// <summary>Reply to <c>editor.save</c>.</summary>
 public sealed record EditorSaveReply(string NewRevision);
+
+/// <summary>Payload of <c>editor.create</c>: a new file in an existing folder of the workspace.</summary>
+public sealed record EditorCreateRequest(string WorkspaceId, string Path, string Content);
+
+/// <summary>Reply to <c>editor.create</c>.</summary>
+public sealed record EditorCreateReply(string Revision);
 
 /// <summary>Extra detail carried by an <c>editor.conflict</c> error.</summary>
 public sealed record EditorConflictDetail(string ServerRevision, string ServerContent);

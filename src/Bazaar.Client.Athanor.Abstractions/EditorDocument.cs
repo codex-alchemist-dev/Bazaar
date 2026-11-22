@@ -30,3 +30,18 @@ public abstract record SaveOutcome
     /// <summary>The server cannot be reached or refused the write. The draft stays.</summary>
     public sealed record Unavailable(string Reason) : SaveOutcome;
 }
+
+/// <summary>The result of creating a new document (doc 57 section 8, PROPOSED).</summary>
+public abstract record CreateOutcome
+{
+    private CreateOutcome() { }
+
+    /// <summary>The server created the file; <paramref name="Revision"/> is its first revision.</summary>
+    public sealed record Created(string Revision) : CreateOutcome;
+
+    /// <summary>A file already exists at the path.</summary>
+    public sealed record Exists : CreateOutcome;
+
+    /// <summary>The server cannot create it (offline, no such folder, not allowed). <paramref name="Reason"/> says why.</summary>
+    public sealed record Unavailable(string Reason) : CreateOutcome;
+}

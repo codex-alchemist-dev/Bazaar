@@ -72,6 +72,22 @@ public sealed class InMemoryEditorFileSource : IEditorFileSource
         return Task.FromResult(outcome);
     }
 
+    public Task<CreateOutcome> CreateAsync(EditorDocumentId id, string content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        lock (_gate)
+        {
+            if (_documents.ContainsKey(id))
+            {
+                return Task.FromResult<CreateOutcome>(new CreateOutcome.Exists());
+            }
+
+            var revision = NextRevision();
+            _documents[id] = new Entry(content, "plaintext", revision, ReadOnly: false);
+            return Task.FromResult<CreateOutcome>(new CreateOutcome.Created(revision));
+        }
+    }
+
     // Callers hold _gate.
     private string NextRevision() => (++_lastRevision).ToString(CultureInfo.InvariantCulture);
 

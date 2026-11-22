@@ -48,6 +48,31 @@ public sealed class WireEditorFileSourceTests
         new("hello", "rev1", hint, readOnly, 5);
 
     [Fact]
+    public async Task Create_sends_editor_create_and_maps_the_reply_and_each_failure()
+    {
+        var requests = new FakeRequester()
+            .Reply(new EditorCreateReply("rev9"))
+            .Fail("editor.exists")
+            .Fail("editor.not_found", "no folder")
+            .Throw(new IOException("down"))
+            .Reply(new EditorCreateReply(string.Empty));
+        var source = new WireEditorFileSource(requests);
+
+        var created = await source.CreateAsync(_doc, "# new", Ct);
+        var exists = await source.CreateAsync(_doc, "# new", Ct);
+        var noFolder = await source.CreateAsync(_doc, "# new", Ct);
+        var down = await source.CreateAsync(_doc, "# new", Ct);
+        var empty = await source.CreateAsync(_doc, "# new", Ct);
+
+        Assert.Equal(new CreateOutcome.Created("rev9"), created);
+        Assert.IsType<CreateOutcome.Exists>(exists);
+        Assert.Contains("no folder", Assert.IsType<CreateOutcome.Unavailable>(noFolder).Reason, StringComparison.Ordinal);
+        Assert.IsType<CreateOutcome.Unavailable>(down);
+        Assert.IsType<CreateOutcome.Unavailable>(empty);
+        Assert.Equal(("editor.create", (object)new EditorCreateRequest("vault", "notes/a.md", "# new")), requests.Sent[0]);
+    }
+
+    [Fact]
     public async Task Open_maps_the_reply_to_a_document_and_sends_open()
     {
         var requests = new FakeRequester().Reply(OpenReply());

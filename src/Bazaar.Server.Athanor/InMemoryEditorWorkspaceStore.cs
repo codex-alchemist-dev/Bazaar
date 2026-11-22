@@ -78,6 +78,32 @@ public sealed class InMemoryEditorWorkspaceStore : IEditorWorkspaceStore
         }
     }
 
+    public ValueTask<EditorCreateResult> CreateAsync(string workspaceId, string path, byte[] content, CancellationToken cancellationToken)
+    {
+        ThrowIfUnavailable();
+        if (!_workspaces.TryGetValue(workspaceId, out var workspace) || workspace.ReadOnly)
+        {
+            return ValueTask.FromResult(new EditorCreateResult(EditorCreateStatus.Blocked));
+        }
+
+        lock (_gate)
+        {
+            if (_files.ContainsKey((workspaceId, path)))
+            {
+                return ValueTask.FromResult(new EditorCreateResult(EditorCreateStatus.Exists));
+            }
+
+            var slash = path.LastIndexOf('/');
+            if (slash > 0 && !_files.Keys.Any(k => k.Workspace == workspaceId && k.Path.StartsWith(path[..(slash + 1)], StringComparison.Ordinal)))
+            {
+                return ValueTask.FromResult(new EditorCreateResult(EditorCreateStatus.ParentMissing));
+            }
+
+            _files[(workspaceId, path)] = content;
+            return ValueTask.FromResult(new EditorCreateResult(EditorCreateStatus.Created, RevisionOf(content)));
+        }
+    }
+
     private void ThrowIfUnavailable()
     {
         if (Unavailable)

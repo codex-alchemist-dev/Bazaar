@@ -145,6 +145,27 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
     /// Applies the pending draft to the active document: it becomes dirty with the draft's content and the draft's base
     /// revision, so saving over a newer server revision conflicts instead of overwriting. False when nothing is pending.
     /// </summary>
+    /// <summary>Creates a new, empty document through the file source and opens it. An existing file is opened as it is.</summary>
+    /// <returns>Done, or the reason the document could not be created.</returns>
+    public async Task<string?> CreateAndOpenAsync(EditorDocumentId id, string content, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (_source is null)
+        {
+            return "The editor is not available in this client.";
+        }
+
+        var outcome = await _source.CreateAsync(id, content, cancellationToken).ConfigureAwait(false);
+
+        // A source that cannot create may still hold the file, so an existing document is opened whatever the create said.
+        if (await OpenAsync(id, cancellationToken).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return outcome is CreateOutcome.Unavailable unavailable ? unavailable.Reason : $"The new document '{id.Path}' could not be opened.";
+    }
+
     public async Task<bool> RestoreDraftAsync(CancellationToken cancellationToken = default)
     {
         if (_saves is null || _host is null || TakePending() is not var (document, draft))
@@ -325,6 +346,9 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
 
         public Task<SaveOutcome> SaveAsync(EditorDocumentId id, string content, string baseRevision, CancellationToken cancellationToken) =>
             inner.SaveAsync(id, content, baseRevision, cancellationToken);
+
+        public Task<CreateOutcome> CreateAsync(EditorDocumentId id, string content, CancellationToken cancellationToken) =>
+            inner.CreateAsync(id, content, cancellationToken);
 
         public bool TryTake(EditorDocumentId id, out EditorDocument document)
         {

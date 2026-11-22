@@ -54,6 +54,24 @@ public enum EditorWriteStatus
     TooLarge,
 }
 
+/// <summary>Result of <see cref="IEditorWorkspaceStore.CreateAsync"/>.</summary>
+public enum EditorCreateStatus
+{
+    Created,
+
+    /// <summary>A file already exists at the path (maps to <c>editor.exists</c>).</summary>
+    Exists,
+
+    /// <summary>The folder does not exist; the editor creates files, not folders (maps to <c>editor.not_found</c>).</summary>
+    ParentMissing,
+
+    /// <summary>The path is refused, or the workspace is read-only (maps to <c>editor.forbidden</c>).</summary>
+    Blocked,
+}
+
+/// <summary>A create result: <see cref="Revision"/> when Created.</summary>
+public sealed record EditorCreateResult(EditorCreateStatus Status, string? Revision = null);
+
 /// <summary>A write result: <see cref="NewRevision"/> when Written; the current server copy when Conflict.</summary>
 public sealed record EditorWriteResult(EditorWriteStatus Status, string? NewRevision = null, string? ServerRevision = null, byte[]? ServerContent = null);
 
@@ -72,6 +90,9 @@ public interface IEditorWorkspaceStore
 
     /// <summary>Compare-and-set write: writes only when the file's current revision equals <paramref name="baseRevision"/>, atomically.</summary>
     ValueTask<EditorWriteResult> WriteAsync(string workspaceId, string path, string baseRevision, byte[] content, CancellationToken cancellationToken);
+
+    /// <summary>Creates a new file in an existing folder, atomically and never over an existing file. Creates no folders.</summary>
+    ValueTask<EditorCreateResult> CreateAsync(string workspaceId, string path, byte[] content, CancellationToken cancellationToken);
 }
 
 /// <summary>The backend cannot answer; maps to <c>editor.unavailable</c>.</summary>

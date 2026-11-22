@@ -30,6 +30,7 @@ public static class AthanorCompositionExtensions
         AddVaultWorkspace(services, configuration);
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, EditorOpenWireHandler>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, EditorSaveWireHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, EditorCreateWireHandler>());
         return services;
     }
 

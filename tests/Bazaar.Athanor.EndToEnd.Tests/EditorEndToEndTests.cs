@@ -84,6 +84,31 @@ public sealed class EditorEndToEndTests : IDisposable
     }
 
     [Fact]
+    public async Task New_creates_the_file_on_the_server_opens_it_and_a_first_save_lands()
+    {
+        var handler = new AthanorCommandHandler(_pane, new Prompts(new NewDocumentRequest("vault:notes/fresh.md", "markdown")));
+
+        var result = await handler.InvokeAsync(AthanorClientModule.NewCommandId, Ct);
+
+        Assert.Equal(AthanorCommandStatus.Done, result.Status);
+        Assert.Equal(string.Empty, await File.ReadAllTextAsync(Path.Combine(_root, "notes", "fresh.md"), Ct));
+        _pane.EditActive("# fresh");
+        Assert.IsType<SaveOutcome.Saved>(await _pane.SaveActiveAsync(Ct));
+        Assert.Equal("# fresh", await File.ReadAllTextAsync(Path.Combine(_root, "notes", "fresh.md"), Ct));
+    }
+
+    [Fact]
+    public async Task New_in_a_folder_that_does_not_exist_reports_why_and_creates_nothing()
+    {
+        var handler = new AthanorCommandHandler(_pane, new Prompts(new NewDocumentRequest("vault:nope/x.md", "markdown")));
+
+        var result = await handler.InvokeAsync(AthanorClientModule.NewCommandId, Ct);
+
+        Assert.Equal(AthanorCommandStatus.Failed, result.Status);
+        Assert.False(Directory.Exists(Path.Combine(_root, "nope")));
+    }
+
+    [Fact]
     public async Task A_missing_file_does_not_open()
     {
         Assert.False(await _pane.OpenAsync(new EditorDocumentId("vault", "notes/missing.md"), Ct));
@@ -160,6 +185,13 @@ public sealed class EditorEndToEndTests : IDisposable
 
         Assert.Equal(WireErrorCodes.BadRequest, raw.Error.Code);
         Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(_root)!, "x.md")));
+    }
+
+    private sealed class Prompts(NewDocumentRequest create) : IEditorCommandPrompts
+    {
+        public Task<string?> AskOpenPathAsync(CancellationToken cancellationToken) => Task.FromResult<string?>(null);
+
+        public Task<NewDocumentRequest?> AskNewDocumentAsync(CancellationToken cancellationToken) => Task.FromResult<NewDocumentRequest?>(create);
     }
 
     private sealed class InProcessRequester(IReadOnlyList<IWireRequestHandler> handlers, Bazaar.Server.Wire.Connection.IWireConnection connection) : IWireRequester

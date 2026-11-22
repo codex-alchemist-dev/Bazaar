@@ -90,13 +90,48 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
             return new EditorWriteResult(EditorWriteStatus.Written, NewRevision: newRevision);
         }
 
-        return await CommitAsync(workspaceId, path, content, newRevision, cancellationToken).ConfigureAwait(false);
+        return await CommitAsync(workspaceId, path, content, newRevision, create: false, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<EditorWriteResult> CommitAsync(string workspaceId, string path, byte[] content, string newRevision, CancellationToken cancellationToken)
+    public async ValueTask<EditorCreateResult> CreateAsync(string workspaceId, string path, byte[] content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        if (!string.Equals(workspaceId, _options.WorkspaceId, StringComparison.Ordinal))
+        {
+            return await _inner.CreateAsync(workspaceId, path, content, cancellationToken).ConfigureAwait(false);
+        }
+
+        var workspace = await _inner.GetWorkspaceAsync(workspaceId, cancellationToken).ConfigureAwait(false);
+        if (workspace is null || workspace.ReadOnly)
+        {
+            return new EditorCreateResult(EditorCreateStatus.Blocked);
+        }
+
+        var existing = await _inner.ReadAsync(workspaceId, path, 1, cancellationToken).ConfigureAwait(false);
+        switch (existing.Status)
+        {
+            case EditorReadStatus.Blocked:
+                return new EditorCreateResult(EditorCreateStatus.Blocked);
+            case EditorReadStatus.NotFound:
+                break;
+            default:
+                return new EditorCreateResult(EditorCreateStatus.Exists);
+        }
+
+        var newRevision = DirectoryEditorWorkspaceStore.RevisionOf(content);
+        var landed = await CommitAsync(workspaceId, path, content, newRevision, create: true, cancellationToken).ConfigureAwait(false);
+        return landed.Status switch
+        {
+            EditorWriteStatus.Written => new EditorCreateResult(EditorCreateStatus.Created, newRevision),
+            EditorWriteStatus.Conflict => new EditorCreateResult(EditorCreateStatus.Exists),
+            EditorWriteStatus.NotFound => new EditorCreateResult(EditorCreateStatus.ParentMissing),
+            _ => new EditorCreateResult(EditorCreateStatus.Blocked),
+        };
+    }
+
+    private async Task<EditorWriteResult> CommitAsync(string workspaceId, string path, byte[] content, string newRevision, bool create, CancellationToken cancellationToken)
     {
         var branch = "athanor/edit-" + Guid.NewGuid().ToString("N");
-        var merged = false;
         var worktree = Path.Combine(_options.WorktreeRoot, branch.Replace('/', '-'));
         try
         {
@@ -104,14 +139,27 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
             Directory.CreateDirectory(_options.WorktreeRoot);
             await _git.AddWorktreeAsync(_options.RepoPath, branch, worktree, cancellationToken).ConfigureAwait(false);
             var target = Path.Combine(worktree, path.Replace('/', Path.DirectorySeparatorChar));
-            if (!File.Exists(target))
+            if (create)
+            {
+                if (File.Exists(target))
+                {
+                    return new EditorWriteResult(EditorWriteStatus.Conflict);
+                }
+
+                if (!Directory.Exists(Path.GetDirectoryName(target)))
+                {
+                    // The folder is not in the committed tree: the editor creates files, not folders.
+                    return new EditorWriteResult(EditorWriteStatus.NotFound);
+                }
+            }
+            else if (!File.Exists(target))
             {
                 // The file is not in the committed tree (new, ignored or untracked): the Vault path only lands tracked content.
                 return new EditorWriteResult(EditorWriteStatus.NotFound);
             }
 
             await File.WriteAllBytesAsync(target, content, cancellationToken).ConfigureAwait(false);
-            await _git.CommitAsync(worktree, "Edit " + path + " in Athanor", _options.Author, cancellationToken).ConfigureAwait(false);
+            await _git.CommitAsync(worktree, (create ? "Create " : "Edit ") + path + " in Athanor", _options.Author, cancellationToken).ConfigureAwait(false);
 
             var result = await _writer.SubmitAsync(
                 new VaultEditRequest(DocIdFor(path), baseCommit, branch, VaultEditorOptions.EditorAgentId, null, null),
@@ -121,9 +169,14 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
             {
                 case VaultEditOutcome.Merged:
                 case VaultEditOutcome.UpToDate:
-                    merged = true;
                     return new EditorWriteResult(EditorWriteStatus.Written, NewRevision: newRevision);
                 case VaultEditOutcome.Conflicted:
+                    if (create)
+                    {
+                        // Someone else created this path between the check and the merge.
+                        return new EditorWriteResult(EditorWriteStatus.Conflict);
+                    }
+
                     // Someone else landed a change to this file between the check and the merge: hand back the server copy.
                     var latest = await _inner.ReadAsync(workspaceId, path, _limits.MaxOpenBytes, cancellationToken).ConfigureAwait(false);
                     return latest.Status == EditorReadStatus.Ok
@@ -149,17 +202,14 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
                 // A stale worktree is pruned by the next save or at startup recovery.
             }
 
-            if (merged)
+            try
             {
-                try
-                {
-                    // The edit is in the Vault's history now; its branch has done its job. An unmerged branch (a conflict) is kept.
-                    await _git.DeleteMergedBranchAsync(_options.RepoPath, branch, CancellationToken.None).ConfigureAwait(false);
-                }
-                catch (Exception e) when (e is IOException or LibGit2Sharp.LibGit2SharpException)
-                {
-                    // A leftover merged branch is harmless.
-                }
+                // A branch that landed, or never got a commit, is merged into HEAD and has done its job; an unmerged one (a conflict) is kept.
+                await _git.DeleteMergedBranchAsync(_options.RepoPath, branch, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception e) when (e is IOException or LibGit2Sharp.LibGit2SharpException)
+            {
+                // A leftover merged branch is harmless.
             }
         }
     }

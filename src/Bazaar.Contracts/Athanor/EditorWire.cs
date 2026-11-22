@@ -29,3 +29,13 @@ public sealed record EditorSaveRequest(string WorkspaceId, string Path, string B
 /// <param name="ServerRevision">With a conflict: the server's current revision.</param>
 /// <param name="ServerContent">With a conflict: the server's current content.</param>
 public sealed record EditorSaveReply(string? NewRevision, string? ServerRevision, string? ServerContent);
+
+/// <summary>Payload of <c>editor.create</c> (doc 57 §8, PROPOSED): a new file in an existing folder of a server-controlled workspace.</summary>
+/// <param name="WorkspaceId">The workspace id.</param>
+/// <param name="Path">Forward-slash path relative to the workspace root.</param>
+/// <param name="Content">The initial text (may be empty).</param>
+public sealed record EditorCreateRequest(string WorkspaceId, string Path, string Content);
+
+/// <summary>Reply to <c>editor.create</c>.</summary>
+/// <param name="Revision">The revision of the new file, to use as <c>baseRevision</c> on the first save.</param>
+public sealed record EditorCreateReply(string Revision);
