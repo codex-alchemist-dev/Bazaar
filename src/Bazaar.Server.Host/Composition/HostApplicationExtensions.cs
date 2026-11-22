@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Erasure;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -43,6 +44,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+        services.AddBazaarLegalHoldReader();
 
         // Coding harness (doc 17). Off unless Coding:Harness:Enabled is true. When on, the ports with no production source yet
         // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
