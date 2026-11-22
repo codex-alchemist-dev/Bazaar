@@ -15,6 +15,11 @@
     <None Include="**/Golden/*.md" Exclude="bin/**;obj/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Vault test helpers still used by Knowledge/Archive and Constellation/VaultGraphSourceTests. Linked, not copied; the owner decides the shared home. -->
+    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
+    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Data\VaultDb.cs" Link="Vault\Data\VaultDb.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>

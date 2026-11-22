@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Sanitization;
+namespace Bazaar.Sanitization;
 
 /// <summary>What a sanitizer span was replaced for. Values are in the order results report them.</summary>
 public enum RedactionKind
