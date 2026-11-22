@@ -5,7 +5,6 @@ using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.Roles;
 using Bazaar.GitHub;
-using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
