@@ -11,12 +11,8 @@ namespace Bazaar.EndToEnd.Tests;
 
 /// <summary>
 /// Smoke gap 5, board step: the owner assigns a Kanban card to an agent over the wire, the assignment wakes the agent through
-/// the inbox and the wake loop, and the agent works the card through the real gateway against the stub model and moves it to Review.
+/// the inbox and the wake loop, and the agent works the card through the real gateway against the stub model and moves it to Review, and its reply is posted in the card's GC.
 /// </summary>
-/// <remarks>
-/// What this does not cover yet (GAPS.md, gap 5): the agent's reply in the card's GC. The live wake path runs the old turn runner,
-/// which returns the final text and does not post it; the consolidated runner that posts is not registered in the host.
-/// </remarks>
 public sealed class BoardTaskTests(EndToEndFixture env) : IClassFixture<EndToEndFixture>
 {
     private static readonly Guid _projectId = Guid.Parse("0e2e0000-0000-4000-8000-0000000000a1");
@@ -41,6 +37,7 @@ public sealed class BoardTaskTests(EndToEndFixture env) : IClassFixture<EndToEnd
         var run = client.RunAsync(cts.Token);
         try
         {
+            await client.SubscribeAsync(WireStreams.GcPrefix + EndToEndFixture.GcId.ToString("D"), cts.Token);
             var reply = await client.RequestAsync<KanbanAssignRequest, KanbanAssignReply>(
                 WireTypes.BoardAssign, new KanbanAssignRequest(_projectId, _cardId, EndToEndFixture.AgentId, 1), cts.Token);
             Assert.Equal(KanbanAssignStatuses.Applied, reply.Status);
@@ -55,6 +52,28 @@ public sealed class BoardTaskTests(EndToEndFixture env) : IClassFixture<EndToEnd
             Assert.True(state == "review", await DiagnosticsAsync(ct));
             Assert.Equal("done", await ScalarAsync("SELECT state FROM inbox_item WHERE kind = 'assignment' AND agent_id = $1", EndToEndFixture.AgentId, ct));
             Assert.Contains(env.Model.Requests, r => r.Body.Contains("Write the smoke note", StringComparison.Ordinal));
+
+            // The reply lands in the card's GC. The tests share that GC, so match this card's reply by the card id the stub echoes.
+            var seen = new StringBuilder();
+            WireGcMessage? posted = null;
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+            wait.CancelAfter(TimeSpan.FromSeconds(20));
+            try
+            {
+                while (posted is null)
+                {
+                    var message = await client.Messages.ReadAsync(wait.Token);
+                    seen.AppendLine(CultureInfo.InvariantCulture, $"seen {message.AuthorId:D} {message.Text}");
+                    if (message.AuthorId == EndToEndFixture.AgentId && message.Text.Contains(_cardId.ToString("D"), StringComparison.Ordinal)) posted = message;
+                }
+            }
+            catch (OperationCanceledException) when (!cts.IsCancellationRequested)
+            {
+            }
+
+            Assert.True(posted is not null, "The agent's reply never reached the card's GC.\n" + seen + await DiagnosticsAsync(ct));
+
+            Assert.StartsWith(StubModelServer.ReplyPrefix, posted!.Text, StringComparison.Ordinal);
         }
         finally
         {
@@ -99,6 +118,7 @@ public sealed class BoardTaskTests(EndToEndFixture env) : IClassFixture<EndToEnd
         {
             "SELECT 'inbox ' || kind || ' ' || state FROM inbox_item",
             "SELECT 'task ' || state || ' v' || version FROM tasks",
+            "SELECT 'gcmsg ' || author_id FROM gc_message",
             "SELECT 'turn ' || status || ' ' || wake_reason FROM turn",
             "SELECT 'step ' || n || ' ' || kind || ' ' || status || ' ' || left(coalesce(response::text, ''), 300) FROM turn_step ORDER BY started_at",
         })
@@ -112,7 +132,7 @@ public sealed class BoardTaskTests(EndToEndFixture env) : IClassFixture<EndToEnd
         }
 
         sb.AppendLine(CultureInfo.InvariantCulture, $"model calls: {env.Model.Requests.Count}");
-        foreach (var line in env.Host.Log.Split('\n').Where(l => l.StartsWith("fail", StringComparison.Ordinal) || l.StartsWith("warn", StringComparison.Ordinal)).TakeLast(30))
+        foreach (var line in env.Host.Log.Split('\n').Where(l => !l.Contains("WireDiscovery", StringComparison.Ordinal) && !l.Contains("wire discovery", StringComparison.Ordinal) && !l.StartsWith("info", StringComparison.Ordinal) && !l.Contains("   at ", StringComparison.Ordinal)).TakeLast(40))
         {
             sb.AppendLine(line);
         }
