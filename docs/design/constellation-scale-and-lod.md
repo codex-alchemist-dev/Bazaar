@@ -194,3 +194,7 @@ The numbers in the old fixed table (2 000 000 instances, 100 000 edges, 2.5 / 3.
 - **Decision from this (implementation default, a tier setting):** the edge cap drops from 1 000 000 to 100 000 on the B580 tier (30 000 phone, 200 000 high), edges draw only for near tiles, and everything farther uses cluster bundles. Edge density is also the first thing the frame controller sheds.
 - Host-side wall-clock p99 hitches (121 of 150 cells above 3.3 ms while GPU p99 was under 1 ms) look like a per-frame fence wait; to be isolated before a wall-clock fps claim is made.
 
+## 12. Node icons, sections and on-demand frame pacing
+
+The owner's 2026-11-20 asks (real icons per node kind, performance-driven LOD rungs, sections, no frames at standstill, a pacer targeting the display's refresh rate with VRR) are recorded in `constellation-node-detail-and-pacing.md`. Section 11's target "defaults to the display refresh rate" is now refined there: 0 fps when still, a lower rate for small movements, the full rate for big ones.
+
