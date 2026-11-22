@@ -17,5 +17,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
-        new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly));
+        new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly));
 }

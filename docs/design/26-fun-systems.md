@@ -79,6 +79,7 @@ Purpose: a timed all-hands brainstorm for stuck or open problems.
 - **Output:** an ephemeral `brainstorm` GC. Ideas are entries tagged `idea`, with source_trust `agent`. Reactions are not votes.
 - **No execution:** an idea never becomes work. Under `lucky.cards_from_ideas`, the server creates Backlog cards (12) only for ideas the owner marked.
 - **Security:** external text taints the session (C06); a secret-shaped string quarantines the idea.
+- **Run storage [PROPOSED]:** one `lucky_run` row per run (component `lucky`, migration 0001), holding the prompt, time box, participants and ideas as JSON. The daily cap counts rows per owner per UTC day. Owner start is the `lucky.start` wire request, which stores the run and applies its plan. Owner-marked ideas become cards when the idea-recording path lands. Owner morning list.
 
 ### 7. Playtest Mode [PROPOSED]
 Purpose: UX feedback from persona players, within what agents can perceive.
