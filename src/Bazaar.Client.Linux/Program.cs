@@ -32,7 +32,14 @@ internal static class Program
         ChatConnectionSettings? settings;
         try
         {
-            settings = ChatConnectionSettings.FromEnvironment(LinuxClientSessions.EnvWithStoredToken(Environment.GetEnvironmentVariable));
+            settings = LinuxChatSettings.Resolve(
+                args,
+                Environment.GetEnvironmentVariable,
+                LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),
+                LinuxClientSessions.Store,
+                CurrentEndpoint,
+                TimeProvider.System,
+                LinuxClientSessions.RefreshStore);
         }
         catch (ArgumentException ex)
         {
@@ -72,6 +79,21 @@ internal static class Program
         // "Restart to apply" (doc 30 section 7): the launcher pipe is released above, so the new process starts as the primary instance.
         PendingRestart.StartIfScheduled(Console.Error.WriteLine);
         return exitCode;
+    }
+
+    /// <summary>The endpoint this build was made for (doc 37 section 4a), or null when the build has none (the head then opens no chat).</summary>
+    private static Bazaar.Client.Abstractions.Server.ServerEndpoint? CurrentEndpoint()
+    {
+        try
+        {
+            Bazaar.Client.Abstractions.Server.ClientServer.ConnectToCompanyServer();
+            return Bazaar.Client.Abstractions.Server.ClientServer.Current;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Bazaar: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -122,7 +144,7 @@ internal static class Program
     {
         if (settings is null)
         {
-            Console.Error.WriteLine($"Dev chat not configured. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable} to show a chat.");
+            Console.Error.WriteLine($"No chat to open yet. Sign in, then start once with {LinuxChatSettings.DevGcFlag} <group chat id> (it is remembered), or set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
         }
 
         var dataDir = ClientDataPaths.DataDir(Environment.GetEnvironmentVariable);

@@ -93,11 +93,11 @@ internal static class GitHubToolSupport
 
     /// <summary>
     /// Resolves the calling agent's installation and checks the repository is visible to it (GitHub answers 404 for a repository the
-    /// App is not installed on). Returns the installation, or a refusal. Never reveals tokens or GitHub's message text.
+    /// App is not installed on). An optional <paramref name="gate"/> runs once the installation is known and before any GitHub call; a non-null result refuses. Returns the installation, or a refusal. Never reveals tokens or GitHub's message text.
     /// </summary>
     public static async Task<(long Installation, JsonObject? Refusal)> ResolveAsync(
         IGitHubAgentInstallations installations, IGitHubAdapter adapter, IGitHubTokenProvider tokens,
-        Guid agentId, string owner, string repo, CancellationToken cancellationToken)
+        Guid agentId, string owner, string repo, CancellationToken cancellationToken, Func<long, JsonObject?>? gate = null)
     {
         if (tokens is UnconfiguredGitHubTokenProvider)
         {
@@ -108,6 +108,11 @@ internal static class GitHubToolSupport
         if (installation is not { } id)
         {
             return (0, Refuse("no_installation", "This agent has no active GitHub App installation."));
+        }
+
+        if (gate?.Invoke(id) is { } gated)
+        {
+            return (0, gated);
         }
 
         try

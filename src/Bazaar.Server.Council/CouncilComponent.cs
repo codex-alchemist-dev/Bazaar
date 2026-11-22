@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;
+using Bazaar.Server.Council.Settings;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -40,6 +42,7 @@ public sealed class CouncilComponent : IBazaarComponent
         services.TryAddSingleton<ICouncilStore>(sp => new CouncilStore(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<ICouncilReasoningCipher>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, CouncilSettingContribution>());
         services.AddBazaarCouncilService();
     }
 }
