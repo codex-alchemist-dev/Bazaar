@@ -10,16 +10,17 @@ namespace Bazaar.Server.Host.Coding;
 /// <summary>
 /// Production <see cref="IPushSessionRecords"/> over the running turns (doc 17, "Host-side sources"). The session is the running
 /// turn of the pushing agent that was woken by the push's group chat. Nothing is defaulted: no such turn means no record, so the push is
-/// denied. The approval grant is always absent until the approval store can look one up by agent, session and tool.
+/// denied. The approval grant comes from <see cref="IPushApprovalGrants"/> (an owner-signed, unexpired, unconsumed approval for exactly this push); without a source, or on any failure, it is absent.
 /// </summary>
 public sealed class RunningTurnPushSessionRecords : IPushSessionRecords
 {
     private readonly IRunningTurnIndex _turns;
     private readonly ISessionTaintStore _taint;
     private readonly TimeSpan _readTimeout;
+    private readonly IPushApprovalGrants? _grants;
 
     /// <summary>Creates the records source.</summary>
-    public RunningTurnPushSessionRecords(IRunningTurnIndex turns, ISessionTaintStore taint, TimeSpan readTimeout)
+    public RunningTurnPushSessionRecords(IRunningTurnIndex turns, ISessionTaintStore taint, TimeSpan readTimeout, IPushApprovalGrants? grants = null)
     {
         ArgumentNullException.ThrowIfNull(turns);
         ArgumentNullException.ThrowIfNull(taint);
@@ -27,6 +28,7 @@ public sealed class RunningTurnPushSessionRecords : IPushSessionRecords
         _turns = turns;
         _taint = taint;
         _readTimeout = readTimeout;
+        _grants = grants;
     }
 
     /// <inheritdoc />
@@ -64,7 +66,21 @@ public sealed class RunningTurnPushSessionRecords : IPushSessionRecords
             trust = "external";
         }
 
-        return new PushSessionRecord(turn.SessionId.ToString("D"), role, trust);
+        var sessionId = turn.SessionId.ToString("D");
+        ToolApprovalGrant? grant = null;
+        if (_grants is not null)
+        {
+            try
+            {
+                grant = await _grants.FindAsync(request, sessionId, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception) when (!cancellationToken.IsCancellationRequested)
+            {
+                grant = null;
+            }
+        }
+
+        return new PushSessionRecord(sessionId, role, trust, grant);
     }
 
     /// <summary>The least trusted label among the taint sources, using the wire names; "agent" when there are none and the session is not Hard.</summary>

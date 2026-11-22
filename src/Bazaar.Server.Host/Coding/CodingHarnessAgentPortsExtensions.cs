@@ -1,12 +1,15 @@
 using System.Globalization;
+using Bazaar.Approvals;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
 using Bazaar.Server.Identity;
+using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Quarantine;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Coding;
 
@@ -52,8 +55,22 @@ public static class CodingHarnessAgentPortsExtensions
         services.TryAddSingleton<IPushSessionRecords>(sp => new RunningTurnPushSessionRecords(
             sp.GetRequiredService<IRunningTurnIndex>(),
             sp.GetRequiredService<ISessionTaintStore>(),
-            timeout));
+            timeout,
+            sp.GetRequiredService<IPushApprovalGrants>()));
+        services.TryAddSingleton<IPushApprovalGrants>(sp => BuildGrants(sp, timeout));
         return services;
+    }
+
+    /// <summary>The approval-backed grants when an approval store, an owner key registry and a candidate source (or the shared data source) are bound; otherwise none, which keeps a hard-tainted push at "needs approval".</summary>
+    private static IPushApprovalGrants BuildGrants(IServiceProvider sp, TimeSpan timeout)
+    {
+        var store = sp.GetService<IApprovalStore>();
+        var keys = sp.GetService<IOwnerKeyRegistry>();
+        var candidates = sp.GetService<IApprovedPushApprovalIds>()
+            ?? (sp.GetService<NpgsqlDataSource>() is { } data ? new PostgresApprovedPushApprovalIds(data) : null);
+        return store is null || keys is null || candidates is null
+            ? NoPushApprovalGrants.Instance
+            : new ApprovalStorePushGrants(candidates, store, keys, sp.GetService<TimeProvider>() ?? TimeProvider.System, timeout);
     }
 
     private static TimeSpan ReadTimeout(IConfiguration configuration)
