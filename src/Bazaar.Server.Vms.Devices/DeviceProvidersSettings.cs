@@ -27,14 +27,14 @@ public static class DeviceProvidersSettings
         validate: CheckKinds);
 
     public static readonly SettingKey<int> IdleStopMinutes = new(
-        "vms.devices.idle_stop_minutes", 10, SettingScope.Install, SettingRole.Operator,
-        "Minutes an unused device guest may idle before it is stopped.",
-        validate: Between(1, 1440, "vms.devices.idle_stop_minutes"));
+        "vms.devices.idle_stop_minutes", 0, SettingScope.Install, SettingRole.Operator,
+        "Minutes an unused device guest may idle before it is stopped. 0 disables idle stops. Applies without a restart.",
+        validate: Between(0, 1440, "vms.devices.idle_stop_minutes"));
 
     public static readonly SettingKey<int> MaxConcurrent = new(
         "vms.devices.max_concurrent", 2, SettingScope.Install, SettingRole.Operator,
-        "Device guests that may run at once, all providers together. The density governor may lower it.",
-        validate: Between(1, 64, "vms.devices.max_concurrent"));
+        "Device guests that may run at once, all providers together. 0 means no aggregate cap. The density governor may still refuse a start.",
+        validate: Between(0, 64, "vms.devices.max_concurrent"));
 
     public static readonly SettingKey<string> AndroidSdkRoot = new(
         DeviceSetupValidator.AndroidSdkRootKey, string.Empty, SettingScope.Install, SettingRole.Operator,

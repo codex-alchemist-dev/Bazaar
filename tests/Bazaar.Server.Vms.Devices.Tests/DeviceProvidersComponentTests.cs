@@ -34,7 +34,7 @@ public sealed class DeviceProvidersSettingsTests
         }
 
         Assert.Empty(DeviceProvidersSettings.Enabled.Default);
-        Assert.Equal(10, DeviceProvidersSettings.IdleStopMinutes.Default);
+        Assert.Equal(0, DeviceProvidersSettings.IdleStopMinutes.Default);
         Assert.Equal(2, DeviceProvidersSettings.MaxConcurrent.Default);
         Assert.Equal(2, DeviceProvidersSettings.AndroidMaxConcurrent.Default);
         Assert.Equal(8, DeviceProvidersSettings.MicroVmMaxConcurrent.Default);

@@ -1,5 +1,6 @@
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.Providers;
+using Bazaar.Server.VmDensity.Abstractions;
 using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.WindowsSandbox;
@@ -43,11 +44,16 @@ public static class VmsCompositionExtensions
             sp.GetServices<IVmBackendSource>(),
             PairSelection(sp.GetService<ProviderCapabilityReport>()),
             sp.GetService<IVmProviderGate>()));
+        // The governor, the device-guest policy and the activity source are optional (doc 62 section 9.3): each is resolved when the
+        // lifecycle is built, so a component that registers one is used, and a host without it still starts VMs.
         services.TryAddSingleton(sp => new VmLifecycleService(
             sp.GetRequiredService<IEnvironmentVmStore>(),
             sp.GetRequiredService<IVmBackendRouter>(),
             sp.GetRequiredService<VmOperationLocks>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            sp.GetService<IDensityGovernor>(),
+            sp.GetService<IDeviceGuestPolicy>(),
+            sp.GetService<IVmActivitySource>()));
 
         return services;
     }

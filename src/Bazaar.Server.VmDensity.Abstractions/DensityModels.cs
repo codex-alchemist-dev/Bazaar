@@ -1,6 +1,9 @@
 namespace Bazaar.Server.VmDensity.Abstractions;
 
-/// <summary>The guest operating system of a VM. The governor saves idle Windows VMs before idle Linux VMs (doc 59 section 8).</summary>
+/// <summary>
+/// The guest operating system of a VM. The governor saves idle Windows VMs before idle Linux VMs (doc 59 section 8), and idle Android
+/// guests last (doc 62 section 9.3). A microVM guest is a Linux guest.
+/// </summary>
 public enum DensityGuestOs
 {
     /// <summary>A Windows guest.</summary>
@@ -8,6 +11,9 @@ public enum DensityGuestOs
 
     /// <summary>A Linux guest.</summary>
     Linux,
+
+    /// <summary>An Android emulator guest (doc 62). Saved only when its backend can save state, and after Windows and Linux guests.</summary>
+    Android,
 }
 
 /// <summary>A VM the governor is asked to admit or may save: identity, owner agent, guest OS and assigned memory.</summary>

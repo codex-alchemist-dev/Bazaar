@@ -28,6 +28,9 @@ public interface IVmBackendRouter
 
     /// <summary>Drops a retired VM's pin.</summary>
     void Release(Guid vmId);
+
+    /// <summary>True when <paramref name="kind"/> names an on-demand provider, so its VMs are device guests (doc 62 section 9.3).</summary>
+    bool IsOnDemand(string? kind) => false;
 }
 
 /// <summary>Routes every VM to one backend and records no kind: the doc 16 single-backend lifecycle.</summary>
@@ -165,6 +168,9 @@ public sealed class VmBackendRouter : IVmBackendRouter
     }
 
     public void Release(Guid vmId) => _pins.TryRemove(vmId, out _);
+
+    public bool IsOnDemand(string? kind) =>
+        kind is not null && _byKind.TryGetValue(kind, out var source) && source.Placement == VmProviderPlacement.OnDemand;
 
     private IVmBackendSource? PairSource(VmOs os) =>
         _pair.Kind is { } kind && _byKind.TryGetValue(kind, out var source) && source.GuestOs.Contains(os) ? source : null;
