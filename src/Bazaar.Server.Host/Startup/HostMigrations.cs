@@ -6,6 +6,7 @@ using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Mail;
+using Bazaar.Server.Mirror;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
@@ -19,13 +20,14 @@ public static class HostMigrations
 {
     /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Setup, Agents and Portability migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
-        new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+        new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new EmbeddedMigrationSource(typeof(UsageRepository).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
         new ComponentMigrationSource(typeof(MailComponent).Assembly),
+        new ComponentMigrationSource(typeof(MirrorComponent).Assembly),
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
