@@ -58,6 +58,11 @@ public static class HealthServiceCollectionExtensions
         services.TryAddSingleton<IMetricStore>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgMetricStore(dataSource) : new InMemoryMetricStore());
         services.TryAddSingleton<IProjectHealthService, ProjectHealthService>();
+        services.TryAddSingleton<IHealthReportStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgHealthReportStore(dataSource) : new InMemoryHealthReportStore());
+        services.TryAddSingleton<HealthReportFactSource>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, HealthReportFactSource>(sp => sp.GetRequiredService<HealthReportFactSource>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, HealthReportFactSource>(sp => sp.GetRequiredService<HealthReportFactSource>()));
 
         services.TryAddSingleton<HealthCollectJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<HealthCollectJobHandler>());

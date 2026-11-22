@@ -178,6 +178,26 @@ message GcHistory {
   int32 limit = 3;
 }
 
+message GcListItem {
+  bytes gc_id = 1;
+  string title = 2;
+  string kind = 3;
+  int32 member_count = 4;
+  int64 head_seq = 5;
+  Instant last_activity_ts = 6;
+}
+
+message GcListReply {
+  repeated GcListItem items = 1;
+  bool has_more = 2;
+  optional bytes default_gc_id = 3;
+}
+
+message GcListRequest {
+  int32 limit = 1;
+  bool include_thinking = 2;
+}
+
 message GcMemberAdd {
   bytes gc_id = 1;
   bytes principal_id = 2;
