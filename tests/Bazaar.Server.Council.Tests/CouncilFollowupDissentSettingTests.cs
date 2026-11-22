@@ -13,7 +13,7 @@ public class CouncilFollowupDissentSettingTests
     [Fact]
     public void The_key_is_registered_with_the_doc_default()
     {
-        Assert.True(SettingRegistry.Known.TryGet("council.followup_dissent_share", out var definition));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("council.followup_dissent_share", out var definition));
         Assert.Same(KnowledgeSettings.CouncilFollowupDissentShareKey, definition);
         Assert.Equal(0.33m, KnowledgeSettings.CouncilFollowupDissentShareKey.Default);
         Assert.Equal(SettingScope.Install, definition!.Scope);
