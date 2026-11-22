@@ -166,6 +166,7 @@
     <Project Path="src/Bazaar.Server.Gateway.Catalogue/Bazaar.Server.Gateway.Catalogue.csproj" />
     <Project Path="src/Bazaar.Server.Gateway/Bazaar.Server.Gateway.csproj" />
     <Project Path="src/Bazaar.Secrets.Abstractions/Bazaar.Secrets.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Secrets.Postgres/Bazaar.Server.Secrets.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Settings.Abstractions/Bazaar.Server.Settings.Abstractions.csproj" />
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Guest.PoolSpawn/Bazaar.Guest.PoolSpawn.csproj" />

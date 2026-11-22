@@ -51,12 +51,13 @@ public static class HostApplicationExtensions
         services.AddBazaarPostgresCredentialLeases();
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
-        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
+        services.AddBazaarSecretStore(configuration);
+        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarLegalHoldReader();
