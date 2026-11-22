@@ -7,6 +7,14 @@ public class RuleGeneratorTests
 {
     private static EgressRules Rules(string address, int port) => new(["example.com"], IPAddress.Parse(address), port);
 
+    [Theory]
+    [InlineData("agent1\n", "vnet3")]
+    [InlineData("agent1", "vnet3\n")]
+    public void Nftables_names_with_a_trailing_newline_are_rejected(string tag, string iface)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => NftablesRuleset.Generate(tag, iface, Rules("10.99.0.1", 3128)));
+    }
+
     [Fact]
     public void HyperV_rules_allow_only_the_proxy_and_deny_the_rest_both_ways_and_both_families()
     {

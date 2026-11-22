@@ -21,6 +21,13 @@ public enum AuditExportTarget
     None,
 }
 
+/// <summary>Which credential the server merges with (doc 14, C25). Wire form is snake_case: <c>owner_app</c>, <c>linked_user</c>.</summary>
+public enum MergeCredentialKind
+{
+    OwnerApp,
+    LinkedUser,
+}
+
 /// <summary>
 /// The <c>security.*</c> settings from the doc 15 settings table (DECISIONS-LOG round 13). Every key needs owner approval
 /// (Tier 2), so a write is held until approval exists. The floors that bound these values are in <see cref="SecurityFloors"/>
@@ -82,6 +89,22 @@ public static class SecuritySettings
             "Whether the Nigerian Prince Protocol is enabled (risk wizard).", approval),
     ];
 
+    /// <summary>
+    /// The owner merge credential choice (doc 14 <c>identity.merge_credential</c>, set in the setup wizard; doc 45 step 10). Holds a
+    /// choice and a <c>secret://bazaar/</c> reference only, never a credential: the credential itself is owner-class in the secret store.
+    /// The shipped default is the owner's linked credential (the plan default). Doc 14 asks for owner approval on a later change; the
+    /// registry has no rule for "changing a stored value", so the approval for later changes stays OPEN here and lives in the merge flow
+    /// (doc 21, 28), which only acts on a signed owner approval anyway. These keys are not <c>security.*</c> names, so the floor store ignores them.
+    /// </summary>
+    public static IReadOnlyList<SettingDefinition> IdentityKeys { get; } =
+    [
+        new SettingKey<MergeCredentialKind>("identity.merge_credential", MergeCredentialKind.LinkedUser, SettingScope.Install, _operatorOrOwner,
+            "Merge credential form: owner_app (a dedicated owner GitHub App) or linked_user (the owner's linked GitHub credential)."),
+        new SettingKey<string>("identity.merge_credential.app_id_ref", "", SettingScope.Install, _operatorOrOwner,
+            "Secret reference (secret://bazaar/...) to the owner GitHub App id. Empty when the credential is linked_user.",
+            validate: CheckSecretReferenceOrEmpty),
+    ];
+
     /// <summary>The shipped set: every key needs owner approval.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } = Build(ApprovalTier.Tier2);
 
@@ -96,6 +119,17 @@ public static class SecuritySettings
     {
         definition = All.FirstOrDefault(d => string.Equals(d.Name, key, StringComparison.Ordinal));
         return definition is not null;
+    }
+
+    private static string? CheckSecretReferenceOrEmpty(string reference)
+    {
+        if (reference.Length == 0)
+            return null;
+        const string prefix = "secret://bazaar/";
+        if (reference.Length <= prefix.Length || reference.Length > 256 || !reference.StartsWith(prefix, StringComparison.Ordinal)
+            || reference.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            return "must be empty or a secret://bazaar/ reference with no spaces.";
+        return null;
     }
 
     private static Func<int, string?> AtLeast(int min) =>

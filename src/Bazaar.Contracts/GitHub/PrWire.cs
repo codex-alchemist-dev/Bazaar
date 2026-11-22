@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Contracts.GitHub;
 
@@ -45,6 +46,7 @@ public enum PrAuthorKind
 /// <param name="State">Which PRs to list.</param>
 /// <param name="Cursor">Opaque paging cursor from a previous reply, or null for the first page.</param>
 /// <param name="Limit">Page size hint; the server clamps it.</param>
+[WirePayload(WireTypes.PrList)]
 public sealed record PrListRequest(string? Repo, PrListState State, string? Cursor, int? Limit);
 
 /// <summary>One row of the PR list.</summary>
@@ -61,6 +63,7 @@ public sealed record PrListRequest(string? Repo, PrListState State, string? Curs
 /// <param name="InstallationId">GitHub App installation that reads the repo. Null from a server that predates the identity fields; a client then cannot merge.</param>
 /// <param name="Owner">Repo owner login, the first half of <paramref name="Repo"/>. Null from an older server.</param>
 /// <param name="RepoName">Repo name, the second half of <paramref name="Repo"/>. Null from an older server.</param>
+[WirePayload]
 public sealed record PrListRow(
     string PrId,
     string Repo,
@@ -79,10 +82,12 @@ public sealed record PrListRow(
 /// <summary>Reply to <c>pr.list</c>.</summary>
 /// <param name="Rows">The page.</param>
 /// <param name="NextCursor">Cursor for the next page, or null at the end.</param>
+[WirePayload]
 public sealed record PrListReply(IReadOnlyList<PrListRow> Rows, string? NextCursor);
 
 /// <summary>Payload of <c>pr.summary</c>.</summary>
 /// <param name="PrId">The PR.</param>
+[WirePayload(WireTypes.PrSummary)]
 public sealed record PrSummaryRequest(string PrId);
 
 /// <summary>One changed file in a PR summary.</summary>
@@ -90,6 +95,7 @@ public sealed record PrSummaryRequest(string PrId);
 /// <param name="Status">GitHub's file status: added, modified, removed, renamed.</param>
 /// <param name="Additions">Added lines.</param>
 /// <param name="Deletions">Removed lines.</param>
+[WirePayload]
 public sealed record PrChangedFile(string Path, string Status, int Additions, int Deletions);
 
 /// <summary>Reply to <c>pr.summary</c>.</summary>
@@ -104,6 +110,7 @@ public sealed record PrChangedFile(string Path, string Status, int Additions, in
 /// <param name="Owner">Repo owner login, or null from an older server.</param>
 /// <param name="RepoName">Repo name, or null from an older server.</param>
 /// <param name="Number">PR number, or null from an older server.</param>
+[WirePayload]
 public sealed record PrSummaryReply(
     string PrId,
     string HeadSha,
@@ -133,6 +140,7 @@ public enum PrHunksStatus
 /// <param name="HeadSha">The head sha the client is looking at.</param>
 /// <param name="Path">File whose hunks are wanted.</param>
 /// <param name="Cursor">Opaque paging cursor, or null for the first page.</param>
+[WirePayload(WireTypes.PrHunks)]
 public sealed record PrHunksRequest(string PrId, string HeadSha, string Path, string? Cursor);
 
 /// <summary>One unified-diff hunk. <see cref="Lines"/> keep their leading space, plus or minus.</summary>
@@ -142,6 +150,7 @@ public sealed record PrHunksRequest(string PrId, string HeadSha, string Path, st
 /// <param name="NewStart">First new line.</param>
 /// <param name="NewCount">New line count.</param>
 /// <param name="Lines">Hunk lines, each with its diff prefix.</param>
+[WirePayload]
 public sealed record PrHunk(string Header, int OldStart, int OldCount, int NewStart, int NewCount, IReadOnlyList<string> Lines);
 
 /// <summary>Reply to <c>pr.hunks</c>.</summary>
@@ -150,6 +159,7 @@ public sealed record PrHunk(string Header, int OldStart, int OldCount, int NewSt
 /// <param name="Path">File the hunks are for.</param>
 /// <param name="Hunks">Hunks for <paramref name="HeadSha"/>; empty when stale.</param>
 /// <param name="NextCursor">Cursor for the next page, or null at the end.</param>
+[WirePayload]
 public sealed record PrHunksReply(PrHunksStatus Status, string HeadSha, string Path, IReadOnlyList<PrHunk> Hunks, string? NextCursor);
 
 /// <summary>Review event names a client may send. There is no approve: reviewer approval is data, not merge authority.</summary>
@@ -167,6 +177,7 @@ public static class PrReviewEvents
 /// <param name="HeadSha">The head sha the review is about.</param>
 /// <param name="Event"><see cref="PrReviewEvents.Comment"/> or <see cref="PrReviewEvents.RequestChanges"/>.</param>
 /// <param name="Body">Review text.</param>
+[WirePayload(WireTypes.PrReview)]
 public sealed record PrReviewRequest(string PrId, string HeadSha, string Event, string Body);
 
 /// <summary>Outcome of <c>pr.review</c>.</summary>
@@ -182,6 +193,7 @@ public enum PrReviewStatus
 /// <param name="Status">Applied, stale or refused.</param>
 /// <param name="HeadSha">The PR's current head sha when known (always set for stale), else null.</param>
 /// <param name="Message">Why a review was refused, or null.</param>
+[WirePayload]
 public sealed record PrReviewReply(PrReviewStatus Status, string? HeadSha, string? Message);
 
 /// <summary>
@@ -215,6 +227,7 @@ public sealed record PrOwnerPayload(
 /// <param name="CommitMessage">Squash commit message, including any sign-off line; the server adds nothing.</param>
 /// <param name="Owner">The signed owner payload.</param>
 /// <param name="Signature">Owner device signature over the payload (base64 on the wire).</param>
+[WirePayload(WireTypes.PrMerge)]
 public sealed record PrMergeRequest(
     string PrId,
     string HeadSha,
@@ -253,4 +266,5 @@ public enum PrMergeStatus
 /// <param name="Status">The outcome.</param>
 /// <param name="HeadSha">The PR's current head sha when known (always set for stale), else null.</param>
 /// <param name="Message">Short reason for a non-merged outcome, or null.</param>
+[WirePayload]
 public sealed record PrMergeReply(PrMergeStatus Status, string? HeadSha, string? Message);

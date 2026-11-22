@@ -14,10 +14,13 @@ public static partial class SetupPlanValidator
     private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
     private static readonly string[] _updateModes = ["automatic", "manual"];
     private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
+    private static readonly string[] _identityKekProviders = ["file", "dpapi", "openbao", "tpm"];
     private static readonly string[] _mergeKinds = ["owner_app", "owner_linked"];
     private static readonly string[] _privacyProfiles = ["private"];
 
     private const int _maxNameLength = 100;
+
+    private const string _providerSecretPrefix = "secret://bazaar/providers/";
 
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,62}$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugRegex();
@@ -68,6 +71,7 @@ public static partial class SetupPlanValidator
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
         ValidateUpdatePolicy(plan, issues);
+        ValidateIdentityKek(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
@@ -308,6 +312,7 @@ public static partial class SetupPlanValidator
     private static void ValidateModels(SetupModelsSection models, List<SetupValidationIssue> issues)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        var canonicalIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < models.Sources.Count; i++)
         {
             var source = models.Sources[i];
@@ -325,11 +330,51 @@ public static partial class SetupPlanValidator
             {
                 issues.Add(Error(path + ".keyRef", "must be a secret://bazaar/ reference, or omitted. A literal value is not accepted."));
             }
+            else if (source.KeyRef is not null && !source.KeyRef.StartsWith(_providerSecretPrefix, StringComparison.Ordinal))
+            {
+                issues.Add(Error(path + ".keyRef", "must be under secret://bazaar/providers/ (the gateway only stores provider key references from there)."));
+            }
+
+            if (source.Id is not null && SlugRegex().IsMatch(source.Id))
+            {
+                ValidateModelSourceAgainstCatalogue(source, path, canonicalIds, issues);
+            }
         }
 
         if (IsBlank(models.DefaultPreset))
         {
             issues.Add(Error("models.defaultPreset", "must not be blank."));
+        }
+        else if (!SlugRegex().IsMatch(models.DefaultPreset))
+        {
+            issues.Add(Error("models.defaultPreset", "must be a lower-case slug."));
+        }
+    }
+
+    /// <summary>
+    /// A source must be one the default catalogue knows (doc 05), because the plan carries no kind, adapter or base URL and setup does not
+    /// invent them. A source that takes a key must carry one, and a local runtime takes none (the gateway refuses a key for auth none).
+    /// </summary>
+    private static void ValidateModelSourceAgainstCatalogue(SetupModelSource source, string path, HashSet<string> canonicalIds, List<SetupValidationIssue> issues)
+    {
+        if (!ModelSourceCatalogue.Default.TryGet(source.Id, out var entry) || entry is null)
+        {
+            issues.Add(Error(path + ".id", "is not in the default model source catalogue (doc 05), so its kind, adapter and base URL are unknown. Add the source in the admin panel after setup."));
+            return;
+        }
+
+        if (!canonicalIds.Add(entry.Id))
+        {
+            issues.Add(Error(path + ".id", "names a source that another entry already names (an id and its alias are the same source)."));
+        }
+
+        if (entry.TakesKey && source.KeyRef is null)
+        {
+            issues.Add(Error(path + ".keyRef", "is required: this source takes an API key or bearer token, held by reference."));
+        }
+        else if (!entry.TakesKey && source.KeyRef is not null)
+        {
+            issues.Add(Error(path + ".keyRef", "must be omitted: this source is a local runtime and takes no key."));
         }
     }
 
@@ -448,6 +493,20 @@ public static partial class SetupPlanValidator
         if (_updateModes.Contains(plan.Install.UpdatePolicy.Other, StringComparer.Ordinal) && !SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
         {
             issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
+        }
+    }
+
+    /// <summary>
+    /// The identity KEK provider (doc 45 step 5, doc 14 <c>identity.kek_provider</c>). Optional: absent writes nothing. A value must be
+    /// file, dpapi, openbao or tpm (a provider may land in a later build, the plan value is valid now). The KEK opens before the
+    /// database, so this value is applied to the host configuration file, not to the settings registry (PROPOSED, doc 45 step 5).
+    /// </summary>
+    private static void ValidateIdentityKek(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        var value = plan.Custody.IdentityKek;
+        if (value is not null && !_identityKekProviders.Contains(value, StringComparer.Ordinal))
+        {
+            issues.Add(Error("custody.identityKek", "must be file, dpapi, openbao or tpm, or omitted for the server default."));
         }
     }
 
