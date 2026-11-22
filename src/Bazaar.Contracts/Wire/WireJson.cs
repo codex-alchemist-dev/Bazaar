@@ -42,6 +42,7 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcTyping))]
 [JsonSerializable(typeof(GcTypingResult))]
 [JsonSerializable(typeof(PresenceTyping))]
+[JsonSerializable(typeof(PaneFrame))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
