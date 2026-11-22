@@ -35,7 +35,7 @@ public sealed class QuicNativeRealNetTests
         await listener.StartAsync(Ct);
         Assert.Single(listener.Offers);
         var offer = listener.Offers[0];
-        return (listener, cert, offer with { Endpoint = $"localhost:{listener.LocalEndPoint!.Port}" });
+        return (listener, cert, offer with { Endpoint = $"127.0.0.1:{listener.LocalEndPoint!.Port}" });
     }
 
     private static QuicWireConnector Connector(X509Certificate2 cert) => new(new QuicWireConnectorOptions { PinCertificate = QuicCertificatePin.Sha256(cert.GetCertHash(HashAlgorithmName.SHA256)) });
@@ -96,7 +96,7 @@ public sealed class QuicNativeRealNetTests
         await using var connection = await QuicConnection.ConnectAsync(
             new QuicClientConnectionOptions
             {
-                RemoteEndPoint = new DnsEndPoint("localhost", listener.LocalEndPoint!.Port),
+                RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, listener.LocalEndPoint!.Port),
                 DefaultStreamErrorCode = 0,
                 DefaultCloseErrorCode = 0,
                 ClientAuthenticationOptions = new SslClientAuthenticationOptions
