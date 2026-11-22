@@ -47,6 +47,7 @@ using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.Audit;
+using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Bazaar.Server.WebAdmin;
@@ -114,6 +115,7 @@ public static class HostComponents
         // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
         // "not supported" off Windows; the KVM adapter is limited to Linux here.
         new VmDisplayComponent(),
+        new VmDisplayGateComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
         new HyperVComponent(),
