@@ -89,6 +89,7 @@ Shows: version, protocol, uptime, readiness word from 03's `/health/ready`, prov
 Code in `src/Bazaar.Server.Gateway/Usage/`, tests in `tests/Bazaar.Server.Tests/Gateway/Usage/`.
 - Done (pure, tested with fakes): `PriceTableLoader` (dated JSON price table, unknown fields rejected), `UsageRollup` (hourly `usage_hour` rows with identity split, error and estimate counts, 2-hour rebuild window via `WindowStart`), `UsageTotalsBuilder` (cost known or unknown, identity split, long-prompt count).
 - Not yet: the `price_table` and `usage_hour` migration, the rollup job's Postgres upsert, and the status and client views. These need a Postgres run.
+- Module `Bazaar.Server.Observatory` (+ `.Abstractions`, tests in `tests/Bazaar.Server.Observatory.Tests/`): `ObservatoryService` reads `gw_usage` through `IUsageReader`, prices through `IUsageCostCalculator` (null = unknown), and returns usage by agent, model and source, the GC cost chip per turn, lanes with near-limit state (`observatory.near_limit_percent`) and the dashboard card (sections "Usage today", "By source", "By agent", "Lanes") in the shape `Bazaar.Client.Dashboard` already lays out, so no new client pane is needed. The host still has to supply Postgres-backed `IUsageReader` and `ILaneReader` and a price adapter over the gateway's `PriceTable`.
 - `usage_hour` carries an `estimated_calls` count beyond the columns above, so estimates stay labelled in rollups.
 - The long-prompt check counts uncached input plus both cache-write buckets plus cache reads, against a 100K default.
 
