@@ -49,7 +49,14 @@ public sealed class ChatViewModel : IChatViewModel
     public string Draft
     {
         get => _draft;
-        set => SetProperty(ref _draft, value);
+        set
+        {
+            if (_draft == value) return;
+            SetProperty(ref _draft, value);
+
+            // Typing is a hint to the other members: a non-empty draft is a start or refresh (the session throttles it), an empty one a stop.
+            _ = _session.NotifyTypingAsync(value.Trim().Length > 0);
+        }
     }
 
     /// <summary>The session status line.</summary>

@@ -1,5 +1,6 @@
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Setup.Postgres;
@@ -17,5 +18,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
+        new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly));
 }

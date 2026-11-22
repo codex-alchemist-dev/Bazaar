@@ -16,7 +16,7 @@ public sealed class ChatHost : IAsyncDisposable
     private ChatHost(GcChatSession session, Action<Action>? dispatch, Action<string> log)
     {
         Session = session;
-        Model = new ChatViewModel(session, dispatch);
+        Model = new ChatViewModel(session, dispatch, session.Reactions, session.Typing);
         View = ChatViewFactory.Instance.Create(Model);
         Started = StartLoggingAsync(token => session.StartAsync(token), log, _stop.Token);
     }

@@ -33,6 +33,24 @@ public sealed class WireClient(
     /// <summary>Resync notices: the client should page back with <c>gc.history</c>.</summary>
     public ChannelReader<Resync> Resyncs => _resyncs.Reader;
 
+    /// <summary>
+    /// Raised on the receive loop for each live <c>gc.reaction</c> event (docs/design/02, "Reactions on the wire"). Handlers must not
+    /// block or await a request inline; the receive loop is the thing that answers requests.
+    /// </summary>
+    public event Action<WireGcReaction>? ReactionReceived;
+
+    /// <summary>Raised on the receive loop for each typing delta (<c>presence.update</c> of kind <c>typing</c>). The same rules apply to handlers.</summary>
+    public event Action<PresenceTyping>? TypingReceived;
+
+    /// <summary>
+    /// Raised on the receive loop after each connection is established and its streams are subscribed, the first one included. State
+    /// that is not replayed (reactions) is fetched again here. Handlers must hand the work off, not await a request inline.
+    /// </summary>
+    public event Action? Connected;
+
+    /// <summary>The principal the server authenticated this client as, from the latest <c>welcome</c>; null before the first one.</summary>
+    public Guid? PrincipalId { get; private set; }
+
     /// <summary>Set once the client has stopped for good; null while it runs.</summary>
     public WireClientStopReason? Stopped { get; private set; }
 
@@ -161,6 +179,7 @@ public sealed class WireClient(
         if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
         var welcome = codec.DecodePayload<Welcome>(welcomeEnv);
         if (welcome.UpgradeRequired == true) return WireCloseCodes.UpgradeRequired;
+        PrincipalId = welcome.PrincipalId;
         connected();
 
         string[] streams;
@@ -174,6 +193,7 @@ public sealed class WireClient(
 
         if (streams.Length > 0) await SendSubscribeAsync(conn, streams, ct).ConfigureAwait(false);
         foreach (var p in resend) await conn.SendAsync(p.Frame, ct).ConfigureAwait(false);
+        Connected?.Invoke();
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var heartbeat = HeartbeatAsync(conn, welcome, linked);
@@ -229,6 +249,14 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.GcMessage):
                 Apply(codec.DecodePayload<WireGcMessage>(env));
+                break;
+            case (EnvelopeKind.Event, WireTypes.GcReaction):
+                ReactionReceived?.Invoke(codec.DecodePayload<WireGcReaction>(env));
+                break;
+            case (EnvelopeKind.Event, WireTypes.PresenceUpdate):
+                var presence = codec.DecodePayload<PresenceTyping>(env);
+                // Other kinds of presence delta share this type; only typing is read here, the rest are ignored.
+                if (presence.Kind == PresenceKinds.Typing) TypingReceived?.Invoke(presence);
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.

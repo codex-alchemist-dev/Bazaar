@@ -30,6 +30,8 @@
     <Project Path="src/Bazaar.Server.AccountApproval.Abstractions/Bazaar.Server.AccountApproval.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild/Bazaar.Server.CompanyBuild.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild.Abstractions/Bazaar.Server.CompanyBuild.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.GcReactions/Bazaar.Server.GcReactions.csproj" />
+    <Project Path="src/Bazaar.Server.GcReactions.Abstractions/Bazaar.Server.GcReactions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Constitution/Bazaar.Server.Constitution.csproj" />
@@ -318,6 +320,7 @@
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Hiring.Tests/Bazaar.Server.Council.Hiring.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.GcReactions.Tests/Bazaar.Server.GcReactions.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Verifier.Tests/Bazaar.Server.Portability.Verifier.Tests.csproj" />

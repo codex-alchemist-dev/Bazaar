@@ -28,6 +28,7 @@ public static class GcWireServiceCollectionExtensions
 
         services.TryAddSingleton<GcReadAccess>();
         services.TryAddSingleton<IGcReadAccess>(sp => sp.GetRequiredService<GcReadAccess>());
+        services.TryAddSingleton<IGcWriteAccess>(sp => sp.GetRequiredService<GcReadAccess>());
 
         // Per-person AES-256-GCM bodies (docs/design/04 Question 2). The KEK provider is optional at registration: without one the
         // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
