@@ -16,12 +16,6 @@ public enum MentionRejectReason
     NotAMember,
 }
 
-/// <summary>A span that passed validation and will produce a <c>gc_mention</c> row.</summary>
-/// <param name="TargetPrincipalId">The validated target.</param>
-/// <param name="Start">UTF-16 offset, copied from the span.</param>
-/// <param name="Length">UTF-16 length, copied from the span.</param>
-public sealed record AcceptedMention(Guid TargetPrincipalId, int Start, int Length);
-
 /// <summary>A span that was refused, with the reason.</summary>
 /// <param name="Span">The span as the client sent it.</param>
 /// <param name="Reason">Why it was refused.</param>

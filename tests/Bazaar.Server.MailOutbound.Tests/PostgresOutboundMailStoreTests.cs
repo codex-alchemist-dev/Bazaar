@@ -105,6 +105,19 @@ public sealed class PostgresOutboundMailStoreTests
     }
 
     [Fact]
+    public async Task A_closed_mailbox_is_refused_as_a_sender_and_leaves_no_rows()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, _skipReason);
+        await using var db = await CreateDbAsync();
+        await Exec(db.DataSource, "UPDATE mail_mailbox SET state = 'closed' WHERE local_part = 'charles'", []);
+        var store = new PostgresOutboundMailStore(db.DataSource, new TestBodyProtector());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.TryInsertAsync(Fresh(Request()), Ct));
+
+        Assert.Equal(0L, await Scalar<long>(db.DataSource, "SELECT count(*) FROM mail_message"));
+    }
+
+    [Fact]
     public async Task An_unprovisioned_mailbox_is_refused_and_leaves_no_rows()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, _skipReason);

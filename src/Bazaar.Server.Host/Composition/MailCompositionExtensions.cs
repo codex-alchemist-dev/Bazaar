@@ -1,11 +1,13 @@
 using Bazaar.RateLimits;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Mail.Quarantine;
 using Bazaar.Server.MailDns;
 using Bazaar.Server.MailInbound;
+using Bazaar.Server.MailOnboarding;
 using Bazaar.Server.MailOutbound;
 using Bazaar.Server.MailRuntime;
 using Microsoft.Extensions.Configuration;
@@ -26,7 +28,7 @@ public static class MailCompositionExtensions
 
     /// <summary>
     /// When enabled, registers the GC appender over <see cref="IGcLogWriter"/>, the Postgres quarantine store, the DNS checker and
-    /// setup step, the rate limiter and the mail runtime with its two hosted loops. Needs <c>AddBazaarSecrets</c>, the audit component
+    /// setup step, mail onboarding with its GC adapter, the rate limiter and the mail runtime with its two hosted loops. Needs <c>AddBazaarSecrets</c>, the audit component
     /// and the gateway's shared <see cref="NpgsqlDataSource"/>; run it after <c>AddBazaarComponents</c>.
     /// </summary>
     public static IServiceCollection AddBazaarMail(this IServiceCollection services, IConfiguration configuration)
@@ -49,6 +51,13 @@ public static class MailCompositionExtensions
             sp.GetService<IKekProvider>() is null ? new FailClosedMailBodyProtector() : new PersonKeyMailBodyProtector(sp.GetRequiredService<IMailPersonKeys>()));
         services.TryAddSingleton<IMailBodySealer>(sp =>
             sp.GetService<IKekProvider>() is null ? new FailClosedMailBodySealer() : new PersonKeyMailBodySealer(sp.GetRequiredService<IMailPersonKeys>()));
+        // Mail onboarding (doc 22, "Mail onboarding (doc 06)"): the real inbox GC port over GC's provisioner, and the owner from the human table. The
+        // provisioner is GC's own service; Ryusei registers it too, so TryAdd keeps one. No owner row means the port creates nothing.
+        services.TryAddSingleton(sp => new GcCreateService(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IGcProvisioner>(sp => sp.GetRequiredService<GcCreateService>());
+        services.TryAddSingleton<IMailOwnerDirectory>(sp => new PostgresMailOwnerDirectory(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IInboxGcPort>(sp => new GcInboxGcPort(sp.GetRequiredService<IGcProvisioner>(), sp.GetRequiredService<IMailOwnerDirectory>()));
+        services.AddBazaarMailOnboarding();
         services.AddBazaarRateLimits();
         services.AddBazaarMailScreening();
         services.AddBazaarMailDns();
