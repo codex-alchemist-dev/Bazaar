@@ -23,7 +23,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
 
     public ModuleSignatureChaosTests()
     {
-        _store.Add(new TrustedModuleKey(_keyId, "publisher", _key, _now.AddYears(-1), _now.AddYears(1)));
+        _store.Add(new TrustedModuleKey(_keyId, "publisher", _key, _now.AddYears(-1), _now.AddYears(1)) { ModuleIdScopes = ["bazaar"] });
         _verifier = new EcdsaModuleSignatureVerifier(_store, _time);
     }
 
@@ -137,13 +137,13 @@ public sealed class ModuleSignatureChaosTests : IDisposable
 
         using ECDsa other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         InMemoryTrustedKeyStore store = new();
-        store.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
+        store.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true) { ModuleIdScopes = ["bazaar"] });
         EcdsaModuleSignatureVerifier revoked = new(store, new FakeTimeProvider(_now));
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, revoked.Verify(good));
 
         // A key that is not valid yet, and a package that names a key id nobody trusts.
         InMemoryTrustedKeyStore future = new();
-        future.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddDays(1), _now.AddYears(1)));
+        future.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddDays(1), _now.AddYears(1)) { ModuleIdScopes = ["bazaar"] });
         Assert.Equal(ModuleSignatureStatus.KeyNotValid, new EcdsaModuleSignatureVerifier(future, new FakeTimeProvider(_now)).Verify(good));
         Assert.Equal(ModuleSignatureStatus.UnknownKey, _verifier.Verify(good with { SignerKeyId = "nobody" }));
     }
@@ -169,7 +169,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
         // The same package, later: the key is revoked and the content digest has been swapped on disk.
         using ECDsa other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         InMemoryTrustedKeyStore store = new();
-        store.Add(new TrustedModuleKey(_keyId, "publisher", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
+        store.Add(new TrustedModuleKey(_keyId, "publisher", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true) { ModuleIdScopes = ["bazaar"] });
         Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good, new EcdsaModuleSignatureVerifier(store, _time), approved, owner));
         Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good with { ContentDigestSha256Hex = new string('c', 64) }, _verifier, approved, owner));
 

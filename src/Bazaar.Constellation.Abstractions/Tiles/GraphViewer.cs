@@ -23,7 +23,9 @@ public sealed record GraphViewer(bool IsOwner, string? AgentOwner)
     /// A key for everything this viewer may see: viewers with equal scopes get the same projection, so a cache may share
     /// one entry between them and must never share it with another scope. A slug holds no slash, so the joined list is unambiguous.
     /// </summary>
-    public string Scope => IsOwner ? "owner" : AgentOwner is null ? "shared" : "private:" + AgentOwner + "/" + string.Join('/', _projects);
+    public string Scope => IsOwner ? "owner" : AgentOwner is null ? "shared"
+        : _projects.Length == 0 ? "private:" + AgentOwner
+        : "private:" + AgentOwner + "/" + string.Join('/', _projects);
 
     public bool Equals(GraphViewer? other) =>
         other is not null && IsOwner == other.IsOwner && AgentOwner == other.AgentOwner && _projects.AsSpan().SequenceEqual(other._projects);

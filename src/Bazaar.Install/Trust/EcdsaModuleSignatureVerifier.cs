@@ -81,6 +81,7 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             || !ModuleText.IsToken(package.PublisherId)
             || !ModuleText.IsToken(package.SignerKeyId)
             || !ModuleText.IsSha256Hex(package.ContentDigestSha256Hex)
+            || package.DeclaredPermissions is null
             || package.DeclaredPermissions.Count > ModuleText.MaxPermissions)
         {
             return false;
@@ -91,6 +92,6 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return false;
         }
 
-        return package.DeclaredPermissions is not null && package.DeclaredPermissions.All(ModuleText.IsToken);
+        return package.DeclaredPermissions.All(ModuleText.IsToken);
     }
 }
