@@ -13,6 +13,7 @@ public static class FirstRunGatewayServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<IDefaultAgentRoutes, GatewayDefaultAgentRoutes>();
         services.TryAddSingleton<DefaultAgentPolicyGrant>();
+        services.TryAddSingleton<DefaultAgentGrantService>();
         return services;
     }
 }

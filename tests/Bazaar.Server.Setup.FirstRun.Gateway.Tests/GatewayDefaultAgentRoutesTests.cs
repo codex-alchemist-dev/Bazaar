@@ -133,3 +133,40 @@ public class DefaultAgentPolicyGrantTests
         Assert.Equal(Whitelist, dir.Policies[Agent.ToString("D")].Entries);
     }
 }
+
+public class DefaultAgentGrantServiceTests
+{
+    private static DefaultAgentGrantService Service(FakeDirectory dir) =>
+        new(new GatewayDefaultAgentRoutes(dir), new DefaultAgentPolicyGrant(dir), dir);
+
+    [Fact]
+    public async Task Grant_builds_whitelist_and_is_idempotent()
+    {
+        var dir = new FakeDirectory(new ClaudeSourceModel(new ModelRef("a", "claude-x"), true));
+        var agent = Guid.NewGuid();
+        var svc = Service(dir);
+
+        Assert.True(await svc.GrantAsync(agent, TestContext.Current.CancellationToken));
+        Assert.True(await svc.GrantAsync(agent, TestContext.Current.CancellationToken));
+        Assert.Equal(["default-agent-balanced", "a:claude-x"], dir.Policies[agent.ToString("D")].Entries);
+    }
+
+    [Fact]
+    public async Task Grant_without_a_claude_source_writes_nothing()
+    {
+        var dir = new FakeDirectory();
+        Assert.False(await Service(dir).GrantAsync(Guid.NewGuid(), TestContext.Current.CancellationToken));
+        Assert.Empty(dir.Policies);
+    }
+
+    [Fact]
+    public async Task Filter_returns_only_agents_with_no_policy_row()
+    {
+        var dir = new FakeDirectory();
+        var has = Guid.NewGuid();
+        var lacks = Guid.NewGuid();
+        dir.Policies[has.ToString("D")] = (["a:b"], "a:b", "owner");
+
+        Assert.Equal([lacks], await Service(dir).FilterWithoutPolicyAsync([has, lacks], TestContext.Current.CancellationToken));
+    }
+}
