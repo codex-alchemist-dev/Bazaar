@@ -9,7 +9,6 @@ public sealed class HostMigrationSourceTests
     [InlineData("common")]
     [InlineData("vms")]
     [InlineData("hive")]
-    [InlineData("talent_pool")]
     public void Host_source_includes_each_module_namespace(string ns)
     {
         var source = HostMigrations.Source();

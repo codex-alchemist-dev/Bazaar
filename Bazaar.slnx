@@ -164,8 +164,6 @@
     <Project Path="src/Bazaar.Client.Hive/Bazaar.Client.Hive.csproj" />
     <Project Path="src/Bazaar.Server.Twin.Prose/Bazaar.Server.Twin.Prose.csproj" />
     <Project Path="src/Bazaar.Server.Twin.Prose.Abstractions/Bazaar.Server.Twin.Prose.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Server.TalentPool.Abstractions/Bazaar.Server.TalentPool.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Server.TalentPool/Bazaar.Server.TalentPool.csproj" />
     <Project Path="src/Bazaar.Server.Community.Abstractions/Bazaar.Server.Community.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Community.GitHub/Bazaar.Server.Community.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.Coding.Abstractions/Bazaar.Server.Coding.Abstractions.csproj" />
@@ -349,7 +347,6 @@
     <Project Path="tests/Bazaar.Client.CompanyMemory.Tests/Bazaar.Client.CompanyMemory.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Hive.Tests/Bazaar.Client.Hive.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Twin.Prose.Tests/Bazaar.Server.Twin.Prose.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.TalentPool.Tests/Bazaar.Server.TalentPool.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
