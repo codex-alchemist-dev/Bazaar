@@ -19,11 +19,11 @@ Evidence labels used below: **V** = primary page or file read (summarised by the
 
 ## 3. How it plugs in
 
-- **Provider.** One `gw_provider` record: kind `gateway`, adapter `openai_chat`, base URL above, `auth_kind` `bearer`, `secret_ref` as in section 2. Adapter code: `src/Bazaar.Server/Gateway/Adapters/OpenAi/OpenAiChatAdapter.cs`.
+- **Provider.** One `gw_provider` record: kind `gateway`, adapter `openai_chat`, base URL above, `auth_kind` `bearer`, `secret_ref` as in section 2. Adapter code: `src/Bazaar.Server.Gateway/Adapters/OpenAi/OpenAiChatAdapter.cs`.
 - **Route.** One named route, `agent-default`, with model `auto`. FreeLLMAPI picks the upstream model. Bazaar checks the candidate route against the agent's policy on every attempt (doc 05, Pipeline).
 - **Expected set.** The route declares the expected member set: the free-lane preset the operator ticked in guided setup (doc 05, step 5). This is the same audit as delegated routes (doc 05, "Delegated routes"), because `auto` cannot be blocked before the call.
-- **Fallback trail.** After each call, read `X-Fallback-Trail` and `X-Fallback-Attempts`, and record the served model and the trail on the `gw_usage` row (doc 05 table). A trail that cannot be read in full is a violation, not a pass. Check code: `src/Bazaar.Server/Gateway/FreeLlmApi/FreeLlmApiRouting.cs` (`TrailMalformed`).
-- **Expected-set auditor.** `FreeLlmApiExpectedSetAuditor.Violations(route, routing, servedModel)` returns the violations for one call. Code: `src/Bazaar.Server/Gateway/FreeLlmApi/FreeLlmApiExpectedSetAuditor.cs`. A violation suspends the route and raises an admin alert (doc 05, mitigation step 4).
+- **Fallback trail.** After each call, read `X-Fallback-Trail` and `X-Fallback-Attempts`, and record the served model and the trail on the `gw_usage` row (doc 05 table). A trail that cannot be read in full is a violation, not a pass. Check code: `src/Bazaar.Server.Gateway/FreeLlmApi/FreeLlmApiRouting.cs` (`TrailMalformed`).
+- **Expected-set auditor.** `FreeLlmApiExpectedSetAuditor.Violations(route, routing, servedModel)` returns the violations for one call. Code: `src/Bazaar.Server.Gateway/FreeLlmApi/FreeLlmApiExpectedSetAuditor.cs`. A violation suspends the route and raises an admin alert (doc 05, mitigation step 4).
 - **429 and Retry-After.** A 429 with `Retry-After` becomes `RateLimited(until)` and the route waits (doc 05, quota table). A 429 with no `Retry-After` gets jittered backoff. The OpenAI adapter already maps 429 to `rate_limited` with the header value (`OpenAiChatAdapter.cs`, src).
 - **Config keys.** Owner's names: `Bazaar:Gateway:FreeLlmApi:*`. **Not in code yet** (no match under `src/Bazaar.Server`). Proposed members: `BaseUrl`, `SecretRef`, `DefaultRoute` (`agent-default`), `Model` (`auto`), `ExpectedSet`, `PinnedVersion`. Doc 05's `gateway.freellmapi.warn_on_version_change` stays a registry setting (doc 03); the host keys are not a second settings store (section 6).
 
@@ -57,4 +57,4 @@ Evidence labels used below: **V** = primary page or file read (summarised by the
 
 - Evaluation note: [freellmapi_evaluation.md](../research/notes/FreeLLMAPI%20gateway%20evaluation/freellmapi_evaluation.md)
 - Gateway design: [05-model-gateway.md](05-model-gateway.md); decisions: [DECISIONS-LOG.md](DECISIONS-LOG.md) (C14, C05, S17)
-- Code: `src/Bazaar.Server/Gateway/FreeLlmApi/` (auditor, routing, usage, health probe, catalogue) and `src/Bazaar.Server/Gateway/Adapters/OpenAi/` (`OpenAiChatAdapter.cs`, `OpenAiChatWire.cs`)
+- Code: `src/Bazaar.Server.Gateway/FreeLlmApi/` (auditor, routing, usage, health probe, catalogue) and `src/Bazaar.Server.Gateway/Adapters/OpenAi/` (`OpenAiChatAdapter.cs`, `OpenAiChatWire.cs`)

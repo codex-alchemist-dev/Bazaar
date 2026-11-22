@@ -48,6 +48,21 @@ public static class WireTypes
     /// <summary>Owner asks which device providers are enabled and which device guests run (doc 62 section 9.1). Answered with a <c>DeviceListReply</c>.</summary>
     public const string DeviceList = "vms.devices.list";
 
+    /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
+    public const string PrList = "pr.list";
+
+    /// <summary>Owner asks for one PR's summary. Answered with a <c>PrSummaryReply</c>.</summary>
+    public const string PrSummary = "pr.summary";
+
+    /// <summary>Owner asks for a file's hunks, keyed by head sha. Answered with a <c>PrHunksReply</c>.</summary>
+    public const string PrHunks = "pr.hunks";
+
+    /// <summary>Owner posts a comment or request-changes review; never approve. Answered with a <c>PrReviewReply</c>.</summary>
+    public const string PrReview = "pr.review";
+
+    /// <summary>Owner-signed squash merge (doc 21, Merge request path). Answered with a <c>PrMergeReply</c>.</summary>
+    public const string PrMerge = "pr.merge";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 

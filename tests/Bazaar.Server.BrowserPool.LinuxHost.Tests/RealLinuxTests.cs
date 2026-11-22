@@ -59,7 +59,7 @@ public sealed class RealLinuxTests : IDisposable
     }
 
     private static LinuxPoolVmHost RealHost() =>
-        new(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound });
+        new(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, ProbeEnabled = false });
 
     private static ProcessRequest Req(string stdin, TimeSpan timeout, params string[] argv) => new(argv, stdin.Length == 0 ? null : stdin, timeout, 512);
 
