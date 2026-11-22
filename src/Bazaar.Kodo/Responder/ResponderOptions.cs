@@ -130,6 +130,14 @@ public sealed record RunbookOptions
     /// <summary>The runbook ids that may run without approval. Empty by default, so nothing runs unattended until the operator opts in.</summary>
     public IReadOnlySet<string> AutoRunbookIds { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Setting <c>kodo.recover.unattended</c>: the recovery actions that may run without approval. Empty by default, so approval is the
+    /// default for host restart and slot switch. Only <c>host_restart</c> and <c>slot_switch</c> are accepted (exact, lowercase); any other
+    /// value, including <c>isolate</c> and <c>rollback</c>, fails <see cref="Validate"/>. It is changed only with owner approval. It does not
+    /// touch <see cref="AutoRunbookIds"/> and cannot enable any other fix or a custom runbook. See <see cref="RunbookExecutor"/> for the gates.
+    /// </summary>
+    public IReadOnlyList<string> UnattendedRecoveries { get; init; } = [];
+
     /// <summary>Checks every value.</summary>
     public void Validate()
     {
@@ -139,5 +147,10 @@ public sealed record RunbookOptions
         ArgumentOutOfRangeException.ThrowIfLessThan(RetryMaxDelay, RetryBaseDelay);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ApprovalWait, TimeSpan.Zero);
         ArgumentNullException.ThrowIfNull(AutoRunbookIds);
+        ArgumentNullException.ThrowIfNull(UnattendedRecoveries);
+        if (Responder.UnattendedRecoveries.Problem(UnattendedRecoveries) is { } problem)
+        {
+            throw new ArgumentException(problem, nameof(UnattendedRecoveries));
+        }
     }
 }
