@@ -342,12 +342,12 @@ Kodo's 0-100 score counts deps like any module. Chaos mode (owner-enabled, sandb
 
 ### 11.1 Valkey cache dependency (PROPOSED)
 
-The Linux cache and presence dependency is the module `valkey` (`service` category, section 4). Its project layout, child process, probe details and settings gaps are in doc 40 section 4b, and they are PROPOSED. Its probes are the Valkey row of the table above, and none is critical. The failure mapping for this module is:
+The Linux cache and presence dependency is the module `valkey` (`service` category, section 4). Its project layout, child process, probe details and settings gaps are in doc 40 section 4c, and they are PROPOSED. Its probes are the Valkey row of the table above, and none is critical. The failure mapping for this module is:
 
 - A cache outage is `degraded` (amber), never `failing` (red). Dependent modules keep running, and no readiness gate opens. This follows C07 and doc 03: the cache holds cache and presence only, and GC fan-out is Postgres NOTIFY.
 - Each state change is an audit event. A child that exhausts its restart backoff stays amber, not red, and raises no incident.
 - The Windows counterpart, Garnet, is a later module behind spike S2 and is not covered here.
-- Every Valkey probe is non-critical (explicit). The self-test is config-level for now: the eviction policy and memory cap are read back from the server. The behavioural fill test is deferred (doc 40 section 4b.4).
+- Every Valkey probe is non-critical (explicit). The self-test is config-level for now: the eviction policy and memory cap are read back from the server. The behavioural fill test is deferred (doc 40 section 4c.4).
 
 ## 12. How the module manager shows Deps (PLANNED)
 
@@ -432,7 +432,7 @@ Rows follow the doc 03 registry format. Keys are dotted and prefixed by area. Ch
 | `deps.extensions.pgSearch` | `auto`, `off` | `auto` on Linux; not offered on Windows | install | operator | No |
 | `deps.update.deferWarnDays` | int, 7 to 365 | 60 | install | operator | No |
 | `deps.health.selfTestSchedule` | `weekly`, `daily`, `off` | `weekly` | install | operator | No; `off` raises a Kodo amber |
-| `deps.valkey.managed` | bool | `true` on Linux | install | operator | No; `false` uses an external endpoint whose password comes from the secret store (doc 14) (PROPOSED, doc 40 section 4b) |
+| `deps.valkey.managed` | bool | `true` on Linux | install | operator | No; `false` uses an external endpoint whose password comes from the secret store (doc 14) (PROPOSED, doc 40 section 4c) |
 | `deps.valkey.binaryPath` | path or `auto` | `auto` (the bundled `valkey-server`) | install | operator | No |
 | `deps.valkey.runtimeDirectory` | path | `/var/lib/bazaar/valkey` (PROPOSED; overridable by this setting) | install | operator | No |
 | `deps.valkey.managedPort` | int 0 to 65535 | `0` (a free loopback port per child start) | install | operator | No; loopback is not a setting |
@@ -441,7 +441,7 @@ Rows follow the doc 03 registry format. Keys are dotted and prefixed by area. Ch
 | `deps.valkey.parentDeathWrapper` | `setpriv` (Linux), `none` | `setpriv` | install | operator | No; `none` refuses a managed start (floor) |
 | `deps.valkey.startWindowSeconds` | int, 1 to 120 | `30` | install | operator | No |
 
-Security floors, not settings: loopback-only listening, data checksums on, generated credentials, no deps with `proc.child` or `secrets`, no non-OSI licence. For the Valkey module (PROPOSED, doc 40 section 4b.1): loopback-only listening, a generated per-run password for the managed child (rotated on every start, held in memory), and a parent-death mechanism required for a managed start. An external Valkey takes its password from the secret store (doc 14), never from a plain setting. A setting may tighten these rules and never loosen them.
+Security floors, not settings: loopback-only listening, data checksums on, generated credentials, no deps with `proc.child` or `secrets`, no non-OSI licence. For the Valkey module (PROPOSED, doc 40 section 4c.1): loopback-only listening, a generated per-run password for the managed child (rotated on every start, held in memory), and a parent-death mechanism required for a managed start. An external Valkey takes its password from the secret store (doc 14), never from a plain setting. A setting may tighten these rules and never loosen them.
 
 Default-line rule: an existing install never moves to a new major on upgrade of Bazaar. The move is the owner's decision (section 10.3). A new install takes `newest`.
 
