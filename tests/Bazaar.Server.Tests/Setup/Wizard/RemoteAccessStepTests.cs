@@ -10,7 +10,7 @@ public sealed class RemoteAccessStepTests
     private const string _backup = "file:/mnt/backup/bazaar";
 
     private static string[] Answers(params string[] remote) =>
-        ["Example Studio", "", "Owner", "", "dpapi", _kekRef, "", _anchor, _backup, "", "", "", "", .. remote, ""];
+        ["Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", .. remote, ""];
 
     private static WizardQuestion Question(string id) =>
         RemoteAccessStep.Create().Questions.Single(question => question.Id == id);
