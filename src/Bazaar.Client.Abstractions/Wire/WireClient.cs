@@ -124,13 +124,12 @@ public sealed class WireClient(
     }
 
     /// <summary>
-    /// Sends a request whose payload the caller already encoded in this client's codec, optionally on a stream, and waits for the
-    /// <c>ok</c> (the answer's payload, if any, is not read). For features that own their payload type outside the registered
-    /// wire payloads. Resend and idempotency are as for <see cref="RequestAsync{TRequest, TResponse}"/>.
+    /// Sends a request on a stream and waits for the <c>ok</c> (the answer's payload, if any, is not read), for messages whose answer
+    /// carries nothing. Resend and idempotency are as for <see cref="RequestAsync{TRequest, TResponse}"/>.
     /// </summary>
     /// <exception cref="WireRequestException">The server answered with an error.</exception>
-    public async Task SendRawRequestAsync(string type, string? stream, ReadOnlyMemory<byte> encodedPayload, CancellationToken cancellationToken = default) =>
-        await RequestCoreAsync(type, stream, encodedPayload, cancellationToken).ConfigureAwait(false);
+    public async Task SendRequestAsync<TRequest>(string type, string? stream, TRequest payload, CancellationToken cancellationToken = default) =>
+        await RequestCoreAsync(type, stream, codec.EncodePayload(payload), cancellationToken).ConfigureAwait(false);
 
     private async Task<Envelope> RequestCoreAsync(string type, string? stream, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
     {
