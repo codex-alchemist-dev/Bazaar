@@ -2,6 +2,7 @@ using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Company;
 using Bazaar.Server.CodingStore.Data;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
@@ -20,7 +21,7 @@ using Bazaar.Server.Vms.Environments;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Account Approval, Setup, Setup first-run, Agents, Calendar), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Talent Pool, Account Approval, Setup, Company, Setup first-run, Agents, Calendar), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
     /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Account Approval, Setup, Agents, Portability and GitHub migrations, read from their assemblies.</summary>
@@ -38,6 +39,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresAccountApprovalStore).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
+        new ComponentMigrationSource(typeof(PostgresCompanyProfileStore).Assembly),
         new ComponentMigrationSource(typeof(PostgresFirstRunStore).Assembly),
         new ComponentMigrationSource(typeof(PostgresToolCallStore).Assembly),
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
