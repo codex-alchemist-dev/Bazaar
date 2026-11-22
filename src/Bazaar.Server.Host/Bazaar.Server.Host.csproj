@@ -45,6 +45,10 @@
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Calendar\Bazaar.Server.Calendar.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Org.Abstractions\Bazaar.Server.Org.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Org\Bazaar.Server.Org.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Backup\Bazaar.Server.Components.Backup.csproj" />
     <ProjectReference Include="..\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
