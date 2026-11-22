@@ -5,6 +5,7 @@ using Avalonia.Media;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Highlighting;
+using Bazaar.Client.Athanor.Hosting;
 
 namespace Bazaar.Client.Athanor.AvaloniaEdit;
 
@@ -19,7 +20,7 @@ public readonly record struct EditorCaret(int Line, int Column);
 /// Syntax colours follow the pushed theme (<see cref="ThemedHighlighting"/>) and <see cref="ShowDiffAsync"/> shows a side-by-side
 /// <see cref="DiffView"/>. Must be used on the UI thread.
 /// </summary>
-public sealed class AvaloniaEditHost : IEditorHost
+public sealed class AvaloniaEditHost : IEditorHost, IEditorSurfaceHost
 {
     private readonly IEditorKeyHandoff? _handoff;
     private readonly Dictionary<EditorDocumentId, OpenBuffer> _buffers = [];
@@ -50,6 +51,9 @@ public sealed class AvaloniaEditHost : IEditorHost
 
     /// <summary>The control to place in a pane. Owned by this host.</summary>
     public TextEditor Editor { get; }
+
+    /// <inheritdoc />
+    Control IEditorSurfaceHost.Surface => Root;
 
     /// <summary>The side-by-side diff view, hidden until <see cref="ShowDiffAsync"/> runs.</summary>
     public DiffView Diff { get; }

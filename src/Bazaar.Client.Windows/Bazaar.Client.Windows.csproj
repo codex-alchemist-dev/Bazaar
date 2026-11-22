@@ -25,6 +25,10 @@
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Athanor\Bazaar.Client.Athanor.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.AvaloniaEdit\Bazaar.Client.Athanor.AvaloniaEdit.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.WebView2\Bazaar.Client.Athanor.WebView2.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />

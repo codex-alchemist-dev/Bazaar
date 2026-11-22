@@ -25,6 +25,10 @@ public sealed class AthanorPaneModule : IPaneModule, IClientModule
     /// </summary>
     public AthanorCommandHandler? CommandHandler { get; private set; }
 
+    /// <summary>The pane a head shows in its window when it opens the editor.</summary>
+    public static Bazaar.Contracts.Panes.PaneDescriptor WindowPane { get; } =
+        new(AthanorPaneKinds.Editor, "Athanor", string.Empty, System.Text.Json.JsonElement.Parse("{}"));
+
     public string Id => AthanorPaneKinds.Editor;
 
     public void Register(PaneRegistry registry, PaneModuleContext context)

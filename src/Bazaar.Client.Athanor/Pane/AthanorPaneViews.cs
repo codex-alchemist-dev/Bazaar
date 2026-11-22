@@ -39,6 +39,7 @@ internal static class AthanorPaneViews
         AutomationProperties.SetName(save, "Save document");
         save.Click += (_, _) => _ = pane.SaveActiveAsync();
 
+        Control? surface = pane.Host as Control ?? (pane.Host as Bazaar.Client.Athanor.Hosting.IEditorSurfaceHost)?.Surface;
         var editor = new TextBox { AcceptsReturn = true, AcceptsTab = true, TextWrapping = TextWrapping.NoWrap };
         AutomationProperties.SetName(editor, "Document text");
 
@@ -58,7 +59,7 @@ internal static class AthanorPaneViews
             {
                 tabs.ItemsSource = pane.Tabs;
                 var active = pane.ActiveTab;
-                editor.IsVisible = active is not null;
+                editor.IsVisible = surface is null && active is not null;
                 editor.IsReadOnly = active?.ReadOnly ?? true;
                 if (!string.Equals(editor.Text ?? string.Empty, pane.ActiveContent, StringComparison.Ordinal))
                 {
@@ -98,7 +99,7 @@ internal static class AthanorPaneViews
         var header = new StackPanel { Spacing = 4, Children = { tabs, draftBanner, save, banner, keepMine } };
         DockPanel.SetDock(header, Dock.Top);
         root.Children.Add(header);
-        root.Children.Add(editor);
+        root.Children.Add(surface ?? editor);
 
         root.AttachedToVisualTree += (_, _) =>
         {

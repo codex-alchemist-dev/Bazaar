@@ -61,6 +61,9 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
 
     public string Title { get; }
 
+    /// <summary>The host the pane shows, or null in the empty state. The view places its surface in the layout (doc 57 §2.2).</summary>
+    public IEditorHost? Host => _host;
+
     /// <summary>True when no host or file source was supplied. The view shows <see cref="EmptyMessage"/>.</summary>
     public bool IsEmpty => _workspace is null;
 
