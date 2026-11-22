@@ -7,7 +7,7 @@ namespace Bazaar.Server.Host.Tests;
 public sealed class HostConfigFilesTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "bazaar-kekcfg-" + Guid.NewGuid().ToString("N"));
-    private const string Key = "Bazaar:Identity:KekProvider";
+    private const string _key = "Bazaar:Identity:KekProvider";
 
     public HostConfigFilesTests() => Directory.CreateDirectory(Path.Combine(_root, "config"));
 
@@ -34,7 +34,7 @@ public sealed class HostConfigFilesTests : IDisposable
         WriteKekFile("tpm");
         var config = Base(($"{BazaarHostOptions.SectionName}:DataRoot", _root)).AddKekHostConfig().Build();
 
-        Assert.Equal("tpm", config[Key]);
+        Assert.Equal("tpm", config[_key]);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class HostConfigFilesTests : IDisposable
                 .AddKekHostConfig()
                 .Build();
 
-            Assert.Equal("file", config[Key]);
+            Assert.Equal("file", config[_key]);
         }
         finally
         {
@@ -62,7 +62,7 @@ public sealed class HostConfigFilesTests : IDisposable
     {
         var config = Base(($"{BazaarHostOptions.SectionName}:DataRoot", _root)).AddKekHostConfig().Build();
 
-        Assert.Null(config[Key]);
+        Assert.Null(config[_key]);
     }
 
     [Theory]
