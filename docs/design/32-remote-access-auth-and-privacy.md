@@ -73,7 +73,7 @@ Reuse of a retired refresh credential revokes the device and audits it. Lifetime
 | Route | Purpose | Status |
 |---|---|---|
 | `POST /auth/refresh` | Exchanges a live refresh secret for a new access token and refresh secret; any refusal answers 401 `invalid_grant`, reason in the server log only; 503 `unavailable` with no token issuer | BUILT (code merged) |
-| `GET /auth/whoami` | Reads the signed-in person from an access token (below) | PROPOSED, built in this PR (#TBD); not merged until the PR lands |
+| `GET /auth/whoami` | Reads the signed-in person from an access token (below) | PROPOSED, built in PR #1145; not merged until the PR lands |
 
 `GET /auth/whoami` takes `Authorization: Bearer <access token>` and answers 200 `{ "human_id": "<guid>", "display_name": "...", "role": "owner" | "coworker", "device_id": "<guid>" }`. A missing, malformed, expired or badly signed token, a revoked device, and a suspended or removed human all answer the same 401 `{"error":"invalid_token"}`, byte for byte; the reason goes to the server log only and the token is never logged. 403 `forbidden` for plaintext off the machine (as above); 503 `unavailable` when no access-token verifier is registered. It is read-only and writes no audit entry. The token proves signature and expiry only, so the route also reads the `device` and `human` rows: that is what makes revocation and removal immediate here. GET only; `/auth/whoami` needs no change to the method guard in the host.
 
