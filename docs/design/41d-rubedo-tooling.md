@@ -66,6 +66,6 @@ Each step lands as its own PR with this doc section named in the body.
 
 ## 9. Open questions
 
-1. Whether the playground should be offered in company builds by default or only through the module list (proposed: module list, off by default).
+1. (Contract gap found while building) `ModuleManifest` and `ClientModuleHost` have no optional or off-by-default flag; the playground carries `EnabledByDefault = false` as a constant and is in no head's module list yet. A real flag belongs in the module-loading design (doc 41 section 8). Whether the playground should be offered in company builds by default or only through the module list (proposed: module list, off by default).
 2. Whether the language server is also exposed to agents through a tool endpoint (proposed: no; agents call the analysis library through their own sandbox tooling).
 3. Editor packages (VS Code extension, Monaco client). Out of scope here; the Monaco hosting spike decides.

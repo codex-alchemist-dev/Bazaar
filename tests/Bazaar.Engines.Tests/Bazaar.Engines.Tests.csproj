@@ -18,5 +18,6 @@
     <ProjectReference Include="..\..\src\Bazaar.Engines\Bazaar.Engines.csproj" />
     <ProjectReference Include="FakeAdapter\FakeAdapter.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>
 </Project>
