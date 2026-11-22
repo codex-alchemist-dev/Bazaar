@@ -81,6 +81,42 @@ message ClusterGlyph {
   float z = 5;
 }
 
+message EditorCreateReply {
+  string revision = 1;
+}
+
+message EditorCreateRequest {
+  string workspace_id = 1;
+  string path = 2;
+  string content = 3;
+}
+
+message EditorOpenReply {
+  string content = 1;
+  string revision = 2;
+  optional string language_hint = 3;
+  bool read_only = 4;
+  int64 size_bytes = 5;
+}
+
+message EditorOpenRequest {
+  string workspace_id = 1;
+  string path = 2;
+}
+
+message EditorSaveReply {
+  optional string new_revision = 1;
+  optional string server_revision = 2;
+  optional string server_content = 3;
+}
+
+message EditorSaveRequest {
+  string workspace_id = 1;
+  string path = 2;
+  string base_revision = 3;
+  string content = 4;
+}
+
 message FocusRequest {
   string view_id = 1;
   string node_id = 2;

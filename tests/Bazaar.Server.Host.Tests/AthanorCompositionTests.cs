@@ -265,7 +265,7 @@ public sealed class AthanorCompositionTests : IDisposable
     public async Task A_payload_that_does_not_fit_is_a_bad_request()
     {
         using var sp = Build();
-        var context = new WireRequestContext(Human(), new Envelope(1, WireTypes.EditorOpen, EnvelopeKind.Request, "req-1", null, null, null, null, _codec.EncodePayload("nope")));
+        var context = new WireRequestContext(Human(), new Envelope(1, WireTypes.EditorOpen, EnvelopeKind.Request, "req-1", null, null, null, null, _codec.EncodePayload(new Bazaar.Contracts.Athanor.EditorCreateReply("nope"))));
 
         var reply = await Handler<EditorOpenWireHandler>(sp).HandleAsync(context, Ct);
 
