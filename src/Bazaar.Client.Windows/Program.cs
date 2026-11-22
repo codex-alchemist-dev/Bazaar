@@ -21,6 +21,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -85,6 +86,7 @@ internal static class Program
             new EnginePaneModule(),
             athanorModule,
             .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
         ];
         var loadResult = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loadResult.Only(modules);
@@ -176,7 +178,7 @@ internal static class Program
                 .With<IEditorFileSource>(athanor.Source)
                 .With<IEditorDraftStore>(athanor.Drafts);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        context = context.With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        context = context.With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current)).WithGitGui(ClientServer.Current);
         return tiles is null ? context : context.With(tiles);
     }
 
