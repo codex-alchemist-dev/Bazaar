@@ -529,6 +529,10 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 - **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
 - **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.
 
+## 2.8 Native sign-in redeem [shape built; flow PLANNED]
+
+The client's sign-in ends at `bazaar://signin?code=...` (doc 32 section 4). The client redeems the code with `POST /auth/handoff` `{ "code", "device_class", "client_build" }` and receives `{ "access_token", "token_type", "expires_in", "refresh_token" }`, the same body as `/auth/refresh`; the refresh secret goes in the platform keystore and the access token stays in memory. Every failure is one generic 401 `invalid_grant`, so the client shows one "sign in again" message and starts the page flow again. The request and reply shape is now built in `Bazaar.Server.SignIn` (doc 32 section 4, status DECIDED-in-code); the client screens that drive it are still PLANNED, and the second factor stays a separate step (section 2.1).
+
 ---
 
 ## Conflicts and gaps

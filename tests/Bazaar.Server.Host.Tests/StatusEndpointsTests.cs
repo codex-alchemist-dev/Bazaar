@@ -150,6 +150,7 @@ public sealed class StatusEndpointsTests
 
     [Theory]
     [InlineData("/auth/refresh")]
+    [InlineData("/auth/handoff")]
     [InlineData("/auth/signout")]
     public async Task Refresh_path_accepts_post(string path)
     {
@@ -165,6 +166,8 @@ public sealed class StatusEndpointsTests
     [Theory]
     [InlineData("PATCH", "/auth/refresh")]
     [InlineData("GET", "/auth/refresh")]
+    [InlineData("GET", "/auth/handoff")]
+    [InlineData("PATCH", "/auth/handoff")]
     [InlineData("PATCH", "/auth/signout")]
     [InlineData("GET", "/auth/signout")]
     [InlineData("POST", "/status")]
