@@ -18,7 +18,7 @@ public sealed record ShellAttachment(Control Content, IShellAnnouncer Announcer)
 public static class ShellHost
 {
     public static ShellAttachment Attach(
-        Window window,
+        Control window,
         Control? content,
         ILocaleSource locale,
         AnnouncementGate gate,
@@ -29,11 +29,11 @@ public static class ShellHost
     }
 
     /// <summary>
-    /// For a head that has already set the window's content: moves that content under the chrome and sets it back.
+    /// For a head that has already set the content of its window, or of its main view on Android (no window there): moves that content under the chrome and sets it back.
     /// Returns the announcer for feature modules.
     /// </summary>
     public static IShellAnnouncer Install(
-        Window window,
+        ContentControl window,
         ILocaleSource locale,
         AnnouncementGate gate,
         Func<string, int, string>? withHeldBack = null)

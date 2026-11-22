@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup.Verification;
 
@@ -45,7 +47,7 @@ public sealed class SetupPureChecksTests
     [Fact]
     public async Task Fixture_plan_passes_every_pure_check()
     {
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
         foreach (var check in SetupVerificationChecks.Pure)
         {
@@ -360,7 +362,7 @@ public sealed class SetupVerificationCatalogueTests
     public async Task The_fixture_report_is_amber_with_every_placeholder_as_an_amber_item()
     {
         var verifier = new SetupVerifier(SetupVerificationChecks.All);
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
         var report = await verifier.VerifyAsync(new SetupVerificationContext(plan), TestContext.Current.CancellationToken);
 
@@ -375,7 +377,7 @@ public sealed class SetupVerificationCatalogueTests
     public async Task The_fixture_report_completes_only_when_every_amber_item_is_acknowledged()
     {
         var verifier = new SetupVerifier(SetupVerificationChecks.All);
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
         var report = await verifier.VerifyAsync(new SetupVerificationContext(plan), TestContext.Current.CancellationToken);
 
         Assert.False(report.CanComplete([]));

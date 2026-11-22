@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Graph;
 
 /// <summary>One cluster glyph of a level-of-detail feed: a community drawn at the centroid of its members (doc 19).</summary>
@@ -14,6 +16,7 @@ public sealed record GraphLodTile(int Col, int Row, int[] NodeIndices);
 /// <see cref="Tiles"/> is empty (the graph is above the node cap, <c>constellation.node_cap</c>). The renderer drops any
 /// frame whose <see cref="GraphVersion"/> is older than the newest one it applied.
 /// </summary>
+[WirePayload(WireTypes.GraphLod)]
 public sealed record GraphLodFrame(
     string S,
     long GraphVersion,
