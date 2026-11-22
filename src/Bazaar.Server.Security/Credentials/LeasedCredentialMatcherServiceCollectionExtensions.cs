@@ -1,3 +1,4 @@
+using Bazaar.Secrets;
 using Bazaar.Server.Identity.Leases;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -31,5 +32,42 @@ public static class LeasedCredentialMatcherServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<ILeasedCredentialValueSource, SecretStoreLeasedCredentialValueSource>();
         return services;
+    }
+
+    /// <summary>
+    /// Wraps the registered <see cref="ISecretPolicy"/> in <see cref="LeaseMatcherSecretPolicy"/>, so the matcher's read works
+    /// without an operator grant (doc 14, "Leased credential values" [PROPOSED]). Call it after the host registers its policy;
+    /// with none registered, the wrapper sits over a deny-all policy.
+    /// </summary>
+    public static IServiceCollection AddLeaseMatcherSecretGrant(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        var existing = services.LastOrDefault(d => d.ServiceType == typeof(ISecretPolicy));
+        if (existing is not null)
+        {
+            services.Remove(existing);
+        }
+
+        services.AddSingleton<ISecretPolicy>(sp =>
+        {
+            ISecretPolicy inner = existing switch
+            {
+                null => DenyAllPolicy.Instance,
+                { ImplementationInstance: ISecretPolicy instance } => instance,
+                { ImplementationFactory: { } factory } => (ISecretPolicy)factory(sp),
+                { ImplementationType: { } type } => (ISecretPolicy)ActivatorUtilities.CreateInstance(sp, type),
+                _ => DenyAllPolicy.Instance,
+            };
+            return new LeaseMatcherSecretPolicy(inner);
+        });
+        return services;
+    }
+
+    private sealed class DenyAllPolicy : ISecretPolicy
+    {
+        public static DenyAllPolicy Instance { get; } = new();
+
+        public Task<bool> AllowsAsync(string component, SecretScope scope, SecretName? name, SecretPurpose purpose, CancellationToken ct) =>
+            Task.FromResult(false);
     }
 }
