@@ -150,6 +150,8 @@
     <Project Path="src/Bazaar.Approvals/Bazaar.Approvals.csproj" />
     <Project Path="src/Bazaar.Approvals.Abstractions/Bazaar.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Abstractions/Bazaar.Server.Gateway.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Catalogue.Abstractions/Bazaar.Server.Gateway.Catalogue.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Catalogue/Bazaar.Server.Gateway.Catalogue.csproj" />
     <Project Path="src/Bazaar.Server.Gateway/Bazaar.Server.Gateway.csproj" />
     <Project Path="src/Bazaar.Secrets.Abstractions/Bazaar.Secrets.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Settings.Abstractions/Bazaar.Server.Settings.Abstractions.csproj" />
@@ -525,6 +527,7 @@
     <Project Path="tests/Bazaar.Server.Providers.Linux.Tests/Bazaar.Server.Providers.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Tests/Bazaar.Server.Gateway.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Garnet.Tests/Bazaar.Server.Garnet.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Gateway.Catalogue.Tests/Bazaar.Server.Gateway.Catalogue.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.TalentPool.Component.Tests/Bazaar.Server.TalentPool.Component.Tests.csproj" />
