@@ -101,8 +101,8 @@ public sealed partial class GitHubPrService(
             // No conflict target: gc_id is unique too, and a concurrent insert of the same PR can otherwise trip that index instead of the key.
             // A row first made by a comment-type event holds the epoch, so the first pull_request event is never "older".
             const string insert = """
-                INSERT INTO github_pr (pr_node_id, repo_node_id, number, gc_id, head_sha, head_ref, base_ref, state, draft, updated_at, title, author_login)
-                VALUES (@node, @repo, @number, @gc, @head, @headref, @base, COALESCE(@state, 'open'), COALESCE(@draft, false), @updated, @title, @author)
+                INSERT INTO github_pr (pr_node_id, repo_node_id, number, gc_id, head_sha, head_ref, base_ref, state, draft, updated_at, title, author_login, repo_full_name)
+                VALUES (@node, @repo, @number, @gc, @head, @headref, @base, COALESCE(@state, 'open'), COALESCE(@draft, false), @updated, @title, @author, @fullname)
                 ON CONFLICT DO NOTHING
                 """;
             await using var cmd = new NpgsqlCommand(insert, conn, tx);
@@ -140,6 +140,7 @@ public sealed partial class GitHubPrService(
                         head_ref = COALESCE(@headref, head_ref),
                         base_ref = COALESCE(@base, base_ref),
                         author_login = COALESCE(author_login, @author),
+                        repo_full_name = COALESCE(repo_full_name, @fullname),
                         updated_at = @updated
                     WHERE pr_node_id = @node
                     """;
@@ -168,7 +169,12 @@ public sealed partial class GitHubPrService(
         cmd.Parameters.AddWithValue("updated", isState ? ev.UpdatedAt : DateTimeOffset.UnixEpoch);
         cmd.Parameters.AddWithValue("title", (object?)Truncate(NonBlank(ev.Title), 1024) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("author", (object?)Truncate(NonBlank(ev.PrAuthorLogin), 256) ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("fullname", (object?)ValidFullName(ev.RepoFullName) ?? DBNull.Value);
     }
+
+    /// <summary>The <c>owner/name</c> of the repo when it has that shape, else null (the table rejects anything else).</summary>
+    private static string? ValidFullName(string? value) =>
+        value is { Length: <= 512 } v && FullNameRegex().IsMatch(v) ? v : null;
 
     /// <summary>The PR state this event sets, or null to keep the stored one. The payload's own state wins over the action.</summary>
     internal static string? StateOf(GitHubEvent ev) =>
@@ -227,6 +233,9 @@ public sealed partial class GitHubPrService(
     private static string? NonBlank(string? text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     private static string? Truncate(string? text, int max) => text is not null && text.Length > max ? text[..max] : text;
+
+    [GeneratedRegex("^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")]
+    private static partial Regex FullNameRegex();
 
     [GeneratedRegex("^[0-9a-f]{40}$")]
     private static partial Regex ShaRegex();
