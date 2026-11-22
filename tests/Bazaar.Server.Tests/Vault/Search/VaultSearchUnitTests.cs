@@ -32,17 +32,69 @@ public sealed class VaultSearchUnitTests
         Assert.Throws<ArgumentOutOfRangeException>(() => ReciprocalRankFusion.Fuse<string>([["a"]], k: 0));
     }
 
-    [Fact]
-    public void Shared_documents_are_readable_by_any_caller_and_private_ones_only_by_their_agent_or_the_owner()
-    {
-        var alpha = new VaultCaller(IsOwner: false, AgentOwner: "agent:alpha");
-        var beta = new VaultCaller(IsOwner: false, AgentOwner: "agent:beta");
+    private static readonly VaultCaller _alpha = new(IsOwner: false, AgentOwner: "agent:alpha");
+    private static readonly VaultCaller _beta = new(IsOwner: false, AgentOwner: "agent:beta");
+    private static readonly VaultCaller _anonymous = new(IsOwner: false, AgentOwner: null);
 
-        Assert.True(VaultAccess.CanRead(documentOwner: null, beta));
-        Assert.True(VaultAccess.CanRead("agent:alpha", alpha));
-        Assert.False(VaultAccess.CanRead("agent:alpha", beta));
-        Assert.False(VaultAccess.CanRead("agent:alpha", new VaultCaller(IsOwner: false, AgentOwner: null)));
-        Assert.True(VaultAccess.CanRead("agent:alpha", VaultCaller.Owner));
+    [Fact]
+    public void Private_documents_are_readable_only_by_their_agent_or_the_owner()
+    {
+        const string path = "agents/alpha/memory/plan.md";
+        Assert.True(VaultAccess.CanRead(path, "agent:alpha", _alpha));
+        Assert.False(VaultAccess.CanRead(path, "agent:alpha", _beta));
+        Assert.False(VaultAccess.CanRead(path, "agent:alpha", _anonymous));
+        Assert.True(VaultAccess.CanRead(path, "agent:alpha", VaultCaller.Owner));
+    }
+
+    [Theory]
+    [InlineData("company/Constitution.md")]
+    [InlineData("company/memory/policy.md")]
+    [InlineData("shared/research/auth.md")]
+    public void Ownerless_documents_in_company_and_shared_areas_are_readable_by_every_agent(string path)
+    {
+        Assert.True(VaultAccess.CanRead(path, documentOwner: null, _alpha));
+        Assert.True(VaultAccess.CanRead(path, documentOwner: null, _beta));
+        Assert.True(VaultAccess.CanRead(path, documentOwner: null, VaultCaller.Owner));
+    }
+
+    // Regression: an ownerless document used to be readable by every caller, so Vault search ignored project membership.
+    [Theory]
+    [InlineData("projects/x/Plan.md")]
+    [InlineData("projects/x/deep-dives/auth.md")]
+    [InlineData("hive/procedure/retry-backoff.md")]
+    [InlineData("decisions/0001-use-postgres.md")]
+    [InlineData("drafts/alpha/idea.md")]
+    [InlineData("twin/x/overview.md")]
+    [InlineData("Index.md")]
+    [InlineData("agents/alpha/charter.md")]
+    [InlineData("companyish/notes.md")]
+    public void Ownerless_documents_outside_an_agent_readable_area_are_the_owners_only(string path)
+    {
+        Assert.False(VaultAccess.CanRead(path, documentOwner: null, _beta));
+        Assert.False(VaultAccess.CanRead(path, documentOwner: null, _anonymous));
+        Assert.True(VaultAccess.CanRead(path, documentOwner: null, VaultCaller.Owner));
+    }
+
+    [Fact]
+    public void An_agent_reads_ownerless_files_in_its_own_area_only()
+    {
+        Assert.True(VaultAccess.CanRead("agents/alpha/charter.md", documentOwner: null, _alpha));
+        Assert.False(VaultAccess.CanRead("agents/alpha/charter.md", documentOwner: null, _beta));
+        Assert.False(VaultAccess.CanRead("agents/alphabet/charter.md", documentOwner: null, _alpha));
+    }
+
+    [Fact]
+    public void A_caller_that_is_neither_owner_nor_agent_reads_nothing()
+    {
+        Assert.False(VaultAccess.CanRead("company/Constitution.md", documentOwner: null, _anonymous));
+        Assert.False(VaultAccess.CanRead("shared/research/auth.md", documentOwner: null, _anonymous));
+    }
+
+    [Fact]
+    public void An_owner_field_overrides_an_agent_readable_area()
+    {
+        Assert.False(VaultAccess.CanRead("shared/memory/alpha.md", "agent:alpha", _beta));
+        Assert.True(VaultAccess.CanRead("shared/memory/alpha.md", "agent:alpha", _alpha));
     }
 
     [Fact]
