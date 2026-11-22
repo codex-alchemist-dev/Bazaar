@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 using Bazaar.Contracts.Ryusei;
 using Bazaar.Contracts.Wire;
@@ -112,6 +113,9 @@ public static class PayloadSamples
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
+        Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",
+            [new ReleaseArtifact("linux", "linux-x64", "tar.gz", "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz", 1024,
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "Bazaar-0.1.0-linux-x64.tar.gz.sha256", "Bazaar-0.1.0-linux-x64.tar.gz.asc")])),
         Of(null, new RyuseiTriggerChangeRequest(_gc), WireTypes.RyuseiPause),
         Of(null, new RyuseiTriggerChangeReply(_gc, 4)),
         Of(null, new RyuseiTriggerListRequest(_gc), WireTypes.RyuseiList),

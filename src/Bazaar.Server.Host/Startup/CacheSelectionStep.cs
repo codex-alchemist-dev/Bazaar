@@ -1,3 +1,4 @@
+using Bazaar.Server.Garnet;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Valkey;
@@ -58,9 +59,10 @@ public sealed partial class CacheSelectionStep(
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    /// <summary>An explicit request for the managed Valkey cache selects like <c>auto</c>, so an unusable child leaves the cache out.</summary>
+    /// <summary>An explicit request for the managed Valkey or Garnet cache selects like <c>auto</c>, so an unusable child leaves the cache out.</summary>
     private static string EffectiveRequest(string requested, IReadOnlyList<ICacheProvider> candidates) =>
-        candidates.Any(c => c is ValkeyCacheProvider { IsManaged: true } && c.Kind.Equals(requested, StringComparison.OrdinalIgnoreCase))
+        candidates.Any(c => c is ValkeyCacheProvider { IsManaged: true } or GarnetCacheProvider { IsManaged: true }
+            && c.Kind.Equals(requested, StringComparison.OrdinalIgnoreCase))
             ? ProviderSelector.Auto
             : requested;
 
