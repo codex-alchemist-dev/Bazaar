@@ -407,6 +407,8 @@ Rules for every importer and exporter:
 - **Trust tiers.** Verified tag and unverified modules are shown as in doc 42. An unverified importer installs with a warning and runs under the same sandbox.
 - **Licence.** The AGPL module exception applies: an importer that uses only the public module API may be under any licence, including a closed commercial one. Its licence is shown at install (doc 42).
 
+**Built status:** `IMappingImporter` (in `Bazaar.Server.Portability`) adds `FormatId`, a declaration of targets, pure `Map` with versioned and hashed `MappingRules`, and a self-test, on top of `IPortabilityImporter`. `ImporterContractChecks` is the contract test every importer module runs. Verify is the shared `ImportVerifier`. Parse is not yet run in a separate process, and the doc 42 module and doc 46 health interfaces are not written, so the existing importers are not yet moved onto `IMappingImporter`.
+
 Exporters follow the same rules, and their output is streamed as `ExportFile` items with a SHA-256 added by the bundle writer, not by the exporter.
 
 ## 10. Relationship to erasure
