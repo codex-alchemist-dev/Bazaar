@@ -151,7 +151,7 @@ public static class LiveTunnelHarness
             catch (Exception ex) when (ex is WebSocketException or HttpRequestException or OperationCanceledException && !cancellationToken.IsCancellationRequested)
             {
                 candidate.Dispose();
-                if (connectAttempts >= 12)
+                if (connectAttempts >= 18)
                 {
                     throw new InvalidOperationException($"WebSocket connect failed {connectAttempts} times: {ex.Message}", ex);
                 }
