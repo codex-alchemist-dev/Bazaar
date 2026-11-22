@@ -60,7 +60,7 @@ jobs:
     steps:
       # Picks where the heavy jobs run. The repository is public, so GitHub-hosted runners are free; the owner's PC
       # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
-      # Repository variable CI_RUNNER_MODE: auto (default), self (always the PC), hosted (never the PC).
+      # Repository variable CI_RUNNER_MODE: hosted (default, never the PC), auto (PC while not backed up), self (always the PC).
       # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
       # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
       # behind the PC. The job names of the required checks do not change.
@@ -68,7 +68,7 @@ jobs:
         id: runners
         env:
           GH_TOKEN: ${{ github.token }}
-          MODE: ${{ vars.CI_RUNNER_MODE || 'auto' }}
+          MODE: ${{ vars.CI_RUNNER_MODE || 'hosted' }}
           LIMIT: ${{ vars.CI_OVERFLOW_QUEUE || '8' }}
           OWNER_RUN: ${{ github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
