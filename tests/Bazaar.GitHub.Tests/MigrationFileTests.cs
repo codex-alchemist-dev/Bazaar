@@ -48,4 +48,29 @@ public sealed class MigrationFileTests
 
         Assert.Contains("PRIMARY KEY (source, delivery_id)", sql);
     }
+
+    [Fact]
+    public void Payload_migration_is_embedded_and_idempotent()
+    {
+        var assembly = typeof(GitHubComponent).Assembly;
+        var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("0002_github_delivery_payload.sql", System.StringComparison.Ordinal));
+        using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+        var sql = reader.ReadToEnd();
+
+        Assert.Contains("ADD COLUMN IF NOT EXISTS payload jsonb", sql);
+        Assert.Contains("ADD COLUMN IF NOT EXISTS event_type text", sql);
+    }
+
+    [Fact]
+    public void Processed_migration_is_embedded_and_adds_the_processor_columns_and_partial_index()
+    {
+        var assembly = typeof(GitHubComponent).Assembly;
+        var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("0003_github_delivery_processed.sql", System.StringComparison.Ordinal));
+        using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
+        var sql = reader.ReadToEnd();
+
+        Assert.Contains("processed_at timestamptz", sql);
+        Assert.Contains("process_error text", sql);
+        Assert.Contains("WHERE processed_at IS NULL", sql);
+    }
 }

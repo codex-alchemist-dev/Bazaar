@@ -2,6 +2,8 @@ using System.Text.Json.Nodes;
 using Bazaar.Server.Identity;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Identity.Leases;
 
@@ -9,7 +11,7 @@ namespace Bazaar.Server.Identity.Leases;
 /// Implements <see cref="IIdentityService"/> (doc 14, "Access flow"). Order of checks: quarantine, account, taint and
 /// tier, approval, then audit and issue. Audit is written before any lease is issued; a failed audit write issues nothing.
 /// </summary>
-public sealed class IdentityService : IIdentityService
+public sealed partial class IdentityService : IIdentityService
 {
     private readonly IdentityOptions _options;
     private readonly IAgentStateReader _agents;
@@ -19,6 +21,8 @@ public sealed class IdentityService : IIdentityService
     private readonly IAccessApprovalSource _approvals;
     private readonly TimeProvider _time;
     private readonly Func<AccessRequest, ToolTier> _tierFor;
+    private readonly ILeaseObserver[] _observers;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Creates the service. <paramref name="tierFor"/> maps a request to its tier; when null, the default mapping applies
@@ -32,7 +36,9 @@ public sealed class IdentityService : IIdentityService
         IIdentityAudit audit,
         IAccessApprovalSource approvals,
         TimeProvider time,
-        Func<AccessRequest, ToolTier>? tierFor = null)
+        Func<AccessRequest, ToolTier>? tierFor = null,
+        IEnumerable<ILeaseObserver>? observers = null,
+        ILogger<IdentityService>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (options.LeaseTtlMinutes <= 0)
@@ -48,6 +54,8 @@ public sealed class IdentityService : IIdentityService
         _approvals = approvals ?? throw new ArgumentNullException(nameof(approvals));
         _time = time ?? throw new ArgumentNullException(nameof(time));
         _tierFor = tierFor ?? DefaultTierFor;
+        _observers = observers is null ? [] : [.. observers];
+        _logger = (ILogger?)logger ?? NullLogger.Instance;
     }
 
     /// <summary>
@@ -78,6 +86,7 @@ public sealed class IdentityService : IIdentityService
         if (_agents.IsQuarantined(request.AgentId))
         {
             await _leases.RevokeAgentAsync(request.AgentId, ct).ConfigureAwait(false);
+            await NotifyRevokedAsync(new AgentRevocation(request.AgentId), ct).ConfigureAwait(false);
             return new Denied("Agent is quarantined.");
         }
 
@@ -157,6 +166,7 @@ public sealed class IdentityService : IIdentityService
             return new Denied("This approval has already been used.");
         }
 
+        await NotifyIssuedAsync(lease, ct).ConfigureAwait(false);
         return new Granted(lease.Id, lease.ExpiresAt);
     }
 
@@ -174,5 +184,39 @@ public sealed class IdentityService : IIdentityService
         };
 
         await _audit.AppendAsync("lease.revoked", payload, ct).ConfigureAwait(false);
+        await NotifyRevokedAsync(scope, ct).ConfigureAwait(false);
     }
+
+    private async Task NotifyIssuedAsync(CredentialLease lease, CancellationToken ct)
+    {
+        foreach (var observer in _observers)
+        {
+            try
+            {
+                await observer.OnIssuedAsync(lease, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                ObserverFailed(_logger, observer.GetType().Name, "issued", ex);
+            }
+        }
+    }
+
+    private async Task NotifyRevokedAsync(RevocationScope scope, CancellationToken ct)
+    {
+        foreach (var observer in _observers)
+        {
+            try
+            {
+                await observer.OnRevokedAsync(scope, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                ObserverFailed(_logger, observer.GetType().Name, "revoked", ex);
+            }
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Lease observer {Observer} failed on {Event}; the access decision is unchanged.")]
+    private static partial void ObserverFailed(ILogger logger, string observer, string @event, Exception exception);
 }
