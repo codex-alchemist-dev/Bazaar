@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Kodo.Probes.Host;
 using Bazaar.Kodo.Settings;
+using Bazaar.Server.Wire.Connection;
+using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -30,7 +32,7 @@ public sealed class KodoServerComponent : IBazaarComponent
 public static class KodoServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the Kodo monitor, its hosted loop and <see cref="IKodoStatusSource"/>. Reads <c>Bazaar:Kodo</c>: <c>Enabled</c>,
+    /// Registers the Kodo monitor, its hosted loop, <see cref="IKodoStatusSource"/> and the <c>kodo</c> stream on <c>/ws</c> (gate and publisher). Reads <c>Bazaar:Kodo</c>: <c>Enabled</c>,
     /// <c>DataDirectory</c>, <c>TickSeconds</c>, <c>HeartbeatSeconds</c>, <c>NonCriticalGraceSeconds</c>, <c>JournalMemoryRecords</c>,
     /// <c>DataVolumePath</c>, <c>IncludeClockDrift</c> and <c>Settings:&lt;kodo.key&gt;</c> for the section 20 catalogue. Bound by hand, no
     /// reflection. With <c>Enabled</c> false nothing is registered that runs. Every registration is TryAdd, so a host or test can
@@ -49,7 +51,11 @@ public static class KodoServiceCollectionExtensions
             return services;
         }
 
-        services.TryAddSingleton<IKodoStreamPublisher, NullKodoStreamPublisher>();
+        services.TryAddSingleton<IKodoStreamAccess, OwnerOnlyKodoStreamAccess>();
+        services.TryAddSingleton<IKodoStreamPublisher>(sp => new KodoWireStreamPublisher(
+            sp.GetService<IWireConnectionDirectory>(),
+            sp.GetService<SyncOptions>() ?? new SyncOptions(),
+            sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IHostReadings, KodoHostReadings>();
         services.TryAddSingleton<KodoMonitor>(sp => new KodoMonitor(
             sp.GetRequiredService<KodoServerOptions>(),
@@ -58,6 +64,10 @@ public static class KodoServiceCollectionExtensions
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILogger<KodoMonitor>>()));
         services.TryAddSingleton<IKodoStatusSource>(sp => sp.GetRequiredService<KodoMonitor>());
+        services.AddSingleton<IStreamGate>(sp => new KodoStreamGate(
+            sp.GetRequiredService<IKodoStatusSource>(),
+            sp.GetRequiredService<IKodoStreamAccess>(),
+            sp.GetRequiredService<TimeProvider>()));
         services.AddHostedService<KodoMonitorService>();
         return services;
     }
