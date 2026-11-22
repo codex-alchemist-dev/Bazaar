@@ -51,6 +51,7 @@ public static class HostApplicationExtensions
         services.AddBazaarPostgresCredentialLeases();
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
+        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
