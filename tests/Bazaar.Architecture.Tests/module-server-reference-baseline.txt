@@ -1,8 +1,5 @@
 Bazaar.Admin
 Bazaar.Community
-Bazaar.Engines
-Bazaar.Fun
-Bazaar.GitHub
 Bazaar.RyuseiFuda
 Bazaar.Server.AgentSafety
 Bazaar.Server.Components.Backup
@@ -10,9 +7,6 @@ Bazaar.Server.Constellation
 Bazaar.Server.Gateway
 Bazaar.Server.Hive
 Bazaar.Server.Identity.Postgres
-Bazaar.Server.MailBackends
 Bazaar.Server.Memory
-Bazaar.Server.Providers.Windows
 Bazaar.Server.ReadAudit
 Bazaar.Server.Setup.Host
-Bazaar.Server.Vms.WindowsSandbox
