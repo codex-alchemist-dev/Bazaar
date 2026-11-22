@@ -2,7 +2,7 @@ using Bazaar.Contracts.Soul;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Souls.Presets;
 
-namespace Bazaar.Server.Tests.Souls.Presets;
+namespace Bazaar.Server.Souls.Tests.Presets;
 
 public sealed class DefaultPresetRosterTests
 {
