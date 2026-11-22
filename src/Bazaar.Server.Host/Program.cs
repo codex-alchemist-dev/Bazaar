@@ -80,6 +80,7 @@ app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
 app.MapCommunityDraftDecision();
+app.MapCommunityDraftReads();
 app.MapBazaarAnalytics(AnalyticsHostAuth.ResolveAsync);
 app.MapBazaarSetup();
 app.MapBazaarAuthSignOut();
