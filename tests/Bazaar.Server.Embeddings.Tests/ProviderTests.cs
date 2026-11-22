@@ -51,7 +51,13 @@ public class OpenAiCompatibleProviderTests
 
     private static EmbeddingProviderOptions Options(string baseUrl = "http://localhost:11434", int batch = 2, string? key = null) => new()
     {
-        Id = "local", Kind = EmbeddingProviderKind.OpenAiCompatible, ModelId = "nomic", Dimensions = 3, BaseUrl = baseUrl, BatchSize = batch, ApiKeyReference = key,
+        Id = "local",
+        Kind = EmbeddingProviderKind.OpenAiCompatible,
+        ModelId = "nomic",
+        Dimensions = 3,
+        BaseUrl = baseUrl,
+        BatchSize = batch,
+        ApiKeyReference = key,
     };
 
     private static HttpResponseMessage Reply(string body, HttpStatusCode status = HttpStatusCode.OK) =>
