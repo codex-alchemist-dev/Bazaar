@@ -444,6 +444,7 @@
     <Project Path="tests/Bazaar.Client.Portability.Avalonia.Tests/Bazaar.Client.Portability.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Conduit.LiveTests/Bazaar.Conduit.LiveTests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Providers.Tests/Bazaar.Server.Providers.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Providers.Linux.Tests/Bazaar.Server.Providers.Linux.Tests.csproj" />
