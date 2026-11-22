@@ -2,6 +2,7 @@ using System.Text.Json;
 using Bazaar.Admin.Composition;
 using Bazaar.Conduit.Settings;
 using Bazaar.Server.BackupPolicy;
+using Bazaar.Server.Gateway;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
@@ -21,7 +22,7 @@ public sealed class RegistrySetupSettingCatalogTests
         var catalog = RegistrySetupSettingCatalog.Known;
 
         var registry = BuiltInSettingRegistries.WithContributions(
-            [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution()]);
+            [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution(), new GatewaySettingContribution()]);
 
         // The built-in keys plus the module contributions the admin tool composes (module manager, backup policy, mail policy, Conduit).
         Assert.Equal(registry.Definitions.Count, catalog.Definitions.Count);
