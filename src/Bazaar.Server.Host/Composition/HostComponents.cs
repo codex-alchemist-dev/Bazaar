@@ -2,6 +2,7 @@ using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -17,6 +18,7 @@ using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
@@ -49,11 +51,13 @@ public static class HostComponents
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new TimeMachineComponent(),
         new MemoryComponent(),
+        new HiveComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
