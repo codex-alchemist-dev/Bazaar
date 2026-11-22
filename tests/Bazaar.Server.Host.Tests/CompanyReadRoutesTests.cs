@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Http;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Org;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
@@ -29,6 +31,21 @@ public sealed class CompanyReadRoutesTests
     {
         public Task<IReadOnlyList<OrgRelation>> ListAllAsync(bool includeEnded, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<OrgRelation>>([]);
+    }
+
+    private sealed class OneFrame : IInterruptStackReader
+    {
+        public static readonly Guid AgentId = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
+
+        public Task<IReadOnlyList<InterruptFrame>> ListLiveFramesAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<InterruptFrame>>(
+                [new InterruptFrame(Guid.NewGuid(), AgentId, null, InterruptSource.Owner, "look at this", Guid.NewGuid(), InterruptFrameState.Active, DateTimeOffset.UnixEpoch, null, 1)]);
+    }
+
+    private sealed class OneAgent : IAgentDirectoryReader
+    {
+        public Task<IReadOnlyList<AgentListing>> ListActiveAgentsAsync(CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<AgentListing>>([new AgentListing(OneFrame.AgentId, "Alice")]);
     }
 
     private sealed class EmptyCalendar : ICalendarService
@@ -66,10 +83,12 @@ public sealed class CompanyReadRoutesTests
         builder.WebHost.UseTestServer();
         builder.Services.AddBazaarWire(builder.Configuration);
         builder.Services.AddBazaarHttpSurface(builder.Configuration);
+        builder.Services.AddSingleton<IAgentDirectoryReader, OneAgent>();
         builder.Services.AddBazaarCompanyReadOptions();
         builder.Services.AddSingleton<IConnectionAuthenticator, OneToken>();
         builder.Services.AddSingleton<IOrgRelationReader, EmptyRelations>();
         builder.Services.AddSingleton<ICalendarService, EmptyCalendar>();
+        builder.Services.AddSingleton<IInterruptStackReader, OneFrame>();
         builder.Services.AddSingleton<ISettingStore, AgentTimezoneSettings>();
         var app = builder.Build();
         app.MapBazaarCompanyReadRoutes();
@@ -91,6 +110,7 @@ public sealed class CompanyReadRoutesTests
     [Theory]
     [InlineData("/company/org")]
     [InlineData("/company/calendar")]
+    [InlineData("/company/interrupts")]
     public async Task Routes_answer_401_without_a_bearer_and_with_a_bad_one(string path)
     {
         var (app, client) = await StartAsync();
@@ -114,6 +134,22 @@ public sealed class CompanyReadRoutesTests
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
             Assert.Equal(0, doc.RootElement.GetProperty("edges").GetArrayLength());
+        }
+    }
+
+    [Fact]
+    public async Task Interrupts_route_answers_200_with_a_bearer()
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Post("/company/interrupts", "good"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            var agent = Assert.Single(doc.RootElement.GetProperty("agents").EnumerateArray());
+            Assert.Equal(OneFrame.AgentId.ToString(), agent.GetProperty("agentId").GetString());
+            Assert.Equal("Alice", agent.GetProperty("name").GetString());
+            Assert.Equal("owner", Assert.Single(agent.GetProperty("frames").EnumerateArray()).GetProperty("source").GetString());
         }
     }
 

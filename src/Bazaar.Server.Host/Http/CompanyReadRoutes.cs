@@ -1,6 +1,7 @@
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Http;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Org;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
@@ -25,6 +26,7 @@ internal static class CompanyReadRoutes
     {
         routes.MapCompanyOrg(HttpSurfaceEndpoints.GuardAsync);
         routes.MapCompanyCalendar(GuardCalendarAsync);
+        routes.MapCompanyInterrupts(HttpSurfaceEndpoints.GuardAsync);
         return routes;
     }
 

@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
+  "hash": "sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12",
   "messages": [
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
@@ -13,6 +13,7 @@
     { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
     { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
+    { "type": "pane.frame", "payload": "Bazaar.Contracts.Wire.PaneFrame" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
     { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
     { "type": "resync", "payload": "Bazaar.Contracts.Wire.Resync" },
@@ -478,6 +479,14 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Wire.PaneFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "frame", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.Ping",
       "kind": "record",
       "payload": true,
@@ -599,7 +608,8 @@
         { "n": 7, "name": "ts", "type": "datetime", "nullable": false, "default": false },
         { "n": 8, "name": "edited", "type": "bool", "nullable": false, "default": false },
         { "n": 9, "name": "mentions", "type": "list<guid>", "nullable": false, "default": false },
-        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false }
+        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false },
+        { "n": 11, "name": "withdrawn", "type": "bool", "nullable": false, "default": true }
       ]
     },
     {
