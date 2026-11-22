@@ -1,15 +1,5 @@
 namespace Bazaar.Client.Athanor.Pane;
 
-/// <summary>Head-supplied pickers for the commands that need a path (doc 57 §8). A null result means the user cancelled.</summary>
-public interface IEditorCommandPrompts
-{
-    /// <summary>Asks which existing document to open.</summary>
-    Task<EditorDocumentId?> PickDocumentAsync(CancellationToken cancellationToken);
-
-    /// <summary>Asks for the path of a new document.</summary>
-    Task<EditorDocumentId?> PickNewDocumentAsync(CancellationToken cancellationToken);
-}
-
 /// <summary>How a command ended.</summary>
 public enum AthanorCommandStatus
 {
@@ -31,6 +21,9 @@ public sealed record AthanorCommandResult(AthanorCommandStatus Status, string? R
 /// </summary>
 public sealed class AthanorCommandHandler(AthanorPaneViewModel pane, IEditorCommandPrompts? prompts = null)
 {
+    /// <summary>The prompts for open and new. A head that builds its window after the pane sets them here; null reports the commands unavailable.</summary>
+    public IEditorCommandPrompts? Prompts { get; set; } = prompts;
+
     /// <summary>True when the id is one of this module's commands.</summary>
     public static bool Handles(string commandId) => AthanorClientModule.CommandIds.Contains(commandId, StringComparer.Ordinal);
 
@@ -74,22 +67,73 @@ public sealed class AthanorCommandHandler(AthanorPaneViewModel pane, IEditorComm
 
     private async Task<AthanorCommandResult> OpenAsync(bool isNew, CancellationToken cancellationToken)
     {
-        if (prompts is null)
+        if (Prompts is not { } prompts)
         {
             return new AthanorCommandResult(AthanorCommandStatus.Unavailable, "No document picker is available in this client.");
         }
 
-        var id = isNew
-            ? await prompts.PickNewDocumentAsync(cancellationToken).ConfigureAwait(true)
-            : await prompts.PickDocumentAsync(cancellationToken).ConfigureAwait(true);
-        if (id is null)
+        string? raw;
+        var kind = "document";
+        if (isNew)
+        {
+            var request = await prompts.AskNewDocumentAsync(cancellationToken).ConfigureAwait(true);
+            raw = request?.Name;
+            if (request is not null)
+            {
+                kind = $"new {request.LanguageId} document";
+            }
+        }
+        else
+        {
+            raw = await prompts.AskOpenPathAsync(cancellationToken).ConfigureAwait(true);
+        }
+
+        if (string.IsNullOrWhiteSpace(raw))
         {
             return new AthanorCommandResult(AthanorCommandStatus.NothingToDo);
         }
 
-        return await pane.OpenAsync(id.Value, cancellationToken).ConfigureAwait(true)
+        if (!TryResolve(raw.Trim(), out var id, out var problem))
+        {
+            return new AthanorCommandResult(AthanorCommandStatus.Failed, problem);
+        }
+
+        return await pane.OpenAsync(id, cancellationToken).ConfigureAwait(true)
             ? AthanorCommandResult.Done
-            : new AthanorCommandResult(AthanorCommandStatus.Failed, $"'{id.Value.Path}' was not found or cannot be shown.");
+            : new AthanorCommandResult(AthanorCommandStatus.Failed, $"The {kind} '{id.Path}' was not found or cannot be shown.");
+    }
+
+    // Typed text is "path" (in the active document's workspace) or "workspace:path". Text with a slash right after the colon
+    // (C:\x) is not split, so the normaliser rejects the drive path.
+    private bool TryResolve(string text, out EditorDocumentId id, out string problem)
+    {
+        id = default;
+        problem = string.Empty;
+        var workspace = pane.ActiveTab?.Id.WorkspaceId;
+        var path = text;
+        var colon = text.IndexOf(':', StringComparison.Ordinal);
+        if (colon > 0 && colon + 1 < text.Length && text[colon + 1] is not ('\\' or '/'))
+        {
+            workspace = text[..colon];
+            path = text[(colon + 1)..];
+        }
+
+        if (workspace is null)
+        {
+            problem = "Type workspace:path; no document is open to take the workspace from.";
+            return false;
+        }
+
+        try
+        {
+            id = EditorDocumentIds.Create(workspace, path);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            problem = $"'{text}' is not a valid workspace path.";
+            return false;
+        }
     }
 
     private async Task<AthanorCommandResult> DiffAsync(CancellationToken cancellationToken)

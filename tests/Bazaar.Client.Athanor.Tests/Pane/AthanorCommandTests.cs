@@ -29,11 +29,11 @@ public sealed class AthanorCommandTests
         }
     }
 
-    private sealed class Prompts(EditorDocumentId? open, EditorDocumentId? create) : IEditorCommandPrompts
+    private sealed class Prompts(string? open, NewDocumentRequest? create) : IEditorCommandPrompts
     {
-        public Task<EditorDocumentId?> PickDocumentAsync(CancellationToken cancellationToken) => Task.FromResult(open);
+        public Task<string?> AskOpenPathAsync(CancellationToken cancellationToken) => Task.FromResult(open);
 
-        public Task<EditorDocumentId?> PickNewDocumentAsync(CancellationToken cancellationToken) => Task.FromResult(create);
+        public Task<NewDocumentRequest?> AskNewDocumentAsync(CancellationToken cancellationToken) => Task.FromResult(create);
     }
 
     private sealed class DiffHost : IEditorHost
@@ -144,12 +144,65 @@ public sealed class AthanorCommandTests
         var cancelled = await new AthanorCommandHandler(pane, new Prompts(null, null)).InvokeAsync(AthanorClientModule.OpenCommandId, ct);
         Assert.Equal(AthanorCommandStatus.NothingToDo, cancelled.Status);
 
-        var handler = new AthanorCommandHandler(pane, new Prompts(_a, _missing));
+        var handler = new AthanorCommandHandler(pane, new Prompts("ws:src/a.cs", new NewDocumentRequest("src/none.cs", "csharp")));
         Assert.Equal(AthanorCommandStatus.Done, (await handler.InvokeAsync(AthanorClientModule.OpenCommandId, ct)).Status);
         Assert.Single(pane.Tabs);
         var created = await handler.InvokeAsync(AthanorClientModule.NewCommandId, ct);
         Assert.Equal(AthanorCommandStatus.Failed, created.Status);
         Assert.Contains("none.cs", created.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Cancelled_prompts_do_nothing_for_open_and_new()
+    {
+        var (pane, _, _) = Build();
+        var ct = TestContext.Current.CancellationToken;
+        var handler = new AthanorCommandHandler(pane, new Prompts(null, null));
+
+        Assert.Equal(AthanorCommandStatus.NothingToDo, (await handler.InvokeAsync(AthanorClientModule.OpenCommandId, ct)).Status);
+        Assert.Equal(AthanorCommandStatus.NothingToDo, (await handler.InvokeAsync(AthanorClientModule.NewCommandId, ct)).Status);
+        Assert.Empty(pane.Tabs);
+    }
+
+    [Fact]
+    public async Task Invalid_paths_fail_without_opening_anything()
+    {
+        var (pane, _, _) = Build();
+        var ct = TestContext.Current.CancellationToken;
+
+        foreach (var bad in new[] { "ws:../secret", "C:\\x", "plain/path.cs" })
+        {
+            var result = await new AthanorCommandHandler(pane, new Prompts(bad, null)).InvokeAsync(AthanorClientModule.OpenCommandId, ct);
+            Assert.Equal(AthanorCommandStatus.Failed, result.Status);
+        }
+
+        Assert.Empty(pane.Tabs);
+    }
+
+    [Fact]
+    public async Task A_bare_path_uses_the_active_documents_workspace_and_new_reports_the_language()
+    {
+        var (pane, _, _) = Build();
+        var ct = TestContext.Current.CancellationToken;
+        Assert.True(await pane.OpenAsync(_a, ct));
+
+        var open = await new AthanorCommandHandler(pane, new Prompts("src\\a.cs", null)).InvokeAsync(AthanorClientModule.OpenCommandId, ct);
+        Assert.Equal(AthanorCommandStatus.Done, open.Status);
+
+        var created = await new AthanorCommandHandler(pane, new Prompts(null, new NewDocumentRequest("src/fresh.fs", "fsharp")))
+            .InvokeAsync(AthanorClientModule.NewCommandId, ct);
+        Assert.Equal(AthanorCommandStatus.Failed, created.Status);
+        Assert.Contains("fsharp", created.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Prompts_can_be_supplied_after_the_handler_is_built()
+    {
+        var (pane, _, _) = Build();
+        var ct = TestContext.Current.CancellationToken;
+        var handler = new AthanorCommandHandler(pane) { Prompts = new Prompts("ws:src/a.cs", null) };
+
+        Assert.Equal(AthanorCommandStatus.Done, (await handler.InvokeAsync(AthanorClientModule.OpenCommandId, ct)).Status);
     }
 
     [Fact]
