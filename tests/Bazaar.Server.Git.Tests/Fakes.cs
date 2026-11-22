@@ -36,7 +36,15 @@ internal sealed class FakeForge(string id = "fake") : IForgeProvider
 
     public Task<IReadOnlyList<CheckRun>> GetChecksAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<CheckRun>>(Checks);
 
-    public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => Task.FromResult(Head);
+    public Exception? HeadThrows { get; set; }
+
+    public int HeadCalls { get; private set; }
+
+    public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken)
+    {
+        HeadCalls++;
+        return HeadThrows is null ? Task.FromResult(Head) : throw HeadThrows;
+    }
 
     public Task PostReviewAsync(PrRef pr, ReviewRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 }
@@ -47,9 +55,13 @@ internal sealed class FakeExecutor(string id = "fake") : IForgeMergeExecutor
 
     public int Calls { get; private set; }
 
+    public Exception? Throws { get; set; }
+
     public Task SquashMergeAsync(PrRef pr, MergeRequest request, CancellationToken cancellationToken)
     {
         Calls++;
+        if (Throws is not null)
+            throw Throws;
         return Task.CompletedTask;
     }
 }
