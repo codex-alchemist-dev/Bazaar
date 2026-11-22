@@ -1,3 +1,4 @@
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Council.Data;
@@ -26,6 +27,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
+        new ComponentMigrationSource(typeof(CompanyMemoryComponent).Assembly),
         new ComponentMigrationSource(typeof(MirrorComponent).Assembly),
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
