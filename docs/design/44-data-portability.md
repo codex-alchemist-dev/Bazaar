@@ -239,6 +239,12 @@ Decisions where this doc was silent (owner may overrule): an unsigned bundle fai
 
 Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
 
+### 6.5 Built status of the bundle sources (work packages 2, 5, 7 and 8)
+
+Built: `ExportBundleAssembler` runs registered `IBundleSource` implementations into one signed bundle and hashes every byte as it streams. Three adapters feed it from the existing exporters: `VaultBundleSource` (id `vault.v1`; places `repo.bundle`, `tree/` and `vault-manifest.json` under `vault/`), `PersonalFieldBundleSource` (id `personal.v1`; writes the files the personal exporter returns, under `personal/`) and `AuditBundleSource` (id `audit.v1`; writes `audit/entries.jsonl`, `checkpoints.jsonl` and `archive.json`, after the exporter's own replay self-check). A refusal or self-check failure throws and leaves no bundle. The assembler computes the manifest entries, so the adapters report none of their own.
+
+Decisions where this doc was silent (owner may overrule): the source ids above (ordinal order makes the run `audit`, `personal`, `vault`); the Vault exporter's own `vault-manifest.json` ships as `vault/vault-manifest.json` and is also hashed in `manifest.json`; the personal exporter audits the export when it runs, before assembly ends, so a later assembly failure leaves that audit entry in place; the plaintext owner notice is exposed on the source (`PlaintextNotice`), not written into the bundle. Not built: the plaintext flag in `manifest.json` (the personal index carries it), `audit/proofs/` and `audit/verify/`, and Vault principal filtering.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
