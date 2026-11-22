@@ -7,8 +7,8 @@ namespace Bazaar.Constellation.Vulkan;
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
 /// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
-/// radius and ring width from its style: SetScene colours each node by its cluster (the fallback style when the scene has no clusters),
-/// and SetNodeStyles replaces that with explicit per-node styles.
+/// radius and ring width from its style: SetScene gives every node the default style,
+/// and SetNodeStyles replaces that with explicit per-node styles (the adapter colours nodes by cluster this way).
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
@@ -29,7 +29,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     private int _dimensions;
     private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
-    private ConstellationScene? _scene;
+    private RenderScene? _scene;
     private int _widthPixels;
     private int _heightPixels;
     private bool _disposed;
@@ -88,12 +88,12 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         return new RenderAttachResult(true, string.Empty);
     }
 
-    public void SetScene(ConstellationScene scene)
+    public void SetScene(RenderScene scene)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
         _scene = scene;
-        _styles = ConstellationNodeStyles.BuildColoured(scene, _nodeStyle);
+        _styles = new NodeStyleTable(scene.NodeCount, _nodeStyle);
         RebuildPalette();
         _instances.Clear();
         _dimensions = 0;
@@ -101,10 +101,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         _interpolator.Reset();
     }
 
-    /// <summary>
-    /// Sets the style of every node of the current scene. The table is read when this is called; later changes to it
-    /// need another call. Throws when no scene is set or the table does not match the scene's node count.
-    /// </summary>
+    /// <inheritdoc/>
     public void SetNodeStyles(NodeStyleTable styles)
     {
         ThrowIfDisposed();

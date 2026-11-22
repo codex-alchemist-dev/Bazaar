@@ -80,6 +80,22 @@ public static class HttpSurfaceEndpoints
         return (auth.Principal, null);
     }
 
+    /// <summary>
+    /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
+    /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
+    /// </summary>
+    public static async ValueTask<IResult?> GuardAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var passed = false;
+        var refused = await Guarded(http, (_, _) =>
+        {
+            passed = true;
+            return Task.FromResult(Results.Empty);
+        });
+        return passed ? null : refused;
+    }
+
     internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var (principal, failure) = await AuthenticateAsync(http);
