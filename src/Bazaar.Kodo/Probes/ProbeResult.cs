@@ -56,6 +56,12 @@ public static class ProbeCauses
 
     /// <summary>The oldest unsent spill record is stamped in the future, so the clock or the file is wrong.</summary>
     public const string SpillTimestampFuture = "spill_timestamp_future";
+
+    /// <summary>The module has no health contract, so the loader cannot judge it (doc 46 section 10, package 6).</summary>
+    public const string ContractMissing = "contract_missing";
+
+    /// <summary>The module's health contract threw, returned no result, or reported another identity. Never green (doc 46 section 10).</summary>
+    public const string ContractError = "contract_error";
 }
 
 /// <summary>
@@ -80,6 +86,12 @@ public sealed record ProbeResult(ProbeStatus Status, string? Cause = null, Excep
 
     /// <summary>The probe result for a thrown exception: red with cause <c>probe_exception</c>.</summary>
     public static ProbeResult FromException(Exception error) => Red(ProbeCauses.ProbeException, error);
+
+    /// <summary>The probe result for a module with no health contract: unknown with cause <c>contract_missing</c>.</summary>
+    public static ProbeResult ContractMissing() => Unknown(ProbeCauses.ContractMissing);
+
+    /// <summary>The probe result for a broken health contract: unknown with cause <c>contract_error</c>, never green.</summary>
+    public static ProbeResult ContractError(Exception error) => new(ProbeStatus.Unknown, ProbeCauses.ContractError, error);
 
     /// <summary>True when the result says the target failed (red, or a timeout). Breakers count these.</summary>
     public bool IsFailure => Status == ProbeStatus.Red || Cause == ProbeCauses.Timeout;

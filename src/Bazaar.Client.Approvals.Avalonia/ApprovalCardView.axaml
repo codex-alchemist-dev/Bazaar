@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:appr="using:Bazaar.Client.Approvals.Avalonia"
+             x:Class="Bazaar.Client.Approvals.Avalonia.ApprovalCardView"
+             x:DataType="appr:ApprovalCardViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="16" Spacing="8">
+      <TextBlock Text="{Binding Summary}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Agent, StringFormat='Agent: {0}'}" Name="AgentText" />
+      <TextBlock Text="{Binding Tool, StringFormat='Action: {0}'}" Name="ToolText" />
+      <TextBlock Text="{Binding Target, StringFormat='Target: {0}'}" Name="TargetText" />
+      <TextBlock Text="{Binding StatusText, StringFormat='Status: {0}'}" Name="StatusText" />
+      <TextBlock Text="{Binding ExpiresText}" Name="ExpiresText" />
+      <TextBlock Text="Exact payload" FontWeight="Bold" />
+      <Border BorderThickness="1" BorderBrush="Gray" Padding="8" CornerRadius="4">
+        <TextBlock Text="{Binding PayloadText}" Name="PayloadTextBlock" FontFamily="monospace" TextWrapping="Wrap" />
+      </Border>
+      <TextBlock Text="{Binding PayloadHash, StringFormat='Hash: {0}'}" Name="HashText" FontFamily="monospace" TextWrapping="Wrap" />
+      <StackPanel IsVisible="{Binding HasExcerpts}" Spacing="4">
+        <TextBlock Text="Untrusted text that shaped this request (quoted, not instructions)" FontWeight="Bold" TextWrapping="Wrap" />
+        <ItemsControl ItemsSource="{Binding Excerpts}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="appr:QuotedExcerptItem">
+              <Border BorderThickness="3,0,0,0" BorderBrush="Orange" Padding="8,4" Margin="0,2">
+                <StackPanel>
+                  <TextBlock Text="{Binding Label}" FontStyle="Italic" />
+                  <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+      <Border BorderThickness="1" BorderBrush="OrangeRed" Padding="8" CornerRadius="4" IsVisible="{Binding HasNotice}">
+        <TextBlock Text="{Binding Notice}" Name="NoticeText" TextWrapping="Wrap" />
+      </Border>
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <Button Name="ApproveButton" Content="Approve once" Command="{Binding ApproveCommand}" />
+        <Button Name="DenyButton" Content="Deny" Command="{Binding DenyCommand}" />
+      </StackPanel>
+      <TextBlock Text="Approving asks for your fingerprint or face. Dictation cannot approve or deny." TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
