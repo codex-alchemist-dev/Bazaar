@@ -34,7 +34,18 @@ public static class GitHubRegistration
 
         // Events poller (doc 21, Ingress). Off until Ingress:InstallationId, Ingress:Repositories and a real sink exist.
         services.TryAddSingleton(section.GetSection("Ingress").Get<GitHubIngressOptions>() ?? new GitHubIngressOptions());
-        services.TryAddSingleton<IGitHubEventSink, UnwiredGitHubEventSink>();
+        services.TryAddSingleton<IGitHubGcDirectory>(sp =>
+            new PgGitHubGcDirectory(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<GitHubIngressOptions>()));
+        services.TryAddSingleton<IGitHubInboxWriter>(sp =>
+            new InboxRepositoryGitHubInboxWriter(new Bazaar.Server.Agents.Data.InboxRepository(sp.GetRequiredService<NpgsqlDataSource>())));
+        // The real sink needs the GC writer, a database, and the bridge principal; otherwise the poller stays off (Unwired).
+        services.TryAddSingleton<IGitHubEventSink>(sp =>
+            sp.GetService<Bazaar.Server.Gc.Write.IGcLogWriter>() is { } writer
+            && sp.GetService<NpgsqlDataSource>() is not null
+            && sp.GetRequiredService<GitHubIngressOptions>().BridgePrincipalId is not null
+                ? new GitHubGcEventSink(writer, sp.GetRequiredService<IGitHubInboxWriter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
+                    sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>())
+                : new UnwiredGitHubEventSink());
         services.TryAddSingleton<IGitHubDeliveryStore>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubDeliveryStore(dataSource) : new InMemoryGitHubDeliveryStore());
         services.TryAddSingleton(sp => new GitHubEventsPoller(

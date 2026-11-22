@@ -28,6 +28,12 @@ public sealed class GitHubIngressOptions
     /// <summary>Events older than this are ignored, so a first start does not replay the 90-day window. Zero disables the cutoff. Default 24 hours.</summary>
     public TimeSpan MaxEventAge { get; init; } = TimeSpan.FromHours(24);
 
+    /// <summary>The principal id GitHub-bridged GC events are written under (<c>AuthorKind.ExternalBridge</c> or <c>System</c>). Required by <see cref="GitHubGcEventSink"/>.</summary>
+    public Guid? BridgePrincipalId { get; init; }
+
+    /// <summary>The install's Inbox GC (doc 21, Open question 2), where external issue and PR events land. Null means they are not posted.</summary>
+    public Guid? InboxGcId { get; init; }
+
     /// <summary>First wait after a failed poll; doubles per consecutive failure up to <see cref="MaxFailureBackoff"/>.</summary>
     public TimeSpan FailureBackoffBase { get; init; } = TimeSpan.FromSeconds(30);
 

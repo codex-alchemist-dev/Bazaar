@@ -11,6 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
