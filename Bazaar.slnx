@@ -170,6 +170,7 @@
     <Project Path="src/Bazaar.Server.BrowserPool/Bazaar.Server.BrowserPool.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool.Display/Bazaar.Server.BrowserPool.Display.csproj" />
     <Project Path="src/Bazaar.Server.BrowserPool.LinuxHost/Bazaar.Server.BrowserPool.LinuxHost.csproj" />
+    <Project Path="src/Bazaar.Server.BrowserPool.Image/Bazaar.Server.BrowserPool.Image.csproj" />
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
@@ -298,6 +299,7 @@
     <Project Path="tests/Bazaar.Server.BrowserPool.Tests/Bazaar.Server.BrowserPool.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.Display.Tests/Bazaar.Server.BrowserPool.Display.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.BrowserPool.LinuxHost.Tests/Bazaar.Server.BrowserPool.LinuxHost.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.BrowserPool.Image.Tests/Bazaar.Server.BrowserPool.Image.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.HostProbes.Tests/Bazaar.Server.VmDensity.HostProbes.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDensity.Tests/Bazaar.Server.VmDensity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
