@@ -64,27 +64,27 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public async Task With_default_configuration_the_real_gate_refuses_because_the_leased_credential_matcher_is_not_registered()
+    public async Task With_default_configuration_the_real_gate_has_every_reader_and_refuses_while_the_stop_state_cannot_be_read()
     {
         using var host = BuildHost();
         var display = host.Services.GetRequiredService<IGuestDisplay>();
 
         // The gate is the real one, not the display module's unconfigured default.
         Assert.IsType<SecurityDisplayGate>(host.Services.GetRequiredService<IDisplayGate>());
-        // The host registers the kill switch reader and the agent session taint reader, but nothing calls AddLeasedCredentialMatcher
-        // (it also needs an ILeasedCredentialValueSource), so the gate refuses everything until the host supplies the matcher.
+        // The host registers all three security readers. This test host has no database, so the kill switch state is never
+        // loaded, which counts as frozen, and the gate refuses. With a live database the gate decides per call (frozen, tainted, leased credential).
         Assert.NotNull(host.Services.GetService<IKillSwitchReader>());
         Assert.NotNull(host.Services.GetService<IAgentSessionTaintReader>());
-        Assert.Null(host.Services.GetService<ILeasedCredentialMatcher>());
+        Assert.NotNull(host.Services.GetService<ILeasedCredentialMatcher>());
 
         var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
         Assert.Equal(DisplayFailure.Refused, capture.Failure);
-        Assert.Equal("Display capture refused: security reads unavailable.", capture.Message);
+        Assert.Equal("Display capture refused: agent is frozen.", capture.Message);
 
         var batch = new InputBatch(_target, [new KeyStroke("Enter")]);
         var input = await Assert.ThrowsAsync<DisplayException>(() => display.SendInputAsync(batch, CancellationToken.None));
         Assert.Equal(DisplayFailure.Refused, input.Failure);
-        Assert.Equal("Display input refused: security reads unavailable.", input.Message);
+        Assert.Equal("Display input refused: agent is frozen.", input.Message);
 
         // Nothing is known about any display size until a capture succeeds.
         Assert.Null(host.Services.GetRequiredService<IDisplayNativeSizeReader>().TryGetNativeSize(_target));
