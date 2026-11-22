@@ -10,13 +10,15 @@ namespace Bazaar.Contracts.Kanban;
 /// <param name="OwnerAgentId">Accountable agent, or null when the task has no owner.</param>
 /// <param name="UnfinishedBlockerIds">Prerequisites that are not Done, in edge order.</param>
 /// <param name="BlockerTitles">Titles of the unfinished prerequisites, in the same order as <paramref name="UnfinishedBlockerIds"/>.</param>
+/// <param name="Revision">The task row version, which a <c>board.move</c> is checked against (doc 12). 0 when the server predates the field; a move sent with 0 is invalid.</param>
 public sealed record KanbanBoardCard(
     Guid Id,
     string Title,
     string State,
     Guid? OwnerAgentId,
     IReadOnlyList<Guid> UnfinishedBlockerIds,
-    IReadOnlyList<string> BlockerTitles);
+    IReadOnlyList<string> BlockerTitles,
+    long Revision = 0);
 
 /// <summary>A whole project board: every task in the project with its blockers.</summary>
 /// <param name="ProjectId">Project the board belongs to.</param>

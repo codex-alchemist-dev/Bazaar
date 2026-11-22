@@ -144,7 +144,9 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
         var seed = Guid.NewGuid();
         var publicTarget = Guid.NewGuid();
         var privateTarget = Guid.NewGuid();
-        await index.ReplaceDocumentAsync(Doc(vault, publicTarget, "projects/x/Plan.md"), [Block(0, "plan")], [], Ct);
+        var projectTarget = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, publicTarget, "shared/research/Plan.md"), [Block(0, "plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, projectTarget, "projects/x/Plan.md", project: "x"), [Block(0, "project plan")], [], Ct);
         await index.ReplaceDocumentAsync(
             Doc(vault, privateTarget, "agents/alpha/memory/note.md", type: "memory", owner: "agent:alpha"), [Block(0, "note")], [], Ct);
         await index.ReplaceDocumentAsync(
@@ -153,6 +155,7 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
             [
                 new VaultLinkRecord(seed, 0, 0, "link", "Plan", publicTarget, null, null),
                 new VaultLinkRecord(seed, 0, 1, "link", "note", privateTarget, null, null),
+                new VaultLinkRecord(seed, 0, 2, "link", "projects/x/Plan", projectTarget, null, null),
             ],
             Ct);
         var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
@@ -160,9 +163,47 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
         var forBeta = await search.ExpandNeighboursAsync(vault, [seed], _beta, Ct);
         var forAlpha = await search.ExpandNeighboursAsync(vault, [seed], _alpha, Ct);
 
+        // The project document has no owner; without membership on the caller it is the owner's only (fail closed).
         Assert.Equal([publicTarget], forBeta.Select(card => card.DocId));
         Assert.Equal(new[] { publicTarget, privateTarget }.Order(), forAlpha.Select(card => card.DocId).Order());
         Assert.All(forAlpha, card => Assert.Equal(VaultHitBasis.Extracted, card.Basis));
+    }
+
+    // Regression: ownerless documents used to be returned to every caller, so search ignored project membership and Hive grants.
+    [Fact]
+    public async Task Ownerless_documents_outside_company_and_shared_areas_are_filtered_from_agent_search()
+    {
+        SkipWithoutDatabase();
+        var index = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        var project = Guid.NewGuid();
+        var hive = Guid.NewGuid();
+        var decision = Guid.NewGuid();
+        var company = Guid.NewGuid();
+        var shared = Guid.NewGuid();
+        var ownCharter = Guid.NewGuid();
+        var otherCharter = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, project, "projects/x/Auth.md", project: "x"), [Block(0, "auth project")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, hive, "hive/procedure/auth.md", type: "memory"), [Block(0, "auth hive")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, decision, "decisions/0001-auth.md", type: "decision"), [Block(0, "auth decision")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, company, "company/Constitution.md", type: "constitution"), [Block(0, "auth company")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, shared, "shared/research/auth.md"), [Block(0, "auth shared")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, ownCharter, "agents/alpha/charter.md", type: "charter"), [Block(0, "auth alpha charter")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, otherCharter, "agents/beta/charter.md", type: "charter"), [Block(0, "auth beta charter")], [], Ct);
+        var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
+        var anonymous = new VaultCaller(IsOwner: false, AgentOwner: null);
+
+        var forAlpha = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", _alpha, Limit: 20), Ct)).Cards.Select(c => c.DocId);
+        var forOwner = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", _owner, Limit: 20), Ct)).Cards.Select(c => c.DocId);
+        var forAnonymous = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", anonymous, Limit: 20), Ct)).Cards;
+
+        Assert.Equal(new[] { company, shared, ownCharter }.Order(), forAlpha.Order());
+        Assert.Equal(new[] { project, hive, decision, company, shared, ownCharter, otherCharter }.Order(), forOwner.Order());
+        Assert.Empty(forAnonymous);
+        Assert.Null(await search.FetchBodyAsync(vault, project, 0, _alpha, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, hive, 0, _alpha, Ct));
+        Assert.Equal("auth company", await search.FetchBodyAsync(vault, company, 0, _alpha, Ct));
+        Assert.Equal("auth project", await search.FetchBodyAsync(vault, project, 0, _owner, Ct));
     }
 
     [Fact]
