@@ -39,6 +39,10 @@ Doc 49 asks that text scales to at least 200 percent without loss of function. `
 
 `Bazaar.Accessibility.MotionPolicy` (also on `WindowChrome.Motion`) is the one place that decides animation length (doc 49: motion can be reduced). Reduced motion makes decorative animation instant, caps meaning-carrying (essential) animation at 120 ms, and turns decorative loops off; a module asks the policy instead of reading the theme flag. The head sets `Reduced` from the theme's `reducedMotion` token or the platform setting.
 
+### 2d. Accessibility settings
+
+`AccessibilitySettings` (in `Bazaar.Accessibility`) holds the viewer's text scale, reduced-motion flag and per-category announcement switches and gaps, with shipped defaults and `Normalised()` (clamps the scale, removes negative gaps). `AccessibilitySettingsApplier.Apply(settings, chrome, gate)` pushes them to the chrome and the gate and is safe to call again on every change. Persisting the settings belongs to the settings module, not here.
+
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.
