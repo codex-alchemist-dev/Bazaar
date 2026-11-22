@@ -59,4 +59,23 @@ public sealed record GitHubEvent
 
     /// <summary>pull_request closed: true when the PR was merged rather than closed.</summary>
     public bool Merged { get; init; }
+
+    /// <summary>The PR number (or the issue number of a PR comment). Needed to register the PR; null when the source did not carry it.</summary>
+    public int? Number { get; init; }
+
+    /// <summary>The PR title, when the event carries the pull request object.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>The PR state from the payload: <c>open</c>, <c>closed</c> or <c>merged</c>. Null when the event does not carry it.</summary>
+    public string? PrState { get; init; }
+
+    public bool? Draft { get; init; }
+
+    public string? BaseRef { get; init; }
+
+    /// <summary><c>owner/name</c> of the repository, used for the GC title only. Keys are node ids.</summary>
+    public string? RepoFullName { get; init; }
+
+    /// <summary>Logins assigned to or asked to review the PR, from the pull request object.</summary>
+    public IReadOnlyList<string> AssigneeLogins { get; init; } = [];
 }

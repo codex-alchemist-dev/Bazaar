@@ -1,6 +1,7 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
 using Bazaar.GitHub.Ingress;
+using Bazaar.GitHub.Pr;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -43,9 +44,10 @@ public static class GitHubRegistration
             sp.GetService<Bazaar.Server.Gc.Write.IGcLogWriter>() is { } writer
             && sp.GetService<NpgsqlDataSource>() is not null
             && sp.GetRequiredService<GitHubIngressOptions>().BridgePrincipalId is not null
-                ? new GitHubGcEventSink(writer, sp.GetRequiredService<IGitHubInboxWriter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
-                    sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>())
+                ? GitHubPrGcRegistration.Decorate(sp, new GitHubGcEventSink(writer, sp.GetRequiredService<IGitHubInboxWriter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
+                    sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>()))
                 : new UnwiredGitHubEventSink());
+        services.AddBazaarGitHubPrGc(configuration);
         services.TryAddSingleton<IGitHubDeliveryStore>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubDeliveryStore(dataSource) : new InMemoryGitHubDeliveryStore());
         services.TryAddSingleton(sp => new GitHubEventsPoller(
