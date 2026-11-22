@@ -41,13 +41,37 @@ public sealed partial class ViewMapper
     {
         try
         {
-            return Widget(node, scope);
+            Control control = Widget(node, scope);
+            ApplyConditions(control, node, scope);
+            return control;
         }
         catch (ViewDeclarationException ex)
         {
             return Placeholder(scope.Document.Name, node.Widget, ex.Message);
         }
     }
+
+    /// <summary>
+    /// <c>visibleWhen</c> and <c>enabledWhen</c> are Bool expressions the validator already checks (doc 41c, section 8). A hidden
+    /// control stays in the tree so a later data change can show it; a result that is not a Bool fails the node closed.
+    /// </summary>
+    private static void ApplyConditions(Control control, ViewNode node, Scope scope)
+    {
+        if (node.Props.TryGetValue("visibleWhen", out object? visible))
+        {
+            control.IsVisible = Condition(visible, "visibleWhen", scope);
+        }
+
+        if (node.Props.TryGetValue("enabledWhen", out object? enabled))
+        {
+            control.IsEnabled = Condition(enabled, "enabledWhen", scope);
+        }
+    }
+
+    private static bool Condition(object? raw, string name, Scope scope) =>
+        Resolve(raw, scope) is bool value
+            ? value
+            : throw new ViewDeclarationException($"prop '{name}' must be a Bool expression.");
 
     private Control Widget(ViewNode node, Scope scope) => node.Widget switch
     {

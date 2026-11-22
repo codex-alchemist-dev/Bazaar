@@ -40,6 +40,10 @@ jobs:
   # skip is done per step with `if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)`. Pushes and non-PR events are code.
   changes:
     name: Detect code changes
+    # A pull request from this repository is analysed by the push-triggered run of its branch (see the `on:` comment:
+    # the pull_request-only suite is not linked to the PR). Skipping it here, and with it the analyze jobs that need it,
+    # stops every PR being scanned twice. Fork pull requests still run here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
