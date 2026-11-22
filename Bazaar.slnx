@@ -323,6 +323,8 @@
     <Project Path="tests/Bazaar.Client.PullRequests.Tests/Bazaar.Client.PullRequests.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Push/Bazaar.Client.Push.csproj" />
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Updates/Bazaar.Client.Updates.csproj" />
+    <Project Path="src/Bazaar.Client.Updates.Abstractions/Bazaar.Client.Updates.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Updater.Linux/Bazaar.Client.Updater.Linux.csproj" />
     <Project Path="src/Bazaar.Client.Updater.Linux.Abstractions/Bazaar.Client.Updater.Linux.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
@@ -526,6 +528,7 @@
     <Project Path="tests/Bazaar.Server.Vault.Testing/Bazaar.Server.Vault.Testing.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Updates.Tests/Bazaar.Client.Updates.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Updater.Linux.Tests/Bazaar.Client.Updater.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
