@@ -3,7 +3,6 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization.Metadata;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -39,7 +38,7 @@ internal readonly record struct SetupPathStep(string? Name, int Index)
 /// <param name="Steps">The path from the root of the plan document.</param>
 /// <param name="Kind">The kind of value the key holds.</param>
 /// <param name="Setting">The registry entry for a settings key; otherwise null.</param>
-internal sealed record SetupKeyTarget(IReadOnlyList<SetupPathStep> Steps, SetupLeafKind Kind, SettingDefinition? Setting)
+internal sealed record SetupKeyTarget(IReadOnlyList<SetupPathStep> Steps, SetupLeafKind Kind, ISetupSettingDefinition? Setting)
 {
     /// <summary>The path as messages print it: names joined by dots, list items as [n].</summary>
     public string Dotted => SetupKeyResolver.DottedOf(Steps);
@@ -76,7 +75,7 @@ internal static class SetupKeyResolver
     /// Resolves the segments of a key path. The plan's own metadata drives the walk, so a new property on <see cref="SetupPlan"/> is
     /// settable without a second list. The typed path appears in every error, exactly as the operator wrote it.
     /// </summary>
-    public static (SetupKeyTarget? Target, SetupValidationIssue? Issue) Resolve(IReadOnlyList<string> segments, SettingRegistry registry)
+    public static (SetupKeyTarget? Target, SetupValidationIssue? Issue) Resolve(IReadOnlyList<string> segments, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(segments);
         ArgumentNullException.ThrowIfNull(registry);
@@ -333,7 +332,7 @@ internal static class SetupKeyResolver
         return text.ToString();
     }
 
-    private static (SetupKeyTarget? Target, SetupValidationIssue? Issue) ResolveSetting(string key, string typed, List<SetupPathStep> steps, SettingRegistry registry)
+    private static (SetupKeyTarget? Target, SetupValidationIssue? Issue) ResolveSetting(string key, string typed, List<SetupPathStep> steps, ISetupSettingCatalog registry)
     {
         var definition = registry.Definitions.FirstOrDefault(d => string.Equals(d.Name, key, StringComparison.OrdinalIgnoreCase));
         if (definition is null)
@@ -392,7 +391,7 @@ internal static class SetupKeyResolver
             && int.TryParse(segment, NumberStyles.None, CultureInfo.InvariantCulture, out index);
     }
 
-    private static (JsonNode? Node, SetupValidationIssue? Issue) ConvertSetting(SettingDefinition definition, string path, string text)
+    private static (JsonNode? Node, SetupValidationIssue? Issue) ConvertSetting(ISetupSettingDefinition definition, string path, string text)
     {
         var type = definition.ValueType;
         if (type == typeof(string) || type.IsEnum)
