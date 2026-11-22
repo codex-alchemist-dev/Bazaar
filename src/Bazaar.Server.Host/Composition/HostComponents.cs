@@ -2,6 +2,7 @@ using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -49,6 +50,7 @@ public static class HostComponents
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
