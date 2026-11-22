@@ -66,6 +66,10 @@ public sealed record CommunityDraftDecisionResultDto(
     bool AlreadyDecided,
     DraftReviewCardDto? NewDraft);
 
+/// <summary>The open drafts awaiting the owner's decision, newest first (<c>GET /community/drafts?status=pending</c>).</summary>
+/// <param name="Drafts">Review cards of pending drafts whose approval is still open.</param>
+public sealed record DraftReviewListDto(IReadOnlyList<DraftReviewCardDto> Drafts);
+
 /// <summary>Source-generated JSON metadata for the community draft-review contracts. Options match the approval contracts.</summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -75,6 +79,7 @@ public sealed record CommunityDraftDecisionResultDto(
 [JsonSerializable(typeof(DraftReviewCardDto))]
 [JsonSerializable(typeof(DraftReviewDecisionDto))]
 [JsonSerializable(typeof(CommunityDraftDecisionResultDto))]
+[JsonSerializable(typeof(DraftReviewListDto))]
 [JsonSerializable(typeof(CommunityLogRowDto))]
 [JsonSerializable(typeof(CommunityLogPageDto))]
 [JsonSerializable(typeof(CommunityLogQueryDto))]

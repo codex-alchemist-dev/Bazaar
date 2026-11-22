@@ -91,8 +91,14 @@ bot_profile(agent_id, platform, display_name, sponsor_id, contact, disclosure_ur
 community_action(id, agent_id, sponsor_id, platform, action, target_url, body, body_sha256,
                  approval_id, taint_sources jsonb, external_id, status, created_at)
 target_blocklist(platform, target_ref, reason, added_by, added_at, pk(platform, target_ref))
+community_draft(draft_id pk, agent_id, sponsor_id, action, platform, kind, target, title, body, body_sha256, head_branch,
+                base_branch, gate_input jsonb, profile jsonb, approval_id, approval_hash, approval_expires_at,
+                gate_failures jsonb, status, taint_sources jsonb, external_id, url, reused, superseded_by,
+                created_at, updated_at)   -- [PROPOSED] migration community/0005
 ```
-This doc owns these four tables (doc 04 keeps conventions only). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
+This doc owns these tables (doc 04 keeps conventions only). `community_draft` is [PROPOSED]: one row per outbound draft, never deleted. Status moves only by compare-and-set (Pending to Posting, Denied or Expired; Posting to Posted, Failed or back to Pending after a retryable adapter failure), and an owner edit moves the original to Edited and inserts the replacement in one transaction. `gate_input` holds the agent text without the disclosure footer, and the gates read that, at creation and at edit. `body` and the profile's contact are encryptable per-person fields.
+
+Draft-review routes [PROPOSED], all owner-only with the guard order of doc 02: `GET /community/drafts/{id}` returns the `DraftReviewCardDto`; `GET /community/drafts?status=pending&limit=n` returns the open drafts (approval not expired), newest first (`limit` 1 to 100, default 50; only `pending` is served); `POST /community/drafts/{id}/decision` is the signed decision. A draft is created by `ICommunityDraftCreator` from an agent's proposed post: it appends the footer, runs the gates on the text without the footer, binds the approval hash and stores the draft Pending with an expiry (default 24 hours). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
 
 ### Settings [PROPOSED]
 Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings registry (doc 03); every change writes an audit entry (doc 15 `audit_log`).
