@@ -25,17 +25,6 @@ public interface IHiveCopyTargets
     IReadOnlyCollection<string> TargetProjectsOf(VaultPath copyPath);
 }
 
-/// <summary>
-/// The target projects of a Hive copy in the Vault (docs/design/08-memory-system.md, section 6; doc 25, Hive grants).
-/// The copy flow records the targets in its ledger, not in the copy's front matter, so <see cref="VaultPathAccess"/>
-/// asks here. Only targets under a grant that still covers the copy count. A path with no copy answers empty.
-/// </summary>
-public interface IHiveCopyTargets
-{
-    /// <summary>The slugs of the projects whose members may read the copy at <paramref name="copyPath"/>.</summary>
-    IReadOnlyCollection<string> TargetProjectsOf(VaultPath copyPath);
-}
-
 /// <summary>The members of one project: agent ids and human member ids.</summary>
 /// <param name="AgentIds">Agents on the project.</param>
 /// <param name="MemberIds">Co-member humans on the project (not the owner).</param>
