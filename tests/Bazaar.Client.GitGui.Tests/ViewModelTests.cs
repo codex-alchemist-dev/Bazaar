@@ -239,6 +239,9 @@ public sealed class PrDetailViewModelTests
 
         public Task<IReadOnlyList<GitCheckDto>> GetChecksAsync(string provider, string repo, long number, CancellationToken cancellationToken = default) =>
             inner.GetChecksAsync(provider, repo, number, cancellationToken);
+
+        public Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default) =>
+            inner.MergeAsync(provider, repo, number, request, cancellationToken);
     }
 }
 

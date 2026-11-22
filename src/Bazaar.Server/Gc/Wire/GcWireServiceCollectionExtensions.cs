@@ -48,7 +48,6 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
-        services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
