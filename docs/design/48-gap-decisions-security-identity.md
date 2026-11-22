@@ -111,7 +111,14 @@ Design consequences:
 - No role can grant itself or another principal an approval capability.
 - Agents never hold `admin.*` capabilities.
 
-Built status: PLANNED. Doc `32` section 6 is updated to point here.
+Built status: BUILT as `Bazaar.Roles.Abstractions` and `Bazaar.Roles` (migration `roles/0001`). Doc `32` section 6 is updated to point here.
+
+Implementation notes (in force):
+
+- The approval capability is named `approve`. It sits in the owner template at instance scope. Only a human who holds it grants it, never to themselves, and never to an agent or service. This is how "no role can grant itself or another principal an approval capability" is read: the capability passes only from a human approver to another human.
+- The owner role keeps `admin.roles` and `approve` at instance scope, cannot be deleted, and always has at least one human holder (the removal check and the delete are one locked step in the store). The first human owner is set once, atomically.
+- A change that widens a human's grants goes through `IGrantWideningGate`. The shipped gate refuses everything until the approval and biometric modules plug in (fail closed).
+- Templates are inserted only when missing, so owner edits survive a restart.
 
 OPEN: none for the decision. The default set of built-in templates is a list the owner can change in the setup wizard.
 
@@ -251,7 +258,7 @@ The client data carries three Bazaar members inside the signed bytes: `bazaar.fa
 7. `bazaar.at` is within the clock-skew bound of server time (the same bound as `OwnerSignatureOptions`).
 8. The credential's attested properties, recorded at enrolment, allow the claimed factor, and the factor is in the action class's allowed list (setting `biometric.allowed_factors.<class>`; the shipped default for high-risk actions is face with depth, face with multi-lens, and fingerprint). For every factor used on a high-risk action `bazaar.liveness` must be `passed`. This is a floor, not a setting, and it restates section 8: where a platform reports no liveness, the factor is not used for high-risk actions.
 
-**Enrolment.** The device registers a platform credential with attestation at the same moment it enrols its owner-approval key (doc 32 section 5a, whose enrolment path is still OPEN). The server verifies the attestation chain once and stores the credential id, the public key, the attested properties (hardware-backed, user-verification required, authenticator type) and the sign count. Android uses key attestation with the Keystore key set to require biometric (BIOMETRIC_STRONG) authentication on every use. Windows uses the platform authenticator with Windows Hello.
+**Enrolment.** The device registers a platform credential with attestation at the same moment it enrols its owner-approval key (doc 32 section 5a, whose enrolment path is still OPEN). The server verifies the attestation chain once and stores the credential id, the public key, the attested properties (hardware-backed, user-verification required, authenticator type) and the sign count. Android uses key attestation with the Keystore key set to require biometric (BIOMETRIC_STRONG) authentication on every use. Windows uses the platform authenticator with Windows Hello. The full ceremony (who may start it, the enrolment challenge that ties the credential to the approval key, attestation roots, one transaction with the audit row) is doc 32 section 5b [PROPOSED].
 
 **Where it plugs in.** `IWideningBiometricCheck` (doc 48 section 4) and the owner-gated actions in section 9 call one `IBiometricAssertionVerifier`. It lives in its own module, `Bazaar.Server.Biometric` with `Bazaar.Server.Biometric.Abstractions`, and keeps the WebAuthn parsing in one namespace so the backup-owner verifier (`Fido2AssertionVerifier`, section 7) and the passkey sign-in module can move onto it later instead of keeping separate copies. Templates never reach the server (section 8), and the assertion holds none.
 

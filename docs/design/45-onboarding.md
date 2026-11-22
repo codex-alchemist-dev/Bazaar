@@ -47,7 +47,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -85,7 +85,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
-| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
+| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC; PTR when self-hosted). Domains are never hardcoded. Optional plan fields under `email` (PROPOSED, 2026-11-18): `domain`, `backendKind`, `dkimSelector`, `dmarcReportAddress`, `selfHosted`. The check is advice and never blocks the apply. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
 | 13 | Company source | Blank company, a template at a version (section 1.8), or an import (doc 44). The Constitution is drafted here and must be accepted by the owner before any Soul activates. | 24, 44 |
 | 14 | Modules | The first module set (Bazaar.GC is always present; Constellation, Conduit, KODO, RyuseiFuda and others by choice). Each module's licence is shown and checked against the licence policy. | 37, brief |
@@ -215,7 +215,7 @@ The file is a plan input. It is never executed and never contains a secret value
 
 One company per install. A template creates the install's one company; it does not create a second one.
 
-## 1.9 Provisioning API [PLANNED]
+## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
 | Route | Purpose |
 |---|---|
@@ -225,6 +225,8 @@ One company per install. A template creates the install's one company; it does n
 
 - **Where it lives.** On the authenticated HTTP surface (doc 02), on its own rate bucket. JSON only; no client UI is served.
 - **Access.** Before the first owner exists, only from loopback, and only with the one-time bootstrap code printed at the first start. This is the same pattern doc 32 uses for pairing codes. After the owner exists, only the owner role may call it, and each call is audited.
+- **Host wiring.** The `setup` Bazaar Component (`Bazaar.Server.Setup.Host`, depends on `audit` and `settings`) registers the apply engine, this API and the durable Postgres stores. `Program.cs` maps the three routes only when the component is enabled (`Bazaar:Components:setup:Enabled`, default true), so a host without it answers 404 on `/setup/*`; a missing dependency answers 503. The bootstrap code is created at start while no owner exists (a `human` row with role `owner`), printed once to standard output and never logged; only its SHA-256 digest is stored (`setup_bootstrap_code`, setup migration 0002), it works once, and it is retired at the next start after an owner exists. The caller check uses the host's connection authenticator, the transport rule is `wire.allow_plaintext_overlay`, and the rate bucket is `setup_api` (30 a minute, working default).
+- **Not yet.** No apply step is registered: an apply of a plan that changes anything ends in exit 3 with one audit row until the database and custody steps land. `GET /setup/status` lists registered steps as pending and holds no approvals.
 - **Not a sign-in route.** These routes are outside the three sign-in routes of doc 32. Doc 02 must list them (conflict, section Conflicts).
 
 ## 1.10 Dependencies bundled as modules [DECIDED install rule; PLANNED mechanics]
