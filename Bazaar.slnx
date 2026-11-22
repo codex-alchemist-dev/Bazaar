@@ -106,6 +106,8 @@
     <Project Path="src/Bazaar.Wire.Codec.Protobuf/Bazaar.Wire.Codec.Protobuf.csproj" />
     <Project Path="src/Bazaar.Wire.Codec.MemoryPack/Bazaar.Wire.Codec.MemoryPack.csproj" />
     <Project Path="src/Bazaar.Wire.Conformance/Bazaar.Wire.Conformance.csproj" />
+    <Project Path="tools/Bazaar.Wire.Bench/Bazaar.Wire.Bench.csproj" />
+    <Project Path="tools/Bazaar.Wire.Bench.Aot/Bazaar.Wire.Bench.Aot.csproj" />
     <Project Path="src/Bazaar.Server.Wire.Abstractions/Bazaar.Server.Wire.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Wire/Bazaar.Server.Wire.csproj" />
     <Project Path="src/Bazaar.Server.Transport.Grpc/Bazaar.Server.Transport.Grpc.csproj" />
