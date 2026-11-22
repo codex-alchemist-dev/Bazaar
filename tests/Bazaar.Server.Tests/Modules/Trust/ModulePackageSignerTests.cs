@@ -12,14 +12,14 @@ public class ModulePackageSignerTests
     private const string _digest = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
     private static ModulePackage Unsigned(string digest = _digest) =>
-        new("postgresql", "18.7.0", new HashSet<string>(StringComparer.Ordinal) { "fs.dataRoot" }, digest, _keyId,
+        new("postgresql", "18.7.0", "publisher-test", new HashSet<string>(StringComparer.Ordinal) { "fs.dataRoot" }, digest, _keyId,
             new HostRequirements(1, ["windows", "linux"], ["x64"], []), []);
 
     private static (EcdsaModuleSignatureVerifier Verifier, ECDsa Key) Setup(bool revoked = false)
     {
         var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(_keyId, "publisher-test", key, _now.AddDays(-1), _now.AddYears(1), revoked));
+        store.Add(new TrustedModuleKey(_keyId, "publisher-test", key, _now.AddDays(-1), _now.AddYears(1), revoked) { ModuleIdScopes = ["postgresql"] });
         return (new EcdsaModuleSignatureVerifier(store, new FakeTimeProvider(_now)), key);
     }
 
@@ -65,7 +65,7 @@ public class ModulePackageSignerTests
     {
         var key = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(_keyId, "publisher-test", key, _now.AddDays(-1), _now.AddYears(1), Revoked: true));
+        store.Add(new TrustedModuleKey(_keyId, "publisher-test", key, _now.AddDays(-1), _now.AddYears(1), Revoked: true) { ModuleIdScopes = ["postgresql"] });
         var verifier = new EcdsaModuleSignatureVerifier(store, new FakeTimeProvider(_now));
 
         var signed = TestPackageSigner.Sign(Unsigned(), key);

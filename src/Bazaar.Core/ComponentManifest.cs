@@ -11,7 +11,7 @@ namespace Bazaar.Core;
 /// <param name="Provides">Contract names this component implements, for example <c>gateway:adapter:openai_chat</c>.</param>
 /// <param name="SoftDependsOn">
 /// Component ids this one uses when present. A missing soft dependency is not an error: the component runs without that
-/// feature. When the dependency is enabled it starts first. Null means none. Default is hard (<see cref="DependsOn"/>).
+/// feature. Soft edges never set start order and may form cycles (section 4.1). Null means none. Default is hard (<see cref="DependsOn"/>).
 /// </param>
 public sealed record ComponentManifest(
     string Id,

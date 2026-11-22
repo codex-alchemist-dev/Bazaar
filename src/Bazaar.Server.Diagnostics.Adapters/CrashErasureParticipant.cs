@@ -1,4 +1,4 @@
-using Bazaar.Server.Components.Erasure;
+using Bazaar.Erasure.Abstractions;
 
 namespace Bazaar.Server.Diagnostics.Adapters;
 

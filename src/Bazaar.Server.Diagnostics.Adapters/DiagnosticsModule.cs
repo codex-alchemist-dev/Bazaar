@@ -1,8 +1,7 @@
 using Bazaar.Diagnostics.Ingestion;
 using Bazaar.Diagnostics.Redaction;
-using Bazaar.Server.Components.Erasure;
+using Bazaar.Erasure.Abstractions;
 using Bazaar.Server.Diagnostics.Persistence;
-using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,7 +60,7 @@ public static class DiagnosticsModule
 
     /// <summary>
     /// Registers the store, sealer, intake factory, dispatcher, erasure participant and maintenance service. Expects the shared
-    /// <c>NpgsqlDataSource</c>, <see cref="PersonKeyStore"/> and <see cref="IAuditLog"/> to be registered. The GitHub filer and the
+    /// <c>NpgsqlDataSource</c>, <see cref="ICrashKeyStore"/> and <see cref="IAuditLog"/> to be registered. The GitHub filer and the
     /// install directory are seams: until the host registers them, filing stays off and erasure fails closed.
     /// </summary>
     public static IServiceCollection AddBazaarDiagnosticsModule(this IServiceCollection services, IConfiguration configuration)
@@ -84,7 +83,6 @@ public static class DiagnosticsModule
         services.TryAddSingleton<PostgresCrashInstallDirectory>();
         services.TryAddSingleton<ICrashInstallDirectory>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
         services.TryAddSingleton<ICrashInstallRegistry>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
-        services.TryAddSingleton<PersonKeyStore>();
         services.TryAddSingleton<PostgresCrashStore>();
         services.TryAddSingleton<ICrashIntakeStore>(sp => sp.GetRequiredService<PostgresCrashStore>());
         services.TryAddSingleton<ICrashActionOutbox>(sp => sp.GetRequiredService<PostgresCrashStore>());
