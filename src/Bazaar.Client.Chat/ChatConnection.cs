@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat.Abstractions;
+using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 
 namespace Bazaar.Client.Chat;
@@ -11,7 +12,8 @@ public static class ChatConnection
     /// <param name="cursors">Where replay cursors are kept. Heads pass a file store under their state directory.</param>
     /// <param name="deviceClass">Device class the server uses to pick a UI profile, such as <c>linux</c>.</param>
     /// <param name="clientBuild">Build label sent in <c>hello</c>.</param>
-    public static GcChatSession Create(ChatConnectionSettings settings, ICursorStore cursors, string deviceClass, string clientBuild)
+    /// <param name="onWelcome">Optional; called with each server <c>welcome</c> (for example to feed the updater's compatibility check).</param>
+    public static GcChatSession Create(ChatConnectionSettings settings, ICursorStore cursors, string deviceClass, string clientBuild, Action<Welcome>? onWelcome = null)
     {
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(cursors);
@@ -28,6 +30,7 @@ public static class ChatConnection
                 DeviceClass = deviceClass,
                 ClientBuild = clientBuild,
                 Credential = settings.Token,
+                OnWelcome = onWelcome,
             },
             TimeProvider.System);
 
