@@ -1,20 +1,21 @@
+using System.Globalization;
 using System.Text;
+using Bazaar.Server.Twin.Prose;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Writes;
 
 namespace Bazaar.Server.Twin;
 
 /// <summary>
-/// Lands one validated Twin page in the Vault (doc 25 WP4, doc 18 write path). The page file is committed on an
-/// <c>agent/twin-&lt;project&gt;-&lt;page&gt;-&lt;suffix&gt;</c> branch in a short-lived worktree, then merged through
+/// Lands one Twin page in the Vault (doc 25 WP4, doc 18 write path) and implements the prose step's <see cref="ITwinPageWriter"/> port.
+/// The file is committed on an <c>agent/twin-&lt;project&gt;-&lt;page&gt;-&lt;suffix&gt;</c> branch in a short-lived worktree, then merged through
 /// <see cref="IVaultWriter.SubmitAsync"/> under the <c>bazaar-twin</c> identity. Same shape as the Archive's writer.
 /// </summary>
 /// <remarks>
-/// Unlike an Archive chapter, a Twin page is regenerated in place: an existing page is overwritten. When the rendered text is
-/// identical to the page at the base commit nothing is committed and the result is <see cref="VaultEditOutcome.UpToDate"/>.
-/// A page with no accepted sentence is never written.
+/// A Twin page is regenerated in place: an existing page is overwritten. When the text is identical to the page at the main
+/// checkout's head nothing is committed. A conflicted or refused merge throws, so the step reports a failure and never a false success.
 /// </remarks>
-public sealed class TwinPageWriter
+public sealed class TwinPageWriter : ITwinPageWriter
 {
     /// <summary>The identity recorded in the <c>Bazaar-Agent</c> trailer and as the page commit's author.</summary>
     public const string TwinAgentId = "bazaar-twin";
@@ -39,44 +40,63 @@ public sealed class TwinPageWriter
         _worktreesRoot = worktreesRoot ?? throw new ArgumentNullException(nameof(worktreesRoot));
     }
 
-    /// <summary>Writes a validated page at <c>twin/&lt;project&gt;/&lt;page&gt;.md</c>, measured against <paramref name="baseCommit"/>.</summary>
-    /// <exception cref="ArgumentException">A project or page name is not a safe path segment.</exception>
-    /// <exception cref="InvalidOperationException">The page has no accepted sentence.</exception>
-    public async Task<VaultEditResult> WriteAsync(ValidatedTwinPage page, string baseCommit, CancellationToken ct)
+    /// <inheritdoc />
+    public async Task<TwinPageRef?> GetLatestAsync(string project, string page, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(page);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseCommit);
-        var pagePath = TwinPaths.PagePath(page.Project, page.Page);
-        if (page.Sentences.Count == 0)
+        var path = TwinPaths.PagePath(project, page);
+        var file = Path.Combine(_repoPath, path);
+        if (!File.Exists(file))
         {
-            throw new InvalidOperationException("A page with no accepted sentence is never written.");
+            return null;
         }
 
-        var head = await _git.ResolveCommitAsync(_repoPath, baseCommit, ct);
-        var content = TwinPageRenderer.Render(page);
+        var text = await File.ReadAllTextAsync(file, ct).ConfigureAwait(false);
+        return new TwinPageRef(path, ReadVersion(text) ?? 1);
+    }
 
-        // Nothing to do when the main checkout is at the base commit and already holds this exact page: no branch, no commit.
-        var mainFile = Path.Combine(_repoPath, pagePath);
-        if (await _git.HeadAsync(_repoPath, ct) == head && File.Exists(mainFile) && await File.ReadAllTextAsync(mainFile, ct) == content)
+    /// <inheritdoc />
+    /// <exception cref="ArgumentException">A name is not a safe path segment, or the path does not match the project and page.</exception>
+    /// <exception cref="InvalidOperationException">The merge was conflicted or refused.</exception>
+    public async Task<TwinPageRef> WriteAsync(TwinPageWrite page, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        var pagePath = TwinPaths.PagePath(page.Project, page.Page);
+        if (!string.Equals(page.Path, pagePath, StringComparison.Ordinal))
         {
-            return new VaultEditResult(VaultEditOutcome.UpToDate, head, head, [], null);
+            throw new ArgumentException("The page path does not match its project and page.", nameof(page));
+        }
+
+        var written = new TwinPageRef(pagePath, ReadVersion(page.Markdown) ?? 1);
+        var head = await _git.HeadAsync(_repoPath, ct).ConfigureAwait(false);
+
+        // Nothing to do when the main checkout already holds this exact page: no branch, no commit.
+        var mainFile = Path.Combine(_repoPath, pagePath);
+        if (File.Exists(mainFile) && await File.ReadAllTextAsync(mainFile, ct).ConfigureAwait(false) == page.Markdown)
+        {
+            return written;
         }
 
         // A short random suffix keeps a branch kept from an earlier conflicted write from colliding with this one.
         var branch = $"agent/twin-{page.Project}-{page.Page}-{Guid.NewGuid():N}"[..^24];
         Directory.CreateDirectory(_worktreesRoot);
         var worktree = Path.Combine(_worktreesRoot, branch.Replace('/', '-'));
-        await _git.AddWorktreeAsync(_repoPath, branch, worktree, ct);
+        await _git.AddWorktreeAsync(_repoPath, branch, worktree, ct).ConfigureAwait(false);
         try
         {
             var fullPath = Path.Combine(worktree, pagePath);
             Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
-            await File.WriteAllTextAsync(fullPath, content, new UTF8Encoding(false), ct);
-            await _git.CommitAsync(worktree, $"Twin page {page.Page} for {page.Project}", TwinIdentity, ct);
+            await File.WriteAllTextAsync(fullPath, page.Markdown, new UTF8Encoding(false), ct).ConfigureAwait(false);
+            await _git.CommitAsync(worktree, $"Twin page {page.Page} for {page.Project}", TwinIdentity, ct).ConfigureAwait(false);
 
-            return await _writer.SubmitAsync(
+            var result = await _writer.SubmitAsync(
                 new VaultEditRequest(TwinPageRenderer.DocId(page.Project, page.Page), head, branch, TwinAgentId, GcId: null, TaskId: null),
-                ct);
+                ct).ConfigureAwait(false);
+            if (result.Outcome is VaultEditOutcome.Conflicted or VaultEditOutcome.Refused)
+            {
+                throw new InvalidOperationException($"The Vault did not take the Twin page: {result.Outcome}.");
+            }
+
+            return written;
         }
         finally
         {
@@ -86,7 +106,28 @@ public sealed class TwinPageWriter
                 Directory.Delete(worktree, recursive: true);
             }
 
-            await _git.PruneWorktreesAsync(_repoPath, CancellationToken.None);
+            await _git.PruneWorktreesAsync(_repoPath, CancellationToken.None).ConfigureAwait(false);
         }
+    }
+
+    // The step writes a "version: N" line in the front matter; the page's version is read back from there.
+    private static int? ReadVersion(string markdown)
+    {
+        var lines = markdown.Split('\n');
+        if (lines.Length == 0 || lines[0].TrimEnd('\r') != "---")
+        {
+            return null;
+        }
+
+        for (var i = 1; i < lines.Length && lines[i].TrimEnd('\r') != "---"; i++)
+        {
+            if (lines[i].StartsWith("version: ", StringComparison.Ordinal)
+                && int.TryParse(lines[i].AsSpan("version: ".Length).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var v))
+            {
+                return v;
+            }
+        }
+
+        return null;
     }
 }

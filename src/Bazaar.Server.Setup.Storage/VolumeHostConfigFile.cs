@@ -5,7 +5,7 @@ namespace Bazaar.Server.Setup.Storage;
 
 /// <summary>
 /// The host config file the volume bootstrap writes on the boot root (doc 63 section 10): <c>config/volume.json</c> with the
-/// data root, the install id, the volume id and the instance class. The host reads it as configuration below environment
+/// data root, the install id, the volume id, the instance class and, when the plan names one, the identity KEK provider kind. The host reads it as configuration below environment
 /// variables. It holds no key and no secret.
 /// </summary>
 public static class VolumeHostConfigFile
@@ -17,7 +17,7 @@ public static class VolumeHostConfigFile
     public static string PathFor(string bootRoot) => Path.Combine(bootRoot, "config", "volume.json");
 
     /// <summary>Writes the file through a temporary file and a rename, so a crash never leaves half a file.</summary>
-    public static async Task WriteAsync(string bootRoot, string dataRoot, DataVolumeDescriptor descriptor, CancellationToken cancellationToken)
+    public static async Task WriteAsync(string bootRoot, string dataRoot, DataVolumeDescriptor descriptor, string? kekProvider, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(bootRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
@@ -37,6 +37,13 @@ public static class VolumeHostConfigFile
             writer.WriteString("VolumeId", descriptor.VolumeId);
             writer.WriteString("InstanceClass", descriptor.InstanceClass.ToString());
             writer.WriteEndObject();
+            if (!string.IsNullOrWhiteSpace(kekProvider))
+            {
+                writer.WriteStartObject("Identity");
+                writer.WriteString("KekProvider", kekProvider);
+                writer.WriteEndObject();
+            }
+
             writer.WriteEndObject();
             writer.WriteEndObject();
         }

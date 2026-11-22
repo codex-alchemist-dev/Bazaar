@@ -3,6 +3,7 @@ using Bazaar.Server.Host.Analytics;
 using Bazaar.Archive.Http;
 using Bazaar.Server.Host.Auth;
 using Bazaar.GitHub;
+using Bazaar.Community.Drafts;
 using Bazaar.Community.Observatory;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Core;
@@ -44,9 +45,19 @@ if (args.Length > 0 && args[0].Equals("storage", StringComparison.OrdinalIgnoreC
 }
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Doc 63 section 10: a setup plan named at start may ask for the data volume, and it must exist before PostgreSQL starts.
+var volumeSetup = await VolumeSetupOnStart.RunAsync(builder.Configuration, Console.Out);
+if (!volumeSetup.MayStart)
+{
+    return volumeSetup.ExitCode;
+}
+
+builder.Configuration.AddVolumeHostConfig();
 builder.Configuration.AddKekHostConfig();
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);
+builder.Services.AddBazaarDataVolume(builder.Configuration);
 
 // Both integrations are no-ops unless the process runs under the matching service manager.
 builder.Services.AddWindowsService(options => options.ServiceName = "Bazaar.Server");
@@ -68,6 +79,8 @@ app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
+app.MapCommunityDraftDecision();
+app.MapCommunityDraftReads();
 app.MapBazaarAnalytics(AnalyticsHostAuth.ResolveAsync);
 app.MapBazaarSetup();
 app.MapBazaarAuthSignOut();

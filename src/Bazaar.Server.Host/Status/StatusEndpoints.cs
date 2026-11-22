@@ -43,24 +43,26 @@ public static class StatusEndpoints
         return routes;
     }
 
-    /// <summary>The authenticated API routes that also take writes: blob uploads, the Constellation tile endpoint and recording a Company Memory decision.</summary>
+    /// <summary>The authenticated API routes that also take writes: blob uploads, the Constellation tile endpoint and recording a Company Memory decision, and community draft decisions.</summary>
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs")
         || path.Equals("/constellation/tiles", StringComparison.Ordinal)
         || path.Equals("/company-memory/decisions", StringComparison.Ordinal)
-        || path.Equals("/company-memory/pages", StringComparison.Ordinal);
+        || path.Equals("/company-memory/pages", StringComparison.Ordinal)
+        || path.StartsWithSegments("/community/drafts");
 
     /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
 
     /// <summary>
-    /// The refresh and sign-out routes (<c>/auth/refresh</c>, <c>/auth/signout</c>, doc 32 section 5). They take POST and
+    /// The refresh, sign-out and handoff routes (<c>/auth/refresh</c>, <c>/auth/signout</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
         && (path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase)
-            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase));
+            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/handoff", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and

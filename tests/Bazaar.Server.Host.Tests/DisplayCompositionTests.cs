@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Abstractions;
@@ -9,10 +10,13 @@ using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Security.KillSwitch;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
+using Bazaar.Server.VmDisplay.AgentTools;
+using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
@@ -32,7 +36,7 @@ public sealed class DisplayCompositionTests
 {
     private static readonly string[] _componentIds =
     [
-        "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-hyperv", "vm-display-kvm",
+        "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
         "vm-density", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
         "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
@@ -61,12 +65,26 @@ public sealed class DisplayCompositionTests
         var listed = manifests.Select(m => m.Id).ToList();
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-gate"));
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-audit"));
+        Assert.True(listed.IndexOf("vm-display-agent-tools") < listed.IndexOf("vm-display-agent-targets"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-display"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-linux-host"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-image"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-egress"));
         Assert.True(listed.IndexOf("browser-pool-gate") < listed.IndexOf("browser-pool-egress"));
         Assert.True(listed.IndexOf("browser-pool-audit") < listed.IndexOf("browser-pool-egress"));
+    }
+
+    [Fact]
+    public void The_agent_targets_register_before_the_screen_tools_because_the_tools_decide_what_to_offer_while_registering()
+    {
+        // Soft edges never set start order and there is no hard edge between the two, so the kernel starts them in id order. If this
+        // fails, the tools component would run first, find no IAgentDisplayTargets, and offer nothing even when the adapter is enabled.
+        var ordered = ComponentGraph.Order(HostComponents.All.Select(c => c.Manifest)).Select(m => m.Id).ToList();
+
+        Assert.True(ordered.IndexOf("vm-display-agent-targets") < ordered.IndexOf("vm-display-agent-tools"));
+        Assert.True(ordered.IndexOf("vm-display") < ordered.IndexOf("vm-display-agent-tools"));
+        Assert.Empty(VmAgentDisplayTargetsComponent.ManifestDefinition.DependsOn);
+        Assert.Contains("vm-display-agent-targets", VmDisplayAgentToolsComponent.ManifestDefinition.Soft);
     }
 
     [Fact]
@@ -182,11 +200,46 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public void The_screen_tools_are_not_offered_until_the_host_supplies_the_agent_display_targets()
+    public void The_screen_tools_are_not_offered_by_default_because_the_agent_display_targets_are_off()
     {
         using var host = BuildHost();
 
+        Assert.Null(host.Services.GetService<IAgentDisplayTargets>());
         Assert.DoesNotContain(host.Services.GetServices<ToolRegistration>(), t => t.Name is "screen.capture" or "screen.input");
+        Assert.DoesNotContain(host.Services.GetServices<ModelToolDefinition>(), t => t.Name is "screen.capture" or "screen.input");
+    }
+
+    [Fact]
+    public void An_explicit_false_keeps_the_screen_tools_off()
+    {
+        using var host = BuildHost(new Dictionary<string, string?> { ["Bazaar:VmDisplayAgentTargets:Enabled"] = "false" });
+
+        Assert.Null(host.Services.GetService<IAgentDisplayTargets>());
+        Assert.DoesNotContain(host.Services.GetServices<ToolRegistration>(), t => t.Name is "screen.capture" or "screen.input");
+    }
+
+    [Fact]
+    public async Task Enabling_the_agent_targets_registers_the_screen_tools_but_policy_has_no_entry_for_them_and_a_failed_read_gives_no_target()
+    {
+        using var host = BuildHost(new Dictionary<string, string?>
+        {
+            ["Bazaar:VmDisplayAgentTargets:Enabled"] = "true",
+            ["Bazaar:VmDisplayAgentTargets:ReadTimeoutSeconds"] = "1",
+        });
+
+        var targets = host.Services.GetRequiredService<IAgentDisplayTargets>();
+        Assert.IsType<VmAgentDisplayTargets>(targets);
+        Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ToolRegistration>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
+        Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ModelToolDefinition>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
+
+        // What still stands in the way: the policy engine has no capability for either tool, so it denies a call as an unknown tool.
+        var capabilities = host.Services.GetRequiredService<CapabilityRegistry>();
+        Assert.False(capabilities.TryGet("screen.capture", out _));
+        Assert.False(capabilities.TryGet("screen.input", out _));
+
+        // The test host has no reachable database, so the VM read fails and the agent has no target.
+        Assert.Null(await targets.ResolveAsync(Guid.NewGuid(), AgentDisplayKind.Linux, CancellationToken.None));
+        Assert.Null(await targets.ResolveAsync(Guid.NewGuid(), AgentDisplayKind.Windows, CancellationToken.None));
     }
 
     [Fact]
