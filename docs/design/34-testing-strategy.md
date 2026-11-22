@@ -149,6 +149,7 @@ Key domain cases (PROPOSED, each in the layer shown):
 - L5: loop-guard trip admits the agents involved to the Psych Ward; a depth-3 interrupt is refused; `emergency` bypasses vacation and nothing else does.
 - L5: a Skimmer-promoted wake respects the cap; in shadow mode it does not wake.
 - L3: the HTTP surface and the socket share one authenticated session; blobs never travel on the socket.
+- L3 + L4: the Avalonia.Headless chat client against a real `Bazaar.Server.Host` process (own migrated database, fake model source): sign in with the dev token, open the GC, send a message, see the agent's reply (`tests/Bazaar.Client.ServerE2E.Tests`). The sign-in screen step joins once the server sign-in page is on main.
 - Gate self-tests: a fixture repo with seeded bad changes (deleted test, added Skip, dropped count, masked timeout, edited test file) must fail; a clean control must pass.
 - Fake contract: once per provider adapter, one recorded real response is compared in shape with the scripted one.
 - Cassette tamper: one changed byte in a request fails replay loudly.
