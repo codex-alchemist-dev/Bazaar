@@ -42,10 +42,10 @@
     <Project Path="src/Bazaar.Server.Constitution.Abstractions/Bazaar.Server.Constitution.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
     <Project Path="src/Bazaar.Rubedo.Analysis/Bazaar.Rubedo.Analysis.csproj" />
-    <Project Path="src/Bazaar.Rubedo.Docs/Bazaar.Rubedo.Docs.csproj" />
-    <Project Path="src/Bazaar.Rubedo.Docs.Tool/Bazaar.Rubedo.Docs.Tool.csproj" />
     <Project Path="src/Bazaar.Rubedo.LanguageServer/Bazaar.Rubedo.LanguageServer.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Rubedo.Docs/Bazaar.Rubedo.Docs.csproj" />
+    <Project Path="src/Bazaar.Rubedo.Docs.Tool/Bazaar.Rubedo.Docs.Tool.csproj" />
     <Project Path="src/Bazaar.Server.Terminal/Bazaar.Server.Terminal.csproj" />
     <Project Path="src/Bazaar.Client.Calcinato.Pty/Bazaar.Client.Calcinato.Pty.csproj" />
     <Project Path="src/Bazaar.Client.Calcinato/Bazaar.Client.Calcinato.csproj" />
