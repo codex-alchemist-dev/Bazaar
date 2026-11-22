@@ -14,6 +14,15 @@ public sealed class ServerGitGuiClientTests
     {
         public List<string> Paths { get; } = [];
 
+        public List<(string Path, byte[] Body)> Posts { get; } = [];
+
+        public Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Posts.Add((path, jsonBody));
+            return Task.FromResult(answer(path));
+        }
+
         public Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -246,6 +255,8 @@ public sealed class ServerGitGuiClientTests
     private sealed class ThrowingTransport(Exception ex) : IGitHttpTransport
     {
         public Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default) => throw ex;
+
+        public Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default) => throw ex;
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
