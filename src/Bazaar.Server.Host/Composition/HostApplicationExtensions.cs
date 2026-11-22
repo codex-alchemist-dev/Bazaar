@@ -51,12 +51,13 @@ public static class HostApplicationExtensions
         services.AddBazaarPostgresCredentialLeases();
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
-        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
+        services.AddBazaarSecretStore(configuration);
+        services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarLegalHoldReader();
@@ -92,6 +93,7 @@ public static class HostApplicationExtensions
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
+        services.AddBazaarCouncilHostAdapters();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);

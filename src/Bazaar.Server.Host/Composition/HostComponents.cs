@@ -19,6 +19,7 @@ using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.Council;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -44,6 +45,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
@@ -80,6 +82,7 @@ public static class HostComponents
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
@@ -97,6 +100,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
