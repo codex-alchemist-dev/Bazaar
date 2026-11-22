@@ -50,6 +50,7 @@ public static class GitHubRegistration
             sp.GetRequiredService<IGitHubEventSink>(),
             sp.GetRequiredService<ILogger<GitHubEventsPollingService>>(),
             sp.GetService<TimeProvider>())));
+        services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.GitHub.Webhooks.GitHubWebhookOptions());
 
         var identityBase = section["IdentityService:BaseAddress"];
         if (string.IsNullOrWhiteSpace(identityBase))
