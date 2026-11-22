@@ -1,4 +1,10 @@
 using Bazaar.Approvals;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.Abstractions;
+using Bazaar.Server.AccountApproval.OwnerQueue;
+using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Approvals.Db;
+using Bazaar.Server.Security.Policy;
 using Bazaar.GitHub.Adapter;
 using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
@@ -44,6 +50,15 @@ public sealed class HostApplicationTests
             Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
             Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
+
+            // Account approval: the owner hand-off reaches the durable approval store and the shared request cap.
+            Assert.IsType<PostgresApprovalStore>(sp.GetRequiredService<IApprovalStore>());
+            Assert.IsType<OwnerApprovalEnqueuer>(sp.GetRequiredService<IOwnerApprovalEnqueuer>());
+            Assert.IsType<OwnerQueueApprovalHandOff>(sp.GetRequiredService<IOwnerApprovalHandOff>());
+            Assert.NotNull(sp.GetRequiredService<ApprovalService>());
+            Assert.NotNull(sp.GetRequiredService<AccountApprovalService>());
+            Assert.NotNull(sp.GetRequiredService<SiteAccessService>());
+            Assert.Same(sp.GetRequiredService<IRateBucketStore>(), sp.GetRequiredService<IRateBucketStore>());
         }
         finally
         {

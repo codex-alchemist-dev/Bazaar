@@ -1,3 +1,4 @@
+using Bazaar.Server.Security;
 using Bazaar.Core;
 using Bazaar.Erasure;
 using Bazaar.Fun;
@@ -44,6 +45,7 @@ public static class HostApplicationExtensions
         services.AddBazaarPostgresCredentialLeases();
         services.AddBazaarVms(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.AddBazaarOwnerApprovals();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
