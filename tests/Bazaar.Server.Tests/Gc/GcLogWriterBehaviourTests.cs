@@ -509,4 +509,71 @@ public sealed class GcLogWriterBehaviourTests(GcDb db) : IClassFixture<GcDb>
             .ToList();
         Assert.Equal(expected, stored);
     }
+
+    [Fact]
+    public async Task Sealed_payload_is_stored_as_given_and_a_replay_keeps_the_original_bytes()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var author = Guid.CreateVersion7();
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+        var keyId = Guid.CreateVersion7();
+        var bytes = new byte[] { 1, 2, 3, 4 };
+
+        var first = await writer.AppendAsync(
+            Structured(gc, author, "s1") with { Sealed = new SealedPayload(bytes, keyId) }, TestContext.Current.CancellationToken);
+        var replay = await writer.AppendAsync(
+            Structured(gc, author, "s1") with { Sealed = new SealedPayload(new byte[] { 9, 9 }, Guid.CreateVersion7()) },
+            TestContext.Current.CancellationToken);
+
+        Assert.True(replay.Duplicate);
+        Assert.Equal(first.EventId, replay.EventId);
+        var row = Assert.Single(await RowsAsync("SELECT payload_ct, key_id FROM gc_event WHERE gc_id = $1", gc));
+        Assert.Equal(bytes, row[0]);
+        Assert.Equal(keyId, row[1]);
+    }
+
+    [Fact]
+    public async Task Unsealed_event_has_null_payload_ct_and_key_id()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+
+        await writer.AppendAsync(Structured(gc, Guid.CreateVersion7(), "u1"), TestContext.Current.CancellationToken);
+
+        var row = Assert.Single(await RowsAsync("SELECT payload_ct, key_id FROM gc_event WHERE gc_id = $1", gc));
+        Assert.Equal(DBNull.Value, row[0]);
+        Assert.Equal(DBNull.Value, row[1]);
+    }
+
+    [Fact]
+    public async Task Sealed_payload_with_empty_ciphertext_or_empty_key_is_rejected_and_nothing_is_written()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+        var author = Guid.CreateVersion7();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AppendAsync(
+            Structured(gc, author, "e1") with { Sealed = new SealedPayload(ReadOnlyMemory<byte>.Empty, Guid.CreateVersion7()) },
+            TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<ArgumentException>(() => writer.AppendAsync(
+            Structured(gc, author, "e2") with { Sealed = new SealedPayload(new byte[] { 1 }, Guid.Empty) },
+            TestContext.Current.CancellationToken));
+        await AssertNothingWrittenAsync(gc);
+    }
+
+    [Fact]
+    public async Task Database_rejects_a_half_sealed_event_row()
+    {
+        GcTestSkip.WithoutDatabase();
+        var gc = await db.CreateGcAsync();
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+        await writer.AppendAsync(Structured(gc, Guid.CreateVersion7(), "h1"), TestContext.Current.CancellationToken);
+
+        await using var cmd = db.DataSource.CreateCommand("UPDATE gc_event SET payload_ct = '\\x01'::bytea WHERE gc_id = $1");
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+        await Assert.ThrowsAsync<PostgresException>(() => cmd.ExecuteNonQueryAsync(TestContext.Current.CancellationToken));
+    }
 }

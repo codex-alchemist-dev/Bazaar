@@ -19,7 +19,27 @@ public class VaultPathAccessTests
             ["beta"] = new(new HashSet<string> { "dave" }, new HashSet<string>()),
         }));
 
+    private static readonly VaultPathAccess _hiveAccess = new(
+        new StaticProjectMembership(
+            new Dictionary<string, ProjectMembers>
+            {
+                ["alpha"] = new(new HashSet<string> { "alice", "bob" }, new HashSet<string> { "carol" }),
+                ["beta"] = new(new HashSet<string> { "dave" }, new HashSet<string>()),
+            }),
+        new FixedHiveTargets(new Dictionary<string, string[]>
+        {
+            ["hive/procedure/retry.md"] = ["alpha"],
+            ["hive/failure/two-targets.md"] = ["alpha", "beta"],
+            ["hive/procedure/unknown-target.md"] = ["gamma"],
+        }));
+
     private static VaultPath P(string path) => VaultPath.Parse(path);
+
+    private sealed class FixedHiveTargets(IReadOnlyDictionary<string, string[]> targets) : IHiveCopyTargets
+    {
+        public IReadOnlyCollection<string> TargetProjectsOf(VaultPath copyPath) =>
+            targets.TryGetValue(copyPath.Value, out var projects) ? projects : [];
+    }
 
     [Theory]
     [InlineData("agents/bob/memory/lesson.md")]
@@ -160,6 +180,9 @@ public class VaultPathAccessTests
     [InlineData("projects/alpha")]
     [InlineData("agents/bob")]
     [InlineData("hive")]
+    [InlineData("twin/alpha")]
+    [InlineData("decisions/0001-x.md")]
+    [InlineData("Index.md")]
     public void Unknown_paths_are_denied_by_default(string path)
     {
         Assert.False(_access.CanRead(_owner, P(path)));
@@ -184,17 +207,106 @@ public class VaultPathAccessTests
         Assert.True(_access.CanRead(_dave, P("projects/beta/Index.md")));
     }
 
+    // Twin pages (twin/<project>/<page>.md, doc 25) are a project area, routed through VaultAccess.ProjectAreaOf like search.
     [Fact]
-    public void Company_memory_and_hive_are_readable_by_owner_maintenance_and_all_agents()
+    public void Twin_pages_follow_project_membership_like_project_areas()
+    {
+        Assert.True(_access.CanRead(_owner, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_maintenance, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_alice, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_aliceCover, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_carol, P("twin/alpha/overview.md")));
+        Assert.False(_access.CanRead(_dave, P("twin/alpha/overview.md")));
+        Assert.False(_access.CanRead(_alice, P("twin/beta/overview.md")));
+        Assert.False(_access.CanResolveLink(_alice, P("projects/alpha/Index.md"), P("twin/beta/overview.md")));
+    }
+
+    [Fact]
+    public void Static_membership_lists_projects_by_the_same_rules_as_is_member()
+    {
+        var membership = new StaticProjectMembership(new Dictionary<string, ProjectMembers>
+        {
+            ["alpha"] = new(new HashSet<string> { "alice", "bob" }, new HashSet<string> { "carol" }),
+            ["beta"] = new(new HashSet<string> { "dave", "alice" }, new HashSet<string>()),
+        });
+
+        Assert.Equal(["alpha", "beta"], membership.ProjectsOf(_alice).Order(StringComparer.Ordinal));
+        Assert.Equal(["alpha", "beta"], membership.ProjectsOf(_aliceCover).Order(StringComparer.Ordinal));
+        Assert.Equal(["alpha"], membership.ProjectsOf(_carol));
+        Assert.Equal(["beta"], membership.ProjectsOf(_dave));
+        Assert.Empty(membership.ProjectsOf(VaultPrincipal.Agent("zed")));
+        Assert.Empty(membership.ProjectsOf(_owner));
+        Assert.Empty(membership.ProjectsOf(_maintenance));
+    }
+
+    [Fact]
+    public void Company_memory_is_readable_by_owner_maintenance_and_all_agents()
     {
         foreach (var who in new[] { _owner, _maintenance, _alice, _dave, _aliceCover })
         {
             Assert.True(_access.CanRead(who, P("company/memory/policy.md")));
-            Assert.True(_access.CanRead(who, P("hive/pattern.md")));
         }
 
         Assert.False(_access.CanRead(_carol, P("company/memory/policy.md")));
-        Assert.False(_access.CanRead(_carol, P("hive/pattern.md")));
+    }
+
+    // Regression: hive/** used to be readable by every agent. A copy is readable only in its grant target projects.
+    [Fact]
+    public void Hive_is_denied_to_every_agent_when_no_grant_data_is_available()
+    {
+        foreach (var who in new[] { _alice, _bob, _dave, _aliceCover, _carol })
+        {
+            Assert.False(_access.CanRead(who, P("hive/procedure/retry.md")));
+            Assert.False(_access.Explain(who, P("hive/procedure/retry.md")).Logged);
+        }
+    }
+
+    [Fact]
+    public void Hive_stays_readable_by_the_owner_and_maintenance()
+    {
+        foreach (var access in new[] { _access, _hiveAccess })
+        {
+            Assert.True(access.CanRead(_owner, P("hive/procedure/retry.md")));
+            Assert.True(access.CanRead(_maintenance, P("hive/procedure/retry.md")));
+            Assert.True(access.CanRead(_owner, P("hive/failure/unknown.md")));
+        }
+    }
+
+    [Fact]
+    public void Hive_copy_is_readable_by_agents_in_a_grant_target_project()
+    {
+        Assert.True(_hiveAccess.CanRead(_alice, P("hive/procedure/retry.md")));
+        Assert.True(_hiveAccess.CanRead(_bob, P("hive/procedure/retry.md")));
+        Assert.True(_hiveAccess.CanRead(_dave, P("hive/failure/two-targets.md")));
+        Assert.True(_hiveAccess.CanRead(_alice, P("hive/failure/two-targets.md")));
+    }
+
+    [Fact]
+    public void Hive_copy_is_denied_to_agents_outside_its_target_projects()
+    {
+        Assert.False(_hiveAccess.CanRead(_dave, P("hive/procedure/retry.md")));
+        Assert.False(_hiveAccess.Explain(_dave, P("hive/procedure/retry.md")).Allowed);
+        Assert.False(_hiveAccess.CanRead(_alice, P("hive/procedure/unknown.md")));
+        Assert.False(_hiveAccess.CanRead(_alice, P("hive/procedure/unknown-target.md")));
+    }
+
+    [Fact]
+    public void Hive_copy_follows_the_cover_primarys_membership_and_never_member_humans()
+    {
+        Assert.True(_hiveAccess.CanRead(_aliceCover, P("hive/procedure/retry.md")));
+        Assert.False(_hiveAccess.CanRead(VaultPrincipal.Cover("eve", "dave"), P("hive/procedure/retry.md")));
+        Assert.False(_hiveAccess.CanRead(_carol, P("hive/procedure/retry.md")));
+    }
+
+    [Fact]
+    public void Hive_link_resolution_and_filtering_follow_the_grant()
+    {
+        var from = P("projects/beta/Index.md");
+        Assert.False(_hiveAccess.CanResolveLink(_dave, from, P("hive/procedure/retry.md")));
+        Assert.True(_hiveAccess.CanResolveLink(_alice, P("projects/alpha/Index.md"), P("hive/procedure/retry.md")));
+
+        var visible = _hiveAccess.FilterVisible(_dave, [P("hive/procedure/retry.md"), P("hive/failure/two-targets.md")]);
+        Assert.Equal(["hive/failure/two-targets.md"], visible.Select(p => p.Value));
     }
 
     [Fact]
@@ -213,7 +325,7 @@ public class VaultPathAccessTests
         var visible = _access.FilterVisible(_alice, input);
 
         Assert.Equal(
-            ["projects/alpha/z.md", "hive/b.md", "company/memory/a.md", "projects/alpha/c.md"],
+            ["projects/alpha/z.md", "company/memory/a.md", "projects/alpha/c.md"],
             visible.Select(p => p.Value));
     }
 

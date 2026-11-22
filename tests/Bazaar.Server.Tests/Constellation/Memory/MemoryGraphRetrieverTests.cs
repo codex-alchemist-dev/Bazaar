@@ -133,6 +133,31 @@ public class MemoryGraphRetrieverTests
         Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
     }
 
+    // The retriever's access layer takes project areas from VaultAccess.ProjectAreaOf, the same source as Vault search.
+    [Fact]
+    public async Task Expansion_reaches_the_members_own_project_notes_and_never_another_projects()
+    {
+        var access = new VaultPathAccess(new StaticProjectMembership(new Dictionary<string, ProjectMembers>
+        {
+            ["x"] = new(new HashSet<string> { "agent-a" }, new HashSet<string>()),
+            ["y"] = new(new HashSet<string> { "agent-b" }, new HashSet<string>()),
+        }));
+        var store = new FakeStore(
+            Note("a", "agent-a", Link("px"), Link("ty"), Link("py")),
+            At(Note("px", "agent-a"), "projects/x/memory/px.md"),
+            At(Note("ty", "agent-b"), "twin/y/overview.md"),
+            At(Note("py", "agent-b"), "projects/y/memory/py.md"));
+        var retriever = new MemoryGraphRetriever(store, access);
+
+        var forA = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1);
+        var forB = await RetrieveAsync(retriever, _agentB, lexical: ["ty", "py", "px"], vector: [], store: store, maxHops: 1);
+
+        Assert.Equal(["a", "px"], forA.Hits.Select(h => h.NoteId));
+        Assert.Equal(["ty", "py"], forB.Hits.Select(h => h.NoteId));
+    }
+
+    private static MemoryGraphRevision At(MemoryGraphRevision revision, string vaultPath) => revision with { VaultPath = vaultPath };
+
     [Fact]
     public async Task Owner_sees_the_linked_note_in_another_agents_area()
     {
