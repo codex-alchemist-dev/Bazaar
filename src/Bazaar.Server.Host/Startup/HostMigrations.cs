@@ -1,6 +1,6 @@
-using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
