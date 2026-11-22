@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
@@ -17,8 +18,10 @@ using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Android;
 
@@ -36,6 +39,9 @@ public sealed class App : Avalonia.Application
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
         };
+
+        // Direction from the locale and the screen-reader live region wrap the main view (doc 41c; Android has no window).
+        ShellHost.Install(host, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {

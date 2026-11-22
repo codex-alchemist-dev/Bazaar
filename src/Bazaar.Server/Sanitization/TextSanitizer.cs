@@ -2,6 +2,8 @@ using System.Collections.Immutable;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Bazaar.Sanitization;
+
 namespace Bazaar.Server.Sanitization;
 
 /// <summary>
