@@ -44,7 +44,9 @@ public sealed class GatewaySourcesStep(NpgsqlDataSource dataSource, IModelSource
 
     private const string _lockSql = "SELECT pg_advisory_xact_lock(hashtextextended('setup:gw_provider', 0))";
 
+    // A RESTRICT foreign key raises restrict_violation (23001), a plain one foreign_key_violation (23503). gw_model uses RESTRICT.
     private const string _foreignKeyViolation = "23503";
+    private const string _restrictViolation = "23001";
 
     private readonly NpgsqlDataSource _dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
     private readonly IModelSourceCatalogue _catalogue = catalogue ?? ModelSourceCatalogue.Default;
@@ -133,7 +135,7 @@ public sealed class GatewaySourcesStep(NpgsqlDataSource dataSource, IModelSource
                     delete.Parameters.AddWithValue("id", change.Id);
                     await delete.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (PostgresException exception) when (exception.SqlState == _foreignKeyViolation)
+                catch (PostgresException exception) when (exception.SqlState is _foreignKeyViolation or _restrictViolation)
                 {
                     // A model or usage row now hangs off this provider, so the row stays. Disabling it is the operator's call.
                     await using var back = new NpgsqlCommand("ROLLBACK TO SAVEPOINT gw_provider_delete", connection, transaction);
