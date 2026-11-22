@@ -1,16 +1,5 @@
 namespace Bazaar.Server.Setup.Http;
 
-/// <summary>
-/// Keeps the outcome of each apply, keyed by plan hash, so a repeat apply of the same hash returns it instead of applying again.
-/// The first saved result for a hash is the one kept. A durable store is a later slice; tests use an in-memory one.
-/// </summary>
-public interface IApplyResultStore
-{
-    Task<SetupApplyResult?> TryGetAsync(string planHash, CancellationToken cancellationToken = default);
-
-    Task SaveAsync(string planHash, SetupApplyResult result, CancellationToken cancellationToken = default);
-}
-
 /// <summary>The state of one setup step, as the progress source reports it.</summary>
 public enum SetupStepState
 {
