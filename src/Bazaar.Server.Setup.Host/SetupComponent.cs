@@ -99,6 +99,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+        services.AddSingleton<ISetupStep>(sp => new GatewaySourcesStep(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<IModelSourceCatalogue>()));
 
         // The default Constitution in the Vault (doc 24), drafted just before the first-run seed so there is a commit to accept. The Vault
         // repository and writer identity come from the same Memory:Vault keys as the memory module. Unset, the step fails with a message.

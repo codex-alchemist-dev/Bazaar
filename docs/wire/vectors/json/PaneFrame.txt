@@ -1,7 +1,7 @@
 Golden frame: PaneFrame
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:16bb01b112bd90c59dad18ada3f9f0a66fc9ef3c519b0df77bfcdc6bcfd23e53
+Schema hash: sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c
 Payload record: Bazaar.Contracts.Wire.PaneFrame
 Envelope: v=1 t=pane.frame k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 281 bytes

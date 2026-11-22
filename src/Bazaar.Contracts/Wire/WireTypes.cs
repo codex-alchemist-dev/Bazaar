@@ -42,11 +42,20 @@ public static class WireTypes
     /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
     public const string GcTyping = "gc.typing";
 
+    /// <summary>Server event on the <c>engine.relay</c> stream: a Studio call for the owner's desktop to run (doc 02, doc 20). Payload <c>EngineRelayRequestFrame</c>.</summary>
+    public const string EngineRelayRequest = "engine.relay.request";
+
+    /// <summary>Client request answering one relay event (doc 02, doc 20). Payload <c>EngineRelayResultFrame</c>.</summary>
+    public const string EngineRelayResult = "engine.relay.result";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
     /// <summary>Owner moves one Kanban card to another column, checked against the card's revision (doc 12). Answered with a <c>KanbanMoveReply</c>.</summary>
     public const string BoardMove = "board.move";
+
+    /// <summary>Owner sets or clears one Kanban card's assignee, checked against the card's revision (doc 12). Answered with a <c>KanbanAssignReply</c>.</summary>
+    public const string BoardAssign = "board.assign";
 
     /// <summary>Owner pauses one RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
     public const string RyuseiPause = "ryusei.trigger.pause";
@@ -95,6 +104,9 @@ public static class WireTypes
 
     /// <summary>Presence delta.</summary>
     public const string PresenceUpdate = "presence.update";
+
+    /// <summary>Client asks for every agent's presence row. Answered with a <c>PresenceSnapshot</c> (docs/design/23).</summary>
+    public const string PresenceSnapshot = "presence.snapshot";
 
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";

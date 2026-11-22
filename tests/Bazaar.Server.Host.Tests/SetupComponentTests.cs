@@ -331,9 +331,9 @@ public sealed class SetupComponentTests
         var applied = Assert.Single(rig.Audit, r => r.Kind == SetupApplier.AppliedKind);
         Assert.Equal(SetupHttpConstants.BootstrapActor, applied.Actor);
         // ISetupSettingAudit -> SettingAuditSinkSetupAudit -> ISettingAuditSink -> IAuditLog: one setting.change row per setting the plan
-        // sets (the plan's settings map, the network block and the release channel, the security update policy, backups and email).
+        // sets (the plan's settings map, the network block, the release channel, the security update policy, backups, email, the merge credential kind and reference, the default preset and the company source).
         var settings = rig.Audit.Where(r => r.Kind == AuditLogSettingSink.Kind).ToList();
-        Assert.Equal(10, settings.Count);
+        Assert.Equal(14, settings.Count);
         Assert.Contains(settings, r => r.Payload.Contains("host.shutdown_timeout_seconds", StringComparison.Ordinal));
         Assert.All(settings, r => Assert.Equal(SetupHttpConstants.BootstrapActor, r.Actor));
         Assert.Contains(rig.Audit, r => r.Kind == SetupHttpConstants.AuditKind);

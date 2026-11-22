@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Wire;
+using System.Data.Common;
 using Bazaar.Core;
 using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.Hive.Settings;
@@ -6,6 +7,7 @@ using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
+using Bazaar.Server.ReadAudit.Npgsql;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +26,8 @@ namespace Bazaar.Server.Hive;
 /// Memory and Vault are soft dependencies: <see cref="HiveCopyService"/> writes through <see cref="IMemoryBatchSink"/> and reads
 /// through <see cref="IHiveNoteReader"/>, which those components provide. Without them the grant store, ledger and policy still
 /// resolve, and resolving the copy service fails with a message naming the missing service. The Postgres stores are chosen when
-/// the services are resolved: with an <see cref="NpgsqlDataSource"/> registered they are used, otherwise the in-memory ones.
+/// the services are resolved: with an <see cref="NpgsqlDataSource"/> registered they are used, otherwise the in-memory ones. They read through the
+/// <see cref="AuditedDbDataSource"/> when the read-audit component registered one (doc 48 section 5.1), and the raw source otherwise.
 /// </remarks>
 public sealed class HiveComponent : IBazaarComponent
 {
@@ -58,7 +61,7 @@ public sealed class HiveComponent : IBazaarComponent
         services.TryAddSingleton<IHiveGrantStore>(sp =>
             sp.GetService<ISettingStore>() is { } settings
                 ? new SettingsHiveGrantStore(settings)
-                : sp.GetService<NpgsqlDataSource>() is { } dataSource
+                : ReadSource(sp) is { } dataSource
                     ? new PgHiveGrantStore(dataSource)
                     : new InMemoryHiveGrantStore());
         services.TryAddSingleton<IHiveKindSource>(sp =>
@@ -66,7 +69,7 @@ public sealed class HiveComponent : IBazaarComponent
                 ? new SettingsHiveKindSource(settings)
                 : new OptionsHiveKindSource(sp.GetRequiredService<HiveCopyOptions>()));
         services.TryAddSingleton<IHiveCopyLedger>(sp =>
-            sp.GetService<NpgsqlDataSource>() is { } dataSource
+            ReadSource(sp) is { } dataSource
                 ? new PgHiveLedger(dataSource)
                 : new InMemoryHiveCopyLedger());
 
@@ -100,6 +103,10 @@ public sealed class HiveComponent : IBazaarComponent
             sp.GetService<TimeProvider>(),
             sp.GetRequiredService<IHiveKindSource>()));
     }
+
+    /// <summary>The audited source when registered, else the raw one, else null (no database).</summary>
+    private static DbDataSource? ReadSource(IServiceProvider sp) =>
+        sp.GetService<AuditedDbDataSource>() ?? (DbDataSource?)sp.GetService<NpgsqlDataSource>();
 
     /// <summary>
     /// Reads the operator options. Absent keys keep the defaults of <see cref="HiveCopyOptions"/> (30 review days, procedure and

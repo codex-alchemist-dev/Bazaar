@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.CodingRunner</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.CodingPermissions.Abstractions\Bazaar.Server.CodingPermissions.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
+  </ItemGroup>
+</Project>
