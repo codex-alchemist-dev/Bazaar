@@ -12,7 +12,8 @@ public sealed record LuckyCandidate(string AgentId, bool OnShift, bool OptedIn);
 /// <param name="AgentId">The participant.</param>
 /// <param name="Seed">The recorded random seed; the persona is reproduced from it.</param>
 /// <param name="Persona">The persona the seed selects.</param>
-public sealed record LuckyParticipant(string AgentId, int Seed, string Persona);
+/// <param name="OptedIn">True when the agent opted in; only opted-in participants get the start wake (doc 26, section 6).</param>
+public sealed record LuckyParticipant(string AgentId, int Seed, string Persona, bool OptedIn);
 
 /// <summary>Whether an idea is kept as text or quarantined.</summary>
 public enum LuckyIdeaStatus

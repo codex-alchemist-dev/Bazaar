@@ -151,4 +151,16 @@ public class LuckyDecidedRulesTests
         Assert.True(result.Accepted);
         Assert.Empty(result.Run!.Participants);
     }
+
+    [Fact]
+    public void Only_opted_in_participants_are_woken_at_start()
+    {
+        var controller = Controller();
+        var run = StartRun(controller);
+
+        var wake = LuckyController.WakeList(run);
+
+        Assert.DoesNotContain("agent-a", wake);
+        Assert.Equal(["agent-b"], wake);
+    }
 }

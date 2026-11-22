@@ -76,7 +76,7 @@ public class FunComponentWiringTests
 
         Assert.True(result.Accepted);
         var wakeList = LuckyController.WakeList(result.Run!);
-        Assert.Equal(["agent-x", "agent-y"], wakeList);
+        Assert.Equal(["agent-y"], wakeList);
     }
 
     // ── Sidewalk ─────────────────────────────────────────────────────────────
