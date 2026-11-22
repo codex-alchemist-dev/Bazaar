@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 
 namespace Bazaar.Server.Tests.Sanitization;

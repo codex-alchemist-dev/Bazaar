@@ -13,6 +13,14 @@ namespace Bazaar.Server.Gc.Write;
 public sealed record MessageBody(ReadOnlyMemory<byte> BodyCiphertext, Guid KeyId, ReadOnlyMemory<byte> Nonce = default);
 
 /// <summary>
+/// The sealed form of an event's payload: ciphertext plus the id of the key it is sealed under. The log stores the bytes
+/// it is given and never holds a key (doc 01, doc 61). Both parts are always present together.
+/// </summary>
+/// <param name="Ciphertext">The sealed bytes. Not empty.</param>
+/// <param name="KeyId">The key the bytes are sealed under.</param>
+public sealed record SealedPayload(ReadOnlyMemory<byte> Ciphertext, Guid KeyId);
+
+/// <summary>
 /// One event to append. Seq, event id and time are assigned by the writer; provenance is set by the caller from the
 /// authenticated session, never from client input.
 /// </summary>
@@ -71,6 +79,13 @@ public sealed record AppendRequest(
 
     /// <summary>Kind-specific payload as JSON text.</summary>
     public string? PayloadJson { get; init; }
+
+    /// <summary>
+    /// The event's sealed payload, or null (the default). When set, the writer stores the ciphertext in <c>payload_ct</c> and the
+    /// key id in <c>key_id</c>; both are set or both null. A repeat of an earlier key returns the original event with its
+    /// original sealed bytes.
+    /// </summary>
+    public SealedPayload? Sealed { get; init; }
 
     /// <summary>The message body; required for kind <c>message</c>, not allowed otherwise.</summary>
     public MessageBody? Message { get; init; }
