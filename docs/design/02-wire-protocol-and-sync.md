@@ -193,7 +193,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 
 ## Conflicts
 - Bazaar.Server.md §3 transport cell: fixed with the S6 decision (DECISIONS-LOG round 15).
-- Garnet on Windows is unverified (spike S2); presence deltas wait on it.
+- Garnet on Windows: spike S2 passed (DECISIONS-LOG round 30). Its pub/sub does not guarantee order, so each `presence` delta carries the agent id and a per-agent `revision`, and the client drops stale deltas and re-fetches the snapshot after a gap (doc 23, activity and presence).
 - The Android `dataSync` 6 h cap is disputed; either way no always-on socket is planned.
 - Cloudflare Tunnel WebSocket fit is unverified; if an operator uses it, long sockets and heartbeats need testing.
 - Doc 01 still models one `entry` table with edits as entries and numbers edits in Q1; it must follow C09 and Q1 here.
