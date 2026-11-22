@@ -32,6 +32,9 @@ public sealed class SetupWizardTests
         "",                 // status bind (default: loopback)
         "",                 // status port (default: 8443)
         "",                 // modules (default: none)
+        "",                 // remote access: cloudflared tunnel (default: no)
+        "",                 // remote access: tunnel kind (skipped)
+        "",                 // remote access: tunnel host name (skipped)
         "",                 // apply prompt: stop without applying
     ];
 
