@@ -189,6 +189,12 @@ Answers the first open item of "Mailbox directory" (who sets `person_id`). Modul
 - Audit: one `mail.onboarding.*` entry per outcome through `IAuditLog` when one is registered (ids and the status only, no address). Registration: `AddBazaarMailOnboarding`, all `TryAdd`. The host calls it, with the GC adapter, `IGcProvisioner` (over `GcCreateService`) and the Postgres owner directory, only inside the `Bazaar:Mail:Enabled` gate (default false); with the gate off none of it is registered. Nothing in the host calls `OnboardAsync` or `OffboardAsync` yet: the agent lifecycle (doc 06) is the caller.
 - Open: whether an owner address (no person) needs an inbox GC of its own (`mail.owner_forward_to_inbox`); an agent-lifecycle trigger that calls offboarding when an agent is retired.
 
+### Link screen wiring [PROPOSED, 2026-11-22]
+`MailScreeningService.ScreenAsync` now runs `MailLinkExtractor` (limits `MaxLinks` 50, `MaxLinkLength` 2048) over the parsed message when the caller passes no `links`, and adds the screen reasons after `InboundQuarantineRules.Evaluate`. No network, no built-in domain.
+- Mismatch: an anchor whose visible text names a host (`ExtractedLink.DisplayTextMismatch`, host compared after IDN to ASCII and lower casing) that differs from the target host adds the existing reason `LinkTextMismatch`. A matching host, prose text and plain-text URLs add nothing.
+- Over the limits: links beyond `MaxLinks` or longer than `MaxLinkLength` are not examined, and an unexamined link is not a clean one, so the message is held. No existing code fits (`LinkTextMismatch` would claim a mismatch that was not seen), so `LinkLimitExceeded` is appended to `QuarantineReason` (existing values and sort order unchanged; reasons are stored as text, no migration). Trade-off: a legitimate message with more than 50 links is held for review; operators can raise `MaxLinks` through the limits.
+- A caller that supplies its own `links` keeps the old path (`InboundQuarantineRules` checks them); the extractor is not run twice.
+
 ## Data and interfaces
 
 ```csharp

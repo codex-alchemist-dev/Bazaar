@@ -50,6 +50,56 @@ public sealed class MailScreeningServiceTests
     private static async Task<QuarantineReason[]> ReasonsAsync(MailScreeningService service, string from, params (string Name, byte[] Data)[] attachments) =>
         [.. (await Screen(service, Mail(from, attachments), attachments)).Reasons];
 
+    private static Task<QuarantineDecision> ScreenHtml(string html, MailLimits? limits = null, string? text = "t") =>
+        Service(limits).ScreenAsync(
+            Mail("a@unrelated.test") with { HtmlBody = html, TextBody = text },
+            2048, _pass, _ => null, ct: TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task Link_whose_shown_host_differs_from_its_target_is_held()
+    {
+        var decision = await ScreenHtml("<a href=\"https://evil.example.net/login\">www.bank.example.org</a>");
+
+        Assert.Equal([QuarantineReason.LinkTextMismatch], decision.Reasons);
+        Assert.Equal(QuarantineAction.Quarantine, decision.Action);
+    }
+
+    [Fact]
+    public async Task Link_whose_shown_host_matches_its_target_is_delivered()
+    {
+        var decision = await ScreenHtml("<a href=\"https://bank.example.org/login\">bank.example.org</a> <a href=\"https://bank.example.org/x\">Sign in here</a>");
+
+        Assert.Equal(QuarantineAction.Deliver, decision.Action);
+        Assert.Empty(decision.Reasons);
+    }
+
+    [Fact]
+    public async Task Links_beyond_the_count_limit_hold_the_message_as_unexamined()
+    {
+        var limits = MailLimits.Defaults with { MaxLinks = 2 };
+        var html = string.Concat(Enumerable.Range(0, 3).Select(i => $"<a href=\"https://h{i}.example.org/\">link</a>"));
+
+        Assert.Equal([QuarantineReason.LinkLimitExceeded], (await ScreenHtml(html, limits)).Reasons);
+        Assert.Empty((await ScreenHtml(html, MailLimits.Defaults)).Reasons);
+    }
+
+    [Fact]
+    public async Task A_link_longer_than_the_length_limit_holds_the_message_as_unexamined()
+    {
+        var limits = MailLimits.Defaults with { MaxLinkLength = 40 };
+        var html = $"<a href=\"https://example.org/{new string('a', 100)}\">link</a>";
+
+        Assert.Equal([QuarantineReason.LinkLimitExceeded], (await ScreenHtml(html, limits)).Reasons);
+    }
+
+    [Fact]
+    public async Task Plain_text_urls_carry_no_displayed_host_and_are_delivered()
+    {
+        var decision = await ScreenHtml("<p>x</p>", text: "see https://example.org/a and https://example.net/b");
+
+        Assert.Equal(QuarantineAction.Deliver, decision.Action);
+    }
+
     [Fact]
     public async Task Clean_mail_with_a_plain_archive_is_delivered()
     {
