@@ -28,6 +28,23 @@ public static class ShellHost
         return new ShellAttachment(chrome.Wrap(content), new ChromeAnnouncer(chrome));
     }
 
+    /// <summary>
+    /// For a head that has already set the window's content: moves that content under the chrome and sets it back.
+    /// Returns the announcer for feature modules.
+    /// </summary>
+    public static IShellAnnouncer Install(
+        Window window,
+        ILocaleSource locale,
+        AnnouncementGate gate,
+        Func<string, int, string>? withHeldBack = null)
+    {
+        var existing = window.Content as Control;
+        window.Content = null;
+        ShellAttachment shell = Attach(window, existing, locale, gate, withHeldBack);
+        window.Content = shell.Content;
+        return shell.Announcer;
+    }
+
     private sealed class ChromeAnnouncer(WindowChrome chrome) : IShellAnnouncer
     {
         public bool Announce(AnnouncementCategory category, string text) => chrome.Region.Announce(category, text);
