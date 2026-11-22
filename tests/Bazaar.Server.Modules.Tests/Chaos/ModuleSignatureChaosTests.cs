@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Bazaar.Contracts.Modules;
 using Bazaar.Install;
+using Bazaar.Install.Abstractions;
 using Bazaar.Install.Trust;
 using Microsoft.Extensions.Time.Testing;
 
@@ -35,6 +36,7 @@ public sealed class ModuleSignatureChaosTests : IDisposable
         ModulePackage unsigned = new(
             id,
             version,
+            "publisher",
             new HashSet<string>(permissions ?? ["storage:local", "network:host"], StringComparer.Ordinal),
             new string('a', 64),
             _keyId,
@@ -160,18 +162,19 @@ public sealed class ModuleSignatureChaosTests : IDisposable
     public void ARevokedKeyStopsAnInstalledModuleAtTheStartGate()
     {
         ModulePackage good = Signed();
-        HashSet<string> approved = new(good.DeclaredPermissions, StringComparer.Ordinal);
-        Assert.IsType<ModuleStartDecision.Startable>(ModuleStartGuard.EnsureStartable(good, _verifier, approved));
+        ModulePermissionApprovalRecord[] approved = [Approval(good, [.. good.DeclaredPermissions])];
+        AcceptAll owner = new();
+        Assert.IsType<ModuleStartDecision.Startable>(ModuleStartGuard.EnsureStartable(good, _verifier, approved, owner));
 
         // The same package, later: the key is revoked and the content digest has been swapped on disk.
         using ECDsa other = ECDsa.Create(ECCurve.NamedCurves.nistP256);
         InMemoryTrustedKeyStore store = new();
-        store.Add(new TrustedModuleKey(_keyId, "p", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
-        Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good, new EcdsaModuleSignatureVerifier(store, _time), approved));
-        Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good with { ContentDigestSha256Hex = new string('c', 64) }, _verifier, approved));
+        store.Add(new TrustedModuleKey(_keyId, "publisher", other, _now.AddYears(-1), _now.AddYears(1), Revoked: true));
+        Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good, new EcdsaModuleSignatureVerifier(store, _time), approved, owner));
+        Assert.IsType<ModuleStartDecision.RefusedSignature>(ModuleStartGuard.EnsureStartable(good with { ContentDigestSha256Hex = new string('c', 64) }, _verifier, approved, owner));
 
         // A permission the owner never approved is not startable even with a perfect signature.
-        Assert.IsType<ModuleStartDecision.RefusedUnapproved>(ModuleStartGuard.EnsureStartable(good, _verifier, new HashSet<string>(["storage:local"], StringComparer.Ordinal)));
+        Assert.IsType<ModuleStartDecision.RefusedUnapproved>(ModuleStartGuard.EnsureStartable(good, _verifier, [Approval(good, ["storage:local"])], owner));
     }
 
     [Fact]
@@ -179,17 +182,31 @@ public sealed class ModuleSignatureChaosTests : IDisposable
     {
         ModulePackage good = Signed();
         RecordingStore store = new();
-        ModuleInstallService service = new(_verifier, store, _time);
+        ModuleInstallService service = new(_verifier, new AcceptAll(), store, _time);
         HostFacts host = new("linux", "x64", new HashSet<string>(["kvm"], StringComparer.Ordinal));
-        HashSet<string> approved = new(good.DeclaredPermissions, StringComparer.Ordinal);
 
-        Assert.IsType<ModuleInstallResult.RefusedSignature>(await service.InstallAsync(good with { Version = "9.9.9" }, host, approved, "owner", TestContext.Current.CancellationToken));
-        Assert.IsType<ModuleInstallResult.RefusedHost>(await service.InstallAsync(good, host with { Architecture = "arm64" }, approved, "owner", TestContext.Current.CancellationToken));
-        Assert.IsType<ModuleInstallResult.RefusedUnapproved>(await service.InstallAsync(good, host, new HashSet<string>(), "owner", TestContext.Current.CancellationToken));
+        // No approval is stored yet, so even a good package on a good host is refused.
+        Assert.IsType<ModuleInstallResult.RefusedSignature>(await service.InstallAsync(good with { Version = "9.9.9" }, host, "owner", TestContext.Current.CancellationToken));
+        Assert.IsType<ModuleInstallResult.RefusedHost>(await service.InstallAsync(good, host with { Architecture = "arm64" }, "owner", TestContext.Current.CancellationToken));
+        Assert.IsType<ModuleInstallResult.RefusedUnapproved>(await service.InstallAsync(good, host, "owner", TestContext.Current.CancellationToken));
         Assert.Equal(0, store.Count);
 
-        Assert.IsType<ModuleInstallResult.Installed>(await service.InstallAsync(good, host, approved, "owner", TestContext.Current.CancellationToken));
+        store.Approvals.Add(Approval(good, [.. good.DeclaredPermissions]));
+        Assert.IsType<ModuleInstallResult.Installed>(await service.InstallAsync(good, host, "owner", TestContext.Current.CancellationToken));
         Assert.Equal(1, store.Count);
+    }
+
+    private static ModulePermissionApprovalRecord Approval(ModulePackage package, string[] permissions)
+    {
+        byte[] form = ModuleApprovalForm.Build(package.ModuleId, package.Version, package.PublisherId, permissions);
+        return new ModulePermissionApprovalRecord(
+            package.ModuleId, package.Version, permissions, Convert.ToHexStringLower(SHA256.HashData(form)), "owner-key", [1], "owner", _now);
+    }
+
+    /// <summary>Stands in for the owner's device key: these tests are about the publisher signature, the host and the stored approvals.</summary>
+    private sealed class AcceptAll : IOwnerApprovalVerifier
+    {
+        public bool Verify(ReadOnlySpan<byte> approvalForm, OwnerApprovalSignature signature) => true;
     }
 
     [Theory]
@@ -227,6 +244,8 @@ public sealed class ModuleSignatureChaosTests : IDisposable
 
         public int Count => _count;
 
+        public List<ModulePermissionApprovalRecord> Approvals { get; } = [];
+
         public Task RecordInstalledAsync(Bazaar.Install.Abstractions.InstallAuditEntry entry, CancellationToken ct = default)
         {
             Interlocked.Increment(ref _count);
@@ -237,5 +256,9 @@ public sealed class ModuleSignatureChaosTests : IDisposable
             Bazaar.Install.Abstractions.ModulePermissionApprovalRecord record,
             Bazaar.Install.Abstractions.InstallAuditEntry entry,
             CancellationToken ct = default) => Task.CompletedTask;
+
+        public Task<IReadOnlyList<Bazaar.Install.Abstractions.ModulePermissionApprovalRecord>> ListPermissionApprovalsAsync(
+            string moduleId, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<Bazaar.Install.Abstractions.ModulePermissionApprovalRecord>>([.. Approvals]);
     }
 }

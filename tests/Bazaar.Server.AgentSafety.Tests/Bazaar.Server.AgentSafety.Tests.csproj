@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

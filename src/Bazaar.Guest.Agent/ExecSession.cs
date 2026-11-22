@@ -43,6 +43,12 @@ internal sealed class ExecSession : IDisposable
         var environment = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var name in _exec.EnvAllowlist)
         {
+            // The Hello nonce never reaches a child, even when the host's allowlist names it.
+            if (string.Equals(name, GuestAgentOptions.NonceEnvironmentVariable, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             var value = Environment.GetEnvironmentVariable(name);
             if (value is not null)
             {

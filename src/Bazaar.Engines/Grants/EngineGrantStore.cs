@@ -23,6 +23,7 @@ public sealed class EngineGrantStore(NpgsqlDataSource dataSource)
         ArgumentException.ThrowIfNullOrWhiteSpace(grant.AdapterId);
         ArgumentException.ThrowIfNullOrWhiteSpace(grant.ToolName);
         ArgumentException.ThrowIfNullOrWhiteSpace(grant.GrantedBy);
+        RequireConcreteGrant(grant.AgentId, grant.AdapterId, grant.ToolName);
 
         await using var cmd = dataSource.CreateCommand(
             "INSERT INTO engine_grants (agent_id, adapter_id, tool_name, risk_class, granted_by, granted_at) " +
@@ -51,6 +52,12 @@ public sealed class EngineGrantStore(NpgsqlDataSource dataSource)
             return true;
         }
 
+        // Fail closed on names that could never have been granted: the empty agent id, wildcards, padded or control-character names.
+        if (!IsConcrete(agentId, adapterId, toolName))
+        {
+            return false;
+        }
+
         await using var cmd = dataSource.CreateCommand(
             "SELECT risk_class FROM engine_grants WHERE agent_id = $1 AND adapter_id = $2 AND tool_name = $3");
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = agentId });
@@ -59,6 +66,24 @@ public sealed class EngineGrantStore(NpgsqlDataSource dataSource)
         var stored = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;
         return stored is not null && stored == ToSql(riskClass);
     }
+
+    /// <summary>
+    /// A grant names one agent, one adapter and one tool exactly. The empty agent id, a wildcard (<c>*</c> or <c>%</c>), a name with
+    /// leading or trailing space and a name with a control character are refused, so no row can ever be read as "any agent" or "any tool".
+    /// </summary>
+    private static void RequireConcreteGrant(Guid agentId, string adapterId, string toolName)
+    {
+        if (!IsConcrete(agentId, adapterId, toolName))
+        {
+            throw new ArgumentException("A grant must name one concrete agent, adapter and tool (no empty agent id, wildcard, padding or control characters).");
+        }
+    }
+
+    private static bool IsConcrete(Guid agentId, string adapterId, string toolName) =>
+        agentId != Guid.Empty && IsConcreteName(adapterId) && IsConcreteName(toolName);
+
+    private static bool IsConcreteName(string name) =>
+        name.Trim() == name && !name.Any(c => char.IsControl(c) || c is '*' or '%');
 
     /// <summary>Stored spelling of a risk class; matches the CHECK constraint in <c>engines/0001</c>.</summary>
     private static string ToSql(RiskClass riskClass) => riskClass switch

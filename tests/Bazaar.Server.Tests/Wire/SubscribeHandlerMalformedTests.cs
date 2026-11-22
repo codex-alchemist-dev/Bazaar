@@ -47,7 +47,7 @@ public sealed class SubscribeHandlerMalformedTests
 
         public IReadOnlyList<StreamCursor> HelloCursors => [];
 
-        public SubscriptionSession? Subscriptions => null;
+        public ISubscriptionSession? Subscriptions => null;
 
         public CancellationToken Closed => CancellationToken.None;
 

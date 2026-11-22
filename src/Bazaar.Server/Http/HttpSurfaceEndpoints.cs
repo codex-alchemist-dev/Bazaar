@@ -4,6 +4,7 @@ using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Graph;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation.Tiles;
+using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
@@ -110,7 +111,7 @@ public static class HttpSurfaceEndpoints
             return Error(StatusCodes.Status400BadRequest, "bad_request");
         }
 
-        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, GraphViewerFor(principal), http.RequestAborted);
+        var response = await http.RequestServices.GetRequiredService<ConstellationTileHandler>().HandleAsync(request, GraphViewerFor(principal, http.RequestServices), http.RequestAborted);
         http.Response.StatusCode = response.StatusCode;
         http.Response.ContentType = response.ContentType;
         await http.Response.Body.WriteAsync(response.Body, http.RequestAborted);
@@ -241,8 +242,8 @@ public static class HttpSurfaceEndpoints
 
     /// <summary>
     /// <c>GET /vault/search?vault=&amp;q=&amp;project=&amp;type=&amp;limit=</c> returns one card per matching document. Access is
-    /// decided in SQL before ranking (doc 18, "Access"): the owner reads everything, an agent reads shared documents and its own
-    /// private memory, and anyone else reads shared documents only.
+    /// decided in SQL before ranking (doc 18, "Access"): the owner reads everything, an agent reads <c>company/</c>, <c>shared/</c>,
+    /// its own area and private memory, and the project areas of its projects, and anyone else reads nothing.
     /// </summary>
     private static async Task<IResult> SearchVaultAsync(HttpContext http, PrincipalRef principal)
     {
@@ -263,7 +264,7 @@ public static class HttpSurfaceEndpoints
         var search = services.GetService<Vault.Search.VaultSearchService>();
         if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
-        var caller = VaultCallerFor(principal);
+        var caller = VaultCallerFor(principal, services);
         var result = await search.SearchAsync(
             new Vault.Search.VaultSearchQuery(
                 vaultId,
@@ -306,27 +307,29 @@ public static class HttpSurfaceEndpoints
         var search = http.RequestServices.GetService<Vault.Search.VaultSearchService>();
         if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
-        var body = await search.FetchBodyAsync(vaultId, docId, ordinal, VaultCallerFor(principal), http.RequestAborted);
+        var body = await search.FetchBodyAsync(vaultId, docId, ordinal, VaultCallerFor(principal, http.RequestServices), http.RequestAborted);
         if (body is null) return Error(StatusCodes.Status404NotFound, "not_found");
         return Results.Json(new { body });
     }
 
     /// <summary>
-    /// Owner reads everything; an agent reads <c>company/</c>, <c>shared/</c>, its own area and its own private memory; anyone
-    /// else reads nothing (<see cref="Vault.Search.VaultAccess"/>).
+    /// Owner reads everything; an agent reads <c>company/</c>, <c>shared/</c>, its own area, its own private memory and the
+    /// project areas of the projects it is a member of, resolved now from the registered <see cref="IProjectMembership"/>.
+    /// With no membership source an agent carries no projects and reads no project area. Anyone else reads nothing
+    /// (<see cref="Vault.Search.VaultAccess"/>).
     /// </summary>
-    private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal) => principal.Kind switch
+    private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal, IServiceProvider services) => principal.Kind switch
     {
         "owner" => Vault.Search.VaultCaller.Owner,
-        "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
+        "agent" => Vault.Search.VaultAccess.ForAgent(principal.Id, services.GetService<IProjectMembership>()),
         _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
     };
 
     /// <summary>The Constellation viewer for a principal: the same reader as <see cref="VaultCallerFor"/>, so the graph and search agree.</summary>
-    private static GraphViewer GraphViewerFor(PrincipalRef principal)
+    private static GraphViewer GraphViewerFor(PrincipalRef principal, IServiceProvider services)
     {
-        var caller = VaultCallerFor(principal);
-        return new GraphViewer(caller.IsOwner, caller.AgentOwner);
+        var caller = VaultCallerFor(principal, services);
+        return new GraphViewer(caller.IsOwner, caller.AgentOwner) { Projects = [.. caller.Projects] };
     }
 
     /// <summary>The search scope under which a GC's documents are indexed.</summary>

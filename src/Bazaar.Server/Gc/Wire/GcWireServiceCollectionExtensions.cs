@@ -14,7 +14,7 @@ namespace Bazaar.Server.Gc.Wire;
 /// the body codec seam, the <c>subscribe</c>, <c>gc.send</c> and <c>gc.history</c> handlers, and the dispatcher's host service.
 /// </summary>
 /// <remarks>
-/// Needs an <c>NpgsqlDataSource</c> registered, and <see cref="SubscriptionEngine"/> and <see cref="GcDispatcher"/> from
+/// Needs an <c>NpgsqlDataSource</c> registered, and <see cref="SubscriptionEngine"/> and the GC dispatcher from
 /// <c>AddBazaarSync</c>. Call it after <c>AddBazaarWire</c>. It registers the GC log itself (<c>AddGcLog</c>) unless the host
 /// already did.
 /// </remarks>
@@ -48,7 +48,6 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
-        services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();

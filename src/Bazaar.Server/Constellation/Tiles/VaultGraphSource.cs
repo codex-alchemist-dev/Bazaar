@@ -26,7 +26,9 @@ public sealed class VaultGraphSource(VaultIndexRepository index, Guid vaultId) :
     public async Task<GraphSnapshot> GetSnapshotAsync(GraphViewer viewer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(viewer);
-        var caller = new VaultCaller(viewer.IsOwner, viewer.IsOwner ? null : viewer.AgentOwner);
+        var caller = viewer.IsOwner
+            ? VaultCaller.Owner
+            : new VaultCaller(IsOwner: false, viewer.AgentOwner) { Projects = viewer.Projects.ToHashSet(StringComparer.Ordinal) };
         var docIds = await index.ListReadableDocIdsAsync(vaultId, caller, cancellationToken).ConfigureAwait(false);
         var links = await index.ListResolvedLinksAsync(vaultId, cancellationToken).ConfigureAwait(false);
         return VaultGraphProjection.Build(docIds, links);

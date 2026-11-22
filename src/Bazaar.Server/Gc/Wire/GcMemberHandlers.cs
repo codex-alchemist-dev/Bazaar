@@ -23,7 +23,7 @@ public sealed class GcMemberAddHandler(
     GcReadAccess access,
     PgGcMembershipSource source,
     Bazaar.Server.Settings.ISettingStore settings,
-    GcDispatcher? dispatcher = null,
+    IGcStreamRevoker? dispatcher = null,
     IGcAccessPolicy? streamAccess = null) : IWireRequestHandler
 {
     /// <inheritdoc />
@@ -56,7 +56,7 @@ public sealed class GcMemberRemoveHandler(
     IGcLogWriter writer,
     GcReadAccess access,
     PgGcMembershipSource source,
-    GcDispatcher? dispatcher = null,
+    IGcStreamRevoker? dispatcher = null,
     IGcAccessPolicy? streamAccess = null) : IWireRequestHandler
 {
     /// <inheritdoc />
@@ -87,7 +87,7 @@ internal static class GcMembershipWire
         PgGcMembershipSource source,
         Guid gcId,
         Func<GcMembershipSnapshot, GcViewer, GcPlanResult> plan,
-        GcDispatcher? dispatcher,
+        IGcStreamRevoker? dispatcher,
         IGcAccessPolicy? streamAccess,
         CancellationToken ct)
     {

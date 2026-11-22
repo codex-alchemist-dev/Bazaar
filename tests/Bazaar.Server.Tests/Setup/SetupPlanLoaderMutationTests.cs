@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup;
 
@@ -34,7 +35,7 @@ public sealed class SetupPlanLoaderMutationTests
             Set(root, path, JsonNode.Parse(replacement.Replace("%s", new string('x', 100_000))));
             var json = root.ToJsonString();
 
-            var result = SetupPlanLoader.Load(json);
+            var result = SetupPlanLoader.Load(json, RegistrySetupSettingCatalog.Known);
 
             Assert.True(result.Plan is null || result.Issues.All(issue => issue.Severity != SetupIssueSeverity.Error));
         }
@@ -43,7 +44,7 @@ public sealed class SetupPlanLoaderMutationTests
     [Fact]
     public void A_lone_surrogate_in_a_name_is_reported_not_thrown()
     {
-        var result = SetupPlanLoader.Load(SetupFixtures.With("Example Studio", "\\ud800"));
+        var result = SetupPlanLoader.Load(SetupFixtures.With("Example Studio", "\\ud800"), RegistrySetupSettingCatalog.Known);
 
         Assert.True(result.Plan is null || result.Issues.All(issue => issue.Severity != SetupIssueSeverity.Error));
     }

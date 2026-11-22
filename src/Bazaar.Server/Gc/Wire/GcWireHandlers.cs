@@ -53,7 +53,7 @@ public sealed class SubscribeHandler : IWireRequestHandler
 public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcReadAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
 {
     /// <summary>Longest accepted message text, in characters. Replaced by the <c>gc.message_max_bytes</c> setting when it is wired.</summary>
-    public const int MaxTextLength = 64 * 1024;
+    public const int MaxTextLength = GcLimits.MaxTextLength;
 
     /// <inheritdoc />
     public string Type => WireTypes.GcSend;

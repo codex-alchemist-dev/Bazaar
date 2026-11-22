@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using Bazaar.Server.Sanitization;
+using Bazaar.Sanitization;
 
 namespace Bazaar.Fun.Lucky;
 
