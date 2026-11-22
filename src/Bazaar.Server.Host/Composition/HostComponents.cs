@@ -1,4 +1,6 @@
 using Bazaar.Archive;
+using Bazaar.Server.Gc.Skimmer;
+using Bazaar.Server.Skimmer;
 using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
@@ -75,6 +77,8 @@ public static class HostComponents
         new SetupComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
+        new SkimmerComponent(),
+        new GcSkimmerComponent(),
         new MirrorComponent(),
         new GatewayRetentionComponent(),
         new CatalogueComponent(),

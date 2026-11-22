@@ -99,6 +99,8 @@
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
     <ProjectReference Include="..\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Skimmer\Bazaar.Server.Skimmer.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gc.Skimmer\Bazaar.Server.Gc.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Catalogue\Bazaar.Server.Gateway.Catalogue.csproj" />

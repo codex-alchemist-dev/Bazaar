@@ -240,6 +240,7 @@
     <Project Path="src/Bazaar.Server.Identity.Abstractions/Bazaar.Server.Identity.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Identity/Bazaar.Server.Identity.csproj" />
     <Project Path="src/Bazaar.Server.Skimmer/Bazaar.Server.Skimmer.csproj" />
+    <Project Path="src/Bazaar.Server.Gc.Skimmer/Bazaar.Server.Gc.Skimmer.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.Git.Abstractions/Bazaar.Server.Git.Abstractions.csproj" />
