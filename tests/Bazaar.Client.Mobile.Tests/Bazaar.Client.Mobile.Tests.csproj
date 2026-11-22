@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.BackStack\Bazaar.Client.BackStack.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Gestures\Bazaar.Client.Gestures.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
   </ItemGroup>
 </Project>

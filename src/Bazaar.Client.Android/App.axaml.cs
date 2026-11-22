@@ -14,6 +14,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.PhoneCoach;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -66,6 +67,7 @@ public sealed class App : Avalonia.Application
     public static PolledOsReducedMotionSource? ReducedMotion { get; private set; }
 
     private VisualSettingsBinder? _visual;
+    private ClientSettingsStore? _clientSettings;
 
     // The person's materials and motion level from the client settings file, the animator scale ("Remove animations") as the OS
     // flag, and the frame-budget monitor (doc 93). The phone shell has no window chrome and no theme switch yet, so no chrome binds.
@@ -73,7 +75,9 @@ public sealed class App : Avalonia.Application
     {
         var context = global::Android.App.Application.Context;
         string directory = context.FilesDir?.AbsolutePath ?? Path.GetTempPath();
-        var settings = new ClientSettingsStore(VisualSettings.Definitions, Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        // The coach's seen flag lives in the same file, so it survives restarts with the visual settings (doc 93).
+        var settings = new ClientSettingsStore([.. VisualSettings.Definitions, .. CoachController.Definitions], Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        _clientSettings = settings;
         var materials = new AndroidMaterialEnvironmentSource(context);
         ReducedMotion = AndroidReducedMotion.Create(context);
         _visual?.Dispose();
@@ -113,7 +117,8 @@ public sealed class App : Avalonia.Application
             // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
             // push as their screens land, and back then runs the predictive transition (doc 93).
             history: new ScreenHistory(new ScreenEntry("chat")),
-            backSource: MainActivity.Current?.BackGestures);
+            backSource: MainActivity.Current?.BackGestures,
+            settings: _clientSettings);
         shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
         var source = MainActivity.Current?.Posture;
         if (source is not null)
