@@ -1,5 +1,7 @@
 using Bazaar.Approvals;
+using Bazaar.Server.PsychWard.Abstractions;
 using Bazaar.Server.Security.Budgets;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,4 +41,33 @@ public static class AgentSafetyServiceCollectionExtensions
         services.TryAddSingleton<KillSwitchEngine>();
         return services;
     }
+
+    /// <summary>
+    /// Wraps the registered <see cref="IToolPolicyEngine"/> so repeated denials reach the Psych Ward (doc 26). Call after the
+    /// engine and <see cref="IWardTriggerIntake"/> are registered. Does nothing when no engine is registered.
+    /// </summary>
+    public static IServiceCollection AddWardReportingForToolPolicy(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        var inner = services.LastOrDefault(d => d.ServiceType == typeof(IToolPolicyEngine));
+        if (inner is null)
+        {
+            return services;
+        }
+
+        services.Remove(inner);
+        services.TryAddSingleton(new DenialWindowOptions());
+        services.AddSingleton<IToolPolicyEngine>(sp => new WardReportingToolPolicyEngine(
+            (IToolPolicyEngine)ResolveInner(sp, inner),
+            sp.GetRequiredService<IWardTriggerIntake>(),
+            sp.GetRequiredService<DenialWindowOptions>()));
+        return services;
+    }
+
+    private static object ResolveInner(IServiceProvider sp, ServiceDescriptor inner) =>
+        inner.ImplementationInstance
+        ?? (inner.ImplementationFactory is { } factory
+            ? factory(sp)
+            : ActivatorUtilities.CreateInstance(sp, inner.ImplementationType!));
 }
