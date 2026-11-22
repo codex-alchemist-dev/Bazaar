@@ -75,7 +75,6 @@ public static class WireTypes
     /// <summary>Owner asks to revoke one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
     public const string HiveGrantRevoke = "hive.grant.revoke";
 
-
     /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
     public const string PrList = "pr.list";
 
