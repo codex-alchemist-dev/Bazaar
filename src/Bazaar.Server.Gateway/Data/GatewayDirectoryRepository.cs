@@ -92,7 +92,7 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
         cmd.Parameters.AddWithValue(model.ProviderId);
         cmd.Parameters.AddWithValue(model.ModelId);
         cmd.Parameters.AddWithValue(model.Family);
-        cmd.Parameters.AddWithValue(model.Identity == GatewayIdentity.Native ? "native" : "pooled");
+        cmd.Parameters.AddWithValue(model.Identity.ToText());
         cmd.Parameters.Add(GatewayJson.Jsonb(model.CapsJson));
         cmd.Parameters.AddWithValue(model.Status);
         cmd.Parameters.AddWithValue(model.FirstSeen);
@@ -161,6 +161,6 @@ public sealed class GatewayDirectoryRepository(NpgsqlDataSource dataSource) : IG
 
     private static GwModel ReadModel(NpgsqlDataReader r) => new(
         r.GetString(0), r.GetString(1), r.GetString(2),
-        r.GetString(3) == "native" ? GatewayIdentity.Native : GatewayIdentity.Pooled,
+        GatewayIdentityText.FromText(r.GetString(3)),
         r.GetString(4), r.GetString(5), r.GetFieldValue<DateTimeOffset>(6), r.GetFieldValue<DateTimeOffset>(7), r.GetString(8));
 }

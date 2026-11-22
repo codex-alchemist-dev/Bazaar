@@ -36,6 +36,40 @@ public static class SetupVerificationChecks
         new NotEvaluatedCheck("server.identity", "Server identity matches the company build"),
     ];
 
+    /// <summary>
+    /// The full check list with real probes where they exist: every <see cref="Infrastructure"/> check is answered by the matching
+    /// <paramref name="probes"/> entry (by check id), and <c>host.disk</c> and <c>host.clock</c> run Kodo's probes when
+    /// <paramref name="hostReadings"/> is given. A check with neither is a not-evaluated placeholder, never green. Order is unchanged.
+    /// </summary>
+    public static IReadOnlyList<ISetupVerificationCheck> Create(
+        IEnumerable<ISetupInfrastructureProbe>? probes = null,
+        Bazaar.Kodo.Probes.Host.IHostReadings? hostReadings = null,
+        IEnumerable<string>? diskVolumes = null)
+    {
+        var byId = new Dictionary<string, ISetupInfrastructureProbe>(StringComparer.Ordinal);
+        foreach (var probe in probes ?? [])
+        {
+            if (!byId.TryAdd(probe.CheckId, probe))
+            {
+                throw new ArgumentException($"Two probes answer the check '{probe.CheckId}'.", nameof(probes));
+            }
+        }
+
+        var volumes = (diskVolumes ?? []).ToList();
+        var checks = new List<ISetupVerificationCheck>(Pure);
+        foreach (var placeholder in Infrastructure)
+        {
+            checks.Add(placeholder.Id switch
+            {
+                "host.disk" when hostReadings is not null && volumes.Count > 0 => new KodoDiskHeadroomCheck(hostReadings, volumes),
+                "host.clock" when hostReadings is not null => new KodoClockSyncCheck(hostReadings),
+                _ => byId.TryGetValue(placeholder.Id, out var probe) ? new ProbeBackedCheck(placeholder.Id, placeholder.Title, probe) : placeholder,
+            });
+        }
+
+        return checks;
+    }
+
     /// <summary>Every check in report order: the pure checks, then the placeholders.</summary>
     public static IReadOnlyList<ISetupVerificationCheck> All { get; } = [.. Pure, .. Infrastructure];
 }
