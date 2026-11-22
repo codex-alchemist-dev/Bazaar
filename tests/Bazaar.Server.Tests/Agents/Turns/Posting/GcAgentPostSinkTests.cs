@@ -440,7 +440,7 @@ public sealed class GcAgentPostSinkTests
             return Task.FromResult(rows.Count);
         }
 
-        public Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) =>
+        public Task<int> WriteAsync(System.Data.Common.DbTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct) =>
             throw new NotSupportedException("The sink writes inbox rows outside the append transaction.");
     }
 }
