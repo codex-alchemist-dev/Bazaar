@@ -418,6 +418,12 @@ jobs:
         if: needs.changes.outputs.code == 'true'
         run: bash scripts/ci/linux-client-startup.sh
 
+      - name: Build the tarball, start it on Xvfb and test signing
+        run: |
+          set -euo pipefail
+          bash packaging/linux/build-tarball.sh --verify
+          bash packaging/linux/test-sign-tarball.sh
+
   secret-scan:
     name: Secret scan (full history)
     if: github.event.pull_request.draft != true
