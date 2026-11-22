@@ -74,7 +74,7 @@ public class VulkanConstellationRendererTests
         var frame = new RenderFrame(1, 1, 2, new float[] { 0f, 0f, 1f, 1f });
         Assert.False(renderer.SubmitFrame(frame, 0));
 
-        renderer.SetScene(new ConstellationScene(3, default, default));
+        renderer.SetScene(new RenderScene(3, default));
         Assert.False(renderer.SubmitFrame(frame, 0));
     }
 
@@ -82,7 +82,7 @@ public class VulkanConstellationRendererTests
     public void Accepted_frames_must_be_newer_than_the_last_one()
     {
         using var renderer = new VulkanConstellationRenderer(() => _available);
-        renderer.SetScene(new ConstellationScene(2, default, default));
+        renderer.SetScene(new RenderScene(2, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(1, 2, 2, new float[] { 0f, 0f, 1f, 1f }), 0));
         Assert.False(renderer.SubmitFrame(new RenderFrame(1, 1, 2, new float[] { 0f, 0f, 1f, 1f }), 0.1));
     }
@@ -91,9 +91,9 @@ public class VulkanConstellationRendererTests
     public void SetScene_resets_the_frame_order()
     {
         using var renderer = new VulkanConstellationRenderer(() => _available);
-        renderer.SetScene(new ConstellationScene(1, default, default));
+        renderer.SetScene(new RenderScene(1, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(5, 9, 2, new float[] { 0f, 0f }), 0));
-        renderer.SetScene(new ConstellationScene(1, default, default));
+        renderer.SetScene(new RenderScene(1, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(1, 1, 2, new float[] { 0f, 0f }), 0));
     }
 

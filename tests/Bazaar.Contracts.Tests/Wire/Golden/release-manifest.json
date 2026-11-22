@@ -1,0 +1,30 @@
+{
+  "channel": "Stable",
+  "appVersion": "0.1.0",
+  "minProtocol": "1.0",
+  "maxProtocol": "1.2",
+  "schemaVersion": "7",
+  "signingKeyFingerprint": "0123456789abcdef0123456789abcdef01234567",
+  "artifacts": [
+    {
+      "os": "linux",
+      "architecture": "linux-x64",
+      "format": "tar.gz",
+      "url": "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz",
+      "sizeBytes": 104857600,
+      "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "sha256Url": "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz.sha256",
+      "signatureUrl": "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz.asc"
+    },
+    {
+      "os": "linux",
+      "architecture": "linux-arm64",
+      "format": "tar.gz",
+      "url": "Bazaar-0.1.0-linux-arm64.tar.gz",
+      "sizeBytes": 104857600,
+      "sha256": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "sha256Url": "Bazaar-0.1.0-linux-arm64.tar.gz.sha256",
+      "signatureUrl": "Bazaar-0.1.0-linux-arm64.tar.gz.asc"
+    }
+  ]
+}

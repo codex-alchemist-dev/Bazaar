@@ -114,6 +114,7 @@ Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings reg
 | `community.code.trailer_style` | enum: `assisted_by_signoff`, `co_authored_by`, `target_rules` | `assisted_by_signoff` | project | sponsor, operator | No. Floor: agents never add `Signed-off-by` |
 | `community.outreach.cold_email` | bool | `false` | install | operator (owner) | Yes, owner; needs counsel (CAN-SPAM, GDPR/PECR) |
 | `community.counsel_review_before_live_post` | bool | `true` | install | operator (owner) | Yes, owner; needs counsel |
+| `github.community_repo_allowlist` (owned by doc 21; mirrored here) | list of repo node ids; the shipped bridge reads it from `Bazaar:Community:GitHub:Installations` as entries of owner, repo (or `*` for one explicit owner), installationId, repositoryId | empty: no community repo is writable (needs counsel) | install | operator (owner) | Yes, owner. Floor: unlisted repos are never written to |
 
 Shared quota keys are owned by doc 15 and are not redefined here: `security.quota.public_items_per_platform_day` (5) and `security.quota.public_issue_pr_per_repo_day` (1, also used by doc 21). Settings may tighten these floors, never loosen them: hard-taint rules, Tier 2 for new accounts, and Deny for unverified or banned platforms.
 
