@@ -42,7 +42,7 @@ jobs:
     # Draft pull requests skip CI. A draft cannot merge, and marking it ready runs the full set once. Every other job
     # either needs this job (and is skipped with it) or carries the same condition. Pushes and manual runs are not drafts.
     if: github.event.pull_request.draft != true
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER_MODE == 'self' && github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -62,8 +62,7 @@ jobs:
       # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
       # Repository variable CI_RUNNER_MODE: hosted (default, never the PC), auto (PC while not backed up), self (always the PC).
       # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
-      # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
-      # behind the PC. The job names of the required checks do not change.
+      # Any error here falls back to hosted. This job and Secret scan run on the PC only when CI_RUNNER_MODE is self (owner same-repo runs), otherwise hosted. The job names of the required checks do not change.
       - name: Choose runners
         id: runners
         env:
@@ -427,7 +426,7 @@ jobs:
   secret-scan:
     name: Secret scan (full history)
     if: github.event.pull_request.draft != true
-    runs-on: ubuntu-latest
+    runs-on: ${{ (vars.CI_RUNNER_MODE == 'self' && github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
       contents: read
