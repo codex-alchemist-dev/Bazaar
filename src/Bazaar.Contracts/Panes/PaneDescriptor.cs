@@ -74,6 +74,12 @@ public static class PaneKinds
     /// <summary>Approvals on the phone: pending approval cards with approve, reject and detail (doc 29 Approvals).</summary>
     public const string Approvals = "bazaar.approvals";
 
+    /// <summary>Cold-storage Archive: owner-only list, archive, verify, restore report and search over the archive routes (doc 25 "Archive cold storage", PROPOSED).</summary>
+    public const string ColdArchive = "bazaar.cold-archive";
+
     /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
     public const string GitSolarSystem = "bazaar.git-solar-system";
+
+    /// <summary>Agent analytics: per-agent throughput, review pass rate and revert rate, framed as what would help the company, never a ranking (doc 25).</summary>
+    public const string AgentAnalytics = "bazaar.agent-analytics";
 }

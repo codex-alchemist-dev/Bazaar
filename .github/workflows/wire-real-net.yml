@@ -15,6 +15,7 @@ on:
       - 'src/Bazaar.Client.Transport.**'
       - 'tests/Bazaar.Wire.**'
       - 'tests/Bazaar.Transport.**'
+      - 'tools/Bazaar.Wire.Bench**'
       - '.github/workflows/wire-real-net.yml'
   workflow_dispatch:
 
@@ -59,3 +60,19 @@ jobs:
             dotnet test --project $p.FullName --configuration Release --output Detailed
             if ($LASTEXITCODE -ne 0) { throw "Tests failed in $($p.Name)" }
           }
+
+      # Spike S-WTX (doc 90 section 10): the codec benchmark, three process runs per row.
+      # Results go to the job log and an artifact; transport rows join this step when the harness grows them.
+      - name: Run the S-WTX codec benchmark
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet run --project tools/Bazaar.Wire.Bench --configuration Release -- --all --runs 3 --out "$env:RUNNER_TEMP/wire-bench.tsv" --md "$env:RUNNER_TEMP/wire-bench.md"
+          if ($LASTEXITCODE -ne 0) { throw 'Wire benchmark failed' }
+          Get-Content "$env:RUNNER_TEMP/wire-bench.md"
+
+      - name: Upload the benchmark results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wire-bench-windows
+          path: ${{ runner.temp }}/wire-bench.*

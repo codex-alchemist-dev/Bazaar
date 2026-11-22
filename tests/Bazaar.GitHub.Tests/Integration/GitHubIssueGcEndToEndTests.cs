@@ -53,14 +53,13 @@ public sealed class GitHubIssueGcEndToEndTests
         await seed.ExecuteNonQueryAsync(ct);
     }
 
-    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource)
+    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = true)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Bazaar:GitHub:Ingress:AgentLogins:0"] = _agentLogin,
             ["Bazaar:GitHub:Ingress:MemberLogins:0"] = "boss",
-            ["Bazaar:GitHub:PrGc:OwnerPrincipalId"] = _owner.ToString(),
-        }).Build();
+        }.Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : [])).Build();
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(dataSource);
@@ -204,5 +203,27 @@ public sealed class GitHubIssueGcEndToEndTests
 
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM github_issue", ct));
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM gc WHERE type_key = 'issue'", ct));
+    }
+
+    [Fact]
+    public async Task Without_an_override_the_database_owner_is_an_issue_GC_member_by_default()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghissue6", MigrateAsync, ct);
+        await using (var seed = db.DataSource.CreateCommand("INSERT INTO human (id, display_name, role, status) VALUES (@id, 'Boss', 'owner', 'active')"))
+        {
+            seed.Parameters.AddWithValue("id", _owner);
+            await seed.ExecuteNonQueryAsync(ct);
+        }
+
+        var processor = Compose(db.DataSource, ownerOverride: false);
+        await StoreAsync(db.DataSource, "d1", "issues", Issue("opened", "boss", "boss", ""), ct);
+
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubIssueService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND created_by = '{GitHubBridgePrincipal.Id}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
     }
 }

@@ -1,7 +1,7 @@
 Golden frame: KanbanBoardRequest
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692
+Schema hash: sha256:988f57eef746d4bf15a86c7bca749f8d4de68202b6eeadd7862b4100b9049c57
 Payload record: Bazaar.Contracts.Kanban.KanbanBoardRequest
 Envelope: v=1 t=board.snapshot k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 166 bytes

@@ -8,6 +8,8 @@ using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
@@ -50,10 +52,13 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.Analytics;
+using Bazaar.Server.Analytics.Git;
+using Bazaar.Server.Analytics.Postgres;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.TalentPool.Component;
-using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.VmDensity;
@@ -111,6 +116,11 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new AnalyticsComponent(),
+        new AnalyticsPostgresComponent(),
+        new AnalyticsGitComponent(),
+        new AccountApprovalComponent(),
+        new OwnerQueueComponent(),
         new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),
