@@ -5,11 +5,11 @@ namespace Bazaar.Server.Embeddings;
 /// <summary><c>embedding_profile</c> over the shared data source (doc 04). The runtime role may insert rows and update only <c>active</c>.</summary>
 public sealed class PostgresEmbeddingProfileStore(NpgsqlDataSource dataSource) : IEmbeddingProfileStore
 {
-    private const string Columns = "profile_id, provider_id, model_id, dimensions, created_at, active";
+    private const string _columns = "profile_id, provider_id, model_id, dimensions, created_at, active";
 
     public async Task<EmbeddingProfile?> GetActiveAsync(CancellationToken cancellationToken)
     {
-        await using var cmd = dataSource.CreateCommand($"SELECT {Columns} FROM embedding_profile WHERE active");
+        await using var cmd = dataSource.CreateCommand($"SELECT {_columns} FROM embedding_profile WHERE active");
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
         return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? Read(reader) : null;
     }
@@ -19,7 +19,7 @@ public sealed class PostgresEmbeddingProfileStore(NpgsqlDataSource dataSource) :
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         await using var cmd = dataSource.CreateCommand(
-            $"SELECT {Columns} FROM embedding_profile WHERE provider_id = $1 AND model_id = $2 AND dimensions = $3 ORDER BY active DESC, created_at LIMIT 1");
+            $"SELECT {_columns} FROM embedding_profile WHERE provider_id = $1 AND model_id = $2 AND dimensions = $3 ORDER BY active DESC, created_at LIMIT 1");
         cmd.Parameters.AddWithValue(providerId);
         cmd.Parameters.AddWithValue(modelId);
         cmd.Parameters.AddWithValue(dimensions);
@@ -33,7 +33,7 @@ public sealed class PostgresEmbeddingProfileStore(NpgsqlDataSource dataSource) :
         ArgumentException.ThrowIfNullOrWhiteSpace(modelId);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(dimensions);
         await using var cmd = dataSource.CreateCommand(
-            $"INSERT INTO embedding_profile (provider_id, model_id, dimensions) VALUES ($1, $2, $3) RETURNING {Columns}");
+            $"INSERT INTO embedding_profile (provider_id, model_id, dimensions) VALUES ($1, $2, $3) RETURNING {_columns}");
         cmd.Parameters.AddWithValue(providerId);
         cmd.Parameters.AddWithValue(modelId);
         cmd.Parameters.AddWithValue(dimensions);
