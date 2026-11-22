@@ -13,7 +13,7 @@ public class GatewayMigrationSourceTests
         var source = new EmbeddedMigrationSource(typeof(UsageRepository).Assembly);
 
         Assert.Contains("gateway", source.Namespaces());
-        Assert.Contains(source.Load("gateway"), f => f.Version == 3 && f.Name == "gateway_grants");
+        Assert.Contains(source.Load("gateway"), f => f.Version == 5 && f.Name == "gateway_grants");
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public class GatewayMigrationSourceTests
 
         var file = Assert.Single(plan, f => f.Name == "gateway_grants");
         Assert.Equal("gateway", file.Namespace);
-        Assert.Equal(3, file.Version);
+        Assert.Equal(5, file.Version);
         Assert.Equal("gateway_grants", file.Name);
     }
 

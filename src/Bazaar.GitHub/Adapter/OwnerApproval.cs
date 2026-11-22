@@ -69,12 +69,16 @@ public sealed class MergeNotApprovedException : Exception
         : base($"The squash merge was refused: {reason}.")
     {
         Reason = refusal;
+        Detail = reason;
         Verdict = verdict;
         Checks = checks;
     }
 
     /// <summary>The checks rollup when <see cref="Reason"/> is <see cref="MergeRefusalReason.ChecksNotPassing"/>.</summary>
     public PrChecksRollup? Checks { get; }
+
+    /// <summary>The short reason text, without the sentence around it.</summary>
+    public string Detail { get; }
 
     /// <summary>The check that failed.</summary>
     public MergeRefusalReason Reason { get; }
