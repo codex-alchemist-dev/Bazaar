@@ -64,6 +64,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals\Bazaar.Server.VmEgress.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals.Security\Bazaar.Server.VmEgress.Approvals.Security.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmMounts\Bazaar.Server.VmMounts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmMounts.Providers\Bazaar.Server.VmMounts.Providers.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmTransport\Bazaar.Server.VmTransport.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Garnet\Bazaar.Server.Garnet.csproj" />

@@ -6,6 +6,7 @@ using Bazaar.Server.VmEgress.Approvals;
 using Bazaar.Server.VmEgress.Approvals.Security;
 using Bazaar.Server.VmMounts;
 using Bazaar.Server.VmMounts.Abstractions;
+using Bazaar.Server.VmMounts.Providers;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -29,10 +30,14 @@ namespace Bazaar.Server.Host.Composition;
 /// setting contribution yet, so the options keep their shipped values (empty allowlist, approval tier floor).</description></item>
 /// <item><description><b>Taint lookup</b>: no <see cref="IAgentSessionTaintLookup"/> exists (the agent to session map lives in Bazaar.Server, which modules may not
 /// reference), so the egress taint reader cannot read a session and the gate denies growth requests.</description></item>
-/// <item><description><b>Scoped mounts</b>: no <see cref="IMountProvider"/>, <see cref="IMountGuestChannel"/> or <see cref="ICanarySink"/> implementation
-/// exists. The mount module is composed only when all three are already registered, <c>Bazaar:Components:vm-mounts</c> is not off and
-/// <c>VmMounts:AgentsRoot</c> is set; otherwise <see cref="IMountManager"/> is absent and the kill switch's mount leg fails loudly. Registering the manager
-/// without them would make it unresolvable and break containment resolution, so it is not done.</description></item>
+/// <item><description><b>Scoped mounts</b>: the three host ports now have implementations in <c>Bazaar.Server.VmMounts.Providers</c>
+/// (<see cref="MountProvidersRegistration.AddBazaarVmMountProviders"/>): an SMB provider on a Windows host, a directory provider elsewhere, a
+/// guest channel adapter and a canary sink that audits and contains. They are registered, and the mount module composed, only when the
+/// <c>vm-mounts</c> component is not off and <c>VmMounts:AgentsRoot</c> is set; otherwise <see cref="IMountManager"/> is absent and the kill
+/// switch's mount leg fails loudly. Gaps left in force (all fail closed): no <c>IVmShareIdentity</c> (per-VM share account) and no
+/// <c>IVmShareEndpoint</c> (virtual switch address), so an SMB attach refuses; no <c>IGuestChannelProvider</c> (a registry of live guest
+/// channels), so every guest file operation reports no channel; the guest protocol has no recursive listing or directory delete, so a Soul
+/// attach rolls back at the profile copy and only workspace mounts complete; SMB canary reads cannot be observed; the guest-side mount is unbuilt.</description></item>
 /// <item><description><b>Guest scrubber</b>: the real <c>VmGuestScrubber</c> needs a VM lifecycle service, which exists only when a VM backend is configured
 /// (<c>Bazaar:Vms:WindowsSandbox</c>). Without one the scrubber stays unavailable and refuses.</description></item>
 /// <item><description><b>Approvals and taint</b>: the egress port uses the approvals service from agent safety; the owner-approval verifier and the
@@ -55,6 +60,13 @@ public static class VmSecurityCompositionExtensions
         services.AddBazaarVmEgressApprovals();
         services.AddBazaarVmEgressApprovalsSecurity();
 
+        // The three ports first, so the guard below passes when the module is enabled and has a root. TryAdd: a host override registered
+        // earlier wins. Without a root or with the component off, nothing is registered and the manager stays absent.
+        if (MountsConfigured(configuration))
+        {
+            services.AddBazaarVmMountProviders();
+        }
+
         if (MountsCanBeComposed(services, configuration))
         {
             services.AddBazaarVmMounts(configuration);
@@ -73,10 +85,14 @@ public static class VmSecurityCompositionExtensions
         return services;
     }
 
-    /// <summary>The mount module needs its component on, a root, and the three host-side ports that have no implementation yet.</summary>
-    private static bool MountsCanBeComposed(IServiceCollection services, IConfiguration configuration) =>
+    /// <summary>The mount module is wanted: its component is not off and it has a root.</summary>
+    private static bool MountsConfigured(IConfiguration configuration) =>
         BazaarComponentRegistration.IsEnabled(configuration, VmMountsComponent.ManifestDefinition.Id)
-        && !string.IsNullOrWhiteSpace(configuration.GetSection("VmMounts")["AgentsRoot"])
+        && !string.IsNullOrWhiteSpace(configuration.GetSection("VmMounts")["AgentsRoot"]);
+
+    /// <summary>The mount module needs to be wanted and the three host-side ports to be registered (by the providers module or a host override).</summary>
+    private static bool MountsCanBeComposed(IServiceCollection services, IConfiguration configuration) =>
+        MountsConfigured(configuration)
         && services.Any(d => d.ServiceType == typeof(IMountProvider))
         && services.Any(d => d.ServiceType == typeof(IMountGuestChannel))
         && services.Any(d => d.ServiceType == typeof(ICanarySink));
