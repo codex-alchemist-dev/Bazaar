@@ -110,6 +110,15 @@ public sealed class OfflineSyncProcessor
             await using (scope.ConfigureAwait(false))
             {
                 outcome = await DecideAsync(write, cancellationToken).ConfigureAwait(false);
+                if (outcome.Kind == OfflineOutcomeKind.ModuleUnavailable)
+                {
+                    // Nothing is recorded or acknowledged: the client keeps the write queued ("waiting for module", doc 56
+                    // section 8 item 8) and the batch stops here, because device sequences are gapless. The scope is not
+                    // committed, so any state a rule touched rolls back.
+                    outcomes.Add(outcome);
+                    return new OfflineBatchResult(outcomes, acked, null);
+                }
+
                 await _store.RecordAsync(deviceId, write.DeviceSequence, outcome, cancellationToken).ConfigureAwait(false);
                 await _audit.RecordAsync(write, outcome, cancellationToken).ConfigureAwait(false);
                 await scope.CommitAsync(cancellationToken).ConfigureAwait(false);

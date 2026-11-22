@@ -13,6 +13,12 @@ public enum OfflineReplayStatus
 
     /// <summary>Progress stopped (a server contract break, an unclearable gap, or a corrupted queue). A person needs to look.</summary>
     Stalled = 3,
+
+    /// <summary>
+    /// The server has no module for a queued write yet. The write and everything behind it stay queued (device sequences are
+    /// gapless); a later run sends them again once the module is installed. Not an error.
+    /// </summary>
+    WaitingForModule = 4,
 }
 
 /// <summary>The result of one replay run.</summary>
@@ -151,6 +157,13 @@ public sealed class OfflineReplayDriver
 
                 expectedFront = gap;
                 continue;
+            }
+
+            if (result.Outcomes.Any(static o => o.Kind == OfflineOutcomeKind.ModuleUnavailable))
+            {
+                _state.Set(run.Attention > 0 ? new ConnectionState.Attention(run.Attention) : new ConnectionState.Live());
+                return new OfflineReplayResult(
+                    OfflineReplayStatus.WaitingForModule, run.Acked, run.Attention, "the server has no module for a queued write yet", run.RepairedLostWrites);
             }
 
             if (ackTo < last)

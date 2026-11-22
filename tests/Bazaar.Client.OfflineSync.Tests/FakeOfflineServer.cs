@@ -67,7 +67,15 @@ public sealed class FakeOfflineServer : IOfflineSyncTransport
                     break;
                 }
 
-                if (Overrides.TryGetValue(write.WriteId, out var kind))
+                var overridden = Overrides.TryGetValue(write.WriteId, out var kind);
+                if (overridden && kind == OfflineOutcomeKind.ModuleUnavailable)
+                {
+                    // Like the real server: nothing recorded or acknowledged, and the batch stops here.
+                    outcomes.Add(new OfflineWriteOutcome(write.WriteId, kind));
+                    break;
+                }
+
+                if (overridden)
                 {
                     outcomes.Add(new OfflineWriteOutcome(write.WriteId, kind));
                 }

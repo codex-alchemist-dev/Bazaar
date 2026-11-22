@@ -73,17 +73,35 @@ public class OfflineSyncProcessorTests
     }
 
     [Fact]
-    public async Task Missing_rule_yields_module_unavailable_and_advances_sequence()
+    public async Task Missing_rule_yields_module_unavailable_and_holds_the_sequence()
     {
         var rule = new FakeRule(OfflineDataClass.Preference);
         var store = new InMemoryOfflineSyncStore();
         var processor = Make.Processor(store, [rule]);
+        var batch = Make.Batch(_device, [Make.Write(_device, 1), Make.Write(_device, 2, OfflineDataClass.KanbanField), Make.Write(_device, 3)]);
 
-        var result = await processor.ProcessAsync(Make.Batch(_device, [Make.Write(_device, 1, OfflineDataClass.KanbanField), Make.Write(_device, 2)]), TestContext.Current.CancellationToken);
+        var result = await processor.ProcessAsync(batch, TestContext.Current.CancellationToken);
 
-        Assert.Equal(OfflineOutcomeKind.ModuleUnavailable, result.Outcomes[0].Kind);
-        Assert.Equal(OfflineOutcomeKind.Applied, result.Outcomes[1].Kind);
-        Assert.Equal(2, await store.GetAckedSequenceAsync(_device, TestContext.Current.CancellationToken));
+        Assert.Equal([OfflineOutcomeKind.Applied, OfflineOutcomeKind.ModuleUnavailable], result.Outcomes.Select(o => o.Kind));
+        Assert.Equal(1, result.AckedSequence);
+        Assert.Null(result.GapAtSequence);
+        Assert.Equal(1, await store.GetAckedSequenceAsync(_device, TestContext.Current.CancellationToken));
+        Assert.Single(rule.Applied);
+    }
+
+    [Fact]
+    public async Task A_write_held_for_a_missing_module_applies_once_the_module_is_there()
+    {
+        var store = new InMemoryOfflineSyncStore();
+        var write = Make.Write(_device, 1, OfflineDataClass.KanbanField);
+        var ct = TestContext.Current.CancellationToken;
+
+        var held = await Make.Processor(store, []).ProcessAsync(Make.Batch(_device, [write]), ct);
+        var later = await Make.Processor(store, [new FakeRule(OfflineDataClass.KanbanField)]).ProcessAsync(Make.Batch(_device, [write]), ct);
+
+        Assert.Equal(OfflineOutcomeKind.ModuleUnavailable, Assert.Single(held.Outcomes).Kind);
+        Assert.Equal(OfflineOutcomeKind.Applied, Assert.Single(later.Outcomes).Kind);
+        Assert.Equal(1, later.AckedSequence);
     }
 
     [Fact]
