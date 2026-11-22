@@ -228,6 +228,7 @@
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
     <Project Path="src/Bazaar.Server.SignIn.Abstractions/Bazaar.Server.SignIn.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.SignIn/Bazaar.Server.SignIn.csproj" />
+    <Project Path="src/Bazaar.Server.SignIn.Postgres/Bazaar.Server.SignIn.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.SupportBundle.Abstractions/Bazaar.SupportBundle.Abstractions.csproj" />
@@ -566,6 +567,7 @@
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.SignIn.Tests/Bazaar.Server.SignIn.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.SignIn.Postgres.Tests/Bazaar.Server.SignIn.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Biometric.Tests/Bazaar.Roles.Biometric.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />

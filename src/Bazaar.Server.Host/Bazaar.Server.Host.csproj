@@ -93,6 +93,7 @@
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SignIn\Bazaar.Server.SignIn.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn.Postgres\Bazaar.Server.SignIn.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.GitHub\Bazaar.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Community.GitHub\Bazaar.Server.Community.GitHub.csproj" />

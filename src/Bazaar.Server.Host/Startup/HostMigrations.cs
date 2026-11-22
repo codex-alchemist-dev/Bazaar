@@ -14,6 +14,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
+using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Postgres;
 using Bazaar.Server.TalentPool.Component;
@@ -46,6 +47,7 @@ public static class HostMigrations
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
         new EmbeddedMigrationSource(typeof(PgPresenceStore).Assembly),
         new EmbeddedMigrationSource(typeof(Bazaar.Server.Engines.EnginesComponent).Assembly),
+        new EmbeddedMigrationSource(typeof(PostgresHandoffCodeStore).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly));
 }
