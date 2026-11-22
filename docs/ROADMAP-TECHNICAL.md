@@ -247,7 +247,7 @@ The target is one module contract for all modules, first-party and third-party a
 | QEMU/KVM backend, Linux as a first-class tested host | Planned (after v1 candidates) | `docs/ROADMAP.md` |
 | Guest agent project | Partial (project exists) | `src/Bazaar.Guest.Agent` |
 | Browser profiles with credential leases | Planned | `docs/design/16`, `docs/design/14` |
-| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Engines` |
+| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Server.Engines` |
 
 ## T14. Backup, restore and export
 

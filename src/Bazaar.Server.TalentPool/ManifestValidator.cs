@@ -6,8 +6,8 @@ namespace Bazaar.Server.TalentPool;
 /// <summary>Validates Talent manifests and hashes them (docs/design/25: manifest only, no memory, whitelisted models).</summary>
 public static class ManifestValidator
 {
-    /// <summary>Throws <see cref="ManifestRejectedException"/> when the manifest breaks a rule.</summary>
-    public static void Validate(SoulManifest manifest, ITalentModelWhitelist whitelist)
+    /// <summary>Async so the whitelist can read the gateway. Throws <see cref="ManifestRejectedException"/> when the manifest breaks a rule.</summary>
+    public static async Task ValidateAsync(SoulManifest manifest, ITalentModelWhitelist whitelist, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(manifest);
         ArgumentNullException.ThrowIfNull(whitelist);
@@ -29,7 +29,7 @@ public static class ManifestValidator
 
         foreach (var model in manifest.ModelWhitelist)
         {
-            if (string.IsNullOrWhiteSpace(model) || !whitelist.IsAllowed(model))
+            if (string.IsNullOrWhiteSpace(model) || !await whitelist.IsAllowedAsync(model, cancellationToken).ConfigureAwait(false))
             {
                 throw new ManifestRejectedException($"Model '{model}' is not on the install whitelist.");
             }

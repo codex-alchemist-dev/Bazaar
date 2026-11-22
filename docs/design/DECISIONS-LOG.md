@@ -399,6 +399,9 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+| Providers are just modules on Core (owner, 2026-11-19). Core has no provider selector, no per-role one-or-many declaration and no `auto`/`none`/`all` strings. Any number of provider modules can be installed and all load; they are configured in the app; each consuming module decides how to use several. Supersedes the "one provider per role" text in doc 03 (#2, #16). | DECIDED | 03 |
+| Actor attribution uses one `Principal` type (kind agent/user/service/system plus id) in Cdax.Core (no package references; `Scope` lives there too), text form `kind:id`, for audit, settings changes, module and install decisions, secret scopes and callers, approvals and telemetry consent; not AgentId-only (owner, 2026-11-19). Audit keeps its `actor` column and hash chain. | DECIDED | BAZAAR-COMPONENTS 4.2, 15, 14 |
+| Resibo exchange (owner, 2026-11-19): incorporate every Resibo feature that benefits Bazaar as modules; conflicts become separate modules; docs 70 to 84 (ledger in 84) are PROPOSED designs. Resibo's repo is proprietary, so designs only, no code copied. Open owner questions are listed at the end of each doc and in 84 section 8 | PROPOSED | 70-84 |
 | Wire transports and codecs (owner, 2026-11-19) | **DECIDED**: JSON over WebSocket stays as the default and the floor. Every other transport (HTTP/3 over QUIC, native QUIC, WebTransport, gRPC with gRPC-Web) and every other codec (MemoryPack, CBOR, MessagePack, Protobuf, others later) is its own optional module with `.Abstractions`, picked by the installer; transport and codec are negotiated per connection; the C# contract records are the single source, generated for every codec, with a published schema for outside clients. The Protobuf ban of round 15 is lifted for the gRPC and Protobuf codec modules only. Design details are PROPOSED. | `docs/design/90-wire-transports-and-codecs.md`; docs 02, 39; S6; CLAUDE.md |
 
 ## Round 30 (2026-11-19): Spike S2 result (Garnet on Windows)
@@ -408,7 +411,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet on Windows is verified for the cache role. Spike S2 passed three of three runs on the owner's PC (record: `docs/spikes/S2.md`). Tested: Garnet 2.2.13 (official `win-x64-based-readytorun` release) with StackExchange.Redis 3.4.35. All five used checks passed before the kill and after restart (SET with expiry, GET, GET of a missing key, a 64 KiB snapshot, expiry). 1000 of 1000 keys survived `taskkill /F` and restart. Restart to first authenticated connection: median 1566 ms, range 1418 to 3932 ms. | MEASURED (spike result, not a design change) | 03, 11, 23, 35 |
 | Windows persistence needs `--aof --aof-commit-wait`, restarted with `-r`. A control run without `--aof` kept 0 of 1000 keys, so persistence is required for data to survive a kill. Garnet binds loopback only with password authentication. | MEASURED | 03 |
 | Presence over plain PUBLISH/SUBSCRIBE works through StackExchange.Redis, but handler order is not guaranteed (1 of 6 batteries out of order). Presence deltas must carry a sequence number or timestamp (doc 23 to specify). | MEASURED | 23 |
-| Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
+| Garnet stops being "only after S2" in doc 03 (cache provider module, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
 ## Round 30 (2026-11-19): Linux TPM-sealed KEK
@@ -469,7 +472,36 @@ The round number is set at merge; other open PRs also add rounds.
 | Peer vote on a new site | **DECIDED (owner card, 2026-11-19): a unanimous Council vote opens reading only.** Agents triage a site and vote (Council, doc 10). A unanimous vote allowlists it for login-free reading in anonymous profiles without the owner. A split or tied vote, and every new account or logged-in use, still needs the owner's Tier 2 approval, with the vote attached. Sites with unverified terms or terms that forbid automation stay Deny. | Doc 59 section 7. Narrows doc 15's "allowlist change is Tier 2" for the read-only anonymous case only; `vm.egress.allowlist_change_approval` keeps its floor for everything else. The `site_allowlist` motion mechanics are PROPOSED (docs 10, 15 to be updated with the code). |
 | Peer approval of account creation | **DECIDED (owner, 2026-11-19, message cmsg_01MC1BkUhiVHzqr38uyxWzeHDe5fYjGqWyDEGiS58jGvgg):** "agents can get approval from their higher tier peers (claude, gemini, or anything in that frontier end) to approve making an account too. it doesnt always need me." Account creation stays Tier 2; senior peers may give the approval instead of the owner. | Doc 15 "Peer approval of account creation". Deny and Tier 3 limits are unchanged (terms that forbid automation, CAPTCHA, SMS, ID, legal terms). Every peer approval is audited and shown to the owner. Quorum: two senior peers (owner card, 2026-11-19). Legal terms (owner card, 2026-11-19): the agent may accept a site's terms itself as part of a sign-up that two senior peers approved; setting `security.account_approval.agent_accepts_terms`, shipped default false (protective, round 13), true on the owner's install; counsel review before the first public release. |
 
-## Round 32 (2026-11-19): server TUI
+## Round 32 (2026-11-22): GC reactions and typing signal
+
+| Item | Decision | Docs |
+|---|---|---|
+| Reactions are append-only `reaction` events in the GC log (add or remove one emoji on a message, per-GC seq, never purged); current state is a fold of the log; no-op changes write nothing | PROPOSED (owner direction, 2026-11-22: add to the wire and GC docs as PROPOSED, then build) | 01 "Reactions", 02 "Reactions on the wire" |
+| Reactions never count as approval, vote, mention or wake; only members who may write can react | PROPOSED | 01 |
+| Wire: `gc.react`, `gc.reactions`, `gc.reaction` (live-only push; state refilled by `gc.reactions`) | PROPOSED | 02 |
+| Typing is ephemeral presence: `gc.typing` request and a `presence.update` typing delta to subscribers of that GC; not persisted, expires after `wire.typing_ttl_s` (5 s) without refresh, rate-limited | PROPOSED | 02 "Typing signal" |
+| New settings: `gc.reactions_enabled`, `gc.reaction_emoji_max_bytes`, `gc.reaction_max_distinct_per_message`, `gc.reaction_max_per_person_per_message`, `gc.reaction_rate_per_minute`, `wire.typing_enabled`, `wire.typing_ttl_s`, `wire.typing_min_interval_s` (configurability rule, round 13) | PROPOSED | 01, 02 |
+| Module `Bazaar.Server.GcReactions` (+ `.Abstractions`) carries the feature; nothing new lands in Bazaar.Server | PROPOSED | 01 WP15, 40 |
+
+## Round 33 (2026-11-19): crash install binding
+
+Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
+
+| Item | Decision | Docs |
+|---|---|---|
+| Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
+
+
+## Round 34 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
+
+## Round 35 (2026-11-19): server TUI
 
 | Decision | Owner ruling | Docs |
 |---|---|---|

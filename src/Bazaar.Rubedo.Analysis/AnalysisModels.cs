@@ -21,6 +21,7 @@ public enum CompletionKind
     ActionKind,
     DataType,
     DocumentKey,
+    Token,
 }
 
 /// <summary>

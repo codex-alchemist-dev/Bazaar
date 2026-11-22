@@ -34,7 +34,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Org Chart | Relationship structure for the company, not a rigid hierarchy. | Partial (`src/Bazaar.Server/Org`) | `docs/design/24` §2 |
 | Interrupt System | A formal interrupt and resume stack for work. | Partial (`src/Bazaar.Server/Interrupts`; stack service merged) | `docs/design/24` §3 |
 | Company Calendar | Internal planning, release and vacation calendar. | Partial (`src/Bazaar.Server/Calendar`) | `docs/design/24` §4 |
-| Company Memory | Institutional memory and decision chains, kept in the Vault (`company/memory/`). | Planned (v1 scope) | `docs/design/08` §6, `docs/design/25` |
+| Company Memory | Institutional memory and decision chains, kept in the Vault (`company/memory/`). | Partly built: record a decision, read its chain (`Bazaar.Server.CompanyMemory`) | `docs/design/08` §6, `docs/design/25` |
 | Health System | Per-project tech debt, morale and coverage metrics. | Planned (v1 scope) | `docs/design/25` |
 | Company Analytics | Per-agent metrics, framed as "improve the company". | Planned (v1 scope) | `docs/design/25` |
 | Observatory | Live dashboard of what each agent is doing, plus which model lanes are near a limit. | Partial (`src/Bazaar.Server.Community/Observatory`; usage rollup in flight) | `docs/design/23` |
@@ -121,7 +121,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Discord-style GC view | GC messages with avatar, role badge, model badge, cost chip, presence, timestamp, profile cards. | Partial (`Bazaar.Client.Components.Chat`) | CLAUDE.md, `docs/design/27` |
 | Start screen dashboard | What changed while away: unread GCs and mentions, PRs and decisions awaiting you, agents and board, build health and usage. | Planned | CLAUDE.md |
 | Bazaar.Windows | The Windows desktop head. Runs Roblox Studio for the owner. Avalonia. | Partial (`src/Bazaar.Client.Windows`; `--panes` window headless tests merged) | `docs/deep-dives/Bazaar.Windows.md`, `docs/design/28` |
-| Calcinato | The built-in terminal and CLI of the Bazaar client. It also runs standalone as a replacement for the default system terminal app. Written as CaLcInato for the alternative styling. | Planned (name final; the ConPTY pane is planned) | `docs/design/28` (local terminal), `docs/design/27` |
+| Calcinato | The built-in terminal and CLI of the Bazaar client. It also runs standalone as a replacement for the default system terminal app. Written as CaLcInato for the alternative styling. | Planned (name final; modules `Bazaar.Client.Calcinato`, `.Abstractions`, `.Pty` and `Bazaar.Server.Terminal`, `.Abstractions` in progress) | `docs/design/55` (design), `docs/design/28` (local terminal), `docs/design/27` |
 | Athanor | The built-in IDE and text editor of the Bazaar client. It also runs standalone as a replacement for the default system text editor. | Planned (name final) | `docs/design/28` (editor host), `docs/design/27` |
 | Per-install client builds | Each company builds its own clients, with its own interface, layout and modules (for example CDAX.msix and CDAX.apk). The repo ships server builds only. | Planned (policy decided by owner, 2026-11-12) | `docs/design/37`, `docs/FEATURES.md` section 6 |
 | Bazaar.Linux | The Linux desktop head and packaging. | Partial (`src/Bazaar.Client.Linux`) | `docs/deep-dives/Bazaar.Linux.md`, `docs/design/30` |
@@ -167,9 +167,9 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; guest agent project `Bazaar.Guest.Agent`; Hyper-V provider blocked on spike S8) | `docs/design/16` |
 | Browser profiles | Full Chromium with an anonymous profile and Passport-backed account profiles. | Planned (credential leases in flight) | `docs/design/16`, `docs/design/14` |
 | Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server/Coding`) | `docs/design/17` |
-| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
-| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Engines/Godot`) | `docs/design/20` |
-| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
+| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Server.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
+| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Server.Engines/Godot`) | `docs/design/20` |
+| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Server.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
 | Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |

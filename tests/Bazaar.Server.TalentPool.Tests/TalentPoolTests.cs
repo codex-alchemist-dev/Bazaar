@@ -170,7 +170,7 @@ public sealed class TalentPoolTests : IDisposable
     private sealed class Whitelist(params string[] models) : ITalentModelWhitelist
     {
         public HashSet<string> Allowed { get; } = [.. models];
-        public bool IsAllowed(string model) => Allowed.Contains(model);
+        public ValueTask<bool> IsAllowedAsync(string model, CancellationToken cancellationToken) => ValueTask.FromResult(Allowed.Contains(model));
     }
 
     private sealed class Approval : ITalentToolGrantApproval
