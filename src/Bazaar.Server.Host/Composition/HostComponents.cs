@@ -1,4 +1,5 @@
 using Bazaar.Community;
+using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
@@ -76,6 +77,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new ConduitComponent(),
         new WireDiscoveryComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
