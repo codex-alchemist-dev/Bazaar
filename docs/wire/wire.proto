@@ -195,6 +195,7 @@ message KanbanBoardCard {
   optional bytes owner_agent_id = 4;
   repeated bytes unfinished_blocker_ids = 5;
   repeated string blocker_titles = 6;
+  int64 revision = 7;
 }
 
 message KanbanBoardRequest {
@@ -224,6 +225,28 @@ message Ping {
 
 message Pong {
   optional string nonce = 1;
+}
+
+message ReleaseArtifact {
+  string os = 1;
+  string architecture = 2;
+  string format = 3;
+  string url = 4;
+  int64 size_bytes = 5;
+  string sha256 = 6;
+  optional string sha256_url = 7;
+  optional string signature_url = 8;
+  optional string signature = 9;
+}
+
+message ReleaseManifest {
+  string channel = 1;
+  string app_version = 2;
+  string min_protocol = 3;
+  string max_protocol = 4;
+  string schema_version = 5;
+  string signing_key_fingerprint = 6;
+  repeated ReleaseArtifact artifacts = 7;
 }
 
 message Resync {
@@ -378,6 +401,8 @@ message Welcome {
   int64 ui_revision = 10;
   optional bool upgrade_required = 11;
   optional string minimum_build = 12;
+  optional string schema_version = 13;
+  optional bool previous_major_supported = 14;
 }
 
 message WireError {
