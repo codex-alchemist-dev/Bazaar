@@ -70,7 +70,7 @@ this session), and Docker Hub tags. Web search results were used only for contex
 | MailKit, MimeKit | 5.0.0 | 5.0.0 (NuGet, stable, major) | None | Current in code. The 5.0 breaking-change review was not recorded; confirm it before the next mail release (issue). |
 | Testcontainers.PostgreSql | 4.16.0 | 4.16.0 (last stable on NuGet) | None | Current. The "2.1.0-beta" row in the 11-11 inventory was wrong. |
 | xunit.v3.mtp-v2 | 3.2.2 | 4.0.3 (NuGet) | None | Stay on 3.2.x. Avalonia.Headless.XUnit 12.1.6 still depends on xunit.v3.extensibility.core 3.2.2. Re-check when Avalonia moves (issue). |
-| Microsoft.ML.OnnxRuntime | 1.31.1 | 1.31.1 (NuGet) | 1.32 not verified | Current. |
+| Microsoft.ML.OnnxRuntime | 1.32.0 | 1.32.0 (NuGet) | 1.32.0 is current | Current (bumped from 1.31.1 by Renovate #595). |
 | Markdig, YamlDotNet, LibGit2Sharp | 1.6.0, 18.1.0, 0.32.0 | Same | None | Current. |
 | Android (`net11.0-android`) | `SupportedOSPlatformVersion` 35; `TargetSdkVersion` pinned to API 37 in `Bazaar.Client.Android.csproj` (#423) | Android 17 (API 37), stable since June 2026 (developer.android.com "Android 17 is here") | Android 17 minor SDK expected Q4 2026 (secondary source) | Current: API 37 is pinned. NDK version not verified. |
 
@@ -145,7 +145,7 @@ and the `net11.0`/`net11.0-android` target frameworks in the project files.
 
 | Dependency | Pinned at | Next or upcoming | Verification | Features that help Bazaar | Adoption step | Mechanism |
 |---|---|---|---|---|---|---|
-| Microsoft.ML.OnnxRuntime | `1.31.1` (repo). | 1.31.0 is the newest stable found in search; 1.32 has only nightly builds (Nov 2026). The 1.31.1 pin is not verified against the search result. | Reported for 1.31.0. Not found for 1.31.1 and 1.32. | 1.31: stabilized model-package and EPContext data APIs; improved CPU model loading; quantized MoE inference; device-based execution-provider selection. | Confirm the pin on NuGet. Adopt the 1.31 APIs only where the local CPU tier (doc 31) needs them. Track 1.32 GA. | Renovate (tracked, prerelease). |
+| Microsoft.ML.OnnxRuntime | `1.32.0` (repo, bumped from 1.31.1). | 1.31.0 is the newest stable found in search; 1.32 has only nightly builds (Nov 2026). The 1.31.1 pin is not verified against the search result. | Reported for 1.31.0. Not found for 1.31.1 and 1.32. | 1.31: stabilized model-package and EPContext data APIs; improved CPU model loading; quantized MoE inference; device-based execution-provider selection. | Confirm the pin on NuGet. Adopt the 1.31 APIs only where the local CPU tier (doc 31) needs them. Track 1.32 GA. | Renovate (tracked, prerelease). |
 | Microsoft.Extensions.AI.Abstractions | `10.11.0` | No 11.x release found. 10.8.0 is the newest seen in coverage. | Not found for 11.x. | Provider-neutral AI surface. | Keep on 10.x until an 11.x release is found on NuGet. | Renovate (tracked, prerelease). |
 | xunit.v3.mtp-v2 | `3.2.2` | 4.x is blocked by `Avalonia.Headless.XUnit 12.1.4` (binary incompatibility). | Confirmed by the pin comment in `Directory.Packages.props`. | Current test platform. | Re-check when Avalonia.Headless moves. | Dependabot (`xunit.v3*` ≥ 4 ignored). |
 | Microsoft.Testing.Platform | `global.json` `test.runner` | Current runner. | Confirmed by repo config. | Current test runner. | None now. | Canary (through the test run). |
