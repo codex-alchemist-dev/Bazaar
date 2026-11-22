@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Souls.Judgments;
+using Bazaar.Server.Souls.Tests.Judgments;
 
 namespace Bazaar.Server.Tests.Souls.Judgments;
 
