@@ -13,6 +13,9 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
     /// <summary>When set, every call throws it. Lets a test exercise the error path.</summary>
     public Exception? Failure { get; set; }
 
+    /// <summary>The repos <see cref="ListReposAsync"/> returns.</summary>
+    public List<GitRepoDto> Repos { get; } = [];
+
     public int ListCalls { get; private set; }
 
     public int FileCalls { get; private set; }
@@ -39,6 +42,12 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
         var entry = Find(provider, repo, number);
         entry.Files = [.. files];
         entry.Checks = [.. checks];
+    }
+
+    public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfFailed();
+        return Task.FromResult<IReadOnlyList<GitRepoDto>>([.. Repos]);
     }
 
     public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default)
@@ -84,6 +93,33 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
     {
         ThrowIfFailed();
         return Task.FromResult<IReadOnlyList<GitCheckDto>>(Find(provider, repo, number).Checks);
+    }
+
+    /// <summary>When set, <see cref="MergeAsync"/> throws it after recording the request. Lets a test exercise a refusal.</summary>
+    public Exception? MergeFailure { get; set; }
+
+    /// <summary>Every merge request this fake received, in order. Holds the signed approval, so use it in tests only.</summary>
+    public List<GitMergeRequestDto> MergeRequests { get; } = [];
+
+    public Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfFailed();
+        MergeRequests.Add(request);
+        if (MergeFailure is not null)
+        {
+            throw MergeFailure;
+        }
+
+        var entry = Find(provider, repo, number);
+        var current = entry.Detail.Summary.HeadSha;
+        if (!string.Equals(current, request.HeadSha, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new HeadMovedException(current);
+        }
+
+        entry.Detail = entry.Detail with { Summary = entry.Detail.Summary with { State = "merged" } };
+        return Task.FromResult(new GitMergedDto(request.HeadSha));
     }
 
     private static string Key(string provider, string repo, long number) =>
