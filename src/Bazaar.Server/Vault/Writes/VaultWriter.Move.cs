@@ -11,7 +11,8 @@ namespace Bazaar.Server.Vault.Writes;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>Principal checks.</b> The caller must be able to read the moved document. Links are resolved only through documents
+/// <b>Principal checks.</b> The caller must be able to read the moved document at its old and its new path
+/// (<see cref="VaultAccess.CanRead"/>, including project membership through <see cref="VaultCaller.Projects"/>). Links are resolved only through documents
 /// the caller can read, so a private document of another agent never resolves and never counts as ambiguity. A move that
 /// would rewrite a document the caller cannot read is refused whole, with the blocked paths listed, so no partial rename
 /// reaches the Vault.
@@ -66,7 +67,10 @@ public sealed partial class VaultWriter
             return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
         }
 
-        if (!VaultAccess.CanRead(OwnerOf(fromText), request.Caller))
+        // The caller must read the document where it is and where it would land, under the same rule as search
+        // (VaultAccess), so a project member cannot move a document out of a project it belongs to into one it does not.
+        if (!VaultAccess.CanRead(request.FromPath, OwnerOf(fromText), request.Caller)
+            || !VaultAccess.CanRead(request.ToPath, OwnerOf(fromText), request.Caller))
         {
             return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
         }
@@ -147,7 +151,7 @@ public sealed partial class VaultWriter
         var newTarget = StripExtension(request.ToPath);
 
         // Entries the caller cannot read are removed before resolution, so they never match and never cause ambiguity.
-        bool CanSee(VaultIndexEntry entry) => VaultAccess.CanRead(owners[entry.Path], request.Caller);
+        bool CanSee(VaultIndexEntry entry) => VaultAccess.CanRead(entry.Path, owners[entry.Path], request.Caller);
 
         foreach (var entry in index)
         {
