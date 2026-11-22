@@ -95,6 +95,19 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 17 | Kodo verification | Read-only checks and a green, amber or red report with a 0 to 100 score. Section 1.12. | 46 (not in tree) |
 | 18 | Client packages | Builds the per-company packages (.msix, .apk, .exe) on the server. Signing keys stay on the server. | 37 |
 
+**Apply step status (2026-11-19).** The step table above is the order. Which steps `setup apply` and `POST /setup/plans/{hash}/apply` run today:
+
+| Step | Status | Notes |
+|---|---|---|
+| 1 Install identity (release channel), 12 Scam-mail protocol, 15 Status and network (bind and port), plus the plan's `settings` map | **BUILT** as `install.settings` (`InstallSettingsStep`, order 1500, in `Bazaar.Server.Setup.Postgres`) | Writes the install-scope rows of the `setting` table: the `settings` map, `network.statusBind` and `network.statusPort` (`host.status.bind`, `host.status.port`), `install.releaseChannel` (`update.channel`, snake_case wire form) and `scamMailProtocol.enabled` (`security.scam_mail.protocol_enabled`, written only when on, which is held for owner approval). Every value goes through the registry first. One transaction, same per-key locks as the settings store. A key already holding the planned value is left alone (idempotent). Rollback restores the previous value and writer, or removes the row, and leaves a value someone changed after the run. The applier writes the `setting.changed` rows. |
+| 0 Preflight, 2 Update policy, 3 Data root and PostgreSQL, 4 Schema, 5 Custody, 6 Owner, 7 Privacy and retention, 8 Backups, 9 Model sources, 10 Git and GitHub, 11 Email, 13 Company source, 14 Modules, 16 to 18 | PLANNED, no step registered | Each needs a store or service that is not in the tree yet. The rest of the install identity (company name, slug, locale, timezone, install id) has no table; the update policy has no setting key; the backup target has no setting key; the audit anchor target is not `security.audit.export_target` (an enum); the owner needs a passkey ceremony; the module set has no enabled-modules store. `migrate` stays its own explicit command (doc 04), and an apply needs the migrated `audit_log`. Until they land, an apply refuses a plan that asks for those parts (see "Unapplied sections" below). |
+
+**Unapplied sections (DECIDED 2026-11-19, rationale: a setup that cannot apply what the operator asked for must say so before it changes anything).** `SetupPlanSections` (in `Bazaar.Server.Setup.Abstractions`) is the one registry of plan sections: `install.identity` (step 1), `install.releaseChannel` (1), `install.updatePolicy` (2), `database` (3, 4), `custody` (5), `owner` (6), `privacy` (7), `backups` (8), `models` (9), `git` (10, the merge credential), `email` (11), `scamMailProtocol` (12), `company` (13), `modules` (14), `network` (15), `settings` (the registry values map) and `firstRun` (the first-run seed, no doc step number). Every plan leaf belongs to exactly one section (a test enforces it). Each `ISetupStep` declares the sections it applies in `Covers` (default none), so registering a step shrinks the list with no other edit.
+- A section is *requested* when any of its leaves differs from the shipped default plan (and, once a state reader exists, from the current state). A section left at its default or empty is not requested and needs no step. Required fields (company name and slug, KEK, owner name, company source) have no default, so they always request their sections.
+- Before the lock or any step, the applier compares the requested sections with the registered steps' `Covers`. Any requested section nobody covers holds the apply: exit 2, issue path `unapplied_sections`, message naming the section ids and doc step numbers (never values), `appliedSteps` empty, nothing changed, so a partial apply cannot happen. Exit 0 therefore means every requested section was applied. Exit codes keep their meanings.
+- The list appears in the apply result (`UnappliedSections`), the CLI text and `--json` (`unappliedSections`, outcome `unapplied_sections`), the HTTP bodies of `POST /setup/plans` and `.../apply` (`unappliedSections`), the HTTP call audit row (outcome `held:unapplied_sections`) and a `setup.plan.applied` row with outcome `held_unapplied_sections` (section ids only; this is the one held apply that is recorded, so the refusal is on the record). A dry run (`setup --dry-run`, `POST /setup/plans`) lists the same sections, marked as what an apply would be held for.
+- Today only `install.settings` is registered, covering `install.releaseChannel`, `scamMailProtocol`, `network` and `settings`. Every valid plan also requests `install.identity`, `custody`, `owner`, `company` and more, so a real apply is held until those steps land. That is the honest state.
+
 ## 1.4 What the wizard asks, and what it defaults to [PLANNED]
 
 "Asks" means the wizard shows the question. Every other path takes the same key in the plan. "Required" means no default exists, so the plan is invalid until a value is given.
@@ -107,7 +120,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | Update policy | Confirm | Automatic for security; manual for the rest | Owner gap decision, 2026-11-13. |
 | PostgreSQL major version | Yes | The newest bundled version the release marks as default; PG 18 until PG 19 is marked default | PG 19 GA is expected around 2026-11-19. Both versions stay supported (dual-version rule). |
 | GC partition count | Yes | 16 | Fixed after the first GC data (doc 04). |
-| Key-encryption-key provider | Yes | `dpapi` on Windows; systemd-creds on Linux (doc 03) | `openbao` optional (doc 14). |
+| Key-encryption-key provider | Yes | `dpapi` on Windows; `file` (a protected key file) on Linux and other hosts (doc 14, DECIDED) | `tpm` (Linux opt-in, sealed through `systemd-creds` where systemd is present) and `openbao` optional (doc 14). |
 | Audit anchor target | Yes | Required, no default | Mounts stay disabled until set (doc 14). |
 | Owner passkey or hardware key | Yes | Required to finish [PROPOSED] | A second factor is needed for recovery and high-risk actions (gap decision: biometrics and MFA). |
 | Recovery bundle and printed codes | Yes | Bundle created; printed codes per `recovery.printed_codes_enabled` (doc 32) | Backup-owner quorum is an optional list (doc 32). |
@@ -199,7 +212,7 @@ The file is a plan input. It is never executed and never contains a secret value
 - **Exit codes:** 0 valid or applied; 1 invalid input; 2 blocked by a floor or by a change that needs approval (the change is held, not refused); 3 apply failed and rolled back.
 - **Output:** plain text by default, written so a screen reader reads it in order. `--json` gives the same content for scripts. Error text names the key and the rule, never a value.
 
-## 1.8 Company templates [PLANNED]
+## 1.8 Company templates [BUILT: loader, resolver, folder source, git catalog; PLANNED: exporter and wizard picker]
 
 **What a template is.** A versioned folder in a git repository (the operator's own, or one Bazaar ships), containing:
 
@@ -215,6 +228,24 @@ The file is a plan input. It is never executed and never contains a secret value
 **Import.** Choosing an import as the company source hands the dump to a doc 44 importer. Importers are modules and handle docx, md, txt, Milanote, Miro, Trello, Obsidian and similar sources.
 
 One company per install. A template creates the install's one company; it does not create a second one.
+
+**Build status (2026-11-19).**
+
+| Part | Status | Notes |
+|---|---|---|
+| Template model, strict loader, hash, resolver and overlay | **BUILT** | `Bazaar.Server.Setup/Templates`. Lookups are exact on id and version. |
+| Folder source | **BUILT** | `FileSystemTemplateSource`. Links and paths outside the folder are refused. |
+| Git catalog and fetch | **BUILT** | `GitTemplateCatalog`, `GitCliFetcher` behind `IGitFetcher`, `GitTemplateCatalogParser`. No forge API and no git server: any plain git URL the git CLI can read. See below. |
+| Wiring the git catalog into the host (config file path, DI) | PLANNED | The catalog is a library type; no host setting names a catalog file yet. |
+| Private-repository credentials | PLANNED | Entries carry no credentials. A private repository works only through the server's own ssh agent or git credential setup. A secret reference field is a later change. |
+| Exporter (doc 44) and wizard template picker | PLANNED | Needs doc 44 and the wizard's company-source step. |
+
+**Git catalog.** The operator lists template versions in a catalog file (`schemaVersion` 1, `templates[]`). Each entry pins `id`, an exact `version`, a plain `url`, a full `commit` id (40 or 64 lower-case hex; branch and tag names are refused), an optional `path` to the template folder, and the `templateHash` (section 1.8 hash). The file is strict JSON (no comments, no duplicate or unknown keys, 256 KB, 256 entries). Rules:
+
+- **URL:** https and ssh by default; `file` only when the operator lists it. No credentials, query or fragment; an ssh user name without a password is allowed. Errors never echo the URL.
+- **Fetch:** `git init --template=`, a shallow fetch of the one commit (a full fetch if the remote refuses a bare commit id), HEAD must equal the pinned commit, checkout with symlinks off, then the `.git` folder is removed. The process runs without a shell, with no prompt, no system or user git config, no hooks, no submodules, no LFS smudge, `GIT_ALLOW_PROTOCOL` set to the allowed schemes, and a time limit (default two minutes). Git's own output is dropped.
+- **Pin:** the resolver refuses a template whose computed hash differs from the entry's `templateHash`, on every resolve, including a cached checkout. A fetch failure is a `company.source` error with fixed text.
+- **Cache:** one folder per URL and commit under an operator-set cache root; a repeat resolve reuses it.
 
 ## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
@@ -336,7 +367,7 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 
 - **No host to type, no company to choose.** The client already talks to the server it was built for (section 2.1) and an install has one company (decided inputs), so there is no server picker and no company list. The first screen only checks that the server is up (`GET /health/ready`) and offers Retry when it is not.
 - **Sign-in screen.** The person signs in on the server's own sign-in page, opened in their browser (`/signin?audience=native`, doc 32 section 4). The page hands back a single-use code, as `bazaar://signin?code=...` or as text to paste. The client redeems it at `POST /auth/handoff` with `{ "code", "device_class", "client_build" }` and expects the same token body as `POST /auth/refresh` (`access_token`, `token_type`, `expires_in`, `refresh_token`). **The `/auth/handoff` request and reply shape is PROPOSED** until the route is built (doc 32 names the route only). The client never draws a password or passkey prompt and never sees a credential other than the tokens. A saved session is reused, refreshed when its access token has expired, and cleared when the server refuses the refresh. Every failure shows one generic message.
-- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform (DPAPI, Keystore, libsecret) is a later module.
+- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform is the module `Bazaar.Client.SignIn.Storage`: one file sealed through the head's `ISecretProtector` (DPAPI on Windows today; Keystore and libsecret come with their heads), written atomically, and a file that cannot be opened reads as signed out.
 - **Create-company screen.** The setup wizard in a connected client (section 1.1), over the provisioning API (section 1.9). It collects company name, identifier (derived from the name, editable, fixed after creation), owner name, locale, time zone, key-encryption-key provider and reference, and the recorded no-backup-target acknowledgement, and the owner's own tick that accepts the Constitution (`firstRun.acceptConstitution`, section 1.15; never on by default). It writes a sparse setup plan with `company.source` = `blank`; the server fills every other decision with its shipped default and hashes the normalized plan. The screen checks first (`POST /setup/plans`, writes nothing), shows the plan hash and the server's findings, and applies only that hash (`POST /setup/plans/{hash}/apply`). Before the owner exists the call carries the one-time bootstrap code from the server console (header `X-Bazaar-Bootstrap-Code`); after, the owner's bearer token. A held or failed apply returns to the form with the reason; a replayed apply says the company already exists.
 - **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
 - **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.
