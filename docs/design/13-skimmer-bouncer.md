@@ -42,6 +42,8 @@ Placement [PROPOSED]:
 
 **Digest** [PROPOSED]: one `gc_digest` kind on 06's `inbox_item`. Payload: `gc_id`, `seq`, `category`, `reason`. Cadence is 06's single cadence; scored promotions are immediate. Pending items join the next turn. The digest holds no message text by default: `skimmer.digest_quote_mode` = `reference` reads the quoted excerpt from the message at display time and marks it untrusted, so erasure needs no second copy. The alternative `encrypted_excerpt` copies the excerpt under the message's per-person key. Needs counsel: it changes erasure exposure.
 
+**Shadow gate (built)**: `Bazaar.Server.Skimmer.Shadow` holds `ShadowGate`, which runs the rules stage and one batched scorer call for the unmatched agents, then returns `GateDecision` records with `Shadow = true`. It holds no inbox writer, so it cannot wake or enqueue anything; a scored wake means "would promote". Mode `off` returns no records, mode `defer` is refused until the gates pass. A scorer timeout, error or missing result falls back to the rules and the item stays deferred. `ShadowMetrics.Compute` turns labelled shadow decisions into precision of would-promotes, miss rate, a 95% Wilson upper bound on the miss rate, and an informational ready flag against `skimmer.promotion_min_labels` and `skimmer.promotion_max_miss_bound_bp`. The owner still approves any change of mode (question 4).
+
 **Feedback** [PROPOSED]: agent tools `flag_missed(seq)` and `flag_false_wake(seq)` write `gate_labels` with source `agent_flag`. Reasons are stored, never forwarded. Flags never change thresholds automatically.
 
 ## Cost
