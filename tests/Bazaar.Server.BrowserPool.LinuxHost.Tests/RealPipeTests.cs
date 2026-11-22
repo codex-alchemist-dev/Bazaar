@@ -124,7 +124,7 @@ public sealed class RealPipeTests : IDisposable
     }
 
     private LinuxPoolVmHost PipeHost() =>
-        new(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, PoolSpawnHelperPath = HelperPath, PipeDirectory = _pipeDir });
+        new(Render, new LinuxPoolHostOptions { TableName = _table, NftPath = "/usr/sbin/nft", FirewallTimeout = _bound, PoolSpawnHelperPath = HelperPath, PipeDirectory = _pipeDir, ProbeEnabled = false });
 
     private static (int Exit, string Out, string Err) Run(IReadOnlyList<string> argv, int timeoutMs = 60000)
     {
