@@ -43,11 +43,11 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
     /// <summary>The list of loaded AppArmor profiles.</summary>
     internal const string LoadedProfilesPath = "/sys/kernel/security/apparmor/profiles";
 
-    private const string SearchPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+    private const string _searchPath = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
 
-    private const UnixFileMode AnyExecute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
-    private const UnixFileMode GroupOtherAccess = UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite;
-    private const UnixFileMode GroupOtherExecute = UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+    private const UnixFileMode _anyExecute = UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+    private const UnixFileMode _groupOtherAccess = UnixFileMode.GroupRead | UnixFileMode.GroupWrite | UnixFileMode.OtherRead | UnixFileMode.OtherWrite;
+    private const UnixFileMode _groupOtherExecute = UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
 
     private readonly PoolImageRequirements _requirements;
     private readonly IPoolImageFileSystem _fs;
@@ -137,7 +137,7 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
             return $"The permissions of {found} cannot be read.";
         }
 
-        if ((mode.Value & AnyExecute) == 0)
+        if ((mode.Value & _anyExecute) == 0)
         {
             return $"{found} is not executable.";
         }
@@ -157,7 +157,7 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
             return _fs.FileExists(path) ? path : null;
         }
 
-        foreach (var dir in SearchPath.Split(':'))
+        foreach (var dir in _searchPath.Split(':'))
         {
             string candidate = dir + "/" + path;
             if (_fs.FileExists(candidate))
@@ -183,7 +183,7 @@ public sealed class PoolImageReadinessCheck : IPoolReadinessCheck
         }
 
         // Slots may traverse the slot root but never list or write it; the pipe parent is closed to everyone but root.
-        UnixFileMode forbidden = r.SlotsMustExecute ? GroupOtherAccess : GroupOtherAccess | GroupOtherExecute;
+        UnixFileMode forbidden = r.SlotsMustExecute ? _groupOtherAccess : _groupOtherAccess | _groupOtherExecute;
         if ((mode.Value & forbidden) != 0)
         {
             return $"{r.Path} is open to more than the slot users may have.";

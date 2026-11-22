@@ -11,7 +11,7 @@ namespace Bazaar.Server.BrowserPool.Image;
 /// </summary>
 public static class PoolImageScript
 {
-    private const string HeredocTag = "BAZAAR_POOL_BWRAP_PROFILE";
+    private const string _heredocTag = "BAZAAR_POOL_BWRAP_PROFILE";
 
     /// <summary>The systemd-tmpfiles entry that recreates the pipe directory's parent at boot.</summary>
     public const string TmpfilesPath = "/etc/tmpfiles.d/bazaar-pool.conf";
@@ -64,9 +64,9 @@ public static class PoolImageScript
 
         sb.Append("\n\n");
         sb.Append("# Lets bwrap, and only bwrap, create user namespaces.\n");
-        sb.Append("cat > ").Append(BwrapAppArmorProfile.InstallPath).Append(" <<'").Append(HeredocTag).Append("'\n");
+        sb.Append("cat > ").Append(BwrapAppArmorProfile.InstallPath).Append(" <<'").Append(_heredocTag).Append("'\n");
         sb.Append(profile);
-        sb.Append(HeredocTag).Append('\n');
+        sb.Append(_heredocTag).Append('\n');
         sb.Append("chmod 0644 ").Append(BwrapAppArmorProfile.InstallPath).Append('\n');
         sb.Append("apparmor_parser -r ").Append(BwrapAppArmorProfile.InstallPath).Append("\n\n");
 
