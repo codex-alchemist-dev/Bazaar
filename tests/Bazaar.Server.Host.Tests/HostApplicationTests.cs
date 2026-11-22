@@ -1,6 +1,6 @@
 using Bazaar.Approvals;
-using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Server.Agents.Responder;
+using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
