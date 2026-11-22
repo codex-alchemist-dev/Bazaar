@@ -91,11 +91,19 @@ public static class GatewayCompositionExtensions
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
         // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
-        services.TryAddSingleton<IEndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<EndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IEndpointStatsTracker>(sp => sp.GetRequiredService<EndpointStatsTracker>());
+        services.TryAddSingleton<IPersistentStats>(sp => sp.GetRequiredService<EndpointStatsTracker>());
+        services.TryAddSingleton<SelectionInsights>(sp => new SelectionInsights(sp.GetRequiredService<EndpointStatsTracker>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ISelectionInsights>(sp => sp.GetRequiredService<SelectionInsights>());
+        services.AddHostedService(sp => new SelectionStatsPersistence(
+            sp.GetRequiredService<IPersistentStats>(),
+            sp.GetService<IConfiguration>()?["Bazaar:Gateway:Selection:StatsPath"],
+            TimeSpan.FromSeconds(60)));
         services.TryAddSingleton(sp => new EndpointSelector(sp.GetRequiredService<IEndpointStatsTracker>(), time: sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<ProfileBoundRanker>(sp =>
         {
-            var ranker = new ProfileBoundRanker(sp.GetRequiredService<EndpointSelector>());
+            var ranker = new ProfileBoundRanker(sp.GetRequiredService<EndpointSelector>(), sp.GetRequiredService<SelectionInsights>());
             foreach (var binding in sp.GetService<IConfiguration>()?.GetSection("Bazaar:Gateway:Selection:Routes").GetChildren() ?? [])
             {
                 if (!string.IsNullOrWhiteSpace(binding.Value))

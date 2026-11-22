@@ -9,7 +9,7 @@ namespace Bazaar.Server.Gateway.Selection;
 /// their original order, so the gateway's own skip logic still reports exact capacity facts; endpoints rejected for a
 /// missing capability, a too-small context or an exclusion are omitted.
 /// </summary>
-public sealed class ProfileBoundRanker(EndpointSelector selector) : ICandidateRanker, IAgentSelectionSetup
+public sealed class ProfileBoundRanker(EndpointSelector selector, SelectionInsights? insights = null) : ICandidateRanker, IAgentSelectionSetup
 {
     private readonly ConcurrentDictionary<string, SelectionBinding> _bindings = new(StringComparer.Ordinal);
 
@@ -29,6 +29,7 @@ public sealed class ProfileBoundRanker(EndpointSelector selector) : ICandidateRa
             ? candidates.Select(c => c with { Tier = c.Tier + IdentityTier(c.Identity, binding.NativeFirst) }).ToList()
             : candidates;
         var decision = selector.Rank(scored, request with { Profile = request.Profile ?? binding.Profile });
+        insights?.Record(routeId, decision);
         var ordered = decision.Ranking.Select(r => byKey[r.Endpoint.Key]).ToList();
         ordered.AddRange(decision.Rejected.Where(r => r.Reason is RejectionReason.BreakerOpen or RejectionReason.QuotaBlocked).Select(r => byKey[r.Endpoint.Key]));
         return ordered;

@@ -105,3 +105,38 @@ public interface IAgentSelectionSetup
 
     Task BindAsync(string routeId, SelectionBinding binding, CancellationToken cancellationToken = default);
 }
+
+/// <summary>One endpoint's persisted counters. Times are not stored: counters restart their decay clock on load.</summary>
+public sealed record EndpointStatsSnapshot(EndpointKey Key, double Successes, double Failures, double? PeakEwmaMs);
+
+/// <summary>Export and import of the tracker's learned state, so a restart does not start from priors (doc 92 open question 3).</summary>
+public interface IPersistentStats
+{
+    IReadOnlyList<EndpointStatsSnapshot> Export();
+
+    void Import(IEnumerable<EndpointStatsSnapshot> snapshots);
+}
+
+/// <summary>One recorded choice, for the admin and client panes. Holds no prompt and no secret.</summary>
+public sealed record DecisionRecord(
+    DateTimeOffset At,
+    string Route,
+    string Profile,
+    string TraceCode,
+    IReadOnlyList<RankedView> Ranking,
+    IReadOnlyList<RejectedView> Rejected);
+
+public sealed record RankedView(EndpointKey Key, string Identity, double Score);
+
+public sealed record RejectedView(EndpointKey Key, RejectionReason Reason);
+
+/// <summary>An endpoint's current health as the selector sees it.</summary>
+public sealed record EndpointHealthView(EndpointKey Key, double Successes, double Failures, double? PeakEwmaMs, double? P95Ms, int InFlight);
+
+/// <summary>Read side for the admin panel and the client pane: what the selector knows and what it recently chose.</summary>
+public interface ISelectionInsights
+{
+    IReadOnlyList<DecisionRecord> Recent(int count = 50);
+
+    IReadOnlyList<EndpointHealthView> Endpoints();
+}

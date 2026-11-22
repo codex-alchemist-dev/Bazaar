@@ -24,7 +24,7 @@ public sealed record StatsOptions
 /// fades, so a slow endpoint is not forgotten by an average), a p95 estimate from a small window, an in-flight count, and
 /// the affinity map. Thread safe. Holds no secret and no prompt.
 /// </summary>
-public sealed class EndpointStatsTracker : IEndpointStatsTracker
+public sealed class EndpointStatsTracker : IEndpointStatsTracker, IPersistentStats
 {
     private readonly StatsOptions _options;
     private readonly TimeProvider _time;
@@ -68,6 +68,65 @@ public sealed class EndpointStatsTracker : IEndpointStatsTracker
                 s.HasLatency ? TimeSpan.FromMilliseconds(s.EwmaMs) : null,
                 P95(s),
                 s.InFlight);
+        }
+    }
+
+    public IReadOnlyList<EndpointStatsSnapshot> Export()
+    {
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            var list = new List<EndpointStatsSnapshot>(_states.Count);
+            foreach (var (key, s) in _states)
+            {
+                Decay(s, now);
+                list.Add(new EndpointStatsSnapshot(key, s.Successes, s.Failures, s.HasLatency ? s.EwmaMs : null));
+            }
+
+            return list;
+        }
+    }
+
+    public void Import(IEnumerable<EndpointStatsSnapshot> snapshots)
+    {
+        ArgumentNullException.ThrowIfNull(snapshots);
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            foreach (var snap in snapshots)
+            {
+                if (!double.IsFinite(snap.Successes) || !double.IsFinite(snap.Failures) || snap.Successes < 0 || snap.Failures < 0)
+                {
+                    continue;
+                }
+
+                var s = Get(snap.Key);
+                s.Successes = snap.Successes;
+                s.Failures = snap.Failures;
+                s.LastDecay = now;
+                if (snap.PeakEwmaMs is { } ms && double.IsFinite(ms) && ms > 0)
+                {
+                    s.EwmaMs = ms;
+                    s.HasLatency = true;
+                    s.LastLatencyAt = now;
+                }
+            }
+        }
+    }
+
+    public IReadOnlyList<EndpointHealthView> Health()
+    {
+        lock (_gate)
+        {
+            var now = _time.GetUtcNow();
+            var list = new List<EndpointHealthView>(_states.Count);
+            foreach (var (key, s) in _states)
+            {
+                Decay(s, now);
+                list.Add(new EndpointHealthView(key, s.Successes, s.Failures, s.HasLatency ? s.EwmaMs : null, P95(s)?.TotalMilliseconds, s.InFlight));
+            }
+
+            return list;
         }
     }
 
