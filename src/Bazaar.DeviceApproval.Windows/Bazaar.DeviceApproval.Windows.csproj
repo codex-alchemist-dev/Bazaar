@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Windows-only: the TPM key (CNG) and Windows Hello (UserConsentVerifier). Nothing outside this module may reference it. -->
+    <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bazaar.DeviceApproval.Windows</RootNamespace>
+    <!-- The Windows SDK projection (UserConsentVerifier) is restored on every host, so the Linux CI leg can build the solution. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.DeviceApproval.Abstractions\Bazaar.DeviceApproval.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

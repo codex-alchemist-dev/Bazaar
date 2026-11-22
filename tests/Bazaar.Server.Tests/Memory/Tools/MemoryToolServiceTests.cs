@@ -6,6 +6,7 @@ using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Tests.Memory.Notes;
+using Bazaar.Testing.Secrets;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Tests.Memory.Tools;
@@ -15,7 +16,7 @@ public class MemoryToolServiceTests
     private static readonly DateTimeOffset _start = new(2026, 11, 2, 9, 0, 0, TimeSpan.Zero);
     private const string _alpha = "alpha";
     private const string _beta = "beta";
-    private const string _secretBody = "Retry with key sk-ant-api03abcdefghijklmnopqrstuvwxyz0123 after each failure.";
+    private const string _secretBody = "Retry with key " + FakeSecrets.AnthropicApiKey + " after each failure.";
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -167,6 +168,23 @@ public class MemoryToolServiceTests
         Assert.Equal(MemoryToolErrorCode.NotFound, updateAlpha.Error!.Code);
 
         Assert.Empty(h.Log.Entries);
+    }
+
+    // Regression: hive/** used to be retrievable by every agent. Without Hive grant data, agents get no hive hits.
+    [Fact]
+    public async Task Hive_notes_are_not_retrieved_by_agents_without_a_grant_and_stay_visible_to_the_owner()
+    {
+        using var h = new Harness();
+        h.Vault.Seed("hive/procedure/retry-backoff.md", NoteFixtures.Text(NoteFixtures.Note(kind: MemoryKind.Hive)));
+
+        var agent = await h.Service.RetrieveAsync(
+            VaultPrincipal.Agent(_alpha), new MemoryRetrieveRequest(_alpha, "exponentially", "hive", null, 500, 5), Ct);
+        var owner = await h.Service.RetrieveAsync(
+            VaultPrincipal.Owner(), new MemoryRetrieveRequest(_alpha, "exponentially", "hive", null, 500, 5), Ct);
+
+        Assert.True(agent.IsSuccess);
+        Assert.Empty(agent.Value!.Hits);
+        Assert.Equal(NoteFixtures.NoteId, Assert.Single(owner.Value!.Hits).NoteId);
     }
 
     [Fact]
