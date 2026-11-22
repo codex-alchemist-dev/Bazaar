@@ -1,7 +1,7 @@
-using Bazaar.Server.Host.Auth;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.GitHub;
+using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Startup;
