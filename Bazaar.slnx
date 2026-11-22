@@ -116,6 +116,7 @@
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
     <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
     <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
+    <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
@@ -287,6 +288,7 @@
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Tests/Bazaar.Archive.Tests.csproj" />
+    <Project Path="tests/Bazaar.Archive.Gc.Tests/Bazaar.Archive.Gc.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />

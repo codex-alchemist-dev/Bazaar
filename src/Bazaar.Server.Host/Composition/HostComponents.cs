@@ -1,3 +1,4 @@
+using Bazaar.Archive;
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
@@ -43,6 +44,7 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new ArchiveComponent(),
         new KekComponent(),
         new GcComponent(),
         new CompanyComponent(),

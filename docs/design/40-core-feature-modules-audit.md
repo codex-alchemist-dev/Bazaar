@@ -293,3 +293,5 @@ Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), wit
 Docs section this implements: doc 25 "Archive cold storage".
 
 `Bazaar.Archive.Abstractions` holds `IArchiveSource`, `IArchiveStore`, `IArchiveRestoreTarget`, `IArchiveSearchIndex` and the manifest types. `Bazaar.Archive` holds the archiver, verifier, restorer, the directory store, an in-memory search index and `ArchiveComponent` (id `archive`). It references only Bazaar.Core and its own Abstractions. Source and restore adapters for GCs and projects come from the modules that own that data.
+
+`Bazaar.Archive.Gc` holds the GC and project source adapters (`GcArchiveSource`, `ProjectArchiveSource`) over `IGcLogReader`. Three things the GC owner must still implement through `IGcArchiveBridge` and `IProjectGcLister`: message text opening, the Thinking GC flag, and the `archived_at` system event. `ArchiveComponent` is registered in `HostComponents`.
