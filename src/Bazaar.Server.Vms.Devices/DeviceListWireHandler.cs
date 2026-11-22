@@ -80,11 +80,19 @@ public sealed class DeviceListWireHandler : IWireRequestHandler
                 capabilities.Restore,
                 capabilities.EgressEnforced,
                 capabilities.MaxConcurrentInstances > 0 ? capabilities.MaxConcurrentInstances : null,
-                running.Count));
+                running.Count,
+                RestartRequired(entry)));
             guests.AddRange(running.Select(g => new DeviceGuestInfo(g.VmId, entry.Kind, capabilities.GuestOs, g.State)));
         }
 
         return WireReply.Ok(context.Connection.Codec, new DeviceListReply(providers, guests));
+    }
+
+    // Null (not an empty list) when nothing needs a restart, so the common reply is unchanged on the wire.
+    private static IReadOnlyList<string>? RestartRequired(IDeviceProviderCatalogEntry entry)
+    {
+        var keys = entry.RestartRequiredKeys;
+        return keys.Count == 0 ? null : [.. keys];
     }
 
     // A settings read that fails must not fail the whole list; the entry then reports its last loaded state.

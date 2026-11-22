@@ -9,6 +9,24 @@ using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Server.Vms.Android.Tests;
 
+internal sealed class CapturingLogger : Microsoft.Extensions.Logging.ILogger
+{
+    public List<string> Messages { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state)
+        where TState : notnull => null;
+
+    public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+    public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, Microsoft.Extensions.Logging.EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        if (logLevel == Microsoft.Extensions.Logging.LogLevel.Warning)
+        {
+            Messages.Add(formatter(state, exception));
+        }
+    }
+}
+
 /// <summary>The Android entry as a backend source with live settings (doc 62 section 9.2).</summary>
 public sealed class AndroidLiveSettingsTests
 {
@@ -109,6 +127,69 @@ public sealed class AndroidLiveSettingsTests
 
         Assert.Same(backend, entry.Backend);
         Assert.Equal(1, _builds);
+    }
+
+    [Fact]
+    public async Task An_install_key_change_after_the_build_is_listed_and_warned_once_by_key_without_its_value()
+    {
+        Configure();
+        var log = new CapturingLogger();
+        using var entry = new AndroidCatalogEntry(
+            new MapSettingStore(_values), new ConfigurationBuilder().Build(), _host,
+            (o, w) => new AndroidBackend(_host, _host, w, o), _clock, logger: log);
+        await entry.RefreshAsync(Ct);
+        Assert.Empty(entry.RestartRequiredKeys);
+
+        _values[DeviceProvidersSettings.AndroidSdkRoot.Name] = Root + "/secret-other-sdk";
+        _values[DeviceProvidersSettings.AndroidMaxConcurrent.Name] = 2; // live: never a restart key
+        Advance();
+        await entry.RefreshAsync(Ct);
+        Advance();
+        await entry.RefreshAsync(Ct);
+
+        Assert.Equal([DeviceProvidersSettings.AndroidSdkRoot.Name], entry.RestartRequiredKeys);
+        var warning = Assert.Single(log.Messages);
+        Assert.Contains(DeviceProvidersSettings.AndroidSdkRoot.Name, warning);
+        Assert.Contains("restart", warning, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("secret-other-sdk", warning);
+    }
+
+    [Fact]
+    public async Task Setting_a_key_back_clears_it_and_a_later_change_warns_again()
+    {
+        Configure();
+        var log = new CapturingLogger();
+        using var entry = new AndroidCatalogEntry(
+            new MapSettingStore(_values), new ConfigurationBuilder().Build(), _host,
+            (o, w) => new AndroidBackend(_host, _host, w, o), _clock, logger: log);
+        await entry.RefreshAsync(Ct);
+        var built = _values[DeviceProvidersSettings.AndroidAvdHome.Name];
+
+        _values[DeviceProvidersSettings.AndroidAvdHome.Name] = Root + "/avd2";
+        Advance();
+        await entry.RefreshAsync(Ct);
+        _values[DeviceProvidersSettings.AndroidAvdHome.Name] = built;
+        Advance();
+        await entry.RefreshAsync(Ct);
+        Assert.Empty(entry.RestartRequiredKeys);
+
+        _values[DeviceProvidersSettings.AndroidAvdHome.Name] = Root + "/avd3";
+        Advance();
+        await entry.RefreshAsync(Ct);
+
+        Assert.Equal([DeviceProvidersSettings.AndroidAvdHome.Name], entry.RestartRequiredKeys);
+        Assert.Equal(2, log.Messages.Count);
+    }
+
+    [Fact]
+    public async Task An_entry_with_no_backend_reports_no_restart_keys()
+    {
+        using var entry = Entry();
+        _values[DeviceProvidersSettings.AndroidSdkRoot.Name] = Root + "/sdk";
+        await entry.RefreshAsync(Ct);
+
+        Assert.Null(entry.Backend);
+        Assert.Empty(entry.RestartRequiredKeys);
     }
 
     [Fact]

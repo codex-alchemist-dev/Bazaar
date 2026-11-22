@@ -11,6 +11,7 @@ using Bazaar.Server.Vms.MicroVm.Monitors;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Vms.MicroVm;
 
@@ -48,7 +49,8 @@ public sealed class MicroVmComponent : IBazaarComponent
         if (services.All(d => d.ServiceType != typeof(MicroVmCatalogEntry)))
         {
             services.AddSingleton(sp => new MicroVmCatalogEntry(
-                sp.GetRequiredService<ISettingStore>(), configuration, clock: sp.GetService<TimeProvider>()));
+                sp.GetRequiredService<ISettingStore>(), configuration, clock: sp.GetService<TimeProvider>(),
+                logger: sp.GetService<ILoggerFactory>()?.CreateLogger<MicroVmCatalogEntry>()));
             services.AddSingleton<IDeviceProviderCatalogEntry>(sp => sp.GetRequiredService<MicroVmCatalogEntry>());
             services.AddSingleton<IVmBackendSource>(sp => sp.GetRequiredService<MicroVmCatalogEntry>());
         }
@@ -135,8 +137,9 @@ public sealed class MicroVmCatalogEntry : DeviceProviderEntry<MicroVmBackend>
         IConfiguration configuration,
         Func<MicroVmOptions, MicroVmBackend>? factory = null,
         TimeProvider? clock = null,
-        TimeSpan? refreshInterval = null)
-        : base(clock, refreshInterval)
+        TimeSpan? refreshInterval = null,
+        ILogger? logger = null)
+        : base(clock, refreshInterval, logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -162,6 +165,17 @@ public sealed class MicroVmCatalogEntry : DeviceProviderEntry<MicroVmBackend>
         RemoteNode: false);
 
     protected override string ReadFailureReason => "The microVM settings could not be read.";
+
+    protected override async Task<IReadOnlyDictionary<string, string>> ReadInstallValuesAsync(CancellationToken ct) =>
+        InstallValues(
+            await _settings.GetAsync(DeviceProvidersSettings.MicroVmStateDir, cancellationToken: ct).ConfigureAwait(false),
+            await _settings.GetAsync(DeviceProvidersSettings.MicroVmMonitor, cancellationToken: ct).ConfigureAwait(false));
+
+    private static Dictionary<string, string> InstallValues(string stateDir, MicroVmMonitorSetting monitor) => new(StringComparer.Ordinal)
+    {
+        [DeviceProvidersSettings.MicroVmStateDir.Name] = stateDir,
+        [DeviceProvidersSettings.MicroVmMonitor.Name] = monitor.ToString(),
+    };
 
     protected override async Task<(MicroVmBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
@@ -209,7 +223,9 @@ public sealed class MicroVmCatalogEntry : DeviceProviderEntry<MicroVmBackend>
                 JailerUid = int.TryParse(section["JailerUid"], out var uid) ? uid : 0,
                 JailerGid = int.TryParse(section["JailerGid"], out var gid) ? gid : 0,
             };
-            return (_factory(options), null);
+            var backend = _factory(options);
+            RecordBuiltFrom(InstallValues(stateDir, monitor));
+            return (backend, null);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {

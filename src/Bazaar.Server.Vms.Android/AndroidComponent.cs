@@ -9,6 +9,7 @@ using Bazaar.Server.Vms.Lifecycle;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Vms.Android;
 
@@ -49,7 +50,8 @@ public sealed class AndroidComponent : IBazaarComponent
                 sp.GetRequiredService<ISettingStore>(),
                 configuration,
                 sp.GetRequiredService<IAndroidWorkspace>(),
-                clock: sp.GetService<TimeProvider>()));
+                clock: sp.GetService<TimeProvider>(),
+                logger: sp.GetService<ILoggerFactory>()?.CreateLogger<AndroidCatalogEntry>()));
             services.AddSingleton<IDeviceProviderCatalogEntry>(sp => sp.GetRequiredService<AndroidCatalogEntry>());
             services.AddSingleton<IVmBackendSource>(sp => sp.GetRequiredService<AndroidCatalogEntry>());
         }
@@ -83,8 +85,9 @@ public sealed class AndroidCatalogEntry : DeviceProviderEntry<AndroidBackend>
         IAndroidWorkspace workspace,
         Func<AndroidOptions, IAndroidWorkspace, AndroidBackend>? factory = null,
         TimeProvider? clock = null,
-        TimeSpan? refreshInterval = null)
-        : base(clock, refreshInterval)
+        TimeSpan? refreshInterval = null,
+        ILogger? logger = null)
+        : base(clock, refreshInterval, logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
         _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -111,6 +114,19 @@ public sealed class AndroidCatalogEntry : DeviceProviderEntry<AndroidBackend>
 
         return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes("bazaar:android:" + package)).AsSpan(0, 16));
     }
+
+    protected override async Task<IReadOnlyDictionary<string, string>> ReadInstallValuesAsync(CancellationToken ct) =>
+        InstallValues(
+            await _settings.GetAsync(DeviceProvidersSettings.AndroidSdkRoot, cancellationToken: ct).ConfigureAwait(false),
+            await _settings.GetAsync(DeviceProvidersSettings.AndroidAvdHome, cancellationToken: ct).ConfigureAwait(false),
+            await _settings.GetAsync(DeviceProvidersSettings.AndroidSystemImage, cancellationToken: ct).ConfigureAwait(false));
+
+    private static Dictionary<string, string> InstallValues(string sdkRoot, string avdHome, string image) => new(StringComparer.Ordinal)
+    {
+        [DeviceProvidersSettings.AndroidSdkRoot.Name] = sdkRoot,
+        [DeviceProvidersSettings.AndroidAvdHome.Name] = avdHome,
+        [DeviceProvidersSettings.AndroidSystemImage.Name] = image,
+    };
 
     protected override async Task<(AndroidBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
@@ -150,7 +166,9 @@ public sealed class AndroidCatalogEntry : DeviceProviderEntry<AndroidBackend>
                 SystemImageVersion = ImageVersion(_configuration, image),
                 MaxConcurrent = max,
             };
-            return (_factory(options, _workspace), null);
+            var backend = _factory(options, _workspace);
+            RecordBuiltFrom(InstallValues(sdkRoot, avdHome, image));
+            return (backend, null);
         }
         catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
         {

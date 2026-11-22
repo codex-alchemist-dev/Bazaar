@@ -16,6 +16,7 @@ public sealed record DeviceListRequest();
 /// <param name="EgressEnforced">Whether the provider can make egress mandatory.</param>
 /// <param name="MaxConcurrentInstances">Concurrent instance cap, or null for none.</param>
 /// <param name="Running">Instances running now.</param>
+/// <param name="RestartRequired">Names of install settings changed since the provider was built, which apply only after a server restart (doc 62 section 9.1), or null when none. Optional and trailing, so older clients still parse the record.</param>
 public sealed record DeviceProviderInfo(
     string Kind,
     string GuestOs,
@@ -28,7 +29,8 @@ public sealed record DeviceProviderInfo(
     bool Restore,
     bool EgressEnforced,
     int? MaxConcurrentInstances,
-    int Running);
+    int Running,
+    IReadOnlyList<string>? RestartRequired = null);
 
 /// <summary>One running device guest. It carries no agent name, port, path or screen content.</summary>
 /// <param name="VmId">Guest id.</param>

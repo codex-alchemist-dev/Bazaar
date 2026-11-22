@@ -79,6 +79,10 @@ public sealed class DevicesPaneView : UserControl
         foreach (var provider in _pane.Providers)
         {
             root.Children.Add(Row(provider.Name, provider.Status, provider.Capabilities, provider.Load));
+            if (provider.RestartNote is { } note)
+            {
+                root.Children.Add(new TextBlock { Text = note, TextWrapping = TextWrapping.Wrap, FontStyle = FontStyle.Italic, Margin = new Thickness(128, 0, 0, 0) });
+            }
         }
 
         root.Children.Add(Heading("Running guests"));

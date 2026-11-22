@@ -160,6 +160,29 @@ public class DevicesPaneTests
         window.Close();
     }
 
+    [Fact]
+    public void A_provider_with_restart_required_keys_gets_a_note_and_others_do_not()
+    {
+        var pane = new DevicesPaneViewModel(Descriptor());
+        pane.Apply(new DeviceListReply([_android with { RestartRequired = ["vms.android.sdk_root", "vms.android.avd_home"] }, _broken], []));
+
+        Assert.Equal("Restart required: vms.android.sdk_root, vms.android.avd_home changed.", pane.Providers[0].RestartNote);
+        Assert.Null(pane.Providers[1].RestartNote);
+    }
+
+    [AvaloniaFact]
+    public void View_shows_the_restart_required_note()
+    {
+        var pane = new DevicesPaneViewModel(Descriptor());
+        pane.Apply(new DeviceListReply([_android with { RestartRequired = ["vms.android.sdk_root"] }], []));
+        var view = new DevicesPaneView(pane);
+        var window = new Window { Content = view, Width = 600, Height = 400 };
+        window.Show();
+
+        Assert.Contains("Restart required: vms.android.sdk_root changed.", Texts(view));
+        window.Close();
+    }
+
     [AvaloniaFact]
     public void View_is_hidden_and_empty_when_no_provider_is_enabled()
     {

@@ -7,7 +7,7 @@ using Bazaar.Contracts.Vms;
 namespace Bazaar.Client.Devices;
 
 /// <summary>One provider row: what it is, whether the host probe passed and why not, its capability flags and its load.</summary>
-public sealed record DeviceProviderRow(string Name, string Status, string Capabilities, string Load);
+public sealed record DeviceProviderRow(string Name, string Status, string Capabilities, string Load, string? RestartNote = null);
 
 /// <summary>One running guest row.</summary>
 public sealed record DeviceGuestRow(string Name, string State, string Id);
@@ -129,6 +129,7 @@ public sealed class DevicesPaneViewModel : IPaneViewModel, INotifyPropertyChange
 
         flags.Add(p.EgressEnforced ? "egress enforced" : "egress not enforced");
         var load = p.MaxConcurrentInstances is { } cap ? $"{p.Running} of {cap} running" : $"{p.Running} running";
-        return new DeviceProviderRow($"{p.Kind} ({p.GuestOs})", status, string.Join(", ", flags), load);
+        var note = p.RestartRequired is { Count: > 0 } keys ? $"Restart required: {string.Join(", ", keys)} changed." : null;
+        return new DeviceProviderRow($"{p.Kind} ({p.GuestOs})", status, string.Join(", ", flags), load, note);
     }
 }

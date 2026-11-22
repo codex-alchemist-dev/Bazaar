@@ -41,6 +41,20 @@ public sealed class MicroVmLiveSettingsTests
     }, _clock);
 
     [Fact]
+    public async Task A_monitor_change_after_the_build_needs_a_restart_and_is_named_by_key()
+    {
+        using var entry = Entry();
+        await entry.RefreshAsync(Ct);
+
+        _values[DeviceProvidersSettings.MicroVmMonitor.Name] = MicroVmMonitorSetting.CloudHypervisor;
+        _clock.Advance(DeviceProviderEntry<MicroVmBackend>.DefaultRefreshInterval);
+        await entry.RefreshAsync(Ct);
+
+        Assert.Equal([DeviceProvidersSettings.MicroVmMonitor.Name], entry.RestartRequiredKeys);
+        Assert.Equal(1, _builds);
+    }
+
+    [Fact]
     public async Task A_live_cap_change_reaches_the_same_backend_without_a_rebuild()
     {
         using var entry = Entry();

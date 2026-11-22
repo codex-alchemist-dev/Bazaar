@@ -140,4 +140,10 @@ public interface IDeviceProviderCatalogEntry
     /// members above, which then report the loaded state without blocking. An entry with nothing to load keeps the default.
     /// </summary>
     ValueTask RefreshAsync(CancellationToken ct) => ValueTask.CompletedTask;
+
+    /// <summary>
+    /// Install setting keys that changed after the provider's backend was built, so they apply only after a restart (doc 62 section
+    /// 9.2). Names only, never values. Empty by default.
+    /// </summary>
+    IReadOnlyList<string> RestartRequiredKeys => [];
 }

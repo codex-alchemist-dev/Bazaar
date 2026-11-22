@@ -25,9 +25,12 @@ internal sealed class FakeEntry(
     DeviceProbeResult? probe = null,
     IReadOnlyList<DeviceGuestState>? guests = null,
     int max = 2,
-    bool probeThrows = false) : IDeviceProviderCatalogEntry
+    bool probeThrows = false,
+    IReadOnlyList<string>? restartRequired = null) : IDeviceProviderCatalogEntry
 {
     public string Kind => kind;
+
+    public IReadOnlyList<string> RestartRequiredKeys => restartRequired ?? [];
 
     public DeviceProviderCapabilities Capabilities { get; } = new(
         guestOs, DeviceIsolation.HardwareVirtualised, Save: true, Checkpoint: false, Restore: true, Headless: true,
@@ -77,6 +80,31 @@ public sealed class DeviceListWireHandlerTests
 
     private static DeviceListWireHandler Make(string[] enabled, params IDeviceProviderCatalogEntry[] entries) =>
         new(new FakeSettingStore(enabled), entries);
+
+    [Fact]
+    public async Task Restart_required_keys_are_listed_per_provider_and_null_when_none()
+    {
+        var handler = Make(
+            ["android", "microvm"],
+            new FakeEntry("android", "android", restartRequired: ["vms.android.sdk_root"]),
+            new FakeEntry("microvm", "linux"));
+
+        var reply = Decode(await handler.HandleAsync(Request("owner"), Ct));
+
+        Assert.Equal(["vms.android.sdk_root"], reply.Providers[0].RestartRequired);
+        Assert.Null(reply.Providers[1].RestartRequired);
+    }
+
+    [Fact]
+    public void An_older_reply_without_the_field_still_parses()
+    {
+        var old = """{"providers":[{"kind":"android","guestOs":"android","usable":true,"reason":null,"isolation":"x","headless":true,"save":false,"checkpoint":false,"restore":false,"egressEnforced":false,"maxConcurrentInstances":null,"running":0}],"guests":[]}"""u8.ToArray();
+
+        var reply = _codec.DecodePayload<DeviceListReply>(new Envelope(1, WireTypes.DeviceList, EnvelopeKind.Response,
+            "req-1", "req-1", null, null, null, old));
+
+        Assert.Null(Assert.Single(reply.Providers).RestartRequired);
+    }
 
     [Fact]
     public void The_list_is_served_on_its_own_wire_type()
