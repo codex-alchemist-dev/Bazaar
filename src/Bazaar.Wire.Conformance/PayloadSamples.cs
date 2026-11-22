@@ -113,6 +113,8 @@ public static class PayloadSamples
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
+        Of(null, new KanbanMoveRequest(_gc, _author, "in_progress", 3), WireTypes.BoardMove),
+        Of(null, new KanbanMoveReply(KanbanMoveStatuses.Applied, 4, [], null)),
         Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
         Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",
