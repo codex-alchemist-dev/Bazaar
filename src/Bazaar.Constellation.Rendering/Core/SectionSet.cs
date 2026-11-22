@@ -46,7 +46,7 @@ public sealed record SectionCullSettings
 /// </summary>
 public sealed class SectionSet
 {
-    private const int MaxDepth = 32;
+    private const int _maxDepth = 32;
 
     private readonly SectionDef[] _defs;
     private readonly int[] _order;     // def indices sorted by depth then id
@@ -87,7 +87,7 @@ public sealed class SectionSet
             // A parent chain that loops (or is absurdly deep) makes this section a root.
             int d = 0;
             int cur = i;
-            while (_parent[cur] >= 0 && d <= MaxDepth)
+            while (_parent[cur] >= 0 && d <= _maxDepth)
             {
                 cur = _parent[cur];
                 d++;
@@ -97,7 +97,7 @@ public sealed class SectionSet
                 }
             }
 
-            if (d > MaxDepth || cur == i)
+            if (d > _maxDepth || cur == i)
             {
                 _parent[i] = -1;
                 d = 0;
