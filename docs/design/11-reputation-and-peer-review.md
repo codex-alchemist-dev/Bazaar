@@ -200,6 +200,8 @@ No real models or displays are needed.
 - **Replay.** Recorded PR fixtures with expected snapshots, approved by the owner.
 
 ## Work packages
+
+**Implementation status (2026-11-22).** Package 3's recorder exists as `Bazaar.Server.OutcomeLedger` (plus `.Abstractions`): `IOutcomeRecorder` validates, fills the default weight for the kind (the table above, PROPOSAL), appends `outcome_event` and `outcome_attribution` in one transaction with `ON CONFLICT (dedupe_key) DO NOTHING`, and tells `IOutcomeListener`s only for new rows. Callers supply the attributions; the attribution rules (blame, approvers) belong to package 5. Webhook and poll sources, review capture and the projection are not built.
 1. Migrations for the ledger tables. No dependencies.
 2. `ScoreMath` plus golden tests. No dependencies.
 3. Outcome ingestion from polled-event and webhook fixtures, with dedupe. Depends on 1.

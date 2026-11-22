@@ -8,11 +8,13 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.LoopGuard;
-using Bazaar.Server.PsychWard;
+using Bazaar.Server.OutcomeLedger;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Providers.Windows.Postgres;
+using Bazaar.Server.PsychWard;
+using Bazaar.Server.Reputation;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Souls;
@@ -159,6 +161,8 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<UsageRecorder>();
         services.AddBazaarSoulBindings();
         services.AddBazaarPsychWard();
+        services.AddWardOutcomeListener();
+        services.AddBazaarOutcomeLedger();
         services.AddBazaarLoopTripHandling();
         return services;
     }

@@ -47,6 +47,8 @@
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
     <ProjectReference Include="..\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
     <ProjectReference Include="..\Bazaar.Server.PsychWard\Bazaar.Server.PsychWard.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.OutcomeLedger\Bazaar.Server.OutcomeLedger.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Reputation\Bazaar.Server.Reputation.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />

@@ -26,7 +26,7 @@ public sealed class LedgerDb : IAsyncLifetime
         await using var tables = DataSource.CreateCommand("""
             CREATE TABLE outcome_event (
                 id uuid PRIMARY KEY, kind text NOT NULL, pr_ref text NOT NULL, x numeric NOT NULL,
-                w numeric NOT NULL, dedupe_key text NOT NULL UNIQUE, occurred_at timestamptz NOT NULL,
+                w numeric NOT NULL, dedupe_key text NOT NULL UNIQUE, source_ref text, occurred_at timestamptz NOT NULL,
                 recorded_at timestamptz NOT NULL DEFAULT now());
             CREATE TABLE outcome_attribution (
                 outcome_id uuid NOT NULL REFERENCES outcome_event (id), agent_id text NOT NULL, role text NOT NULL,
