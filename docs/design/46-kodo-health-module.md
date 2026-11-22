@@ -669,10 +669,9 @@ Built in `src/Bazaar.Client.Kodo`: the Status and Fleet views. Choices not settl
 - **Mnemonics.** `KodoMnemonics.Proposed` lists `kodo`, `kstat` and `kfleet` as rows; heads turn them into `Bazaar.Ex` assignments. This project does not reference the registry.
 - **Pane registry.** The views are plain controls built from view models; they are not yet registered with `PaneRegistry` (the pane model there is server-descriptor driven, and Monitor is stream driven). A head hosts them and calls `Refresh()` on `KodoStreamSession.Changed` and on a timer.
 
-### 14.7 Fleet snapshot and state colours (PROPOSED)
+### 14.7 Fleet snapshot wire shape (PROPOSED)
 
 - **Fleet wire shape.** `KodoFleetSnapshotDto` (schema version, revision, `asOf`, one `KodoServerStatusDto` per server: id, display name, state, underlying state, score, `asOf`, version, open alerts, incident flag) in `Bazaar.Contracts/Kodo`, source-generated JSON, camelCase, nulls omitted, unknown members skipped. Each row carries its own `asOf`, so the client marks a single stale server `unobserved` without hiding the rest.
-- **State colours.** One theme token per state, `Bazaar.brush.kodo.state.<state>` for healthy, degraded, failing, recovering, frozen and unobserved, with light and dark defaults (each 4.5:1 or better on the default surface) held in `Bazaar.Client.Kodo` until doc 27's theme schema gains a Kodo group. The pane always shows the state word beside the colour.
 
 ## 15. API
 
