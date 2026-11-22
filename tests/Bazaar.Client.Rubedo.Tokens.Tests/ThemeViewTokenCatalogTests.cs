@@ -1,4 +1,5 @@
 using Bazaar.Client.Rubedo.Tokens;
+using Bazaar.Client.Motion;
 using Bazaar.Client.Theme;
 using Bazaar.Rubedo.Views;
 using RubedoKind = Bazaar.Rubedo.Views.TokenKind;
@@ -46,6 +47,51 @@ public class ThemeViewTokenCatalogTests
     public void A_view_naming_a_theme_token_validates_against_the_catalog()
     {
         var json = "{ \"dslVersion\": 1, \"name\": \"bazaar.test.tokens\", \"root\": { \"widget\": \"text\", \"props\": { \"label\": \"x\", \"color\": { \"token\": \"color.text.primary\" } } } }";
+
+        Assert.Empty(ViewValidator.Validate(ViewDocumentReader.Read(json), new ThemeViewTokenCatalog()));
+    }
+
+    [Fact]
+    public void The_twelve_hue_stops_and_the_motion_tokens_come_with_the_theme()
+    {
+        var catalog = new ThemeViewTokenCatalog();
+
+        for (var i = 0; i < ThemeTokens.HueCount; i++)
+        {
+            Assert.Equal(RubedoKind.Colour, catalog.KindOf($"color.hue.{i}"));
+        }
+
+        Assert.Equal(RubedoKind.Duration, catalog.KindOf("motion.duration.sheet"));
+        Assert.Equal(RubedoKind.Number, catalog.KindOf("motion.spring.damping"));
+        Assert.Equal(RubedoKind.Choice, catalog.KindOf("material.mode"));
+    }
+
+    [Fact]
+    public void Every_shipped_interaction_preset_is_an_interaction_token()
+    {
+        var catalog = new ThemeViewTokenCatalog();
+
+        foreach (var name in InteractionNames.All)
+        {
+            Assert.Equal(RubedoKind.Interaction, catalog.KindOf(name));
+        }
+    }
+
+    [Fact]
+    public void The_layout_and_gesture_tokens_are_numbers_until_the_theme_lists_them()
+    {
+        var catalog = new ThemeViewTokenCatalog();
+
+        foreach (var name in ThemeViewTokenCatalog.PendingNumberTokens)
+        {
+            Assert.Equal(RubedoKind.Number, catalog.KindOf(name));
+        }
+    }
+
+    [Fact]
+    public void A_view_can_name_a_hue_and_a_motion_preset()
+    {
+        var json = "{ \"dslVersion\": 1, \"name\": \"bazaar.test.tokens\", \"root\": { \"widget\": \"text\", \"props\": { \"label\": \"x\", \"color\": { \"token\": \"color.hue.5\" }, \"motion\": { \"token\": \"motion.interaction.press\" } } } }";
 
         Assert.Empty(ViewValidator.Validate(ViewDocumentReader.Read(json), new ThemeViewTokenCatalog()));
     }
