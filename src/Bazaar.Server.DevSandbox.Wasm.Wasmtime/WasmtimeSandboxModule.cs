@@ -1,5 +1,5 @@
-using Microsoft.Extensions.DependencyInjection;
 using Bazaar.Server.DevSandbox.Wasm;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.DevSandbox.Wasm.Wasmtime;
 
