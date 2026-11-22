@@ -11,6 +11,12 @@ namespace Bazaar.Kodo.Responder;
 /// <param name="Definition">The runbook, to be signed and added to a <see cref="RunbookCatalogue"/>.</param>
 public sealed record OneClickFix(string Id, string Category, string Trigger, string Title, RunbookDefinition Definition)
 {
+    /// <summary>
+    /// The unattended-recovery tag: set only on the host restart and the slot switch, null on every other fix. It is the only thing the
+    /// <c>kodo.recover.unattended</c> setting can enable.
+    /// </summary>
+    public UnattendedRecovery? Recovery { get; init; }
+
     /// <summary>The control a starter must hold.</summary>
     public string RequiredControl => Definition.RequiredControl;
 
@@ -34,7 +40,7 @@ public static class OneClickFixes
     [
         Fix("fix.host_restart", "host", "host.ready", "Restart the host through the sentinel",
             RunbookRisk.Medium, RunbookApprovalTier.ApprovalStepUp, KodoControls.ControlRestart,
-            "sentinel.status", "sentinel.restart_host", "probe.host_ready", TimeSpan.FromMinutes(2), rollback: null),
+            "sentinel.status", "sentinel.restart_host", "probe.host_ready", TimeSpan.FromMinutes(2), rollback: null, UnattendedRecovery.HostRestart),
         Fix("fix.disk_space", "host", "host.disk.free", "Rotate logs and prune spill past its window",
             RunbookRisk.Medium, RunbookApprovalTier.Approval, KodoControls.RunbookRun,
             "disk.status", "disk.rotate_and_prune", "probe.disk_free", TimeSpan.FromMinutes(5), rollback: null),
@@ -43,7 +49,7 @@ public static class OneClickFixes
             "replication.status", "replication.reseed_standby", "probe.replication", TimeSpan.FromMinutes(30), rollback: null),
         Fix("fix.slot_switch", "kodo", "kodo.self.signature_verify", "Switch to the other verified slot",
             RunbookRisk.Medium, RunbookApprovalTier.ApprovalStepUp, KodoControls.ControlRollback,
-            "slot.verify_other", "slot.switch_other", "probe.signature_verify", TimeSpan.FromMinutes(2), rollback: "slot.switch_back"),
+            "slot.verify_other", "slot.switch_other", "probe.signature_verify", TimeSpan.FromMinutes(2), rollback: "slot.switch_back", UnattendedRecovery.SlotSwitch),
         Fix("fix.module_disable", "modules", "module.health_contract", "Disable the failing module and keep its data",
             RunbookRisk.Medium, RunbookApprovalTier.Approval, KodoControls.ControlIsolate,
             "module.status", "module.disable", "probe.module_state", TimeSpan.FromMinutes(2), rollback: "module.enable"),
@@ -65,6 +71,26 @@ public static class OneClickFixes
         return All.Where(fix => string.Equals(fix.Trigger, trigger, StringComparison.Ordinal)).ToList();
     }
 
+    /// <summary>
+    /// The unattended-recovery tag of a catalogue entry, or null. It is non-null only when the entry is byte-for-byte (by canonical digest)
+    /// the shipped host restart or slot switch, so a custom runbook that reuses a fix id, or any other fix, never matches.
+    /// </summary>
+    public static UnattendedRecovery? RecoveryOf(CatalogueEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        foreach (OneClickFix fix in All)
+        {
+            if (fix.Recovery is { } recovery
+                && string.Equals(fix.Id, entry.Definition.Id, StringComparison.Ordinal)
+                && string.Equals(RunbookCanonical.Digest(fix.Definition), entry.Digest, StringComparison.Ordinal))
+            {
+                return recovery;
+            }
+        }
+
+        return null;
+    }
+
     private static OneClickFix Fix(
         string id,
         string category,
@@ -77,7 +103,8 @@ public static class OneClickFixes
         string actionOperation,
         string verifyOperation,
         TimeSpan actionTimeout,
-        string? rollback)
+        string? rollback,
+        UnattendedRecovery? recovery = null)
     {
         Dictionary<string, string> none = new(StringComparer.Ordinal);
         RunbookStep[] rollbackSteps = rollback is null
@@ -98,6 +125,6 @@ public static class OneClickFixes
                 new RunbookStep("verify", RunbookStepKind.Verify, verifyOperation, none, TimeSpan.FromMinutes(2), MaxAttempts: 3),
             ],
             rollbackSteps);
-        return new OneClickFix(id, category, trigger, title, definition);
+        return new OneClickFix(id, category, trigger, title, definition) { Recovery = recovery };
     }
 }
