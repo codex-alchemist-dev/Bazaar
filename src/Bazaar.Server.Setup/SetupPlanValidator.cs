@@ -59,11 +59,15 @@ public static partial class SetupPlanValidator
         }
 
         ValidateBackups(plan.Backups, issues);
+        ValidateBackupSettings(plan, registry, issues);
+        ValidateEmail(plan, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
         ValidateFirstRun(plan.FirstRun, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
+        ValidateReleaseChannel(plan, registry, issues);
+        ValidateUpdatePolicy(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
@@ -249,6 +253,58 @@ public static partial class SetupPlanValidator
         }
     }
 
+    /// <summary>
+    /// The backups section is also registry keys (doc 45 step 8; doc 33): a value set twice (in the section and in <c>settings</c>) is an
+    /// error, and a target runs through the registry's checks (shape, no credentials, and held for owner approval when it leaves the install).
+    /// </summary>
+    private static void ValidateBackupSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.BackupTargetKey, "backups.target", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupDrillIntervalKey, "backups.drillIntervalDays", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupNoTargetAcknowledgedKey, "backups.acknowledgeNoTarget", issues);
+
+        if (plan.Backups.Target is null || IsBlank(plan.Backups.Target))
+        {
+            return;
+        }
+
+        if (!registry.TryGet(SetupSettingProjection.BackupTargetKey, out var definition) || definition is null)
+        {
+            issues.Add(Error("backups.target", "the backup target setting is not registered in this build."));
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Backups.Target, SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "backups.target", value, issues);
+    }
+
+    /// <summary>
+    /// The email section (doc 45 step 11; doc 22): off with no back end, or on with one of the four v1 back ends. The operator domain
+    /// is not a plan field. A value set twice (in the section and in <c>settings</c>) is an error.
+    /// </summary>
+    private static void ValidateEmail(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.MailEnabledKey, "email.enabled", issues);
+        RejectDuplicate(plan, SetupSettingProjection.MailBackendKey, "email.backend", issues);
+
+        if (SetupSettingProjection.IsEmailChoiceCoherent(plan))
+        {
+            return;
+        }
+
+        issues.Add(plan.Email.Enabled
+            ? Error("email.backend", $"is required when email.enabled is true: one of {string.Join(", ", SetupSettingProjection.MailBackends)}.")
+            : Error("email.backend", "must be empty while email.enabled is false."));
+    }
+
+    private static void RejectDuplicate(SetupPlan plan, string key, string planPath, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(key))
+        {
+            issues.Add(Error("settings." + key, $"is already set by {planPath}; set it in one place."));
+        }
+    }
+
     private static void ValidateModels(SetupModelsSection models, List<SetupValidationIssue> issues)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -353,6 +409,46 @@ public static partial class SetupPlanValidator
         CheckRegistryValue(bind, "network.statusBind", bindValue, issues);
         var portValue = JsonSerializer.SerializeToElement(plan.Network.StatusPort, SetupPlanJsonContext.Default.Int32);
         CheckRegistryValue(port, "network.statusPort", portValue, issues);
+    }
+
+    /// <summary>
+    /// The release channel is also the registry key <c>update.channel</c> (doc 30). A value set twice (in the plan field and in
+    /// settings) is an error, so there is one answer. A build whose registry has no such key skips the registry check; the channel
+    /// shape itself is checked in <c>ValidateInstall</c>.
+    /// </summary>
+    private static void ValidateReleaseChannel(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.UpdateChannelKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.UpdateChannelKey, "is already set by install.releaseChannel; set it in one place."));
+        }
+
+        if (!_releaseChannels.Contains(plan.Install.ReleaseChannel, StringComparer.Ordinal)
+            || !registry.TryGet(SetupSettingProjection.UpdateChannelKey, out var definition) || definition is null)
+        {
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Install.ReleaseChannel.Replace('-', '_'), SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "install.releaseChannel", value, issues);
+    }
+
+    /// <summary>
+    /// The update policy (doc 45 step 2). The security half is the registry key <c>deps.update.autoSecurityPatches</c>, so a value set
+    /// twice (in the plan field and in settings) is an error. The other half has no backing setting: only <c>manual</c>, the shipped
+    /// default, can be applied, so <c>automatic</c> is refused here rather than accepted and silently not stored.
+    /// </summary>
+    private static void ValidateUpdatePolicy(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.AutoSecurityPatchesKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.AutoSecurityPatchesKey, "is already set by install.updatePolicy.security; set it in one place."));
+        }
+
+        if (_updateModes.Contains(plan.Install.UpdatePolicy.Other, StringComparer.Ordinal) && !SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
+        {
+            issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
+        }
     }
 
     /// <summary>

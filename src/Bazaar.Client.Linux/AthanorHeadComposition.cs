@@ -89,20 +89,16 @@ internal static class AthanorHeadComposition
         && File.Exists(Path.Combine(bundleRoot, AthanorBundle.HostPage));
 
     /// <summary>
-    /// Makes the Athanor commands reachable by key (doc 57 §2.2, §8): a mnemonic host on <paramref name="top"/> for the loaded
-    /// modules' commands, with the Athanor commands handed to <paramref name="athanor"/>. Mnemonics are typed text plus Enter;
-    /// no Ctrl chord is claimed. Other modules' commands have no handler yet and are reported as such. Null when the mnemonics
-    /// do not resolve. Call on the UI thread, once the editor pane is registered (so <see cref="AthanorPaneModule.CommandHandler"/> is set).
+    /// Makes the Athanor commands reachable by key (doc 57 section 2.2, section 8): the dispatcher that carries out the editor's
+    /// commands, to hand to <see cref="MnemonicHeadHost.AttachAsync"/> (or <see cref="MnemonicHeadHost.StartAsync"/>) with the loaded
+    /// modules' commands. Mnemonics are typed text plus Enter; no Ctrl chord is claimed. The open and new commands ask for a path in
+    /// an overlay on <paramref name="top"/>. Other modules' commands have no handler here and are reported as such. Call on the
+    /// UI thread, once the editor pane is registered (so <see cref="AthanorPaneModule.CommandHandler"/> is set).
     /// </summary>
-    public static MnemonicHeadHost? StartCommands(
-        TopLevel top,
-        IEnumerable<ClientCommandContribution> commands,
-        AthanorPaneModule athanor,
-        AthanorHeadOptions options,
-        Action<string> log)
+    public static ClientCommandDispatcher CreateDispatcher(TopLevel top, AthanorPaneModule athanor)
     {
+        ArgumentNullException.ThrowIfNull(top);
         ArgumentNullException.ThrowIfNull(athanor);
-        ArgumentNullException.ThrowIfNull(options);
         var dispatcher = new ClientCommandDispatcher();
         // The open and new commands ask for a path in an overlay on this window; a cancelled prompt does nothing.
         if (athanor.CommandHandler is { } handler)
@@ -111,7 +107,7 @@ internal static class AthanorHeadComposition
         }
 
         dispatcher.Add(AthanorCommandHandler.Handles, athanor.RunCommandAsync);
-        return MnemonicHeadHost.Start(top, commands, Path.Combine(options.DataDirectory, "mnemonics.json"), dispatcher, log);
+        return dispatcher;
     }
 
     /// <summary>

@@ -132,10 +132,12 @@ Keys are install-scoped; the operator changes them in the setup wizard or advanc
 | `backup.include_child_vm_disks` | bool | false | install | operator | Yes (owner). Child disks hold private work |
 | `backup.audit_head_offsite` | bool | true | install | operator | No. Hash only, no content; counsel to confirm |
 | `backup.vault_bundle_hours` | int | 24 | install | operator | No |
-| `backup.drill_interval_days` | int | 90 | install | operator | No |
+| `backup.drill_interval_days` | int | 90 | install | operator | No. The setup plan (`backups.drillIntervalDays`, default 30, 1 to 365) writes it on every apply, so a setup install holds the plan value, not 90 |
 | `backup.check_interval_hours` | int | 24 | install | operator | No; WAL and Vault push age checks |
 | `backup.volume_warn_pct` | int | 80 | install | operator | No |
 | `backup.volume_red_pct` | int | 95 | install | operator | No |
+| `backup.target` | string | empty (none) | install | operator | Setup (doc 45 step 8) records the operator's chosen location as `scheme:location` with scheme `file`, `s3`, `b2` or `custom` (no credentials; a secret reference only). A `file:` target needs no approval; any other scheme leaves the install, so it is held for owner approval (Tier 2). The key is the recorded choice: the offsite composition (`backup.offsite_*`) and the scheduler read it when built, so writing it starts no backup. [DECIDED 2026-11-20 as a configurable setting with the safest default] |
+| `backup.no_target_acknowledged` | bool | false | install | operator | Setup writes true only for a plan with no target and an acknowledgement (doc 45, Open questions item 5); the apply audit row records it. Kodo keeps flagging the missing target while only this stands in for one. |
 
 Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, doc 04); `security.backup.include_cookie_profiles` (false, doc 15); `vault.push_cadence` (15 min, doc 18).
 
