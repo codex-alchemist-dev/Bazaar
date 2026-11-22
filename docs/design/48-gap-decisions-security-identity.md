@@ -270,6 +270,7 @@ Design consequences:
 - Backups keep old keys until the backup expires. The backup retention is the erasure window (`33`, C01). The proof states the window date.
 - Raw audit read records (section 5) have their own retention period, a setting. Their personal fields are crypto-erasable like any other.
 - Retention changes are high-risk actions (section 8).
+- Sweeper (built, `Bazaar.Server.Retention`): an hourly job asks each module's retention store for records past their period, soft-deletes them, then purges them after the soft-delete window. A hold covers a record when its scope is the record's person, GC or category, or the whole company; holds are re-read before every batch, a hold that cannot be read stops the sweep, and an unrecognised scope kind is treated as covering everything. Crypto-erase is not part of the sweep.
 
 OPEN: erasure inside Vault history and git history (`33` Q6, C38). The owner has not decided this, and the options are encrypted personal notes or history rewrite. Needs counsel. The shipped default for Vault pages is the most protective option (no personal data in a Vault page without per-subject encryption), still to be designed in `18`.
 
