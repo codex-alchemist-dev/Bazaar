@@ -13,9 +13,14 @@
 #      release with gh and uploads the verified files and SHA256SUMS.
 #
 # Nothing is published automatically. The draft is never marked latest. It is a
-# prerelease only when the tag has a pre-release suffix (-alpha.N, -beta.N, -rc.N),
+# prerelease only when the tag has a pre-release suffix (-beta.N, -rc.N; -alpha.N is a deprecated alias for nightly),
 # which is how docs/VERSIONING.md section 4 picks the channel. A human reviews the
 # draft on GitHub and publishes it.
+#
+# Channel and ring: verify runs packaging/channels/resolve-channel.sh on the tag
+# (stable, beta or alpha; any other tag fails the run). The staged ring comes from the
+# optional ring input of a manual start and is "all" otherwise. Both are written to
+# RELEASE-CHANNEL.txt, which joins SHA256SUMS, and are named in the draft's notes.
 #
 # Every third-party action is pinned to a full commit SHA; the version tag is
 # kept in a trailing comment, the same pins as ci.yml. Do not switch to tags.
@@ -37,6 +42,11 @@ on:
       tag:
         description: 'Release tag, SemVer with a v prefix (for example v0.1.0). It must already exist on origin and point to a commit reachable from main.'
         required: true
+        type: string
+      ring:
+        description: 'Staged ring this release is published to (lowercase letters, digits and hyphens, for example canary). Defaults to all.'
+        required: false
+        default: 'all'
         type: string
 
 permissions:
@@ -60,6 +70,8 @@ jobs:
       tag: ${{ steps.resolve.outputs.tag }}
       prerelease: ${{ steps.resolve.outputs.prerelease }}
       source_run_id: ${{ steps.resolve.outputs.source_run_id }}
+      channel: ${{ steps.channel.outputs.channel }}
+      ring: ${{ steps.channel.outputs.ring }}
     steps:
       - name: Check out with full history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -162,6 +174,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Tag $tag ($commit) is on main. Source run $run_id. Prerelease: $prerelease."
 
+      - name: Resolve release channel and ring
+        id: channel
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          INPUT_RING: ${{ inputs.ring }}
+        run: |
+          set -euo pipefail
+          # Fails closed (exit 2) on a tag or ring that has no channel.
+          bash packaging/channels/resolve-channel.sh "$TAG" "${INPUT_RING:-all}" | tee -a "$GITHUB_OUTPUT"
+
       - name: Download installer-* artifacts from the source run
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -209,6 +231,20 @@ jobs:
           echo "Verified ${#names[@]} files:"
           cat SHA256SUMS
 
+      - name: Write release metadata and add it to SHA256SUMS
+        env:
+          TAG: ${{ steps.resolve.outputs.tag }}
+          SOURCE_RUN_ID: ${{ steps.resolve.outputs.source_run_id }}
+          CHANNEL: ${{ steps.channel.outputs.channel }}
+          RING: ${{ steps.channel.outputs.ring }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/release-candidate"
+          printf 'tag=%s\nchannel=%s\nring=%s\nsource_run_id=%s\n' "$TAG" "$CHANNEL" "$RING" "$SOURCE_RUN_ID" > RELEASE-CHANNEL.txt
+          sha256sum -- RELEASE-CHANNEL.txt >> SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
+          cat RELEASE-CHANNEL.txt
+
       - name: Upload verified release set
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -233,6 +269,8 @@ jobs:
       TAG: ${{ needs.verify.outputs.tag }}
       PRERELEASE: ${{ needs.verify.outputs.prerelease }}
       SOURCE_RUN_ID: ${{ needs.verify.outputs.source_run_id }}
+      CHANNEL: ${{ needs.verify.outputs.channel }}
+      RING: ${{ needs.verify.outputs.ring }}
     steps:
       - name: Download verified release set
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -255,14 +293,14 @@ jobs:
             --verify-tag
             --latest=false
             --title "$TAG"
-            --notes "Draft created from workflow run $SOURCE_RUN_ID. Check SHA256SUMS, then publish the draft by hand."
+            --notes "Draft created from workflow run $SOURCE_RUN_ID. Channel: $CHANNEL. Ring: $RING. Check SHA256SUMS, then publish the draft by hand."
           )
           if [ "$PRERELEASE" = "true" ]; then
             args+=(--prerelease)
           fi
           mapfile -d '' -t files < <(find "$dir" -mindepth 1 -maxdepth 1 -type f -print0 | sort -z)
           gh release create "$TAG" "${args[@]}" "${files[@]}"
-          echo "Draft release $TAG created with ${#files[@]} files. Prerelease: $PRERELEASE."
+          echo "Draft release $TAG created with ${#files[@]} files. Channel: $CHANNEL. Ring: $RING. Prerelease: $PRERELEASE."
 
   # ---------------------------------------------------------------------------
   # Packaging jobs. They run only on a tag push and never block verify or
