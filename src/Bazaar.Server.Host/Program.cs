@@ -11,6 +11,11 @@ if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreC
     return await MigrateSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("kek", StringComparison.OrdinalIgnoreCase))
+{
+    return await KekSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
 {
     return await DbSubcommand.RunAsync(args[1..], Console.Out);
