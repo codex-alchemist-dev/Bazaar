@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Server.Council.Data;
+using Bazaar.Server.Council.Escalation;
 using Bazaar.Server.Council.Service;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,6 +41,9 @@ public sealed class CouncilComponent : IBazaarComponent
         services.TryAddSingleton<ICouncilStore>(sp => new CouncilStore(
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<ICouncilReasoningCipher>()));
+        services.TryAddSingleton<Escalation.ICouncilEscalationSource>(sp => sp.GetRequiredService<ICouncilStore>() as Escalation.ICouncilEscalationSource
+            ?? throw new InvalidOperationException("The registered ICouncilStore does not list escalated votes."));
         services.AddBazaarCouncilService();
+        services.AddBazaarCouncilEscalation();
     }
 }
