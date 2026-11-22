@@ -464,6 +464,13 @@ Docs section this implements: doc 24 sections 2 (Org Chart) and 4 (Company Calen
 - `CompanyComponent` is replaced by `CalendarComponent` and `OrgComponent`, both listed in `HostComponents`. The 15 moved files are off `architecture-baseline.txt`; `Bazaar.Server` has no `Calendar`, `Org` or `Company` folder.
 - Migrations `0017_calendar.sql` and `0018_org.sql` stay in `Bazaar.Server/Data/Sql` (one migration set, `MigrationNamespaceTests`). Tests moved to `tests/Bazaar.Server.Calendar.Tests` and `tests/Bazaar.Server.Org.Tests`.
 
+## Bazaar Archive cold storage module (doc 25, [PROPOSED])
+
+Docs section this implements: doc 25 "Archive cold storage".
+
+`Bazaar.Archive.Abstractions` holds `IArchiveSource`, `IArchiveStore`, `IArchiveRestoreTarget`, `IArchiveSearchIndex` and the manifest types. `Bazaar.Archive` holds the archiver, verifier, restorer, the directory store, an in-memory search index and `ArchiveComponent` (id `archive`). It references only Bazaar.Core and its own Abstractions. Source and restore adapters for GCs and projects come from the modules that own that data.
+
+`Bazaar.Archive.Gc` holds the GC and project source adapters (`GcArchiveSource`, `ProjectArchiveSource`) over `IGcLogReader`. Three things the GC owner must still implement through `IGcArchiveBridge` and `IProjectGcLister`: message text opening, the Thinking GC flag, and the `archived_at` system event. `ArchiveComponent` is registered in `HostComponents`.
 - **GC metadata and DM owner-read (doc 01, WP 28):** `Bazaar.Server.GcMetadata.Abstractions` (`GcMetadataKeys`, `GcMetadataSchema`, `GcMetadataView`, `GcMetadataPatch`, the DM access models and the ports `IDmAccessLedger`, `IDmDirectory`, `IDmAccessEvents`) and `Bazaar.Server.GcMetadata` (`GcMetadataCodec`, `DmAccessService`). It references neither `Bazaar.Server` nor Postgres and adds no files to `Bazaar.Server`; audit goes through `IAuditLog`. The Postgres ledger over `gc_access_request` and the host wiring are follow-ups.
 - First-run seams (PROPOSED, pending doc 45 section 1.15a; not DECIDED): `IAgentFirstRunSeeds` in `Bazaar.Server.Agents.Abstractions` (`CreateHeldAsync`, `ReleaseHoldAsync`, `TryStartAutomaticOnboardingAsync`, `FindByMarkerAsync`, `RemoveUnstartedAsync`), with `PgAgentFirstRunSeeds` and `InMemoryAgentFirstRunSeeds` in `Bazaar.Server.Agents`. A held agent is skipped by the automatic Created to Onboarding step. The hold and marker columns are `agents/0001`, applied through `HostMigrations`. The default policy grant runs after a seed creates an agent (doc 45 section 1.15).
 
@@ -477,3 +484,4 @@ Docs section this implements: `docs/design/05-model-gateway.md`, "Behaviour and 
 
 The shipped default catalogue file is built (`DefaultCatalogue/default-catalogue.json`, embedded in `Bazaar.Server.Gateway.Catalogue`): 20 secret-free entries, one per source of doc 05's table (the combined rows are split), typed as `DefaultCatalogueEntry` and `DefaultCatalogue` in the Abstractions project and read by `DefaultCatalogueLoader` (source-generated JSON; rejects duplicate ids, unknown adapters, non-absolute http(s) base URLs and secret-looking names or values). `freeTier`, `termsRisk` and `trainsOnFreeData` are `unknown` for every entry, because doc 05 gives no values; the owner or a raw-page check fills them. `verification` (V, P, U) and its note are copied from the Status column. Nothing consumes the file yet.
 
+`Bazaar.Archive.Http` holds the owner-only routes (`MapArchive`) and is mapped in `Program.cs` behind `HttpSurfaceEndpoints.Guarded`. `GcArchiveSourceFactory` (in `Bazaar.Archive.Gc`) builds the per-owner GC and project sources; the host registers it with `AddGcArchiveBridge` in `ArchiveCompositionExtensions`.

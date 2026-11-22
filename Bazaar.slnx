@@ -206,15 +206,16 @@
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
+    <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
+    <Project Path="src/Bazaar.Archive.Http/Bazaar.Archive.Http.csproj" />
     <Project Path="src/Bazaar.Server.SignIn.Abstractions/Bazaar.Server.SignIn.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.SignIn/Bazaar.Server.SignIn.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.SupportBundle.Abstractions/Bazaar.SupportBundle.Abstractions.csproj" />
     <Project Path="src/Bazaar.SupportBundle/Bazaar.SupportBundle.csproj" />
-    <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
-    <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
     <Project Path="src/Bazaar.Server.Gc.Archive/Bazaar.Server.Gc.Archive.csproj" />
     <Project Path="src/Bazaar.Server.Mirror.Abstractions/Bazaar.Server.Mirror.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mirror/Bazaar.Server.Mirror.csproj" />
@@ -515,6 +516,7 @@
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Tests/Bazaar.Archive.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Gc.Tests/Bazaar.Archive.Gc.Tests.csproj" />
+    <Project Path="tests/Bazaar.Archive.Http.Tests/Bazaar.Archive.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Mirror.Tests/Bazaar.Server.Mirror.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Analysis.Tests/Bazaar.Rubedo.Analysis.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Docs.Tests/Bazaar.Rubedo.Docs.Tests.csproj" />
