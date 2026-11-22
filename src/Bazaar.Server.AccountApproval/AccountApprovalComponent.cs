@@ -11,7 +11,8 @@ namespace Bazaar.Server.AccountApproval;
 /// Peer approval of account creation and the outcome of a site vote (docs/design/15-security-taint-and-approvals.md,
 /// docs/design/59-desktop-density-and-guest-display.md section 7). The host supplies the audit log
 /// (<c>Bazaar.Server.Security.Audit.IAuditLog</c>) and <see cref="IOwnerApprovalHandOff"/>; the approver directory defaults to
-/// "nobody is eligible", so a host that wires nothing sends every request to the owner.
+/// "nobody is eligible", so a host that wires nothing sends every request to the owner. State is kept in
+/// memory unless a host registers a durable <see cref="IAccountApprovalStore"/> first (<c>Bazaar.Server.AccountApproval.Postgres</c>).
 /// </summary>
 public sealed class AccountApprovalComponent : IBazaarComponent
 {
@@ -28,6 +29,7 @@ public sealed class AccountApprovalComponent : IBazaarComponent
             .BindConfiguration(AccountApprovalOptions.SectionName)
             .Validate(o => o.Validate().Count == 0, "Account approval settings are invalid (peer quorum below two, bad expiry or blank approver ids).");
         services.TryAddSingleton<IApproverDirectory, NoApproverDirectory>();
+        services.TryAddSingleton<IAccountApprovalStore, InMemoryAccountApprovalStore>();
         services.TryAddSingleton<AccountApprovalService>();
         services.TryAddSingleton<SiteAccessService>();
     }
