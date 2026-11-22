@@ -1,5 +1,6 @@
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
+using Bazaar.Server.CodingRunner.Handlers;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Identity;
 using Bazaar.Server.Security.Policy;
@@ -60,7 +61,7 @@ public sealed class CodingHarnessWiringTests
     {
         foreach (var port in CodingHarnessPorts.Required)
         {
-            if (port == typeof(ICodingRepoDirectory) || port == typeof(IWorkShareLayout) || port == typeof(ISubagentWorktreeAllocator) || port == typeof(IRuntimeSubagentParentDirectory) || port == typeof(IAgentGitIdentity) || port == typeof(IAgentStateReader) || port == typeof(IPushSessionRecords)) { continue; } // bound by the harness itself
+            if (port == typeof(ICodingRepoDirectory) || port == typeof(IWorkShareLayout) || port == typeof(ISubagentWorktreeAllocator) || port == typeof(IRuntimeSubagentParentDirectory) || port == typeof(IAgentGitIdentity) || port == typeof(IAgentStateReader) || port == typeof(IPushSessionRecords) || port == typeof(IWorktreeFilesSource) || port == typeof(ICodingToolHostContext)) { continue; } // bound by the harness itself
             var services = HostPolicyBase().AddFakes(except: port);
             services.AddBazaarCodingHarness(CodingHarnessTestFakes.Config(true));
 
