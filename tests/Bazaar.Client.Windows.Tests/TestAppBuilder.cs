@@ -6,7 +6,7 @@ using Bazaar.Client.Core;
 
 namespace Bazaar.Client.Windows.Tests;
 
-/// <summary>Builds the Avalonia application for headless tests: no display and no Windows are needed.</summary>
+/// <summary>Builds the Avalonia application for headless tests: no display server is needed.</summary>
 public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp() =>

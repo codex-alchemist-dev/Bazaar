@@ -1,140 +1,127 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Layout;
 using Bazaar.Client.Input;
 using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Ex.Head;
 
 /// <summary>
-/// The minimal head composition for keyboard commands (doc 57 section 2.2): the mnemonic runtime for the commands the loaded
-/// modules contributed, the <see cref="MnemonicHost"/> on the main window, the live region and the palette on the window's
-/// overlay layer, and a <see cref="ClientCommandDispatcher"/> that carries out each executed command. It adds no Ctrl chord.
-/// A head builds it on the UI thread after the window is shown, and disposes it at exit.
+/// Joins the <see cref="MnemonicRuntime"/>, the <see cref="MnemonicShell"/> and the <see cref="MnemonicRemapScreen"/> for one head.
+/// The head supplies the window, the override store, the announcer, and where overlays appear (show and hide). The host opens the
+/// remap screen when the shell asks for it, and saves each accepted change through the runtime, which rebuilds the session so the
+/// change applies to the next key.
 /// </summary>
 public sealed class MnemonicHeadHost : IDisposable
 {
-    /// <summary>The text that opens the palette. Matches the placeholder the editor's claimed-key table already assumes.</summary>
-    public const string PaletteMnemonic = "palette";
+    private static readonly KeyStroke[] _paletteKeys = [KeyStroke.OfChar('p')];
 
-    private readonly TopLevel _top;
-    private readonly MnemonicHost _host;
-    private readonly MnemonicPaletteController _palette;
-    private readonly MnemonicLiveRegion _region;
-    private readonly ClientCommandDispatcher _dispatcher;
+    private readonly MnemonicRuntime _runtime;
+    private readonly MnemonicShell _shell;
+    private readonly Action<Control> _show;
+    private readonly Action<Control> _hide;
+    private readonly bool _actorIsOwner;
+    private readonly IReadOnlyList<MnemonicAssignment> _assignments;
+    private readonly ClientCommandDispatcher? _dispatcher;
+    private readonly IMnemonicAnnouncer _announcer;
     private readonly Action<string> _log;
+    private MnemonicRemapScreen? _remap;
 
     private MnemonicHeadHost(
-        TopLevel top,
         MnemonicRuntime runtime,
-        ClientCommandDispatcher dispatcher,
-        MnemonicLiveRegion region,
-        Action<string> log)
+        MnemonicShell shell,
+        Action<Control> show,
+        Action<Control> hide,
+        bool actorIsOwner,
+        IReadOnlyList<MnemonicAssignment> assignments,
+        ClientCommandDispatcher? dispatcher,
+        IMnemonicAnnouncer announcer,
+        Action<string>? log)
     {
-        _top = top;
-        Runtime = runtime;
         _dispatcher = dispatcher;
-        _region = region;
-        _log = log;
-        _host = new MnemonicHost(top, runtime.Session!, region);
-        _palette = new MnemonicPaletteController(() => runtime.Rows, Show, Hide);
-        _host.CommandInvoked += OnCommand;
-        _host.ActionRaised += (_, action) => _palette.Handle(action);
-        _palette.CommandChosen += OnCommand;
+        _announcer = announcer;
+        _log = log ?? (_ => { });
+        _assignments = assignments;
+        _runtime = runtime;
+        _shell = shell;
+        _show = show;
+        _hide = hide;
+        _actorIsOwner = actorIsOwner;
+        _shell.RemapRequested += (_, _) => OpenRemap();
+        if (dispatcher is not null)
+        {
+            _shell.CommandInvoked += OnCommandInvoked;
+        }
     }
 
-    public MnemonicRuntime Runtime { get; }
+    /// <summary>The runtime holding the person's current mnemonic document.</summary>
+    public MnemonicRuntime Runtime => _runtime;
 
-    public MnemonicHost Host => _host;
+    /// <summary>The shell that reads keys and runs commands.</summary>
+    public MnemonicShell Shell => _shell;
 
-    public MnemonicPaletteController Palette => _palette;
+    /// <summary>The last remap that the runtime refused or could not save, or null when none has failed.</summary>
+    public string? LastError { get; private set; }
 
-    /// <summary>
-    /// Builds the host. Returns null, after logging why, when the commands do not resolve to a usable table, so the head runs
-    /// without keyboard commands instead of failing. Blocks briefly to read the saved remaps (one small file).
-    /// </summary>
-    /// <param name="top">The main window.</param>
-    /// <param name="commands">The commands the loaded modules contributed.</param>
-    /// <param name="overridesPath">Where this person's remaps are saved.</param>
-    /// <param name="dispatcher">Where executed commands go.</param>
-    /// <param name="log">Receives one line per problem.</param>
-    public static MnemonicHeadHost? Start(
+    /// <summary>Starts mnemonics on <paramref name="top"/>. Overlays appear through <paramref name="show"/> and leave through <paramref name="hide"/>.</summary>
+    public static async Task<MnemonicHeadHost> StartAsync(
         TopLevel top,
-        IEnumerable<ClientCommandContribution> commands,
-        string overridesPath,
-        ClientCommandDispatcher dispatcher,
-        Action<string> log)
+        IMnemonicOverrideStore store,
+        IMnemonicAnnouncer announcer,
+        Action<Control> show,
+        Action<Control> hide,
+        bool actorIsOwner = false,
+        IEnumerable<ClientCommandContribution>? moduleCommands = null,
+        ClientCommandDispatcher? dispatcher = null,
+        Action<string>? log = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(top);
-        ArgumentNullException.ThrowIfNull(commands);
-        ArgumentNullException.ThrowIfNull(dispatcher);
-        ArgumentNullException.ThrowIfNull(log);
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(announcer);
+        ArgumentNullException.ThrowIfNull(show);
+        ArgumentNullException.ThrowIfNull(hide);
 
-        var defaults = MnemonicAssignment.FromContributions(commands);
-        var runtime = Task.Run(() => MnemonicRuntime.CreateAsync(
-            defaults,
-            new FileMnemonicOverrideStore(overridesPath),
-            PaletteMnemonic.Select(c => KeyStroke.OfChar(c)),
-            new MnemonicNoticeLog(log))).GetAwaiter().GetResult();
-        if (runtime.Warning is { } warning)
-        {
-            log($"Mnemonics: {warning}");
-        }
-
-        if (runtime.Session is null)
-        {
-            return null;
-        }
-
-        var region = new MnemonicLiveRegion();
-        var host = new MnemonicHeadHost(top, runtime, dispatcher, region, log);
-        host.MountRegion();
-        return host;
+        var assignments = MnemonicHeadSetup.Combine(moduleCommands ?? []);
+        var runtime = await MnemonicRuntime.CreateAsync(
+            assignments,
+            store,
+            _paletteKeys,
+            new MnemonicNoticeLog(_ => { }),
+            actorIsOwner,
+            ct: ct).ConfigureAwait(true);
+        var shell = new MnemonicShell(top, runtime, announcer, view => show(view), view => hide(view));
+        return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner, assignments, dispatcher, announcer, log);
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Starts mnemonics on a head window. The person's overrides live in <paramref name="overridesPath"/>, and overlays open as
+    /// child windows of <paramref name="window"/>. Heads call this once the window is opened. When <paramref name="dispatcher"/> is
+    /// given, each command the shell reports (<see cref="MnemonicShell.CommandInvoked"/>) is carried out through it, and a notice it
+    /// returns goes to <paramref name="log"/> and the announcer.
+    /// </summary>
+    public static Task<MnemonicHeadHost> AttachAsync(
+        Window window,
+        string overridesPath,
+        IEnumerable<ClientCommandContribution>? moduleCommands = null,
+        ClientCommandDispatcher? dispatcher = null,
+        Action<string>? log = null,
+        CancellationToken ct = default)
     {
-        _top.Opened -= OnOpened;
-        _host.Dispose();
-        Hide(null);
-        if (OverlayLayer.GetOverlayLayer(_top) is { } layer)
-        {
-            layer.Children.Remove(_region.Control);
-        }
+        ArgumentNullException.ThrowIfNull(window);
+        ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
+
+        var overlay = new MnemonicOverlay(window);
+        return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, moduleCommands: moduleCommands, dispatcher: dispatcher, log: log, ct: ct);
     }
 
-    // The overlay layer exists only once the window's template is applied, so mount now if it is there, else when the window opens.
-    private void MountRegion()
-    {
-        if (OverlayLayer.GetOverlayLayer(_top) is { } layer)
-        {
-            if (!layer.Children.Contains(_region.Control))
-            {
-                layer.Children.Add(_region.Control);
-            }
-
-            return;
-        }
-
-        _top.Opened += OnOpened;
-    }
-
-    private void OnOpened(object? sender, EventArgs e)
-    {
-        _top.Opened -= OnOpened;
-        MountRegion();
-    }
-
-    private async void OnCommand(object? sender, string commandId)
+    private async void OnCommandInvoked(object? sender, string commandId)
     {
         try
         {
-            var result = await _dispatcher.DispatchAsync(commandId).ConfigureAwait(true);
+            var result = await _dispatcher!.DispatchAsync(commandId).ConfigureAwait(true);
             if (result.Notice is { } notice)
             {
                 _log($"Command {commandId}: {notice}");
-                _region.Announce(notice, AnnouncePriority.Assertive);
+                _announcer.Announce(notice, AnnouncePriority.Assertive);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -143,27 +130,62 @@ public sealed class MnemonicHeadHost : IDisposable
         }
     }
 
-    private void Show(MnemonicPaletteView view)
+    /// <summary>Opens the remap screen. Does nothing when it is already open.</summary>
+    public void OpenRemap()
     {
-        if (OverlayLayer.GetOverlayLayer(_top) is not { } layer)
+        if (_remap is not null)
         {
             return;
         }
 
-        view.HorizontalAlignment = HorizontalAlignment.Center;
-        view.VerticalAlignment = VerticalAlignment.Top;
-        view.Margin = new Thickness(0, 48, 0, 0);
-        view.MinWidth = 360;
-        layer.Children.Add(view);
-        view.FocusQuery();
+        var screen = new MnemonicRemapScreen(_assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
+        screen.DocumentChanged += (_, next) => _ = ApplyAsync(_runtime.Document, next, CancellationToken.None);
+        screen.Closed += (_, _) => CloseRemap();
+        _remap = screen;
+        _show(screen);
+        screen.FocusList();
     }
 
-    private void Hide(MnemonicPaletteView? view)
+    /// <summary>Closes the remap screen if it is open.</summary>
+    public void CloseRemap()
     {
-        view ??= _palette.View;
-        if (view is not null && OverlayLayer.GetOverlayLayer(_top) is { } layer)
+        if (_remap is null)
         {
-            layer.Children.Remove(view);
+            return;
         }
+
+        var screen = _remap;
+        _remap = null;
+        _hide(screen);
+    }
+
+    /// <summary>Brings the runtime to <paramref name="next"/> by remapping or resetting each command that differs.</summary>
+    internal async Task ApplyAsync(MnemonicOverrideDocument previous, MnemonicOverrideDocument next, CancellationToken ct)
+    {
+        var before = previous.Overrides.ToDictionary(o => o.CommandId, o => o.Mnemonic, StringComparer.Ordinal);
+        var after = next.Overrides.ToDictionary(o => o.CommandId, o => o.Mnemonic, StringComparer.Ordinal);
+
+        foreach (var commandId in before.Keys.Where(id => !after.ContainsKey(id)).ToList())
+        {
+            var reset = await _runtime.ResetAsync(commandId, ct).ConfigureAwait(true);
+            LastError = reset.Accepted ? null : reset.Reason;
+        }
+
+        foreach (var (commandId, mnemonic) in after)
+        {
+            if (before.TryGetValue(commandId, out var old) && old == mnemonic)
+            {
+                continue;
+            }
+
+            var remap = await _runtime.RemapAsync(commandId, mnemonic, ct).ConfigureAwait(true);
+            LastError = remap.Accepted ? null : remap.Reason;
+        }
+    }
+
+    public void Dispose()
+    {
+        CloseRemap();
+        _shell.Dispose();
     }
 }

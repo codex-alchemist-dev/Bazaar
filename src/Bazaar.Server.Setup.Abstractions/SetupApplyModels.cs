@@ -34,8 +34,17 @@ public sealed record SetupApplyRequest(
 /// <param name="PlanHash">The hash of the plan as it was checked.</param>
 /// <param name="AppliedStepIds">The steps that completed, in run order. Empty after a rollback.</param>
 /// <param name="Issues">Errors, holds and failure notes. They name keys and rules, never values.</param>
+/// <param name="UnappliedSections">
+/// Ids of the plan sections the plan asks for that no registered step applies (<see cref="SetupPlanSections"/>). Empty on success.
+/// When it is not empty the apply was held (exit 2) and nothing was changed.
+/// </param>
 public sealed record SetupApplyResult(
     SetupExitCode ExitCode,
     string PlanHash,
     IReadOnlyList<string> AppliedStepIds,
-    IReadOnlyList<SetupValidationIssue> Issues);
+    IReadOnlyList<SetupValidationIssue> Issues,
+    IReadOnlyList<string>? UnappliedSections = null)
+{
+    /// <summary>The unapplied section ids; never null, so a result stored before this field existed reads as empty.</summary>
+    public IReadOnlyList<string> UnappliedSections { get; init; } = UnappliedSections ?? [];
+}

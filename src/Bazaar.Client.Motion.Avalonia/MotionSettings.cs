@@ -10,6 +10,7 @@ public sealed class MotionSettings
     private MotionLevel? _setting;
     private bool _osReducedMotion;
     private MotionTokens _tokens = MotionTokens.Default;
+    private InteractionPresets _presets = InteractionPresets.Default;
 
     public MotionSettings(MotionPlatform platform) => Platform = platform;
 
@@ -34,6 +35,13 @@ public sealed class MotionSettings
     {
         get => _tokens;
         set => Set(ref _tokens, value.Clamped());
+    }
+
+    /// <summary>The micro-interaction presets in force (doc 93: <c>motion.interaction.*</c>); a motion document may replace or turn off rows.</summary>
+    public InteractionPresets Presets
+    {
+        get => _presets;
+        set => Set(ref _presets, value);
     }
 
     /// <summary>The level views use now.</summary>

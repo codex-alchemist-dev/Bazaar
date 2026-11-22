@@ -40,6 +40,15 @@ public sealed class LinuxAthanorCommandKeyTests
         return (module, source, pane);
     }
 
+    private static Task<MnemonicHeadHost> StartAsync(Window window, AthanorPaneModule module, AthanorHeadOptions options, Action<string> log) =>
+        MnemonicHeadHost.AttachAsync(
+            window,
+            Path.Combine(options.DataDirectory, "mnemonics.json"),
+            AthanorClientModule.Commands,
+            AthanorHeadComposition.CreateDispatcher(window, module),
+            log,
+            TestContext.Current.CancellationToken);
+
     [AvaloniaFact]
     public async Task The_edsave_mnemonic_then_Enter_saves_the_active_document_without_a_Ctrl_chord()
     {
@@ -51,7 +60,7 @@ public sealed class LinuxAthanorCommandKeyTests
         var window = new Window { Content = new Border() };
         window.Show();
         var options = new AthanorHeadOptions { DataDirectory = DataDir() };
-        using var commands = AthanorHeadComposition.StartCommands(window, AthanorClientModule.Commands, module, options, _ => { });
+        using var commands = await StartAsync(window, module, options, _ => { });
         Assert.NotNull(commands);
 
         Type(window, "edsave");
@@ -69,7 +78,7 @@ public sealed class LinuxAthanorCommandKeyTests
         window.Show();
         var log = new List<string>();
         var options = new AthanorHeadOptions { DataDirectory = DataDir() };
-        using var commands = AthanorHeadComposition.StartCommands(window, AthanorClientModule.Commands, module, options, log.Add);
+        using var commands = await StartAsync(window, module, options, log.Add);
 
         Type(window, "eddiff");
         await Task.Delay(100, TestContext.Current.CancellationToken);
@@ -86,7 +95,7 @@ public sealed class LinuxAthanorCommandKeyTests
         var window = new Window { Content = new Border() };
         window.Show();
         var options = new AthanorHeadOptions { DataDirectory = DataDir() };
-        using var commands = AthanorHeadComposition.StartCommands(window, AthanorClientModule.Commands, module, options, _ => { });
+        using var commands = await StartAsync(window, module, options, _ => { });
         var layer = OverlayLayer.GetOverlayLayer(window);
         Assert.NotNull(layer);
 
@@ -108,8 +117,8 @@ public sealed class LinuxAthanorCommandKeyTests
     }
 
     [AvaloniaFact]
-    public void The_head_host_uses_the_palette_text_the_claim_table_assumes()
+    public void The_head_setup_uses_the_palette_text_the_claim_table_assumes()
     {
-        Assert.Equal(EditorRouterTable.PlaceholderPaletteMnemonic, MnemonicHeadHost.PaletteMnemonic);
+        Assert.Equal(EditorRouterTable.PlaceholderPaletteMnemonic, MnemonicHeadSetup.PaletteMnemonic);
     }
 }
