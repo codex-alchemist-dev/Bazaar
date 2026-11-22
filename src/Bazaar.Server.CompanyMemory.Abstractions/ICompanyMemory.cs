@@ -15,6 +15,18 @@ public interface ICompanyMemory
     /// </summary>
     Task<DecisionChainView?> GetChainAsync(string reference, CancellationToken ct);
 
+    /// <summary>
+    /// Writes a knowledge page at <c>company/memory/{slug}.md</c>. Throws <see cref="ArgumentException"/> for a bad slug or a
+    /// field the Vault refuses.
+    /// </summary>
+    Task<WrittenKnowledgePage> WritePageAsync(WriteKnowledgePageRequest request, CancellationToken ct);
+
+    /// <summary>The page with this slug, or null.</summary>
+    Task<KnowledgePage?> ReadPageAsync(string slug, CancellationToken ct);
+
+    /// <summary>Every knowledge page, sorted by slug.</summary>
+    Task<IReadOnlyList<KnowledgePage>> ListPagesAsync(CancellationToken ct);
+
     /// <summary>Rebuilds the <see cref="IDecisionLinkIndex"/> from the decisions in the store. Returns the number of edges.</summary>
     Task<int> RebuildIndexAsync(CancellationToken ct);
 }
@@ -43,4 +55,17 @@ public interface IDecisionLinkIndex
 
     /// <summary>The edges that start or end at <paramref name="path"/> (a Vault path), sorted by from, then to.</summary>
     Task<IReadOnlyList<Bazaar.Server.Knowledge.CompanyMemory.DecisionLink>> LinksTouchingAsync(string path, CancellationToken ct);
+}
+
+/// <summary>Where knowledge pages live. The Vault adapter writes Markdown under <c>company/memory/</c>; tests use an in-memory one.</summary>
+public interface IKnowledgePageStore
+{
+    /// <summary>Writes the page. Idempotent by id: the same id, slug and content writes nothing.</summary>
+    Task<WrittenKnowledgePage> WriteAsync(WriteKnowledgePageRequest request, CancellationToken ct);
+
+    /// <summary>The page with this slug, or null.</summary>
+    Task<KnowledgePage?> ReadAsync(string slug, CancellationToken ct);
+
+    /// <summary>Every page, sorted by slug.</summary>
+    Task<IReadOnlyList<KnowledgePage>> ListAsync(CancellationToken ct);
 }

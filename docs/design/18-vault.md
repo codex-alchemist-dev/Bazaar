@@ -77,6 +77,8 @@ Resolution: path first, then title or alias. If several match, prefer the same p
 7. Batching: memory writes from one agent coalesce into one commit per batch, per `vault.memory_commit_batching`. A commit carries one batch only.
 8. Decisions: `VaultWriter` assigns the next free `NNNN` under the queue and returns it in `EditResult`, so the Council (10) can cite `decisions/NNNN-<slug>.md`.
 
+**Page writes [PROPOSED].** A module that owns a Vault area (Company Memory under `company/memory/`) writes one page at a fixed path through `IVaultPageWriter.CreateOrUpdatePageAsync`, implemented by `VaultWriter` (`VaultWriter.Pages.cs`) so there is still one writer per repo and one vault lane. A page draft is `{docId, path, title, type, body, agentId, gcId}`. The path must be a relative `.md` path under a prefix in `vault.page_write_prefixes` (default `company/memory/`); `decisions/` is never allowed, because decisions keep their numbered path (item 8), and the type may be any known type except `decision`. The write is idempotent by `docId`: the same id at the same path with the same content commits nothing, changed content updates the file in a new commit, a path held by another id and an id already used at another page path are refused. The commit carries the same trailers as other writes and the indexer hook runs after it. A page larger than `vault.max_document_bytes` is refused.
+
 **Commit attribution [PROPOSED].** Author = the agent's GitHub App identity (bot name and email as GitHub issues them; format unverified). Committer = `VaultWriter`. Trailers: `Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, `Bazaar-Edit-Base`.
 
 **Indexing [PROPOSED].** After each commit the writer emits `(oldSha, newSha)`. The indexer runs `git diff --name-status -M old new` and, per changed file in one transaction, re-parses it and replaces its rows. Renames keep the document id. Links into deleted files become unresolved and re-resolve later. Embeddings are recomputed only for changed block hashes, per profile. `vault_state.indexed_commit` lets startup catch up, or triggers a full rebuild. The same pass writes `vault_commit` rows (the Git DAG index for the Vault repo; code repos are owned by doc 17). Owner of the DAG index: this doc for the Vault repo, doc 17 for code repos [PROPOSED].
@@ -150,6 +152,7 @@ Keys are typed and shown in the setup wizard and advanced settings (27, 32). Eve
 |---|---|---|---|---|---|
 | `vault.push_cadence` | duration | 15 min | install | operator | No; sets the Vault RPO in doc 33 |
 | `vault.max_document_bytes` | int | 1048576 (1 MiB) | install | operator | No |
+| `vault.page_write_prefixes` | list of path prefixes | `company/memory/` | install | operator | No; each ends with `/`, `decisions/` is refused |
 | `vault.merge_approval_paths` | list of path prefixes | `company/Constitution.md` | install | owner; Council may propose | Yes (owner) |
 | `vault.ambiguous_link_policy` | enum: warn, refuse | warn | install | operator | No |
 | `vault.conflict_card_actions` | list | keep mine, keep theirs, agent rebases | install | operator | No |

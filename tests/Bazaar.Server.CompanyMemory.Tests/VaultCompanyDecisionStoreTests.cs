@@ -112,4 +112,27 @@ public sealed class VaultCompanyDecisionStoreTests : IDisposable
 
         Assert.Contains("status: proposed", File.ReadAllText(Path.Combine(_root, first.Path)));
     }
+
+    [Fact]
+    public async Task Knowledge_pages_round_trip_through_the_vault()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var pages = new CompanyMemoryService(
+            new VaultCompanyDecisionStore(new LibGit2GitProvider(), _writer, _root),
+            pages: new VaultKnowledgePageStore(new LibGit2GitProvider(), _writer, _root));
+        var id = Guid.NewGuid();
+
+        var created = await pages.WritePageAsync(new(id, "onboarding", "Onboarding", "Welcome.\n\nSee [[Architecture]].", "agent-ana", "gc-1"), ct);
+        var again = await pages.WritePageAsync(new(id, "onboarding", "Onboarding", "Welcome.\n\nSee [[Architecture]].", "agent-ana", "gc-1"), ct);
+        await pages.WritePageAsync(new(Guid.NewGuid(), "architecture", "Architecture", "Modules.", "agent-ben"), ct);
+
+        Assert.Equal(PageWriteOutcome.Created, created.Outcome);
+        Assert.Equal(PageWriteOutcome.UpToDate, again.Outcome);
+        var page = await pages.ReadPageAsync("onboarding", ct);
+        Assert.NotNull(page);
+        Assert.Equal("Onboarding", page.Title);
+        Assert.Equal("Welcome.\n\nSee [[Architecture]].", page.Body);
+        Assert.Equal(["architecture", "onboarding"], (await pages.ListPagesAsync(ct)).Select(p => p.Slug));
+        Assert.Null(await pages.ReadPageAsync("missing", ct));
+    }
 }

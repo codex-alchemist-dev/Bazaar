@@ -13,7 +13,8 @@ namespace Bazaar.Server.CompanyMemory;
 public sealed partial class CompanyMemoryService(
     ICompanyDecisionStore store,
     IDecisionLinkIndex? index = null,
-    Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>? logger = null) : ICompanyMemory
+    Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>? logger = null,
+    IKnowledgePageStore? pages = null) : ICompanyMemory
 {
     private readonly ICompanyDecisionStore _store = store ?? throw new ArgumentNullException(nameof(store));
 
@@ -56,6 +57,19 @@ public sealed partial class CompanyMemoryService(
 
         return recorded;
     }
+
+    public Task<WrittenKnowledgePage> WritePageAsync(WriteKnowledgePageRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        return Pages().WriteAsync(request, ct);
+    }
+
+    public Task<KnowledgePage?> ReadPageAsync(string slug, CancellationToken ct) => Pages().ReadAsync(slug, ct);
+
+    public Task<IReadOnlyList<KnowledgePage>> ListPagesAsync(CancellationToken ct) => Pages().ListAsync(ct);
+
+    private IKnowledgePageStore Pages() =>
+        pages ?? throw new InvalidOperationException("No knowledge page store is configured for Company Memory.");
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The decision link index refresh failed after decision {Path}; rebuild it to catch up.")]
     private static partial void IndexRefreshFailed(ILogger logger, Exception exception, string path);

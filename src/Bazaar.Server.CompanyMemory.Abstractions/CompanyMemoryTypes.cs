@@ -44,3 +44,35 @@ public sealed record DecisionChainView(
     IReadOnlyList<string> Newer,
     IReadOnlyList<DecisionLink> Links,
     IReadOnlyList<string> Current);
+
+/// <summary>A knowledge page to write at <c>company/memory/{slug}.md</c> (doc 25, doc 08 section 6).</summary>
+/// <param name="DocId">Stable id of the page. Writing the same id and slug again updates the page.</param>
+/// <param name="Slug">Lowercase words joined by hyphens; the file name.</param>
+/// <param name="Title">Front matter title. The Vault forbids <c>#</c>, <c>|</c>, <c>^</c> and <c>:</c> in it.</param>
+/// <param name="Body">Markdown. Facts here are Vault Markdown, so there is one place to edit.</param>
+/// <param name="AgentId">The writing agent; goes to the commit trailer.</param>
+/// <param name="GcId">The GC the write came from, or null.</param>
+public sealed record WriteKnowledgePageRequest(Guid DocId, string Slug, string Title, string Body, string AgentId, string? GcId = null);
+
+/// <summary>What a page write did.</summary>
+public enum PageWriteOutcome
+{
+    /// <summary>A new page was written.</summary>
+    Created,
+
+    /// <summary>An existing page was rewritten.</summary>
+    Updated,
+
+    /// <summary>The page already had this content; nothing was written.</summary>
+    UpToDate,
+}
+
+/// <summary>The result of a page write.</summary>
+public sealed record WrittenKnowledgePage(string Path, PageWriteOutcome Outcome);
+
+/// <summary>A knowledge page as read back.</summary>
+/// <param name="Slug">The page slug.</param>
+/// <param name="Path">The Vault path, such as <c>company/memory/onboarding.md</c>.</param>
+/// <param name="Title">The front matter title.</param>
+/// <param name="Body">The Markdown body without front matter.</param>
+public sealed record KnowledgePage(string Slug, string Path, string Title, string Body);

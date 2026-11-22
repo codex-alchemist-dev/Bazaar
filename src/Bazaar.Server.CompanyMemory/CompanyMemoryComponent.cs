@@ -46,6 +46,13 @@ public sealed class CompanyMemoryComponent : IBazaarComponent
             && sp.GetService<VaultWriter>() is { } writer
                 ? new VaultCompanyDecisionStore(git, writer, repoPath)
                 : new InMemoryCompanyDecisionStore());
+        services.TryAddSingleton<IKnowledgePageStore>(sp =>
+            !string.IsNullOrWhiteSpace(repoPath)
+            && sp.GetService<IGitProvider>() is { } git
+            && sp.GetService<VaultWriter>() is { } pageWriter
+                ? new VaultKnowledgePageStore(git, pageWriter, repoPath)
+                : new InMemoryKnowledgePageStore());
+
         // In-memory fallback is a singleton too, so a host without a database keeps its edges between calls.
         services.TryAddSingleton<IDecisionLinkIndex>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource
@@ -54,6 +61,7 @@ public sealed class CompanyMemoryComponent : IBazaarComponent
         services.TryAddSingleton<ICompanyMemory>(sp => new CompanyMemoryService(
             sp.GetRequiredService<ICompanyDecisionStore>(),
             sp.GetRequiredService<IDecisionLinkIndex>(),
-            sp.GetService<Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>>()));
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>>(),
+            sp.GetRequiredService<IKnowledgePageStore>()));
     }
 }

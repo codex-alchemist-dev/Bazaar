@@ -118,6 +118,36 @@ public sealed class CompanyMemoryServiceTests
         Assert.Equal(["decisions/0002-b.md"], view.Current);
     }
 
+    [Fact]
+    public async Task Knowledge_pages_are_written_read_updated_and_listed_by_slug()
+    {
+        var memory = new CompanyMemoryService(new InMemoryCompanyDecisionStore(), pages: new InMemoryKnowledgePageStore());
+        var id = Guid.NewGuid();
+        var ct = TestContext.Current.CancellationToken;
+
+        var created = await memory.WritePageAsync(new(id, "onboarding", "Onboarding", "Welcome.", "agent-ana"), ct);
+        var again = await memory.WritePageAsync(new(id, "onboarding", "Onboarding", "Welcome.", "agent-ana"), ct);
+        var updated = await memory.WritePageAsync(new(id, "onboarding", "Onboarding", "Welcome, all.", "agent-ben"), ct);
+        await memory.WritePageAsync(new(Guid.NewGuid(), "architecture", "Architecture", "Modules.", "agent-ana"), ct);
+
+        Assert.Equal(PageWriteOutcome.Created, created.Outcome);
+        Assert.Equal("company/memory/onboarding.md", created.Path);
+        Assert.Equal(PageWriteOutcome.UpToDate, again.Outcome);
+        Assert.Equal(PageWriteOutcome.Updated, updated.Outcome);
+        Assert.Equal("Welcome, all.", (await memory.ReadPageAsync("onboarding", ct))!.Body);
+        Assert.Equal(["architecture", "onboarding"], (await memory.ListPagesAsync(ct)).Select(p => p.Slug));
+        Assert.Null(await memory.ReadPageAsync("missing", ct));
+    }
+
+    [Fact]
+    public async Task A_bad_slug_is_refused()
+    {
+        var memory = new CompanyMemoryService(new InMemoryCompanyDecisionStore(), pages: new InMemoryKnowledgePageStore());
+
+        await Assert.ThrowsAsync<ArgumentException>(() => memory.WritePageAsync(
+            new(Guid.NewGuid(), "../escape", "T", "Body.", "agent-ana"), TestContext.Current.CancellationToken));
+    }
+
     private sealed class FixedStore(params Bazaar.Server.Knowledge.CompanyMemory.DecisionRecord[] records) : ICompanyDecisionStore
     {
         public Task<IReadOnlyList<Bazaar.Server.Knowledge.CompanyMemory.DecisionRecord>> ListAsync(CancellationToken ct) =>
