@@ -116,6 +116,22 @@ public sealed class PostgresSigningKeyStoreTests
         // Our rotation blocks on the other host's row lock; once it commits, our insert hits the one-live index.
         var ours = Key(_t0.AddHours(1));
         var rotating = store.RotateAsync(ours, _t0.AddHours(1), Ct).AsTask();
+
+        // Commit only once the rotation is really waiting on the row lock, so the race is the one under test and not a timing accident.
+        var deadline = DateTime.UtcNow.AddSeconds(30);
+        while (true)
+        {
+            await using var probe = new NpgsqlCommand("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'", db.DataSource.CreateConnection());
+            await probe.Connection!.OpenAsync(Ct);
+            var waiting = (long)(await probe.ExecuteScalarAsync(Ct))!;
+            await probe.Connection.DisposeAsync();
+            if (waiting > 0)
+                break;
+            Assert.True(DateTime.UtcNow < deadline, "The rotation never blocked on the other host's row lock.");
+            Assert.False(rotating.IsCompleted, "The rotation finished without waiting on the other host's row lock.");
+            await Task.Delay(20, Ct);
+        }
+
         await otherTx.CommitAsync(Ct);
         var returned = await rotating;
 
