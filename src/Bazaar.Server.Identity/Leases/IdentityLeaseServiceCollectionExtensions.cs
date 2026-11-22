@@ -1,6 +1,7 @@
 using Bazaar.Server.Identity;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Bazaar.Server.Identity.Leases;
@@ -34,7 +35,10 @@ public static class IdentityLeaseServiceCollectionExtensions
             sp.GetRequiredService<ICredentialLeaseStore>(),
             sp.GetRequiredService<IIdentityAudit>(),
             sp.GetRequiredService<IAccessApprovalSource>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            tierFor: null,
+            observers: sp.GetServices<ILeaseObserver>(),
+            logger: sp.GetService<ILogger<IdentityService>>()));
 
         return services;
     }

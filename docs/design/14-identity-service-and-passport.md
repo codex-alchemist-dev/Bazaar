@@ -189,6 +189,9 @@ interface IIdentityService {
 - **Reader sessions** are tool-less and request no leases [PROPOSED].
 - **Secrets in output:** brokered results are scanned for credential patterns before they reach a GC or the Vault.
 
+**Lease observers** [PROPOSED]
+`ILeaseObserver` (in `Bazaar.Server.Identity.Abstractions`) lets another module hear lease changes without Identity depending on it. `IdentityService` calls every registered observer after a lease is stored and audited (`OnIssuedAsync(CredentialLease)`) and after a revocation is stored and audited (`OnRevokedAsync(RevocationScope)`, agent-wide or global, including the revocation done when a quarantined agent asks). The lease carries ids and timing only, never a secret value; an observer that needs the value resolves it itself host-side through `ISecretStore`. The lease id (`lease.Id.Value.ToString()`) is the stable key an observer pairs issue and revoke on. A throwing observer is logged and never changes an access decision or a revocation. The first user is the leased-credential matcher in Security (doc 15).
+
 ## Testing
 - **Real Postgres:** agent-facing roles cannot read the Passport schema. Crypto-shred leaves ciphertext unreadable. The restore drill decrypts from the offline KEK copy.
 - **Fakes:** KEK provider and GitHub endpoint cover token mint, scope narrowing, expiry, and a push token that never reaches a VM path.
