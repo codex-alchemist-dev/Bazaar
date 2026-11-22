@@ -3,6 +3,7 @@ using System.Text;
 using Bazaar.Contracts.Gc;
 using Bazaar.LoopGuard.Abstractions;
 using Bazaar.Server.Agents.LoopGuard;
+using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Mentions;
 using Bazaar.Server.Gc.Model;
@@ -104,8 +105,8 @@ public sealed class GcAgentPostSink : IAgentPostSink
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(gcId);
         ArgumentException.ThrowIfNullOrWhiteSpace(text);
-        if (text.Length > GcSendHandler.MaxTextLength)
-            throw new ArgumentException($"Agent post text is longer than {GcSendHandler.MaxTextLength} characters.", nameof(text));
+        if (text.Length > GcLimits.MaxTextLength)
+            throw new ArgumentException($"Agent post text is longer than {GcLimits.MaxTextLength} characters.", nameof(text));
         if (!Guid.TryParse(gcId, out var gcGuid))
             throw new ArgumentException("The GC id must be a GUID.", nameof(gcId));
 
