@@ -2,6 +2,7 @@ using Bazaar.Core;
 using Bazaar.Server.Git.Forge;
 using Bazaar.Server.Git.Merge;
 using Bazaar.Server.Git.Reads;
+using Bazaar.Server.Git.RepositoryDirectory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -57,6 +58,7 @@ public static class GitServerServiceCollectionExtensions
         services.AddBazaarForgeRegistry();
         services.TryAddSingleton<IOwnerSignedMergeGate, OwnerSignedMergeGate>();
         services.TryAddSingleton<IGitReadService, GitReadService>();
+        services.AddBazaarGitRepositoryDirectory(configuration);
         return services;
     }
 
