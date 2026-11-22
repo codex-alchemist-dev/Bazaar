@@ -1,6 +1,5 @@
 using Bazaar.Erasure;
 using Bazaar.Erasure.Abstractions;
-using Bazaar.Server.Components.Erasure;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
@@ -52,6 +51,25 @@ public sealed class PostgresLegalHoldReaderTests(ErasureDb db) : IClassFixture<E
         var reader = new PostgresLegalHoldReader(db.DataSource);
 
         Assert.False(await reader.IsPersonHeldAsync(person, Ct));
+    }
+
+    [Fact]
+    public async Task Every_active_hold_is_listed_whatever_its_scope_and_released_ones_are_not()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var company = Guid.NewGuid();
+        var gc = Guid.NewGuid();
+        var released = Guid.NewGuid();
+        await InsertAsync(company, "created", "company", "scope-list-test-company");
+        await InsertAsync(gc, "created", "gc", "scope-list-test-gc");
+        await InsertAsync(released, "created", "category", "scope-list-test-released");
+        await InsertAsync(released, "released", "category", "scope-list-test-released");
+
+        var holds = await new PostgresLegalHoldReader(db.DataSource).ListActiveAsync(Ct);
+
+        Assert.Contains(holds, h => h.HoldId == company && h.ScopeKind == "company" && h.ScopeValue == "scope-list-test-company");
+        Assert.Contains(holds, h => h.HoldId == gc && h.ScopeKind == "gc");
+        Assert.DoesNotContain(holds, h => h.HoldId == released);
     }
 
     [Fact]
