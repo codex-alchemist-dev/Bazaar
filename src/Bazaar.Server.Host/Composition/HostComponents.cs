@@ -13,7 +13,9 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
+using Bazaar.Server.BrowserPool.Audit;
 using Bazaar.Server.BrowserPool.Display;
+using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
@@ -141,6 +143,8 @@ public static class HostComponents
         new BrowserPoolDisplayComponent(),
         new BrowserPoolLinuxHostComponent(),
         new BrowserPoolImageComponent(),
+        new BrowserPoolGateComponent(),
+        new BrowserPoolAuditComponent(),
     ];
 
     /// <summary>
