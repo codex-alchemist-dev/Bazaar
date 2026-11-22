@@ -71,7 +71,7 @@ public sealed class GitHubPrServiceTests
     private static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
         var assembly = typeof(GitHubComponent).Assembly;
-        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".sql", StringComparison.Ordinal) && !n.EndsWith("0005_github_gc_event_kind.sql", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
+        foreach (var name in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".sql", StringComparison.Ordinal) && !n.EndsWith("0005_github_gc_event_kind.sql", StringComparison.Ordinal) && !n.EndsWith("0007_github_issue_gc_type.sql", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
         {
             using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
             await using var cmd = dataSource.CreateCommand(await reader.ReadToEndAsync(ct));
