@@ -22,6 +22,7 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
     private readonly IPoolGate _gate;
     private readonly IPoolAuditSink _audit;
     private readonly TimeProvider _time;
+    private readonly IPoolReadinessCheck[] _readiness;
 
     private readonly Lock _lock = new();
     private readonly SemaphoreSlim _firewallLock = new(1, 1);
@@ -36,7 +37,8 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         IPoolEgressPolicy egress,
         IPoolGate gate,
         IPoolAuditSink audit,
-        TimeProvider time)
+        TimeProvider time,
+        IEnumerable<IPoolReadinessCheck>? readiness = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         _options = options.Value;
@@ -51,6 +53,7 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         _gate = gate ?? throw new ArgumentNullException(nameof(gate));
         _audit = audit ?? throw new ArgumentNullException(nameof(audit));
         _time = time ?? throw new ArgumentNullException(nameof(time));
+        _readiness = readiness?.ToArray() ?? [];
         _slots = new SessionState?[_options.MaxSessions];
     }
 
@@ -82,6 +85,12 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         if (limit is not null)
         {
             throw Refuse(request.AgentId, limit.Value, LimitMessage(limit.Value));
+        }
+
+        var notReady = await CheckReadinessAsync(ct).ConfigureAwait(false);
+        if (notReady is not null)
+        {
+            throw Refuse(request.AgentId, PoolFailure.ImageNotReady, notReady);
         }
 
         PoolEgressEndpoint? endpoint;
@@ -224,6 +233,37 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         await Task.WhenAll(due.Select(d => TeardownAsync(d.State, d.Reason, ct))).ConfigureAwait(false);
         await RetryQuarantinedAsync().ConfigureAwait(false);
         return due.Count(d => d.WasOpen);
+    }
+
+    /// <summary>Asks every registered readiness check. Returns a refusal message naming the failure ids, or null when all pass. A check that throws counts as a failure.</summary>
+    private async Task<string?> CheckReadinessAsync(CancellationToken ct)
+    {
+        if (_readiness.Length == 0)
+        {
+            return null;
+        }
+
+        var ids = new List<string>();
+        foreach (var check in _readiness)
+        {
+            try
+            {
+                foreach (var failure in await check.CheckAsync(ct).ConfigureAwait(false))
+                {
+                    ids.Add(failure.Id);
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                ids.Add("readiness-check-error");
+            }
+        }
+
+        return ids.Count == 0 ? null : "The pool VM image is not ready: " + string.Join(", ", ids.Distinct(StringComparer.Ordinal)) + ".";
     }
 
     private BrowserPoolException Refuse(string agentId, PoolFailure failure, string detail)
