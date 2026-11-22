@@ -245,7 +245,8 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
         {
             var upgrade = new Welcome(
                 _serverMajor, _serverMinor, _codec.Name, Guid.Empty, _time.GetUtcNow(), _options.HeartbeatIntervalS,
-                _options.HeartbeatTimeoutS, Limits(), [], 0, true, _options.MinimumBuild);
+                _options.HeartbeatTimeoutS, Limits(), [], 0, true, _options.MinimumBuild,
+                PreviousMajorSupported: _options.PreviousMajorSupported);
             await SendDirectAsync(Frame(WireTypes.Welcome, EnvelopeKind.Response, hello.Id, null, _time.GetUtcNow(), _codec.EncodePayload(upgrade))).ConfigureAwait(false);
             await CloseDirectAsync(WireCloseCodes.UpgradeRequired, "upgrade required").ConfigureAwait(false);
             return false;
@@ -298,7 +299,9 @@ internal sealed partial class WireConnection : IWireConnection, IDisposable
 
         var welcome = new Welcome(
             _version, _serverMinor, _codec.Name, Principal.Id, _time.GetUtcNow(), _options.HeartbeatIntervalS,
-            _options.HeartbeatTimeoutS, Limits(), _options.Capabilities.ToArray(), 0, null, null);
+            // SchemaVersion stays null: doc 04 defines no single schema version value yet (see doc 02 Versioning).
+            _options.HeartbeatTimeoutS, Limits(), _options.Capabilities.ToArray(), 0, null, null,
+            PreviousMajorSupported: _options.PreviousMajorSupported);
         await SendDirectAsync(Frame(WireTypes.Welcome, EnvelopeKind.Response, hello.Id, null, _time.GetUtcNow(), _codec.EncodePayload(welcome))).ConfigureAwait(false);
         return true;
     }

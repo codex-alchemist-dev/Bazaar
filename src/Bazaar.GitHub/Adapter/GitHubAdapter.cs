@@ -42,6 +42,9 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
     private static readonly IReadOnlyDictionary<string, string> _readPermissions =
         new Dictionary<string, string> { ["pull_requests"] = "read" };
 
+    private static readonly IReadOnlyDictionary<string, string> _checksReadPermissions =
+        new Dictionary<string, string> { ["checks"] = "read", ["statuses"] = "read" };
+
     private static readonly IReadOnlyDictionary<string, string> _pullWritePermissions =
         new Dictionary<string, string> { ["pull_requests"] = "write" };
 
@@ -178,6 +181,77 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
         var pull = await GetAsync(pr.InstallationId, token, Endpoint(PullPath(pr)), cancellationToken);
         using var doc = ParseJson(pull, "pull request");
         return Shape(() => doc.RootElement.GetProperty("head").GetProperty("sha").GetString() ?? string.Empty);
+    }
+
+    public async Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(headSha);
+        var token = await AcquireTokenAsync(pr.InstallationId, _checksReadPermissions, cancellationToken);
+        var commitPath = $"{RepoPath(pr.Owner, pr.Repo)}/commits/{Uri.EscapeDataString(headSha)}";
+
+        var failing = false;
+        var pending = false;
+        var seen = 0;
+
+        Uri? next = Endpoint($"{commitPath}/check-runs?per_page=100");
+        while (next is not null)
+        {
+            var page = await GetAsync(pr.InstallationId, token, next, cancellationToken);
+            using var doc = ParseJson(page, "check runs");
+            Shape(() =>
+            {
+                foreach (var run in doc.RootElement.GetProperty("check_runs").EnumerateArray())
+                {
+                    seen++;
+                    var status = run.GetProperty("status").GetString();
+                    if (status != "completed")
+                    {
+                        pending = true;
+                        continue;
+                    }
+
+                    // A green conclusion is one of three values. Anything else, including a value added later, is not passing.
+                    var conclusion = run.TryGetProperty("conclusion", out var c) ? c.GetString() : null;
+                    if (conclusion is not ("success" or "neutral" or "skipped"))
+                        failing = true;
+                }
+
+                return 0;
+            });
+            next = page.NextLink;
+        }
+
+        // Legacy commit statuses (for CI that does not use check runs). "total_count" 0 means none were ever posted.
+        var combined = await GetAsync(pr.InstallationId, token, Endpoint($"{commitPath}/status"), cancellationToken);
+        using (var doc = ParseJson(combined, "commit status"))
+        {
+            Shape(() =>
+            {
+                if (doc.RootElement.GetProperty("total_count").GetInt32() > 0)
+                {
+                    seen++;
+                    switch (doc.RootElement.GetProperty("state").GetString())
+                    {
+                        case "success":
+                            break;
+                        case "pending":
+                            pending = true;
+                            break;
+                        default:
+                            failing = true;
+                            break;
+                    }
+                }
+
+                return 0;
+            });
+        }
+
+        if (failing)
+            return PrChecksState.Failing;
+        if (pending)
+            return PrChecksState.Pending;
+        return seen == 0 ? PrChecksState.NoChecks : PrChecksState.Passing;
     }
 
     /// <summary>
