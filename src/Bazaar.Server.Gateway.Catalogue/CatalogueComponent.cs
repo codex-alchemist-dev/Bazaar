@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -38,9 +39,17 @@ public static class CatalogueServiceCollectionExtensions
             sp.GetRequiredService<ICatalogueStore>(),
             sp.GetRequiredService<Pipeline.IProviderSecretSource>(),
             sp.GetRequiredService<HttpClient>()));
-        services.TryAddSingleton<ICatalogueRefresher>(sp => new CatalogueRefresher(
-            sp.GetRequiredService<ICatalogueStore>(),
-            sp.GetRequiredService<IProviderModelLister>(),
+        services.TryAddSingleton<CatalogueLastRun>();
+        services.TryAddSingleton<ICatalogueRefresher>(sp => new RecordingCatalogueRefresher(
+            new CatalogueRefresher(
+                sp.GetRequiredService<ICatalogueStore>(),
+                sp.GetRequiredService<IProviderModelLister>(),
+                sp.GetService<TimeProvider>()),
+            sp.GetRequiredService<CatalogueLastRun>(),
+            sp.GetService<TimeProvider>()));
+        services.TryAddSingleton<IAdminCatalogueRefresh>(sp => new CatalogueAdminPort(
+            sp.GetRequiredService<ICatalogueRefresher>(),
+            sp.GetRequiredService<CatalogueLastRun>(),
             sp.GetService<TimeProvider>()));
         services.AddHostedService<CatalogueRefreshService>();
         return services;
