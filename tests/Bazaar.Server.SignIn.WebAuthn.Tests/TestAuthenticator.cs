@@ -101,6 +101,27 @@ internal sealed class TestAuthenticator
         });
     }
 
+    /// <summary>Signs an assertion over caller-supplied client data (for cases the typed overload cannot express, such as crossOrigin).</summary>
+    public string AssertWithClientData(string challenge, uint counter, object clientDataObject)
+    {
+        var authData = new byte[37];
+        SHA256.HashData(Encoding.UTF8.GetBytes(RpId), authData);
+        authData[32] = UserPresent | UserVerified;
+        BinaryPrimitives.WriteUInt32BigEndian(authData.AsSpan(33), counter);
+        var clientData = JsonSerializer.SerializeToUtf8Bytes(clientDataObject);
+        var signed = new byte[authData.Length + 32];
+        authData.CopyTo(signed, 0);
+        SHA256.HashData(clientData, signed.AsSpan(authData.Length));
+        var signature = _key.SignData(signed, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        return JsonSerializer.Serialize(new
+        {
+            id = B64(CredentialId),
+            rawId = B64(CredentialId),
+            type = "public-key",
+            response = new { clientDataJSON = B64(clientData), authenticatorData = B64(authData), signature = B64(signature) },
+        });
+    }
+
     public byte[] CoseKey(int algorithm = -7)
     {
         var p = _key.ExportParameters(false);
