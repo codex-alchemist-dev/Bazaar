@@ -100,6 +100,8 @@ This doc owns these tables (doc 04 keeps conventions only). `community_draft` is
 
 Draft-review routes [PROPOSED], all owner-only with the guard order of doc 02: `GET /community/drafts/{id}` returns the `DraftReviewCardDto`; `GET /community/drafts?status=pending&limit=n` returns the open drafts (approval not expired), newest first (`limit` 1 to 100, default 50; only `pending` is served); `POST /community/drafts/{id}/decision` is the signed decision. A draft is created by `ICommunityDraftCreator` from an agent's proposed post: it appends the footer, runs the gates on the text without the footer, binds the approval hash and stores the draft Pending with an expiry (default 24 hours). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
 
+Draft expiry sweeper [PROPOSED]: `ICommunityDraftExpirySweeper` moves every Pending draft whose `approval_expires_at` is at or before now to Expired with one compare-and-set `UPDATE ... RETURNING draft_id` (rows are never deleted), then appends one `expired` row per draft to the action log with no body, like the denial rows. A hosted service runs it every `CommunityDraftOptions.ExpirySweepInterval` (default 5 minutes, floor 1 minute). A failed pass is logged and retried at the next interval. The decision handler still marks a draft Expired when a late decision arrives, so the sweep only closes the gap for drafts nobody answers.
+
 ### Settings [PROPOSED]
 Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings registry (doc 03); every change writes an audit entry (doc 15 `audit_log`).
 

@@ -96,6 +96,12 @@ public interface ICommunityDraftStore
 
     /// <summary>Pending drafts whose approval is still open at <paramref name="openAt"/>, newest first, at most <paramref name="limit"/>.</summary>
     Task<IReadOnlyList<CommunityDraft>> ListPendingAsync(DateTimeOffset openAt, int limit, CancellationToken ct = default);
+
+    /// <summary>
+    /// [PROPOSED] Moves every Pending draft whose approval expired at or before <paramref name="now"/> to Expired, in one compare-and-set
+    /// statement, and returns the ids it changed. A draft another change got to first is not in the result. Rows are never deleted.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default);
 }
 
 /// <summary>Finds a platform's policy record for the quality gates. The host binds it over <see cref="Policy.PlatformPolicyLoader"/>.</summary>
