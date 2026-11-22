@@ -10,7 +10,8 @@ public static class CouncilServiceRegistration
     /// <summary>
     /// Registers <see cref="CouncilService"/> as <see cref="ICouncilService"/>, with default <see cref="CouncilOptions"/>
     /// and <see cref="TimeProvider.System"/> unless the host registered them first. The host must also register
-    /// <see cref="ICouncilStore"/>, <see cref="ICouncilGcEvents"/> and <see cref="IGcMembership"/>.
+    /// <see cref="ICouncilStore"/>, <see cref="ICouncilGcEvents"/> and <see cref="IGcMembership"/>. When the host also registers
+    /// <see cref="ICouncilDissentShareSource"/>, the service reads the dissent share from it at each tally.
     /// </summary>
     // TODO(component): called only by host composition
     public static IServiceCollection AddBazaarCouncilService(this IServiceCollection services)
