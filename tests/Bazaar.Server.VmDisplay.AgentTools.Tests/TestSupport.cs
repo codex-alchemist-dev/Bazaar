@@ -82,3 +82,8 @@ internal static class Rig
 
     public static JsonElement Parse(string result) => JsonElement.Parse(result);
 }
+
+internal sealed class FakeReader((int, int)? size) : IDisplayNativeSizeReader
+{
+    public (int Width, int Height)? TryGetNativeSize(DisplayTarget target) => size;
+}

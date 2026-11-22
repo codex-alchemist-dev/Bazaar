@@ -49,12 +49,6 @@ src/Bazaar.Server/Constellation/Tiles/LayoutTileSource.cs
 src/Bazaar.Server/Constellation/Tiles/QuadtreeTileBuilder.cs
 src/Bazaar.Server/Constellation/Tiles/TileFrameBinaryCodec.cs
 src/Bazaar.Server/Constellation/Tiles/VaultGraphSource.cs
-src/Bazaar.Server/Data/Migrations/IMigrationSource.cs
-src/Bazaar.Server/Data/Migrations/MigrateCommand.cs
-src/Bazaar.Server/Data/Migrations/MigrationExceptions.cs
-src/Bazaar.Server/Data/Migrations/MigrationFile.cs
-src/Bazaar.Server/Data/Migrations/MigrationNamespaces.cs
-src/Bazaar.Server/Data/Migrations/MigrationRunner.cs
 src/Bazaar.Server/Email/Quarantine/EmailAddressParser.cs
 src/Bazaar.Server/Email/Quarantine/InboundQuarantineRules.cs
 src/Bazaar.Server/Email/Quarantine/QuarantineDecision.cs
@@ -120,8 +114,6 @@ src/Bazaar.Server/Knowledge/Archive/ArchiveChapterRenderer.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveModel.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveVaultWriter.cs
-src/Bazaar.Server/Knowledge/CompanyMemory/DecisionRecordReader.cs
-src/Bazaar.Server/Knowledge/KnowledgeSettings.cs
 src/Bazaar.Server/Mail/MailComponent.cs
 src/Bazaar.Server/Mail/Parsing/MailLimits.cs
 src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
@@ -200,8 +192,6 @@ src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
 src/Bazaar.Server/Settings/SecuritySettings.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
-src/Bazaar.Server/Souls/Judgments/GcLogJudgmentPoster.cs
-src/Bazaar.Server/Souls/Judgments/JudgmentServiceCollectionExtensions.cs
 src/Bazaar.Server/Verification/GateModel.cs
 src/Bazaar.Server/Verification/GitRepo.cs
 src/Bazaar.Server/Verification/PathRules.cs
