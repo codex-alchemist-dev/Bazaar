@@ -11,10 +11,13 @@ public static class ApprovalsRegistration
     /// the single-use nonce store over <c>owner_nonce</c>, and the verifier every owner-gated action shares. The host must register
     /// an <c>NpgsqlDataSource</c> first. Every registration is TryAdd, so a host or a test can substitute a store before this call.
     /// </summary>
-    public static IServiceCollection AddBazaarApprovals(this IServiceCollection services)
+    public static IServiceCollection AddBazaarApprovals(this IServiceCollection services, Action<OwnerSignatureOptions>? configure = null)
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        var options = new OwnerSignatureOptions();
+        configure?.Invoke(options);
+        services.TryAddSingleton(options);
         services.TryAddSingleton<IOwnerKeyRegistry, PostgresOwnerKeyRegistry>();
         services.TryAddSingleton<IOwnerNonceStore, PostgresOwnerNonceStore>();
         services.TryAddSingleton<IOwnerSignatureVerifier, OwnerSignatureVerifier>();

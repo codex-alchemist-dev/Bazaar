@@ -12,8 +12,23 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   with the PR no longer a draft. The check then needs a `Signed-off-by:` line in the description.
 - The human sponsor adds that line. The owner squash-merges with "Pull request title and
   description" as the squash message, so the line reaches the commit on `main`.
-- CI (`ci.yml`) runs on every push and pull request, drafts included. It has no paths filter,
-  so docs-only and YAML-only PRs still run the full build and report.
+- CI load rules (owner, 2026-11-19, card "Dedupe + skip docs-only"):
+  - A branch is built once, not twice. `ci.yml` runs on `pull_request` and on `push` to `main` only.
+    `codeql.yml` keeps `push` on every branch (that run is the one GitHub links to the PR) and runs
+    its `pull_request` trigger only for fork PRs.
+  - Docs-only PRs skip build, test and CodeQL. A first job (`changes`) lists the files changed against the
+    base; the heavy jobs have `if: needs.changes.outputs.code == 'true'`. The jobs still exist, so the
+    required checks report as skipped, which counts as a pass. There is still no `paths:` filter on any
+    trigger, so a required check is never missing. Runs on `main` and the weekly CodeQL run always do the
+    full work.
+  - "Code" means anything outside `docs/**`, `**/*.md` and `.github/ISSUE_TEMPLATE/**`. A change to
+    `.github/workflows/**` counts as code.
+- Runner choice (2026-11-22): the repository is public, so GitHub-hosted runners are free. The `changes` job,
+  Secret scan, CodeQL, PR sign-off and the Android and Linux start-up gates always run hosted, so the cheap
+  required checks never queue behind the owner's PC. Build and test (and the PostgreSQL 19 leg) use the PC only for
+  the owner's own same-repo runs, and only while the repository has at most `CI_OVERFLOW_QUEUE` queued runs
+  (default 8); otherwise they overflow to hosted. Repository variable `CI_RUNNER_MODE` forces `self`, `hosted`
+  or `auto`. The default is `hosted` (owner 2026-11-22, PC runners stopped): every job runs on GitHub until the variable is set to `auto` or `self`. Publish smoke runs on pull requests (not drafts) that touch code, and on main.
 - Required checks are set in the "Protect main" ruleset. Their names must not change:
   renaming a job breaks the match and leaves PRs waiting forever.
 
@@ -21,8 +36,8 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
 
 | Required check | What runs it | When it reports on a docs-only PR |
 |---|---|---|
-| Build and test (ubuntu-latest) | `ci.yml`, job `build-test`, matrix leg | Always. No paths filter. |
-| Build and test (windows-latest) | `ci.yml`, job `build-test`, matrix leg | Always. No paths filter. |
+| Build and test (ubuntu-latest) | `ci.yml`, job `build-test`, matrix leg | Skipped (passes) on docs-only PRs; otherwise runs. |
+| Build and test (windows-latest) | `ci.yml`, job `build-test`, matrix leg | Skipped (passes) on docs-only PRs; otherwise runs. |
 | Secret scan (full history) | `ci.yml`, job `secret-scan` (gitleaks CLI) | Always. Scans full history, not just the diff. |
 | Analyze (csharp) | CodeQL default setup (not a workflow file in this repo) | Not reported. Default setup skips docs-only PRs, so the check never appears and the PR waits on it. |
 | Analyze (actions) | CodeQL default setup (not a workflow file in this repo) | Not reported. Same as above. |
@@ -54,10 +69,10 @@ may need the owner to act on the missing checks, or CodeQL must be configured to
 
 ## Practical steps
 
-1. Open the PR as a draft. CI runs; sign-off is skipped.
+1. Open the PR as a draft. CI and sign-off are skipped on drafts (CodeQL still runs on the branch push). Run CI by hand with `workflow_dispatch` if the draft needs a build.
 2. Fix any failing build or secret-scan leg. Do not weaken either check.
 3. Ask the owner to add the `Signed-off-by:` line to the description.
-4. Mark the PR ready. Sign-off reruns and must pass.
+4. Mark the PR ready. CI starts its first full run (`ready_for_review`) and sign-off reruns; both must pass.
 5. Check that the Analyze checks reported. On a docs-only PR, see the gap above.
 6. Merge only when every required check is green, with no conflict and no open blocking review thread.
 

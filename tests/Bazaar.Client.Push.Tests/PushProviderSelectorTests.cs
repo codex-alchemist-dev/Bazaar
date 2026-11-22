@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 
 namespace Bazaar.Client.Push.Tests;
 

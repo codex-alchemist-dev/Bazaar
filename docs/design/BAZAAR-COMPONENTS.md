@@ -162,3 +162,33 @@ Until wave 1 lands, new work follows the rule the coordinator relays to running 
 2. Owner: component enable/disable is a setting. Which components an operator may disable is a policy question (for example, may the taint policy be disabled?). Default: core components cannot be disabled.
 3. Schema: the `(component_id, version)` history and the namespace folder layout need one answer before wave 2. Default: as in section 5.
 4. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
+
+## 13. Standalone Core readiness audit (PROPOSED, 2026-11-19)
+
+Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core System repo, dependency-free and product-neutral. This is the audit of `src/Bazaar.Core` at main d7874f05. Nothing here is DECIDED; the two owner questions at the end block the code.
+
+**What Core holds (9 files, about 210 lines).** `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, `IBazaarComponent` and `BazaarComponentRegistration`. It has no reference to `Bazaar.Server`, `Bazaar.Contracts` or any other Bazaar project, and no `AgentId`, company, tenant or Postgres concept.
+
+**Findings.**
+
+| # | Finding | Where | Effect on standalone use |
+|---|---|---|---|
+| 1 | Two package references: `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.DependencyInjection` | `Bazaar.Core.csproj`; `IBazaarComponent.AddServices(IServiceCollection, IConfiguration)`; `BazaarComponentRegistration` | Core is not dependency-free. The manifest, kind and graph are pure; only the entry point and registration use the two packages. |
+| 2 | Product names in public API: `IBazaarComponent`, `BazaarComponentRegistration.AddBazaarComponents`, namespace `Bazaar.Core`, assembly `Bazaar.Core` | 5 files in Core; `IBazaarComponent` is used in 32 files, `AddBazaarComponents` in 23, `ComponentManifest` in 41 | Not product-neutral. |
+| 3 | Product-specific configuration key `Bazaar:Components:<id>:Enabled` | `BazaarComponentRegistration.IsEnabled`; 14 files reference the key | Hard-coded prefix. |
+| 4 | A Bazaar rename recorded in generic code: `LegacyIds = { ryusei -> ryusei-schedule }` | `BazaarComponentRegistration` | History of one product's component ids inside the generic kernel. |
+| 5 | Doc comments cite `docs/design/BAZAAR-COMPONENTS.md` and Bazaar terms (migration namespace, `gateway:adapter:openai_chat`) | all Core files | Cosmetic. |
+| 6 | `ComponentManifest.MigrationNamespace` encodes the Bazaar SQL-per-component layout | `ComponentManifest` | Mild: a Postgres-migration convention in the kernel, but it is only a pure string mapping. |
+
+**Proposed split (needs the owner's go-ahead).**
+
+1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, and a neutral component interface that does not mention DI or configuration. No package references.
+2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter.
+3. The architecture tests gain a rule that `Bazaar.Core` has no package or project references, so it stays dependency-free once split.
+
+**Owner questions.**
+
+1. **Names.** What are the standalone repo's namespace and public type names? The docs record "CDAX" only as a trademark and the pilot company (`Bazaar.CDAX`), and nowhere as the name of a Core System repo. Renaming `IBazaarComponent` and `Bazaar.Core` touches about 40 files and every component's registration, and the `Bazaar:Components` key is an operator-facing setting that needs a compatibility read of the old key.
+2. **Scope of the split.** Is the DI and configuration adapter module (item 2 above) the intended shape, or should Core keep `IServiceCollection` and accept the one package?
+
+Coordination: the "Converge Bazaar and Resibo shared features" thread is adding `Principal` and `Scope` to Core and deleting `ProviderSelector` (#919). This audit touches none of those files; any change there lands through that thread.
