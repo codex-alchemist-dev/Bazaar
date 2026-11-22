@@ -3,6 +3,7 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitGui.Diff;
 using Bazaar.Client.GitGui.Merge;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.SignIn;
 using Bazaar.Client.Windows;
 
 namespace Bazaar.Client.Windows.Tests;
@@ -34,5 +35,47 @@ public sealed class GitGuiCompositionTests
         Assert.Null(context.Get<IOwnerMergeApprover>());
         Assert.Null(context.Get<IOwnerMergeIdentity>());
         Assert.Null(context.Get<IGitRepoSource>());
+    }
+
+    private sealed class FixedProfile(string? line) : IMergeProfileStore
+    {
+        public string? GetSignOff(Guid humanId) => line;
+    }
+
+    private static readonly MergePrincipal Ada = new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Ada Lovelace", "ada@example.org");
+
+    [Fact]
+    public async Task Registers_the_identity_for_a_signed_in_person()
+    {
+        var store = new InMemorySessionStore();
+        await store.SaveAsync(new ClientSession("a", "r", DateTimeOffset.UtcNow.AddMinutes(5)), TestContext.Current.CancellationToken);
+
+        var context = await new PaneModuleContext().WithOwnerMergeIdentityAsync(
+            store, (_, _) => Task.FromResult<MergePrincipal?>(Ada), cancellationToken: TestContext.Current.CancellationToken);
+
+        var identity = context.Get<IOwnerMergeIdentity>();
+        Assert.NotNull(identity);
+        Assert.Equal(Ada.HumanId, identity.HumanId);
+        Assert.Equal("Signed-off-by: Ada Lovelace <ada@example.org>", identity.SignOff);
+    }
+
+    [Fact]
+    public async Task Leaves_the_identity_absent_when_signed_out()
+    {
+        var resolved = false;
+        var context = await new PaneModuleContext().WithOwnerMergeIdentityAsync(
+            new InMemorySessionStore(), (_, _) => { resolved = true; return Task.FromResult<MergePrincipal?>(Ada); },
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Null(context.Get<IOwnerMergeIdentity>());
+        Assert.False(resolved);
+    }
+
+    [Fact]
+    public void Profile_override_wins_and_is_registered()
+    {
+        var context = new PaneModuleContext().WithOwnerMergeIdentity(Ada, new FixedProfile("Signed-off-by: Ada L. <ada@work.example>"));
+
+        Assert.Equal("Signed-off-by: Ada L. <ada@work.example>", context.Get<IOwnerMergeIdentity>()!.SignOff);
     }
 }
