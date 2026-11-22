@@ -22,6 +22,7 @@
     <ProjectReference Include="..\Bazaar.Server.Modules\Bazaar.Server.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.RateLimits\Bazaar.RateLimits.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Probes\Bazaar.Server.Setup.Probes.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Http\Bazaar.Server.Setup.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
