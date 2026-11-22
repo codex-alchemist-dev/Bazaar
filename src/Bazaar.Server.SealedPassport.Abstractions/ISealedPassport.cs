@@ -21,15 +21,16 @@ public interface ISealedPassportStore
 
     /// <summary>Decrypts the stored jar (empty, generation 0, when none was written).</summary>
     /// <exception cref="KeyNotFoundException">The profile does not exist.</exception>
-    Task<SealedCookieJar> ReadCookiesAsync(Guid profileId, CancellationToken ct);
+    /// <exception cref="InvalidOperationException">The profile belongs to another agent.</exception>
+    Task<SealedCookieJar> ReadCookiesAsync(string agentId, Guid profileId, CancellationToken ct);
 
     /// <summary>
-    /// Seals the jar and returns its new generation. <paramref name="expectedGeneration"/> works as in the sealed store: 0 requires that no jar
-    /// was written yet, a generation requires exactly that one, null accepts any. A stale one throws the store's generation conflict exception.
-    /// An anonymous profile refuses any cookie (<see cref="InvalidOperationException"/>); a cookie outside the allowlist throws
-    /// <see cref="ArgumentException"/>.
+    /// Seals the jar and returns its new generation. <paramref name="expectedGeneration"/> is required (no blind overwrite): 0 requires that no
+    /// jar was written yet, a generation requires exactly that one (read it with <see cref="ReadCookiesAsync"/>). A stale one throws the store's
+    /// generation conflict exception. An anonymous profile refuses any cookie (<see cref="InvalidOperationException"/>); a cookie outside the
+    /// allowlist throws <see cref="ArgumentException"/>; another agent's profile throws <see cref="InvalidOperationException"/>.
     /// </summary>
-    Task<long> WriteCookiesAsync(Guid profileId, IReadOnlyList<BrowserCookieEntry> cookies, long? expectedGeneration, CancellationToken ct);
+    Task<long> WriteCookiesAsync(string agentId, Guid profileId, IReadOnlyList<BrowserCookieEntry> cookies, long expectedGeneration, CancellationToken ct);
 
     /// <summary>
     /// Deletes the profile and crypto-shreds its cookie and folder scopes (doc 14, doc 48 section 9). Refused while its profile folder is open.
@@ -56,14 +57,16 @@ public sealed class PassportProfileUnavailableException(Guid? profileId, string 
 
 /// <summary>
 /// Plaintext Chromium profile folders on the host (doc 61 WP4). A folder exists only while open, only strictly inside the operator's mount root
-/// (tmpfs or the doc 63 encrypted volume, confirmed by the shared mount-root verifier), and is zero-wiped when closed.
+/// (tmpfs or the doc 63 encrypted volume, confirmed by the shared mount-root verifier), only when the operator set
+/// <c>Bazaar:SealedPassport:AllowPlaintextProfileFolders</c>, and is zero-wiped when closed.
 /// </summary>
 public interface ISealedProfileDirectories
 {
     /// <summary>Opens the profile's folder, restoring an account profile's sealed files. One open folder per profile at a time.</summary>
-    /// <exception cref="InvalidOperationException">No mount root, an unverified root, or the folder is already open.</exception>
+    /// <exception cref="InvalidOperationException">Plaintext folders are not allowed, no mount root, an unverified root, the profile is gone or
+    /// another agent's, a link or foreign folder is in the way, or the folder is already open.</exception>
     /// <exception cref="PassportProfileUnavailableException">The sealed folder failed verification; nothing is left on disk.</exception>
-    Task<ISealedProfileDirectory> OpenAsync(Guid profileId, CancellationToken ct);
+    Task<ISealedProfileDirectory> OpenAsync(string agentId, Guid profileId, CancellationToken ct);
 }
 
 /// <summary>An open profile folder. Disposing reseals an account profile, then wipes the folder.</summary>
@@ -74,7 +77,10 @@ public interface ISealedProfileDirectory : IAsyncDisposable
     /// <summary>The full path of the plaintext folder, inside the mount root.</summary>
     string Path { get; }
 
-    /// <summary>Seals the folder's current files (account profiles); a no-op for an anonymous profile, which is never sealed.</summary>
+    /// <summary>
+    /// Seals the folder's current files (account profiles); a no-op for an anonymous profile, which is never sealed. Call it only after the browser
+    /// has exited: a file Chromium is still writing can be sealed half written. Refused when the folder would push the scope over the store's bulk limit.
+    /// </summary>
     Task ResealAsync(CancellationToken ct);
 }
 
@@ -84,6 +90,9 @@ public sealed record PassportImportReport(Guid ProfileId, int Imported, int Skip
 /// <summary>One-time, owner-started import of existing plaintext profile folders: seal, read back and compare, then zero-wipe (doc 61 WP7 path).</summary>
 public interface ISealedPassportImporter
 {
-    /// <summary>Imports one folder into an existing account profile. Plaintext is removed only after its sealed copy verified.</summary>
-    Task<PassportImportReport> ImportProfileDirectoryAsync(Guid profileId, string sourceDirectory, CancellationToken ct);
+    /// <summary>
+    /// Imports one folder into an existing account profile of <paramref name="agentId"/>. Plaintext is removed only after its sealed copy verified;
+    /// the excluded cache folders are neither imported nor removed.
+    /// </summary>
+    Task<PassportImportReport> ImportProfileDirectoryAsync(string agentId, Guid profileId, string sourceDirectory, CancellationToken ct);
 }

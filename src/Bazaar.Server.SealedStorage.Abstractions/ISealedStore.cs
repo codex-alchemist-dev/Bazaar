@@ -11,6 +11,16 @@ public interface ISealedStore
 }
 
 /// <summary>One sealed scope. Paths are logical (forward slashes, no <c>..</c>); they are never visible on disk. Disposing clears the scope's derived keys from memory.</summary>
+/// <summary>
+/// Optional capability of a sealed store: destroys a scope that can no longer be opened because it failed verification (a tampered manifest or
+/// header). Erasure uses it so corruption cannot keep ciphertext alive. The key header goes first.
+/// </summary>
+public interface ISealedScopeShredder
+{
+    /// <summary>Crypto-shreds the scope without verifying it. Does nothing but clear the anchor when the scope does not exist.</summary>
+    ValueTask ForceShredScopeAsync(string scope, CancellationToken cancellationToken = default);
+}
+
 public interface ISealedScope : IDisposable
 {
     /// <summary>The scope name, for example <c>soul:7f3a</c>.</summary>

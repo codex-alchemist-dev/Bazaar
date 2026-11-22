@@ -3,6 +3,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.SealedStorage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Bazaar.Server.SealedPassport.Tests;
 
@@ -26,6 +27,8 @@ public sealed class SealedPassportComponentTests : IDisposable
 
         var options = provider.GetRequiredService<SealedPassportOptions>();
         Assert.Null(options.MountRoot);
+        Assert.False(options.AllowPlaintextProfileFolders);
+        Assert.Contains(provider.GetServices<IHostedService>(), h => h.GetType().Name == "ProfileFolderSweeper");
         Assert.Contains("Cache", options.ExcludedFolders);
         Assert.IsType<SealedPassportStore>(provider.GetRequiredService<IBrowserProfileDirectory>());
         Assert.IsType<SealedBrowserCookieSource>(provider.GetRequiredService<IBrowserCookieSource>());
@@ -34,7 +37,7 @@ public sealed class SealedPassportComponentTests : IDisposable
         var profile = await passport.CreateProfileAsync("agent-1", BrowserProfileClass.Account, ["github.com"], default);
 
         // No mount root and no verifier: no plaintext folder can be opened.
-        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetRequiredService<ISealedProfileDirectories>().OpenAsync(profile.ProfileId, default));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.GetRequiredService<ISealedProfileDirectories>().OpenAsync("agent-1", profile.ProfileId, default));
     }
 
     [Fact]
@@ -43,6 +46,7 @@ public sealed class SealedPassportComponentTests : IDisposable
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Bazaar:SealedPassport:MountRoot"] = "/run/bazaar/profiles",
+            ["Bazaar:SealedPassport:AllowPlaintextProfileFolders"] = "true",
             ["Bazaar:SealedPassport:LeaseTimeoutSeconds"] = "5",
             ["Bazaar:SealedPassport:ExcludedFolders:0"] = "Cache",
         }).Build();
@@ -50,6 +54,7 @@ public sealed class SealedPassportComponentTests : IDisposable
         var options = SealedPassportComponent.ReadOptions(configuration.GetSection(SealedPassportOptions.SectionName));
 
         Assert.Equal("/run/bazaar/profiles", options.MountRoot);
+        Assert.True(options.AllowPlaintextProfileFolders);
         Assert.Equal(TimeSpan.FromSeconds(5), options.LeaseTimeout);
         Assert.Equal(["Cache"], options.ExcludedFolders);
     }

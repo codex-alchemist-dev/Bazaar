@@ -15,12 +15,15 @@ public sealed class SealedPassportStore(ISealedStore store, ISealAuditSink audit
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
+    /// <summary>Set by <see cref="SealedProfileDirectories"/>: wipes a leftover plaintext folder (found by its marker) while a delete holds the profile's folder lease.</summary>
+    internal SealedProfileDirectories? Folders { get; set; }
+
     /// <inheritdoc />
     public async Task<BrowserProfileRef> CreateProfileAsync(string agentId, BrowserProfileClass kind, IEnumerable<string> serviceAllowlist, CancellationToken ct)
     {
         PassportScopes.EnsureSafeAgentId(agentId);
         ArgumentNullException.ThrowIfNull(serviceAllowlist);
-        var allowlist = serviceAllowlist.Select(PassportDomains.Normalize).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var allowlist = serviceAllowlist.Select(PassportDomains.NormalizeAllowlistEntry).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         if (kind == BrowserProfileClass.Anonymous && allowlist.Length > 0)
         {
             throw new ArgumentException("An anonymous profile takes no service allowlist.", nameof(serviceAllowlist));
@@ -82,9 +85,9 @@ public sealed class SealedPassportStore(ISealedStore store, ISealAuditSink audit
     }
 
     /// <inheritdoc />
-    public async Task<SealedCookieJar> ReadCookiesAsync(Guid profileId, CancellationToken ct)
+    public async Task<SealedCookieJar> ReadCookiesAsync(string agentId, Guid profileId, CancellationToken ct)
     {
-        _ = await FindRecordAsync(profileId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Browser profile not found.");
+        _ = await RequireOwnedAsync(agentId, profileId, ct).ConfigureAwait(false);
         return await GuardAsync(profileId, async () =>
         {
             using var scope = await store.OpenScopeAsync(PassportScopes.Cookies(profileId), ct).ConfigureAwait(false);
@@ -112,10 +115,10 @@ public sealed class SealedPassportStore(ISealedStore store, ISealAuditSink audit
     }
 
     /// <inheritdoc />
-    public async Task<long> WriteCookiesAsync(Guid profileId, IReadOnlyList<BrowserCookieEntry> cookies, long? expectedGeneration, CancellationToken ct)
+    public async Task<long> WriteCookiesAsync(string agentId, Guid profileId, IReadOnlyList<BrowserCookieEntry> cookies, long expectedGeneration, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(cookies);
-        var record = await FindRecordAsync(profileId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Browser profile not found.");
+        var record = await RequireOwnedAsync(agentId, profileId, ct).ConfigureAwait(false);
         if (record.Class == BrowserProfileClass.Anonymous && cookies.Count > 0)
         {
             throw new InvalidOperationException("Anonymous browser profiles never hold cookies.");
@@ -150,85 +153,279 @@ public sealed class SealedPassportStore(ISealedStore store, ISealAuditSink audit
     public async Task<bool> DeleteProfileAsync(string agentId, Guid profileId, CancellationToken ct)
     {
         PassportScopes.EnsureSafeAgentId(agentId);
-        return await GuardAsync(profileId, async () =>
+        return await GuardAsync(profileId, () => EraseAsync(agentId, profileId, tolerant: false, ct), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Deletes one profile of the agent. With <paramref name="tolerant"/> (erasure) a tampered index entry or listing is audited and the shred goes on:
+    /// erasure must never be blocked by the corruption it is meant to remove. The folder scope's lease is held from the check through the shreds
+    /// (on Windows it is released just before the folder scope itself is shredded, because an open lease file cannot be deleted there; by then the index
+    /// entry is gone and an open re-checks the profile after it takes the lease, so no open can complete).
+    /// </summary>
+    private async Task<bool> EraseAsync(string agentId, Guid profileId, bool tolerant, CancellationToken ct)
+    {
+        using var agentScope = await OpenForEraseAsync(PassportScopes.Agent(agentId), tolerant, ct).ConfigureAwait(false);
+        var path = PassportScopes.ProfilePath(profileId);
+        using var index = await OpenForEraseAsync(PassportScopes.Index, tolerant, ct).ConfigureAwait(false);
+        SealedFile? indexed = null;
+        var indexTampered = index is null;
+        if (index is not null)
         {
-            using var agentScope = await store.OpenScopeAsync(PassportScopes.Agent(agentId), ct).ConfigureAwait(false);
-            var path = PassportScopes.ProfilePath(profileId);
-            using var index = await store.OpenScopeAsync(PassportScopes.Index, ct).ConfigureAwait(false);
-            var indexed = await index.ReadAsync(PassportScopes.IndexPath(profileId), ct).ConfigureAwait(false);
-            var metadata = (await agentScope.ListAsync(ct).ConfigureAwait(false)).Any(e => e.Path == path);
+            try
+            {
+                indexed = await index.ReadAsync(PassportScopes.IndexPath(profileId), ct).ConfigureAwait(false);
+            }
+            catch (SealTamperedException ex) when (tolerant)
+            {
+                indexTampered = true;
+                await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Passport index entry failed verification during erasure; erasure carries on.", ct).ConfigureAwait(false);
+            }
+        }
+
+        // An agent scope that cannot be opened is treated as holding the profile: the shred below does not need it.
+        var metadata = agentScope is null;
+        if (agentScope is not null)
+        {
+            try
+            {
+                metadata = (await agentScope.ListAsync(ct).ConfigureAwait(false)).Any(e => e.Path == path);
+            }
+            catch (SealTamperedException ex) when (tolerant)
+            {
+                metadata = true;
+                await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Agent scope listing failed verification during erasure; erasure carries on.", ct).ConfigureAwait(false);
+            }
+        }
+
+        try
+        {
             if (indexed is not null && Encoding.UTF8.GetString(indexed.Content) != agentId)
             {
                 throw new InvalidOperationException("Browser profile belongs to another agent.");
             }
-
-            if (indexed is null && !metadata)
+        }
+        finally
+        {
+            if (indexed is not null)
             {
-                return false;
+                CryptographicOperations.ZeroMemory(indexed.Content);
             }
+        }
 
-            using var directory = await store.OpenScopeAsync(PassportScopes.Directory(profileId), ct).ConfigureAwait(false);
+        if (indexed is null && !indexTampered && !metadata)
+        {
+            return false;
+        }
+
+        var directoryName = PassportScopes.Directory(profileId);
+        using var directory = await OpenForEraseAsync(directoryName, tolerant, ct).ConfigureAwait(false);
+        ISealedLease? lease = null;
+        if (directory is not null)
+        {
             try
             {
                 // An open profile folder holds the lease; deleting under it would leave its plaintext without a sealed home.
-                using var lease = await directory.AcquireLeaseAsync(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
+                lease = await directory.AcquireLeaseAsync(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
             }
             catch (TimeoutException)
             {
                 throw new InvalidOperationException("The profile's folder is open; close the browser session before deleting the profile.");
             }
+        }
+
+        using (lease)
+        {
+            if (Folders is { } folders)
+            {
+                // A crashed session's plaintext folder (found by its marker) goes before its sealed home does.
+                await folders.PurgeLeftoverAsync(profileId, directoryName, ct).ConfigureAwait(false);
+            }
 
             // The index goes first, so the browser can no longer find the profile; the shreds make its data unrecoverable; the metadata goes last.
-            if (indexed is not null)
+            try
             {
-                await index.DeleteAsync(PassportScopes.IndexPath(profileId), indexed.Generation, ct).ConfigureAwait(false);
+                if (index is not null && (indexed is not null || indexTampered))
+                {
+                    await index.DeleteAsync(PassportScopes.IndexPath(profileId), indexed?.Generation, ct).ConfigureAwait(false);
+                }
+            }
+            catch (SealTamperedException ex) when (tolerant)
+            {
+                await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Passport index entry could not be removed during erasure; its data is shredded anyway.", ct).ConfigureAwait(false);
             }
 
-            using (var cookies = await store.OpenScopeAsync(PassportScopes.Cookies(profileId), ct).ConfigureAwait(false))
+            await ShredByNameAsync(PassportScopes.Cookies(profileId), tolerant, ct).ConfigureAwait(false);
+
+            if (OperatingSystem.IsWindows())
             {
-                await cookies.ShredAsync(ct).ConfigureAwait(false);
+                lease?.Dispose();
             }
 
-            await directory.ShredAsync(ct).ConfigureAwait(false);
-            await agentScope.DeleteAsync(path, ct).ConfigureAwait(false);
-            await RecordAsync("passport.profile.shredded", agentScope.Scope, path, "Profile deleted; cookie and folder scopes crypto-shredded.", ct).ConfigureAwait(false);
-            return true;
-        }, ct).ConfigureAwait(false);
+            if (directory is not null)
+            {
+                await ShredTolerantAsync(directory, tolerant, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await ForceShredAsync(directoryName, ct).ConfigureAwait(false);
+            }
+        }
+
+        if (agentScope is not null)
+        {
+            try
+            {
+                await agentScope.DeleteAsync(path, ct).ConfigureAwait(false);
+            }
+            catch (SealTamperedException ex) when (tolerant)
+            {
+                await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Profile metadata could not be removed during erasure; the agent scope is shredded next.", ct).ConfigureAwait(false);
+            }
+        }
+
+        await RecordAsync("passport.profile.shredded", PassportScopes.Agent(agentId), path, "Profile deleted; cookie and folder scopes crypto-shredded.", ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Opens a scope for a delete. During erasure a scope that fails verification is audited and returns null (it is force-shredded later) instead of stopping the erasure.</summary>
+    private async Task<ISealedScope?> OpenForEraseAsync(string scopeName, bool tolerant, CancellationToken ct)
+    {
+        try
+        {
+            return await store.OpenScopeAsync(scopeName, ct).ConfigureAwait(false);
+        }
+        catch (SealTamperedException ex) when (tolerant)
+        {
+            await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Scope failed verification during erasure; it is shredded without being read.", ct).ConfigureAwait(false);
+            return null;
+        }
+    }
+
+    private async Task ShredByNameAsync(string scopeName, bool tolerant, CancellationToken ct)
+    {
+        using var scope = await OpenForEraseAsync(scopeName, tolerant, ct).ConfigureAwait(false);
+        if (scope is null)
+        {
+            await ForceShredAsync(scopeName, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            await ShredTolerantAsync(scope, tolerant, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ShredTolerantAsync(ISealedScope scope, bool tolerant, CancellationToken ct)
+    {
+        try
+        {
+            await scope.ShredAsync(ct).ConfigureAwait(false);
+        }
+        catch (SealTamperedException ex) when (tolerant)
+        {
+            await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Scope failed verification during erasure; shredding carries on.", ct).ConfigureAwait(false);
+            await ForceShredAsync(scope.Scope, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ForceShredAsync(string scopeName, CancellationToken ct)
+    {
+        if (store is ISealedScopeShredder shredder)
+        {
+            await shredder.ForceShredScopeAsync(scopeName, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            await RecordAsync("passport.shred_unavailable", scopeName, null, "The store cannot shred a scope that failed verification; its ciphertext remains sealed.", ct).ConfigureAwait(false);
+        }
     }
 
     /// <inheritdoc />
     public async Task ShredAgentAsync(string agentId, CancellationToken ct)
     {
         PassportScopes.EnsureSafeAgentId(agentId);
-        var ids = new HashSet<Guid>((await ListProfilesAsync(agentId, ct).ConfigureAwait(false)).Select(p => p.ProfileId));
-        await GuardAsync<bool>(null, async () =>
+
+        // Ids come from file names only (never from parsed metadata), so tampered metadata cannot stop an erasure.
+        var ids = new HashSet<Guid>();
+        try
         {
-            // Index entries whose metadata is gone (a crash during an earlier delete) are found from the index side.
-            using var index = await store.OpenScopeAsync(PassportScopes.Index, ct).ConfigureAwait(false);
-            var snapshot = await index.ReadAllAsync(ct).ConfigureAwait(false);
-            foreach (var file in snapshot.Files)
+            using var agentScope = await store.OpenScopeAsync(PassportScopes.Agent(agentId), ct).ConfigureAwait(false);
+            foreach (var entry in await agentScope.ListAsync(ct).ConfigureAwait(false))
             {
-                if (Encoding.UTF8.GetString(file.Content) == agentId && Guid.TryParse(file.Path["profiles/".Length..], out var id))
+                if (entry.Path.StartsWith("profiles/", StringComparison.Ordinal) && entry.Path.EndsWith(".json", StringComparison.Ordinal)
+                    && Guid.TryParse(entry.Path["profiles/".Length..^".json".Length], out var id))
                 {
                     ids.Add(id);
                 }
             }
+        }
+        catch (SealTamperedException ex)
+        {
+            await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Agent scope failed verification during erasure; erasure carries on.", ct).ConfigureAwait(false);
+        }
 
-            return true;
-        }, ct).ConfigureAwait(false);
+        try
+        {
+            // Index entries whose metadata is gone (a crash during an earlier delete) are found from the index side; an entry that cannot be read
+            // cannot be attributed to the agent and is left alone (audited).
+            using var index = await store.OpenScopeAsync(PassportScopes.Index, ct).ConfigureAwait(false);
+            foreach (var entry in await index.ListAsync(ct).ConfigureAwait(false))
+            {
+                if (!entry.Path.StartsWith("profiles/", StringComparison.Ordinal) || !Guid.TryParse(entry.Path["profiles/".Length..], out var id))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var file = await index.ReadAsync(entry.Path, ct).ConfigureAwait(false);
+                    if (file is not null)
+                    {
+                        try
+                        {
+                            if (Encoding.UTF8.GetString(file.Content) == agentId)
+                            {
+                                ids.Add(id);
+                            }
+                        }
+                        finally
+                        {
+                            CryptographicOperations.ZeroMemory(file.Content);
+                        }
+                    }
+                }
+                catch (SealTamperedException ex)
+                {
+                    await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Passport index entry failed verification during erasure; it cannot be attributed and is left alone.", ct).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (SealTamperedException ex)
+        {
+            await RecordAsync("passport.tamper", ex.Scope, ex.Path, "Passport index failed verification during erasure; erasure carries on.", ct).ConfigureAwait(false);
+        }
 
         foreach (var id in ids)
         {
-            await DeleteProfileAsync(agentId, id, ct).ConfigureAwait(false);
+            await EraseAsync(agentId, id, tolerant: true, ct).ConfigureAwait(false);
         }
 
-        await GuardAsync(null, async () =>
-        {
-            using var scope = await store.OpenScopeAsync(PassportScopes.Agent(agentId), ct).ConfigureAwait(false);
-            await scope.ShredAsync(ct).ConfigureAwait(false);
-            return true;
-        }, ct).ConfigureAwait(false);
+        await ShredByNameAsync(PassportScopes.Agent(agentId), tolerant: true, ct).ConfigureAwait(false);
+
         await RecordAsync("passport.agent.shredded", PassportScopes.Agent(agentId), null, $"Agent Passport scope crypto-shredded ({ids.Count} profiles).", ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The profile's sealed record, refusing a missing profile and another agent's.</summary>
+    internal async Task<ProfileRecord> RequireOwnedAsync(string agentId, Guid profileId, CancellationToken ct)
+    {
+        PassportScopes.EnsureSafeAgentId(agentId);
+        var record = await FindRecordAsync(profileId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException("Browser profile not found.");
+        if (!string.Equals(record.AgentId, agentId, StringComparison.Ordinal))
+        {
+            await RecordAsync("passport.profile.refused", PassportScopes.Agent(agentId), null, "A profile of another agent was asked for; refused.", ct).ConfigureAwait(false);
+            throw new InvalidOperationException("Browser profile belongs to another agent.");
+        }
+
+        return record;
     }
 
     internal async Task<ProfileRecord?> FindRecordAsync(Guid profileId, CancellationToken ct) =>

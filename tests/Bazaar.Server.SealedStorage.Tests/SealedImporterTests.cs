@@ -47,6 +47,47 @@ public sealed class SealedImporterTests : IDisposable
     }
 
     [Fact]
+    public async Task Imports_only_included_files_and_leaves_the_rest_untouched()
+    {
+        var src = Plain(("keep/a.md", "one"), ("Cache/b.bin", "two"));
+        using var scope = await ScopeAsync();
+
+        var report = await SealedImporter.ImportDirectoryAsync(scope, src, removePlaintext: true, logical => !logical.StartsWith("Cache/", StringComparison.Ordinal));
+
+        Assert.Equal(1, report.Imported);
+        Assert.True(File.Exists(Path.Combine(src, "Cache", "b.bin")));
+        Assert.False(File.Exists(Path.Combine(src, "keep", "a.md")));
+        Assert.Null(await scope.ReadAsync("Cache/b.bin"));
+    }
+
+    [Fact]
+    public async Task Refuses_a_linked_source_and_never_follows_links_inside_it()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var outside = Path.Combine(_dir, "outside");
+        Directory.CreateDirectory(outside);
+        File.WriteAllText(Path.Combine(outside, "victim"), "keep me");
+        var src = Plain(("a.md", "one"));
+        File.CreateSymbolicLink(Path.Combine(src, "link"), Path.Combine(outside, "victim"));
+        using var scope = await ScopeAsync();
+
+        var report = await SealedImporter.ImportDirectoryAsync(scope, src, removePlaintext: true);
+
+        Assert.Equal(1, report.Imported);
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(outside, "victim")));
+        Assert.Null(await scope.ReadAsync("link"));
+
+        var linkedSource = Path.Combine(_dir, "linked-source");
+        Directory.CreateSymbolicLink(linkedSource, outside);
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await SealedImporter.ImportDirectoryAsync(scope, linkedSource, removePlaintext: true));
+        Assert.Equal("keep me", File.ReadAllText(Path.Combine(outside, "victim")));
+    }
+
+    [Fact]
     public async Task Keeps_plaintext_when_not_asked_to_remove_and_never_overwrites_sealed_paths()
     {
         var src = Plain(("a.md", "plain"));

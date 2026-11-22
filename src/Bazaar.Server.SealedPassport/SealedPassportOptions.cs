@@ -8,6 +8,13 @@ public sealed record SealedPassportOptions
     public const string SectionName = "Bazaar:SealedPassport";
 
     /// <summary>
+    /// Whether Chromium profile folders may exist in plaintext at all (owner ruling 2026-11-22: only under the verified <see cref="MountRoot"/>, only
+    /// while a browser runs; a documented exception to doc 61 invariant 1). Default false: opening a plaintext profile folder is refused and audited
+    /// unless this is true AND <see cref="MountRoot"/> is set and verified.
+    /// </summary>
+    public bool AllowPlaintextProfileFolders { get; init; }
+
+    /// <summary>
     /// The folder under which plaintext Chromium profile folders may exist while open. Must be tmpfs or the doc 63 encrypted volume, confirmed by
     /// the registered mount-root verifier. Null (the default) means no plaintext profile folder can be opened at all.
     /// </summary>

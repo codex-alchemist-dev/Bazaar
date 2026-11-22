@@ -1,127 +1,113 @@
+using System.Runtime.Versioning;
+using System.Security.AccessControl;
+using System.Security.Principal;
+using Bazaar.Server.SealedStorage;
+
 namespace Bazaar.Server.SealedPassport;
 
-/// <summary>Link-safe folder walking and zero-wiping for plaintext profile folders. Nothing here follows a symbolic link or reparse point.</summary>
+/// <summary>
+/// Folder helpers for plaintext profile folders. Wiping goes through <see cref="SecureFileWipe"/>: nothing follows a link, files are zeroed through a
+/// no-follow handle with their identity re-checked, and a file with several hard links is deleted without zeroing.
+/// </summary>
 internal static class ProfileFolderWipe
 {
-    public static bool IsLink(FileSystemInfo info) => info.Exists && (info.LinkTarget is not null || info.Attributes.HasFlag(FileAttributes.ReparsePoint));
-
-    /// <summary>Regular files under <paramref name="root"/>, without descending into links; links are returned separately.</summary>
-    public static (List<FileInfo> Files, List<FileSystemInfo> Links, List<DirectoryInfo> Dirs) Walk(string root)
-    {
-        var files = new List<FileInfo>();
-        var links = new List<FileSystemInfo>();
-        var dirs = new List<DirectoryInfo>();
-        var pending = new Stack<DirectoryInfo>();
-        pending.Push(new DirectoryInfo(root));
-        while (pending.Count > 0)
-        {
-            foreach (var info in pending.Pop().EnumerateFileSystemInfos("*", new EnumerationOptions { AttributesToSkip = 0, IgnoreInaccessible = false }))
-            {
-                if (IsLink(info))
-                {
-                    links.Add(info);
-                }
-                else if (info is DirectoryInfo d)
-                {
-                    dirs.Add(d);
-                    pending.Push(d);
-                }
-                else if (info is FileInfo f)
-                {
-                    files.Add(f);
-                }
-            }
-        }
-
-        return (files, links, dirs);
-    }
-
-    /// <summary>Deletes links without following them, overwrites each file with zeros, deletes it, and removes the tree. Returns the first failure, or null.</summary>
+    /// <summary>Zero-wipes and removes the tree. Returns the first failure (a refused link root included), or null.</summary>
     public static Exception? WipeAndDelete(string dir)
     {
-        if (!Directory.Exists(dir))
-        {
-            return null;
-        }
-
-        Exception? failure = null;
         try
         {
-            var (files, links, dirs) = Walk(dir);
-            foreach (var link in links)
-            {
-                Try(() =>
-                {
-                    if (link is DirectoryInfo)
-                    {
-                        Directory.Delete(link.FullName);
-                    }
-                    else
-                    {
-                        File.Delete(link.FullName);
-                    }
-                }, ref failure);
-            }
-
-            foreach (var file in files)
-            {
-                Try(() =>
-                {
-                    file.Attributes = FileAttributes.Normal;
-                    Zero(file.FullName, file.Length);
-                    file.Delete();
-                }, ref failure);
-            }
-
-            foreach (var d in dirs.OrderByDescending(x => x.FullName.Length))
-            {
-                Try(d.Delete, ref failure);
-            }
-
-            Directory.Delete(dir);
+            return SecureFileWipe.WipeTree(dir);
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (InvalidOperationException ex)
         {
-            failure ??= ex;
-        }
-
-        return failure;
-    }
-
-    private static void Try(Action action, ref Exception? failure)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            failure ??= ex;
+            return ex;
         }
     }
 
-    private static void Zero(string path, long length)
-    {
-        using var fs = new FileStream(path, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.WriteThrough });
-        var zeros = new byte[(int)Math.Clamp(length, 1, 81920)];
-        for (long done = 0; done < length; done += zeros.Length)
-        {
-            fs.Write(zeros, 0, (int)Math.Min(zeros.Length, length - done));
-        }
-
-        fs.Flush(true);
-    }
-
-    /// <summary>Creates a folder only the current user can enter (Unix mode 0700 at creation; on Windows the verified root's ACL is inherited).</summary>
+    /// <summary>Creates a folder only the current user can enter (Unix mode 0700 at creation; on Windows an explicit owner-only DACL for the root, inherited below it).</summary>
     public static void CreateOwnerOnly(string path)
     {
         if (OperatingSystem.IsWindows())
         {
-            Directory.CreateDirectory(path);
+            CreateOwnerOnlyWindows(path);
         }
         else
         {
             Directory.CreateDirectory(path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static void CreateOwnerOnlyWindows(string path)
+    {
+        if (Directory.Exists(path))
+        {
+            return;
+        }
+
+        var parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(path));
+        if (parent is not null && !Directory.Exists(parent))
+        {
+            Directory.CreateDirectory(parent);
+        }
+
+        var security = new DirectorySecurity();
+        security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+        foreach (var sid in RootAcl.PermittedSids())
+        {
+            security.AddAccessRule(new FileSystemAccessRule(
+                new SecurityIdentifier(sid), FileSystemRights.FullControl, InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit, PropagationFlags.None, AccessControlType.Allow));
+        }
+
+        new DirectoryInfo(path).Create(security);
+    }
+}
+
+/// <summary>The Windows half of the mount-root floor: the root's DACL must grant access to nobody but the service account, SYSTEM and Administrators.</summary>
+internal static class RootAcl
+{
+    private const string _system = "S-1-5-18";
+    private const string _administrators = "S-1-5-32-544";
+    private const string _creatorOwner = "S-1-3-0";
+
+    /// <summary>True when every allow rule names a permitted principal. Pure, so the rule is testable on any OS.</summary>
+    public static bool IsOwnerOnly(IEnumerable<(string Sid, bool Allow)> rules, IReadOnlySet<string> permitted, out string? offender)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        ArgumentNullException.ThrowIfNull(permitted);
+        foreach (var (sid, allow) in rules)
+        {
+            if (allow && !permitted.Contains(sid))
+            {
+                offender = sid;
+                return false;
+            }
+        }
+
+        offender = null;
+        return true;
+    }
+
+    [SupportedOSPlatform("windows")]
+    public static IReadOnlyList<string> PermittedSids() =>
+        [WindowsIdentity.GetCurrent().User!.Value, _system, _administrators];
+
+    /// <summary>Null when the root's DACL is owner-only, else the reason it is not.</summary>
+    [SupportedOSPlatform("windows")]
+    public static string? Check(string root)
+    {
+        var security = new DirectoryInfo(root).GetAccessControl(AccessControlSections.Access | AccessControlSections.Owner);
+        var permitted = new HashSet<string>(PermittedSids(), StringComparer.Ordinal) { _creatorOwner };
+        var rules = security.GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier))
+            .Cast<FileSystemAccessRule>()
+            .Select(r => (r.IdentityReference.Value, r.AccessControlType == AccessControlType.Allow));
+        if (!IsOwnerOnly(rules, permitted, out var offender))
+        {
+            return $"The mount root's DACL grants access to {offender}; only the service account, SYSTEM and Administrators may have it.";
+        }
+
+        return security.GetOwner(typeof(SecurityIdentifier))?.Value is { } owner && permitted.Contains(owner)
+            ? null
+            : "The mount root is owned by an account other than the service account, SYSTEM or Administrators.";
     }
 }

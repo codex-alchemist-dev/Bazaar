@@ -24,7 +24,7 @@ public sealed class SealedBrowserCookieSource(SealedPassportStore store, TimePro
             throw new InvalidOperationException("Only an agent's own account profile gets cookies.");
         }
 
-        var jar = await store.ReadCookiesAsync(profile.ProfileId, ct).ConfigureAwait(false);
+        var jar = await store.ReadCookiesAsync(profile.AgentId, profile.ProfileId, ct).ConfigureAwait(false);
         var now = _time.GetUtcNow();
         return [.. jar.Cookies.Where(c => (c.Expires is null || c.Expires > now) && record.ServiceAllowlist.Any(a => PassportDomains.IsWithin(c.Domain, a)))];
     }
