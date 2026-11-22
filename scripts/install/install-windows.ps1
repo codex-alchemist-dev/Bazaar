@@ -44,7 +44,9 @@ function Stop-Host {
 function Run([string]$Exe, [string[]]$Arguments, [int]$TimeoutSeconds = 600, [switch]$AllowFail) {
     Log ('$ ' + $Exe + ' ' + ($Arguments -join ' '))
     $out = [IO.Path]::GetTempFileName(); $err = [IO.Path]::GetTempFileName()
-    $p = Start-Process -FilePath $Exe -ArgumentList $Arguments -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+    # Start-Process joins the array with plain spaces, so quote any argument that holds whitespace or a quote (Windows command-line rules).
+    $quoted = $Arguments | ForEach-Object { if ($_ -match '[\s"]' -or $_ -eq '') { '"' + ($_ -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"' } else { $_ } }
+    $p = Start-Process -FilePath $Exe -ArgumentList $quoted -NoNewWindow -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
     if (-not $p.WaitForExit($TimeoutSeconds * 1000)) { $p.Kill(); Log '  timed out'; $code = 124 } else { $p.WaitForExit(); $code = $p.ExitCode }
     foreach ($f in $out, $err) { Get-Content $f -ErrorAction SilentlyContinue | ForEach-Object { Log "  $_" }; Remove-Item $f -ErrorAction SilentlyContinue }
     Log "  exit=$code"
