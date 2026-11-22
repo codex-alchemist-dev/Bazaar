@@ -8,6 +8,9 @@
     <PackageReference Include="Vortice.Vulkan" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Constellation.Vulkan.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <None Include="Shaders\*.glsl" />
     <EmbeddedResource Include="Shaders\*.spv" LogicalName="Bazaar.Constellation.Vulkan.Shaders.%(Filename)%(Extension)" />
   </ItemGroup>
