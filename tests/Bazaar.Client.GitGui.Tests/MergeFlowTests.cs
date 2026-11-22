@@ -209,6 +209,8 @@ public sealed class MergeFlowTests
     {
         public int Calls { get; private set; }
 
+        public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default) => inner.ListReposAsync(cancellationToken);
+
         public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default) => inner.ListPrsAsync(provider, repo, state, page, pageSize, cancellationToken);
 
         public Task<GitPrDetailDto> GetPrAsync(string provider, string repo, long number, CancellationToken cancellationToken = default) => inner.GetPrAsync(provider, repo, number, cancellationToken);

@@ -56,6 +56,18 @@ public sealed class StatusEndpointsTests
     }
 
     [Fact]
+    public async Task Admin_panel_paths_skip_the_get_only_gate_and_keep_their_own_method_table()
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // No admin route is mapped in this host, so the request reaches routing (404), not the 405 of the status gate.
+            var post = await client.PostAsync("/admin/api/signout", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, post.StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task Live_is_ok_even_before_startup_finishes()
     {
         var (app, client, _) = await StartAsync();
@@ -171,6 +183,20 @@ public sealed class StatusEndpointsTests
         {
             var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData("/setup/plans")]
+    [InlineData("/setup/plans/abc/apply")]
+    public async Task Setup_provisioning_paths_accept_post(string path)
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // The setup component is not mapped in this test app, so the guard lets POST through and routing answers 404.
+            var response = await client.PostAsync(path, new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
     }
 

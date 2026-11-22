@@ -1,0 +1,58 @@
+name: garnet-windows
+
+# Verifies the Windows cache provider (Bazaar.Server.Garnet) against the real released Garnet server on a hosted Windows runner
+# (never the owner's PC). Installs the published `garnet-server` .NET tool, prints its option list into the log so the flags the
+# module passes can be checked against it, then runs the Garnet tests with BAZAAR_GARNET_BINARY set, which turns on the
+# real-binary test (RealGarnetBinaryTests: start, probe, set and get, stop, restart on the same data directory, read back).
+on:
+  workflow_dispatch:
+    inputs:
+      garnet_version:
+        description: 'garnet-server NuGet version'
+        default: '2.2.13'
+        required: true
+  push:
+    branches: ['claude/project-thread-phpbko']
+    paths:
+      - 'src/Bazaar.Server.Garnet/**'
+      - 'tests/Bazaar.Server.Garnet.Tests/**'
+      - '.github/workflows/garnet-windows.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  garnet:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      GARNET_VERSION: ${{ inputs.garnet_version || '2.2.13' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The repo SDK builds the tests; the released Garnet tool runs on .NET 10, so that runtime is installed beside it.
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+          dotnet-version: 10.0.x
+
+      - name: Install the released Garnet server
+        shell: pwsh
+        run: |
+          dotnet tool install garnet-server --version $env:GARNET_VERSION --tool-path "$env:RUNNER_TEMP\garnet"
+          Get-ChildItem "$env:RUNNER_TEMP\garnet" | Format-Table Name, Length
+          "BAZAAR_GARNET_BINARY=$env:RUNNER_TEMP\garnet\garnet-server.exe" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Show the server's options
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          & "$env:BAZAAR_GARNET_BINARY" --help 2>&1 | Select-Object -First 400
+
+      - name: Garnet tests, including the real-binary test
+        shell: pwsh
+        run: dotnet test tests/Bazaar.Server.Garnet.Tests --nologo

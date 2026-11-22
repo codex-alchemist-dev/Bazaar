@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Bazaar.Localisation;
@@ -12,6 +13,28 @@ namespace Bazaar.Accessibility.Avalonia;
 /// </summary>
 public sealed class WindowChrome
 {
+    /// <summary>
+    /// Marks a control (an arrow, a back chevron, a send glyph) that must be mirrored in right-to-left layouts (doc 49
+    /// section 2). While the control's effective flow direction is right-to-left it is flipped horizontally; left-to-right
+    /// shows it unchanged. Icons that read the same either way (a clock, a gear) are simply not marked.
+    /// </summary>
+    public static readonly AttachedProperty<bool> MirrorsInRtlProperty =
+        AvaloniaProperty.RegisterAttached<WindowChrome, Control, bool>("MirrorsInRtl");
+
+    static WindowChrome() =>
+        MirrorsInRtlProperty.Changed.AddClassHandler<Control>((control, args) =>
+        {
+            ApplyMirror(control);
+            if (args.NewValue is true)
+            {
+                control.PropertyChanged += OnMarkedControlPropertyChanged;
+            }
+            else
+            {
+                control.PropertyChanged -= OnMarkedControlPropertyChanged;
+            }
+        });
+
     private readonly Control _host;
     private readonly ILocaleSource _locale;
 
@@ -52,6 +75,25 @@ public sealed class WindowChrome
 
         host.Children.Add(Region.Control);
         return host;
+    }
+
+    public static bool GetMirrorsInRtl(Control control) => control.GetValue(MirrorsInRtlProperty);
+
+    public static void SetMirrorsInRtl(Control control, bool value) => control.SetValue(MirrorsInRtlProperty, value);
+
+    private static void OnMarkedControlPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property == Visual.FlowDirectionProperty && sender is Control control)
+        {
+            ApplyMirror(control);
+        }
+    }
+
+    private static void ApplyMirror(Control control)
+    {
+        var mirrored = GetMirrorsInRtl(control) && control.FlowDirection == FlowDirection.RightToLeft;
+        control.RenderTransformOrigin = RelativePoint.Center;
+        control.RenderTransform = mirrored ? new ScaleTransform(-1, 1) : null;
     }
 
     private void ApplyDirection() =>

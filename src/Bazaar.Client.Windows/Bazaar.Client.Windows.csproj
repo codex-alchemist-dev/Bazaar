@@ -15,9 +15,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Launcher\Bazaar.Client.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
@@ -26,6 +28,9 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\Bazaar.Client.RyuseiFuda\Bazaar.Client.RyuseiFuda.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Org\Bazaar.Client.Org.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui\Bazaar.Client.GitGui.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui.Github\Bazaar.Client.GitGui.Github.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitGui.Gitlab\Bazaar.Client.GitGui.Gitlab.csproj" />
@@ -40,5 +45,6 @@
     <ProjectReference Include="..\Bazaar.Client.Walkthrough.Avalonia\Bazaar.Client.Walkthrough.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.FirstTask.Avalonia\Bazaar.Client.FirstTask.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Souls\Bazaar.Client.Souls.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
   </ItemGroup>
 </Project>
