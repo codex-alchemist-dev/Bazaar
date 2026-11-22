@@ -106,60 +106,19 @@ internal static class Program
         }
     }
 
-    /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
+    /// <summary>
+    /// Builds the window through the pane host (doc 30 section 1). The dev chat settings from the environment still start a chat,
+    /// which the GC pane shows; with none, the window opens on the Dashboard. <c>--terminal</c>, <c>--sign-in</c>,
+    /// <c>--create-company</c> and <c>--first-run</c> keep working.
+    /// </summary>
     private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates)
     {
         if (settings is null)
         {
-            Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
-            var plain = new MainWindow();
-            ShowTerminalWhenAsked(plain, args);
-            ShowFirstRun(plain, args);
-            InstallShell(plain);
-            return plain;
+            Console.Error.WriteLine($"Dev chat not configured. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable} to show a chat.");
         }
 
-        Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
-        var window = new MainWindow(chat.View);
-        ShowTerminalWhenAsked(window, args);
-        ShowFirstRun(window, args);
-        window.Closed += async (_, _) => await chat.DisposeAsync();
-        InstallShell(window);
-        AttachMnemonics(window, paths);
-        return window;
+        var dataDir = ClientDataPaths.DataDir(Environment.GetEnvironmentVariable);
+        return LinuxHead.Create(new LinuxHeadOptions(settings, paths, args, updates, dataDir, _clientBuild, Console.Error.WriteLine)).Window;
     }
-
-    // --sign-in, --create-company and --first-run replace the window content with the first-run screens (doc 45 section 2.6).
-    private static void ShowFirstRun(MainWindow window, IReadOnlyList<string> args)
-    {
-        if (FirstRunScreens.TryBuild(args) is { } firstRun)
-        {
-            window.Content = firstRun;
-        }
-    }
-
-    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
-    private static void AttachMnemonics(MainWindow window, LinuxPaths paths)
-    {
-        Directory.CreateDirectory(paths.StateDirectory);
-        window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
-    }
-
-    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
-    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
-    {
-        if (!args.Contains("--terminal", StringComparer.Ordinal))
-        {
-            return;
-        }
-
-        var sessions = CalcinatoTerminalPanes.CreateSessions();
-        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
-        window.Closed += async (_, _) => await sessions.DisposeAsync();
-    }
-
-    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window) =>
-        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }

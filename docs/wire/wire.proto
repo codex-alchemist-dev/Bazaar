@@ -88,9 +88,9 @@ enum PrListState {
 enum PrMergeStatus {
   PR_MERGE_STATUS_MERGED = 0; // merged
   PR_MERGE_STATUS_STALE = 1; // stale
-  PR_MERGE_STATUS_CHECKS_FAILED = 2; // checksFailed
-  PR_MERGE_STATUS_BAD_SIGNATURE = 3; // badSignature
-  PR_MERGE_STATUS_NOT_MERGEABLE = 4; // notMergeable
+  PR_MERGE_STATUS_CHECKS_FAILED = 2; // checks_failed
+  PR_MERGE_STATUS_BAD_SIGNATURE = 3; // bad_signature
+  PR_MERGE_STATUS_NOT_MERGEABLE = 4; // not_mergeable
   PR_MERGE_STATUS_CONFLICT = 5; // conflict
   PR_MERGE_STATUS_REFUSED = 6; // refused
 }
@@ -107,6 +107,12 @@ enum PrincipalKind {
   PRINCIPAL_KIND_AGENT = 2; // agent
 }
 
+enum RiskClass {
+  RISK_CLASS_READ = 0; // read
+  RISK_CLASS_WRITE = 1; // write
+  RISK_CLASS_EXEC = 2; // exec
+}
+
 enum ZoomTier {
   ZOOM_TIER_FAR = 0; // far
   ZOOM_TIER_MID = 1; // mid
@@ -119,6 +125,16 @@ message ClusterGlyph {
   float x = 3;
   float y = 4;
   float z = 5;
+}
+
+message EngineGrantVerifyReply {
+  bool covers = 1;
+}
+
+message EngineGrantVerifyRequest {
+  string grant_id = 1;
+  string tool = 2;
+  RiskClass risk_class = 3;
 }
 
 message EngineRelayCallFrame {
@@ -250,6 +266,18 @@ message Hello {
   string client_build = 7;
   optional string credential = 8;
   StreamCursorList cursors = 9;
+}
+
+message HiveGrantChangeReply {
+  bool accepted = 1;
+  optional string reason = 2;
+  bool approval_required = 3;
+}
+
+message HiveGrantChangeRequest {
+  string from_project = 1;
+  string to_project = 2;
+  string kind = 3;
 }
 
 message KanbanAssignReply {

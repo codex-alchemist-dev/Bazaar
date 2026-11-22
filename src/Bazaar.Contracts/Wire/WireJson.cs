@@ -59,6 +59,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(KanbanBoardRequest))]
 [JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayRequestFrame))]
 [JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayResultFrame))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineGrantVerifyRequest))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineGrantVerifyReply))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
 [JsonSerializable(typeof(KanbanMoveReply))]
 [JsonSerializable(typeof(KanbanAssignRequest))]
