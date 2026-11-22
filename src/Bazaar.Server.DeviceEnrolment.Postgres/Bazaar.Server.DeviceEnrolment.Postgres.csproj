@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Bazaar.Server.DeviceEnrolment.Postgres</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DeviceEnrolment.Abstractions\Bazaar.Server.DeviceEnrolment.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+</Project>
