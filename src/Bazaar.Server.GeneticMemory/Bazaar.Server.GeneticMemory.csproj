@@ -6,6 +6,10 @@
     <RootNamespace>Bazaar.Server.GeneticMemory</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GeneticMemory.Abstractions\Bazaar.Server.GeneticMemory.Abstractions.csproj" />
   </ItemGroup>

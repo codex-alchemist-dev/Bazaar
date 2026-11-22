@@ -2,6 +2,8 @@ using Bazaar.Core;
 using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.GeneticMemory.Abstractions;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Host.Startup;
+using Npgsql;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -79,5 +81,28 @@ public sealed class GeneticMemoryComponentTests
 
         Assert.Throws<InvalidOperationException>(() => without.GetRequiredService<IGeneticMemoryTransfer>());
         Assert.IsType<GeneticMemoryService>(with.GetRequiredService<IGeneticMemoryTransfer>());
+    }
+
+    [Fact]
+    public void Host_migration_source_includes_the_genetic_memory_namespace()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("genetic_memory", source.Namespaces());
+        Assert.Equal([1], source.Load("genetic_memory").Select(f => f.Version).ToList());
+    }
+
+    [Fact]
+    public void The_ledger_is_in_memory_without_a_data_source_and_postgres_with_one()
+    {
+        using var without = Build(Config(), withSink: false);
+        using var dataSource = NpgsqlDataSource.Create("Host=localhost;Database=unused;Username=unused");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+        new GeneticMemoryComponent().AddServices(services, Config());
+        using var with = services.BuildServiceProvider();
+
+        Assert.IsType<InMemoryGmtLedger>(without.GetRequiredService<IGmtLedger>());
+        Assert.IsType<PgGmtLedger>(with.GetRequiredService<IGmtLedger>());
     }
 }

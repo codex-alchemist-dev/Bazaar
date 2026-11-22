@@ -3,6 +3,7 @@ using Bazaar.Server.GeneticMemory.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.GeneticMemory;
 
@@ -31,7 +32,9 @@ public sealed class GeneticMemoryComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.TryAddSingleton(ReadOptions(configuration.GetSection(SectionName)));
-        services.TryAddSingleton<IGmtLedger, InMemoryGmtLedger>();
+        // With an NpgsqlDataSource the queue survives restarts; without one the in-memory ledger keeps a dev host working.
+        services.TryAddSingleton<IGmtLedger>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGmtLedger(dataSource) : new InMemoryGmtLedger());
         services.TryAddSingleton(sp => new GeneticMemoryService(
             sp.GetRequiredService<IGmtLedger>(),
             sp.GetRequiredService<IGmtLessonWriter>(),
