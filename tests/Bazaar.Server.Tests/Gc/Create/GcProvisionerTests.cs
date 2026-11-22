@@ -1,6 +1,6 @@
 using Bazaar.Contracts.Gc;
-using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Gc.Create;
+using Bazaar.Server.Gc.Write;
 
 namespace Bazaar.Server.Tests.Gc.Create;
 
