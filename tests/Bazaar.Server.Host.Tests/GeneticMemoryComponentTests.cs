@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.GeneticMemory.Abstractions;
+using Bazaar.Server.Agents.Turns.Subagents;
+using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Npgsql;
@@ -104,5 +106,46 @@ public sealed class GeneticMemoryComponentTests
 
         Assert.IsType<InMemoryGmtLedger>(without.GetRequiredService<IGmtLedger>());
         Assert.IsType<PgGmtLedger>(with.GetRequiredService<IGmtLedger>());
+    }
+
+    [Fact]
+    public void The_proposal_tool_is_off_by_default()
+    {
+        using var provider = Build(Config(), withSink: true);
+
+        Assert.Empty(provider.GetServices<ToolRegistration>());
+        Assert.Null(provider.GetService<IGmtProposalSource>());
+        Assert.False(provider.GetRequiredService<GmtOptions>().ProposalToolEnabled);
+    }
+
+    [Fact]
+    public void Turning_the_proposal_tool_on_registers_the_tool_its_definition_and_the_source()
+    {
+        using var provider = Build(Config(("Bazaar:GeneticMemory:ProposalTool:Enabled", "true"), ("Bazaar:GeneticMemory:ProposalTool:MaxPerChild", "3")), withSink: true);
+
+        var registration = Assert.Single(provider.GetServices<ToolRegistration>());
+        Assert.Equal(GmtToolNames.ProposeLesson, registration.Name);
+        Assert.IsType<GmtProposeLessonTool>(registration.Tool);
+        Assert.Contains(provider.GetServices<Bazaar.Contracts.Gateway.ModelToolDefinition>(), d => d.Name == GmtToolNames.ProposeLesson);
+        Assert.IsType<GmtRecordedProposalSource>(provider.GetRequiredService<IGmtProposalSource>());
+        Assert.Equal(3, provider.GetRequiredService<GmtOptions>().MaxProposalsPerChild);
+    }
+
+    [Theory]
+    [InlineData("Bazaar:GeneticMemory:ProposalTool:Enabled", "maybe")]
+    [InlineData("Bazaar:GeneticMemory:ProposalTool:MaxPerChild", "0")]
+    [InlineData("Bazaar:GeneticMemory:ProposalTool:MaxPerChild", "51")]
+    public void A_bad_proposal_tool_option_fails_at_start(string key, string value)
+    {
+        Assert.Throws<InvalidOperationException>(() => Build(Config((key, value)), withSink: false));
+    }
+
+    [Fact]
+    public void The_end_hook_is_registered_and_does_nothing_without_a_proposal_source()
+    {
+        using var provider = Build(Config(), withSink: true);
+
+        var hook = Assert.Single(provider.GetServices<ISubagentEndHook>());
+        Assert.NotNull(hook);
     }
 }

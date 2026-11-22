@@ -152,6 +152,7 @@
     <Project Path="src/Bazaar.Server.Portability.ParserHost/Bazaar.Server.Portability.ParserHost.csproj" />
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.GeneticMemory/Bazaar.Client.GeneticMemory.csproj" />
     <Project Path="src/Bazaar.Client.GeneticMemory.Abstractions/Bazaar.Client.GeneticMemory.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.GeneticMemory.Avalonia/Bazaar.Client.GeneticMemory.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />

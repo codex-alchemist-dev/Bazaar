@@ -136,3 +136,24 @@ public interface IGmtProposalSource
     /// <summary>The proposals for an ended child, or null when it proposed none.</summary>
     Task<GmtChildProposals?> ReadAsync(Bazaar.Server.Agents.Turns.Subagents.SubagentEnded ended, CancellationToken ct);
 }
+
+/// <summary>Name of the tool a child calls to record a lesson (doc 25 Genetic Memory Transfer, PROPOSED).</summary>
+public static class GmtToolNames
+{
+    /// <summary>The exact tool name.</summary>
+    public const string ProposeLesson = "gmt.propose_lesson";
+}
+
+/// <summary>What the host knows about the session that ran a child: where its lessons go and how far to trust them.</summary>
+/// <param name="TargetAgent">The receiving agent's memory slug (the parent).</param>
+/// <param name="Tainted">True when the session saw untrusted input.</param>
+/// <param name="Quarantined">True when the agent is quarantined.</param>
+/// <param name="Terms">Person, customer and project names to keep out of a lesson.</param>
+public sealed record GmtChildContext(string TargetAgent, bool Tainted, bool Quarantined, GmtTerms Terms);
+
+/// <summary>Resolves a child's session to a <see cref="GmtChildContext"/>. The host provides it; without one every proposal is refused or dropped (fail closed).</summary>
+public interface IGmtChildContext
+{
+    /// <summary>The context, or null when the agent or session is unknown.</summary>
+    Task<GmtChildContext?> ResolveAsync(Guid agentId, Guid sessionId, CancellationToken ct);
+}

@@ -6,6 +6,7 @@
     <RootNamespace>Bazaar.Server.GeneticMemory</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Npgsql" />
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>

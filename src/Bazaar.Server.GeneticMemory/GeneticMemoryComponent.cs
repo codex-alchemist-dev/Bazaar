@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Subagents;
+using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.GeneticMemory.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,18 @@ public sealed class GeneticMemoryComponent : IBazaarComponent
             sp.GetService<TimeProvider>()));
         services.TryAddSingleton<IGeneticMemoryTransfer>(sp => sp.GetRequiredService<GeneticMemoryService>());
 
+        // [PROPOSED] The proposal tool and its source, only when the operator turns them on. Off by default: no tool, so nothing is staged.
+        services.TryAddSingleton<GmtProposalStore>();
+        services.TryAddSingleton(sp => new GmtProposeLessonTool(
+            sp.GetRequiredService<GmtProposalStore>(), sp.GetRequiredService<GmtOptions>(), sp.GetService<IGmtChildContext>()));
+        if (ReadOptions(configuration.GetSection(SectionName)).ProposalToolEnabled)
+        {
+            services.AddSingleton(sp => new ToolRegistration(GmtToolNames.ProposeLesson, sp.GetRequiredService<GmtProposeLessonTool>()));
+            services.AddSingleton(GmtProposeLessonTool.Definition);
+            services.TryAddSingleton<IGmtProposalSource>(sp => new GmtRecordedProposalSource(
+                sp.GetRequiredService<GmtProposalStore>(), sp.GetService<IGmtChildContext>()));
+        }
+
         // The child-end hook (doc 06): added only when the host provides a proposal source, so an install without one stages nothing.
         services.AddSingleton<ISubagentEndHook>(sp => sp.GetService<IGmtProposalSource>() is { } source
             ? new GmtSubagentEndHook(source, sp.GetRequiredService<IGeneticMemoryTransfer>())
@@ -67,6 +80,26 @@ public sealed class GeneticMemoryComponent : IBazaarComponent
         if (section["WriterAgentId"] is { Length: > 0 } writer)
         {
             options = options with { WriterAgentId = writer };
+        }
+
+        if (section["ProposalTool:Enabled"] is { Length: > 0 } enabled)
+        {
+            if (!bool.TryParse(enabled, out var on))
+            {
+                throw new InvalidOperationException($"{SectionName}:ProposalTool:Enabled must be true or false.");
+            }
+
+            options = options with { ProposalToolEnabled = on };
+        }
+
+        if (section["ProposalTool:MaxPerChild"] is { Length: > 0 } max)
+        {
+            if (!int.TryParse(max, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n) || n is < 1 or > 50)
+            {
+                throw new InvalidOperationException($"{SectionName}:ProposalTool:MaxPerChild must be a whole number from 1 to 50.");
+            }
+
+            options = options with { MaxProposalsPerChild = n };
         }
 
         return options;

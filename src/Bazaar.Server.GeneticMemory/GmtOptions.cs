@@ -8,4 +8,24 @@ public sealed record GmtOptions
 
     /// <summary>Agent id that owns the memory commits of the accept flow.</summary>
     public string WriterAgentId { get; init; } = "gmt";
+
+    /// <summary>
+    /// [PROPOSED] Whether the <c>gmt.propose_lesson</c> tool is registered. Off by default: with it off a child has no way to record a
+    /// lesson and nothing is staged. Binds from <c>Bazaar:GeneticMemory:ProposalTool:Enabled</c>.
+    /// </summary>
+    public bool ProposalToolEnabled { get; init; }
+
+    private readonly int _maxProposalsPerChild = 5;
+
+    /// <summary>Most lessons one child may record, 1 to 50. Binds from <c>Bazaar:GeneticMemory:ProposalTool:MaxPerChild</c>.</summary>
+    public int MaxProposalsPerChild
+    {
+        get => _maxProposalsPerChild;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 1);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 50);
+            _maxProposalsPerChild = value;
+        }
+    }
 }
