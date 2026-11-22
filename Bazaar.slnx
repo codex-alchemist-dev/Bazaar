@@ -315,6 +315,7 @@
     <Project Path="tests/Bazaar.DeviceApproval.Tests/Bazaar.DeviceApproval.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Windows/Bazaar.Server.Providers.Windows.csproj" />
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
+    <Project Path="src/Bazaar.Server.Twin/Bazaar.Server.Twin.csproj" />
     <Project Path="src/Bazaar.Client.Health/Bazaar.Client.Health.csproj" />
     <Project Path="src/Bazaar.Client.Twin/Bazaar.Client.Twin.csproj" />
     <Project Path="src/Bazaar.Client.Archive/Bazaar.Client.Archive.csproj" />

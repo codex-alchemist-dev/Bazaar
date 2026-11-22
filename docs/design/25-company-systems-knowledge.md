@@ -172,7 +172,7 @@ Not in this slice: today the grant is checked when a copy is made and again at r
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
 2. Health rules and project panel queries. Needs 1.
 3. Twin fact schema and deterministic extractors (dependencies, owners, releases). Needs 04, 21.
-4. Twin prose step in a reader session with the ref validator. Needs 3, 05, 15.
+4. Twin prose step in a reader session with the ref validator. Needs 3, 05, 15. Status: the prompt builder, reply parser, ref validator, page renderer and Vault page writer are in `Bazaar.Server.Twin`; the model call is the `ITwinProseWriter` seam, with a fake in tests. The real reader session (doc 15) is not wired yet: no reader-session primitive exists beyond the reader scratch store.
 5. Decision-chain index from Vault front matter. Needs 18.
 6. Archive generator, chapter validator, Vault write through `VaultWriter`. Needs 1, 5.
 7. Hive grant table, Vault copy flow and sanitizer on 08 §6 scopes. Needs 08, 18. Status: grant table (`hive_grant`), held-copy ledger (`hive_held_copy`, `hive_copy`) and `HiveComponent` host wiring are built (`hive` migration namespace); see doc 40. Settings reach the component through the `Bazaar:Hive` configuration section until the Settings service feeds `hive.*` keys at runtime.
