@@ -111,6 +111,7 @@ Status: DECIDED for the Windows head, by the owner's delegation of 2026-11-18. I
 - **Presence.** Each approval signature needs a fresh Windows Hello verification (the platform's user consent verifier). Cancelled, unavailable or failed verification refuses the approval and signs nothing. A signature cannot be produced without presence, and the key is never used for anything else.
 - **Refusals are explicit.** No TPM, no Hello, a cancelled prompt and a software-only key each produce a named refusal. None of them falls back to a weaker path.
 - **Linux.** Unchanged here. It stays under the platform store question in the storage floor above.
+- **Desktop adapters [PROPOSED, 2026-11-22].** `Bazaar.Client.Approvals.Desktop` adapts the TPM signer and Hello presence to the client approval gate's `IDeviceApprovalSigner` and `IBiometricPrompt` (doc 52, merge button).
 
 ### 5b. Owner device enrolment [PROPOSED]
 

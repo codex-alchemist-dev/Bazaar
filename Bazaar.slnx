@@ -329,6 +329,7 @@
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Approvals.Desktop/Bazaar.Client.Approvals.Desktop.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Http/Bazaar.Client.Approvals.Http.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Phone/Bazaar.Client.Approvals.Phone.csproj" />
     <Project Path="src/Bazaar.Client.SignIn.Abstractions/Bazaar.Client.SignIn.Abstractions.csproj" />
@@ -375,6 +376,7 @@
     <Project Path="tests/Bazaar.Client.Approvals.Http.Tests/Bazaar.Client.Approvals.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Valkey.Tests/Bazaar.Server.Valkey.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Approvals.Tests/Bazaar.Client.Approvals.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Approvals.Desktop.Tests/Bazaar.Client.Approvals.Desktop.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.SignIn.Tests/Bazaar.Client.SignIn.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.SignIn.Storage.Tests/Bazaar.Client.SignIn.Storage.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.FirstRun.Tests/Bazaar.Server.Setup.FirstRun.Tests.csproj" />
