@@ -253,6 +253,14 @@ Also built (GC bundle source, head.json and self-check): `GcBundleSource` (id `g
 
 Decisions where this doc was silent (owner may overrule): doc 44 section 4.2 fixes the content of `head.json`, not its field names, so the writer's camelCase names stand and the verifier accepts both; `GcMentionsBundleSource` remains for a bundle whose GC exporter has no mention reader, and the two must not both run for one GC. Not built: the section 6.2 self-check does not replay GC or audit chains at bundle level (the verifier library references this project, so the assembler cannot call it; the sources run their own chain self-checks), and a failed self-check is not yet recorded as `incomplete` in the audit log (the assembler has no audit sink).
 
+### 6.6 Built status of the Postgres export readers
+
+Built in `Bazaar.Server.Portability.Postgres` (raw Npgsql over the shared `NpgsqlDataSource`, no new tables, no migration): `PostgresGcMessageVersionSource` (`IGcMessageVersionSource`, over `gc_message_version`; ciphertext only, paged by seq), `PostgresGcMentionSource` (`IGcMentionSource`, over `gc_mention`; paged by the `(seq, target_principal_id)` primary key, so several mentions on one seq never skip or repeat) and `PostgresKanbanExportSource` (`IKanbanExportSource`, over `tasks`, `task_edges`, `task_links` and `task_events`; tasks in id order, edges by blocker then blocked, transitions by event seq). The two GC readers ask `IGcReadAccess` first, throw `GcAccessDeniedException` on a denied viewer and stop at the grant's last seq, as `GcLogReader` does. Tests run against a real PostgreSQL with only `common/0001` and `common/0012` applied.
+
+Decisions where this doc was silent (owner may overrule): a task's unfinished blockers and a transition's gate are derived at read time. Blockers are the task's blockers whose state is not `done`. A `task.transitioned` event does not store the gate, so the transition carries the task's gate now (the gate is set when the task is created). Only `task.transitioned` events are exported as transitions, and an edge's `createdBy` is the stored uuid in "D" text. Mention paging and sort use PostgreSQL's bytewise `uuid` order, which is the order of lowercase "D" text.
+
+Not built: `IGraphExportSource`. It returns the viewer-filtered Constellation snapshot (doc 19), which the host computes from the Vault, GC, Kanban and PR data. No table holds that graph (the only graph tables are the memory-graph revisions and edges, a different graph), so a Postgres reader would invent a projection. It stays with the Constellation projection.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
