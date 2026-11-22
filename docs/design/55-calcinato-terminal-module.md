@@ -129,12 +129,12 @@ Sequence numbers start at 1 per terminal and never repeat. The `pane` stream is 
 
 Terminal frames ride the connection's normal envelope, so every transport and codec in doc 90 carries them unchanged. One new message type, `pane.frame` (`WireTypes.PaneFrame`), used on stream `pane:<terminalId>`:
 
-- Server to client: an `event` envelope, `s` = `pane:<terminalId>`, payload `{ "frame": <the terminal frame as JSON text> }`.
+- Server to client: an `event` envelope, `s` = `pane:<terminalId>`, payload `{ "frame": <string> }`, the terminal frame as JSON text. A future binary form would be a new optional field (for example `frameBin`), never a change to `frame`, so old peers keep working.
 - Client to server: a `request` envelope with the same type and payload. The server answers `ok` once the frame is accepted or an `error` envelope with a `TerminalError` code. Request ids make a resent frame idempotent after a reconnect (doc 02).
 - The frame stays JSON text inside the payload, so the codec of the connection (JSON, CBOR, MessagePack and others) only has to carry one string field and a terminal never depends on the connection codec.
-- Subscribe, unsubscribe, `lagged` and `stream.revoked` work as for any stream. The pane stream is state: the server ignores the cursor and a resubscribe is answered by the client sending `TerminalReplay`.
+- When a transport maps each subscription to its own stream (doc 90 `stream_per_subscription`, not built yet) the envelope stays identical and only the carrier changes. Subscribe, unsubscribe, `lagged` and `stream.revoked` work as for any stream. The pane stream is state: the server ignores the cursor and a resubscribe is answered by the client sending `TerminalReplay`.
 
-The client side adapter lives in the wire client module as a `pane` stream sink (new `StreamSink` extension point on `WireClient`: a handler per stream prefix, so Client.Core gains no terminal code). Calcinato's `IPaneStreamConnection` is implemented on that sink.
+The client side adapter lives in the wire client module that takes the `Bazaar.Wire.Abstractions` types, not in Client.Core: a `StreamSink` extension point there takes one handler per stream prefix, with a default of "unknown stream", so Client.Core gains no terminal code. Calcinato's `IPaneStreamConnection` is implemented on that sink.
 
 ## 7. Registration and distribution
 
