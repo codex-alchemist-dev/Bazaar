@@ -73,6 +73,8 @@
     <Project Path="src/Bazaar.Diagnostics/Bazaar.Diagnostics.csproj" />
     <Project Path="src/Bazaar.GC.Abstractions/Bazaar.GC.Abstractions.csproj" />
     <Project Path="src/Bazaar.Constellation.Abstractions/Bazaar.Constellation.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Constellation.Communities/Bazaar.Constellation.Communities.csproj" />
+    <Project Path="src/Bazaar.Constellation.Communities.Abstractions/Bazaar.Constellation.Communities.Abstractions.csproj" />
     <Project Path="src/Bazaar.Vault.Abstractions/Bazaar.Vault.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vault/Bazaar.Server.Vault.csproj" />
     <Project Path="src/Bazaar.Kodo/Bazaar.Kodo.csproj" />
@@ -296,6 +298,7 @@
     <Project Path="tests/Bazaar.Client.Views.Tests/Bazaar.Client.Views.Tests.csproj" />
     <Project Path="tests/Bazaar.Michi.Tests/Bazaar.Michi.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Communities.Tests/Bazaar.Constellation.Communities.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Tests/Bazaar.Constellation.Vulkan.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Bench/Bazaar.Constellation.Vulkan.Bench.csproj" />
