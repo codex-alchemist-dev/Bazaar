@@ -42,7 +42,7 @@ public sealed class GitGuiCompositionTests
         public string? GetSignOff(Guid humanId) => line;
     }
 
-    private static readonly MergePrincipal Ada = new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Ada Lovelace", "ada@example.org");
+    private static readonly MergePrincipal _ada = new(Guid.Parse("11111111-1111-1111-1111-111111111111"), "Ada Lovelace", "ada@example.org");
 
     [Fact]
     public async Task Registers_the_identity_for_a_signed_in_person()
@@ -51,11 +51,11 @@ public sealed class GitGuiCompositionTests
         await store.SaveAsync(new ClientSession("a", "r", DateTimeOffset.UtcNow.AddMinutes(5)), TestContext.Current.CancellationToken);
 
         var context = await new PaneModuleContext().WithOwnerMergeIdentityAsync(
-            store, (_, _) => Task.FromResult<MergePrincipal?>(Ada), cancellationToken: TestContext.Current.CancellationToken);
+            store, (_, _) => Task.FromResult<MergePrincipal?>(_ada), cancellationToken: TestContext.Current.CancellationToken);
 
         var identity = context.Get<IOwnerMergeIdentity>();
         Assert.NotNull(identity);
-        Assert.Equal(Ada.HumanId, identity.HumanId);
+        Assert.Equal(_ada.HumanId, identity.HumanId);
         Assert.Equal("Signed-off-by: Ada Lovelace <ada@example.org>", identity.SignOff);
     }
 
@@ -64,7 +64,7 @@ public sealed class GitGuiCompositionTests
     {
         var resolved = false;
         var context = await new PaneModuleContext().WithOwnerMergeIdentityAsync(
-            new InMemorySessionStore(), (_, _) => { resolved = true; return Task.FromResult<MergePrincipal?>(Ada); },
+            new InMemorySessionStore(), (_, _) => { resolved = true; return Task.FromResult<MergePrincipal?>(_ada); },
             cancellationToken: TestContext.Current.CancellationToken);
 
         Assert.Null(context.Get<IOwnerMergeIdentity>());
@@ -74,7 +74,7 @@ public sealed class GitGuiCompositionTests
     [Fact]
     public void Profile_override_wins_and_is_registered()
     {
-        var context = new PaneModuleContext().WithOwnerMergeIdentity(Ada, new FixedProfile("Signed-off-by: Ada L. <ada@work.example>"));
+        var context = new PaneModuleContext().WithOwnerMergeIdentity(_ada, new FixedProfile("Signed-off-by: Ada L. <ada@work.example>"));
 
         Assert.Equal("Signed-off-by: Ada L. <ada@work.example>", context.Get<IOwnerMergeIdentity>()!.SignOff);
     }

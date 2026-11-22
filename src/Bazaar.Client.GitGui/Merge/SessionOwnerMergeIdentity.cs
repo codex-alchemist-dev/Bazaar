@@ -26,7 +26,7 @@ public sealed class UnsetMergeProfileStore : IMergeProfileStore
 /// </summary>
 public sealed class SessionOwnerMergeIdentity : IOwnerMergeIdentity
 {
-    private const string Prefix = "Signed-off-by: ";
+    private const string _prefix = "Signed-off-by: ";
 
     private SessionOwnerMergeIdentity(Guid humanId, string signOff)
     {
@@ -52,8 +52,8 @@ public sealed class SessionOwnerMergeIdentity : IOwnerMergeIdentity
         }
 
         var custom = profile?.GetSignOff(principal.HumanId)?.Trim();
-        if (custom is { Length: > 0 } && custom.StartsWith(Prefix, StringComparison.Ordinal)
-            && custom.Length > Prefix.Length && !custom.Any(char.IsControl))
+        if (custom is { Length: > 0 } && custom.StartsWith(_prefix, StringComparison.Ordinal)
+            && custom.Length > _prefix.Length && !custom.Any(char.IsControl))
         {
             return new SessionOwnerMergeIdentity(principal.HumanId, custom);
         }
@@ -62,7 +62,7 @@ public sealed class SessionOwnerMergeIdentity : IOwnerMergeIdentity
         var email = Clean(principal.Email);
         return name.Length == 0 || email.Length == 0
             ? null
-            : new SessionOwnerMergeIdentity(principal.HumanId, $"{Prefix}{name} <{email}>");
+            : new SessionOwnerMergeIdentity(principal.HumanId, $"{_prefix}{name} <{email}>");
     }
 
     private static string Clean(string? value) =>

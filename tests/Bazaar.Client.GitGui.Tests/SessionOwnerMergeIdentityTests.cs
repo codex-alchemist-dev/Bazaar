@@ -9,22 +9,22 @@ public sealed class SessionOwnerMergeIdentityTests
         public string? GetSignOff(Guid humanId) => line;
     }
 
-    private static readonly Guid Id = Guid.NewGuid();
+    private static readonly Guid _id = Guid.NewGuid();
 
     [Fact]
     public void Default_is_the_dco_line_from_the_principal()
     {
-        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, " Ada Lovelace ", "ada@example.org"), new UnsetMergeProfileStore());
+        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, " Ada Lovelace ", "ada@example.org"), new UnsetMergeProfileStore());
 
         Assert.NotNull(identity);
-        Assert.Equal(Id, identity.HumanId);
+        Assert.Equal(_id, identity.HumanId);
         Assert.Equal("Signed-off-by: Ada Lovelace <ada@example.org>", identity.SignOff);
     }
 
     [Fact]
     public void Profile_field_overrides_the_default()
     {
-        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, "Ada", "a@x.org"), new Profile("Signed-off-by: A. L. <al@y.org>"));
+        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, "Ada", "a@x.org"), new Profile("Signed-off-by: A. L. <al@y.org>"));
 
         Assert.Equal("Signed-off-by: A. L. <al@y.org>", identity!.SignOff);
     }
@@ -35,7 +35,7 @@ public sealed class SessionOwnerMergeIdentityTests
     [InlineData("Signed-off-by: ")]
     public void Invalid_profile_value_falls_back_to_the_default(string line)
     {
-        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, "Ada", "a@x.org"), new Profile(line));
+        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, "Ada", "a@x.org"), new Profile(line));
 
         Assert.Equal("Signed-off-by: Ada <a@x.org>", identity!.SignOff);
     }
@@ -43,7 +43,7 @@ public sealed class SessionOwnerMergeIdentityTests
     [Fact]
     public void Display_name_cannot_inject_lines_or_brackets()
     {
-        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, "Ada\nX <evil>", "a@x.org"));
+        var identity = SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, "Ada\nX <evil>", "a@x.org"));
 
         Assert.Equal("Signed-off-by: AdaX evil <a@x.org>", identity!.SignOff);
     }
@@ -53,7 +53,7 @@ public sealed class SessionOwnerMergeIdentityTests
     {
         Assert.Null(SessionOwnerMergeIdentity.TryCreate(null));
         Assert.Null(SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Guid.Empty, "Ada", "a@x.org")));
-        Assert.Null(SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, "", "a@x.org")));
-        Assert.Null(SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(Id, "Ada", " ")));
+        Assert.Null(SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, "", "a@x.org")));
+        Assert.Null(SessionOwnerMergeIdentity.TryCreate(new MergePrincipal(_id, "Ada", " ")));
     }
 }
