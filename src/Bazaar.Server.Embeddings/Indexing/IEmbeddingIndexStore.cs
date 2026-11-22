@@ -17,6 +17,12 @@ public interface IEmbeddingIndexStore
 
     /// <summary>Inserts or replaces embeddings. Returns the number of rows written.</summary>
     Task<int> UpsertAsync(Guid profileId, IReadOnlyList<EmbeddedBlock> embeddings, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Counts the blocks that could be embedded under <paramref name="profileId"/> and how many of them have a current embedding (same hash).
+    /// Blocks <paramref name="personalData"/> flags are in neither count, whether or not a stale row exists for them.
+    /// </summary>
+    Task<EmbeddingCoverage> CountCoverageAsync(Guid profileId, IPersonalDataBlockDetector personalData, CancellationToken cancellationToken);
 }
 
 /// <summary>
