@@ -71,11 +71,6 @@ public static class PaneKinds
     /// <summary>Interrupt stacks: agents with a pushed frame, depth 0 to 2 (doc 24 section 5).</summary>
     public const string InterruptStack = "bazaar.interrupt-stack";
 
-    /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
-    public const string CommunityDrafts = "bazaar.community-drafts";
-
-    /// <summary>Community log: what agents did on outside platforms, never what they said (doc 36, work package 9).</summary>
-    public const string CommunityLog = "bazaar.community-log";
     /// <summary>Approvals on the phone: pending approval cards with approve, reject and detail (doc 29 Approvals).</summary>
     public const string Approvals = "bazaar.approvals";
 

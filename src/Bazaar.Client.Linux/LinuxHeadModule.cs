@@ -1,6 +1,7 @@
 using Bazaar.Client.Calcinato.Mnemonics;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
@@ -38,6 +39,9 @@ public sealed class LinuxHeadModule : IClientModule
         new(new("nav.interrupts", "Interrupt stack", "interrupts"), PaneKinds.InterruptStack),
         new(new("nav.ryusei.schedule", "RyuseiFuda schedule", "schedule"), PaneKinds.RyuseiSchedule),
         new(new("nav.ryusei.workday", "RyuseiFuda Workday", "workday"), PaneKinds.Workday),
+        new(new("nav.analytics", "Agent analytics", "analytics"), PaneKinds.AgentAnalytics),
+        new(new("nav.git.solar", "Git Solar System", "solar"), PaneKinds.GitSolarSystem),
+        new(new("nav.git", "Git view", "git"), GitGuiPaneKinds.View),
         new(new(CalcinatoCommands.TerminalCommandId, "Terminal, open the terminal pane", "terminal"), PaneKinds.Terminal),
     ];
 
