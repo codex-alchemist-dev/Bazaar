@@ -3,6 +3,8 @@ using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
+using Bazaar.Server.Setup.Postgres;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -53,6 +55,14 @@ public sealed class PostgresApplyGateTests
         Assert.Throws<InvalidOperationException>(() => gate.RegisterApplyServices(new ServiceCollection()));
     }
 
+    [Fact]
+    public void The_gate_covers_the_first_run_section_like_the_host_does()
+    {
+        Assert.Contains("firstRun", PostgresApplyGate.Closed.CoveredSections);
+        Assert.Contains("settings", PostgresApplyGate.Closed.CoveredSections);
+        Assert.All(PostgresApplyGate.Closed.CoveredSections, id => Assert.True(SetupPlanSections.IsKnown(id), id));
+    }
+
     [Theory]
     [InlineData("dpapi:C:\\secret.bin")]
     [InlineData("env:TEST_SETUP_GATE_MISSING")]
@@ -98,8 +108,14 @@ public sealed class PostgresApplyGateTests
         Assert.True(gate.DurableAuditStoreAvailable);
 
         var services = new ServiceCollection();
+        services.AddSingleton<ISetupSettingCatalog>(RegistrySetupSettingCatalog.Known);
         gate.RegisterApplyServices(services);
         using var provider = services.BuildServiceProvider();
+
+        // The CLI registers the same steps as the host, so a CLI apply and a host apply do the same thing.
+        Assert.Equal(
+            ["constitution.seed", "firstrun.seed", "install.settings"],
+            provider.GetServices<ISetupStep>().OrderBy(step => step.Order).Select(step => step.Id));
 
         var instanceLock = provider.GetRequiredService<ISetupInstanceLock>();
         await using (await instanceLock.AcquireAsync(ct))
