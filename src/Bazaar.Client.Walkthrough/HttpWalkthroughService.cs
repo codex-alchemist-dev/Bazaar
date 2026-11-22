@@ -25,7 +25,7 @@ public sealed class HttpWalkthroughService(HttpClient http, Func<Task<string?>> 
         reply.EnsureSuccessStatusCode();
         var body = await reply.Content.ReadFromJsonAsync(WalkthroughJsonContext.Default.FactsBody, cancellationToken).ConfigureAwait(false)
             ?? throw new HttpRequestException("The server sent no facts.");
-        return new WalkthroughFacts(body.CompanyCreated, string.IsNullOrWhiteSpace(body.FirstAgentName) ? null : body.FirstAgentName, body.FirstTaskGiven);
+        return new WalkthroughFacts(body.CompanyCreated, string.IsNullOrWhiteSpace(body.FirstAgentName) ? null : body.FirstAgentName, body.FirstTaskGiven, body.FirstAgentId, body.FirstChatId);
     }
 
     public async Task<WalkthroughProgress?> LoadAsync(CancellationToken cancellationToken = default)

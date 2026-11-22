@@ -38,7 +38,7 @@ public static class WalkthroughEndpoints
         var provider = http.RequestServices.GetService<IWalkthroughFactsProvider>();
         if (provider is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
         var facts = await provider.ReadAsync(person, http.RequestAborted);
-        return Results.Text(JsonSerializer.Serialize(new FactsReply(facts.CompanyCreated, facts.FirstAgentName, facts.FirstTaskGiven), WalkthroughServerJson.Default.FactsReply), "application/json");
+        return Results.Text(JsonSerializer.Serialize(new FactsReply(facts.CompanyCreated, facts.FirstAgentName, facts.FirstTaskGiven, facts.FirstAgentId, facts.FirstChatId), WalkthroughServerJson.Default.FactsReply), "application/json");
     }
 
     private static async Task<IResult> GetAsync(HttpContext http)

@@ -4,7 +4,9 @@ namespace Bazaar.Server.Walkthrough;
 /// <param name="CompanyCreated">The install has a company.</param>
 /// <param name="FirstAgentName">The first agent's display name, or null when there is none.</param>
 /// <param name="FirstTaskGiven">The person has created a task or sent an agent request.</param>
-public sealed record WalkthroughServerFacts(bool CompanyCreated, string? FirstAgentName, bool FirstTaskGiven);
+/// <param name="FirstAgentId">The first agent's member id, or null.</param>
+/// <param name="FirstChatId">The group chat seeded with the first agent, or null.</param>
+public sealed record WalkthroughServerFacts(bool CompanyCreated, string? FirstAgentName, bool FirstTaskGiven, Guid? FirstAgentId = null, Guid? FirstChatId = null);
 
 /// <summary>One person's saved walkthrough progress, the server's copy of the <c>onboarding.walkthrough</c> preference.</summary>
 public sealed record WalkthroughPrefs(bool Dismissed, bool Finished, string Current, IReadOnlyList<string> Completed);

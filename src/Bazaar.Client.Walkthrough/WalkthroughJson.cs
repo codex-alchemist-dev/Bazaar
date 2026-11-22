@@ -6,7 +6,9 @@ namespace Bazaar.Client.Walkthrough;
 internal sealed record FactsBody(
     [property: JsonPropertyName("company_created")] bool CompanyCreated,
     [property: JsonPropertyName("first_agent_name")] string? FirstAgentName,
-    [property: JsonPropertyName("first_task_given")] bool FirstTaskGiven);
+    [property: JsonPropertyName("first_task_given")] bool FirstTaskGiven,
+    [property: JsonPropertyName("first_agent_id")] Guid? FirstAgentId = null,
+    [property: JsonPropertyName("first_chat_id")] Guid? FirstChatId = null);
 
 /// <summary>Body of <c>GET</c> and <c>PUT /prefs/walkthrough</c> (PROPOSED, doc 45 section 2.7).</summary>
 internal sealed record ProgressBody(

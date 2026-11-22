@@ -207,6 +207,9 @@
     <Project Path="src/Bazaar.Client.Walkthrough.Abstractions/Bazaar.Client.Walkthrough.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Walkthrough/Bazaar.Client.Walkthrough.csproj" />
     <Project Path="src/Bazaar.Client.Walkthrough.Avalonia/Bazaar.Client.Walkthrough.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.FirstTask.Abstractions/Bazaar.Client.FirstTask.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.FirstTask/Bazaar.Client.FirstTask.csproj" />
+    <Project Path="src/Bazaar.Client.FirstTask.Avalonia/Bazaar.Client.FirstTask.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.Setup.FirstRun/Bazaar.Server.Setup.FirstRun.csproj" />
     <Project Path="src/Bazaar.Server.Setup.FirstRun.Abstractions/Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.CompanySetup.Abstractions/Bazaar.Client.CompanySetup.Abstractions.csproj" />
@@ -236,6 +239,7 @@
     <Project Path="tests/Bazaar.Client.Approvals.Tests/Bazaar.Client.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.SignIn.Tests/Bazaar.Client.SignIn.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Walkthrough.Tests/Bazaar.Client.Walkthrough.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.FirstTask.Tests/Bazaar.Client.FirstTask.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.FirstRun.Tests/Bazaar.Server.Setup.FirstRun.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.CompanySetup.Tests/Bazaar.Client.CompanySetup.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />

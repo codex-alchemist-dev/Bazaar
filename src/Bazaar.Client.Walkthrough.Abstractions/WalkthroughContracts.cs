@@ -23,7 +23,9 @@ public enum WalkthroughStep
 /// <param name="CompanyCreated">The install has a company.</param>
 /// <param name="FirstAgentName">The first agent's display name, or null when no agent exists yet.</param>
 /// <param name="FirstTaskGiven">The person has given any agent a task (a Kanban card or a request in a group chat).</param>
-public sealed record WalkthroughFacts(bool CompanyCreated, string? FirstAgentName, bool FirstTaskGiven)
+/// <param name="FirstAgentId">The first agent's member id, or null when unknown. The first-task composer mentions it.</param>
+/// <param name="FirstChatId">The group chat seeded with the first agent, or null when unknown. The first-task composer posts there.</param>
+public sealed record WalkthroughFacts(bool CompanyCreated, string? FirstAgentName, bool FirstTaskGiven, Guid? FirstAgentId = null, Guid? FirstChatId = null)
 {
     /// <summary>Nothing is known to be done.</summary>
     public static WalkthroughFacts None { get; } = new(false, null, false);
