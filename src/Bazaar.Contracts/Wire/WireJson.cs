@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
+using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
@@ -42,9 +43,15 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcTyping))]
 [JsonSerializable(typeof(GcTypingResult))]
 [JsonSerializable(typeof(PresenceTyping))]
+[JsonSerializable(typeof(PresenceUpdate))]
+[JsonSerializable(typeof(PresenceSnapshotRequest))]
+[JsonSerializable(typeof(PresenceSnapshot))]
+[JsonSerializable(typeof(PaneFrame))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
+[JsonSerializable(typeof(PrefsSet))]
+[JsonSerializable(typeof(PrefsSetResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]
@@ -54,10 +61,14 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayResultFrame))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
 [JsonSerializable(typeof(KanbanMoveReply))]
+[JsonSerializable(typeof(KanbanAssignRequest))]
+[JsonSerializable(typeof(KanbanAssignReply))]
 [JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RyuseiTriggerListRequest))]
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(HiveGrantChangeRequest))]
+[JsonSerializable(typeof(HiveGrantChangeReply))]
 [JsonSerializable(typeof(PrListRequest))]
 [JsonSerializable(typeof(PrListReply))]
 [JsonSerializable(typeof(PrSummaryRequest))]

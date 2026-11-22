@@ -1,7 +1,7 @@
 Golden frame: ClusterGlyph
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:e68c27b75f4dd8542c8ecf454f35c5973c0a212158cbb561be9b80988a556dcf
+Schema hash: sha256:988f57eef746d4bf15a86c7bca749f8d4de68202b6eeadd7862b4100b9049c57
 Payload record: Bazaar.Contracts.Graph.ClusterGlyph
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 152 bytes

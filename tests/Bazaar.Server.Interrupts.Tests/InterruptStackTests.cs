@@ -1,6 +1,8 @@
-using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Interrupts;
+using Bazaar.Server.Setup.FirstRun;
 using Bazaar.Testing;
 using Bazaar.Testing.Postgres;
 using Npgsql;
@@ -9,6 +11,8 @@ namespace Bazaar.Server.Interrupts.Tests;
 
 public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<InterruptDb>
 {
+    private InterruptDb Db => db;
+
     private static void SkipWithoutDatabase() =>
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
 
@@ -16,17 +20,16 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
 
     private static Guid NewGuid() => Guid.CreateVersion7();
 
-    /// <summary>A fixed test key. Production keys come from the personal-data key service (doc 01 WP6).</summary>
-    private static readonly Guid _testKeyId = Guid.Parse("0f0e0d0c-0b0a-0908-0706-050403020100");
-    private static readonly IInterruptReasonCipher _testCipher = new AesGcmInterruptReasonCipher(_testKeyId, TestKey());
-
-    private static byte[] TestKey() => Enumerable.Range(1, AesGcmInterruptReasonCipher.KeySize).Select(i => (byte)i).ToArray();
+    private static readonly Guid _author = Guid.Parse("0f0e0d0c-0b0a-0908-0706-050403020100");
+    private static readonly Guid _companyOwner = Guid.Parse("aaaaaaaa-0000-7000-8000-000000000001");
+    private static readonly FakeBodyCodec _codec = new();
+    private static readonly IInterruptReasonCipher _testCipher = new GcBodyInterruptReasonCipher(_codec);
 
     /// <summary>Each test gets its own clock and stack over the shared class database; agents are fresh per test.</summary>
     private static (InterruptStackService Stack, FakeClock Clock) NewStack(NpgsqlDataSource dataSource)
     {
         var clock = new FakeClock();
-        return (new InterruptStackService(dataSource, _testCipher, clock), clock);
+        return (new InterruptStackService(dataSource, _testCipher, new FakeOwner(), clock), clock);
     }
 
     [Fact]
@@ -37,7 +40,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var agent = NewGuid();
         var gc = NewGuid();
 
-        var frame = await stack.PushAsync(agent, InterruptSource.Owner, "Stop and review", gc, ct: Ct);
+        var frame = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Stop and review", gc, ct: Ct);
 
         Assert.Equal(InterruptFrameState.Active, frame.State);
         Assert.Null(frame.ParentFrameId);
@@ -54,9 +57,9 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
+        var first = await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
 
-        var second = await stack.PushAsync(agent, InterruptSource.SystemBuild, "Build broke", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, "Build broke", gc, ct: Ct);
 
         Assert.Equal(first.Id, second.ParentFrameId);
         var live = await stack.GetStackAsync(agent, Ct);
@@ -73,12 +76,12 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
+        await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Second", gc, ct: Ct);
         var before = await stack.GetStackAsync(agent, Ct);
 
         var error = await Assert.ThrowsAsync<InterruptDepthExceededException>(
-            () => stack.PushAsync(agent, InterruptSource.Owner, "Third", gc, ct: Ct));
+            () => stack.PushAsync(agent, _author, InterruptSource.Owner, "Third", gc, ct: Ct));
 
         Assert.Equal(agent, error.AgentId);
         var after = await stack.GetStackAsync(agent, Ct);
@@ -93,8 +96,8 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
+        var first = await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Second", gc, ct: Ct);
 
         var resumed = await stack.PopAsync(agent, second.Id, Ct);
 
@@ -111,7 +114,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         SkipWithoutDatabase();
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
-        var frame = await stack.PushAsync(agent, InterruptSource.Owner, "Only", NewGuid(), ct: Ct);
+        var frame = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Only", NewGuid(), ct: Ct);
 
         var resumed = await stack.PopAsync(agent, frame.Id, Ct);
 
@@ -126,8 +129,8 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
+        var first = await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Second", gc, ct: Ct);
         await stack.PopAsync(agent, second.Id, Ct);
         var afterFirstPop = await stack.GetStackAsync(agent, Ct);
 
@@ -145,8 +148,8 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
+        var first = await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        await stack.PushAsync(agent, _author, InterruptSource.Owner, "Second", gc, ct: Ct);
 
         await Assert.ThrowsAsync<InterruptFrameNotTopException>(() => stack.PopAsync(agent, first.Id, Ct));
 
@@ -160,7 +163,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var owner = NewGuid();
         var other = NewGuid();
-        var frame = await stack.PushAsync(owner, InterruptSource.Owner, "Mine", NewGuid(), ct: Ct);
+        var frame = await stack.PushAsync(owner, _author, InterruptSource.Owner, "Mine", NewGuid(), ct: Ct);
 
         await Assert.ThrowsAsync<InterruptStackException>(() => stack.PopAsync(other, frame.Id, Ct));
 
@@ -174,10 +177,10 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, clock) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
+        var first = await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
         clock.Advance(TimeSpan.FromSeconds(59));
 
-        var repeat = await stack.PushAsync(agent, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
+        var repeat = await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
 
         Assert.Equal(first.Id, repeat.Id);
         Assert.Single(await stack.GetStackAsync(agent, Ct));
@@ -190,10 +193,10 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, clock) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        await stack.PushAsync(agent, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
+        await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
         clock.Advance(InterruptStackService.SystemDedupeWindow + TimeSpan.FromSeconds(1));
 
-        var later = await stack.PushAsync(agent, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
+        var later = await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, "CI red", gc, ct: Ct);
 
         Assert.Equal(2, (await stack.GetStackAsync(agent, Ct)).Count);
         Assert.NotNull(later.ParentFrameId);
@@ -206,9 +209,9 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        await stack.PushAsync(agent, InterruptSource.Owner, "Same words", gc, ct: Ct);
+        await stack.PushAsync(agent, _author, InterruptSource.Owner, "Same words", gc, ct: Ct);
 
-        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Same words", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.Owner, "Same words", gc, ct: Ct);
 
         Assert.Equal(2, (await stack.GetStackAsync(agent, Ct)).Count);
         Assert.NotNull(second.ParentFrameId);
@@ -221,8 +224,8 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var agent = NewGuid();
         var gc = NewGuid();
         var (before, _) = NewStack(db.DataSource);
-        var first = await before.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        var second = await before.PushAsync(agent, InterruptSource.SystemSecurity, "Alert", gc, ct: Ct);
+        var first = await before.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await before.PushAsync(agent, _author, InterruptSource.SystemSecurity, "Alert", gc, ct: Ct);
 
         // A new service instance over the same database stands in for a restarted host.
         var (after, _) = NewStack(db.DataSource);
@@ -245,7 +248,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         {
             try
             {
-                await stack.PushAsync(agent, InterruptSource.Owner, $"Push {i}", gc, ct: Ct);
+                await stack.PushAsync(agent, _author, InterruptSource.Owner, $"Push {i}", gc, ct: Ct);
                 return true;
             }
             catch (InterruptDepthExceededException)
@@ -266,10 +269,10 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var gc = NewGuid();
         var a = NewGuid();
         var b = NewGuid();
-        await stack.PushAsync(a, InterruptSource.Owner, "A1", gc, ct: Ct);
-        await stack.PushAsync(a, InterruptSource.Owner, "A2", gc, ct: Ct);
+        await stack.PushAsync(a, _author, InterruptSource.Owner, "A1", gc, ct: Ct);
+        await stack.PushAsync(a, _author, InterruptSource.Owner, "A2", gc, ct: Ct);
 
-        var bFrame = await stack.PushAsync(b, InterruptSource.Owner, "B1", gc, ct: Ct);
+        var bFrame = await stack.PushAsync(b, _author, InterruptSource.Owner, "B1", gc, ct: Ct);
 
         Assert.Null(bFrame.ParentFrameId);
         Assert.Equal(2, (await stack.GetStackAsync(a, Ct)).Count);
@@ -285,7 +288,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         {
             first.Parameters.AddWithValue("id", NewGuid());
             first.Parameters.AddWithValue("agent_id", agent);
-            first.Parameters.AddWithValue("key_id", _testKeyId);
+            first.Parameters.AddWithValue("key_id", _author);
             first.Parameters.AddWithValue("gc_id", gc);
             await first.ExecuteNonQueryAsync(Ct);
         }
@@ -293,7 +296,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         await using var second = db.DataSource.CreateCommand(_insertActive);
         second.Parameters.AddWithValue("id", NewGuid());
         second.Parameters.AddWithValue("agent_id", agent);
-        second.Parameters.AddWithValue("key_id", _testKeyId);
+        second.Parameters.AddWithValue("key_id", _author);
         second.Parameters.AddWithValue("gc_id", gc);
         await Assert.ThrowsAsync<PostgresException>(() => second.ExecuteNonQueryAsync(Ct));
     }
@@ -306,7 +309,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var agent = NewGuid();
         const string reason = "payment-service build red on main";
 
-        var frame = await stack.PushAsync(agent, InterruptSource.SystemBuild, reason, NewGuid(), ct: Ct);
+        var frame = await stack.PushAsync(agent, _author, InterruptSource.SystemBuild, reason, NewGuid(), ct: Ct);
 
         await using var cmd = db.DataSource.CreateCommand(
             "SELECT reason_sealed, reason_key_id FROM interrupt_frame WHERE id = @id");
@@ -314,7 +317,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         await using var reader = await cmd.ExecuteReaderAsync(Ct);
         Assert.True(await reader.ReadAsync(Ct));
         var stored = (byte[])reader.GetValue(0);
-        Assert.Equal(_testKeyId, reader.GetGuid(1));
+        Assert.Equal(FakeBodyCodec.KeyFor(_companyOwner), reader.GetGuid(1));
         Assert.DoesNotContain("payment-service", Encoding.UTF8.GetString(stored));
         Assert.Equal(reason, (await stack.GetStackAsync(agent, Ct)).Single().Reason);
     }
@@ -330,24 +333,50 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
     }
 
     [Fact]
-    public async Task A_sealed_reason_moved_to_another_frame_fails_to_open()
+    public async Task An_owner_push_is_sealed_under_the_pushers_key_and_a_system_push_under_the_owners()
     {
         SkipWithoutDatabase();
         var (stack, _) = NewStack(db.DataSource);
         var agent = NewGuid();
         var gc = NewGuid();
-        var first = await stack.PushAsync(agent, InterruptSource.Owner, "First", gc, ct: Ct);
-        var second = await stack.PushAsync(agent, InterruptSource.Owner, "Second", gc, ct: Ct);
-        await using (var copy = db.DataSource.CreateCommand(
-            "UPDATE interrupt_frame SET reason_sealed = (SELECT reason_sealed FROM interrupt_frame WHERE id = @from), " +
-            "reason_nonce = (SELECT reason_nonce FROM interrupt_frame WHERE id = @from) WHERE id = @to"))
-        {
-            copy.Parameters.AddWithValue("from", first.Id);
-            copy.Parameters.AddWithValue("to", second.Id);
-            await copy.ExecuteNonQueryAsync(Ct);
-        }
+        var first = await stack.PushAsync(agent, _author, InterruptSource.Owner, "First", gc, ct: Ct);
+        var second = await stack.PushAsync(agent, _author, InterruptSource.SystemSecurity, "Alert", gc, ct: Ct);
 
-        await Assert.ThrowsAnyAsync<CryptographicException>(() => stack.GetStackAsync(agent, Ct));
+        Assert.Equal(FakeBodyCodec.KeyFor(_author), await KeyIdOfAsync(first.Id));
+        Assert.Equal(FakeBodyCodec.KeyFor(_companyOwner), await KeyIdOfAsync(second.Id));
+    }
+
+    [Fact]
+    public async Task A_reason_whose_authors_key_was_erased_reads_as_erased_and_the_frame_stays()
+    {
+        SkipWithoutDatabase();
+        var (stack, _) = NewStack(db.DataSource);
+        var agent = NewGuid();
+        var erased = Guid.CreateVersion7();
+        var frame = await stack.PushAsync(agent, erased, InterruptSource.Owner, "private words", NewGuid(), ct: Ct);
+        _codec.Erase(erased);
+
+        var live = Assert.Single(await stack.GetStackAsync(agent, Ct));
+
+        Assert.Equal(frame.Id, live.Id);
+        Assert.Equal(Bazaar.Server.Gc.Body.GcBodyText.ErasedText, live.Reason);
+    }
+
+    [Fact]
+    public async Task A_system_push_without_a_company_owner_is_refused()
+    {
+        SkipWithoutDatabase();
+        var stack = new InterruptStackService(db.DataSource, _testCipher, new FakeOwner(null), new FakeClock());
+
+        await Assert.ThrowsAsync<InterruptStackException>(
+            () => stack.PushAsync(NewGuid(), _author, InterruptSource.SystemBuild, "CI red", NewGuid(), ct: Ct));
+    }
+
+    private async Task<Guid> KeyIdOfAsync(Guid frameId)
+    {
+        await using var cmd = Db.DataSource.CreateCommand("SELECT reason_key_id FROM interrupt_frame WHERE id = @id");
+        cmd.Parameters.AddWithValue("id", frameId);
+        return (Guid)(await cmd.ExecuteScalarAsync(Ct))!;
     }
 
     [Fact]
@@ -357,7 +386,7 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         var (stack, _) = NewStack(db.DataSource);
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => stack.PushAsync(NewGuid(), InterruptSource.Owner, new string('x', 501), NewGuid(), ct: Ct));
+            () => stack.PushAsync(NewGuid(), _author, InterruptSource.Owner, new string('x', 501), NewGuid(), ct: Ct));
     }
 
     [Fact]
@@ -366,11 +395,42 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
         SkipWithoutDatabase();
         var (stack, _) = NewStack(db.DataSource);
 
-        await Assert.ThrowsAsync<ArgumentException>(() => stack.PushAsync(NewGuid(), InterruptSource.Owner, " ", NewGuid(), ct: Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => stack.PushAsync(NewGuid(), _author, InterruptSource.Owner, " ", NewGuid(), ct: Ct));
     }
 
     private const string _insertActive = """
         INSERT INTO interrupt_frame (id, agent_id, source, reason_sealed, reason_nonce, reason_key_id, gc_id, state, pushed_at, version)
         VALUES (@id, @agent_id, 'owner', decode(repeat('ab', 20), 'hex'), decode(repeat('cd', 12), 'hex'), @key_id, @gc_id, 'active', now(), 1)
         """;
+
+    private sealed class FakeOwner(Guid? owner = null) : IFirstRunOwner
+    {
+        private readonly Guid? _owner = owner ?? _companyOwner;
+
+        public Task<Guid?> GetOwnerPrincipalIdAsync(CancellationToken cancellationToken = default) => Task.FromResult(_owner);
+    }
+}
+
+/// <summary>A reversible stand-in for the per-person body codec: one key id per author, erasable, 12-byte nonce, 16-byte tag.</summary>
+internal sealed class FakeBodyCodec : IGcBodyCodec
+{
+    private readonly HashSet<Guid> _erased = [];
+
+    public static Guid KeyFor(Guid author) => new(author.ToByteArray().Select(b => (byte)(b ^ 0x5A)).ToArray());
+
+    public void Erase(Guid author) => _erased.Add(KeyFor(author));
+
+    public ValueTask<MessageBody> SealAsync(Guid authorId, string text, CancellationToken ct)
+    {
+        var bytes = Encoding.UTF8.GetBytes(text).Select(b => (byte)(b ^ 0x5A)).Concat(new byte[16]).ToArray();
+        return ValueTask.FromResult(new MessageBody(bytes, KeyFor(authorId), new byte[12]));
+    }
+
+    public ValueTask<string?> OpenAsync(ReadOnlyMemory<byte> ciphertext, Guid keyId, ReadOnlyMemory<byte> nonce, CancellationToken ct)
+    {
+        if (_erased.Contains(keyId))
+            return ValueTask.FromResult<string?>(null);
+        var plain = ciphertext.ToArray().Take(ciphertext.Length - 16).Select(b => (byte)(b ^ 0x5A)).ToArray();
+        return ValueTask.FromResult<string?>(Encoding.UTF8.GetString(plain));
+    }
 }
