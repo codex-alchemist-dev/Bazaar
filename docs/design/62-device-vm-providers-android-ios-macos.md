@@ -154,8 +154,8 @@ Settings (all `vms.devices.*` entries follow the doc 16 and DECISIONS-LOG round 
 | `vms.microvm.monitor` | enum | `firecracker` | install | operator | or `cloud_hypervisor` |
 | `vms.microvm.max_concurrent` | int | 8 | live | operator | |
 | `vms.microvm.state_dir` | path | (unset) | install | operator | where per-VM sockets and state live; empty means unset |
-| `vms.devices.idle_stop_minutes` | int | 10 | live | operator | stop an unused guest |
-| `vms.devices.max_concurrent` | int | 2 | live | operator | all device guests together; the governor may lower it |
+| `vms.devices.idle_stop_minutes` | int | 10 | live | operator | stop an unused guest; 0 disables (section 9.3) |
+| `vms.devices.max_concurrent` | int | 2 | live | operator | all device guests together; the governor may lower it; 0 means no aggregate cap (section 9.3) |
 | `vms.android.sdk_root`, `vms.android.avd_home` | path | unset | install | operator | required; no profile default |
 | `vms.android.max_concurrent` | int | 2 | live | operator | |
 | `vms.android.system_image` | string | unset | install | operator | pinned package id and hash |
@@ -204,18 +204,44 @@ There is never a silent fallback to another provider, and so never to a weaker i
 
 **Pinning.** Each VM is pinned in memory to the backend object it was created on (or first routed to) until it is retired. A source may hand out a new backend object later; pinned VMs keep the old one. Backends keep their per-guest state in memory, so this also holds after a stop: a stopped guest belongs to the object that created it.
 
-**Capacity.** A capacity-limited pair candidate is checked at selection (doc 50). An on-demand backend enforces its own `max_concurrent` at start and refuses past it; the router does not count. `vms.devices.max_concurrent` (all device guests together) is not enforced yet; it needs the density governor (doc 59).
+**Capacity.** A capacity-limited pair candidate is checked at selection (doc 50). An on-demand backend enforces its own `max_concurrent` at start and refuses past it; the router does not count. `vms.devices.max_concurrent` (all device guests together) is enforced by the lifecycle at start (section 9.3).
 
 **Live settings.** The settings store has no change notification, so each provider source keeps a short-lived cache (5 seconds) with a generation number that bumps when an applied value changes; `Invalidate()` forces the next read. Reads are async (`RefreshAsync` before a listing or a route); a synchronous accessor reports the last loaded state and never blocks on the store. Each key follows its "Applies" column in section 7:
 - **live** (`vms.android.max_concurrent`, `vms.microvm.max_concurrent`): applied to the existing backend object on the next refresh. A new cap affects only new starts. Lowering it below the running count stops nothing; further starts are refused until enough guests stop. The backend object is not rebuilt, so port allocation and the running count stay correct.
 - **install** (`vms.android.sdk_root`, `avd_home`, `system_image`, `vms.microvm.state_dir`, `monitor`, and the configuration-file paths): read when the backend is built. While no backend exists (a key is unset or invalid) they are re-read on each refresh, so finishing the configuration takes effect without a restart. Once a backend exists they apply only after a restart, so a running guest never loses the SDK, image or state folder it started from.
-- `vms.devices.enabled` is read on each listing and each new-VM route. `vms.devices.idle_stop_minutes` and `vms.devices.max_concurrent` have no consumer yet; when one lands it reads them live.
+- `vms.devices.enabled` is read on each listing and each new-VM route. `vms.devices.idle_stop_minutes` and `vms.devices.max_concurrent` are read live by their consumers (section 9.3).
 
 **Migration.** `components/vms/0003_vm_provider_kind.sql` adds a nullable `environment_vm.provider_kind` (lower-case kind, at most 64 characters). Existing rows keep null and route by the legacy rule above. `EnvironmentVmRecord` gains an optional trailing `ProviderKind`, so existing callers compile unchanged. The single-backend constructors of `VmLifecycleService` and `VmReconciler` stay and route every VM to that backend.
 
 **Containment.** The agent pauser asks the lifecycle whether each VM's own backend can save state (`SupportsSaveStateAsync`) instead of reading one global backend. With no source registered the pauser stays the fail-closed one.
 
 **Tests.** Router: each routing rule and refusal, ordering, the enabled gate, legacy rows, pinning, duplicate kinds. Lifecycle: create writes the routed kind, a refusal writes no row, two backends serve two VMs, an unknown kind is refused without a backend call. Sources: a live cap change reaches the same backend without a rebuild, an install key change does not rebuild a built backend, an unconfigured source becomes usable when configured, the cache honours its interval and `Invalidate()`. Pair selection: candidates from DI in preference order. All with fakes; no emulator, monitor or Postgres.
+
+### 9.3 Density and device caps (PROPOSED)
+Section 7 says the density governor counts device guests and that `vms.devices.max_concurrent` and `vms.devices.idle_stop_minutes` apply to all device guests together; section 9.2 left both without a consumer. This section wires the lifecycle to the governor (doc 59 section 8, item 1) and gives both keys their consumer. A *device guest* is a VM whose provider source is `OnDemand` (section 9.2): Android and microVM today, iOS and macOS when they land. Pair VMs (doc 16's Windows and Linux pair) are never device guests.
+
+**Admission before every start.** `VmLifecycleService.StartAsync` (from Stopped, Saved or Restored) asks the governor before it calls the backend, for every VM, device guests included. The governor is optional: a host that registers no `vm-density` component passes none, and starts go straight to the backend as before.
+1. The lifecycle reads the row and refuses an unknown VM, a forbidden transition or a missing provider first, without asking the governor.
+2. It builds `DensityVm(VmId, AgentId, Os, MemoryMb)`. Memory is the row's `memory_mb`, the same value the backend received in its `VmSpec` at create. The OS maps `windows` to `Windows`, `linux` to `Linux` (a microVM guest is a Linux guest) and `android` to the new `DensityGuestOs.Android`.
+3. `AdmitAsync` runs before the VM's operation lock is taken, so a queued start never holds a lock that a save chosen by the governor might need. The lifecycle then takes the lock and re-checks the state; a change in between disposes the ticket and returns the usual `StateChanged` refusal.
+4. After a successful backend start the lifecycle calls `ConfirmStartedAsync`. A backend exception, a refusal or a cancellation disposes the ticket, so the reservation is released.
+5. An admission failure (`QueueTimeout`, `QueueFull`, `TooLargeForHost`) is a normal `Refused` result with the new reason `Capacity` and a plain detail; no backend is called and the row does not change.
+6. After a stop, save or retire is recorded, the lifecycle calls `NotifyMemoryChanged()` so queued requests are re-planned at once.
+
+**Save order for device guests.** The governor's save order (doc 59 section 8) gains a third rank: idle Windows VMs first, then Linux, then Android. A guest is a save candidate only when its own backend can save state (`SupportsSaveStateAsync`), so a device backend that cannot save is never chosen. A microVM reports no save until spike S-MVM, so it is never saved.
+
+**Directory and control adapters.** A new module `Bazaar.Server.Vms.Density` adapts the lifecycle to the governor's ports, so `Bazaar.Server.VmDensity` keeps no reference to `Bazaar.Server.Vms`:
+- `IDensityVmDirectory` lists the VMs whose row is Running (`VmLifecycleService.ListRunningAsync`), each with `CanSaveState` from its own backend and a `VmActivity`. Activity comes from an optional `IVmActivitySource` in `Bazaar.Server.Vms`: exec, terminal and browser flags are false when no source reports them, and `LastUsedAt` is the later of the source's last use and the row's last state change (the last start or resume).
+- `IDensityVmControl.SaveAsync` calls the lifecycle's `SaveAsync`, which routes to the VM's own backend; a refusal is thrown so the governor records `save-failed` and skips that VM for a while.
+- The host registers both only when an `IDensityGovernor` is registered, after the components have registered. They reach the lifecycle lazily, which breaks the lifecycle, governor and adapter construction cycle.
+
+**`vms.devices.max_concurrent` (live).** Enforced by the lifecycle at start, for device guests only. Before admission it counts the device guests whose row is Running plus device starts in flight; when that count has reached the cap, the start is refused with reason `Capacity` and the detail "vms.devices.max_concurrent (N) device guests are already running". Counting and reserving are serialised, so two concurrent starts cannot both take the last slot. The value is read from the settings store on every device start, so a change needs no restart. Lowering it below the running count stops nothing; further device starts are refused until enough guests stop. `0` (or less) means no aggregate cap; each provider's own `max_concurrent` still applies. Create does not count: a created guest is Stopped and holds no memory. The governor may still refuse a start under the cap (memory first), which is how "the governor may lower it" (section 7) works; the setting is never rewritten.
+
+**`vms.devices.idle_stop_minutes` (live).** A hosted sweep in `Bazaar.Server.Vms.Devices` runs once a minute. It reads the key on each pass; `0` disables the sweep. Each running device guest that is not busy (no exec, terminal or browser session, the same `VmActivity` signals as the governor) and whose `LastUsedAt` is at least that many minutes ago is stopped gracefully through the lifecycle. A busy guest is never stopped. Each stop writes an audit entry `vms.devices.idle_stop` (VM id, provider kind, idle minutes; no agent name, path or screen content) and a log line; a refused or failed stop is logged and retried on the next pass. Pair VMs are never stopped by this sweep (doc 16's idle save covers them).
+
+**Settings change.** Both keys now accept `0` (section 7 table): `vms.devices.max_concurrent` 0 to 64 and `vms.devices.idle_stop_minutes` 0 to 1440. The shipped defaults stay 2 and 10.
+
+**Tests.** Lifecycle: admission before the backend start, confirm on success, dispose on a backend failure and on a refusal after admission, each admission failure mapped to `Capacity`, no governor means no call, the device cap counted across two providers, a live cap change, `0` means no cap, a pair VM is never counted, two concurrent starts cannot both take the last slot. Planner: Android ranks after Linux. Adapters: running VMs listed with their backend's save support and activity defaults, save routed to the right backend, registered only with a governor. Sweep: stops an idle device guest, never a busy one or a pair VM, honours `0`, reads the key live, audits each stop. All with fakes.
 
 ## 10. Work packages
 Each is its own module project with tests. The abstractions and node client come first; the three providers follow in parallel. All code uses fakes for the host (`IAndroidHost`, `ISimctlHost`, `IMacVmHelper`, `IMacNodeLink`) so cloud CI makes no emulator, Xcode or Apple calls, as doc 50 does for Windows Sandbox.
