@@ -19,7 +19,9 @@ namespace Bazaar.Server.Interrupts;
 /// (bearer, rate bucket) here, so this module never references Bazaar.Server. Only agents with a live stack are listed, each
 /// with its live frames top first. A name comes from the Agents module, and an agent it does not list shows its id. Without a
 /// registered <see cref="IInterruptStackReader"/> (the host has not wired the stack service yet) the model lists no agents.
-/// Frame reasons are personal text: the model carries them opened, and nothing here logs them.
+/// Frame reasons are personal text: they are opened only for the <see cref="InterruptViewer"/> the host registers for the
+/// request (the company owner, or the agent for its own frames), and everyone else, including a request with no registered viewer,
+/// gets <see cref="InterruptVisibilityRules.RedactedReason"/> in their place. Nothing here logs a reason.
 /// </remarks>
 public static class InterruptsReadRoute
 {
@@ -70,7 +72,8 @@ public static class InterruptsReadRoute
             }
         }
 
-        return Results.Text(WriteModel(frames, names), "application/json");
+        var viewer = services.GetService<InterruptViewer>() ?? InterruptViewer.Anonymous;
+        return Results.Text(WriteModel(frames, names, viewer), "application/json");
     }
 
     private static async Task<bool> BodyIsObjectAsync(HttpRequest request, CancellationToken ct)
@@ -109,13 +112,14 @@ public static class InterruptsReadRoute
     }
 
     /// <summary>
-    /// Builds the pane model JSON from live frames and the known agent names. Public so tests and other heads can check the shape
-    /// without a server. Agents are listed by name (then id), and each agent's frames keep the order given: top first.
+    /// Builds the pane model JSON from live frames and the known agent names. Reasons are redacted per <paramref name="viewer"/>.
+    /// Public so tests and other heads can check the shape without a server. Agents are listed by name (then id), and each agent's frames keep the order given: top first.
     /// </summary>
-    public static string WriteModel(IReadOnlyList<InterruptFrame> frames, IReadOnlyDictionary<Guid, string> names)
+    public static string WriteModel(IReadOnlyList<InterruptFrame> frames, IReadOnlyDictionary<Guid, string> names, InterruptViewer viewer)
     {
         ArgumentNullException.ThrowIfNull(frames);
         ArgumentNullException.ThrowIfNull(names);
+        ArgumentNullException.ThrowIfNull(viewer);
 
         var agents = frames
             .Where(f => f.State is InterruptFrameState.Active or InterruptFrameState.Suspended)
@@ -140,7 +144,7 @@ public static class InterruptsReadRoute
                     json.WriteStartObject();
                     json.WriteString("id", frame.Id);
                     json.WriteString("source", SourceName(frame.Source));
-                    json.WriteString("reason", frame.Reason);
+                    json.WriteString("reason", InterruptVisibilityRules.ReasonFor(frame, viewer));
                     json.WriteString("state", StateName(frame.State));
                     json.WriteString("pushedAt", frame.PushedAt.UtcDateTime.ToString("O", CultureInfo.InvariantCulture));
                     json.WriteEndObject();
