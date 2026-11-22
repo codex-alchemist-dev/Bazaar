@@ -120,6 +120,7 @@ No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, 
 8. Talent Pool store, manifest validator, Council `hire` motion hook. Needs 07, 10, 11.
 9. GMT staging, child-end hook in 06, review queue. Needs 06, 08, 15.
 10. Client panels for all seven. Needs 27, 28, 29. Packages 1 to 9 run in parallel; 10 follows each one.
+Status of the per-agent Analytics slice of package 2: built as `Bazaar.Server.Analytics` (`.Abstractions`) and the `Bazaar.Client.Analytics` pane (`bazaar.analytics`). It computes throughput, review pass rate and revert rate from work events, lists agents by id (no ranking), applies `analytics.agent_metrics_visibility` (config key `Bazaar:Analytics:AgentMetricsVisibility`), and serves `GET /analytics?days=N`. Not yet done: work-event collectors (Kanban, review, Git; the default source is empty, so every rate shows "no data"), mapping the route in the host, and adding the pane to the client heads.
 11. Settings keys above registered in the doc 03 registry, with audit entries on change. Needs 03.
 
 ## Conflicts

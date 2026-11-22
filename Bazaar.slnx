@@ -17,6 +17,7 @@
     <Project Path="src/Bazaar.Client.Theme/Bazaar.Client.Theme.csproj" />
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Analytics/Bazaar.Client.Analytics.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
     <Project Path="src/Bazaar.Client.Gc/Bazaar.Client.Gc.csproj" />
     <Project Path="src/Bazaar.Client.Chat/Bazaar.Client.Chat.csproj" />
@@ -62,6 +63,10 @@
     <Project Path="src/Bazaar.Server.Wire/Bazaar.Server.Wire.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics.Abstractions/Bazaar.Server.Analytics.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics/Bazaar.Server.Analytics.csproj" />
+    <Project Path="tests/Bazaar.Server.Analytics.Tests/Bazaar.Server.Analytics.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Analytics.Tests/Bazaar.Client.Analytics.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts.Abstractions/Bazaar.Server.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
