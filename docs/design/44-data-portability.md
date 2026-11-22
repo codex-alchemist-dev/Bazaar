@@ -337,6 +337,8 @@ Re-importing the same source must not create duplicates.
 - Imported text is external content. It carries trust `external` (doc 15). Agents that read imported notes do so in reader sessions, and high-impact actions after reading them need owner approval (doc 15, taint).
 - The import job record stores hashes and locations, never the plaintext of imported personal content.
 
+Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, common API key shapes, JWTs, connection strings and high-entropy credential assignments; a timed-out pattern counts as a finding), `ImportSecretGate` (policy `quarantine`, `warn` or `off`, where `off` is refused for external text; `Scan` and `Resolve` over a preview, with the three owner choices) and `ImportSecretAudit` (one `portability.import.secret_decision` entry per decision, holding the choice and rule ids only). A resolved preview is a new preview, so it needs a new dry-run. Not built: the wizard step that shows findings and takes the decisions (client), reading the setting from the registry, and a shared rule set with the Soul bundle scanner (`BundleSecretScanner` in Bazaar.Server has the same rules, kept separate because this project must not reference Bazaar.Server).
+
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
@@ -410,6 +412,8 @@ Rules for every importer and exporter:
 - **Health.** Each module exposes liveness, readiness, dependencies (the sandbox runner, for example) and a self-test that parses a built-in fixture. Health is enforced by contract tests (doc 46).
 - **Trust tiers.** Verified tag and unverified modules are shown as in doc 42. An unverified importer installs with a warning and runs under the same sandbox.
 - **Licence.** The AGPL module exception applies: an importer that uses only the public module API may be under any licence, including a closed commercial one. Its licence is shown at install (doc 42).
+
+**Built status:** `IMappingImporter` (in `Bazaar.Server.Portability`) adds `FormatId`, a declaration of targets, pure `Map` with versioned and hashed `MappingRules`, and a self-test, on top of `IPortabilityImporter`. `ImporterContractChecks` is the contract test every importer module runs. Verify is the shared `ImportVerifier`. Parse is not yet run in a separate process, and the doc 42 module and doc 46 health interfaces are not written, so the existing importers are not yet moved onto `IMappingImporter`.
 
 Exporters follow the same rules, and their output is streamed as `ExportFile` items with a SHA-256 added by the bundle writer, not by the exporter.
 

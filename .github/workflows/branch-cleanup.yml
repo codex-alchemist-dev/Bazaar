@@ -33,8 +33,7 @@ concurrency:
 jobs:
   cleanup:
     name: Clean up branches
-    # Same routing as ci.yml: owner-triggered runs use the self-hosted runner, everything else a hosted one.
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch') && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Check out
