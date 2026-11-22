@@ -70,4 +70,32 @@ public sealed class TaskEventRepository(NpgsqlDataSource dataSource)
 
         return result;
     }
+    /// <summary>
+    /// Column moves (<c>task.transitioned</c>) of the project's tasks in <c>[fromInclusive, toExclusive)</c>, oldest first. Reads the
+    /// <c>from</c> and <c>to</c> columns the task service writes into the payload. Used by project health (doc 25).
+    /// </summary>
+    public async Task<IReadOnlyList<TaskTransitionFact>> ListTransitionsAsync(Guid projectId, DateTimeOffset fromInclusive, DateTimeOffset toExclusive, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("""
+            SELECT e.task_id, e.payload ->> 'from', e.payload ->> 'to', e.at
+            FROM task_events e
+            JOIN tasks t ON t.id = e.task_id
+            WHERE t.project_id = @project_id AND e.kind = @kind AND e.at >= @from AND e.at < @to
+            ORDER BY e.seq
+            """);
+        cmd.Parameters.AddWithValue("project_id", projectId);
+        cmd.Parameters.AddWithValue("kind", TaskEventKinds.Transitioned);
+        cmd.Parameters.AddWithValue("from", fromInclusive);
+        cmd.Parameters.AddWithValue("to", toExclusive);
+        var result = new List<TaskTransitionFact>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            if (reader.IsDBNull(1) || reader.IsDBNull(2))
+                continue;
+            result.Add(new TaskTransitionFact(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetFieldValue<DateTimeOffset>(3)));
+        }
+
+        return result;
+    }
 }

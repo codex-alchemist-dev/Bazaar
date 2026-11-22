@@ -5,18 +5,23 @@ using Bazaar.Server.Vms.HyperV.PowerShell;
 using Bazaar.Server.Vms.Kvm;
 using Bazaar.Server.Vms.Kvm.Virsh;
 using Bazaar.Server.Vms.Lifecycle;
+using Bazaar.Server.Vms.Ports;
 using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using HyperVParentResolver = Bazaar.Server.Vms.HyperV.DirectoryParentResolver;
 using KvmParentResolver = Bazaar.Server.Vms.Kvm.DirectoryParentResolver;
+using ModuleAgentVmDirectory = Bazaar.Server.Vms.Abstractions.IAgentVmDirectory;
+using ModuleVmControl = Bazaar.Server.Vms.Abstractions.IVmControl;
 
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
 /// The Vms module in the host: the environment repository and store, the operation locks, and the lifecycle service. The lifecycle
 /// service needs a backend, so it is registered only when one is configured. Without a backend, the agent pauser stays fail closed.
+/// The cross-module ports (<c>Bazaar.Server.Vms.Abstractions</c>) follow the same rule: the directory only reads records and is always
+/// registered; the control port needs the lifecycle service, so it exists only with a backend.
 /// </summary>
 public static class VmsCompositionExtensions
 {
@@ -40,6 +45,8 @@ public static class VmsCompositionExtensions
         services.TryAddSingleton<IEnvironmentVmStore>(sp => new EnvironmentVmStore(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton<IAgentVmDirectory>(sp => new RepositoryAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton(new VmOperationLocks());
+        // The read port for other modules (not the agent pauser's directory above): it reads records and calls no backend.
+        services.TryAddSingleton<ModuleAgentVmDirectory>(sp => new EnvironmentAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
 
         // Hyper-V is the VM provider for the agent pair and is chosen first, then KVM on Linux hosts; Windows Sandbox serves one-off work and is the fallback (doc 50).
         // Each backend's host facts fail closed on the wrong OS, so the host decides in practice.
@@ -54,6 +61,7 @@ public static class VmsCompositionExtensions
                 sp.GetRequiredService<IVmBackend>(),
                 sp.GetRequiredService<VmOperationLocks>(),
                 sp.GetRequiredService<TimeProvider>()));
+            services.TryAddSingleton<ModuleVmControl>(sp => new LifecycleVmControl(sp.GetRequiredService<VmLifecycleService>()));
         }
 
         return services;

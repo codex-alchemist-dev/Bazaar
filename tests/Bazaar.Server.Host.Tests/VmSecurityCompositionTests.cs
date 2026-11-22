@@ -7,6 +7,11 @@ using Bazaar.Server.Settings;
 using Bazaar.Server.VmEgress;
 using Bazaar.Server.VmEgress.Approvals;
 using Bazaar.Server.VmMounts.Abstractions;
+using Bazaar.Server.VmMounts.Providers.Canaries;
+using Bazaar.Server.VmMounts.Providers.Guest;
+using Bazaar.Server.VmMounts.Providers.Local;
+using Bazaar.Server.VmMounts.Providers.Smb;
+using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.Configuration;
@@ -90,6 +95,42 @@ public sealed class VmSecurityCompositionTests : IDisposable
         Assert.Contains(sp.GetServices<ISettingContribution>(), c => c is VmTransportSettingContribution);
     }
 
+    private sealed class FakeVmDirectory(params EnvironmentVmRecord[] records) : IAgentVmDirectory
+    {
+        public Task<IReadOnlyList<EnvironmentVmRecord>> ListAsync(Guid agentId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<EnvironmentVmRecord>>(records);
+    }
+
+    [Fact]
+    public void The_channel_directory_is_composed_and_the_mount_provider_reads_it()
+    {
+        var sp = Build(new() { ["VmMounts:AgentsRoot"] = Path.GetTempPath() });
+
+        Assert.NotNull(sp.GetRequiredService<IGuestChannelDirectory>());
+        Assert.NotNull(sp.GetRequiredService<GuestChannelRegistrar>());
+        Assert.IsType<RepositoryAgentVmLookup>(sp.GetRequiredService<IAgentVmLookup>());
+        Assert.IsType<DirectoryGuestChannelProvider>(sp.GetRequiredService<IGuestChannelProvider>());
+    }
+
+    [Fact]
+    public async Task The_host_lookup_maps_environment_records_and_marks_retired_vms()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        EnvironmentVmRecord Record(VmOs os, string? backend, VmState state) =>
+            new(Guid.NewGuid(), Guid.NewGuid(), os, Guid.NewGuid(), backend, state, 2, 2048, 20, now, now);
+        var lookup = new RepositoryAgentVmLookup(new FakeVmDirectory(
+            Record(VmOs.Linux, "bazaar-a", VmState.Running),
+            Record(VmOs.Windows, "bazaar-b", VmState.Retired),
+            Record(VmOs.Windows, null, VmState.Provisioning)));
+
+        var vms = await lookup.ListAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.Equal([GuestOs.Linux, GuestOs.Windows, GuestOs.Windows], vms.Select(v => v.Os));
+        Assert.Equal([false, true, false], vms.Select(v => v.Retired));
+        Assert.Equal(["bazaar-a", "bazaar-b", null], vms.Select(v => v.VmName));
+        Assert.All(vms, v => Assert.Null(v.GuestInterface));
+    }
+
     [Fact]
     public void Gaps_resolve_to_their_fail_closed_defaults()
     {
@@ -133,6 +174,62 @@ public sealed class VmSecurityCompositionTests : IDisposable
         });
 
         Assert.Null(sp.GetService<IMountManager>());
+    }
+
+    [Fact]
+    public void Configuring_a_mounts_root_registers_the_provider_ports_and_composes_the_mount_manager()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bazaar-host-mounts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var sp = Build(new() { ["VmMounts:AgentsRoot"] = root });
+
+            Assert.IsType(
+                OperatingSystem.IsWindows() ? typeof(SmbMountProvider) : typeof(DirectoryMountProvider), sp.GetRequiredService<IMountProvider>());
+            Assert.IsType<GuestChannelMountAdapter>(sp.GetRequiredService<IMountGuestChannel>());
+            Assert.IsType<ContainingCanarySink>(sp.GetRequiredService<ICanarySink>());
+            Assert.NotNull(sp.GetRequiredService<IMountManager>());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Without_a_mounts_root_no_provider_port_is_registered()
+    {
+        var sp = Build();
+
+        Assert.Null(sp.GetService<IMountProvider>());
+        Assert.Null(sp.GetService<IMountGuestChannel>());
+        Assert.Null(sp.GetService<ICanarySink>());
+    }
+
+    [Fact]
+    public void Every_vm_mount_descriptor_resolves_once_a_mounts_root_is_configured()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bazaar-host-mounts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var sp = Build(new() { ["VmMounts:AgentsRoot"] = root }, out var services);
+
+            var checkedCount = 0;
+            foreach (var d in services.Where(d =>
+                !d.ServiceType.ContainsGenericParameters && (d.ServiceType.Namespace ?? "").StartsWith("Bazaar.Server.VmMounts", StringComparison.Ordinal)))
+            {
+                Assert.NotNull(sp.GetRequiredService(d.ServiceType));
+                checkedCount++;
+            }
+
+            Assert.True(checkedCount > 15, $"Only {checkedCount} mount descriptors matched.");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

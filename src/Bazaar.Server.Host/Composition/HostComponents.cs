@@ -8,15 +8,23 @@ using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Analytics;
+using Bazaar.Server.Analytics.Git;
+using Bazaar.Server.Analytics.Postgres;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Audit;
 using Bazaar.Server.BrowserPool.Display;
+using Bazaar.Server.BrowserPool.Egress;
 using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Community.GitHub;
+using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
@@ -35,11 +43,14 @@ using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
+using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Interrupts;
+using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
@@ -51,6 +62,7 @@ using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
+using Bazaar.Server.SoulProfile;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.Valkey;
@@ -58,10 +70,12 @@ using Bazaar.Server.Vault;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
+using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
+using Bazaar.Server.Walkthrough;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Discovery;
 using Microsoft.Extensions.Configuration;
@@ -81,6 +95,9 @@ public static class HostComponents
         new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
+        new WalkthroughComponent(),
+        new SoulProfileComponent(),
+        new FirstRunAdaptersComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
         new SkimmerComponent(),
@@ -94,6 +111,7 @@ public static class HostComponents
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
+        new InterruptsComponent(),
         new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
@@ -104,11 +122,18 @@ public static class HostComponents
         new RolesComponent(),
         new SignInComponent(),
         new WebAdminComponent(),
+        new CommunityGitHubComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new HealthServerComponent(),
+        new AnalyticsComponent(),
+        new AnalyticsPostgresComponent(),
+        new AnalyticsGitComponent(),
+        new AccountApprovalComponent(),
+        new OwnerQueueComponent(),
         new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),
@@ -130,7 +155,13 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        new KodoServerComponent(),
         new PresenceComponent(),
+        new Bazaar.Server.Engines.EnginesComponent(),
+        new Bazaar.Server.EngineGcRecorder.EngineGcRecorderComponent(),
+        new Bazaar.Server.EngineRelay.EngineRelayComponent(),
+        new Bazaar.Server.EngineTool.EngineToolComponent(),
+        new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
         // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
         // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
@@ -139,6 +170,9 @@ public static class HostComponents
         new VmDisplayGateComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
+        // Off unless Bazaar:VmDisplayAgentTargets:Enabled is true; until then it registers nothing and no screen tool is offered. It starts before
+        // the tools component whatever its place in this list (the kernel orders by dependencies, then id).
+        new VmAgentDisplayTargetsComponent(),
         new HyperVComponent(),
         new OsLimitedComponent(new KvmComponent(), OperatingSystem.IsLinux),
         new VmDensityComponent(),
@@ -148,6 +182,7 @@ public static class HostComponents
         new BrowserPoolImageComponent(),
         new BrowserPoolGateComponent(),
         new BrowserPoolAuditComponent(),
+        new BrowserPoolEgressComponent(),
     ];
 
     /// <summary>
