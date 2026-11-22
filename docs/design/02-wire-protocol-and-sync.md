@@ -53,7 +53,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 |---|---|---|
 | `gc:<id>` | log (`n`, `ev`), replayed | 01, 04 |
 | `board:<id>` | state, `revision`; snapshot plus revision resync (doc 12 calls it "the board stream") | 12 |
-| `presence` | state; deltas via cache provider | 23 |
+| `presence` | state; deltas via cache provider; also carries ephemeral typing deltas [PROPOSED] | 23, 02 (Typing signal) |
 | `ui` | state, `ui.changed` | 27 |
 | `graph:<id>` | state; carries `GraphSnapshot` and `LayoutFrame` entries (each with `GraphVersion`). `FocusRequest` is a client command, not a stream entry | 19 |
 | `pane` | state (server-streamed agent terminal panes) | 20 |
@@ -96,6 +96,19 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 
 **Status endpoint [PROPOSED].** `GET /status` returns JSON with a `schema` integer, server and protocol versions, and doc 23's sections, plus a minimal HTML view of the same JSON. It never includes GC, Vault or agent names. Probes are not served here: doc 03 owns `/health/live` and `/health/ready`; there is no `/healthz`. Bind address and token requirement are settings (`wire.status_bind_address`, `wire.status_require_token`; table below).
 
+**Reactions on the wire [PROPOSED].** The log rules are in doc 01 (Reactions). Three message types, all in the `gc.` family:
+- `gc.react` (req): `{ gcId, targetN, emoji, add }`. `targetN` is the message's `n`; `add` false removes. The envelope `id` is the idempotency key and becomes the event's `client_msg_id`. The `res` is `{ n, changed }`: the reaction event's seq, and whether anything was written (`changed` false is a no-op; `n` is then the seq of the event in effect, or 0). Errors: `not_found` (no access, unknown GC or target; indistinguishable), `bad_request` (bad emoji, over a limit, archived), `rate_limited` with `retryAfter`.
+- `gc.reactions` (req): `{ gcId, afterN? }`; `res`: `{ items: [{ targetN, emoji, by: [principalId...] }] }`, the folded current state for messages with `n` greater than `afterN` when given, else for every message. This is how a client fills reactions on open, on reconnect and after `resync`.
+- `gc.reaction` (evt, stream `gc:<id>`, `n` = the reaction event's seq): `{ gcId, targetN, emoji, by, add, ts }`. The server pushes it, after commit, to every connection subscribed to that GC stream. It is live-only in v1: the GC stream's replay carries message entries, so a reaction seq is a hole in `n` that the client skips, and a client that was offline gets the state from `gc.reactions`. Delivery is best-effort; the log is the truth.
+
+**Typing signal [PROPOSED].** A typing signal is ephemeral presence, not history: it is never written to Postgres, never replayed and never part of the GC log.
+- `gc.typing` (req): `{ gcId, typing }`. `typing: true` is a start or refresh, `false` an explicit stop. Authorisation is the same as for posting: only a member who may write in the GC. The `res` is `{ accepted }`.
+- The server answers `accepted: false` and drops the signal (no error, no event) when the same principal sent one for that GC less than `wire.typing_min_interval_s` ago, except a stop, which is always taken. Clients should refresh about every `wire.typing_ttl_s / 2` seconds while the person types.
+- The server pushes `presence.update` (evt, stream `presence`) with the payload `{ kind: "typing", gcId, principalId, typing, ttlMs }` to connections subscribed to `gc:<id>`, other than the sender's own principal; access was checked when they subscribed and ends with `stream.revoked`. It is not sent to connections that are only subscribed to `presence`.
+- A receiver treats a typing signal as expired `ttlMs` after it arrives (default `wire.typing_ttl_s`, 5 s) unless refreshed, and clears it when a message from that principal arrives or on `typing: false`. The server holds a short in-memory record only to rate-limit and to prune; a restart loses it, which costs a few seconds of indicator and nothing else.
+- Agents may send it (the runtime sends it while a turn is drafting; it is a hint, never a status of record: doc 23's activity is the status). Typing never wakes an agent, is never in an agent's context and never counts as presence for the work-life simulation.
+- Privacy: the signal names the GC and the person to members who can already read that GC and to nobody else; it carries no text.
+
 **Android [PROPOSED].** The socket is held only while the app is foreground or unfolded. Otherwise:
 1. The server sees a wake-worthy event (`mention`, `dm`, `owner_decision`; `quota` if opted in) for a device without a live socket and calls `IPushNotifier.WakeAsync`, coalesced to one per device per `wire.push_wake_coalesce_s` (30 s).
 2. The app opens a short-lived socket, runs `hello` and `subscribe` with its cursors, builds the local notification and closes.
@@ -124,7 +137,7 @@ Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transpo
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.
@@ -143,6 +156,9 @@ Registered in doc 03's settings registry. Operator-set, install scope. Values li
 | `wire.max_frame_kib` | int | 256 | install | Operator | No; audited |
 | `wire.request_id_retention_h` | int | 24 | install | Operator | No; audited |
 | `wire.push_wake_coalesce_s` | int | 30 | install | Operator | No; audited |
+| `wire.typing_enabled` | bool | true | install | Operator | No; audited |
+| `wire.typing_ttl_s` | int | 5 | install | Operator | No; audited (clamped 2 to 15) |
+| `wire.typing_min_interval_s` | int | 2 | install | Operator | No; audited |
 | `wire.compression` | bool | false | install | Operator | No; audited |
 | `wire.previous_major_supported` | bool | true | install | Operator | No; audited (false sends N-1 clients `upgrade_required`) |
 | `wire.allow_plaintext_overlay` | bool | false | install | Operator | Yes (owner); audited. Plaintext is loopback-only by default |
@@ -169,6 +185,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 - Splice: appends during replay give no gap or duplicate (property test).
 - Edits: an offline edit replays once as the current version; `n` does not advance.
 - Cutoff: a gap over 2,000 yields `resync`; `history` fills the hole. Restore: a cursor above the restored head gets `stale_cursor`.
+- Reactions and typing [PROPOSED]: `gc.react` add, repeat and remove (one event each when it changes, none when it does not); `gc.reactions` equals the fold of the log; a non-member gets `not_found` on both and receives no `gc.reaction` or typing push; typing is rate-limited, expires and is never persisted (no `gc_event` row appears).
 - Idempotency, slow consumer (`lagged`, no loss), versioning (unknown fields, no-overlap 4426).
 - Auth: revocation closes within 1 s; DM denial looks like missing. Heartbeat: silent peer closed at 60 s.
 - HTTP: chunked upload resumes after a dropped chunk. UI: unknown widget renders the placeholder (Avalonia.Headless). Status: shape snapshot, no chat text.
@@ -190,6 +207,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 12. `IPushNotifier`, wake coalescing, `device.registerPush` (WP4; doc 29).
 13. Protobuf codec, spike branch only (WP2).
 14. Test harness: Kestrel, Postgres fixture, fake clock (WP2).
+15. [PROPOSED] `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing` and the typing `presence.update` delta (WP1, WP4; log rules in doc 01).
 
 ## Conflicts
 - Bazaar.Server.md §3 transport cell: fixed with the S6 decision (DECISIONS-LOG round 15).
@@ -209,4 +227,4 @@ Answered and moved out: sequence per GC (C10), cached profile and fallback shell
 3. One socket per device, with windows sharing it? Recommend yes. This changes the connection model, so it stays a question.
 4. Confirm the restore policy: sequence floor plus a `system` recovery entry (PROPOSED in doc 33; FOLLOW-UP in DECISIONS-LOG). Recommend confirm. It changes gap-free sequencing, so it stays a question.
 
-MOVED TO SETTINGS: wire.replay_cutoff_entries, wire.replay_page_size, wire.heartbeat_interval_s, wire.heartbeat_timeout_s, wire.reconnect_backoff_max_s, wire.hello_timeout_s, wire.max_sockets_per_device, wire.outbound_queue_max, wire.inflight_requests_max, wire.max_frame_kib, wire.request_id_retention_h, wire.push_wake_coalesce_s, wire.compression, wire.previous_major_supported, wire.allow_plaintext_overlay, wire.status_bind_address, wire.status_require_token (DECISIONS-LOG round 13)
+MOVED TO SETTINGS: wire.replay_cutoff_entries, wire.replay_page_size, wire.heartbeat_interval_s, wire.heartbeat_timeout_s, wire.reconnect_backoff_max_s, wire.hello_timeout_s, wire.max_sockets_per_device, wire.outbound_queue_max, wire.inflight_requests_max, wire.max_frame_kib, wire.request_id_retention_h, wire.push_wake_coalesce_s, wire.compression, wire.previous_major_supported, wire.allow_plaintext_overlay, wire.status_bind_address, wire.status_require_token (DECISIONS-LOG round 13); wire.typing_enabled, wire.typing_ttl_s, wire.typing_min_interval_s (PROPOSED, DECISIONS-LOG round 32)
