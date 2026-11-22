@@ -264,9 +264,9 @@ Docs section this implements: this section (Souls extraction; the owner's direct
 
 `Bazaar.Server` references both projects. `tests/Bazaar.Server.Souls.Tests` holds the tests that need only moved code (162 tests, no database). The Postgres-backed tests (`SoulVersioningServiceTests`, the retirement ledger and soul-data tests), `GcLogJudgmentPosterTests` and the preset tests stay in `tests/Bazaar.Server.Tests/Souls`, which links `JudgmentFixtures.cs` and `RetirementFakes.cs` from the new test project.
 
-Still in `Bazaar.Server/Souls` (5 files), with the reason each one stays:
+Still in `Bazaar.Server/Souls` (2 files), with the reason each one stays:
 
-- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json`: `PresetLoader` uses `ModelRef` (`Bazaar.Server.Gateway.Policy`); the roster and exception depend on it. Move with the Gateway abstractions (`ModelRef` is a candidate for `Bazaar.Contracts`).
+- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json` have moved into `Bazaar.Server.Souls` (it now references `Bazaar.Server.Gateway.Abstractions` for `ModelRef`); the roster JSON is embedded in that assembly under the same logical name. Their tests moved to `tests/Bazaar.Server.Souls.Tests/Presets`.
 - `Judgments/GcLogJudgmentPoster.cs`: uses `IGcLogWriter` and the GC body codec (`Bazaar.Server.Gc.Write`, `Gc.Body`). Moves with the GC abstractions.
 - `Judgments/JudgmentServiceCollectionExtensions.cs`: registers `GcLogJudgmentPoster`, so it stays with it.
 

@@ -1,7 +1,7 @@
 using System.Text;
 using Bazaar.Server.Souls.Presets;
 
-namespace Bazaar.Server.Tests.Souls.Presets;
+namespace Bazaar.Server.Souls.Tests.Presets;
 
 public sealed class PresetLoaderTests
 {
