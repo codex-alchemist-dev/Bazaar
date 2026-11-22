@@ -78,6 +78,7 @@ Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and 
 - **Soft edges** (`softDependsOn`) mean a feature works better with the target. Soft edges may form cycles, for example A and B each softly depend on each other while both hard-depend on C. Soft edges never set start order. A missing or disabled soft target degrades only the features that name it. The rest of the module still runs.
 - Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
 - Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
+- Built: `ComponentGraph.Order` (start order from hard edges, cycles refused) and `ComponentGraph.Impact` (for one failed node, the transitive hard dependents to block and the soft dependents to mark amber). Not built: the `dependency` kind (doc 42 Q8 is open), `requires`, version ranges, and wiring `Impact` to the Kodo gates.
 
 ### 4.2 Principal: who did it (owner, 2026-11-19)
 
