@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
+using Bazaar.Server.Security.Policy;
 
 namespace Bazaar.Server.Host.Coding;
 
@@ -41,15 +42,34 @@ public sealed class PermissionGatePushGate : IPushGate
 
     private readonly IToolPermissionGate _gate;
     private readonly IPushSessionDirectory _sessions;
+    private readonly IPushApprovalGrants? _grants;
 
     /// <summary>Creates the adapter.</summary>
-    public PermissionGatePushGate(IToolPermissionGate gate, IPushSessionDirectory sessions)
+    /// <param name="gate">The permission gate.</param>
+    /// <param name="sessions">The session lookup.</param>
+    /// <param name="grants">Spends the session's approval grant when the push is allowed. Without it, an allowed push whose session carries a grant is denied.</param>
+    public PermissionGatePushGate(IToolPermissionGate gate, IPushSessionDirectory sessions, IPushApprovalGrants? grants = null)
     {
         ArgumentNullException.ThrowIfNull(gate);
         ArgumentNullException.ThrowIfNull(sessions);
         _gate = gate;
         _sessions = sessions;
+        _grants = grants;
     }
+
+    /// <summary>The arguments a push is judged and hashed under. The grant lookup uses the same value, so an approval covers exactly this push.</summary>
+    internal static JsonElement ArgsOf(PushGateRequest request) =>
+        JsonSerializer.SerializeToElement(new
+        {
+            repo = request.Repo.Id,
+            branch = request.Branch.Value,
+            gc = request.GcId,
+            task = request.TaskId,
+        });
+
+    /// <summary>The doc 15 dispatch hash of a push as the policy adapter computes it: tool, branch as target, the args, no taint sources.</summary>
+    internal static byte[] DispatchHashOf(PushGateRequest request) =>
+        DispatchHash.Compute(ToolName, request.Branch.Value, ArgsOf(request), []);
 
     /// <inheritdoc />
     public async ValueTask<PushDecision> EvaluateAsync(PushGateRequest request, CancellationToken cancellationToken)
@@ -62,13 +82,7 @@ public sealed class PermissionGatePushGate : IPushGate
             return PushDecision.Deny("No running session for this push.");
         }
 
-        var args = JsonSerializer.SerializeToElement(new
-        {
-            repo = request.Repo.Id,
-            branch = request.Branch.Value,
-            gc = request.GcId,
-            task = request.TaskId,
-        });
+        var args = ArgsOf(request);
         var hash = Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(args)));
 
         var context = new ToolCallContext(
@@ -85,6 +99,28 @@ public sealed class PermissionGatePushGate : IPushGate
             Grant: session.Grant);
 
         var decision = await _gate.EvaluateAsync(context, cancellationToken).ConfigureAwait(false);
+        if (decision.Outcome == PermissionOutcome.Allow && session.Grant is { } grant)
+        {
+            // Consume-on-allow: the compare-and-set is the single-use guard, so of two concurrent pushes on one grant only one passes.
+            var spent = false;
+            if (_grants is not null)
+            {
+                try
+                {
+                    spent = await _grants.ConsumeAsync(grant, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
+                {
+                    spent = false;
+                }
+            }
+
+            if (!spent)
+            {
+                return PushDecision.Deny("The push approval was already used, has expired or could not be spent.");
+            }
+        }
+
         return decision.Outcome switch
         {
             PermissionOutcome.Allow => PushDecision.Allow(decision.Reason.Length == 0 ? "allowed" : decision.Reason),

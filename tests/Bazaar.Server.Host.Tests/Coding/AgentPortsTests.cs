@@ -240,6 +240,37 @@ public sealed class AgentPortsTests
         Assert.Null(record.Grant);
     }
 
+    private sealed class FixedGrants(ToolApprovalGrant? grant, bool throws = false) : IPushApprovalGrants
+    {
+        public string? SeenSession { get; private set; }
+
+        public ValueTask<ToolApprovalGrant?> FindAsync(PushGateRequest request, string sessionId, CancellationToken cancellationToken)
+        {
+            SeenSession = sessionId;
+            return throws ? throw new InvalidOperationException("down") : ValueTask.FromResult(grant);
+        }
+
+        public ValueTask<bool> ConsumeAsync(ToolApprovalGrant g, CancellationToken cancellationToken) => ValueTask.FromResult(false);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task The_sessions_grant_comes_from_the_grants_source_for_that_session_and_a_failure_means_none(bool fails)
+    {
+        var turns = new InProcessRunningTurnRegistry();
+        var agent = Guid.NewGuid();
+        var session = Guid.NewGuid();
+        using var r = turns.Register(Turn(agent, session, "gc-1", 0, PermissionGatePushGate.ToolName));
+        var grant = new ToolApprovalGrant(Guid.NewGuid(), new byte[32], DateTimeOffset.UtcNow.AddHours(1));
+        var grants = new FixedGrants(grant, throws: fails);
+
+        var record = await new RunningTurnPushSessionRecords(turns, new FakeTaint(), _timeout, grants).FindAsync(Push(agent), _ct);
+
+        Assert.Equal(session.ToString("D"), grants.SeenSession);
+        Assert.Equal(fails ? null : grant, record!.Grant);
+    }
+
     [Fact]
     public async Task A_turn_without_the_push_tool_is_a_reader_session()
     {

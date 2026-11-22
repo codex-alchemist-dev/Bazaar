@@ -90,7 +90,8 @@ public static class CodingHarnessHostExtensions
         services.TryAddSingleton<IAgentFreeze>(sp => new KillSwitchAgentFreeze(sp.GetRequiredService<KillSwitchEngine>()));
         services.TryAddSingleton<IPushGate>(sp => new PermissionGatePushGate(
             sp.GetRequiredService<IToolPermissionGate>(),
-            sp.GetRequiredService<IPushSessionDirectory>()));
+            sp.GetRequiredService<IPushSessionDirectory>(),
+            sp.GetService<IPushApprovalGrants>() ?? NoPushApprovalGrants.Instance));
 
         // Server-owned concretes. Each is a no-op when its owner already registered the service (TryAdd); otherwise it resolves
         // through its own constructor, so an unbound dependency of it fails at first resolution.
