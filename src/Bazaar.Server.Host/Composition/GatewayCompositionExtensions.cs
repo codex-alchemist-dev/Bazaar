@@ -1,3 +1,5 @@
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -14,8 +16,6 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers.ClaudeCode;
-using Bazaar.Server.Agents.Data;
-using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
