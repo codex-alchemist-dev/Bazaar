@@ -9,6 +9,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
 using Bazaar.Localisation;
@@ -49,6 +50,8 @@ internal static class Program
         }
 
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
         return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
     }
