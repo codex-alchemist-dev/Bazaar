@@ -26,7 +26,7 @@ public class ThemeTokenTests
         var harness = new Harness();
         var theme = ViewFixtures.Theme();
         var tokens = new Dictionary<string, string>(theme.Tokens, StringComparer.Ordinal) { ["color.text.primary"] = "#11223380" };
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Lit("x")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Lit("x")));
 
         var text = Assert.IsType<TextBlock>(harness.Build(ViewFixtures.Document(node), theme with { Tokens = tokens }));
 
@@ -48,7 +48,7 @@ public class ThemeTokenTests
     public void Badge_neutral_background_resolves_from_the_surface_token()
     {
         var harness = new Harness();
-        var node = ViewFixtures.Node("badge", [], ("text", ViewFixtures.Lit("3")));
+        var node = ViewFixtures.Node("badge", [], ("value", ViewFixtures.Lit("3")));
 
         var neutral = Assert.IsType<Border>(harness.Build(ViewFixtures.Document(node)));
 
@@ -69,7 +69,7 @@ public class ThemeTokenTests
     public void Unknown_text_style_is_not_a_token_and_fails_closed()
     {
         var harness = new Harness();
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Lit("x")), ("style", ViewFixtures.Lit("huge")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Lit("x")), ("style", ViewFixtures.Lit("huge")));
 
         Control control = harness.Build(ViewFixtures.Document(node));
 
