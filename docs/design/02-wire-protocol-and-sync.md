@@ -8,7 +8,7 @@ Defines how clients talk to Bazaar.Server: one raw WebSocket per device, plus an
 
 ## Decided inputs
 - Raw WebSocket; Socket.io dropped (Bazaar.Server.md §3).
-- Wire format [DECIDED 2026-10-25, owner, spike S6, DECISIONS-LOG round 15]: JSON via shared C# contracts with source-generated System.Text.Json. A non-.NET client is a fallback only (Rust). No Protobuf tooling.
+- Wire format [DECIDED 2026-10-25, owner, spike S6, DECISIONS-LOG round 15]: JSON via shared C# contracts with source-generated System.Text.Json. A non-.NET client is a fallback only (Rust). Owner 2026-11-19: this stays the default and the floor; further transports and codecs are optional modules, designed in doc 90 (Protobuf tooling allowed in the gRPC and Protobuf codec modules only).
 - WebSocket for realtime; authenticated HTTP for blobs and search (round 6, C15). No pairing routes (owner, 2026-11-16).
 - GC log: `gc_event`, `gc_message`, `gc_message_version` (full copy per version). Append-only, never purged, edits keep every version (round 1, C09).
 - Per-GC gap-free sequence; hash partitions by `gc_id` from day 1 (round 1, C10). Append and `NOTIFY` in one transaction (doc 04).
@@ -72,6 +72,8 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 
 **Versioning [PROPOSED].** Version is `major.minor`. Minors only add optional fields, event types and capability flags; receivers ignore unknown fields and events; an unknown request returns `err unsupported`. The server supports the current and previous major. With no overlap, `welcome` carries `upgrade_required` and the minimum build, then the socket closes with 4426.
 
+**Welcome compatibility fields [PROPOSED].** `welcome` ends with two optional fields, added as a minor change (older clients ignore them; a `welcome` without them still decodes, with both read as null): `schemaVersion` (string, the server's database schema version from doc 04, so a client updater can judge whether a build fits; not the wire `SchemaHash` of doc 90, which identifies the wire schema) and `previousMajorSupported` (bool, the effective value of `wire.previous_major_supported`). The server fills `previousMajorSupported` on every `welcome`, including the `upgrade_required` one. `schemaVersion` is the schema identity defined in doc 04 (`sha256:` plus the digest of the sorted `namespace:highest-migration` pairs), supplied by the optional `Bazaar.Server.SchemaIdentity` module; it stays null when no such module is registered or the history is not readable yet, which clients treat as unknown (fail closed). `Bazaar.Contracts` exposes a pure `WelcomeCompatibility` mapping (`major.minor` strings, unknown as null) for client heads. The fields from doc 90 (`Offers`, `OfferHash`, `SchemaHash`) land later and are appended after these; whichever change merges second merges main.
+
 **Server-driven layout [PROPOSED].**
 - `ui.get { deviceClass, viewport, posture }` returns a `UiProfile`: start-screen widgets, navigation, palette commands, theme reference, overrides and preferences. It carries a variant for every posture the server supports (folded, unfolded, half-open), so the client switches locally with no round trip (C27).
 - `ui.changed { revision }` follows any change; `prefs.set` is validated and stored by the server.
@@ -85,7 +87,10 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `POST /blobs` | Chunked, resumable upload; returns content hash; size limit per doc 01 | 01 |
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
+| `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
+| `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
 
@@ -111,9 +116,11 @@ interface IPushNotifier { Task WakeAsync(string deviceId, WakeHint hint, Cancell
 record WakeHint(string Kind); // kind only: no gc id, no seq, no text (C41)
 ```
 
+
+
 Board messages [DECIDED 2026-11-16, owner delegation; shape in doc 12, Card revision and client move command]: `board.snapshot` is answered with a snapshot whose cards each carry a `revision` (the task version). `board.move` is an owner-only request carrying project id, card id, target state and the expected revision. It is answered with a `KanbanMoveReply` whose `status` is `applied`, `conflict`, `refused` or `invalid`. A move outcome is a reply, not an error; a schema failure is `bad_request`.
 
-Codec is chosen in `hello`/`welcome`: text frames JSON; binary Protobuf frames are not built (S6 chose JSON; a binary codec could be added later behind `IWireCodec`). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
+Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transports are optional modules negotiated per connection (doc 90; S6 chose JSON as the default and the floor). Optional server bookkeeping: `device_cursor(device_id, stream, applied_n, applied_ev)`; the client's cursor is authoritative for replay.
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
@@ -186,7 +193,7 @@ Real Postgres; in-process Kestrel with `ClientWebSocket`; fake clock, authentica
 
 ## Conflicts
 - Bazaar.Server.md §3 transport cell: fixed with the S6 decision (DECISIONS-LOG round 15).
-- Garnet on Windows is unverified (spike S2); presence deltas wait on it.
+- Garnet on Windows: spike S2 passed (DECISIONS-LOG round 30). Its pub/sub does not guarantee order, so each `presence` delta carries the agent id and a per-agent `revision`, and the client drops stale deltas and re-fetches the snapshot after a gap (doc 23, activity and presence).
 - The Android `dataSync` 6 h cap is disputed; either way no always-on socket is planned.
 - Cloudflare Tunnel WebSocket fit is unverified; if an operator uses it, long sockets and heartbeats need testing.
 - Doc 01 still models one `entry` table with edits as entries and numbers edits in Q1; it must follow C09 and Q1 here.

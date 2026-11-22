@@ -1,5 +1,4 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Security.Audit.Db;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
@@ -45,7 +44,7 @@ internal sealed class AuditTestDb : IAsyncDisposable
             // Roles are cluster-wide and other test databases migrate at the same time: tolerate a role that already exists.
             await PgRoles.EnsureNoLoginRoleAsync(dataSource, "bazaar_app", ct).ConfigureAwait(false);
             await new MigrationRunner(dataSource).MigrateAsync(
-                new EmbeddedMigrationSource(typeof(PostgresAuditLog).Assembly), MigrateCommand.CurrentProvider(), ct).ConfigureAwait(false);
+                new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), MigrateCommand.CurrentProvider(), ct).ConfigureAwait(false);
         }
         catch
         {

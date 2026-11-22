@@ -106,6 +106,8 @@ public sealed partial class ViewMapper
             "owner" => ("color.badge.owner.background", "color.badge.owner.text"),
             "agent" => ("color.badge.agent.background", "color.badge.agent.text"),
             "system" => ("color.badge.system.background", "color.badge.system.text"),
+            "healthy" or "degraded" or "failing" or "recovering" or "frozen" or "unobserved" =>
+                ($"color.health.{variant}.background", $"color.health.{variant}.text"),
             _ => throw new ViewDeclarationException($"badge variant '{variant}' is not a variant token."),
         };
 
