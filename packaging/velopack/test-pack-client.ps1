@@ -24,7 +24,7 @@ function Base([string]$v = '0.1.0', [string]$c = 'stable', [string]$p = $pub) {
 
 try {
     # DryRun for every channel: exit 0, shows the vpk command with the mapped channel flag.
-    foreach ($c in 'stable', 'beta', 'alpha', 'nightly', 'lts') {
+    foreach ($c in 'stable', 'beta', 'nightly', 'lts') {
         $r = Run ((Base '0.1.0' $c) + '-DryRun')
         Check ($r.Code -eq 0) "dryrun $c exits 0"
         Check ($r.Out -match 'DRYRUN: vpk pack ') "dryrun $c prints vpk pack"
@@ -45,7 +45,7 @@ try {
         $r = Run ((Base $bad) + '-DryRun')
         Check ($r.Code -ne 0) "bad version '$bad' fails"
     }
-    foreach ($bad in 'Stable', 'win', 'dev', 'latest') {
+    foreach ($bad in 'Stable', 'win', 'dev', 'latest', 'alpha') {
         $r = Run ((Base '0.1.0' $bad) + '-DryRun')
         Check ($r.Code -ne 0) "bad channel '$bad' fails"
     }
@@ -66,4 +66,4 @@ finally {
     Remove-Item -Recurse -Force -Path $work -ErrorAction SilentlyContinue
 }
 
-if ($failures -eq 0) { Write-Host 'all pack-client tests passed' } else { Write-Host "$failures failure(s)"; exit 1 }
+if ($failures -eq 0) { Write-Host 'all pack-client tests passed'; exit 0 } else { Write-Host "$failures failure(s)"; exit 1 }
