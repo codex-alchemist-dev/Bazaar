@@ -12,7 +12,7 @@ internal static partial class KodoExportPatterns
     [GeneratedRegex("^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)*$", RegexOptions.CultureInvariant)]
     internal static partial Regex ComponentId();
 
-    /// <summary>A run of 16 or more hex digits. Instance ids (agents, GCs, sessions) look like this, so a component id must not contain one.</summary>
+    /// <summary>A run of 16 or more hex digits. Instance ids (agents, group chats, sessions) look like this, so a component id must not contain one.</summary>
     [GeneratedRegex("[0-9a-f]{16,}", RegexOptions.CultureInvariant)]
     internal static partial Regex InstanceIdLike();
 
