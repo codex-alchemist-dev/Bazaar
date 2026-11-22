@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Engines;
+using Bazaar.Engines.Processes;
 
 namespace Bazaar.Engines.Adapters;
 
@@ -40,6 +41,12 @@ public sealed class AdapterHost : IAsyncDisposable
     private static readonly TimeSpan _drainWait = TimeSpan.FromSeconds(1);
 
     private const int _invalidResponseCode = -32603;
+
+    /// <summary>Longest line kept in the output tail. Longer lines are cut so the tail stays small.</summary>
+    private const int _maxTailLineChars = 8192;
+
+    /// <summary>Most projects the host tracks output sequence numbers for. A child cannot grow the table past this.</summary>
+    private const int _maxTrackedProjects = 4096;
 
     private readonly Process _process;
     private readonly AdapterProcessOptions _options;
@@ -92,6 +99,7 @@ public sealed class AdapterHost : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(options.Arguments);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(options.CommandTimeout, TimeSpan.Zero);
         ArgumentOutOfRangeException.ThrowIfLessThan(options.OutputTailLines, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(options.MaxMessageChars, 1024);
 
         var startInfo = new ProcessStartInfo(options.FileName)
         {
@@ -108,6 +116,9 @@ public sealed class AdapterHost : IAsyncDisposable
         {
             startInfo.ArgumentList.Add(argument);
         }
+
+        // The child gets an allowlisted environment, never the server's own (which holds provider keys and passwords).
+        ChildProcessEnvironment.Apply(startInfo, options.Environment);
         if (options.WorkingDirectory is not null)
         {
             startInfo.WorkingDirectory = options.WorkingDirectory;
@@ -315,7 +326,7 @@ public sealed class AdapterHost : IAsyncDisposable
     /// </summary>
     private async Task<JsonElement?> BoundedRequestAsync(string method, JsonElement? parameters, string description, CancellationToken ct)
     {
-        using var timeout = new CancellationTokenSource(_options.CommandTimeout);
+        using var timeout = new CancellationTokenSource(_options.CommandTimeout, _options.TimeProvider ?? TimeProvider.System);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
         try
         {
@@ -411,10 +422,24 @@ public sealed class AdapterHost : IAsyncDisposable
     {
         try
         {
-            string? line;
-            while ((line = await _process.StandardOutput.ReadLineAsync().ConfigureAwait(false)) is not null)
+            // A line longer than the cap is a protocol violation: the session fails and the child is killed, so a child
+            // that never sends a newline cannot grow the buffer without bound.
+            var reader = new BoundedLineReader(_process.StandardOutput, _options.MaxMessageChars, stopOnOverflow: true);
+            while (true)
             {
-                HandleLine(line);
+                var read = await reader.ReadLineAsync().ConfigureAwait(false);
+                if (read.Text is null)
+                {
+                    break;
+                }
+
+                if (read.Truncated)
+                {
+                    Fail(_invalidResponseCode, $"The adapter sent a message longer than {_options.MaxMessageChars} characters; the adapter was killed.");
+                    return;
+                }
+
+                HandleLine(read.Text);
             }
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException)
@@ -438,10 +463,17 @@ public sealed class AdapterHost : IAsyncDisposable
     {
         try
         {
-            string? line;
-            while ((line = await _process.StandardError.ReadLineAsync().ConfigureAwait(false)) is not null)
+            // Stderr lines are only kept for failure reports, so an over-long one is cut and its rest dropped.
+            var reader = new BoundedLineReader(_process.StandardError, _maxTailLineChars, stopOnOverflow: false);
+            while (true)
             {
-                AddTail(line);
+                var read = await reader.ReadLineAsync().ConfigureAwait(false);
+                if (read.Text is null)
+                {
+                    break;
+                }
+
+                AddTail(read.Text);
             }
         }
         catch (Exception ex) when (ex is IOException or ObjectDisposedException)
@@ -571,6 +603,11 @@ public sealed class AdapterHost : IAsyncDisposable
             {
                 return;
             }
+            if (!_lastSeq.ContainsKey(envelope.ProjectId) && _lastSeq.Count >= _maxTrackedProjects)
+            {
+                return;
+            }
+
             _lastSeq[envelope.ProjectId] = envelope.Seq;
             AddTailLocked(text);
         }
@@ -588,7 +625,7 @@ public sealed class AdapterHost : IAsyncDisposable
 
     private void AddTailLocked(string line)
     {
-        _tail.Enqueue(line);
+        _tail.Enqueue(line.Length > _maxTailLineChars ? line[.._maxTailLineChars] : line);
         while (_tail.Count > _options.OutputTailLines)
         {
             _tail.Dequeue();
