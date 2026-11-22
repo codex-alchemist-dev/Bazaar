@@ -88,6 +88,8 @@ internal static class Program
 
         var chatSettings = ChatSettings(args);
         ChatHost? chat = null;
+        // The Studio bridge (doc 20): off unless engine.studio.mcp_path (BAZAAR_STUDIO_MCP_PATH) names a Studio MCP executable.
+        IAsyncDisposable? studio = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
@@ -122,6 +124,14 @@ internal static class Program
         CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
+        if (!preloadStart)
+        {
+            studio = StudioComposition.Start(
+                ClientServer.Current,
+                new FileCursorStore(CursorPath()),
+                Environment.GetEnvironmentVariable(StudioComposition.PathVariable),
+                Console.Error.WriteLine);
+        }
 
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
         // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
@@ -173,6 +183,7 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            studio?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }

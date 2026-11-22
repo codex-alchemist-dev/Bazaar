@@ -1,9 +1,10 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a",
+  "hash": "sha256:8b743ea60894399ddec4d79381beef24db8e2770af530a5af55360aa401913ea",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    { "type": "engine.grant.verify", "payload": "Bazaar.Contracts.Engines.EngineGrantVerifyRequest" },
     { "type": "engine.relay.request", "payload": "Bazaar.Contracts.Engines.EngineRelayRequestFrame" },
     { "type": "engine.relay.result", "payload": "Bazaar.Contracts.Engines.EngineRelayResultFrame" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
@@ -36,6 +37,24 @@
     { "type": "welcome", "payload": "Bazaar.Contracts.Wire.Welcome" }
   ],
   "types": [
+    {
+      "name": "Bazaar.Contracts.Engines.EngineGrantVerifyReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "covers", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineGrantVerifyRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "tool", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "riskClass", "type": "ref:Bazaar.Contracts.Engines.RiskClass", "nullable": false, "default": false }
+      ]
+    },
     {
       "name": "Bazaar.Contracts.Engines.EngineRelayCallFrame",
       "kind": "record",
@@ -72,6 +91,15 @@
       "fields": [
         { "n": 1, "name": "relayId", "type": "guid", "nullable": false, "default": false },
         { "n": 2, "name": "result", "type": "ref:Bazaar.Contracts.Engines.EngineRelayCallResultFrame", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.RiskClass",
+      "kind": "enum",
+      "members": [
+        { "name": "read", "value": 0 },
+        { "name": "write", "value": 1 },
+        { "name": "exec", "value": 2 }
       ]
     },
     {

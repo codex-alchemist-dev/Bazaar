@@ -1,0 +1,17 @@
+Golden frame: EngineGrantVerifyRequest
+Codec: cbor (binary)
+Protocol: 1.0
+Schema hash: sha256:8b743ea60894399ddec4d79381beef24db8e2770af530a5af55360aa401913ea
+Payload record: Bazaar.Contracts.Engines.EngineGrantVerifyRequest
+Envelope: v=1 t=engine.grant.verify k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
+Frame length: 171 bytes
+Payload as JSON: {"grantId":"grant-1","tool":"multi_edit","riskClass":1}
+Frame hex:
+  A8617601617473656E67696E652E6772616E742E766572696679616B63657674
+  62696468766563746F722D316173782767633A30313936613666302D30303030
+  2D373030302D383030302D303030303030303030303031616E07627473C07818
+  323032362D31312D31395430353A33363A31322E3334355A6170A3676772616E
+  744964676772616E742D3164746F6F6C6A6D756C74695F65646974697269736B
+  436C617373657772697465
+
+A foreign client passes when it decodes the .bin file to this envelope and payload, and encodes them back to the same bytes.

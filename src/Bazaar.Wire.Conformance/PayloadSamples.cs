@@ -120,6 +120,8 @@ public static class PayloadSamples
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
         Of(null, new EngineRelayRequestFrame(_gc, DateTimeOffset.Parse("2026-11-18T12:00:00+00:00", System.Globalization.CultureInfo.InvariantCulture), new EngineRelayCallFrame("grant-1", "studio-1", "multi_edit", "{\"x\":1}")), EngineRelayWire.EventType),
         Of(null, new EngineRelayResultFrame(_gc, new EngineRelayCallResultFrame("grant-1", true, "{\"done\":true}")), EngineRelayWire.RequestType),
+        Of(null, new EngineGrantVerifyRequest("grant-1", "multi_edit", RiskClass.Write), EngineRelayWire.GrantVerifyType),
+        Of(null, new EngineGrantVerifyReply(true)),
         Of(null, new PrListRequest("codex-alchemist-dev/Bazaar", PrListState.Open, null, 25), WireTypes.PrList),
         Of(null, new PrListReply([new PrListRow("PR_1", "codex-alchemist-dev/Bazaar", 7, "Wake the agent", "claude", PrAuthorKind.Agent, false, new string('a', 40), PrChecksRollup.Passing, 3)], null)),
         Of(null, new PrSummaryRequest("PR_1"), WireTypes.PrSummary),
