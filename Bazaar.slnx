@@ -94,6 +94,7 @@
 
     <Project Path="src/Bazaar.Admin/Bazaar.Admin.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Abstractions/Bazaar.Server.Setup.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Setup.Host/Bazaar.Server.Setup.Host.csproj" />
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
@@ -101,6 +102,7 @@
     <Project Path="src/Bazaar.Server.EngineDispatch/Bazaar.Server.EngineDispatch.csproj" />
     <Project Path="tests/Bazaar.Server.EngineDispatch.Tests/Bazaar.Server.EngineDispatch.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Http/Bazaar.Server.Setup.Http.csproj" />
+    <Project Path="src/Bazaar.Server.Setup.Postgres/Bazaar.Server.Setup.Postgres.csproj" />
     <Project Path="src/Bazaar.Fun/Bazaar.Fun.csproj" />
     <Project Path="tests/Bazaar.Fun.Tests/Bazaar.Fun.Tests.csproj" />
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
@@ -187,6 +189,14 @@
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.SignIn.Abstractions/Bazaar.Client.SignIn.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.SignIn/Bazaar.Client.SignIn.csproj" />
+    <Project Path="src/Bazaar.Client.SignIn.Avalonia/Bazaar.Client.SignIn.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Server.Setup.FirstRun/Bazaar.Server.Setup.FirstRun.csproj" />
+    <Project Path="src/Bazaar.Server.Setup.FirstRun.Abstractions/Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.CompanySetup.Abstractions/Bazaar.Client.CompanySetup.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.CompanySetup/Bazaar.Client.CompanySetup.csproj" />
+    <Project Path="src/Bazaar.Client.CompanySetup.Avalonia/Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Push/Bazaar.Client.Push.csproj" />
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
@@ -205,8 +215,12 @@
     <Project Path="tests/Bazaar.Admin.Tests/Bazaar.Admin.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.Http.Tests/Bazaar.Server.Setup.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Agents.Tests/Bazaar.Server.Agents.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Setup.Postgres.Tests/Bazaar.Server.Setup.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Components.ManagedPostgres.Tests/Bazaar.Components.ManagedPostgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Approvals.Tests/Bazaar.Client.Approvals.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.SignIn.Tests/Bazaar.Client.SignIn.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Setup.FirstRun.Tests/Bazaar.Server.Setup.FirstRun.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.CompanySetup.Tests/Bazaar.Client.CompanySetup.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.GitSolarSystem.Tests/Bazaar.Client.GitSolarSystem.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Launcher.Tests/Bazaar.Client.Components.Launcher.Tests.csproj" />

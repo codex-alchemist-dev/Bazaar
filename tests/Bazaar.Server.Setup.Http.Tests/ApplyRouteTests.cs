@@ -120,7 +120,7 @@ public sealed class ApplyRouteTests
         harness.Owners.Exists = true;
         await harness.StartAsync();
         var held = PlanFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null");
-        var hash = Bazaar.Server.Setup.SetupPlanLoader.Load(held).PlanHash!;
+        var hash = PlanFixtures.HashOf(held);
 
         using var response = await harness.SendAsync(HttpMethod.Post, ApplyPath(hash), Owner, held);
 
