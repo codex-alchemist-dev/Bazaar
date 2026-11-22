@@ -1,7 +1,7 @@
+using Bazaar.Server.Jobs;
 using Bazaar.Server.Knowledge.Metrics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using Bazaar.Server.Jobs;
 
 namespace Bazaar.Server.Health;
 
@@ -17,15 +17,20 @@ public sealed partial class HealthCollectJobHandler(
     IEnumerable<IHealthFactSource> sources,
     IEnumerable<IHealthProjectSource> projectSources,
     TimeProvider timeProvider,
+    IEnumerable<IBuildBrokenListener>? buildBrokenListeners = null,
     ILogger<HealthCollectJobHandler>? logger = null) : IJobHandler
 {
     /// <summary>The <c>job.kind</c> the poller enqueues on the collect cadence.</summary>
     public const string JobKind = "health.collect";
 
+    private readonly BuildBrokenDetector _detector = new();
     private readonly ILogger _log = (ILogger?)logger ?? NullLogger.Instance;
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Health collection failed for project {Project} on {Day}.")]
     private static partial void LogCollectionFailed(ILogger logger, Exception exception, string project, DateOnly day);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A build-broken listener failed for project {Project}.")]
+    private static partial void LogListenerFailed(ILogger logger, Exception exception, string project);
 
     public string Kind => JobKind;
 
@@ -55,8 +60,10 @@ public sealed partial class HealthCollectJobHandler(
                         foreach (var source in sourceList)
                             parts.Add(await source.ReadAsync(project, day, ct).ConfigureAwait(false));
 
-                        var samples = HealthSampleBuilder.Build(project, day, HealthFacts.Merge(parts));
+                        var merged = HealthFacts.Merge(parts);
+                        var samples = HealthSampleBuilder.Build(project, day, merged);
                         added += await store.UpsertAsync(samples, ct).ConfigureAwait(false);
+                        await NotifyBuildBrokenAsync(project, merged.CiRuns, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
@@ -70,5 +77,23 @@ public sealed partial class HealthCollectJobHandler(
         if (failures.Count > 0)
             throw new AggregateException("Health collection failed for one or more projects.", failures);
         return added;
+    }
+
+    private async Task NotifyBuildBrokenAsync(string project, IReadOnlyList<CiRunFact> runs, CancellationToken ct)
+    {
+        foreach (var signal in _detector.Observe(project, runs))
+        {
+            foreach (var listener in buildBrokenListeners ?? [])
+            {
+                try
+                {
+                    await listener.OnBuildBrokenAsync(signal, ct).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    LogListenerFailed(_log, ex, project);
+                }
+            }
+        }
     }
 }
