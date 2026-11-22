@@ -19,7 +19,7 @@ internal static class KekKeyFile
 
         var directory = Path.GetDirectoryName(keyPath)
             ?? throw new ArgumentException("The KEK file path has no directory.", nameof(keyPath));
-        Directory.CreateDirectory(directory);
+        CreateKeyDirectory(directory);
 
         if (!File.Exists(keyPath))
         {
@@ -37,7 +37,11 @@ internal static class KekKeyFile
             try
             {
                 // CreateNew fails if another start created the file first; that start's key is read below.
-                using var stream = new FileStream(keyPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                // The owner-only mode is set at creation, so the key is never readable by others between create and chmod.
+                var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None };
+                if (!OperatingSystem.IsWindows())
+                    options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
+                using var stream = new FileStream(keyPath, options);
                 stream.Write(sealed_);
                 stream.Flush(flushToDisk: true);
             }
@@ -67,6 +71,15 @@ internal static class KekKeyFile
         }
 
         return key;
+    }
+
+    /// <summary>Creates the key directory; on POSIX hosts a new one is owner-only. Windows relies on the data root's ACL (doc 61).</summary>
+    internal static void CreateKeyDirectory(string directory)
+    {
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(directory);
+        else
+            Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
     }
 
     private static void RestrictToOwner(string keyPath)
