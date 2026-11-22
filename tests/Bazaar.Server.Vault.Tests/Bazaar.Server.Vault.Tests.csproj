@@ -17,5 +17,6 @@
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vault.Testing\Bazaar.Server.Vault.Testing.csproj" />
   </ItemGroup>
 </Project>
