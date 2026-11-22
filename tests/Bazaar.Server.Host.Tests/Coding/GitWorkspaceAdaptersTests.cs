@@ -113,6 +113,10 @@ public sealed class GitWorkspaceAdaptersTests : IDisposable
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => throw new NotImplementedException();
 
         public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => throw new NotImplementedException();
+
+        public Task<RepositoryEventsPage> ListRepositoryEventsAsync(RepositoryEventsRequest request, CancellationToken cancellationToken) => throw new NotImplementedException();
+
+        public Task<string> GetRepositoryNodeIdAsync(long installationId, string owner, string repo, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 
     private static readonly CodingRepoBinding _binding = new("/srv/repos/repo1", 11, "acme", "repo1", 99);

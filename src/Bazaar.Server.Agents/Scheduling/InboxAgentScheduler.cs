@@ -15,6 +15,7 @@ namespace Bazaar.Server.Agents.Scheduling;
 /// <remarks>
 /// A session per turn is the interim rule. Every turn gets a fresh version 7 session id, so taint from one turn never carries
 /// into the next turn of the same agent. This stays until a session model exists (doc 06, "Session key"; doc 15).
+/// An agent the kill switch denies (<see cref="IAgentWakeGate"/>) is skipped before the guard is asked, and its items stay pending.
 /// An agent the guard trips is skipped, and its items stay pending. The guard counts every wake it is asked about, so a
 /// tripped agent is not asked about again until <see cref="AgentSchedulerOptions.GuardTripBackoff"/> has passed; asking on
 /// every pass would keep its wake count over the limit for good. The backoff is kept in memory and is lost on restart.
@@ -30,8 +31,10 @@ public sealed partial class InboxAgentScheduler(
     IAgentToolGrants grants,
     AgentSchedulerOptions options,
     TimeProvider time,
-    ILogger<InboxAgentScheduler> logger) : IAgentScheduler
+    ILogger<InboxAgentScheduler> logger,
+    IAgentWakeGate? wakeGate = null) : IAgentScheduler
 {
+    private readonly IAgentWakeGate? _wakeGate = wakeGate;
     private readonly IDueAgentReader _dueAgents = dueAgents;
     private readonly IAgentToolGrants _grants = grants;
     private readonly TurnStarter _turns = turns;
@@ -73,6 +76,14 @@ public sealed partial class InboxAgentScheduler(
                 }
 
                 _guardHoldUntil.TryRemove(agentId, out _);
+            }
+
+            // The kill switch comes before the guard, so a stopped agent adds nothing to its guard counters.
+            if (_wakeGate?.Check(agentId) is { Allowed: false } denied)
+            {
+                LogKillSwitchSkipped(_logger, agentId, denied.Reason);
+                Interlocked.Increment(ref tally.SkippedByKillSwitch);
+                return;
             }
 
             var verdict = _guard.Check(new AgentWake(agentId.ToString("D"), WakeKind.Standard));
@@ -127,6 +138,7 @@ public sealed partial class InboxAgentScheduler(
     {
         public int TurnsStarted;
         public int SkippedByGuard;
+        public int SkippedByKillSwitch;
         public int SkippedLeaseNotAcquired;
         public int SkippedNothingDue;
         public int Errors;
@@ -137,11 +149,15 @@ public sealed partial class InboxAgentScheduler(
             Volatile.Read(ref SkippedByGuard),
             Volatile.Read(ref SkippedLeaseNotAcquired),
             Volatile.Read(ref SkippedNothingDue),
-            Volatile.Read(ref Errors));
+            Volatile.Read(ref Errors),
+            Volatile.Read(ref SkippedByKillSwitch));
     }
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Agent {AgentId} was not woken: loop guard {GuardKind} tripped. Its inbox items stay pending.")]
     private static partial void LogGuardSkipped(ILogger logger, Guid agentId, GuardKind? guardKind);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Agent {AgentId} was not woken: the kill switch denies it ({Reason}). Its inbox items stay pending.")]
+    private static partial void LogKillSwitchSkipped(ILogger logger, Guid agentId, string? reason);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Agent {AgentId} was not woken: its lease is held by another turn.")]
     private static partial void LogLeaseNotAcquired(ILogger logger, Guid agentId);

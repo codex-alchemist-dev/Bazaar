@@ -3,21 +3,22 @@ using Bazaar.Server.Security.Taint;
 namespace Bazaar.Server.VmEgress.Approvals.Security;
 
 /// <summary>
-/// <see cref="IEgressTaintReader"/> over <see cref="IAgentSessionTaintLookup"/>. Hard taint blocks egress growth (a Tier 2 action);
-/// soft taint does not. Without a registered lookup every call throws, so the gate denies.
+/// <see cref="IEgressTaintReader"/> over Security's <see cref="IAgentSessionTaintReader"/> (worst taint across the agent's active
+/// sessions, doc 15 "Reads for modules"). Hard taint blocks egress growth (a Tier 2 action); soft taint does not. An agent with no
+/// active session is clean. Without a registered reader every call throws, so the gate denies.
 /// </summary>
-public sealed class AgentTaintReader(IAgentSessionTaintLookup? lookup) : IEgressTaintReader
+public sealed class AgentTaintReader(IAgentSessionTaintReader? sessions) : IEgressTaintReader
 {
     /// <inheritdoc />
     public async ValueTask<bool> IsHardTaintedAsync(string agentId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        if (lookup is null)
+        if (sessions is null)
         {
-            throw new InvalidOperationException("No agent session taint lookup is registered for egress growth.");
+            throw new InvalidOperationException("No agent session taint reader is registered for egress growth.");
         }
 
-        var taint = await lookup.GetAgentTaintAsync(agentId, ct).ConfigureAwait(false);
-        return taint.State == TaintState.Hard;
+        var state = await sessions.GetActiveTaintAsync(agentId, ct).ConfigureAwait(false);
+        return state == TaintState.Hard;
     }
 }
