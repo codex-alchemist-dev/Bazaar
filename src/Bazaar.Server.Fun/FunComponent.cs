@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Fun.Vent;
 using Bazaar.Server.Fun.Ward;
+using Bazaar.Server.Fun.Lucky;
+using Bazaar.Server.Fun.Sidewalk;
 using Bazaar.Server.Sanitization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -50,5 +52,17 @@ public sealed class FunComponent : IBazaarComponent
             }, "Psych Ward settings are invalid.");
         services.TryAddSingleton<WardStateMachine>(sp =>
             new WardStateMachine(sp.GetRequiredService<IOptions<WardSettings>>().Value));
+
+        // Lucky (doc 26, section 6): settings from Bazaar:Lucky, validated; the controller is a singleton.
+        var luckySettings = configuration.GetSection("Bazaar:Lucky").Get<LuckySettings>() ?? new LuckySettings();
+        luckySettings.Validate();
+        services.TryAddSingleton(luckySettings);
+        services.TryAddSingleton<LuckyController>();
+
+        // Sidewalk (doc 26, section 8): sidewalk.daily_token_cap from Bazaar:Sidewalk, validated.
+        var sidewalkSettings = configuration.GetSection(SidewalkSettings.SectionName).Get<SidewalkSettings>()
+            ?? new SidewalkSettings();
+        sidewalkSettings.Validate();
+        services.TryAddSingleton(sidewalkSettings);
     }
 }

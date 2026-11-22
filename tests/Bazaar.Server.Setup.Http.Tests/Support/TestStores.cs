@@ -2,10 +2,10 @@ using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Server.RateLimits;
+using System.Text.Json;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Http;
-using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Setup.Http.Tests.Support;
 
@@ -109,18 +109,73 @@ public sealed class FakeRateLimiter : IRateLimiter
 }
 
 /// <summary>Maps bearer tokens to principals. An unknown token fails, as the real authenticator does.</summary>
-public sealed class FakeAuthenticator : IConnectionAuthenticator
+public sealed class FakeAuthenticator : ISetupCallerAuthenticator
 {
-    public Dictionary<string, PrincipalRef> Tokens { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, SetupPrincipal> Tokens { get; } = new(StringComparer.Ordinal);
 
-    public ValueTask<AuthResult> AuthenticateAsync(HelloCredential? credential, DeviceInfo device, CancellationToken cancellationToken)
+    public ValueTask<SetupPrincipal?> AuthenticateAsync(string bearerToken, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(Tokens.TryGetValue(bearerToken, out var principal) ? principal : null);
+}
+
+/// <summary>The transport rule. Plaintext from off the machine is refused unless a test allows it.</summary>
+public sealed class FakeTransportPolicy : ISetupTransportPolicy
+{
+    public bool AllowPlaintextOverlay { get; set; }
+}
+
+/// <summary>Keeps every settings audit row in memory, in order.</summary>
+public sealed class FakeSettingAudit : ISetupSettingAudit
+{
+    private readonly List<(string Key, string ActorId, string? OldValueJson, string NewValueJson)> _entries = [];
+
+    public IReadOnlyList<(string Key, string ActorId, string? OldValueJson, string NewValueJson)> Entries => _entries;
+
+    public Task AppendInstallChangeAsync(string key, string actorId, string? oldValueJson, string newValueJson, CancellationToken cancellationToken = default)
     {
-        if (credential is not null && Tokens.TryGetValue(credential.Value, out var principal))
-        {
-            return ValueTask.FromResult(AuthResult.Success(principal));
-        }
+        _entries.Add((key, actorId, oldValueJson, newValueJson));
+        return Task.CompletedTask;
+    }
+}
 
-        return ValueTask.FromResult(AuthResult.Fail("unknown"));
+/// <summary>
+/// A three-key settings catalog: the keys the fixture plans use. Values are checked by type and range only, and a status bind
+/// other than <c>loopback</c> is held, like the real registry.
+/// </summary>
+public sealed class FakeSettingCatalog : ISetupSettingCatalog
+{
+    private readonly Dictionary<string, ISetupSettingDefinition> _byName = new(StringComparer.Ordinal)
+    {
+        ["host.status.bind"] = new Definition("host.status.bind", typeof(string), CheckBind, held: value => value.GetString() != "loopback"),
+        ["host.status.port"] = new Definition("host.status.port", typeof(int), value => CheckRange(value, 0, 65535)),
+        ["host.shutdown_timeout_seconds"] = new Definition("host.shutdown_timeout_seconds", typeof(int), value => CheckRange(value, 5, 120)),
+    };
+
+    public IReadOnlyCollection<ISetupSettingDefinition> Definitions => _byName.Values;
+
+    public bool TryGet(string name, out ISetupSettingDefinition? definition) => _byName.TryGetValue(name, out definition);
+
+    private static string? CheckBind(JsonElement value) =>
+        value.ValueKind == JsonValueKind.String ? null : "must be a string.";
+
+    private static string? CheckRange(JsonElement value, int min, int max) =>
+        value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var number) && number >= min && number <= max
+            ? null
+            : $"must be a whole number from {min} to {max}.";
+
+    private sealed class Definition(string name, Type valueType, Func<JsonElement, string?> check, Func<JsonElement, bool>? held = null) : ISetupSettingDefinition
+    {
+        public string Name => name;
+
+        public bool IsInstallScope => true;
+
+        public Type ValueType => valueType;
+
+        public string? CheckValue(JsonElement value) => check(value);
+
+        public SetupSettingEvaluation Evaluate(string actorId, JsonElement proposed) =>
+            held is not null && held(proposed)
+                ? new SetupSettingEvaluation(false, "needs owner approval.", proposed.GetRawText())
+                : new SetupSettingEvaluation(true, null, proposed.GetRawText());
     }
 }
 

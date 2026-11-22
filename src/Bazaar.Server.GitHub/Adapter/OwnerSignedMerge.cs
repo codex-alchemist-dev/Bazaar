@@ -1,4 +1,5 @@
 using Bazaar.Approvals;
+using Bazaar.Contracts.GitHub;
 
 namespace Bazaar.Server.GitHub.Adapter;
 
@@ -30,27 +31,35 @@ internal sealed class OwnerSignedMerge : IOwnerSignedMergeService
 
         var payload = approval.Payload;
         if (!string.Equals(payload.HeadSha, merge.HeadSha, StringComparison.OrdinalIgnoreCase))
-            throw new MergeNotApprovedException("the approval and the merge name different head shas");
+            throw new MergeNotApprovedException("the approval and the merge name different head shas", MergeRefusalReason.HeadMismatch);
 
         if (payload.Action != OwnerMergeArgs.Action)
-            throw new MergeNotApprovedException("the approval is not for a squash merge");
+            throw new MergeNotApprovedException("the approval is not for a squash merge", MergeRefusalReason.WrongAction);
 
         if (!payload.ArgsHash.AsSpan().SequenceEqual(OwnerMergeArgs.Hash(approval.Pr, merge)))
-            throw new MergeNotApprovedException("the approval is for a different merge");
+            throw new MergeNotApprovedException("the approval is for a different merge", MergeRefusalReason.DifferentMerge);
 
         var verdict = await _verifier.VerifyAsync(payload, approval.Signature, _time.GetUtcNow(), cancellationToken);
         if (verdict != OwnerSignatureVerdict.Valid)
-            throw new MergeNotApprovedException($"the owner's signature was refused ({verdict})");
+            throw new MergeNotApprovedException($"the owner's signature was refused ({verdict})", MergeRefusalReason.SignatureRejected, verdict);
 
         var current = await _adapter.GetHeadShaAsync(approval.Pr, cancellationToken);
         if (!string.Equals(current, payload.HeadSha, StringComparison.OrdinalIgnoreCase))
-            throw new MergeNotApprovedException("the PR head moved after approval, so the owner must approve again");
+            throw new MergeNotApprovedException("the PR head moved after approval, so the owner must approve again", MergeRefusalReason.HeadMoved);
 
         // Checks are read for the approved sha, so a check that turns red after approval stops the merge too (doc 21, Merge request path).
         var checks = await _adapter.GetChecksStateAsync(approval.Pr, payload.HeadSha!, cancellationToken);
         if (checks != PrChecksState.Passing)
-            throw new MergeNotApprovedException($"the checks on the approved head are not passing ({checks})");
+            throw new MergeNotApprovedException($"the checks on the approved head are not passing ({checks})", MergeRefusalReason.ChecksNotPassing, checks: ToRollup(checks));
 
         await _executor.SquashMergeAsync(approval.Pr, merge, cancellationToken);
     }
+
+    private static PrChecksRollup ToRollup(PrChecksState state) => state switch
+    {
+        PrChecksState.Passing => PrChecksRollup.Passing,
+        PrChecksState.Failing => PrChecksRollup.Failing,
+        PrChecksState.Pending => PrChecksRollup.Pending,
+        _ => PrChecksRollup.None,
+    };
 }

@@ -1,4 +1,7 @@
 using Bazaar.Core;
+using Bazaar.Server.Fun;
+using Bazaar.Server.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -9,14 +12,12 @@ using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
-using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
-using Bazaar.Server.GitHub;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -25,6 +26,7 @@ using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
+using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -39,6 +41,7 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new SetupComponent(),
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
@@ -49,6 +52,7 @@ public static class HostComponents
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),

@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Bazaar.Server.RateLimits;
 using Bazaar.Server.Security.Audit;
-using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -45,7 +44,7 @@ public static class SetupEndpoints
             return refusal;
         }
 
-        var loaded = SetupPlanLoader.Load(text!);
+        var loaded = SetupPlanLoader.Load(text!, call.Deps.Settings);
         var status = SetupHttpStatus.For(loaded.ExitCode);
         var body = new SetupPlanReplyBody((int)loaded.ExitCode, loaded.PlanHash, IssuesOf(loaded.Issues));
         return new SetupReply(status, OutcomeOf(loaded.ExitCode), Json(body, status), loaded.PlanHash);
@@ -66,7 +65,7 @@ public static class SetupEndpoints
         }
 
         // The plan in the body is checked before anything else: a plan that does not validate has no hash to compare.
-        var loaded = SetupPlanLoader.Load(text!);
+        var loaded = SetupPlanLoader.Load(text!, call.Deps.Settings);
         if (loaded.Plan is null || loaded.PlanHash is null)
         {
             var invalid = new SetupPlanReplyBody((int)loaded.ExitCode, null, IssuesOf(loaded.Issues));
@@ -146,7 +145,7 @@ public static class SetupEndpoints
         SetupReply reply;
         try
         {
-            var caller = await ResolveCallerAsync(http, deps.Auth, time, http.RequestAborted);
+            var caller = await ResolveCallerAsync(http, deps.Auth, http.RequestAborted);
             if (TransportRefused(http, caller.IsLoopback))
             {
                 reply = new SetupReply(StatusCodes.Status403Forbidden, "refused:transport", Error(StatusCodes.Status403Forbidden, "forbidden"));
@@ -203,7 +202,7 @@ public static class SetupEndpoints
     }
 
     /// <summary>Reads the caller: loopback, the bootstrap code header, and the principal of a valid bearer token, if any.</summary>
-    private static async Task<SetupCaller> ResolveCallerAsync(HttpContext http, IConnectionAuthenticator auth, TimeProvider time, CancellationToken cancellationToken)
+    private static async Task<SetupCaller> ResolveCallerAsync(HttpContext http, ISetupCallerAuthenticator auth, CancellationToken cancellationToken)
     {
         var remote = http.Connection.RemoteIpAddress;
         var loopback = remote is not null && IPAddress.IsLoopback(remote);
@@ -211,17 +210,12 @@ public static class SetupEndpoints
         var code = http.Request.Headers[SetupHttpConstants.BootstrapCodeHeader].ToString();
         var bootstrapCode = code.Length is 0 or > SetupHttpConstants.MaxBootstrapCodeLength ? null : code;
 
-        PrincipalRef? principal = null;
+        SetupPrincipal? principal = null;
         var header = http.Request.Headers.Authorization.ToString();
         var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
         if (!string.IsNullOrEmpty(token))
         {
-            var result = await auth.AuthenticateAsync(new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), cancellationToken);
-            var expired = result.ExpiresAt is { } expiry && expiry <= time.GetUtcNow();
-            if (result.Ok && result.Principal is not null && !expired)
-            {
-                principal = result.Principal;
-            }
+            principal = await auth.AuthenticateAsync(token, cancellationToken);
         }
 
         return new SetupCaller(loopback, principal, bootstrapCode);
@@ -235,8 +229,8 @@ public static class SetupEndpoints
             return false;
         }
 
-        var wire = http.RequestServices.GetService<IOptions<WireOptions>>()?.Value;
-        return wire is null || !wire.AllowPlaintextOverlay;
+        var policy = http.RequestServices.GetService<ISetupTransportPolicy>();
+        return policy is null || !policy.AllowPlaintextOverlay;
     }
 
     /// <summary>A refused call: 403 when a valid credential lacks the role, otherwise 401. Neither says which condition failed.</summary>
@@ -344,8 +338,9 @@ public static class SetupEndpoints
         ISetupProgressSource Progress,
         IRateLimiter Limiter,
         IAuditLog Audit,
-        IConnectionAuthenticator Auth,
-        SetupApplyCoordinator Coordinator)
+        ISetupCallerAuthenticator Auth,
+        SetupApplyCoordinator Coordinator,
+        ISetupSettingCatalog Settings)
     {
         public static SetupDeps? Resolve(IServiceProvider services)
         {
@@ -355,14 +350,15 @@ public static class SetupEndpoints
             var progress = services.GetService<ISetupProgressSource>();
             var limiter = services.GetService<IRateLimiter>();
             var audit = services.GetService<IAuditLog>();
-            var auth = services.GetService<IConnectionAuthenticator>();
+            var auth = services.GetService<ISetupCallerAuthenticator>();
             var coordinator = services.GetService<SetupApplyCoordinator>();
-            if (gate is null || applier is null || results is null || progress is null || limiter is null || audit is null || auth is null || coordinator is null)
+            var settings = services.GetService<ISetupSettingCatalog>();
+            if (gate is null || applier is null || results is null || progress is null || limiter is null || audit is null || auth is null || coordinator is null || settings is null)
             {
                 return null;
             }
 
-            return new SetupDeps(gate, applier, results, progress, limiter, audit, auth, coordinator);
+            return new SetupDeps(gate, applier, results, progress, limiter, audit, auth, coordinator, settings);
         }
     }
 

@@ -19,6 +19,9 @@ public interface IGitHttpTransport
 {
     /// <summary>GETs a path relative to the server base (for example <c>git/github/repos/o/r/prs?state=open</c>).</summary>
     Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default);
+
+    /// <summary>POSTs a JSON body to a path relative to the server base and returns the status and the capped answer body.</summary>
+    Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -34,6 +37,20 @@ public sealed class HttpGitTransport(HttpClient http, Func<string?> credential) 
     public async Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(pathAndQuery, UriKind.Relative));
+        return await SendAsync(request, maxBodyBytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(jsonBody);
+        using var content = new ByteArrayContent(jsonBody);
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        using var request = new HttpRequestMessage(HttpMethod.Post, new Uri(path, UriKind.Relative)) { Content = content };
+        return await SendAsync(request, maxBodyBytes, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<GitHttpResponse> SendAsync(HttpRequestMessage request, int maxBodyBytes, CancellationToken cancellationToken)
+    {
         var token = _credential();
         if (!string.IsNullOrEmpty(token)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -72,6 +89,15 @@ public sealed class GitRequestException(int statusCode, string errorCode) : GitG
     public int StatusCode { get; } = statusCode;
 
     public string ErrorCode { get; } = errorCode;
+}
+
+/// <summary>The server answered 403 <c>merge_not_approved</c>. It gives no reason, so neither does the client.</summary>
+public sealed class GitMergeNotApprovedException() : GitGuiException("The merge was not approved.");
+
+/// <summary>The server answered 429 <c>rate_limited</c>. <see cref="RetryAfterSeconds"/> is null when the forge gave no hint.</summary>
+public sealed class GitRateLimitedException(int? retryAfterSeconds) : GitGuiException("The forge is rate limiting; try again later.")
+{
+    public int? RetryAfterSeconds { get; } = retryAfterSeconds;
 }
 
 /// <summary>The server, or the forge behind it, is unavailable (5xx, 502 <c>forge_unavailable</c>, or no connection).</summary>
@@ -137,6 +163,49 @@ public sealed partial class ServerGitGuiClient(IGitHttpTransport transport) : IG
     {
         var body = await GetOkAsync($"{PrRoot(provider, repo, number)}/checks", cancellationToken).ConfigureAwait(false);
         return Parse(body, GitReadContractsJsonContext.Default.GitCheckDtoArray);
+    }
+
+    public async Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var path = $"{PrRoot(provider, repo, number)}/merge";
+        var json = JsonSerializer.SerializeToUtf8Bytes(request, GitReadContractsJsonContext.Default.GitMergeRequestDto);
+
+        GitHttpResponse response;
+        try
+        {
+            response = await _transport.PostJsonAsync(path, json, MaxBodyBytes, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new GitServerUnavailableException("The server could not be reached.", ex);
+        }
+
+        ArgumentNullException.ThrowIfNull(response);
+        var body = response.Body ?? [];
+        if (body.Length > MaxBodyBytes) throw new GitResponseException("The response is larger than the client accepts.");
+
+        switch (response.StatusCode)
+        {
+            case 200:
+                return Parse(body, GitReadContractsJsonContext.Default.GitMergedDto);
+            case 403:
+                throw new GitMergeNotApprovedException();
+            case 409:
+                var current = TryParse(body, GitReadContractsJsonContext.Default.GitHeadMovedDto)?.CurrentHeadSha;
+                if (current is not null && ShaRegex().IsMatch(current)) throw new HeadMovedException(current);
+                throw new GitRequestException(409, ErrorCode(body));
+            case 404:
+                throw new GitNotFoundException(ErrorCode(body));
+            case 429:
+                throw new GitRateLimitedException(TryParse(body, GitReadContractsJsonContext.Default.GitRateLimitedDto)?.RetryAfterSeconds);
+            case >= 400 and < 500:
+                throw new GitRequestException(response.StatusCode, ErrorCode(body));
+            case >= 500:
+                throw new GitServerUnavailableException($"The server is unavailable ({response.StatusCode}).");
+            default:
+                throw new GitResponseException($"Unexpected status {response.StatusCode}.");
+        }
     }
 
     private static string RepoRoot(string provider, string repo)
