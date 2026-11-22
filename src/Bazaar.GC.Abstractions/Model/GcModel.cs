@@ -71,6 +71,7 @@ public sealed record GcEventDraft(
 /// <param name="EditorId">Principal who wrote this version.</param>
 /// <param name="Seq">Sequence number of the event that created this version.</param>
 /// <param name="CreatedAt">When this version was written.</param>
+/// <param name="WithdrawnByImport">The import job id when this version withdraws an import's message, else null.</param>
 public sealed record MessageVersionRecord(
     Guid GcId,
     Guid MessageId,
@@ -78,4 +79,5 @@ public sealed record MessageVersionRecord(
     string Body,
     Guid EditorId,
     long Seq,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? WithdrawnByImport = null);

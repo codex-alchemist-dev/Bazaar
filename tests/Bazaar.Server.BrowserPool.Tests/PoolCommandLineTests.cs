@@ -41,7 +41,7 @@ public class PoolCommandLineTests
 
     private static readonly string[] _systemd =
     [
-        "systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "TasksMax=512", "--",
+        "systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "CPUQuota=200%", "-p", "TasksMax=512", "--",
     ];
 
     [Fact]
@@ -67,8 +67,29 @@ public class PoolCommandLineTests
         var o = new BrowserPoolOptions { MemoryMaxMb = 0 };
 
         Assert.Equal(
-            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "TasksMax=512", "--"],
-            Build(o).Launch.Take(7));
+            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "CPUQuota=200%", "-p", "TasksMax=512", "--"],
+            Build(o).Launch.Take(9));
+    }
+
+    [Fact]
+    public void Zero_cpu_quota_omits_the_cpu_property_but_keeps_the_others()
+    {
+        var o = new BrowserPoolOptions { CpuQuotaPercent = 0 };
+
+        Assert.Equal(
+            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "TasksMax=512", "--"],
+            Build(o).Launch.Take(11));
+    }
+
+    [Fact]
+    public void Cpu_quota_and_task_limit_are_rendered_from_the_options()
+    {
+        var o = new BrowserPoolOptions { CpuQuotaPercent = 50, TasksMax = 256 };
+        var launch = Build(o).Launch;
+
+        Assert.Contains("CPUQuota=50%", launch);
+        Assert.Contains("TasksMax=256", launch);
+        Assert.DoesNotContain("TasksMax=512", launch);
     }
 
     [Fact]
