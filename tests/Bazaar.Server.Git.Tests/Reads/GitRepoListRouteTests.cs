@@ -14,7 +14,7 @@ namespace Bazaar.Server.Git.Tests.Reads;
 /// <summary>Real Kestrel on a loopback port: the <c>GET /git/repos</c> route over a configured directory.</summary>
 public sealed class GitRepoListRouteTests
 {
-    private const string _secretPath = "/srv/secret-clones/widgets";
+    private static readonly string _secretPath = Path.Combine(Path.GetTempPath(), "secret-clones", "widgets");
 
     private static GitRepositoryEntry Entry(string id, string provider, string name, string? installation = null) => new()
     {
