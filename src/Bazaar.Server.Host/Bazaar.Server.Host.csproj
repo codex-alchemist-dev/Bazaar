@@ -50,6 +50,8 @@
     <ProjectReference Include="..\Bazaar.Server.CompanyMemory\Bazaar.Server.CompanyMemory.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcReactions\Bazaar.Server.GcReactions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Portability.Postgres\Bazaar.Server.Portability.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health.Abstractions\Bazaar.Server.Health.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health\Bazaar.Server.Health.csproj" />
     <ProjectReference Include="..\Bazaar.Conduit\Bazaar.Conduit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive.Approvals\Bazaar.Server.Hive.Approvals.csproj" />

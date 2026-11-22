@@ -37,6 +37,7 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Health;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
@@ -127,6 +128,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
         new AnalyticsGitComponent(),
