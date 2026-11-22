@@ -16,6 +16,7 @@ public sealed record StreamCursor(string S, long After, long EditAfter);
 /// <param name="ClientBuild">Client build string for diagnostics and upgrade checks.</param>
 /// <param name="Credential">Credential, when it did not ride in the upgrade header.</param>
 /// <param name="Cursors">Cursors for streams to resume, or null.</param>
+[WirePayload(WireTypes.Hello)]
 public sealed record Hello(
     int VersionMin,
     int VersionMax,
@@ -54,6 +55,7 @@ public sealed record WireLimits(int MaxFrameBytes, int InflightRequestsMax, int 
 /// Minor addition. The effective value of setting <c>wire.previous_major_supported</c>: whether the server also accepts the
 /// previous protocol major. Null when the server does not report it.
 /// </param>
+[WirePayload(WireTypes.Welcome)]
 public sealed record Welcome(
     int Version,
     int Minor,

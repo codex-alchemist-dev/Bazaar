@@ -6,7 +6,7 @@ namespace Bazaar.Server.Agents.Data;
 public sealed class AgentRepository(
     NpgsqlDataSource dataSource,
     IAgentLifecycleObserver? lifecycleObserver = null,
-    IAgentHandleAssigner? handles = null)
+    IAgentHandleAssigner? handles = null) : IAgentDirectoryReader
 {
     /// <summary>
     /// Creates an agent in <see cref="AgentState.Created"/>. Returns its id. With an <see cref="IAgentHandleAssigner"/>, the new
@@ -68,5 +68,16 @@ public sealed class AgentRepository(
         if (changed && to == AgentState.Retired && lifecycleObserver is not null)
             await lifecycleObserver.AgentRetiredAsync(agentId, ct).ConfigureAwait(false);
         return changed;
+    }
+
+    public async Task<IReadOnlyList<AgentListing>> ListActiveAgentsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(
+            "SELECT agent_id, name FROM agent WHERE state <> 'retired' ORDER BY name, agent_id");
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var agents = new List<AgentListing>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            agents.Add(new AgentListing(reader.GetGuid(0), reader.GetString(1)));
+        return agents;
     }
 }
