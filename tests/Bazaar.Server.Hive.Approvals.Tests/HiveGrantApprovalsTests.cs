@@ -58,7 +58,7 @@ public sealed class HiveGrantApprovalsTests
         Assert.Equal(first.TicketId, again.TicketId);
         var row = await rig.Store.GetAsync(first.TicketId!.Value, Ct);
         Assert.Equal(OwnerQueueHiveGrantApprovals.ToolName, row!.Tool);
-        Assert.Single(rig.Ledger.Snapshot());
+        Assert.Single((await rig.Ledger.SnapshotAsync(Ct)));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class HiveGrantApprovalsTests
         await rig.Approvals.RequestAsync(_set, "owner-1", Ct);
 
         Assert.Equal(0, await rig.Sweeper.SweepOnceAsync(Ct));
-        Assert.Single(rig.Ledger.Snapshot());
+        Assert.Single((await rig.Ledger.SnapshotAsync(Ct)));
         Assert.Empty(await rig.Grants.ListAsync(Ct));
     }
 
@@ -101,7 +101,7 @@ public sealed class HiveGrantApprovalsTests
         var grant = Assert.Single(await rig.Grants.ListAsync(Ct));
         Assert.Equal("owner-1", grant.GrantedBy);
         Assert.Equal(ApprovalStatus.Consumed, (await rig.Store.GetAsync(ticket.TicketId!.Value, Ct))!.Status);
-        Assert.Empty(rig.Ledger.Snapshot());
+        Assert.Empty((await rig.Ledger.SnapshotAsync(Ct)));
     }
 
     [Fact]
@@ -112,7 +112,7 @@ public sealed class HiveGrantApprovalsTests
         await rig.Decide(ticket.TicketId!.Value, ApprovalStatus.Denied);
 
         Assert.Equal(0, await rig.Sweeper.SweepOnceAsync(Ct));
-        Assert.Empty(rig.Ledger.Snapshot());
+        Assert.Empty((await rig.Ledger.SnapshotAsync(Ct)));
         Assert.Empty(await rig.Grants.ListAsync(Ct));
     }
 
@@ -120,10 +120,10 @@ public sealed class HiveGrantApprovalsTests
     public async Task Sweeper_idles_when_approvals_are_not_registered()
     {
         var ledger = new InMemoryHiveGrantChangeLedger();
-        ledger.Add(Guid.NewGuid(), _set);
+        await ledger.AddAsync(Guid.NewGuid(), _set, Ct);
         var sweeper = new HiveGrantApprovalSweeper(ledger, new ServiceCollection().BuildServiceProvider(), TimeProvider.System, NullLogger<HiveGrantApprovalSweeper>.Instance);
 
         Assert.Equal(0, await sweeper.SweepOnceAsync(Ct));
-        Assert.Single(ledger.Snapshot());
+        Assert.Single((await ledger.SnapshotAsync(Ct)));
     }
 }
