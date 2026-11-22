@@ -745,6 +745,18 @@ public sealed class ModuleFileSystemTests : IDisposable
     }
 
     [Fact]
+    public async Task An_oversized_write_to_an_ungranted_path_is_refused_as_ungranted_and_audited()
+    {
+        var (fs, sink) = Make(["fs:local/*"], new ModuleFsOptions(MaxFileBytes: 4));
+
+        await Assert.ThrowsAsync<ModulePermissionDeniedException>(
+            async () => await fs.WriteAllBytesAsync("cache/big.bin", new byte[5], TestContext.Current.CancellationToken));
+
+        Assert.Single(sink.Denials);
+        Assert.False(File.Exists(Path.Combine(_cache, "big.bin")));
+    }
+
+    [Fact]
     public void Roots_that_are_a_filesystem_root_or_contain_one_another_are_refused()
     {
         var fsRoot = Path.GetPathRoot(_local)!;

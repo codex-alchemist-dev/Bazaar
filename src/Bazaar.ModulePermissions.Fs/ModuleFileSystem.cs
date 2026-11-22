@@ -110,6 +110,8 @@ public sealed class ModuleFileSystem
     {
         if (data.Length > _options.MaxFileBytes)
         {
+            // The gate is asked first, so an ungranted path is refused as ungranted and audited whatever the size.
+            _ = Parse(path, allowRootOnly: false);
             throw Refuse("The data is larger than the limit.");
         }
 
