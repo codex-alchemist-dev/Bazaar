@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text;
+using Bazaar.Engines.Processes;
 
 namespace Bazaar.Engines.Roblox.Rojo;
 
@@ -27,6 +29,11 @@ public interface IProcessRunner
 /// <summary>Production runner backed by <see cref="Process"/>. Kills the whole process tree on timeout or cancel.</summary>
 public sealed class SystemProcessRunner : IProcessRunner
 {
+    /// <summary>Most characters kept from each of stdout and stderr. The rest of a flood is read and dropped.</summary>
+    public const int MaxCapturedChars = 4 * 1024 * 1024;
+
+    private static readonly TimeSpan _pipeDrainWait = TimeSpan.FromSeconds(5);
+
     public async Task<ProcessResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
@@ -49,13 +56,16 @@ public sealed class SystemProcessRunner : IProcessRunner
             startInfo.ArgumentList.Add(argument);
         }
 
+        // The child gets an allowlisted environment, never the server's own secrets.
+        ChildProcessEnvironment.Apply(startInfo);
+
         using var process = new Process { StartInfo = startInfo };
         process.Start();
 
         // Drain both pipes concurrently so a full pipe cannot block the child. The pipes end when the process
         // exits or is killed, so the reads do not need the caller's token; cancellation goes through the wait below.
-        Task<string> stdout = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
-        Task<string> stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        var stdout = new CappedCapture(process.StandardOutput, MaxCapturedChars);
+        var stderr = new CappedCapture(process.StandardError, MaxCapturedChars);
 
         using var timeoutSource = new CancellationTokenSource(timeout);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
@@ -67,7 +77,7 @@ public sealed class SystemProcessRunner : IProcessRunner
         {
             Kill(process);
             await process.WaitForExitAsync(CancellationToken.None);
-            return new ProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: true);
+            return new ProcessResult(process.ExitCode, await stdout.FinishAsync(_pipeDrainWait), await stderr.FinishAsync(_pipeDrainWait), TimedOut: true);
         }
         catch (OperationCanceledException)
         {
@@ -75,7 +85,60 @@ public sealed class SystemProcessRunner : IProcessRunner
             throw;
         }
 
-        return new ProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: false);
+        return new ProcessResult(process.ExitCode, await stdout.FinishAsync(_pipeDrainWait), await stderr.FinishAsync(_pipeDrainWait), TimedOut: false);
+    }
+
+    /// <summary>
+    /// Drains one pipe, keeping at most a cap of characters. Reading continues past the cap so the child never blocks on
+    /// a full pipe. A grandchild that outlives the child and holds the pipe open cannot stall the caller: the wait for the
+    /// end of the stream is bounded and the text read so far is returned.
+    /// </summary>
+    private sealed class CappedCapture
+    {
+        private readonly StringBuilder _text = new();
+        private readonly object _gate = new();
+        private readonly Task _pump;
+
+        public CappedCapture(TextReader reader, int cap)
+        {
+            _pump = Task.Run(async () =>
+            {
+                var buffer = new char[8192];
+                int read;
+                while ((read = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false)) > 0)
+                {
+                    lock (_gate)
+                    {
+                        int room = cap - _text.Length;
+                        if (room > 0)
+                        {
+                            _text.Append(buffer, 0, Math.Min(read, room));
+                        }
+                    }
+                }
+            });
+        }
+
+        public async Task<string> FinishAsync(TimeSpan wait)
+        {
+            try
+            {
+                await _pump.WaitAsync(wait).ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                // Something still holds the pipe open; return what was read.
+            }
+            catch (IOException)
+            {
+                // The pipe broke; return what was read.
+            }
+
+            lock (_gate)
+            {
+                return _text.ToString();
+            }
+        }
     }
 
     private static void Kill(Process process)

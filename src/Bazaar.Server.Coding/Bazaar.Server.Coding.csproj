@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
-    <RootNamespace>Bazaar.Server.Coding</RootNamespace>
-    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Coding.Abstractions\Bazaar.Server.Coding.Abstractions.csproj" />
+  </ItemGroup>
 </Project>
