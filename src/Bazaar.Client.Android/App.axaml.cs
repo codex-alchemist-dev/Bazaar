@@ -5,7 +5,9 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Annotation;
 using Bazaar.Client.Android.Approvals;
+using Bazaar.Client.Android.Wire;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.TalentPool;
@@ -29,7 +31,9 @@ using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.RyuseiFuda.Phone;
 using Bazaar.Client.Shell;
+using Bazaar.Contracts.Panes;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
@@ -48,10 +52,15 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
         ClientServer.ConnectToCompanyServer();
+        _wire = AndroidWire.Start(
+            ClientServer.Current,
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "bazaar"),
+            "bazaar-android");
         var host = new ContentControl
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
         };
+        Annotation = new AndroidAnnotation(host, ClientServer.Current);
 
         // Direction from the locale and the screen-reader live region wrap the main view (doc 41c; Android has no window).
         ShellHost.Install(host, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
@@ -99,6 +108,25 @@ public sealed class App : Avalonia.Application
 
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
     private readonly List<IDisposable> _postureBindings = [];
+
+    // The one socket to the company server. Kanban (and later approvals) send their wire requests through it.
+    private AndroidWire? _wire;
+
+    /// <summary>
+    /// The project whose board the Kanban pane shows, or null while none is chosen (the pane then says so and sends nothing).
+    /// How the phone learns the project is not decided yet (doc 29 and doc 12 name no project listing), so a build sets it.
+    /// </summary>
+    public static Guid? KanbanProjectId { get; set; }
+
+    /// <summary>
+    /// Screenshot annotation over the HTTP blob channel (doc 29, work package 11). The radial menu is not in the head yet, so its
+    /// Annotate sector will call <see cref="AndroidAnnotation.ShowAsync"/> once it is.
+    /// </summary>
+    public AndroidAnnotation? Annotation { get; private set; }
+
+    // Push (doc 29, Background delivery) is not wired. PushProviderSelector and BareWakeHandler exist in Bazaar.Client.Push, but the
+    // pieces they need do not: no IPushProvider for FCM or UnifiedPush, no IWakeFetcher and no ILocalNotifier. Once those exist, build
+    // `new PushProviderSelector(providers).Select(settings.PushProvider)` and pass wakes to `new BareWakeHandler(fetcher, notifier).HandleAsync(rawKind, ct)`.
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
@@ -149,9 +177,15 @@ public sealed class App : Avalonia.Application
         var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var settings = new AndroidSettings();
+        // The Kanban pane is the live board over the wire (doc 29 work package 9), not the static placeholder body.
+        var board = new WireKanbanBoardClient(_wire!.Client);
         var shell = new PhoneShell(
             registry,
-            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry), kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
+            FirstPartyPanes.PhonePaneBodies(
+                kind => kind == PaneKinds.Kanban ? KanbanPhoneBody.Create(board, KanbanProjectId) : null,
+                kind => RyuseiFudaPanes.PhoneBody(kind, registry),
+                kind => GcPaneModule.PhoneBody(kind, registry),
+                kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
             settings.RadialSectors);
         paneSurface.Bind(

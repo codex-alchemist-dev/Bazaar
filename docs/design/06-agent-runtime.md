@@ -99,6 +99,14 @@ Scheduling of agent wakes (timers, intervals, watchers and one-shot events, the 
 | Agent messages in a thread without a human message | `runtime.guard.thread_agent_messages` (20) |
 | Identical tool call repeated | `runtime.guard.repeat_tool_call` (3) |
 
+### Wake loop default (overnight plan item 41)
+The wake loop is **on by default**, so a fresh company wakes agents on a card (a RyuseiFuda fire, doc 38) or a mention (a GC mention row) with no flag flipped. The setting is `Bazaar:AgentTurns:Scheduler:Enabled` (default `true`); an operator sets it to `false` to switch wakes off, and the host logs one line at start that says which. The default-on path is guarded:
+- **Kill switch first.** Before every wake the loop asks `IAgentWakeGate`; `Bazaar.Server.AgentSafety` answers from the kill switch (doc 15): a global stop or an agent stop denies the wake, the agent keeps its inbox items, and the guard is not asked, so a stopped agent adds nothing to its counters. With no kill switch composed, the gate denies every wake (fail closed).
+- **Loop guard always on.** The guard is asked before every wake (chain depth, ping-pong, wakes per hour); a trip goes to the Psych Ward as above. No setting turns the guard off, and every limit is validated to be at least 1 (`LoopGuardOptions.Validate`), so no value disables it. Loosening a limit still needs owner approval.
+- **Quota and spend limits still apply.** Each turn goes through the model gateway (doc 05) and the token budgets (doc 15); `RateLimited` or `SpendCapped` moves the agent to Resting.
+- **Stays idle rather than failing.** If the setting was left at its default and the host cannot run turns (no model gateway, turn runner or loop guard), the loop logs why and wakes nothing; the host still starts. Setting `Enabled=true` explicitly keeps the older rule: the host stops at start with an error naming what is missing.
+- **Tests** use fake agents (a fake turn runner and inbox reader, the real loop guard, no network): a mention wakes an agent once, a two-agent loop is stopped by the guard, the kill switch stops wakes, the setting off disables wakes, and a fresh configuration has the loop on.
+
 ### Thinking GCs
 Each agent has a Thinking GC nested under each GC it works in (01; C11). Per-turn reasoning is posted as steps. The owner always reads; peers read on request; thinking is never injected into another agent's context. Vote reasoning is withheld until the tally is revealed. 25 and 26 do not publish Thinking GC text.
 
