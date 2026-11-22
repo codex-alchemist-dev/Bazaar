@@ -70,10 +70,12 @@ public class PgKodoJournalSqlTests
     {
         Assert.Contains("kodo", _source.Namespaces());
         IReadOnlyList<MigrationFile> files = _source.Load("kodo");
-        Assert.Equal(["journal", "state_history_and_snapshot"], files.OrderBy(f => f.Version).Select(f => f.Name));
+        Assert.Equal(["journal", "state_history_and_snapshot", "checkpoints"], files.OrderBy(f => f.Version).Select(f => f.Name));
         Assert.Contains("CREATE TABLE kodo_journal (", files[0].Sql);
         Assert.Contains("CREATE TABLE kodo_state_change (", files[1].Sql);
         Assert.Contains("CREATE TABLE kodo_snapshot (", files[1].Sql);
+        Assert.Contains("CREATE TABLE kodo_checkpoint (", files[2].Sql);
+        Assert.Contains("CREATE TABLE kodo_checkpoint_anchor (", files[2].Sql);
         Assert.Empty(_source.Load(MigrationRunner.Common));
     }
 
@@ -81,6 +83,32 @@ public class PgKodoJournalSqlTests
     public void Retention_never_deletes_the_head()
     {
         Assert.Contains("sequence < (SELECT max(sequence) FROM kodo_journal)", PgKodoJournalStore.PruneJournalSql);
+    }
+
+    [Fact]
+    public void Checkpoint_rows_are_append_only_so_a_root_outlives_retention()
+    {
+        string sql = _source.Load("kodo").Single(f => f.Version == 3).Sql;
+
+        Assert.Contains("BEFORE UPDATE OR DELETE ON kodo_checkpoint", sql);
+        Assert.Contains("(signature IS NULL) = (signer_id IS NULL)", sql);
+    }
+
+    [Fact]
+    public void Anchored_retention_is_bounded_by_the_prune_rule_and_never_touches_checkpoints()
+    {
+        Assert.Contains("sequence <= $2", PgKodoJournalStore.PruneAnchoredJournalSql);
+        Assert.DoesNotContain("kodo_checkpoint", PgKodoJournalStore.PruneAnchoredJournalSql);
+        Assert.Contains("EXISTS (SELECT 1 FROM kodo_checkpoint_anchor", PgKodoJournalStore.NewestAnchoredSql);
+        Assert.Equal(-1, KodoPruneRule.HighestPrunable(10, null));
+    }
+
+    [Fact]
+    public void The_covering_checkpoint_is_the_first_one_at_or_after_the_record()
+    {
+        Assert.Contains("sequence >= $1 AND first_sequence <= $1 ORDER BY sequence LIMIT 1", PgKodoJournalStore.CoveringCheckpointSql);
+        Assert.Contains("NOT EXISTS (SELECT 1 FROM kodo_checkpoint_anchor", PgKodoJournalStore.UnanchoredCheckpointsSql);
+        Assert.Contains("ON CONFLICT (checkpoint_sequence, sink_id) DO NOTHING", PgKodoJournalStore.InsertAnchorSql);
     }
 
     [Fact]

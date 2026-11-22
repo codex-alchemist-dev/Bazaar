@@ -33,6 +33,7 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
     private readonly KodoJournal _journal;
     private readonly KodoJournalSync? _sync;
     private readonly IKodoJournalStore? _store;
+    private readonly IKodoCheckpointStore? _checkpoints;
     private readonly KodoStreamWriter _stream = new();
     private readonly SemaphoreSlim _cycle = new(1, 1);
     private readonly Dictionary<string, Bulkhead> _pools = new(StringComparer.Ordinal);
@@ -45,7 +46,7 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
     private KodoStatusSnapshotDto? _latest;
     private bool _started;
 
-    public KodoMonitor(KodoServerOptions options, IHostReadings host, IKodoStreamPublisher publisher, TimeProvider time, ILogger<KodoMonitor> logger, IKodoJournalStore? store = null)
+    public KodoMonitor(KodoServerOptions options, IHostReadings host, IKodoStreamPublisher publisher, TimeProvider time, ILogger<KodoMonitor> logger, IKodoJournalStore? store = null, IKodoCheckpointStore? checkpoints = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(host);
@@ -66,7 +67,8 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
         if (store is not null && options.UseJournalStore)
         {
             _store = store;
-            _sync = new KodoJournalSync(_journal, store, options, time, logger);
+            _checkpoints = checkpoints;
+            _sync = new KodoJournalSync(_journal, store, options, time, logger, checkpoints);
         }
 
         int failures = s.GetInt(KodoSettingKey.BreakerFailures);
@@ -179,6 +181,66 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
             return local;
         }
     }
+
+    public async ValueTask<KodoProofLookup> LookupJournalProofAsync(long sequence, CancellationToken cancellationToken)
+    {
+        // A checkpoint is anchored outside this process, so a proof against its root is preferred over one against the moving head.
+        if (_checkpoints is not null && sequence >= 0 && sequence < _journal.NextSequence)
+        {
+            try
+            {
+                KodoCheckpointProof proof = await _checkpoints.ProofFromCheckpointAsync(sequence, cancellationToken).ConfigureAwait(false);
+                switch (proof.Outcome)
+                {
+                    case KodoCheckpointProofOutcome.Found when proof.View is not null:
+                        return new KodoProofLookup(KodoProofOutcome.Found, proof.View);
+                    case KodoCheckpointProofOutcome.Pruned:
+                        return new KodoProofLookup(KodoProofOutcome.Pruned);
+                    case KodoCheckpointProofOutcome.Inconsistent:
+                        return new KodoProofLookup(KodoProofOutcome.Inconsistent);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception error)
+            {
+                LogProofStoreFailed(_logger, error);
+            }
+        }
+
+        return await JournalProofAsync(sequence, cancellationToken).ConfigureAwait(false) is { } view
+            ? new KodoProofLookup(KodoProofOutcome.Found, view)
+            : new KodoProofLookup(KodoProofOutcome.NotAvailable);
+    }
+
+    public async ValueTask<IReadOnlyList<KodoCheckpointView>> JournalAnchorsAsync(int limit, CancellationToken cancellationToken)
+    {
+        if (_checkpoints is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            IReadOnlyList<KodoCheckpointEntry> entries = await _checkpoints.ListCheckpointsAsync(Math.Clamp(limit, 1, 200), cancellationToken).ConfigureAwait(false);
+            return [.. entries.Select(e => ToView(e.Checkpoint, e.Anchors))];
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception error)
+        {
+            LogProofStoreFailed(_logger, error);
+            return [];
+        }
+    }
+
+    private static KodoCheckpointView ToView(KodoCheckpoint c, IReadOnlyList<KodoAnchorMark> anchors) => new(
+        c.FirstSequence, c.LastSequence, c.RecordCount, c.FirstAt, c.LastAt, c.CutAt,
+        Hex(c.HeadHash), Hex(c.Root), Hex(c.Digest), KodoCheckpoints.DigestIsValid(c), c.Signature is not null, c.SignerId, anchors);
 
     /// <summary>The ids of the probes this monitor runs, in catalogue order.</summary>
     public IReadOnlyList<string> ProbeIds => _slots.Select(slot => slot.Id).ToArray();

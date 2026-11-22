@@ -221,6 +221,105 @@ public class KodoSurfaceTests
     }
 
     [Fact]
+    public async Task The_proof_route_tells_a_pruned_record_and_a_damaged_checkpoint_apart_from_an_unknown_one()
+    {
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddSingleton<IKodoStatusSource>(new StubSource());
+        builder.Services.AddBazaarKodo(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Kodo:Enabled"] = "true" }).Build());
+        builder.Services.RemoveAll<IHostedService>();
+        await using var app = builder.Build();
+        app.MapBazaarKodo(r => r);
+        await app.StartAsync(Ct);
+        using var http = Client(app);
+
+        using var pruned = await http.GetAsync("/api/kodo/v1/journal/proof/1", Ct);
+        using var damaged = await http.GetAsync("/api/kodo/v1/journal/proof/2", Ct);
+        using var unknown = await http.GetAsync("/api/kodo/v1/journal/proof/3", Ct);
+        using var anchors = await http.GetAsync("/api/kodo/v1/journal/anchors?limit=5", Ct);
+        using var badLimit = await http.GetAsync("/api/kodo/v1/journal/anchors?limit=0", Ct);
+
+        Assert.Equal(HttpStatusCode.Gone, pruned.StatusCode);
+        Assert.Contains("record_pruned", await pruned.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(HttpStatusCode.Conflict, damaged.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, anchors.StatusCode);
+        using var doc = JsonDocument.Parse(await anchors.Content.ReadAsStringAsync(Ct));
+        var checkpoint = Assert.Single(doc.RootElement.GetProperty("checkpoints").EnumerateArray());
+        Assert.Equal(7, checkpoint.GetProperty("lastSequence").GetInt64());
+        Assert.Equal("file", checkpoint.GetProperty("anchors")[0].GetProperty("sinkId").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, badLimit.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_checkpoint_loop_is_off_by_default_and_cuts_and_anchors_through_the_host_when_configured()
+    {
+        await using (var off = await StartAsync(new FakeReadings(), Make.Clock()))
+        {
+            Assert.DoesNotContain(off.Services.GetServices<IHostedService>(), s => s.GetType().Name == "KodoCheckpointService");
+        }
+
+        var time = Make.Clock();
+        var journal = new FakeJournalStore();
+        var checkpoints = new FakeCheckpointStore(journal);
+        var builder = WebApplication.CreateBuilder();
+        builder.WebHost.UseUrls("http://127.0.0.1:0");
+        builder.Services.AddSingleton<Bazaar.Kodo.Probes.Host.IHostReadings>(new FakeReadings());
+        builder.Services.AddSingleton<TimeProvider>(time);
+        builder.Services.AddSingleton<IKodoJournalStore>(journal);
+        builder.Services.AddSingleton<IKodoCheckpointStore>(checkpoints);
+        string file = Path.Combine(Path.GetTempPath(), "kodo-anchor-" + Guid.NewGuid().ToString("N") + ".jsonl");
+        try
+        {
+            builder.Services.AddBazaarKodo(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Bazaar:Kodo:CheckpointsEnabled"] = "true",
+                ["Bazaar:Kodo:CheckpointMaxRecords"] = "1",
+                ["Bazaar:Kodo:AnchorFilePath"] = file,
+            }).Build());
+            await using var app = builder.Build();
+            await app.StartAsync(Ct);
+
+            await WaitAsync(() => journal.Records.Count > 0);
+            await WaitAsync(() =>
+            {
+                time.Advance(TimeSpan.FromSeconds(5));
+                return checkpoints.Anchors.Count > 0;
+            });
+
+            Assert.Contains(app.Services.GetServices<IHostedService>(), s => s.GetType().Name == "KodoCheckpointService");
+            Assert.Equal("file", checkpoints.Anchors[0].Sink);
+            Assert.NotEmpty(await File.ReadAllLinesAsync(file, Ct));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    private sealed class StubSource : IKodoStatusSource
+    {
+        public bool Enabled => true;
+
+        public Bazaar.Contracts.Kodo.KodoStatusSnapshotDto? Latest => null;
+
+        public IReadOnlyList<KodoJournalEntryView> RecentJournal(int limit) => [];
+
+        public KodoJournalProofView? JournalProof(long sequence) => null;
+
+        public ValueTask<KodoProofLookup> LookupJournalProofAsync(long sequence, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(sequence switch
+            {
+                1 => new KodoProofLookup(KodoProofOutcome.Pruned),
+                2 => new KodoProofLookup(KodoProofOutcome.Inconsistent),
+                _ => new KodoProofLookup(KodoProofOutcome.NotAvailable),
+            });
+
+        public ValueTask<IReadOnlyList<KodoCheckpointView>> JournalAnchorsAsync(int limit, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<IReadOnlyList<KodoCheckpointView>>([new KodoCheckpointView(0, 7, 8, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "aa", "bb", "cc", true, false, null, [new KodoAnchorMark("file", DateTimeOffset.UnixEpoch)])]);
+    }
+
+    [Fact]
     public async Task Every_route_goes_through_the_host_guard()
     {
         await using var app = await StartAsync(
@@ -230,7 +329,7 @@ public class KodoSurfaceTests
                 ctx.HttpContext.Request.Headers.ContainsKey("X-Test-Auth") ? await next(ctx) : Microsoft.AspNetCore.Http.Results.StatusCode(401)));
         using var http = Client(app);
 
-        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/history", "/api/kodo/v1/journal/proof/0" })
+        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/history", "/api/kodo/v1/journal/proof/0", "/api/kodo/v1/journal/anchors" })
         {
             using var res = await http.GetAsync(path, Ct);
             Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
