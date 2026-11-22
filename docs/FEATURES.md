@@ -166,7 +166,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 |---|---|---|---|
 | Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; guest agent project `Bazaar.Guest.Agent`; Hyper-V provider blocked on spike S8) | `docs/design/16` |
 | Browser profiles | Full Chromium with an anonymous profile and Passport-backed account profiles. | Planned (credential leases in flight) | `docs/design/16`, `docs/design/14` |
-| Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server/Coding`) | `docs/design/17` |
+| Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server.Coding`) | `docs/design/17` |
 | Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Server.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
 | Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Server.Engines/Godot`) | `docs/design/20` |
 | Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Server.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
@@ -187,6 +187,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Search providers | Postgres full-text on Windows, `pg_search` on Linux (blocked on counsel review). | Partial (FTS merged; `pg_search` blocked) | `docs/design/03`, `src/Bazaar.Server.Providers/Search` |
 | Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Partial (Garnet module `src/Bazaar.Server.Garnet` built and in the host component list; not yet run on Windows against a real Garnet binary; Valkey in `src/Bazaar.Server.Valkey`) | `docs/design/03` |
 | Presence projector and publisher | One presence row per agent (label from availability and activity, overlays), revisioned deltas over the `presence` stream, snapshot request, client reorder rule and a GC chip adornment. | Partial (`src/Bazaar.Server.Presence`, `src/Bazaar.Client.Presence`; in the host component list; in-memory store, no event sources or `agent_activity` migration yet) | `docs/design/23` |
+| Presence event sources | Adapters that feed the presence projector from work-life availability (with THROTTLED and COVERED), turn and tool lifecycle, gateway quota, Kanban waits and the Psych Ward. | Partial (`src/Bazaar.Server.Presence.Sources`, `src/Bazaar.Server.Presence.Sources.Abstractions`; in the host component list; adapters and ports done, the source modules do not call the ports yet) | `docs/design/23` |
 | Windows provider | Windows Service host and Windows providers. | Partial (`src/Bazaar.Server.Providers.Windows`) | `docs/design/03` |
 | Linux provider | systemd host and Linux providers. | Partial (`src/Bazaar.Server.Providers.Linux`, `src/Bazaar.Server/Providers/Linux`) | `docs/design/03` |
 | Bazaar.Server.MSI, Chocolatey, MSIX, AppImage, RPM, OCI image | Packaging artifacts for the server and clients. | Shipped (scripts and packaging merged; MSIX signed with the company server certificate, #510 and #551; CycloneDX SBOM for tagged releases, #538) | `docs/design/37`, `packaging/` |

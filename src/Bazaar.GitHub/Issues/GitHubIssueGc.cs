@@ -11,6 +11,9 @@ public interface IGitHubIssueGcFactory
 
     /// <summary>Adds an agent to an existing issue GC. A current member changes nothing. Returns true when this call added it.</summary>
     Task<bool> AddAgentAsync(Guid gcId, Guid agentId, string displayName, CancellationToken cancellationToken);
+
+    /// <summary>Adds the owner to an existing issue GC. A current member changes nothing. Returns true when this call added it.</summary>
+    Task<bool> AddOwnerAsync(Guid gcId, Guid ownerId, CancellationToken cancellationToken) => AddAgentAsync(gcId, ownerId, "owner", cancellationToken);
 }
 
 /// <summary>Operator options for issue GCs, bound from <c>Bazaar:GitHub:IssueGc</c> (doc 21, issue GCs).</summary>
@@ -21,6 +24,13 @@ public sealed class GitHubIssueGcOptions
     /// (<c>Bazaar:GitHub:PrGc:OwnerPrincipalId</c>) is used, and when that is null too the bridge principal creates it (OPEN: owner read access then).
     /// </summary>
     public Guid? OwnerPrincipalId { get; init; }
+
+    /// <summary>
+    /// Whether the company owner (read from the database) is a member of every issue GC without any setting (PROPOSED, doc 21, Owner
+    /// membership of PR and issue GCs). Null follows <c>Bazaar:GitHub:PrGc:OwnerIsMember</c> (default true). No effect on an
+    /// <see cref="OwnerPrincipalId"/> override, whose principal is the creator and so a member.
+    /// </summary>
+    public bool? OwnerIsMember { get; init; }
 
     /// <summary>The GC type key. The <c>github</c> component registers <c>issue</c> (OPEN: doc 21 names no type). A different key must be registered in <c>gc_type</c> by the operator.</summary>
     public string GcTypeKey { get; init; } = "issue";
