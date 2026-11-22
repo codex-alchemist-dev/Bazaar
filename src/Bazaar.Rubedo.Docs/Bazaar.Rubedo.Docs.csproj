@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Rubedo reference generator (doc 41d section 6): deterministic Markdown pages from the schema, the function table, the view widget and action sets and the diagnostic codes. A pure library with no UI and no file I/O.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+    <ProjectReference Include="..\Bazaar.Rubedo.Analysis\Bazaar.Rubedo.Analysis.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The golden corpus is owned by Bazaar.Rubedo.Tests; the worked examples are read from the same file, so they cannot drift from it. -->
+    <EmbeddedResource Include="..\..\tests\Bazaar.Rubedo.Tests\Golden\rubedo-v1.json" LogicalName="rubedo-v1.json" />
+  </ItemGroup>
+</Project>
