@@ -3,7 +3,7 @@ using Bazaar.Server.Knowledge.Metrics;
 using Bazaar.Server.Knowledge.Twin;
 using Microsoft.Extensions.Time.Testing;
 
-namespace Bazaar.Server.Tests.Knowledge.Twin;
+namespace Bazaar.Server.Knowledge.Tests.Twin;
 
 public sealed class TwinExtractorTests
 {
