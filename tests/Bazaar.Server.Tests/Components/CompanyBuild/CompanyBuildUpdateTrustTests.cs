@@ -10,17 +10,17 @@ public sealed class CompanyBuildUpdateTrustTests
     private static readonly Uri _address = new("https://company.example/");
     private static readonly Uri _manifest = new("https://company.example/updates/manifest.json");
 
-    private const string Key = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmQENBF\\test+key/==\n=abcd\n-----END PGP PUBLIC KEY BLOCK-----";
+    private const string _key = "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\nmQENBF\\test+key/==\n=abcd\n-----END PGP PUBLIC KEY BLOCK-----";
 
     [Theory]
     [InlineData(40)]
     [InlineData(64)]
     public void Create_accepts_a_valid_fingerprint_key_and_manifest_url(int length)
     {
-        var trust = UpdateTrust.Create(new string('d', length), Key, _manifest, isOwnerInstall: true);
+        var trust = UpdateTrust.Create(new string('d', length), _key, _manifest, isOwnerInstall: true);
 
         Assert.Equal(new string('d', length), trust.UpdateSigningKeyFingerprint);
-        Assert.Equal(Key, trust.UpdateSigningPublicKey);
+        Assert.Equal(_key, trust.UpdateSigningPublicKey);
         Assert.Equal(_manifest, trust.ReleaseManifestUrl);
         Assert.True(trust.IsOwnerInstall);
     }
@@ -28,7 +28,7 @@ public sealed class CompanyBuildUpdateTrustTests
     [Fact]
     public void IsOwnerInstall_defaults_to_false()
     {
-        Assert.False(UpdateTrust.Create(_fingerprint40, Key, _manifest).IsOwnerInstall);
+        Assert.False(UpdateTrust.Create(_fingerprint40, _key, _manifest).IsOwnerInstall);
     }
 
     [Theory]
@@ -39,7 +39,7 @@ public sealed class CompanyBuildUpdateTrustTests
     [InlineData("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
     public void Create_refuses_a_malformed_fingerprint(string fingerprint)
     {
-        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(fingerprint, Key, _manifest));
+        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(fingerprint, _key, _manifest));
     }
 
     [Theory]
@@ -57,13 +57,13 @@ public sealed class CompanyBuildUpdateTrustTests
     [InlineData("https://user:secret@company.example/updates/manifest.json")]
     public void Create_refuses_a_non_https_manifest_url(string url)
     {
-        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(_fingerprint40, Key, new Uri(url)));
+        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(_fingerprint40, _key, new Uri(url)));
     }
 
     [Fact]
     public void Create_refuses_a_relative_manifest_url()
     {
-        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(_fingerprint40, Key, new Uri("/updates/manifest.json", UriKind.Relative)));
+        Assert.Throws<ArgumentException>(() => UpdateTrust.Create(_fingerprint40, _key, new Uri("/updates/manifest.json", UriKind.Relative)));
     }
 
     [Theory]
@@ -72,7 +72,7 @@ public sealed class CompanyBuildUpdateTrustTests
     [InlineData("https://sub.company.example/updates/manifest.json")]
     public void Server_identity_refuses_a_cross_origin_manifest_url(string url)
     {
-        var trust = UpdateTrust.Create(_fingerprint40, Key, new Uri(url));
+        var trust = UpdateTrust.Create(_fingerprint40, _key, new Uri(url));
 
         Assert.Throws<ArgumentException>(() => CompanyServerIdentity.Create(_address, _pin, trust));
     }
@@ -80,7 +80,7 @@ public sealed class CompanyBuildUpdateTrustTests
     [Fact]
     public void Server_identity_accepts_a_same_origin_manifest_url()
     {
-        var trust = UpdateTrust.Create(_fingerprint64, Key, _manifest);
+        var trust = UpdateTrust.Create(_fingerprint64, _key, _manifest);
 
         var identity = CompanyServerIdentity.Create(_address, _pin, trust);
 
@@ -111,7 +111,7 @@ public sealed class CompanyBuildUpdateTrustTests
     [Fact]
     public void RenderSource_with_update_trust_writes_every_value()
     {
-        var identity = CompanyServerIdentity.Create(_address, _pin, UpdateTrust.Create(_fingerprint40, Key, _manifest, isOwnerInstall: true));
+        var identity = CompanyServerIdentity.Create(_address, _pin, UpdateTrust.Create(_fingerprint40, _key, _manifest, isOwnerInstall: true));
 
         var source = CompanyBuildIdentityGenerator.RenderSource(identity);
 
@@ -124,7 +124,7 @@ public sealed class CompanyBuildUpdateTrustTests
         var end = source.IndexOf("\";", start, StringComparison.Ordinal);
         var literal = source[start..end];
         Assert.DoesNotContain('\n', literal);
-        Assert.Equal(Key, Unescape(literal));
+        Assert.Equal(_key, Unescape(literal));
     }
 
     [Fact]
@@ -133,14 +133,14 @@ public sealed class CompanyBuildUpdateTrustTests
         var root = Path.Combine(Path.GetTempPath(), "bazaar-update-trust-" + Guid.NewGuid().ToString("N"));
         try
         {
-            var identity = CompanyServerIdentity.Create(_address, _pin, UpdateTrust.Create(_fingerprint40, Key, _manifest));
+            var identity = CompanyServerIdentity.Create(_address, _pin, UpdateTrust.Create(_fingerprint40, _key, _manifest));
 
             var sourcePath = CompanyBuildIdentityGenerator.WriteSource(identity, root);
             var keyPath = CompanyBuildIdentityGenerator.WriteUpdateSigningKey(identity, root);
 
             Assert.Equal(CompanyBuildIdentityGenerator.RenderSource(identity), File.ReadAllText(sourcePath));
             Assert.Equal(Path.Combine(root, "UpdateSigningPublicKey.asc"), keyPath);
-            Assert.Equal(Key + "\n", File.ReadAllText(keyPath));
+            Assert.Equal(_key + "\n", File.ReadAllText(keyPath));
         }
         finally
         {
