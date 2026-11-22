@@ -121,7 +121,6 @@ Added 2026-11-18 (coordinator brief). Every new piece is its own module pair, ne
 | `Bazaar.Client.CompanyMemory` | Pane `bazaar.company-memory` (decision chain) | 10 |
 | `Bazaar.Client.Hive` | Pane `bazaar.hive` (owner grant matrix, copies labelled by origin) | 10 |
 | `Bazaar.Server.Twin.Prose` + `.Abstractions` | The prose step: a reader-session port, the ref validator that drops a sentence without a valid `source_ref`, writing the page through the Vault writer port | 4 |
-| `Bazaar.Server.Hive` + `.Abstractions` | `hive_grants` store, review-window batching, sanitizer port, the copy flow and revoke-to-deprecate | 7 |
 | `Bazaar.Server.TalentPool` + `.Abstractions` | `talent_templates` store, manifest validator (no memory file, model on the whitelist), submit and quarantine states. The Council `hire` hook is specified below (PROPOSED) | 8 |
 
 Talent Pool, Twin prose and Hive depend on ports (reader session, Vault writer, sanitizer, Soul manifest, whitelist) that are owned by other docs. Each module defines the narrow port it needs in its `.Abstractions` project, tests against fakes, and the owning module adapts it later. The Genetic Memory Transfer and Soul Marketplace stay out of scope.
@@ -155,11 +154,7 @@ Gives `IHiveGrantActions` a wire implementation (`WireHiveGrantActions` in `Baza
 
 Owner approval stays server-side: `hive.grants` changes need owner approval (doc 08 settings, doc 15). The server may therefore answer `accepted: true, approvalRequired: true`, meaning the change is queued and not in force. The pane then shows "waiting for owner approval" and never "granted"; the matrix changes only when a later `bazaar.hive` model shows it. A refusal carries `reason`. A lost connection throws and leaves the matrix unchanged. The contract types are `Bazaar.Contracts.Hive.HiveGrantChangeRequest` and `HiveGrantChangeReply`, registered in `WireJson`.
 
-Defaults chosen by the main session (PROPOSED, replaceable; the owner may change any of them):
-1. **Approval.** The server side is the port `IHiveGrantApprovals.RequestAsync(HiveGrantChange, requestedBy)` in `Bazaar.Server.Hive.Abstractions`. The wire handler never applies a change: it queues through the port and replies `accepted: true, approvalRequired: true`. When the approvals module records the owner's approval, it calls `HiveGrantService.ApplyApprovedAsync(change, approvedBy)`, which wraps `GrantAsync` or `RevokeAsync` and keeps their checks and audit entries. The default registration is `DenyAllHiveGrantApprovals`, which refuses with reason "approvals not configured" (fail closed).
-2. **Dispatch.** `IHiveGrantWireHandler.HandleAsync(wireType, request, caller, ct)` lives in `Bazaar.Server.Hive.Abstractions` and is implemented by `HiveGrantWireHandler` in `Bazaar.Server.Hive`. The host adapter that maps a wire frame to this call is a later change and sits in `Bazaar.Server`, not in this module.
-3. **Caller.** `HiveCaller(Principal, IsOwner)` is supplied by the host adapter from the authenticated session. A non-owner is refused with reason "owner only". `Principal` is recorded as `grantedBy` (or as the revoker).
-4. **Refusals.** Every validation error (same project or empty project, a kind outside `HiveKinds.All`, a blank principal) and an unknown wire type come back as `accepted: false` with the reason set to the existing `ArgumentException` message, or "unknown wire type". Only cancellation and infrastructure failures throw.
+The server Hive module landed with #812 (grant policy, sanitizer, copy flow, Postgres store). The server-side grant wire handler, the `IHiveGrantApprovals` port (fail closed until the approvals module registers one) and the host adapter that maps `hive.grant.set` / `hive.grant.revoke` frames to it are a follow-up delta on that module (PROPOSED). Until then the client pane shows the request as unavailable.
 
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
@@ -168,7 +163,7 @@ Defaults chosen by the main session (PROPOSED, replaceable; the owner may change
 4. Twin prose step in a reader session with the ref validator. Needs 3, 05, 15.
 5. Decision-chain index from Vault front matter. Needs 18.
 6. Archive generator, chapter validator, Vault write through `VaultWriter`. Needs 1, 5.
-7. Hive grant table, Vault copy flow and sanitizer on 08 §6 scopes. Needs 08, 18.
+7. Hive grant table, Vault copy flow and sanitizer on 08 §6 scopes. Needs 08, 18. Status: grant table (`hive_grant`), held-copy ledger (`hive_held_copy`, `hive_copy`) and `HiveComponent` host wiring are built (`hive` migration namespace); see doc 40. Settings reach the component through the `Bazaar:Hive` configuration section until the Settings service feeds `hive.*` keys at runtime.
 8. Talent Pool store, manifest validator, Council `hire` motion hook. Needs 07, 10, 11.
 9. GMT staging, child-end hook in 06, review queue. Needs 06, 08, 15.
 10. Client panels for all seven. Needs 27, 28, 29. Packages 1 to 9 run in parallel; 10 follows each one.

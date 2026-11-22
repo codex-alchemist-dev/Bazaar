@@ -10,12 +10,12 @@ namespace Bazaar.Server.Host.Startup;
 /// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Vms, Hive and Council modules' component files under Sql/components/{id}, and the Talent Pool module's Sql/talent_pool namespace.</summary>
 public static class HostMigrations
 {
-    /// <summary>Server, Vms, Hive, Council and Talent Pool migrations, read from their assemblies.</summary>
+    /// <summary>Server, module manager, Vms, Council, Hive and Talent Pool migrations, read from their assemblies.</summary>
     public static IMigrationSource Source() => new CompositeMigrationSource(
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
-        new ComponentMigrationSource(typeof(HiveRegistration).Assembly),
+        new ComponentMigrationSource(typeof(HiveComponent).Assembly),
         new EmbeddedMigrationSource(typeof(TalentPoolServiceCollectionExtensions).Assembly));
 }
