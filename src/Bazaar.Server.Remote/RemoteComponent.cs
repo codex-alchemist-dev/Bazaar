@@ -11,7 +11,7 @@ namespace Bazaar.Server.Components.Remote;
 /// <remarks>
 /// The token and pairing services are registered by the host composition (<c>AddBazaarRemoteAuth</c>), which also owns the
 /// access-token issuer and the dev-only owner seed. Nothing is registered here yet, so the component stays the single owner of
-/// the schema and its manifest, the same as <see cref="Bazaar.Server.Mail.MailComponent"/>.
+/// the schema and its manifest, the same as <c>Bazaar.Server.Mail.MailComponent</c>.
 /// </remarks>
 public sealed class RemoteComponent : IBazaarComponent
 {

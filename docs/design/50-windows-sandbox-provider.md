@@ -1,6 +1,6 @@
 # Windows Sandbox VM provider and host-compatibility metadata
 
-Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Facts about Windows Sandbox are unverified until spike S-WSB runs on the owner's PC (section 8).
+Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Spike S-WSB has run on the owner's PC and verified start, list, stop, exec and the single-instance refusal (`docs/spikes/S-WSB.md`); facts it did not cover remain unverified (section 8).
 Depends on: `16-agent-vms-and-environments.md` (VM contract, lifecycle, topology), `03-server-host-and-providers.md` (provider roles and selection), `41-client-gui-customization-and-dsl.md` (module manifest, section 8) · Used by: `42-deps-as-modules.md` (install checks), `49-gap-decisions-operations.md`
 
 ## Purpose
@@ -44,7 +44,7 @@ Every restart is a clean boot. "Restore" means boot again, not resume, so doc 16
 
 ## 4. Module shape (platform-neutral)
 - `Bazaar.Server.Vms.WindowsSandbox`: `WindowsSandboxBackend` (implements `IVmBackend` and `IVmProvider`, kind `windows_sandbox`), `WindowsSandboxConfig` (pure XML), `WindowsSandboxOptions`, `WindowsSandboxModule` (identity, requirements, capability report).
-- `IWindowsSandboxHost` is the only seam to the host. The real adapter (`WsbCli/WsbCliSandboxHost`, driving `wsb.exe`) exists since spike S-WSB, which verified start, list, stop, exec and the single-instance refusal on the owner's PC (`docs/spikes/S-WSB.md`). The provider is still not registered in any host composition, so `auto` never selects it, until the owner answers section 7.
+- `IWindowsSandboxHost` is the only seam to the host. The real adapter (`WsbCli/WsbCliSandboxHost`, driving `wsb.exe`) exists since spike S-WSB, which verified start, list, stop, exec and the single-instance refusal on the owner's PC (`docs/spikes/S-WSB.md`). The provider is registered in host composition only when the `Bazaar:Vms:WindowsSandbox` section names `HostBaseImage` and `ConfigDirectory`; the Windows candidate list also includes it with an empty base image, so child creation stays refused. Whether `auto` selects it is not checked here; the owner answers section 7.
 - `IHostFactsSource` reports OS, architecture and features for the requirements check. Its Windows implementation belongs in `Bazaar.Server.Providers.Windows` (Windows-only APIs stay behind a provider).
 - Tests (`Bazaar.Server.Vms.WindowsSandbox.Tests`, 22) use in-memory fakes. Cloud CI makes no Windows Sandbox calls.
 
@@ -54,7 +54,7 @@ Modules declare the hosts they can run on. The declaration is typed and versione
 - `Bazaar.Contracts/Modules/HostRequirements.cs`: `HostRequirements(SchemaVersion, OperatingSystems, Architectures, RequiredFeatures)`. Schema version 1. Known values are fixed lists: operating systems `windows`, `linux`, `android`; architectures `x64`, `arm64`; features `hyperv`, `windows-sandbox`, `kvm`. OS and architecture lists must be non-empty, because an empty list would match nothing.
 - `HostCompatibility.ValidateRequirements` checks the declaration (schema, vocabulary, duplicates). `HostCompatibility.Check(requirements, facts)` returns the reasons a host cannot run the module: `os-unsupported`, `arch-unsupported`, `feature-missing`. Both are pure.
 - `ModuleManifest` gains a required `Host` field. `ModuleManifestValidator` reports declaration problems under `/host/…`. The client module test factory declares Windows and Linux, x64.
-- **Provider selection:** the Windows Sandbox probe runs `Check` against `WindowsSandboxModule.Requirements` and reports the reasons in `ProviderStatus.Reason`. `auto` skips an unusable provider, and an explicit kind fails with that reason (existing `ProviderSelector` behaviour).
+- **Provider status:** the Windows Sandbox probe runs `Check` against `WindowsSandboxModule.Requirements` and reports the reasons in `ProviderStatus.Reason`. The provider is a module on Core and loads like any other; the VM module that consumes VM providers decides what to do with an unusable one (doc 03, Provider modules).
 - **Install check (follow-up):** the module install path should run the same `Check` before it accepts a package. No server-side module manifest type exists yet (`ModulePackage` and `DependencyManifest` carry no host field), so this needs its own small change after this one.
 
 ## 6. Spike S-WSB: what the owner's PC must measure

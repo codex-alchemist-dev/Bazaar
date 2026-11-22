@@ -48,18 +48,19 @@ public sealed class GcReadAccessTests(GcDb db) : IClassFixture<GcDb>
         await cmd.ExecuteNonQueryAsync();
     }
 
-    private async Task RequestAccessAsync(Guid gc, Guid requester, bool approved)
+    private async Task RequestAccessAsync(Guid gc, Guid requester, bool approved, long? decidedSeq = 1)
     {
         await using var cmd = db.DataSource.CreateCommand(
             """
-            INSERT INTO gc_access_request (gc_id, requester, status, decided_by, decided_at)
-            VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END)
+            INSERT INTO gc_access_request (gc_id, requester, status, decided_by, decided_at, decided_seq)
+            VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END, $6)
             """);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = requester });
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = approved ? "approved" : "pending" });
         cmd.Parameters.Add(new NpgsqlParameter { Value = approved ? _owner : DBNull.Value });
         cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = approved });
+        cmd.Parameters.Add(new NpgsqlParameter { Value = approved && decidedSeq is { } seq ? seq : DBNull.Value, NpgsqlDbType = NpgsqlTypes.NpgsqlDbType.Bigint });
         await cmd.ExecuteNonQueryAsync();
     }
 
@@ -170,9 +171,9 @@ public sealed class GcReadAccessTests(GcDb db) : IClassFixture<GcDb>
 
         Assert.Equal(GcReadGrant.Denied, await Access.GetGrantAsync(dm, outsider, ct));
 
-        await RequestAccessAsync(dm, outsider.Id, approved: true);
+        await RequestAccessAsync(dm, outsider.Id, approved: true, decidedSeq: 4);
 
-        Assert.Equal(GcReadGrant.Full, await Access.GetGrantAsync(dm, outsider, ct));
+        Assert.Equal(GcReadGrant.From(4), await Access.GetGrantAsync(dm, outsider, ct));
         Assert.Equal(GcReadGrant.Denied, await Access.GetGrantAsync(dm, Human(Guid.CreateVersion7()), ct));
     }
 
@@ -196,9 +197,38 @@ public sealed class GcReadAccessTests(GcDb db) : IClassFixture<GcDb>
         var ct = TestContext.Current.CancellationToken;
         var thinking = await CreateGcAsync("thinking");
         await AddMemberAsync(thinking, _agentA, "member", 0);
-        await RequestAccessAsync(thinking, _agentB, approved: true);
+        await RequestAccessAsync(thinking, _agentB, approved: true, decidedSeq: 3);
 
-        Assert.Equal(GcReadGrant.Full, await Access.GetGrantAsync(thinking, Agent(_agentB), ct));
+        Assert.Equal(GcReadGrant.From(3), await Access.GetGrantAsync(thinking, Agent(_agentB), ct));
+    }
+
+    [Fact]
+    public async Task An_approved_request_with_no_decided_seq_grants_nothing()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var dm = await CreateGcAsync("dm");
+        await AddMemberAsync(dm, _humanA, "member", 0);
+        var outsider = Human(Guid.CreateVersion7());
+        await RequestAccessAsync(dm, outsider.Id, approved: true, decidedSeq: null);
+
+        Assert.Equal(GcReadGrant.Denied, await Access.GetGrantAsync(dm, outsider, ct));
+    }
+
+    [Fact]
+    public async Task Reader_returns_a_dm_grantee_only_events_from_the_grant_seq()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var dm = await CreateGcAsync("dm");
+        await AddMemberAsync(dm, _humanA, "member", 0);
+        await AddMemberAsync(dm, _humanB, "member", 0);
+        var writer = new GcLogWriter(db.DataSource, new RecordingNotifier());
+        await writer.AppendManyAsync(Enumerable.Range(0, 6).Select(i => GcTestData.System(dm, $"d{i}")).ToList(), ct);
+        var outsider = Human(Guid.CreateVersion7());
+        await RequestAccessAsync(dm, outsider.Id, approved: true, decidedSeq: 4);
+
+        Assert.Equal([4L, 5L, 6L], await ReadSeqsAsync(dm, outsider, ct));
     }
 
     // ---------------------------------------------------------------- Through the reader

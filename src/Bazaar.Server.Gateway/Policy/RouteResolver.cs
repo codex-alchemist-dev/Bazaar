@@ -18,7 +18,16 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
 
     private readonly PolicyTightening _tightening = tightening ?? PolicyTightening.None;
 
-    public async ValueTask<RouteResolution> ResolveAsync(ModelRequest request, CancellationToken cancellationToken = default)
+    /// <summary>Resolves a chat request: embedding models never become candidates.</summary>
+    public ValueTask<RouteResolution> ResolveAsync(ModelRequest request, CancellationToken cancellationToken = default) =>
+        ResolveAsync(request, GwModelKind.Chat, cancellationToken);
+
+    /// <summary>
+    /// Resolves a request for the given model kind. A chat route excludes embedding models and an embedding route excludes
+    /// chat models (doc 05, Embedding kind); a candidate of the other kind is dropped as <see cref="DenyReason.KindMismatch"/>.
+    /// A delegated route has no model rows, so the upstream profile decides and no kind check applies.
+    /// </summary>
+    public async ValueTask<RouteResolution> ResolveAsync(ModelRequest request, GwModelKind kind, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (string.IsNullOrWhiteSpace(request.AgentId))
@@ -45,7 +54,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
 
         if (ModelRef.TryParse(route, out var single))
         {
-            return await ResolveModelAsync(policy, route, single, cancellationToken).ConfigureAwait(false);
+            return await ResolveModelAsync(policy, route, single, kind, cancellationToken).ConfigureAwait(false);
         }
 
         if (!RouteNames.IsValid(route))
@@ -53,20 +62,20 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
             return Deny(DenyReason.InvalidRoute, $"'{route}' is not a model id or a route name; wildcards and auto routes never resolve.");
         }
 
-        return await ResolveRouteAsync(policy, route, cancellationToken).ConfigureAwait(false);
+        return await ResolveRouteAsync(policy, route, kind, cancellationToken).ConfigureAwait(false);
     }
 
-    private async ValueTask<RouteResolution> ResolveModelAsync(AgentModelPolicy policy, string route, ModelRef model, CancellationToken ct)
+    private async ValueTask<RouteResolution> ResolveModelAsync(AgentModelPolicy policy, string route, ModelRef model, GwModelKind kind, CancellationToken ct)
     {
         if (!policy.AllowsModel(model))
         {
             return Deny(DenyReason.ModelNotAllowed, $"Agent '{policy.AgentId}' may not use '{model}'.");
         }
 
-        return await BuildAsync(policy, route, RouteStrategy.Priority, [model], [], delegated: false, ct).ConfigureAwait(false);
+        return await BuildAsync(policy, route, RouteStrategy.Priority, [model], [], delegated: false, kind, ct).ConfigureAwait(false);
     }
 
-    private async ValueTask<RouteResolution> ResolveRouteAsync(AgentModelPolicy policy, string route, CancellationToken ct)
+    private async ValueTask<RouteResolution> ResolveRouteAsync(AgentModelPolicy policy, string route, GwModelKind kind, CancellationToken ct)
     {
         if (!policy.AllowsRoute(route))
         {
@@ -88,7 +97,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
                 return Deny(DenyReason.DelegatedSetExceedsPolicy, $"Route '{route}' expects models outside agent '{policy.AgentId}' policy.");
             }
 
-            return await BuildAsync(policy, route, stored.Strategy, stored.Members, expected, delegated: true, ct).ConfigureAwait(false);
+            return await BuildAsync(policy, route, stored.Strategy, stored.Members, expected, delegated: true, kind, ct).ConfigureAwait(false);
         }
 
         var members = stored.Members.Where(policy.AllowsModel).ToList();
@@ -97,7 +106,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
             return Deny(DenyReason.NoEligibleCandidate, $"None of route '{route}' members is allowed for agent '{policy.AgentId}'.");
         }
 
-        return await BuildAsync(policy, route, stored.Strategy, members, [], delegated: false, ct).ConfigureAwait(false);
+        return await BuildAsync(policy, route, stored.Strategy, members, [], delegated: false, kind, ct).ConfigureAwait(false);
     }
 
     private static bool ExpectedEntryAllowed(AgentModelPolicy policy, string entry) =>
@@ -112,6 +121,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
         IReadOnlyList<ModelRef> members,
         IReadOnlyList<string> expected,
         bool delegated,
+        GwModelKind kind,
         CancellationToken ct)
     {
         var candidates = new List<RouteCandidate>();
@@ -119,7 +129,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
         string? family = null;
         foreach (var member in members)
         {
-            var reason = await CheckAsync(member, delegated, ct).ConfigureAwait(false);
+            var reason = await CheckAsync(member, delegated, kind, ct).ConfigureAwait(false);
             if (reason.Reason is { } denied)
             {
                 dropped.Add(new DroppedCandidate(member, denied));
@@ -145,7 +155,7 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
         return new RouteResolution.Allowed(new ResolvedRoute(policy.AgentId, route, strategy, policy.Version, candidates, expected), dropped);
     }
 
-    private async ValueTask<(DenyReason? Reason, string? Family)> CheckAsync(ModelRef member, bool delegated, CancellationToken ct)
+    private async ValueTask<(DenyReason? Reason, string? Family)> CheckAsync(ModelRef member, bool delegated, GwModelKind kind, CancellationToken ct)
     {
         if (_tightening.Denies(member))
         {
@@ -172,6 +182,11 @@ public sealed class RouteResolver(IAgentPolicyStore policies, IGatewayDirectory 
         if (model is null || model.Status != GwModel.StatusAvailable)
         {
             return (DenyReason.ModelUnavailable, null);
+        }
+
+        if (!string.Equals(model.Kind, kind == GwModelKind.Embedding ? GwModel.KindEmbedding : GwModel.KindChat, StringComparison.Ordinal))
+        {
+            return (DenyReason.KindMismatch, null);
         }
 
         return (null, model.Family);
