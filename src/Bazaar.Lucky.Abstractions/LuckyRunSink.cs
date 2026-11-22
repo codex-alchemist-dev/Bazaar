@@ -16,8 +16,11 @@ public sealed record LuckyStoredEntry(int IdeaIndex, Guid MessageId);
 /// </summary>
 public interface ILuckyRunSink
 {
-    /// <summary>Opens the run's ephemeral brainstorm GC and writes its opening message.</summary>
-    Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, CancellationToken ct);
+    /// <summary>
+    /// Opens the run's ephemeral brainstorm GC and writes its opening message. The owner is the creator. Keyed by the plan's
+    /// <see cref="LuckyRunPlan.DedupeKey"/>, so a second call returns the same GC and does not write a second opening message.
+    /// </summary>
+    Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, Guid ownerId, CancellationToken ct);
 
     /// <summary>Appends the idea entries to the GC, in order, and returns where each one was stored.</summary>
     Task<IReadOnlyList<LuckyStoredEntry>> AppendEntriesAsync(Guid gcId, IReadOnlyList<LuckyGcEntry> entries, CancellationToken ct);

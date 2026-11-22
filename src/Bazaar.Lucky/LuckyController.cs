@@ -189,7 +189,7 @@ public sealed class LuckyController
                 .ToImmutableArray()
             : ImmutableArray<LuckyCardRequest>.Empty;
 
-        return new LuckyRunPlan(run.RunId, GcTypeKey, Ephemeral: true, run.Prompt, wakes, entries, cards);
+        return new LuckyRunPlan(run.RunId, GcTypeKey, Ephemeral: true, run.Prompt, wakes, entries, cards, $"lucky:{run.RunId}");
     }
 
     /// <summary>

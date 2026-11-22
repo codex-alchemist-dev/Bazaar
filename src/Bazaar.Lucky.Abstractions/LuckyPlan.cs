@@ -34,6 +34,7 @@ public sealed record LuckyCardRequest(string RunId, int IdeaIndex, string Title,
 /// <param name="Wakes">One wake per opted-in participant.</param>
 /// <param name="Entries">The kept ideas in the order recorded.</param>
 /// <param name="Cards">Backlog cards for owner-marked kept ideas, only under <c>owner_marked</c>.</param>
+/// <param name="DedupeKey">The run's idempotency key, <c>lucky:&lt;run id&gt;</c>. The host keys every side effect to it, so applying a plan twice changes nothing.</param>
 public sealed record LuckyRunPlan(
     string RunId,
     string GcTypeKey,
@@ -41,4 +42,5 @@ public sealed record LuckyRunPlan(
     string Prompt,
     ImmutableArray<LuckyWake> Wakes,
     ImmutableArray<LuckyGcEntry> Entries,
-    ImmutableArray<LuckyCardRequest> Cards);
+    ImmutableArray<LuckyCardRequest> Cards,
+    string DedupeKey);

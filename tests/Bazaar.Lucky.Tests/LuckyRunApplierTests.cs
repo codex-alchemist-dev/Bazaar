@@ -9,6 +9,7 @@ public class LuckyRunApplierTests
     private static readonly DateTimeOffset _start = new(2026, 11, 22, 9, 0, 0, TimeSpan.Zero);
     private static readonly SensitiveTerms _terms = new(["Dana Ruiz"], [], [], [], []);
     private static readonly Guid _project = Guid.Parse("00000000-0000-0000-0000-00000000f00d");
+    private static readonly Guid _owner = Guid.Parse("00000000-0000-0000-0000-0000000000b0");
     private static readonly LuckyCandidate[] _candidates =
     [
         new("agent-a", OnShift: true, OptedIn: false),
@@ -25,7 +26,7 @@ public class LuckyRunApplierTests
         public List<(Guid Gc, Guid Message, string Title)> Cards { get; } = [];
         public long OpeningSeq { get; init; } = 41;
 
-        public Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, CancellationToken ct)
+        public Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, Guid ownerId, CancellationToken ct)
         {
             Calls.Add("open");
             return Task.FromResult(new LuckyGcOpened(GcId, OpeningSeq));
@@ -74,7 +75,7 @@ public class LuckyRunApplierTests
         var plan = PlanWithIdeas();
         var sink = new FakeSink();
 
-        await LuckyRunApplier.ApplyAsync(plan, _project, sink, CancellationToken.None);
+        await LuckyRunApplier.ApplyAsync(plan, _project, _owner, sink, CancellationToken.None);
 
         Assert.Equal(["open", "append", "wake", "card", "card"], sink.Calls);
     }
@@ -85,7 +86,7 @@ public class LuckyRunApplierTests
         var plan = PlanWithIdeas();
         var sink = new FakeSink();
 
-        await LuckyRunApplier.ApplyAsync(plan, _project, sink, CancellationToken.None);
+        await LuckyRunApplier.ApplyAsync(plan, _project, _owner, sink, CancellationToken.None);
 
         Assert.Equal([0, 2], sink.Appended.Select(e => e.IdeaIndex));
         Assert.DoesNotContain(sink.Appended, e => e.Text.Contains("hunter2"));
@@ -98,7 +99,7 @@ public class LuckyRunApplierTests
         var plan = PlanWithIdeas();
         var sink = new FakeSink();
 
-        var result = await LuckyRunApplier.ApplyAsync(plan, _project, sink, CancellationToken.None);
+        var result = await LuckyRunApplier.ApplyAsync(plan, _project, _owner, sink, CancellationToken.None);
 
         Assert.Equal(["agent-b", "agent-c"], sink.Woken.Select(w => w.AgentId));
         Assert.Equal(2, result.WakesInserted);
@@ -110,7 +111,7 @@ public class LuckyRunApplierTests
         var plan = PlanWithIdeas();
         var sink = new FakeSink();
 
-        var result = await LuckyRunApplier.ApplyAsync(plan, _project, sink, CancellationToken.None);
+        var result = await LuckyRunApplier.ApplyAsync(plan, _project, _owner, sink, CancellationToken.None);
 
         Assert.Equal(2, sink.Cards.Count);
         Assert.All(sink.Cards, c => Assert.Equal(sink.GcId, c.Gc));
@@ -127,7 +128,7 @@ public class LuckyRunApplierTests
         var run = controller.Start("run-2", "prompt", true, _start, 0, nobody, () => 1).Run!;
         var sink = new FakeSink();
 
-        var result = await LuckyRunApplier.ApplyAsync(controller.Plan(run), _project, sink, CancellationToken.None);
+        var result = await LuckyRunApplier.ApplyAsync(controller.Plan(run), _project, _owner, sink, CancellationToken.None);
 
         Assert.Equal(["open"], sink.Calls);
         Assert.Equal(0, result.WakesInserted);
@@ -141,12 +142,12 @@ public class LuckyRunApplierTests
         var sink = new DroppingSink();
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            LuckyRunApplier.ApplyAsync(plan, _project, sink, CancellationToken.None));
+            LuckyRunApplier.ApplyAsync(plan, _project, _owner, sink, CancellationToken.None));
     }
 
     private sealed class DroppingSink : ILuckyRunSink
     {
-        public Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, CancellationToken ct) =>
+        public Task<LuckyGcOpened> OpenGcAsync(LuckyRunPlan plan, Guid ownerId, CancellationToken ct) =>
             Task.FromResult(new LuckyGcOpened(Guid.NewGuid(), 1));
 
         public Task<IReadOnlyList<LuckyStoredEntry>> AppendEntriesAsync(Guid gcId, IReadOnlyList<LuckyGcEntry> entries, CancellationToken ct) =>

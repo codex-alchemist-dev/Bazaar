@@ -10,22 +10,23 @@ public sealed record LuckyApplyResult(Guid GcId, int WakesInserted, ImmutableArr
 
 /// <summary>
 /// Applies a <see cref="LuckyRunPlan"/> through <see cref="ILuckyRunSink"/>, in this order: open the GC, append the ideas, enqueue
-/// the wakes against the opening message, then create cards for owner-marked ideas. Not idempotent: applying the same plan twice
-/// opens a second GC, so the caller applies each run once.
+/// the wakes against the opening message, then create cards for owner-marked ideas. Every step is keyed by the plan's dedupe key
+/// in the sink, so applying the same plan again writes nothing new.
 /// </summary>
 public static class LuckyRunApplier
 {
     /// <summary>Applies the plan.</summary>
     /// <param name="plan">The plan from <see cref="LuckyController.Plan"/>.</param>
     /// <param name="projectId">The project the cards belong to.</param>
+    /// <param name="ownerId">The owner, who creates the brainstorm GC.</param>
     /// <param name="sink">The host's side-effect port.</param>
     /// <param name="ct">Cancellation.</param>
-    public static async Task<LuckyApplyResult> ApplyAsync(LuckyRunPlan plan, Guid projectId, ILuckyRunSink sink, CancellationToken ct)
+    public static async Task<LuckyApplyResult> ApplyAsync(LuckyRunPlan plan, Guid projectId, Guid ownerId, ILuckyRunSink sink, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(sink);
 
-        var opened = await sink.OpenGcAsync(plan, ct).ConfigureAwait(false);
+        var opened = await sink.OpenGcAsync(plan, ownerId, ct).ConfigureAwait(false);
 
         var stored = plan.Entries.Length == 0
             ? []
