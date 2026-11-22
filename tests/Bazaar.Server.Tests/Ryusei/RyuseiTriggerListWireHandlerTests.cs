@@ -29,7 +29,7 @@ public sealed class RyuseiTriggerListWireRequestTests
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;
@@ -88,7 +88,7 @@ public sealed class RyuseiTriggerListWireHandlerTests(KanbanDb db) : IClassFixtu
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;

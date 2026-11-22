@@ -7,7 +7,7 @@ namespace Bazaar.Server.Memory.Access;
 /// <item><c>agents/&lt;agent&gt;/**</c> (other files, such as the profile): the owner and that agent only.</item>
 /// <item><c>projects/&lt;slug&gt;/**</c> and <c>twin/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents,
 /// cover of a member primary, member humans). Which paths are project areas, and of which project, comes from
-/// <see cref="Vault.Search.VaultAccess.ProjectAreaOf"/>, the same source Vault search, link expansion and moves use.</item>
+/// <see cref="Vault.Search.VaultProjectAreas.ProjectAreaOf"/>, the same source Vault search, link expansion and moves use.</item>
 /// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover.</item>
 /// <item><c>hive/**</c>: owner and maintenance; an agent or cover only when it is a member of one of the copy's target
 /// projects, as <see cref="IHiveCopyTargets"/> reports them (doc 08, section 6). Without that source every agent is
@@ -65,7 +65,7 @@ public sealed class VaultPathAccess : IVaultAccess
         ArgumentNullException.ThrowIfNull(who);
         ArgumentNullException.ThrowIfNull(path);
 
-        if (Vault.Search.VaultAccess.ProjectAreaOf(path.Value) is { } projectSlug)
+        if (Vault.Search.VaultProjectAreas.ProjectAreaOf(path.Value) is { } projectSlug)
         {
             return ExplainProjectArea(who, projectSlug);
         }
