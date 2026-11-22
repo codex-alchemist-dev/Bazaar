@@ -19,7 +19,7 @@ namespace Bazaar.Server.AuditSinks;
 public sealed class EncryptedReplicaSink : IAuditSink
 {
     internal const string Magic = "BZAS1";
-    private const int KeySize = 32;
+    private const int _keySize = 32;
     private readonly IAuditSinkKeyProvider _keys;
     private readonly IAuditReplicaWriter _writer;
 
@@ -83,7 +83,7 @@ public sealed class EncryptedReplicaSink : IAuditSink
     private async Task SealAndWriteAsync(string name, IEnumerable<string> lines, CancellationToken ct)
     {
         var key = await _keys.GetReplicaKeyAsync(ct).ConfigureAwait(false);
-        if (key.Key.Length != KeySize)
+        if (key.Key.Length != _keySize)
         {
             throw new InvalidOperationException("The replica key must be 256 bits.");
         }

@@ -28,7 +28,7 @@ public sealed record SyslogOptions(
 /// </summary>
 public sealed class SyslogSink : IAuditSink
 {
-    private const int InfoSeverity = 6;
+    private const int _infoSeverity = 6;
     private readonly SyslogOptions _options;
     private readonly ISyslogTransport _transport;
 
@@ -85,7 +85,7 @@ public sealed class SyslogSink : IAuditSink
     internal string Format(DateTimeOffset ts, string msgId, IEnumerable<(string Name, string Value)> sd, string? body)
     {
         var sb = new StringBuilder();
-        sb.Append('<').Append((_options.Facility * 8) + InfoSeverity).Append(">1 ")
+        sb.Append('<').Append((_options.Facility * 8) + _infoSeverity).Append(">1 ")
             .Append(ts.UtcDateTime.ToString("yyyy-MM-dd'T'HH:mm:ss.ffffff'Z'", CultureInfo.InvariantCulture)).Append(' ')
             .Append(Token(_options.Hostname, 255)).Append(' ')
             .Append(Token(_options.AppName, 48)).Append(" - ")
