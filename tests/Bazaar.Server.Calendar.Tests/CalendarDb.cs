@@ -25,7 +25,33 @@ public sealed class CalendarDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(MigrationSource(), "linux", CancellationToken.None);
+    }
+
+    /// <summary>The server's files plus the calendar component's own namespace (the visibility column), as the host composes them.</summary>
+    public static IMigrationSource MigrationSource()
+    {
+        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        return new InMemoryMigrationSource(source.Namespaces().SelectMany(source.Load).Concat(CalendarComponentFiles()));
+    }
+
+    /// <summary>
+    /// The files under <c>Sql/components/calendar</c> of the calendar module, read from its embedded resources. The host does the same
+    /// through its component source; the server's own source only knows the <c>Sql/&lt;namespace&gt;</c> layout.
+    /// </summary>
+    private static IEnumerable<MigrationFile> CalendarComponentFiles()
+    {
+        var assembly = typeof(CalendarComponent).Assembly;
+        foreach (var resource in assembly.GetManifestResourceNames())
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(resource, @"\.Sql\.components\.calendar\.(?<file>[^.]+\.sql)$");
+            if (!match.Success)
+                continue;
+            if (!MigrationFile.TryParseFileName(match.Groups["file"].Value, out var version, out var name))
+                throw new InvalidOperationException($"Migration resource '{resource}' does not follow NNNN_name.sql.");
+            using var reader = new StreamReader(assembly.GetManifestResourceStream(resource)!);
+            yield return new MigrationFile("calendar", version, name, reader.ReadToEnd());
+        }
     }
 
     public async Task<Guid> CreateAgentAsync(string name = "agent-a")
