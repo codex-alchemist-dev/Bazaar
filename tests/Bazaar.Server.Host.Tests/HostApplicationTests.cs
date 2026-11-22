@@ -1,5 +1,6 @@
 using Bazaar.Approvals;
 using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.AccountApproval.Abstractions;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Security.Approvals;
@@ -55,6 +56,7 @@ public sealed class HostApplicationTests
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
 
             // Account approval: the owner hand-off reaches the durable approval store and the shared request cap.
+            Assert.IsType<PostgresAccountApprovalStore>(sp.GetRequiredService<IAccountApprovalStore>());
             Assert.IsType<PostgresApprovalStore>(sp.GetRequiredService<IApprovalStore>());
             Assert.IsType<OwnerApprovalEnqueuer>(sp.GetRequiredService<IOwnerApprovalEnqueuer>());
             Assert.IsType<OwnerQueueApprovalHandOff>(sp.GetRequiredService<IOwnerApprovalHandOff>());

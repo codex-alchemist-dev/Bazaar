@@ -85,4 +85,26 @@ public sealed class HostMigrationsTests
         var file = Assert.Single(files, f => f.Name == "gc_event_kind_pr_event");
         Assert.Contains("'pr_event'", file.Sql);
     }
+
+    [Fact]
+    public void Account_approval_namespace_is_read_from_the_postgres_module_at_version_1()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("account_approval", source.Namespaces());
+        Assert.Contains(source.Load("account_approval"), f => f.Version == 1 && f.Name == "account_approval");
+    }
+
+    [Fact]
+    public void Host_plan_orders_the_account_approval_migration_after_common()
+    {
+        // The component id "account-approval" maps to the namespace "account_approval", so the plan places it by the component graph.
+        var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), HostComponents.All.Select(c => c.Manifest));
+
+        var common = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == MigrationRunner.Common).Select(x => x.i).ToList();
+        var approval = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == "account_approval").Select(x => x.i).ToList();
+        Assert.NotEmpty(common);
+        Assert.NotEmpty(approval);
+        Assert.True(common.Max() < approval.Min());
+    }
 }

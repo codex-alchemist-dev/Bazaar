@@ -14,6 +14,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
@@ -53,6 +54,7 @@ public static class HostApplicationExtensions
         services.AddBazaarGateway();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
+        services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
