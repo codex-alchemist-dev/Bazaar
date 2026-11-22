@@ -47,6 +47,22 @@ public static class HttpSurfaceEndpoints
     }
 
     /// <summary>
+    /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
+    /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
+    /// </summary>
+    public static async ValueTask<IResult?> GuardAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var passed = false;
+        var refused = await Guarded(http, (_, _) =>
+        {
+            passed = true;
+            return Task.FromResult(Results.Empty);
+        });
+        return passed ? null : refused;
+    }
+
+    /// <summary>
     /// Guards one route of the authenticated HTTP surface: plaintext refusal, bearer authentication (401), the HTTP rate bucket
     /// (429), then <paramref name="run"/> with the caller. Public so a module can map its own route with the same guard
     /// (for example <c>POST /github/merge</c>, doc 21).

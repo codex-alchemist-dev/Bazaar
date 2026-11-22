@@ -137,6 +137,41 @@ public class OptionsValidationTests
     public void Memory_limit_in_range_or_zero_is_accepted(int mb) => Assert.Empty(Check(o => o.MemoryMaxMb = mb));
 
     [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    [InlineData(9)]
+    [InlineData(100_001)]
+    public void Cpu_quota_out_of_range_is_refused(int percent) => Assert.NotEmpty(Check(o => o.CpuQuotaPercent = percent));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    [InlineData(200)]
+    [InlineData(3200)]
+    public void Cpu_quota_in_range_or_zero_is_accepted(int percent) => Assert.Empty(Check(o => o.CpuQuotaPercent = percent));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(63)]
+    [InlineData(65_537)]
+    public void Task_limit_out_of_range_is_refused(int tasks) => Assert.NotEmpty(Check(o => o.TasksMax = tasks));
+
+    [Theory]
+    [InlineData(64)]
+    [InlineData(512)]
+    [InlineData(65_536)]
+    public void Task_limit_in_range_is_accepted(int tasks) => Assert.Empty(Check(o => o.TasksMax = tasks));
+
+    [Fact]
+    public void Cpu_quota_and_task_limit_have_safe_defaults()
+    {
+        var o = new BrowserPoolOptions();
+
+        Assert.Equal(200, o.CpuQuotaPercent);
+        Assert.Equal(512, o.TasksMax);
+    }
+
+    [Theory]
     [InlineData("/")]
     [InlineData("/root")]
     [InlineData("/root/secret-dir")]

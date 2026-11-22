@@ -38,7 +38,7 @@ public sealed class GitHubWakeEndToEndTests
     private static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
         await new MigrationRunner(dataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", ct);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", ct);
         var assembly = typeof(GitHubComponent).Assembly;
         foreach (var name in assembly.GetManifestResourceNames().Where(n => n.EndsWith(".sql", StringComparison.Ordinal)).Order(StringComparer.Ordinal))
         {

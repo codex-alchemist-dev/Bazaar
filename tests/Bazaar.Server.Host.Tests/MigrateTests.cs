@@ -105,7 +105,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
             new BootstrapSecretResolver(_ => fresh.ConnectionString));
         // A fresh clone may already carry history from the template migrator; only assert when it is behind.
         var state = await new MigrationRunner(await database.GetAsync(TestContext.Current.CancellationToken))
-            .GetStateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), MigrateCommand.CurrentProvider(), TestContext.Current.CancellationToken);
+            .GetStateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), MigrateCommand.CurrentProvider(), TestContext.Current.CancellationToken);
         if (state == SchemaState.Behind)
         {
             await Assert.ThrowsAsync<SchemaVersionException>(() => new MigrationSchemaGate(database).EnsureCurrentAsync(TestContext.Current.CancellationToken));

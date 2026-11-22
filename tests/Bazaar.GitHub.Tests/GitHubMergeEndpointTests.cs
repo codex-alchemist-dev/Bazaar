@@ -79,7 +79,7 @@ public sealed class GitHubMergeEndpointTests
         builder.Services.AddSingleton(service);
 
         var app = builder.Build();
-        app.MapBazaarGitHubRoutes();
+        app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
         await app.StartAsync(TestContext.Current.CancellationToken);
         var address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
         return (app, new HttpClient { BaseAddress = new Uri(address) });

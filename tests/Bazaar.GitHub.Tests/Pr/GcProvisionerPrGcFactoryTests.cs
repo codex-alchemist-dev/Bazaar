@@ -25,6 +25,8 @@ public sealed class GcProvisionerPrGcFactoryTests
             return Task.FromResult(true);
         }
 
+        public Task<Guid> EnsureDmAsync(GcPrincipal first, GcPrincipal second, CancellationToken ct) => throw new NotSupportedException();
+
         public Task<Guid?> FindAsync(string typeKey, Guid ownerId, string metadataKey, string metadataValue, CancellationToken ct) => throw new NotSupportedException();
 
         public Task<bool> AddMemberAsync(Guid gcId, GcPrincipal member, CancellationToken ct)
