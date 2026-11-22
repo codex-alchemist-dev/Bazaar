@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 
@@ -14,8 +15,11 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     private readonly SettingRegistry _registry;
     private readonly Dictionary<string, ISetupSettingDefinition> _byName;
 
-    /// <summary>The catalog of the registry this build ships (<see cref="BuiltInSettingRegistries.Known"/>).</summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.Known);
+    /// <summary>
+    /// The catalog of the keys this build ships: the built-in registry plus the module manager's contribution (<c>update.channel</c>),
+    /// the same composition the host's settings component builds, for roots that run without the host's service graph.
+    /// </summary>
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]));
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)
     {
