@@ -75,6 +75,15 @@ public static class BundleSigner
             return false;
         }
 
+        return VerifyManifest(manifestFile.Content, signatureFile.Content, publicKey);
+    }
+
+    /// <summary>
+    /// True when <paramref name="signature"/> is a valid signature over the manifest bytes with the ECDSA P-256 public key
+    /// (DER SubjectPublicKeyInfo). Takes bytes only, so an offline verifier can use it without building a bundle in memory.
+    /// </summary>
+    public static bool VerifyManifest(ReadOnlySpan<byte> manifest, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
+    {
         try
         {
             using var ecdsa = ECDsa.Create();
@@ -84,7 +93,7 @@ public static class BundleSigner
                 return false;
             }
 
-            return ecdsa.VerifyData(manifestFile.Content, signatureFile.Content, _hash, _format);
+            return ecdsa.VerifyData(manifest, signature, _hash, _format);
         }
         catch (CryptographicException)
         {
