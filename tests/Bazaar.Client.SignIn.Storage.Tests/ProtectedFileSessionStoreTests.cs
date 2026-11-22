@@ -127,12 +127,12 @@ public sealed class ProtectedFileSessionStoreTests : IDisposable
     /// <summary>A reversible stand-in: enough to prove the store seals and unseals through the port.</summary>
     private sealed class XorProtector : ISecretProtector
     {
-        private const byte Key = 0x5A;
+        private const byte _key = 0x5A;
 
         public byte[] Protect(ReadOnlySpan<byte> plain)
         {
             var result = plain.ToArray();
-            for (var i = 0; i < result.Length; i++) result[i] ^= Key;
+            for (var i = 0; i < result.Length; i++) result[i] ^= _key;
             return result;
         }
 

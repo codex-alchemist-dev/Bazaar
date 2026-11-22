@@ -11,18 +11,18 @@ namespace Bazaar.Client.Windows;
 internal sealed class DpapiSessionProtector : ISecretProtector
 {
     // Binds the sealed bytes to this purpose, so another DPAPI blob cannot be swapped in.
-    private static readonly byte[] Entropy = "bazaar.client.session.v1"u8.ToArray();
+    private static readonly byte[] _entropy = "bazaar.client.session.v1"u8.ToArray();
 
     /// <inheritdoc />
     public byte[] Protect(ReadOnlySpan<byte> plain) =>
-        ProtectedData.Protect(plain.ToArray(), Entropy, DataProtectionScope.CurrentUser);
+        ProtectedData.Protect(plain.ToArray(), _entropy, DataProtectionScope.CurrentUser);
 
     /// <inheritdoc />
     public byte[]? Unprotect(ReadOnlySpan<byte> sealedBytes)
     {
         try
         {
-            return ProtectedData.Unprotect(sealedBytes.ToArray(), Entropy, DataProtectionScope.CurrentUser);
+            return ProtectedData.Unprotect(sealedBytes.ToArray(), _entropy, DataProtectionScope.CurrentUser);
         }
         catch (CryptographicException)
         {
