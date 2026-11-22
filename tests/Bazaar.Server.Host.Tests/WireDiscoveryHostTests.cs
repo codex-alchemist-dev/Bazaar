@@ -85,7 +85,7 @@ public sealed class WireDiscoveryHostTests
     public void Host_registry_knows_the_discovery_keys_and_lists_the_component()
     {
         Assert.Contains(HostComponents.All, c => c.Manifest.Id == WireDiscoveryComponent.Id);
-        var registry = SettingRegistry.WithContributions([new WireDiscoverySettingContribution()]);
+        var registry = SettingRegistry.Combine([], [new WireDiscoverySettingContribution()]);
         Assert.Contains(registry.Definitions, d => d.Name == "wire.discovery.enabled");
         Assert.Contains(registry.Definitions, d => d.Name == "wire.discovery.rate.permit_limit");
     }

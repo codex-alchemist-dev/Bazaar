@@ -93,4 +93,43 @@ public class ComponentGraphTests
 
         Assert.Contains("among: a, b.", ex.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void A_failed_hard_target_blocks_its_dependents_through_other_hard_edges()
+    {
+        var impact = ComponentGraph.Impact([M("db"), M("vault", "db"), M("agents", "vault"), M("mail")], "db");
+
+        Assert.Equal(["agents", "vault"], impact.Blocked);
+        Assert.Empty(impact.Degraded);
+    }
+
+    [Fact]
+    public void A_soft_dependent_is_degraded_not_blocked()
+    {
+        var impact = ComponentGraph.Impact(
+            [M("search"), new ComponentManifest("agents", "0.1.0", ComponentKind.Feature, [], [], ["search"])], "search");
+
+        Assert.Empty(impact.Blocked);
+        Assert.Equal(["agents"], impact.Degraded);
+    }
+
+    [Fact]
+    public void A_soft_link_to_a_blocked_component_degrades_and_mutual_soft_links_are_fine()
+    {
+        var impact = ComponentGraph.Impact(
+            [M("db"),
+             M("vault", "db"),
+             new ComponentManifest("a", "0.1.0", ComponentKind.Feature, [], [], ["vault", "b"]),
+             new ComponentManifest("b", "0.1.0", ComponentKind.Feature, [], [], ["a"])],
+            "db");
+
+        Assert.Equal(["vault"], impact.Blocked);
+        Assert.Equal(["a"], impact.Degraded);
+    }
+
+    [Fact]
+    public void Impact_of_an_unknown_component_is_refused()
+    {
+        Assert.Throws<ComponentGraphException>(() => ComponentGraph.Impact([M("a")], "zzz"));
+    }
 }

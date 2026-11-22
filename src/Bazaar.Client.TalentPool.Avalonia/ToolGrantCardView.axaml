@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tp="using:Bazaar.Client.TalentPool.Avalonia"
+             x:Class="Bazaar.Client.TalentPool.Avalonia.ToolGrantCardView"
+             x:DataType="tp:ToolGrantCardViewModel">
+  <StackPanel Margin="16" Spacing="8">
+    <TextBlock Text="{Binding Title}" Name="TitleText" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+    <TextBlock Text="The Council vote only releases the template. These tools need your own approval." TextWrapping="Wrap" />
+    <TextBlock Text="Exact tools" FontWeight="Bold" />
+    <ItemsControl ItemsSource="{Binding Tools}" Name="ToolList" />
+    <Border BorderThickness="1" BorderBrush="OrangeRed" Padding="8" CornerRadius="4" IsVisible="{Binding HasNotice}">
+      <TextBlock Text="{Binding Notice}" Name="NoticeText" TextWrapping="Wrap" />
+    </Border>
+    <Button Name="ApproveButton" Content="Approve tools" Command="{Binding ApproveCommand}" />
+    <TextBlock Text="Approving asks for your fingerprint or face. To decline, do nothing." TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>
