@@ -125,7 +125,7 @@ vault_commit (vault_id, sha char(40), parents char(40)[], author text,
               PRIMARY KEY (vault_id, sha))                      -- [PROPOSED] DAG index
 vault_state  (vault_id pk, indexed_commit char(40))
 ```
-GIN on `tsv`; HNSW on `embedding`. On Linux the provider adds a BM25 index on `body`.
+GIN on `tsv`; HNSW on `embedding`. `vault_block_embedding` keeps rows of every profile (primary key includes `profile_id`); during a planned switch two profiles have rows, search reads only the active one, and old-profile rows are removed only by an explicit operator purge (doc 08, "Planned profile switch" [PROPOSED]). On Linux the provider adds a BM25 index on `body`.
 
 ```csharp
 public interface IVaultWriter {
