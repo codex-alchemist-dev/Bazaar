@@ -329,7 +329,7 @@ OS confinement actually applied:
 - The Linux group kill is skipped once the child has exited (its pid may be reused), so descendants that outlive an already-exited leader are not killed by the sandbox.
 - Windows (`WindowsJobObjectConfinement` in `Bazaar.Server.Providers.Windows`, compiled but not run on Windows; `ParserConfinements.CreateDefault()` picks it up by name when that assembly is deployed, else it falls back to tree-kill only): job object with per-process memory and CPU limits, an active-process limit of one, kill on close, and `TerminateJobObject` as the tree kill. The child is assigned to the job right after it starts (.NET cannot start a process suspended).
 - Not applied anywhere yet: file-system read scoping ("read access only to its staging input") and write confinement (a zero file-size limit kills the .NET runtime at startup), a child-process cap on Linux, and network isolation on Windows. Each run reports these in `ParserRunInfo.NotApplied`; `RequireFullConfinement` makes a job refuse to run when anything is missing.
-- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and the health-contract self-test over the sandbox.
+- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and a sandbox dependency probe (the self-test over the importers is built, section 11).
 
 ### 8.4 Idempotent re-import
 
@@ -371,7 +371,7 @@ Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, 
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
 
-**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Observatory and health reporting are not wired.
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Health reporting is built (section 11 built status); Observatory events are not wired, because doc 23 defines no portability events.
 
 ### 8.8 Withdrawing an import
 
@@ -452,6 +452,8 @@ Erasure is planned in doc 48. Its mechanics are in doc 04 (erasure hook), doc 08
 - Import and export jobs appear in Observatory (doc 23) and in the health contract (doc 46). Kodo (the health module, DECIDED) reads job status and raises alerts for `failed_verify`, `stalled`, and parser crash loops.
 - Every export and import writes audit entries (section 4.1, section 8.9). Plaintext personal exports and secret-scanner decisions are audited with the actor.
 - A job that holds the owner's approval needed for a plaintext export or a size-limit raise stops at that decision and waits for it.
+
+**Built status (2026-11-22):** `PortabilityHealth` (in `Bazaar.Server.Portability`, module id `portability`) implements `IModuleHealthContract` of doc 46 section 10. Liveness does no I/O. Readiness reports `failed_verify`, `stalled` and `parser_crash_loop` alerts (`PortabilityJobAlerts`, pure) as Degraded, from counts that the host supplies through `IImportJobHealthSource` (the job store has no listing). Dependencies come from `IPortabilityDependencyProbe` items the host registers; a throwing probe is Unknown. The self-test runs every `IMappingImporter.SelfTest` over its built-in fixture, is the same for Quick and Full (no I/O, no residue), is Unknown when no importer is registered, and names importer ids only. Not built: the host implementations of the two source interfaces, DI registration, a sandbox dependency probe, the manifest `health` block, and Observatory events (doc 23 defines none for portability). Open: whether job alerts belong in readiness or in a separate Kodo probe, since doc 46 section 9.1 has no portability probe.
 
 ## 12. Settings
 
