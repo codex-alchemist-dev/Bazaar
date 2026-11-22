@@ -66,3 +66,40 @@ public sealed class OwnerMergeRequestedEventArgs(string provider, string repo, l
 
     public string HeadSha { get; } = headSha;
 }
+
+/// <summary>Where a merge attempt stands, for the card under the merge button (doc 52 Client).</summary>
+public enum MergeCardState
+{
+    /// <summary>No attempt yet, or the last attempt was reset.</summary>
+    Idle,
+
+    /// <summary>Waiting for the owner's presence check and the device signature.</summary>
+    Signing,
+
+    /// <summary>Signed; waiting for the server.</summary>
+    Merging,
+
+    /// <summary>The server merged the approved head.</summary>
+    Merged,
+
+    /// <summary>409: the head moved after approval. The model reloaded; review the new head and approve again.</summary>
+    HeadMoved,
+
+    /// <summary>403: the server refused the approval. No reason is given or shown.</summary>
+    NotApproved,
+
+    /// <summary>429: the forge is rate limiting.</summary>
+    RateLimited,
+
+    /// <summary>502, another 5xx or no connection: the merge is not known to have happened.</summary>
+    Unavailable,
+
+    /// <summary>The owner cancelled or did not pass the presence check. Nothing was signed or sent.</summary>
+    Cancelled,
+
+    /// <summary>This device or head cannot sign an approval (no approver injected, no key, no biometric).</summary>
+    CannotApprove,
+
+    /// <summary>Signing failed, or the server answered something unusable.</summary>
+    Failed,
+}

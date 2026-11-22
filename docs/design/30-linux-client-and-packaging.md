@@ -64,6 +64,8 @@ public interface ITerminalBackend {
 
 **[PROPOSED]** Ship self-contained builds (no Native AOT in v1, per Bazaar.Server.md) as a tarball and an AppImage. Spike Flatpak. Defer deb and rpm. Whether Velopack covers Linux is unverified.
 
+**[DECIDED (owner card, 2026-11-19)]** Build all four Linux packaging items, each as its own unit (doc 37 lists them as company-build outputs, built by the company server, one click): AppImage (`packaging/linux-appimage/`), Flatpak (`packaging/linux-flatpak/`), deb and rpm (`packaging/linux-deb/`, `packaging/linux-rpm/`), and in-place updates (client module `Bazaar.Client.Updater.Linux` with `Bazaar.Client.Updater.Linux.Abstractions`, per the server and client module split). The packaging outputs are build scripts and manifests, not .NET modules; only the updater is code. Each ships with tests and a CI smoke step, and builds only from a tool the operator supplies (the scripts never download `appimagetool`, `flatpak-builder` or `dpkg-deb`). This supersedes the earlier "defer deb and rpm" line for this release train; Snap and store pushes stay parked (doc 37).
+
 **Implemented:** `packaging/linux/build-tarball.sh` publishes the self-contained client (`linux-x64` or `linux-arm64`) and writes a reproducible `Bazaar-<version>-linux-<arch>.tar.gz` with a `.sha256` file (sorted names, fixed owner and times, `gzip -n`; two builds of one commit give the same bytes). `--verify` extracts the archive and starts the client on Xvfb. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies.
 
 ### 4. Installers and update paths [PROPOSED]
