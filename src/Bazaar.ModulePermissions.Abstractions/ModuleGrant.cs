@@ -35,7 +35,7 @@ public sealed record ModuleGrant
         ["wire:kanban.write"] = "data.write:kanban",
         ["wire:vault.read"] = "data.read:vault",
         ["wire:constellation.read"] = "data.read:constellation",
-        ["storage:local"] = "fs:local",
+        ["storage:local"] = "fs:local/*",
     };
 
     /// <summary>
