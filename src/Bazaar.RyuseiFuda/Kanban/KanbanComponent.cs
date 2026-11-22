@@ -43,6 +43,8 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<TaskEventRepository>();
         services.TryAddSingleton<TaskLinkRepository>();
         services.TryAddSingleton<TaskService>();
+        services.TryAddSingleton<BoardDirectoryRepository>();
+        services.TryAddSingleton<IBoardDirectoryReader>(sp => sp.GetRequiredService<BoardDirectoryRepository>());
 
         // Agent tool (doc 12, WP5). The turn path builds its tool registry from every ToolRegistration, so this is what makes
         // kanban.transition runnable. Policy (doc 15) fails closed without a capability: a board move is autonomous with a

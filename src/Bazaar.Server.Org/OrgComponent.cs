@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Org.Data;
 using Microsoft.Extensions.Configuration;
@@ -31,6 +32,7 @@ public sealed class OrgComponent : IBazaarComponent
         services.TryAddSingleton<OrgRelationRepository>();
         services.TryAddSingleton<IOrgRelationReader>(sp => sp.GetRequiredService<OrgRelationRepository>());
         services.TryAddSingleton<OrgLoanService>();
-        services.TryAddSingleton<IOrgDirectory>(sp => new AgentOrgDirectory(sp.GetRequiredService<IAgentDirectoryReader>()));
+        services.TryAddSingleton<IOrgDirectory>(sp => 
+            new AgentOrgDirectory(sp.GetRequiredService<IAgentDirectoryReader>(), sp.GetService<IBoardDirectoryReader>()));
     }
 }
