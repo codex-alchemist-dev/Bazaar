@@ -1,3 +1,5 @@
+using Bazaar.Wire.Abstractions;
+
 namespace Bazaar.Client.Transport.AndroidHttp3;
 
 /// <summary>
@@ -37,7 +39,7 @@ public sealed record CronetResponseHead(int HttpStatus, string NegotiatedProtoco
 public interface ICronetBidirectionalStream : IAsyncDisposable
 {
     /// <summary>Raised on the network changing under the stream, on the device suspending it (Doze), and on resuming. May fire on any thread.</summary>
-    event Action<CronetNetworkEvent>? NetworkEvent;
+    event Action<WireNetworkEvent>? NetworkEvent;
 
     /// <summary>Waits for the response headers.</summary>
     ValueTask<CronetResponseHead> ReadResponseHeadAsync(CancellationToken cancellationToken);
@@ -57,22 +59,3 @@ public interface ICronetBidirectionalStream : IAsyncDisposable
     /// <summary>Half-closes the request side.</summary>
     ValueTask CompleteWritesAsync(CancellationToken cancellationToken);
 }
-
-/// <summary>Kinds of network events a stream reports. Their effect on a long-lived stream is measured in the spike, not assumed.</summary>
-public enum CronetNetworkEventKind
-{
-    /// <summary>The device moved to another network (Wi-Fi to mobile data and so on).</summary>
-    Handover,
-
-    /// <summary>The device suspended the app's network (Doze, no connectivity).</summary>
-    Suspended,
-
-    /// <summary>The network is usable again.</summary>
-    Resumed,
-}
-
-/// <summary>A network event on a stream.</summary>
-/// <param name="Kind">What happened.</param>
-/// <param name="At">When the binding saw it.</param>
-/// <param name="Detail">Binding-specific detail for diagnostics; never a secret.</param>
-public sealed record CronetNetworkEvent(CronetNetworkEventKind Kind, DateTimeOffset At, string? Detail = null);

@@ -26,7 +26,7 @@ internal sealed class FakeCronetStream : ICronetBidirectionalStream
 
     public bool CleanEnd { get; set; } = true;
 
-    public event Action<CronetNetworkEvent>? NetworkEvent;
+    public event Action<WireNetworkEvent>? NetworkEvent;
 
     public IReadOnlyDictionary<string, string> Trailers => TrailersValue;
 
@@ -36,7 +36,7 @@ internal sealed class FakeCronetStream : ICronetBidirectionalStream
 
     public void EndBody() => _incoming.Writer.TryComplete();
 
-    public void Raise(CronetNetworkEvent e) => NetworkEvent?.Invoke(e);
+    public void Raise(WireNetworkEvent e) => NetworkEvent?.Invoke(e);
 
     public ValueTask<CronetResponseHead> ReadResponseHeadAsync(CancellationToken cancellationToken) => ValueTask.FromResult(Head);
 
@@ -97,17 +97,17 @@ internal sealed class RecordingObserver : IWireConnectionObserver
 {
     public List<string> Protocols { get; } = [];
 
-    public List<CronetNetworkEvent> Events { get; } = [];
+    public List<WireNetworkEvent> Events { get; } = [];
 
-    public List<(ReconnectReason Reason, CronetNetworkEvent? Last)> Reconnects { get; } = [];
+    public List<(WireReconnectReason Reason, WireNetworkEvent? Last)> Reconnects { get; } = [];
 
     public List<(string From, string Reason)> Fallbacks { get; } = [];
 
     public void OnNegotiated(string protocol) => Protocols.Add(protocol);
 
-    public void OnNetworkEvent(CronetNetworkEvent networkEvent) => Events.Add(networkEvent);
+    public void OnNetworkEvent(WireNetworkEvent networkEvent) => Events.Add(networkEvent);
 
-    public void OnReconnectRequired(ReconnectReason reason, CronetNetworkEvent? lastNetworkEvent) => Reconnects.Add((reason, lastNetworkEvent));
+    public void OnReconnectRequired(WireReconnectReason reason, WireNetworkEvent? lastNetworkEvent) => Reconnects.Add((reason, lastNetworkEvent));
 
     public void OnFallback(string fromTransport, string reason) => Fallbacks.Add((fromTransport, reason));
 }
