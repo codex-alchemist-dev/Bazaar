@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -26,6 +27,7 @@ public sealed class WorkdayPaneModule : IPaneModule, IClientModule
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
         registry.Register(PaneKinds.Workday, descriptor => new WorkdayPaneViewModel(descriptor));
-        registry.RegisterView<WorkdayPaneViewModel>(RyuseiFudaPaneViews.Workday);
+        var head = context.Get<ViewContext>();
+        registry.RegisterView<WorkdayPaneViewModel>(pane => head is null ? RyuseiFudaPaneViews.Workday(pane) : RyuseiViewPanes.Workday(pane, head));
     }
 }
