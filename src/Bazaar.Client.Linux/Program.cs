@@ -151,6 +151,8 @@ internal static class Program
             load.Commands,
             Console.Error.WriteLine);
         keepAthanor(athanor);
+        var theme = AthanorHeadComposition.StartTheme(options, athanor, Console.Error.WriteLine);
+        window.Closed += (_, _) => theme.Sync.Dispose();
         var features = new PaneModuleContext()
             .With<IEditorHost>(athanor.Host)
             .With<IEditorFileSource>(athanor.Source)

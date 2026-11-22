@@ -94,6 +94,7 @@ internal static class Program
         AthanorEditorServices? athanor = null;
         var athanorOptions = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, AthanorHeadComposition.DefaultDataDirectory());
         Bazaar.Ex.Head.MnemonicHeadHost? commands = null;
+        EditorThemeSync? themeSync = null;
 
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
         // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
@@ -113,6 +114,7 @@ internal static class Program
                     chatSettings,
                     loadResult.Commands,
                     Console.Error.WriteLine);
+                themeSync = AthanorHeadComposition.StartTheme(athanorOptions, athanor, Console.Error.WriteLine).Sync;
             }
 
             var features = CreateFeatures(HttpConstellationTileSource.Create(ClientServer.Current), athanor);
@@ -146,6 +148,7 @@ internal static class Program
         finally
         {
             commands?.Dispose();
+            themeSync?.Dispose();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }

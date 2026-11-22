@@ -12,6 +12,7 @@ using Bazaar.Client.Athanor.WebView2;
 using Bazaar.Client.Athanor.Wire;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Input;
+using Bazaar.Client.Theme;
 using Bazaar.Contracts.Modules;
 using Bazaar.Ex;
 using Bazaar.Ex.Head;
@@ -104,6 +105,21 @@ internal static class AthanorHeadComposition
         var dispatcher = new ClientCommandDispatcher();
         dispatcher.Add(AthanorCommandHandler.Handles, athanor.RunCommandAsync);
         return MnemonicHeadHost.Start(top, commands, Path.Combine(options.DataDirectory, "mnemonics.json"), dispatcher, log);
+    }
+
+    /// <summary>
+    /// Keeps the editor on the app theme (doc 57 §2.2): the theme comes from <c>theme.json</c> in the data folder when it validates,
+    /// else the built-in dark theme, and the editor host gets it now and on every change of the returned service. Call on the
+    /// UI thread after <see cref="Create"/>. Dispose the sync at exit.
+    /// </summary>
+    public static (ClientThemeService Theme, EditorThemeSync Sync) StartTheme(AthanorHeadOptions options, AthanorEditorServices services, Action<string> log)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(services);
+        var theme = ClientThemeService.Create(Path.Combine(options.DataDirectory, "theme.json"), log);
+        var sync = new EditorThemeSync(new ClientThemeEditorSource(theme), () => services.Host, log);
+        _ = sync.StartAsync();
+        return (theme, sync);
     }
 
     private static bool WebView2Available() =>
