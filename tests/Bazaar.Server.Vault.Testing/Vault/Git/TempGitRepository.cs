@@ -7,7 +7,7 @@ namespace Bazaar.Server.Tests.Vault.Git;
 /// A throwaway repository under the system temp path, removed on <see cref="Dispose"/>. Fixture writes go through
 /// LibGit2Sharp directly, so the provider under test never builds its own inputs.
 /// </summary>
-internal sealed class TempGitRepository : IDisposable
+public sealed class TempGitRepository : IDisposable
 {
     public static readonly GitIdentity Writer = new("Test Writer", "writer@example.invalid");
 
@@ -103,7 +103,7 @@ internal sealed class TempGitRepository : IDisposable
 /// Object-database check run in place of <c>git fsck --strict</c> (the git CLI is not a test dependency): every commit
 /// reachable from a local branch is readable, its parents and whole tree resolve, and every blob it names exists.
 /// </summary>
-internal static class GitIntegrity
+public static class GitIntegrity
 {
     public static void AssertReachableObjectsIntact(string repoPath)
     {
