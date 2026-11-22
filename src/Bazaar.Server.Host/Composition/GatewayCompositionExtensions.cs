@@ -20,6 +20,7 @@ using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
 using Microsoft.Extensions.DependencyInjection.Extensions;
