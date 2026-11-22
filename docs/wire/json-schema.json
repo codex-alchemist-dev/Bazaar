@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a",
+  "x-schemaHash": "sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c",
   "x-messages": {
     "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -18,6 +18,8 @@
     "gc.send": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcSend" },
     "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
     "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
+    "hive.grant.revoke": { "$ref": "#/$defs/Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
+    "hive.grant.set": { "$ref": "#/$defs/Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
     "lagged": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Lagged" },
     "pane.frame": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PaneFrame" },
     "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
@@ -410,6 +412,26 @@
       "additionalProperties": true
     },
     "Bazaar.Contracts.Graph.ZoomTier": { "anyOf": [ { "type": "string", "enum": ["far", "mid", "near"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.Hive.HiveGrantChangeReply": {
+      "type": "object",
+      "properties": {
+        "accepted": { "type": "boolean" },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "approvalRequired": { "type": "boolean" }
+      },
+      "required": ["accepted", "approvalRequired"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Hive.HiveGrantChangeRequest": {
+      "type": "object",
+      "properties": {
+        "fromProject": { "type": "string" },
+        "toProject": { "type": "string" },
+        "kind": { "type": "string" }
+      },
+      "required": ["fromProject", "toProject", "kind"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Kanban.KanbanAssignReply": {
       "type": "object",
       "properties": {

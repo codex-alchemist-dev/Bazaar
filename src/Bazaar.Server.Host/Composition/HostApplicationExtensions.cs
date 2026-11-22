@@ -6,6 +6,7 @@ using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -19,6 +20,7 @@ using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -57,6 +59,7 @@ public static class HostApplicationExtensions
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
@@ -64,6 +67,7 @@ public static class HostApplicationExtensions
         services.AddLeaseMatcherSecretGrant();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
+        services.AddBazaarPresencePostgres();
         services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
