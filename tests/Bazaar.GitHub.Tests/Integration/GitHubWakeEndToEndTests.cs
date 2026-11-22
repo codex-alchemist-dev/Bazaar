@@ -17,6 +17,7 @@ namespace Bazaar.GitHub.Tests.Integration;
 /// the registered sink chain (PR service, then GC sink) to a GC message and an inbox row. Real here: the core schema, the GitHub
 /// migrations, <see cref="GcLogWriter"/>, <c>GcCreateService</c> (as <see cref="IGcProvisioner"/>), <see cref="PgGitHubGcDirectory"/>,
 /// the PR service, the processor, the delivery store and the inbox repository, all composed by <see cref="GitHubRegistration"/>.
+/// The check-failure tests cover the PR lookup: a failed check for a registered PR's head sha wakes the author, an unknown sha does nothing.
 /// Faked: only the GC notifier (it just wakes in-process listeners after commit).
 /// </summary>
 public sealed class GitHubWakeEndToEndTests
@@ -74,7 +75,7 @@ public sealed class GitHubWakeEndToEndTests
         Assert.IsType<GitHubPrGcEventSink>(sink);
         return new GitHubWebhookProcessor(
             new PgGitHubDeliveryInbox(dataSource), sink, provider.GetRequiredService<GitHubIngressOptions>(),
-            new GitHubWebhookProcessorOptions(), NullLogger<GitHubWebhookProcessor>.Instance);
+            new GitHubWebhookProcessorOptions(), NullLogger<GitHubWebhookProcessor>.Instance, null, provider.GetRequiredService<IGitHubPrLookup>());
     }
 
     private static async Task StoreAsync(NpgsqlDataSource dataSource, string id, string eventType, string payload, CancellationToken ct) =>
@@ -158,5 +159,85 @@ public sealed class GitHubWakeEndToEndTests
 
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item", ct));
         Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM github_delivery WHERE processed_at IS NULL", ct));
+    }
+
+    private static string CheckRun(string sha, string conclusion, string completedAt, string pullRequests) => $$$"""
+        {"action": "completed", "sender": {"login": "github-actions[bot]"}, "repository": {"node_id": "R_1", "full_name": "codex-alchemist-dev/Bazaar"},
+         "check_run": {"node_id": "CR_{{{conclusion}}}", "conclusion": "{{{conclusion}}}", "head_sha": "{{{sha}}}", "completed_at": "{{{completedAt}}}", "pull_requests": {{{pullRequests}}}}}
+        """;
+
+    [Fact]
+    public async Task A_failed_check_run_for_the_head_sha_of_a_registered_PR_lands_in_its_GC_and_wakes_the_author()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake3", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        // The payload lists no pull_requests (a fork-style check), so the PR is found by head sha.
+        await StoreAsync(db.DataSource, "d2", "check_run", CheckRun(new string('a', 40), "failure", "2026-11-22T08:40:00Z", "[]"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_event WHERE gc_id = '{gc}'", ct));
+        await using var inbox = db.DataSource.CreateCommand("SELECT agent_id, kind, gc_id, state FROM inbox_item");
+        await using var rows = await inbox.ExecuteReaderAsync(ct);
+        Assert.True(await rows.ReadAsync(ct));
+        Assert.Equal(_bob, rows.GetGuid(0));
+        Assert.Equal("assignment", rows.GetString(1)); // doc 21 names no kind for check failures; the sink maps them to assignment
+        Assert.Equal(gc, rows.GetGuid(2));
+        Assert.Equal("pending", rows.GetString(3));
+        Assert.False(await rows.ReadAsync(ct));
+    }
+
+    [Fact]
+    public async Task A_failed_check_run_listing_the_PR_number_is_matched_by_number()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake4", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "check_run", CheckRun(new string('e', 40), "failure", "2026-11-22T08:40:00Z", "[{\"number\": 7}]"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        Assert.Equal(1L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item WHERE kind = 'assignment'", ct));
+    }
+
+    [Fact]
+    public async Task A_check_run_on_an_unknown_sha_does_nothing_and_does_not_throw()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake5", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "check_run", CheckRun(new string('f', 40), "failure", "2026-11-22T08:40:00Z", "[]"), ct);
+        await StoreAsync(db.DataSource, "d3", "push", $$$"""{"ref": "refs/heads/x", "after": "{{{new string('9', 40)}}}", "sender": {"login": "boss"}, "repository": {"node_id": "R_1"}}""", ct);
+
+        Assert.Equal(3, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(0L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_event WHERE gc_id = '{gc}'", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM github_delivery WHERE processed_at IS NULL", ct));
+    }
+
+    [Fact]
+    public async Task A_push_to_the_head_sha_of_a_registered_PR_is_logged_in_its_GC_without_a_wake()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake6", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "push", $$$"""{"ref": "refs/heads/agent/x", "after": "{{{new string('a', 40)}}}", "sender": {"login": "{{{_agentLogin}}}"}, "repository": {"node_id": "R_1"}}""", ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_event WHERE gc_id = '{GitHubPrService.GcIdFor(_node)}'", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item", ct));
     }
 }
