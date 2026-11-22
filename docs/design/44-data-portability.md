@@ -223,6 +223,16 @@ Before a bundle is marked complete, the server runs the verification above on th
 - The public half is published in the bundle so a reader can check the signature without the instance.
 - A key rotation keeps the old public key in the bundle's history, so old exports still verify.
 
+### 6.4 Built status of the verifier (work package 3)
+
+Built: `Bazaar.Server.Portability.Verifier` (library) and `Bazaar.Verify` (exe `bazaar-verify`; publish with `dotnet publish src/Bazaar.Verify -c Release -r <rid>` for a self-contained single file). It reads a bundle directory with streaming reads and no instance, database or network, and prints a deterministic JSON report (`bazaar.verify.report.v1`). Exit codes: 0 verified, 1 failed, 2 usage.
+
+Checks: every file's SHA-256 and size against the manifest; manifest shape, totals and ordinal file order; files in the bundle that the manifest does not list; the manifest signature (`BundleSigner`; `--signing-key` pins a key the reader already trusts, otherwise the bundle's `manifest.pub` is used and the report says `signing_key_source: bundle`); per-GC `events.jsonl` links, `head.json` and row counts; the audit chain, checkpoints and archive marker (`AuditChainReplay`); and each inclusion proof (`AuditInclusionProofVerifier`). A bundle with audit data needs `--audit-key` (the audit key is not the export key and is not in the bundle); without it the check fails closed.
+
+Decisions where this doc was silent (owner may overrule): an unsigned bundle fails; `head.json` uses the fields `last_seq`, `head_hash` and `counts` (`events`, `messages`, `versions`, `mentions`); a GC's first event has a null or empty `prev_event_hash` and hashes are compared as opaque strings; the audit key is ECDSA P-256 with SHA-256 and fixed-size signatures, the same as the export key; any file the manifest does not list fails, `README.txt` included.
+
+Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -284,6 +294,23 @@ Parsing untrusted files is the riskiest step, so it runs in a separate process:
 - Document formats are parsed without macros, without external entity resolution, and without executing embedded content. Embedded objects are listed in the preview and not extracted.
 - A parser crash fails only the job. The host restarts the parser with the job's checkpoint (crash-only design, doc 46 health hooks).
 
+Built status (2026-11-18): the in-process checks exist in `Bazaar.Server.Portability` (`ImportLimits`, `ArchiveGuard`): source size, archive entry count, entry-name path checks (absolute, drive and `..` paths), symlink and special-file rejection, expansion ratio, expanded bytes, XML nesting depth, record size, and DTDs prohibited. The docx importer and the import pipeline enforce them. The four limits without a documented default (`max_archive_entries`, `max_nesting_depth`, `max_record_bytes`, `max_expanded_bytes`) take their defaults from this change, per the configurability rule.
+
+Built status (2026-11-19, work package 10): the separate parser process exists. `Bazaar.Server.Portability.Sandbox` (runner, `SandboxedImporter`, crash-loop tracker, Linux provider) with `Bazaar.Server.Portability.Sandbox.Abstractions` (provider interface `IParserConfinement`, `ParserSandboxOptions`, failure kinds, the frame protocol) and the child executable `Bazaar.Server.Portability.ParserHost`. `ParserSandboxRunner.CreateImporters()` returns `IPortabilityImporter` wrappers, so `ImportPipeline` runs unchanged and Detect and Parse both run in the child. The child gets the staged input on stdin (a length-prefixed JSON request header, then the raw bytes) and returns `SourceRecord` frames, length-prefixed System.Text.Json source-generated JSON (no Protobuf; server-internal frames, so they do not use the client `Envelope` payload registry of `IWireCodec`). The child enforces `ImportLimits` itself. The server kills the whole process tree on a timeout, an oversize frame or too much output, and a crash, hang or limit failure ends the job as `failed` with no preview and no instance write. Importer modules load into the child only (`ImporterAssemblies`).
+
+Where this doc was silent, these are settings with safe defaults (not yet in the settings registry of doc 03; the settings table below lists the keys): frame-gap timeout 30 s (the wait between frames after the first), job timeout 15 min (this also bounds the wait for the first frame, because the importer contract returns a whole list, so Parse finishes before any frame is sent), memory ceiling 2 GiB, CPU ceiling 300 s, output cap 256 MiB, crash-loop threshold 3 abnormal endings in 10 min, `RequireFullConfinement` false. The crash circuit is keyed per importer and per source (a hash of the source name and content, computed server-side). It opens only when the threshold of abnormal endings comes from at least two different sources, so one hostile file cannot shut an importer for everyone, and one source that fails `source_failure_cap` times (default 3) in the window is refused until the window passes. Crash classification never reads the child's stderr (the child controls it): a child out of memory is a limit failure only when the host reports it in a structured frame or the child ended by SIGKILL (exit 137) without our kill, and exit code 2 is a bad request only when the host reported it in a structured frame with no earlier frames; otherwise it counts as a crash. A hostile child can fake either signal, which only moves its failure from "crash" to "limit". Only abnormal endings count toward the crash loop: a crash, a frame-gap timeout, oversize output or a protocol violation. A job-timeout kill is reported separately (`JobTimeout`) and does not count, because a legitimately slow parse of a large source ends the same way; so do a bad request (child exit code 2), a limit failure (including a child out of memory) and a parser error. A crash-loop opens a per-importer circuit that refuses jobs until the window passes (or an operator reset), and raises the `parser_crash_loop` signal once.
+
+**What section 8.3 requires and this change does NOT meet:** a wall-clock timeout per record (only a whole-job timeout and a gap between frames exist, because Parse is not streamed), read access limited to the staging input, and write access limited to the output stream. Network isolation is also not met on Windows. Treat the parser as partly confined until those are built.
+
+OS confinement actually applied:
+
+- Linux (`LinuxParserConfinement`, tested here): own session and process group killed as a group (`setsid`), CPU-time and core-dump limits (`prlimit`), a new network namespace (`unshare --net`, with a user namespace fallback) when the host allows it, a managed heap ceiling (`DOTNET_GCHeapHardLimit`, all OSes), an empty scratch working directory, and a scrubbed environment (only `PATH`, `DOTNET_ROOT`, temp and Windows system variables pass).
+- The Linux network fallback (`unshare --user --map-root-user --net`, used when plain `unshare --net` is refused) gives the child a user namespace, which widens the kernel attack surface it can reach. Operators who do not accept that should set `require_full_confinement` and run the server with the privilege for a plain network namespace, or disable user namespaces and accept that no-network is then not applied.
+- The Linux group kill is skipped once the child has exited (its pid may be reused), so descendants that outlive an already-exited leader are not killed by the sandbox.
+- Windows (`WindowsJobObjectConfinement` in `Bazaar.Server.Providers.Windows`, compiled but not run on Windows; `ParserConfinements.CreateDefault()` picks it up by name when that assembly is deployed, else it falls back to tree-kill only): job object with per-process memory and CPU limits, an active-process limit of one, kill on close, and `TerminateJobObject` as the tree kill. The child is assigned to the job right after it starts (.NET cannot start a process suspended).
+- Not applied anywhere yet: file-system read scoping ("read access only to its staging input") and write confinement (a zero file-size limit kills the .NET runtime at startup), a child-process cap on Linux, and network isolation on Windows. Each run reports these in `ParserRunInfo.NotApplied`; `RequireFullConfinement` makes a job refuse to run when anything is missing.
+- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and the health-contract self-test over the sandbox.
+
 ### 8.4 Idempotent re-import
 
 Re-importing the same source must not create duplicates.
@@ -307,8 +334,10 @@ Re-importing the same source must not create duplicates.
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
-- Default: staging is deleted when the job commits and verifies. The job keeps the source manifest, hashes and counts.
-- `portability.import.staging_retention_hours`, default 0. The floor is 72 hours unless the owner approves a longer period, because staging holds plaintext personal content.
+- Default: staging is deleted 72 hours after the job commits and verifies. The job keeps the source manifest, hashes and counts.
+- `portability.import.staging_retention_hours`, default 72, and 72 is the minimum (owner decision, 2026-11-19). A longer period is an admin setting and every change is audited, because staging holds plaintext personal content.
+
+**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
 
 ### 8.7 Large dumps
 
@@ -319,6 +348,8 @@ Re-importing the same source must not create duplicates.
 - **Cancel means stop, not undo.** GC history is append-only, so cancelling leaves committed batches in place. Undo is a separate action (section 8.8).
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
+
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Observatory and health reporting are not wired.
 
 ### 8.8 Withdrawing an import
 
@@ -407,10 +438,23 @@ Keys are install-scoped. The operator changes them in the setup wizard or advanc
 | `portability.export.part_bytes` | int | 4 GiB | Max 4 GiB | Operator | No |
 | `portability.import.max_upload_bytes` | int | 10 GiB | Hard maximum set by host storage | Operator | Yes (owner) to raise |
 | `portability.import.max_expansion_ratio` | int | 100 | Min 10 | Operator | No |
+| `portability.import.max_archive_entries` | int | 10000 | Min 1 | Operator | No |
+| `portability.import.max_nesting_depth` | int | 100 | Min 1 | Operator | No |
+| `portability.import.max_record_bytes` | int | 64 MiB | Min 1 | Operator | No |
+| `portability.import.max_expanded_bytes` | int | 512 MiB | Min 1 | Operator | No |
+| `portability.import.parser.frame_gap_timeout_seconds` | int | 30 | Min 1 | Operator | No |
+| `portability.import.parser.job_timeout_seconds` | int | 900 | Min 1 | Operator | No |
+| `portability.import.parser.max_memory_bytes` | int | 2 GiB | Min 64 MiB | Operator | No |
+| `portability.import.parser.max_cpu_seconds` | int | 300 | Min 1 | Operator | No |
+| `portability.import.parser.max_output_bytes` | int | 256 MiB | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_threshold` | int | 3 | Min 1 | Operator | No |
+| `portability.import.parser.source_failure_cap` | int | 3 | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_window_minutes` | int | 10 | Min 1 | Operator | No |
+| `portability.import.parser.require_full_confinement` | bool | false | Operator may set true | Operator | No |
 | `portability.import.batch_items` | int | 500 | 1 to 5000 | Operator | No |
 | `portability.import.write_rate` | int | 200 items per second | Bounded by chat latency budget | Operator | No |
 | `portability.import.secret_scan` | enum: `quarantine`, `warn`, `off` | `quarantine` | `off` not allowed for text from external sources | Operator | Yes (owner) to set `warn` or `off` |
-| `portability.import.staging_retention_hours` | int | 0 | Max 72 unless owner approves | Operator | Yes (owner) above 72 |
+| `portability.import.staging_retention_hours` | int | 72 | Min 72 (owner decision, 2026-11-19) | Operator | No; a longer period is an audited admin change |
 | `portability.import.dry_run_required` | bool | true | Always true (cannot be disabled) | None | Not settable |
 
 ## 13. Conflicts with existing docs
@@ -474,5 +518,6 @@ Nothing in this doc is built. The status of each part:
 - PROPOSED: the bundle layout, formats, signing, verification, the import stages, idempotent re-import, the sandbox limits, the settings table, the plugin interfaces in section 9 (sketch only).
 - PLANNED, named importers: Obsidian vault, Trello (JSON export), Miro (CSV export), Milanote (Markdown export). Each is a module, starts from a real sample taken by the owner, and is gated by the same tests as any other importer. Milanote's ZIP package is not read yet: the public article names it but does not describe its contents. The Milanote Markdown layout (one card per heading) and the Miro CSV header names are modelled, not verified against a real export, until the owner's sample is checked.
 - PLANNED, generic importers: docx, md and txt, and chat-log text dumps.
+- BUILT (status note, chat-log dumps): `ChatLogImporter` (`bazaar.import.chatlog`, `src/Bazaar.Server.Portability/ChatLogImporter.cs`) detects by line structure and recognises only three generic shapes: `[timestamp] name: text`, `timestamp - name: text`, and `timestamp name: text`. Lines without a timestamp prefix are not detected, and no product-specific format is assumed. Continuation lines join the previous message; each message is one `chat-entry` record with a stable key. The record size limit from `ImportLimits` is not enforced, because that type does not exist in the code yet. Nothing in `src/` composes the importer list into a host yet; the tests compose it through `ImportPipeline`. The docx, md and txt importers already exist in `Importers.cs` and `DocxImporter.cs`; this change does not alter them.
 - PLANNED, derived exports: the graph GraphML file and the optional Parquet analytics export. Neither is needed for v1.
 - PLANNED, dependencies: doc 42 (module contract), doc 46 (health contract), doc 48 (erasure). This doc follows their drafts when they exist.
