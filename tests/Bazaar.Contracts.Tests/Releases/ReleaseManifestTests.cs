@@ -11,22 +11,22 @@ namespace Bazaar.Contracts.Tests.Releases;
 /// <summary>Release manifest records (doc 30 sections 4, 5 and 7): validation, immutability, wire round trip, golden JSON.</summary>
 public class ReleaseManifestTests
 {
-    private const string Sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-    private const string Fingerprint = "0123456789abcdef0123456789abcdef01234567";
+    private const string _sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private const string _fingerprint = "0123456789abcdef0123456789abcdef01234567";
 
     private static readonly JsonSerializerOptions _indented = new(WireJsonContext.Default.Options) { WriteIndented = true, NewLine = "\n" };
 
     private static ReleaseArtifact Artifact(
         string os = "linux", string arch = "linux-x64", string format = "tar.gz",
         string url = "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz",
-        long size = 104857600, string sha = Sha,
+        long size = 104857600, string sha = _sha,
         string shaUrl = "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz.sha256",
         string sigUrl = "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz.asc") =>
         new(os, arch, format, url, size, sha, shaUrl, sigUrl);
 
     private static ReleaseManifest Manifest(
         string channel = "Stable", string version = "0.1.0", string min = "1.0", string max = "1.2",
-        string schema = "7", string fingerprint = Fingerprint, IReadOnlyList<ReleaseArtifact>? artifacts = null) =>
+        string schema = "7", string fingerprint = _fingerprint, IReadOnlyList<ReleaseArtifact>? artifacts = null) =>
         new(channel, version, min, max, schema, fingerprint, artifacts ?? [Artifact()]);
 
     private static ReleaseManifest Sample() => Manifest(artifacts:
@@ -114,7 +114,7 @@ public class ReleaseManifestTests
 
     [Fact]
     public void A_64_character_fingerprint_is_accepted() =>
-        Assert.Equal(Sha, Manifest(fingerprint: Sha).SigningKeyFingerprint);
+        Assert.Equal(_sha, Manifest(fingerprint: _sha).SigningKeyFingerprint);
 
     [Fact]
     public void Artifacts_must_be_present_unique_and_non_null()
@@ -122,7 +122,7 @@ public class ReleaseManifestTests
         Assert.Throws<ArgumentException>(() => Manifest(artifacts: []));
         Assert.Throws<ArgumentException>(() => Manifest(artifacts: [Artifact(), Artifact()]));
         Assert.Throws<ArgumentException>(() => Manifest(artifacts: [null!]));
-        Assert.Throws<ArgumentNullException>(() => new ReleaseManifest("Stable", "0.1.0", "1.0", "1.0", "7", Fingerprint, null!));
+        Assert.Throws<ArgumentNullException>(() => new ReleaseManifest("Stable", "0.1.0", "1.0", "1.0", "7", _fingerprint, null!));
     }
 
     [Theory]
@@ -257,7 +257,7 @@ public class ReleaseManifestTests
     [InlineData("\"channel\":\"Stable\"", "\"channel\":null")]
     [InlineData("\"appVersion\":\"0.1.0\"", "\"appVersion\":\"latest\"")]
     [InlineData("\"minProtocol\":\"1.0\"", "\"minProtocol\":\"1\"")]
-    [InlineData("\"signingKeyFingerprint\":\"" + Fingerprint + "\"", "\"signingKeyFingerprint\":\"ABC\"")]
+    [InlineData("\"signingKeyFingerprint\":\"" + _fingerprint + "\"", "\"signingKeyFingerprint\":\"ABC\"")]
     [InlineData("\"url\":\"https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz\"", "\"url\":\"http://evil.example/a\"")]
     [InlineData("\"sizeBytes\":104857600", "\"sizeBytes\":-1")]
     public void Wire_decoding_refuses_invalid_values_as_a_bad_frame(string find, string replace)
