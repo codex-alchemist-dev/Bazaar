@@ -15,6 +15,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gateway.SystemPolicy;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -58,5 +59,6 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new SystemPolicyComponent(),
     ];
 }
