@@ -28,6 +28,8 @@ internal static class CompanyReadRoutes
         routes.MapCompanyOrg(HttpSurfaceEndpoints.GuardAsync);
         routes.MapCompanyCalendar(GuardCalendarAsync);
         routes.MapCompanyInterrupts(GuardInterruptsAsync);
+        // Owner producer: the guard registers the viewer, and the module refuses anyone who is not the company owner with 403.
+        routes.MapCompanyInterruptsWrite(GuardInterruptsAsync);
         return routes;
     }
 

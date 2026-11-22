@@ -76,6 +76,7 @@ public static class CodingHarnessHostExtensions
         services.AddBazaarCodingGit();
         services.AddBazaarCodingReview();
         services.AddBazaarSubagents();
+        services.AddBazaarCodingToolDispatch();
 
         // Durable traces over tool_calls when the host has a Postgres data source (checked at resolution, so registration order does
         // not matter); in-process sinks otherwise, which is for tests only. A host that registers its own trace first keeps it.
@@ -89,10 +90,16 @@ public static class CodingHarnessHostExtensions
             ? sp.GetRequiredService<InProcessSubagentTrace>()
             : new ToolCallLogSubagentTrace(sp.GetRequiredService<IToolCallLog>()));
         services.TryAddSingleton<IAgentFreeze>(sp => new KillSwitchAgentFreeze(sp.GetRequiredService<KillSwitchEngine>()));
-        services.TryAddSingleton<IPushGate>(sp => new PermissionGatePushGate(
-            sp.GetRequiredService<IToolPermissionGate>(),
-            sp.GetRequiredService<IPushSessionDirectory>(),
-            sp.GetService<IPushApprovalGrants>() ?? NoPushApprovalGrants.Instance));
+        services.TryAddSingleton<IPushApprovalRequests>(sp => sp.GetService<Bazaar.Server.Security.Approvals.ApprovalService>() is { } approvals
+            ? new ApprovalServicePushRequests(approvals, sp.GetService<TimeProvider>() ?? TimeProvider.System)
+            : NoPushApprovalRequests.Instance);
+        services.TryAddSingleton<IPushGate>(sp => new ApprovalFilingPushGate(
+            new PermissionGatePushGate(
+                sp.GetRequiredService<IToolPermissionGate>(),
+                sp.GetRequiredService<IPushSessionDirectory>(),
+                sp.GetService<IPushApprovalGrants>() ?? NoPushApprovalGrants.Instance),
+            sp.GetRequiredService<IPushSessionRecords>(),
+            sp.GetRequiredService<IPushApprovalRequests>()));
 
         // Server-owned concretes. Each is a no-op when its owner already registered the service (TryAdd); otherwise it resolves
         // through its own constructor, so an unbound dependency of it fails at first resolution.

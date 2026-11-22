@@ -52,7 +52,7 @@ public sealed class CodingHarnessWiringTests
         }
 
         Assert.IsType<AgentStatePushSessionDirectory>(provider.GetRequiredService<IPushSessionDirectory>());
-        Assert.IsType<PermissionGatePushGate>(provider.GetRequiredService<IPushGate>());
+        Assert.IsType<ApprovalFilingPushGate>(provider.GetRequiredService<IPushGate>());
         Assert.IsType<ToolPolicyEngineAdapter>(provider.GetRequiredService<IGenericToolPolicy>());
     }
 

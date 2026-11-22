@@ -1,6 +1,8 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
 using Bazaar.GitHub.Ingress;
+using Bazaar.GitHub.Wire;
+using Bazaar.Server.Wire.Connection;
 using Bazaar.GitHub.Issues;
 using Bazaar.GitHub.Pr;
 using Bazaar.GitHub.Processing;
@@ -112,6 +114,20 @@ public static class GitHubRegistration
             sp.GetRequiredService<GitHubAdapter>(),
             sp.GetRequiredService<Bazaar.Approvals.IOwnerSignatureVerifier>(),
             sp.GetService<TimeProvider>()));
+
+        // The client PR wire (doc 21): the read model over github_pr and the five owner-only handlers. With no database the read model is
+        // empty, so the wire answers an empty list and not_found instead of failing at start.
+        services.TryAddSingleton<IGitHubPrReadModel>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource
+                ? new PgGitHubPrReadModel(dataSource, sp.GetRequiredService<IGitHubAdapter>(), sp.GetRequiredService<IGitHubGcDirectory>(),
+                    sp.GetRequiredService<GitHubIngressOptions>().InstallationId)
+                : new EmptyGitHubPrReadModel());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PrListWireHandler>(sp => new PrListWireHandler(sp.GetRequiredService<IGitHubPrReadModel>(), sp.GetService<TimeProvider>())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PrSummaryWireHandler>(sp => new PrSummaryWireHandler(sp.GetRequiredService<IGitHubPrReadModel>(), sp.GetService<TimeProvider>())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PrHunksWireHandler>(sp => new PrHunksWireHandler(sp.GetRequiredService<IGitHubAdapter>(), sp.GetRequiredService<IGitHubPrReadModel>(), sp.GetService<TimeProvider>())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PrReviewWireHandler>(sp => new PrReviewWireHandler(sp.GetRequiredService<IGitHubAdapter>(), sp.GetRequiredService<IGitHubPrReadModel>(), sp.GetService<TimeProvider>())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PrMergeWireHandler>(sp => new PrMergeWireHandler(
+            sp.GetRequiredService<GitHubAdapter>(), sp.GetRequiredService<IGitHubPrReadModel>(), sp.GetRequiredService<Bazaar.Approvals.IOwnerSignatureVerifier>(), sp.GetService<TimeProvider>())));
         return services;
     }
 }

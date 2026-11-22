@@ -45,6 +45,15 @@ public sealed class HostMigrationsTests
     }
 
     [Fact]
+    public void Presence_agent_activity_migration_is_in_the_host_source()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("presence", source.Namespaces());
+        Assert.Contains(source.Load("presence"), f => f.Version == 1 && f.Name == "agent_activity");
+    }
+
+    [Fact]
     public void Host_plan_orders_the_portability_migration_after_common()
     {
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), []);
@@ -103,5 +112,13 @@ public sealed class HostMigrationsTests
         Assert.Equal(MigrationRunner.Common, ordered[0]);
         Assert.Contains("account_approval", ordered);
         Assert.True(ordered.ToList().IndexOf("account_approval") > 0);
+    }
+
+    [Fact]
+    public void Mail_namespace_is_read_from_the_mail_module_at_version_21()
+    {
+        var source = HostMigrations.Source();
+        Assert.Contains("mail", source.Namespaces());
+        Assert.Contains(source.Load("mail"), f => f.Version == 21 && f.Name == "mail_core");
     }
 }

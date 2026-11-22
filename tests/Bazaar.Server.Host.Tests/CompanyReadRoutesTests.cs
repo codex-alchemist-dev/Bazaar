@@ -46,6 +46,29 @@ public sealed class CompanyReadRoutesTests
                 [new InterruptFrame(Guid.NewGuid(), AgentId, null, InterruptSource.Owner, "look at this", Guid.NewGuid(), InterruptFrameState.Active, DateTimeOffset.UnixEpoch, null, 1)]);
     }
 
+    /// <summary>Counts pushes and pops so a refused write is seen to reach nothing.</summary>
+    private sealed class CountingStack : IInterruptStackService
+    {
+        public int Calls;
+
+        public Task<InterruptFrame> PushAsync(
+            Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
+            CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult(new InterruptFrame(Guid.NewGuid(), agentId, null, source, reason, gcId, InterruptFrameState.Active, DateTimeOffset.UnixEpoch, ttlAt, 1, emergency));
+        }
+
+        public Task<InterruptFrame?> PopAsync(Guid agentId, Guid frameId, CancellationToken ct = default)
+        {
+            Calls++;
+            return Task.FromResult<InterruptFrame?>(null);
+        }
+
+        public Task<IReadOnlyList<InterruptFrame>> GetStackAsync(Guid agentId, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<InterruptFrame>>([]);
+    }
+
     private sealed class OneAgent : IAgentDirectoryReader
     {
         public Task<IReadOnlyList<AgentListing>> ListActiveAgentsAsync(CancellationToken ct = default) =>
@@ -81,7 +104,7 @@ public sealed class CompanyReadRoutesTests
         public Task<SettingWriteResult> SetJsonAsync(string key, JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
-    private static async Task<(WebApplication App, HttpClient Client)> StartAsync()
+    private static async Task<(WebApplication App, HttpClient Client)> StartAsync(CountingStack? stack = null)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.WebHost.UseTestServer();
@@ -93,6 +116,7 @@ public sealed class CompanyReadRoutesTests
         builder.Services.AddSingleton<IOrgRelationReader, EmptyRelations>();
         builder.Services.AddSingleton<ICalendarService, EmptyCalendar>();
         builder.Services.AddSingleton<IInterruptStackReader, OneFrame>();
+        builder.Services.AddSingleton<IInterruptStackService>(stack ?? new CountingStack());
         builder.Services.AddSingleton<ISettingStore, AgentTimezoneSettings>();
         var app = builder.Build();
         app.MapBazaarCompanyReadRoutes();
@@ -170,6 +194,61 @@ public sealed class CompanyReadRoutesTests
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
             var frame = doc.RootElement.GetProperty("agents")[0].GetProperty("frames")[0];
             Assert.Equal(expected, frame.GetProperty("reason").GetString());
+        }
+    }
+
+    private static HttpRequestMessage PostBody(string path, string? token, string body)
+    {
+        var request = Post(path, token);
+        request.Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json");
+        return request;
+    }
+
+    private static readonly string _pushBody =
+        $$"""{"agentId":"{{OneFrame.AgentId}}","gcId":"00000000-0000-7000-8000-0000000000c3","reason":"build is red"}""";
+
+    [Theory]
+    [InlineData("/company/interrupts/push")]
+    [InlineData("/company/interrupts/pop")]
+    public async Task Interrupt_write_routes_answer_401_without_a_bearer(string path)
+    {
+        var stack = new CountingStack();
+        var (app, client) = await StartAsync(stack);
+        await using (app)
+        {
+            var response = await client.SendAsync(PostBody(path, null, _pushBody), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+            Assert.Equal(0, stack.Calls);
+        }
+    }
+
+    [Theory]
+    [InlineData("good", "/company/interrupts/push")]
+    [InlineData("alice", "/company/interrupts/push")]
+    [InlineData("good", "/company/interrupts/pop")]
+    [InlineData("alice", "/company/interrupts/pop")]
+    public async Task Interrupt_write_routes_answer_403_to_a_non_owner(string token, string path)
+    {
+        var stack = new CountingStack();
+        var (app, client) = await StartAsync(stack);
+        await using (app)
+        {
+            var response = await client.SendAsync(PostBody(path, token, _pushBody), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+            Assert.Equal(0, stack.Calls);
+        }
+    }
+
+    [Fact]
+    public async Task Interrupt_push_answers_200_to_the_owner()
+    {
+        var stack = new CountingStack();
+        var (app, client) = await StartAsync(stack);
+        await using (app)
+        {
+            var response = await client.SendAsync(PostBody("/company/interrupts/push", "owner", _pushBody), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.Equal(1, stack.Calls);
         }
     }
 
