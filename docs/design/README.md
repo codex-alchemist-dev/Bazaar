@@ -50,6 +50,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|
 | 16 | [16-agent-vms-and-environments.md](16-agent-vms-and-environments.md) | Two VMs per agent, golden image, guest protocol, mounts, egress, resources, licensing | 13 | 03, 07, 14, 15, 17 |
+| 59 | [59-desktop-density-and-guest-display.md](59-desktop-density-and-guest-display.md) | Screenshots and input for VMs and browsers without a viewer, the light desktop profile, browser placement, and the density governor (PROPOSED) | 2 | 16, 50, 14, 15 |
 | 17 | [17-coding-agent-harness.md](17-coding-agent-harness.md) | Coding tools, edit formats, server-side verification, git workflow, review flow | 12 | 16, 15, 12, 21, 18 |
 | 20 | [20-engine-integration-api.md](20-engine-integration-api.md) | Godot and Roblox adapters, capabilities, pane streaming, Studio bridge | 13 | 15, 16, 27, 28 |
 
@@ -143,8 +144,27 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 47 | [47-licensing-and-trademarks.md](47-licensing-and-trademarks.md) | Licensing, contributions and trademarks: AGPL-3.0 everywhere, module exception, DCO and CLA, marks and marketplace licence rules | 13 (M1 to M13) | 37, 42, 48, 49 |
 | 48 | [48-gap-decisions-security-identity.md](48-gap-decisions-security-identity.md) | Gap decisions for security, identity, recovery, privacy, retention, updates and AI agent safety | 6 | 14, 15, 33, 32, 37, 46 |
 | 49 | Pending (not in this PR) | Release channels, update policies, community and security programme, module API stability, accessibility and SBOM | - | 37, 42, 46, 47 |
+| 93 | [93-client-visual-system-and-motion.md](93-client-visual-system-and-motion.md) | Client visual system: three themes, vivid hue family, acrylic materials, Fluid motion, phone gestures, foldable unfold | 7 | 27, 29, 41 |
 | 91 | [91-claude-code-cli-provider.md](91-claude-code-cli-provider.md) | Claude Code CLI provider: runs the unmodified `claude` program per model step on the operator's own login or API key; terms finding, guard rails, process lifecycle, streaming, tool bridging, rate limits (PROPOSED) | 3 | 05, 06, 14, 15, 46 |
 | 50 | [50-windows-sandbox-provider.md](50-windows-sandbox-provider.md) | Windows Sandbox VM provider behind IVmBackend (capability report, single-instance limit, no save or checkpoint) and typed host-compatibility metadata for modules | 8 | 16, 03, 41, 42, 49 |
 | 61 | [61-sealed-storage.md](61-sealed-storage.md) | Authenticated encryption and fail-closed tamper detection for Soul data, agent memory working copies, cookie profiles and bootstrap values (owner requirement 2026-11-19) | 2 | 14, 48, 07, 08, 18 |
+| 70 | [70-issue-filer.md](70-issue-filer.md) | Issue filer (Resibo Telemetrees diagnostics to GitHub issues) (PROPOSED, Resibo exchange) | 8 | 84 |
+| 71 | [71-dependency-watcher-and-proving-grounds.md](71-dependency-watcher-and-proving-grounds.md) | Dependency watcher and Proving Grounds (PROPOSED, Resibo exchange) | 8 | 84 |
+| 72 | [72-access-grants-and-groups.md](72-access-grants-and-groups.md) | Access grants and groups (PROPOSED, Resibo exchange) | 8 | 84 |
+| 73 | [73-content-screening.md](73-content-screening.md) | Content screening (PROPOSED, Resibo exchange) | 8 | 84 |
+| 74 | [74-hardware-probe-and-resource-ledger.md](74-hardware-probe-and-resource-ledger.md) | Hardware probe and resource ledger (PROPOSED, Resibo exchange) | 8 | 84 |
+| 75 | [75-watchdog-and-sleep-wake.md](75-watchdog-and-sleep-wake.md) | Watchdog and sleep/wake (PROPOSED, Resibo exchange) | 8 | 84 |
+| 76 | [76-reimport-and-export-framework.md](76-reimport-and-export-framework.md) | Reimport and export framework (PROPOSED, Resibo exchange) | 8 | 84 |
+| 77 | [77-status-incidents-and-support.md](77-status-incidents-and-support.md) | Status, incidents and support (PROPOSED, Resibo exchange) | 8 | 84 |
+| 78 | [78-testing-kit-and-repo-hygiene.md](78-testing-kit-and-repo-hygiene.md) | Testing kit and repo hygiene (PROPOSED, Resibo exchange) | 8 | 84 |
+| 79 | [79-account-guardian.md](79-account-guardian.md) | Account guardian (PROPOSED, Resibo exchange) | 8 | 84 |
+| 80 | [80-mcp-access-and-tool-registry.md](80-mcp-access-and-tool-registry.md) | MCP access and tool registry (PROPOSED, Resibo exchange) | 8 | 84 |
+| 81 | [81-program-logs-audit-vocabulary-and-retention.md](81-program-logs-audit-vocabulary-and-retention.md) | Program logs, audit vocabulary and retention (PROPOSED, Resibo exchange) | 8 | 84 |
+| 82 | [82-pipeline-runs-and-job-classes.md](82-pipeline-runs-and-job-classes.md) | Pipeline runs and job classes (PROPOSED, Resibo exchange) | 8 | 84 |
+| 83 | [83-client-patterns-from-resibo.md](83-client-patterns-from-resibo.md) | Client patterns from Resibo (PROPOSED, Resibo exchange) | 8 | 84 |
+| 84 | [84-resibo-exchange-ledger.md](84-resibo-exchange-ledger.md) | Resibo exchange ledger (274 rows, conventions, conflicts, build plan) (PROPOSED, Resibo exchange) | 8 | 84 |
+| 85 | [85-extraction-portability.md](85-extraction-portability.md) | Extracted libraries must work in any .NET project: portability rules, readiness checklist, extension points and audit hook; 49 rows, 16 work packages (PROPOSED) | 8 | 84, 76, 49 |
+| 54 | [54-soul-marketplace.md](54-soul-marketplace.md) | Soul Marketplace (PROPOSED): decided nature and exclusions, bundle and import, what is open (v1 scope OPEN) | 5 | 07, 33, 44, 47, 48 |
 | 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
 | 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
+| 63 | [63-encrypted-data-folder.md](63-encrypted-data-folder.md) | Encrypted data folder: the data root and PostgreSQL live in a Bazaar-keyed encrypted volume (BitLocker VHDX, LUKS2), fail-closed start guard, default column sealing | 4 | 03, 04, 14, 33, 42, 45, 46, 48, 61 |
