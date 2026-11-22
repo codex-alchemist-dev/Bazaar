@@ -96,6 +96,25 @@ public sealed class CodingToolHandlersTests
         public ParentContext? ParentFor(CodingToolCall toolCall) => Parent;
     }
 
+    private sealed class NoGuests : IGuestWorktreeSource
+    {
+        public ValueTask<GuestWorktreeTarget?> ResolveAsync(string agentId, string worktreeKey, CancellationToken cancellationToken) => ValueTask.FromResult<GuestWorktreeTarget?>(null);
+    }
+
+    private sealed class NoSubjects : ICheckSubjectSource
+    {
+        public ValueTask<CheckSubject?> ResolveAsync(string agentId, string worktreeKey, CancellationToken cancellationToken) => ValueTask.FromResult<CheckSubject?>(null);
+    }
+
+    private sealed class NoStore : Bazaar.Server.CodingStore.ICheckRunStore
+    {
+        public ValueTask AppendAsync(CheckRunRecord record, CancellationToken cancellationToken) => ValueTask.CompletedTask;
+
+        public ValueTask<CheckRunRecord?> GetAsync(Guid id, CancellationToken cancellationToken) => ValueTask.FromResult<CheckRunRecord?>(null);
+
+        public ValueTask<IReadOnlyList<CheckRunRecord>> ListByCommitAsync(string commit, CancellationToken cancellationToken) => ValueTask.FromResult<IReadOnlyList<CheckRunRecord>>([]);
+    }
+
     // ---- harness -----------------------------------------------------------------------------------------------------
 
     private sealed class Harness : IDisposable
@@ -184,6 +203,8 @@ public sealed class CodingToolHandlersTests
             [GitPushDraftPrToolHandler.ToolName] = new GitPushDraftPrToolHandler(Git, Host),
             [ReviewToolHandler.ToolName] = new ReviewToolHandler(Review, Host),
             [SubagentSpawnToolHandler.ToolName] = new SubagentSpawnToolHandler(Spawner, Host),
+            [ShellToolHandler.ToolName] = new ShellToolHandler(new NoGuests()),
+            [RunChecksToolHandler.ToolName] = new RunChecksToolHandler(new NoSubjects(), new NoGuests(), new NoStore()),
         };
 
         /// <summary>A runner over the real gate and recorder, with the given policy (allow by default).</summary>
@@ -233,6 +254,8 @@ public sealed class CodingToolHandlersTests
         (GitPushDraftPrToolHandler.ToolName, "Post", false),
         (ReviewToolHandler.ToolName, "Post", false),
         (SubagentSpawnToolHandler.ToolName, "Exec", false),
+        (ShellToolHandler.ToolName, "Exec", true),
+        (RunChecksToolHandler.ToolName, "Read", true),
     ];
 
     // ---- registration and declared classes ---------------------------------------------------------------------------
@@ -272,6 +295,9 @@ public sealed class CodingToolHandlersTests
         services.AddSingleton<ISubagentSpawner>(h.Spawner);
         services.AddSingleton<ICodingToolHostContext>(h.Host);
         services.AddSingleton<IWorktreeFilesSource>(h.FilesSource);
+        services.AddSingleton<IGuestWorktreeSource>(new NoGuests());
+        services.AddSingleton<ICheckSubjectSource>(new NoSubjects());
+        services.AddSingleton<Bazaar.Server.CodingStore.ICheckRunStore>(new NoStore());
         services.AddBazaarCodingToolHandlers();
 
         using var provider = services.BuildServiceProvider();
