@@ -225,6 +225,24 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
     }
 
     [Fact]
+    public async Task Denied_usage_row_round_trips_with_a_provider_that_has_no_row()
+    {
+        SkipWithoutDatabase();
+        var repo = new UsageRepository(db.DataSource);
+        var denied = Usage("agent-denied", GatewayIdentity.Native, _t0, "policy") with
+        {
+            Status = UsageStatus.Denied,
+            ErrorCode = "policy_denied:model_not_allowed",
+            Tokens = new GatewayTokenUsage(0, 0, 0, 0, 0, 0),
+            KeyRef = "none",
+            PriceVersion = null,
+        };
+        await repo.AppendAsync(denied, Ct);
+
+        Assert.Equal([denied], await repo.ListAsync("agent-denied", _t0, _t0.AddHours(1), Ct));
+    }
+
+    [Fact]
     public async Task Usage_keeps_input_separate_from_cache_reads_and_rejects_impossible_rows()
     {
         SkipWithoutDatabase();
@@ -263,7 +281,7 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
 
     private static GatewayUsageRecord Usage(string agent, GatewayIdentity identity, DateTimeOffset at, string provider = "p-usage") => new(
         Guid.NewGuid(), at, agent, "turn-1", provider, "key-1", "claude-haiku-5-5", "claude-haiku-5-5-20260101", identity,
-        new GatewayTokenUsage(100, 10, 20, 30, 40, 5), 250, UsageStatus.Success, null, null, false, "2026-10");
+        new GatewayTokenUsage(100, 10, 20, 30, 40, 5), 250, UsageStatus.Success, null, null, false, "2026-10", UsageSource.For(provider));
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
