@@ -131,6 +131,8 @@
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
     <Project Path="src/Bazaar.RateLimits/Bazaar.RateLimits.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Selection/Bazaar.Server.Gateway.Selection.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Selection.Abstractions/Bazaar.Server.Gateway.Selection.Abstractions.csproj" />
     <Project Path="src/Bazaar.RateLimits.Abstractions/Bazaar.RateLimits.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Annotation/Bazaar.Client.Annotation.csproj" />
     <Project Path="src/Bazaar.Client.Annotation.Abstractions/Bazaar.Client.Annotation.Abstractions.csproj" />
@@ -230,6 +232,7 @@
     <Project Path="tests/Bazaar.Server.VmDensity.Tests/Bazaar.Server.VmDensity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.RateLimits.Tests/Bazaar.RateLimits.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Gateway.Selection.Tests/Bazaar.Server.Gateway.Selection.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.WindowsSandbox.Tests/Bazaar.Server.Vms.WindowsSandbox.Tests.csproj" />

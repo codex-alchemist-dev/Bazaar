@@ -160,7 +160,7 @@ internal sealed class GatewayHarness
         return this;
     }
 
-    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null) => new(
+    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, Bazaar.Server.Gateway.Selection.ICandidateRanker? ranker = null, Bazaar.Server.Gateway.Selection.IEndpointStatsTracker? stats = null) => new(
         World.Resolver(),
         Directory,
         new DictionaryAdapterRegistry(Adapters),
@@ -172,7 +172,9 @@ internal sealed class GatewayHarness
         Sink,
         Suspender,
         Clock,
-        InternalErrors.Add);
+        InternalErrors.Add,
+        ranker: ranker,
+        selectionStats: stats);
 
     public static ModelRequest Request(string route = "r") => InMemoryPolicyWorld.Request(Agent, route);
 

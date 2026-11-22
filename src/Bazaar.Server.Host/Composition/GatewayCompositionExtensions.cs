@@ -10,10 +10,12 @@ using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Secrets;
+using Bazaar.Server.Gateway.Selection;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Secrets;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -77,6 +79,25 @@ public static class GatewayCompositionExtensions
             AnthropicDirectOptionsOf(sp),
             sp.GetRequiredService<TimeProvider>())));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
+        // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
+        // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
+        services.TryAddSingleton<IEndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton(sp => new EndpointSelector(sp.GetRequiredService<IEndpointStatsTracker>(), time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ProfileBoundRanker>(sp =>
+        {
+            var ranker = new ProfileBoundRanker(sp.GetRequiredService<EndpointSelector>());
+            foreach (var binding in sp.GetService<IConfiguration>()?.GetSection("Bazaar:Gateway:Selection:Routes").GetChildren() ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(binding.Value))
+                {
+                    ranker.BindAsync(binding.Key, binding.Value).GetAwaiter().GetResult();
+                }
+            }
+
+            return ranker;
+        });
+        services.TryAddSingleton<ICandidateRanker>(sp => sp.GetRequiredService<ProfileBoundRanker>());
+        services.TryAddSingleton<IAgentSelectionSetup>(sp => sp.GetRequiredService<ProfileBoundRanker>());
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
             sp.GetRequiredService<RouteResolver>(),
             sp.GetRequiredService<IGatewayDirectory>(),
@@ -86,7 +107,9 @@ public static class GatewayCompositionExtensions
             sp.GetRequiredService<UsageRecorder>(),
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
-            scrubber: sp.GetRequiredService<SecretScrubber>())));
+            scrubber: sp.GetRequiredService<SecretScrubber>(),
+            ranker: sp.GetRequiredService<ICandidateRanker>(),
+            selectionStats: sp.GetRequiredService<IEndpointStatsTracker>())));
         return services;
     }
 
