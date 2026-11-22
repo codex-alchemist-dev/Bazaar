@@ -27,7 +27,7 @@ public sealed class CrashAttachmentHandlerTests
 
         public IReadOnlyList<StreamCursor> HelloCursors => [];
 
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
 
         public CancellationToken Closed => CancellationToken.None;
 
