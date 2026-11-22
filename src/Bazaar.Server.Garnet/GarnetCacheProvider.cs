@@ -18,7 +18,7 @@ namespace Bazaar.Server.Garnet;
 /// </summary>
 public sealed class GarnetCacheProvider : ICacheProvider, IAsyncDisposable
 {
-    /// <summary>The kind name <c>host.provider.cache</c> selects.</summary>
+    /// <summary>The kind name this provider reports.</summary>
     public const string KindName = "garnet";
 
     private const string _ttlFeature = "ttl";

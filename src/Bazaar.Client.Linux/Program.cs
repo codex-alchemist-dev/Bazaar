@@ -14,6 +14,7 @@ using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Linux;
 
@@ -37,6 +38,12 @@ internal static class Program
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
+        }
+
+        // Headless modes (doc 37 section 4d) run before the single-instance forward and any window.
+        if (SupportBundleCommands.TryRun(args, ClientDataPaths.DataDir(Environment.GetEnvironmentVariable)) is { } headlessExit)
+        {
+            return headlessExit;
         }
 
         var paths = LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
@@ -105,6 +112,7 @@ internal static class Program
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
+            ShowTerminalWhenAsked(plain, args);
             ShowFirstRun(plain, args);
             InstallShell(plain);
             return plain;
@@ -113,6 +121,7 @@ internal static class Program
         Directory.CreateDirectory(paths.StateDirectory);
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
+        ShowTerminalWhenAsked(window, args);
         ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
         InstallShell(window);
@@ -134,6 +143,19 @@ internal static class Program
     {
         Directory.CreateDirectory(paths.StateDirectory);
         window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
+    }
+
+    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
+    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (!args.Contains("--terminal", StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var sessions = CalcinatoTerminalPanes.CreateSessions();
+        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
+        window.Closed += async (_, _) => await sessions.DisposeAsync();
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

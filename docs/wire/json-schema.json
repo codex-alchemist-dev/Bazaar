@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
+  "x-schemaHash": "sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12",
   "x-messages": {
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
@@ -16,6 +16,7 @@
     "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
     "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
     "lagged": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Lagged" },
+    "pane.frame": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PaneFrame" },
     "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
     "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
     "resync": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Resync" },
@@ -456,6 +457,14 @@
       "required": ["s", "lastSent"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.PaneFrame": {
+      "type": "object",
+      "properties": {
+        "frame": { "type": "string" }
+      },
+      "required": ["frame"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.Ping": {
       "type": "object",
       "properties": {
@@ -578,7 +587,8 @@
         "ts": { "type": "string", "format": "date-time" },
         "edited": { "type": "boolean" },
         "mentions": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } },
-        "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
+        "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "withdrawn": { "type": "boolean" }
       },
       "required": ["gcId", "n", "ev", "messageId", "authorId", "text", "ts", "edited", "mentions"],
       "additionalProperties": true

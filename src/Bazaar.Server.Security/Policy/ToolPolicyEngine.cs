@@ -65,6 +65,25 @@ public sealed class ToolPolicyEngine(CapabilityRegistry registry, IRateBucketSto
         return check.Allowed ? decision : new PolicyDecision(PolicyOutcome.Deny, PolicyReason.RateLimited);
     }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// Uses the tool's <see cref="ToolCapability.ResultTaint"/>. A tool the registry does not know, or a blank tool name,
+    /// counts as <see cref="ToolResultTaint.Hard"/> (fail closed). The engine only computes the value; the caller stores it.
+    /// </remarks>
+    public SessionTaint TaintAfterResult(DispatchContext context, Guid resultId)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(context.Taint);
+
+        var declared = !string.IsNullOrWhiteSpace(context.Tool) && _registry.TryGet(context.Tool, out var tool)
+            ? tool.ResultTaint
+            : ToolResultTaint.Hard;
+
+        return declared == ToolResultTaint.None
+            ? context.Taint
+            : TaintRules.Apply(context.Taint, new TaintInput(resultId, ContentTrust.External), TaintPolicy.Default);
+    }
+
     private PolicyDecision DecideTier2(DispatchContext context, byte[] dispatchHash, bool hard)
     {
         if (context.Grant is { } grant && GrantCovers(grant, context, dispatchHash))
