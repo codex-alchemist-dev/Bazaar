@@ -11,7 +11,7 @@ namespace Bazaar.Server.Host.Tests;
 
 public sealed class ClaudeCodeGatewayTests
 {
-    private const string AgentId = "0d3a1f0e-1111-4222-8333-444455556666";
+    private const string _agentId = "0d3a1f0e-1111-4222-8333-444455556666";
 
     private static readonly ClaudeCodeOptions _cli = new() { Enabled = true, LoginOwner = "user:owner", TermsAcknowledgedAt = DateTimeOffset.UnixEpoch };
 
@@ -137,7 +137,7 @@ public sealed class ClaudeCodeGatewayTests
                 "anthropic-direct:claude-haiku-5-5",
             ],
             policy.Value.Entries);
-        AgentModelPolicy.Create(AgentId, policy.Value.Entries, policy.Value.DefaultRoute, 1);
+        AgentModelPolicy.Create(_agentId, policy.Value.Entries, policy.Value.DefaultRoute, 1);
     }
 
     [Fact]
@@ -154,10 +154,10 @@ public sealed class ClaudeCodeGatewayTests
     public async Task A_seeded_agent_resolves_to_the_cli_first_and_the_owners_key_second()
     {
         var seeded = DevAgentPolicySeed.PolicyFor(new FreeLlmApiOptions(), new AnthropicDirectOptions { Enabled = true }, _cli)!.Value;
-        var policy = AgentModelPolicy.Create(AgentId, seeded.Entries, seeded.DefaultRoute, 1);
+        var policy = AgentModelPolicy.Create(_agentId, seeded.Entries, seeded.DefaultRoute, 1);
         var resolver = new RouteResolver(new FixedPolicy(policy), Directory(new AnthropicDirectOptions { Enabled = true }));
 
-        var resolution = await resolver.ResolveAsync(new ModelRequest(AgentId, "", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
+        var resolution = await resolver.ResolveAsync(new ModelRequest(_agentId, "", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
 
         var allowed = Assert.IsType<RouteResolution.Allowed>(resolution);
         Assert.Equal("claude", allowed.Route.Route);
@@ -167,10 +167,10 @@ public sealed class ClaudeCodeGatewayTests
     [Fact]
     public async Task An_agent_without_the_seed_is_still_denied()
     {
-        var policy = AgentModelPolicy.Create(AgentId, ["agent-default", "freellmapi:some-model"], "agent-default", 1);
+        var policy = AgentModelPolicy.Create(_agentId, ["agent-default", "freellmapi:some-model"], "agent-default", 1);
         var resolver = new RouteResolver(new FixedPolicy(policy), Directory());
 
-        var resolution = await resolver.ResolveAsync(new ModelRequest(AgentId, "claude", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
+        var resolution = await resolver.ResolveAsync(new ModelRequest(_agentId, "claude", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
 
         Assert.IsType<RouteResolution.Denied>(resolution);
     }
