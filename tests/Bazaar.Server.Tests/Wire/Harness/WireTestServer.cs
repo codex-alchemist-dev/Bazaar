@@ -48,7 +48,8 @@ public sealed class WireTestServer : IAsyncDisposable
         Action<WireOptions>? configure = null,
         FakeAuthenticator? auth = null,
         IEnumerable<IWireRequestHandler>? handlers = null,
-        FakeClock? clock = null)
+        FakeClock? clock = null,
+        Action<IServiceCollection>? services = null)
     {
         clock ??= new FakeClock();
         auth ??= new FakeAuthenticator().Allow("good");
@@ -58,6 +59,7 @@ public sealed class WireTestServer : IAsyncDisposable
         builder.Services.AddSingleton<TimeProvider>(clock);
         builder.Services.AddSingleton<IConnectionAuthenticator>(auth);
         builder.Services.AddBazaarWire(new ConfigurationBuilder().Build());
+        services?.Invoke(builder.Services);
         if (configure is not null) builder.Services.Configure(configure);
         foreach (var h in handlers ?? []) builder.Services.AddSingleton<IWireRequestHandler>(h);
         var app = builder.Build();
