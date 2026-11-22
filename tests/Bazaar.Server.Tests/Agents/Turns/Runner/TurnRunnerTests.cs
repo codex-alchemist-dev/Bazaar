@@ -127,7 +127,8 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         var h = new Harness();
         var agent = await NewAgentAsync();
         var item = await EnqueueMentionAsync(agent);
-        var request = Request(agent, [item]) with { Depth = 2, TriggerGcSeq = 7 };
+        var parent = await StartRunningTurnAsync(agent);
+        var request = Request(agent, [item]) with { Depth = 2, ParentTurnId = parent, TriggerGcSeq = 7 };
         h.Provider.EnqueueCall([.. CallTool("c1", "lookup", "{}"), Finish(StopReason.ToolUse)]);
         h.Provider.EnqueueCall(Text("Done."), Finish(StopReason.EndTurn));
         RunningTurnInfo? seen = null;
