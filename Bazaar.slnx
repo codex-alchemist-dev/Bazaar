@@ -259,6 +259,7 @@
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
+    <Project Path="tests/Bazaar.Erasure.Tests/Bazaar.Erasure.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Biometric.Abstractions/Bazaar.Server.Biometric.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Biometric/Bazaar.Server.Biometric.csproj" />
     <Project Path="src/Bazaar.Server.DeviceEnrolment.Abstractions/Bazaar.Server.DeviceEnrolment.Abstractions.csproj" />
