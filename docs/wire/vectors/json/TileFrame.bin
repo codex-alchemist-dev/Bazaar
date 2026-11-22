@@ -1,0 +1,1 @@
+{"v":1,"t":"sample","k":"evt","id":"vector-1","s":"gc:0196a6f0-0000-7000-8000-000000000001","n":7,"ts":"2026-11-19T05:36:12.345+00:00","p":{"viewId":"view-1","graphVersion":3,"layoutSeq":4,"key":{"level":1,"x":0,"y":0,"z":0},"tier":2,"dimensions":3,"nodeIds":["a","b"],"xyz":[1,2,3,4,5,6],"clusters":[{"clusterId":"c1","memberCount":40,"x":1,"y":2,"z":3}]}}

@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 using Bazaar.Contracts.Ryusei;
 using Bazaar.Contracts.TimeMachine;
@@ -33,6 +34,14 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcEdit))]
 [JsonSerializable(typeof(GcMemberAdd))]
 [JsonSerializable(typeof(GcMemberRemove))]
+[JsonSerializable(typeof(GcReact))]
+[JsonSerializable(typeof(GcReactResult))]
+[JsonSerializable(typeof(GcReactionsRequest))]
+[JsonSerializable(typeof(GcReactionsReply))]
+[JsonSerializable(typeof(WireGcReaction))]
+[JsonSerializable(typeof(GcTyping))]
+[JsonSerializable(typeof(GcTypingResult))]
+[JsonSerializable(typeof(PresenceTyping))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
@@ -71,4 +80,6 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(ViewportRequest))]
 [JsonSerializable(typeof(ClusterGlyph))]
 [JsonSerializable(typeof(TileFrame))]
+[JsonSerializable(typeof(ReleaseManifest))]
+[JsonSerializable(typeof(ReleaseArtifact))]
 public sealed partial class WireJsonContext : JsonSerializerContext;
