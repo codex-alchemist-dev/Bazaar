@@ -7,5 +7,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Accessibility\Bazaar.Accessibility.csproj" />
+    <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
   </ItemGroup>
 </Project>
