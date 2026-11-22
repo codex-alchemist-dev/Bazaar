@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.GeneticMemory.Abstractions;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
 using Bazaar.Server.Security.Audit;
@@ -111,6 +112,10 @@ public sealed class MemoryComponent : IBazaarComponent
                 sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : store,
                 sp.GetRequiredService<ILogger<MemoryGraphSink>>())
             : sp.GetRequiredService<IMemoryVault>());
+
+        // Genetic Memory Transfer (doc 25 WP9) writes accepted lessons through the memory sink.
+        services.TryAddSingleton<IGmtSecretScanner, GmtSecretScanner>();
+        services.TryAddSingleton<IGmtLessonWriter>(sp => new GmtLessonWriter(sp.GetRequiredService<IMemoryBatchSink>()));
     }
 
     private static string Required(IConfiguration configuration, string key) =>
