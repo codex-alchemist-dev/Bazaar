@@ -63,6 +63,7 @@
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.HyperV\Bazaar.Server.Vms.HyperV.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Kvm\Bazaar.Server.Vms.Kvm.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress\Bazaar.Server.VmEgress.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals\Bazaar.Server.VmEgress.Approvals.csproj" />
