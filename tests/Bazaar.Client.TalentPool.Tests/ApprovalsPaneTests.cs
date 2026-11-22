@@ -100,3 +100,35 @@ public sealed class ApprovalsPaneTests
         Assert.Empty(vm.ToolGrants);
     }
 }
+
+public sealed class PairingInPaneTests
+{
+    private sealed class Store : Bazaar.Client.OwnerId.IOwnerIdStore
+    {
+        public string? Value { get; private set; }
+        public string? Load() => Value;
+        public bool Save(string canonicalId) { Value = canonicalId; return true; }
+    }
+
+    [AvaloniaFact]
+    public void The_pane_shows_the_owner_id_card_until_an_id_is_stored()
+    {
+        var descriptor = new PaneDescriptor(PaneKinds.Approvals, ApprovalsPaneViewModel.DefaultTitle, string.Empty, System.Text.Json.JsonElement.Parse("{}"));
+        var store = new Store();
+        var pairing = new Bazaar.Client.OwnerId.Avalonia.OwnerIdPairingViewModel(store);
+        var vm = new ApprovalsPaneViewModel(descriptor, null, null, pairing: pairing);
+        var window = new Window { Width = 400, Height = 900, Content = new ApprovalsPaneView(vm) };
+        window.Show();
+        AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+        Dispatcher.UIThread.RunJobs();
+        window.UpdateLayout();
+
+        Assert.True(vm.ShowPairing);
+        Assert.Contains(window.GetVisualDescendants().OfType<Button>(), b => b.Name == "SaveButton" && b.IsEffectivelyVisible);
+
+        pairing.Input = "0f0f0f0f-0000-4000-8000-000000000001";
+        pairing.Save();
+        Assert.False(vm.ShowPairing);
+        Assert.Equal("0f0f0f0f-0000-4000-8000-000000000001", store.Value);
+    }
+}

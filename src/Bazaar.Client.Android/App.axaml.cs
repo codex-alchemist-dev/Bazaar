@@ -8,6 +8,7 @@ using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Android.Approvals;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
+using Bazaar.Client.OwnerId;
 using Bazaar.Client.TalentPool;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
@@ -88,6 +89,7 @@ public sealed class App : Avalonia.Application
             .With<IConstellationTileSource>(tiles)
             .With<IPendingApprovalSource>(approvals)
             .With<IPendingToolGrantSource>(grants)
+            .With<IOwnerIdStore>(new AndroidOwnerIdStore(() => MainActivity.Current))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         if (gate is not null) features = features.With(gate);
         if (grantGate is not null) features = features.With(grantGate);

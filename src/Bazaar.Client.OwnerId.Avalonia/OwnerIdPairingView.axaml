@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:oi="using:Bazaar.Client.OwnerId.Avalonia"
+             x:Class="Bazaar.Client.OwnerId.Avalonia.OwnerIdPairingView"
+             x:DataType="oi:OwnerIdPairingViewModel">
+  <StackPanel Margin="16" Spacing="8">
+    <TextBlock Text="Owner id" FontSize="18" FontWeight="Bold" />
+    <TextBlock Name="StatusText" Text="{Binding Status}" TextWrapping="Wrap" />
+    <TextBox Name="OwnerIdInput" Text="{Binding Input, Mode=TwoWay}" Watermark="Paste your owner id" MinHeight="48" />
+    <Button Name="SaveButton" Content="Store owner id" Command="{Binding SaveCommand}" MinHeight="48" />
+    <TextBlock Name="NoticeText" Text="{Binding Notice}" IsVisible="{Binding HasNotice}" TextWrapping="Wrap" />
+    <TextBlock Text="This stores your id only. It creates no approval key." TextWrapping="Wrap" />
+  </StackPanel>
+</UserControl>

@@ -2,6 +2,7 @@ using Android.App;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Http;
+using Bazaar.Client.OwnerId;
 using Bazaar.Client.TalentPool;
 using Bazaar.Client.TalentPool.Http;
 
@@ -58,4 +59,13 @@ public static class AndroidApprovals
         prefs?.Edit()?.PutString("owner_human_id", id.ToString("D"))?.Apply();
         return prefs is not null;
     }
+}
+
+/// <summary>The owner id store over this app's private preferences (doc 32). It stores an id only and creates no key.</summary>
+public sealed class AndroidOwnerIdStore(Func<Activity?> activity) : IOwnerIdStore
+{
+    public string? Load() =>
+        activity()?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("owner_human_id", null);
+
+    public bool Save(string canonicalId) => AndroidApprovals.SaveOwnerHumanId(activity(), canonicalId);
 }

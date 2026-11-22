@@ -3,6 +3,7 @@
              xmlns:appr="using:Bazaar.Client.Approvals.Avalonia"
              xmlns:ph="using:Bazaar.Client.Approvals.Phone"
              xmlns:tp="using:Bazaar.Client.TalentPool.Avalonia"
+             xmlns:oi="using:Bazaar.Client.OwnerId.Avalonia"
              x:Class="Bazaar.Client.Approvals.Phone.ApprovalsPaneView"
              x:DataType="ph:ApprovalsPaneViewModel">
   <Grid RowDefinitions="Auto,*">
@@ -12,6 +13,7 @@
     </StackPanel>
     <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowList}">
       <StackPanel>
+      <oi:OwnerIdPairingView Name="PairingCard" DataContext="{Binding Pairing}" IsVisible="{Binding $parent[ph:ApprovalsPaneView].((ph:ApprovalsPaneViewModel)DataContext).ShowPairing}" />
       <ItemsControl Name="ToolGrantList" ItemsSource="{Binding ToolGrants}" Margin="16,0">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="tp:ToolGrantCardViewModel">

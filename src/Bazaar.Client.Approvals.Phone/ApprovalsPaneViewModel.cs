@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Approvals.Avalonia;
+using Bazaar.Client.OwnerId.Avalonia;
 using Bazaar.Client.TalentPool;
 using Bazaar.Client.TalentPool.Avalonia;
 using Bazaar.Contracts.Approvals;
@@ -30,7 +31,8 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
         ApprovalGate? gate,
         IPendingApprovalSource? source,
         ToolGrantGate? toolGrantGate = null,
-        IPendingToolGrantSource? toolGrantSource = null)
+        IPendingToolGrantSource? toolGrantSource = null,
+        OwnerIdPairingViewModel? pairing = null)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         Kind = descriptor.Kind;
@@ -39,6 +41,11 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
         _source = source;
         _toolGrantGate = toolGrantGate;
         _toolGrantSource = toolGrantSource;
+        Pairing = pairing;
+        if (pairing is not null)
+        {
+            pairing.PropertyChanged += (_, _) => Raise(nameof(ShowPairing));
+        }
         BackCommand = new ApprovalCommand(CloseDetail, () => _detail is not null);
         RefreshCommand = new ApprovalCommand(() => _ = RefreshAsync(), () => true);
     }
@@ -53,6 +60,11 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
 
     /// <summary>Talent tool grants waiting for the owner (docs/design/25). Each has its own card with a biometric Approve and no deny.</summary>
     public ObservableCollection<ToolGrantCardViewModel> ToolGrants { get; } = [];
+
+    /// <summary>The owner id card (doc 32). Null when the head supplies no store. It creates no key.</summary>
+    public OwnerIdPairingViewModel? Pairing { get; }
+
+    public bool ShowPairing => Pairing is { IsPaired: false };
 
     public ApprovalCommand BackCommand { get; }
 

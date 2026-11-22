@@ -2,6 +2,8 @@ using System.Text.Json;
 using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.OwnerId;
+using Bazaar.Client.OwnerId.Avalonia;
 using Bazaar.Client.TalentPool;
 using Bazaar.Contracts.Panes;
 
@@ -23,7 +25,7 @@ public sealed class ApprovalsPaneModule : IPaneModule
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(context);
 
-        registry.Register(PaneKinds.Approvals, descriptor => new ApprovalsPaneViewModel(descriptor, context.Get<ApprovalGate>(), context.Get<IPendingApprovalSource>(), context.Get<ToolGrantGate>(), context.Get<IPendingToolGrantSource>()));
+        registry.Register(PaneKinds.Approvals, descriptor => new ApprovalsPaneViewModel(descriptor, context.Get<ApprovalGate>(), context.Get<IPendingApprovalSource>(), context.Get<ToolGrantGate>(), context.Get<IPendingToolGrantSource>(), context.Get<IOwnerIdStore>() is { } ownerIds ? new OwnerIdPairingViewModel(ownerIds) : null));
         registry.RegisterView<ApprovalsPaneViewModel>(pane =>
         {
             _ = pane.RefreshAsync();
