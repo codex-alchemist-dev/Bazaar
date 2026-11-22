@@ -193,7 +193,10 @@ public static class PoolCommandLine
         return [baseline[0], .. PoolNetwork.CleanupCommands(options, slot), baseline[1]];
     }
 
-    /// <summary>The <c>systemd-run</c> scope prefix. Only the memory properties depend on <see cref="BrowserPoolOptions.MemoryMaxMb"/>.</summary>
+    /// <summary>
+    /// The <c>systemd-run</c> scope prefix with the per-session limits: memory (<see cref="BrowserPoolOptions.MemoryMaxMb"/>), processor
+    /// time (<see cref="BrowserPoolOptions.CpuQuotaPercent"/>) and task count (<see cref="BrowserPoolOptions.TasksMax"/>).
+    /// </summary>
     public static IReadOnlyList<string> SystemdRunPrefix(BrowserPoolOptions options)
     {
         EnsureValid(options);
@@ -203,7 +206,12 @@ public static class PoolCommandLine
             prefix.AddRange(["-p", "MemoryMax=" + PoolRequestValidator.Invariant(options.MemoryMaxMb) + "M", "-p", "MemorySwapMax=0"]);
         }
 
-        prefix.AddRange(["-p", "TasksMax=512", "--"]);
+        if (options.CpuQuotaPercent > 0)
+        {
+            prefix.AddRange(["-p", "CPUQuota=" + PoolRequestValidator.Invariant(options.CpuQuotaPercent) + "%"]);
+        }
+
+        prefix.AddRange(["-p", "TasksMax=" + PoolRequestValidator.Invariant(options.TasksMax), "--"]);
         return prefix;
     }
 
