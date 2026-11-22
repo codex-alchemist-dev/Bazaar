@@ -54,14 +54,23 @@ public interface IBrowserPageDriver
     Task DispatchInputAsync(string sessionId, IReadOnlyList<InputAction> actions, CancellationToken ct);
 }
 
+/// <summary>
+/// A browser page driver whose screenshot pixels and input coordinates are one space (the browser runs at device scale factor 1 and
+/// captures the viewport only). Only then is the screenshot's size before downscaling the size pointer coordinates refer to, so the
+/// display service records a browser session's native size only for drivers that declare this.
+/// </summary>
+public interface IPixelExactBrowserPageDriver : IBrowserPageDriver
+{
+}
+
 /// <summary>Taint and kill-switch decisions (docs/design/15). The host supplies the real gate.</summary>
 public interface IDisplayGate
 {
     /// <summary>Decides whether a capture may happen.</summary>
-    DisplayVerdict CheckCapture(DisplayTarget target);
+    ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct);
 
     /// <summary>Decides whether the input may be sent. The actions are passed so the host can refuse typed secrets.</summary>
-    DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions);
+    ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct);
 }
 
 /// <summary>Writes audit rows. Rows carry sizes, source and hash, never pixels or typed text.</summary>
@@ -81,7 +90,7 @@ public interface IDisplayAuditSink
 /// Read contract: the size of a target's display before any downscaling, learned from the last capture that knew it. Pointer
 /// coordinates are in this space, so a consumer can map a point from a downscaled frame onto the display. Returns
 /// <see langword="null"/> when unknown: no capture yet, or a source that cannot tell (a hypervisor frame may already be reduced, and
-/// a browser screenshot is in device pixels while its input is in CSS pixels).
+/// a browser screenshot counts only when its driver is an <see cref="IPixelExactBrowserPageDriver"/>).
 /// </summary>
 public interface IDisplayNativeSizeReader
 {

@@ -91,8 +91,16 @@ bot_profile(agent_id, platform, display_name, sponsor_id, contact, disclosure_ur
 community_action(id, agent_id, sponsor_id, platform, action, target_url, body, body_sha256,
                  approval_id, taint_sources jsonb, external_id, status, created_at)
 target_blocklist(platform, target_ref, reason, added_by, added_at, pk(platform, target_ref))
+community_draft(draft_id pk, agent_id, sponsor_id, action, platform, kind, target, title, body, body_sha256, head_branch,
+                base_branch, gate_input jsonb, profile jsonb, approval_id, approval_hash, approval_expires_at,
+                gate_failures jsonb, status, taint_sources jsonb, external_id, url, reused, superseded_by,
+                created_at, updated_at)   -- [PROPOSED] migration community/0005
 ```
-This doc owns these four tables (doc 04 keeps conventions only). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
+This doc owns these tables (doc 04 keeps conventions only). `community_draft` is [PROPOSED]: one row per outbound draft, never deleted. Status moves only by compare-and-set (Pending to Posting, Denied or Expired; Posting to Posted, Failed or back to Pending after a retryable adapter failure), and an owner edit moves the original to Edited and inserts the replacement in one transaction. `gate_input` holds the agent text without the disclosure footer, and the gates read that, at creation and at edit. `body` and the profile's contact are encryptable per-person fields.
+
+Draft-review routes [PROPOSED], all owner-only with the guard order of doc 02: `GET /community/drafts/{id}` returns the `DraftReviewCardDto`; `GET /community/drafts?status=pending&limit=n` returns the open drafts (approval not expired), newest first (`limit` 1 to 100, default 50; only `pending` is served); `POST /community/drafts/{id}/decision` is the signed decision. A draft is created by `ICommunityDraftCreator` from an agent's proposed post: it appends the footer, runs the gates on the text without the footer, binds the approval hash and stores the draft Pending with an expiry (default 24 hours). `taint_sources` uses doc 15's provenance enum. `body` and `contact` may name third parties, so they are encryptable per-person fields (round 2, C01; doc 04 lists them).
+
+Draft expiry sweeper [PROPOSED]: `ICommunityDraftExpirySweeper` moves every Pending draft whose `approval_expires_at` is at or before now to Expired with one compare-and-set `UPDATE ... RETURNING draft_id` (rows are never deleted), then appends one `expired` row per draft to the action log with no body, like the denial rows. A hosted service runs it every `CommunityDraftOptions.ExpirySweepInterval` (default 5 minutes, floor 1 minute). A failed pass is logged and retried at the next interval. The decision handler still marks a draft Expired when a late decision arrives, so the sweep only closes the gap for drafts nobody answers.
 
 ### Settings [PROPOSED]
 Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings registry (doc 03); every change writes an audit entry (doc 15 `audit_log`).
@@ -106,6 +114,7 @@ Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings reg
 | `community.code.trailer_style` | enum: `assisted_by_signoff`, `co_authored_by`, `target_rules` | `assisted_by_signoff` | project | sponsor, operator | No. Floor: agents never add `Signed-off-by` |
 | `community.outreach.cold_email` | bool | `false` | install | operator (owner) | Yes, owner; needs counsel (CAN-SPAM, GDPR/PECR) |
 | `community.counsel_review_before_live_post` | bool | `true` | install | operator (owner) | Yes, owner; needs counsel |
+| `github.community_repo_allowlist` (owned by doc 21; mirrored here) | list of repo node ids; the shipped bridge reads it from `Bazaar:Community:GitHub:Installations` as entries of owner, repo (or `*` for one explicit owner), installationId, repositoryId | empty: no community repo is writable (needs counsel) | install | operator (owner) | Yes, owner. Floor: unlisted repos are never written to |
 
 Shared quota keys are owned by doc 15 and are not redefined here: `security.quota.public_items_per_platform_day` (5) and `security.quota.public_issue_pr_per_repo_day` (1, also used by doc 21). Settings may tighten these floors, never loosen them: hard-taint rules, Tier 2 for new accounts, and Deny for unverified or banned platforms.
 
@@ -152,6 +161,10 @@ WP 11 schema [PROPOSED, 2026-11-19]: the reader returns a `community_thread_summ
 
 Module names for WP 7 and WP 8 [PROPOSED, 2026-11-18]: WP 7 is `Bazaar.Server.Community.GitHub`. WP 8 is `Bazaar.Contracts/Community` (draft-review contracts) with `Bazaar.Client.Community` (view model) and `Bazaar.Client.Community.Avalonia` (view and `IPaneModule`). Layout and rules: doc 40, section 4b.
 
+Host binding for WP 7 and WP 8 [PROPOSED, 2026-11-22]: `Bazaar.Server.Host` binds the seams the Community component leaves open, in `AddBazaarCommunityHost` (host composition, no feature code in Bazaar.Server): `ICommunityPolicySource` over `PlatformPolicyLoader` (`PlatformPolicySource`, in `Bazaar.Community`; reads the table on each call, falls back to the shipped seed only while it is empty), `GitHubCommunityAdapter` through `CommunityGitHubComponent` with the `Bazaar.Server.Community.GitHub.Bridge` token source and the configured installation allowlist (`Bazaar:Community:GitHub:Installations`), `IOwnerKeyRegistry` from `AddBazaarApprovals`, and `CommunityActionStore` over the shared data source and the audit log. With no installation configured for the target repository, a signed approve decision answers 502 `post_refused` (a final refusal; the draft is marked Failed and the action log records it), not 503. A failure to get a token for any other reason stays retryable (503 `post_retry_later`).
+
+Client head binding for WP 8 and WP 9 [PROPOSED, 2026-11-22]: `Bazaar.Client.Windows` registers `CommunityDraftsPaneModule` and `CommunityLogPaneModule` in its pane module list (`CommunityPanes`, a head composition file) and puts `HttpDraftReviewDecisionSender` and `HttpCommunityLogSource` (`GET /community/log`, route constant `CommunityRoutes.Log`; the keyset cursor is passed through untouched; 401, 403, 404, 429 and 5xx become an `HttpRequestException` with a short message and the status code) over `ClientServer.Current` into the feature context. No device key store exists in the client yet, so no `IDecisionSigner` is supplied: the drafts pane refuses Approve, Deny and Edit with "No device signing key is available in this client" and sends nothing. The signing gap closes when the key store lands. The Linux head has no pane registry yet, and the Android phone shell has no phone body for these kinds, so neither registers them.
+
 ## Conflicts
 1. **Reply path vs taint (remaining).** Rounds 2 and 4 keep the reader/actor split in v1 and forbid an autonomous reply from the session that read the thread. Doc 15 must still specify the hand-over format and the fresh-session path. Until Q1 is confirmed, every reply is Tier 2.
 2. **GitHub reach (remaining risk).** The owner keeps fork-and-PR as decided (round 3, C13). Issue creation on uninstalled public repos and org-fork PRs remain unverified. Spike S22 runs before WP 7's fork path; fallback is installed repos only, with the owner posting drafts elsewhere.
@@ -176,3 +189,5 @@ Settled without a question: objections stop posting and blocklist the target at 
 
 ANSWERED: New accounts need owner approval every time, Tier 2, overriding doc 15's whitelist autonomy (DECISIONS-LOG round 7, C21).
 ANSWERED: Unverified platforms are Deny until a verified record exists (DECISIONS-LOG round 7, C21; 36's stricter default adopted).
+
+Client head binding for WP 8 and WP 9 [PROPOSED, 2026-11-22]: `Bazaar.Client.Windows` registers `CommunityDraftsPaneModule` and `CommunityLogPaneModule` in its pane module list (`CommunityPanes`, a head composition file) and puts `HttpDraftReviewDecisionSender` over `ClientServer.Current` into the feature context. No device key store exists in the client yet, so no `IDecisionSigner` is supplied: the drafts pane refuses Approve, Deny and Edit with "No device signing key is available in this client" and sends nothing. No HTTP `ICommunityLogSource` exists yet, so the log pane shows its error state. Both close when those seams land. The Linux head has no pane registry yet, and the Android phone shell has no phone body for these kinds, so neither registers them.

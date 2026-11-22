@@ -20,7 +20,7 @@ public sealed class IdentityServiceTests
     private static AccessRequest Write(string agent = _agent) =>
         new(agent, _service, "write_comment", "reply");
 
-    private static Harness Build(Func<AccessRequest, ToolTier>? tierFor = null, IIdentityAudit? audit = null)
+    private static Harness Build(Func<AccessRequest, ToolTier>? tierFor = null, IIdentityAudit? audit = null, params ILeaseObserver[] observers)
     {
         var time = new FakeTimeProvider(_start);
         var agents = new FakeAgentState();
@@ -37,7 +37,8 @@ public sealed class IdentityServiceTests
             audit ?? recorder,
             approvals,
             time,
-            tierFor);
+            tierFor,
+            observers);
         return new Harness(service, agents, leases, recorder, approvals, time);
     }
 
@@ -228,6 +229,88 @@ public sealed class IdentityServiceTests
 
         var harness = Build();
         Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Observer_HearsAnIssuedLease_AfterAuditAndStore()
+    {
+        var observer = new RecordingObserver();
+        var harness = Build(observers: observer);
+
+        var decision = await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken);
+
+        var granted = Assert.IsType<Granted>(decision);
+        var lease = Assert.Single(observer.Issued);
+        Assert.Equal(granted.Lease, lease.Id);
+        Assert.Equal(_agent, lease.AgentId);
+        Assert.Contains(harness.Audit.Entries, e => e.Kind == "lease.issued");
+        Assert.NotNull(await harness.Leases.GetAsync(lease.Id, _agent, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Observer_IsNotToldOfADeniedRequest()
+    {
+        var observer = new RecordingObserver();
+        var harness = Build(audit: new ThrowingAudit(), observers: observer);
+
+        Assert.IsType<Denied>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
+
+        Assert.Empty(observer.Issued);
+    }
+
+    [Fact]
+    public async Task Observer_HearsAgentAndGlobalRevocation_AndAQuarantinedRequest()
+    {
+        var observer = new RecordingObserver();
+        var harness = Build(observers: observer);
+
+        await harness.Service.RevokeAsync(new AgentRevocation(_agent), TestContext.Current.CancellationToken);
+        await harness.Service.RevokeAsync(new GlobalRevocation(), TestContext.Current.CancellationToken);
+        harness.Agents.Quarantine(_otherAgent);
+        await harness.Service.RequestAccessAsync(Read(_otherAgent), TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, observer.Revoked.Count);
+        Assert.Equal(_agent, Assert.IsType<AgentRevocation>(observer.Revoked[0]).AgentId);
+        Assert.IsType<GlobalRevocation>(observer.Revoked[1]);
+        Assert.Equal(_otherAgent, Assert.IsType<AgentRevocation>(observer.Revoked[2]).AgentId);
+    }
+
+    [Fact]
+    public async Task ThrowingObserver_NeverFailsTheDecision_AndTheNextObserverStillRuns()
+    {
+        var after = new RecordingObserver();
+        var harness = Build(observers: [new ThrowingObserver(), after]);
+
+        Assert.IsType<Granted>(await harness.Service.RequestAccessAsync(Read(), TestContext.Current.CancellationToken));
+        await harness.Service.RevokeAsync(new AgentRevocation(_agent), TestContext.Current.CancellationToken);
+
+        Assert.Single(after.Issued);
+        Assert.Single(after.Revoked);
+    }
+
+    private sealed class RecordingObserver : ILeaseObserver
+    {
+        public List<CredentialLease> Issued { get; } = [];
+        public List<RevocationScope> Revoked { get; } = [];
+
+        public Task OnIssuedAsync(CredentialLease lease, CancellationToken ct)
+        {
+            Issued.Add(lease);
+            return Task.CompletedTask;
+        }
+
+        public Task OnRevokedAsync(RevocationScope scope, CancellationToken ct)
+        {
+            Revoked.Add(scope);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingObserver : ILeaseObserver
+    {
+        public Task OnIssuedAsync(CredentialLease lease, CancellationToken ct) => throw new InvalidOperationException("observer down");
+
+        public Task OnRevokedAsync(RevocationScope scope, CancellationToken ct) => throw new InvalidOperationException("observer down");
     }
 
     private sealed record Harness(

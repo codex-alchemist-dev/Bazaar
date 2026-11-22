@@ -15,6 +15,7 @@ public static class SetupVerificationChecks
         new OwnerSecondFactorCheck(),
         new SecretReferenceSyntaxCheck(),
         new AuditAnchorTargetCheck(),
+        new IdentityKekCustodyCheck(),
     ];
 
     /// <summary>The placeholders for checks that need the Host adapter (doc 45 section 1.12). None of them can report green.</summary>
@@ -33,6 +34,7 @@ public static class SetupVerificationChecks
         new NotEvaluatedCheck("host.disk", "Disk headroom"),
         new NotEvaluatedCheck("models.reachable", "Model sources reachable"),
         new NotEvaluatedCheck("pairing.offer", "Pairing offer"),
+        new NotEvaluatedCheck("remote.reachable", "Remote access reachable"),
         new NotEvaluatedCheck("server.identity", "Server identity matches the company build"),
     ];
 

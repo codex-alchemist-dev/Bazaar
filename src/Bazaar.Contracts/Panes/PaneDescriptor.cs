@@ -39,6 +39,23 @@ public static class PaneKinds
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
 
+    /// <summary>Health: per-project health block from the metric rollups (doc 25, Health and Analytics).</summary>
+    public const string Health = "bazaar.health";
+
+    /// <summary>Analytics: rollup trends, project morale signals and the optional per-agent view (doc 25).</summary>
+    public const string Analytics = "bazaar.analytics";
+
+    /// <summary>Digital Twin project card: facts and prose pages (doc 25).</summary>
+    public const string Twin = "bazaar.twin";
+
+    /// <summary>Bazaar Archive: read-only book with chapter navigation (doc 25).</summary>
+    public const string Archive = "bazaar.archive";
+
+    /// <summary>Company Memory decision chain (doc 25).</summary>
+    public const string CompanyMemory = "bazaar.company-memory";
+
+    /// <summary>Hive Mind owner grant matrix and labelled copies (doc 25).</summary>
+    public const string Hive = "bazaar.hive";
     /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
     public const string CommunityDrafts = "bazaar.community-drafts";
 
@@ -57,6 +74,12 @@ public static class PaneKinds
     /// <summary>Approvals on the phone: pending approval cards with approve, reject and detail (doc 29 Approvals).</summary>
     public const string Approvals = "bazaar.approvals";
 
+    /// <summary>Cold-storage Archive: owner-only list, archive, verify, restore report and search over the archive routes (doc 25 "Archive cold storage", PROPOSED).</summary>
+    public const string ColdArchive = "bazaar.cold-archive";
+
     /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
     public const string GitSolarSystem = "bazaar.git-solar-system";
+
+    /// <summary>Agent analytics: per-agent throughput, review pass rate and revert rate, framed as what would help the company, never a ranking (doc 25).</summary>
+    public const string AgentAnalytics = "bazaar.agent-analytics";
 }

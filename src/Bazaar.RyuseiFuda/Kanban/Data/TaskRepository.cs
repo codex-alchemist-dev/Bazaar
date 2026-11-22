@@ -14,8 +14,8 @@ public sealed class TaskRepository(NpgsqlDataSource dataSource)
         """;
 
     private const string _insertSql = """
-        INSERT INTO tasks (id, project_id, title, state, owner_agent_id, gate, origin_gc_id, origin_message_id, due_at)
-        VALUES (@id, @project_id, @title, @state, @owner_agent_id, @gate, @origin_gc_id, @origin_message_id, @due_at)
+        INSERT INTO tasks (id, project_id, title, state, owner_agent_id, gate, origin_gc_id, origin_message_id, due_at, import_job_id)
+        VALUES (@id, @project_id, @title, @state, @owner_agent_id, @gate, @origin_gc_id, @origin_message_id, @due_at, @import_job_id)
         RETURNING
         """;
 
@@ -111,6 +111,7 @@ public sealed class TaskRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("origin_gc_id", task.OriginGcId);
         cmd.Parameters.AddWithValue("origin_message_id", KanbanCommands.Nullable(task.OriginMessageId));
         cmd.Parameters.AddWithValue("due_at", KanbanCommands.Nullable(task.DueAt));
+        cmd.Parameters.AddWithValue("import_job_id", (object?)task.ImportJobId ?? DBNull.Value);
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         await reader.ReadAsync(ct).ConfigureAwait(false);
         return Read(reader);
