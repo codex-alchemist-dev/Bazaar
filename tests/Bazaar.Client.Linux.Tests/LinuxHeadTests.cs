@@ -89,7 +89,7 @@ public sealed class LinuxHeadTests : IDisposable
         await using var head = Create();
 
         var ids = head.Loaded.Commands.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
-        foreach (var id in new[] { "nav.dashboard", "nav.org", "nav.analytics", "nav.git.solar", "nav.git", "update.check", "app.quit", "supportbundle.save" })
+        foreach (var id in new[] { "nav.dashboard", "nav.org", "nav.analytics", "nav.git.solar", "nav.git", "update.check", "update.restart", "app.quit", "supportbundle.save" })
         {
             Assert.Contains(id, ids);
         }

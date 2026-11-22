@@ -66,12 +66,19 @@ internal static class Program
             return 0;
         }
 
-        using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
-        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
-        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
-        args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
-        var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
+        int exitCode;
+        using (var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine))
+        {
+            // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+            using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
+            args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
+            var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
+            exitCode = BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
+        }
+
+        // "Restart to apply" (doc 30 section 7): the launcher pipe is released above, so the new process starts as the primary instance.
+        PendingRestart.StartIfScheduled(Console.Error.WriteLine);
+        return exitCode;
     }
 
     /// <summary>The endpoint this build was made for (doc 37 section 4a), or null when the build has none (the head then opens no chat).</summary>

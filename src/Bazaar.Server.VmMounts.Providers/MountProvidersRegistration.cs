@@ -4,6 +4,7 @@ using Bazaar.Server.VmMounts.Providers.Canaries;
 using Bazaar.Server.VmMounts.Providers.Guest;
 using Bazaar.Server.VmMounts.Providers.Local;
 using Bazaar.Server.VmMounts.Providers.Smb;
+using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
@@ -30,7 +31,10 @@ public static class MountProvidersRegistration
         services.TryAddSingleton<IHostCommandRunner, ProcessHostCommandRunner>();
         services.TryAddSingleton<IVmShareIdentity, UnavailableVmShareIdentity>();
         services.TryAddSingleton<IVmShareEndpoint, UnavailableVmShareEndpoint>();
-        services.TryAddSingleton<IGuestChannelProvider, UnavailableGuestChannelProvider>();
+        // Over the transport's channel directory when the host composed one (order-independent: decided at first resolve), else "no channel".
+        services.TryAddSingleton<IGuestChannelProvider>(sp => sp.GetService<IGuestChannelDirectory>() is { } directory
+            ? new DirectoryGuestChannelProvider(directory)
+            : new UnavailableGuestChannelProvider());
         services.TryAddSingleton(new CanarySinkOptions());
 
         // The concrete providers are registered by factory (their constructors take internal types) and both are lazy in the sense that

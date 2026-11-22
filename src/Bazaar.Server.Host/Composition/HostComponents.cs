@@ -68,6 +68,7 @@ using Bazaar.Server.Vault;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
+using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
@@ -149,6 +150,8 @@ public static class HostComponents
         new GarnetComponent(),
         new KodoServerComponent(),
         new PresenceComponent(),
+        new Bazaar.Server.Engines.EnginesComponent(),
+        new Bazaar.Server.EngineGcRecorder.EngineGcRecorderComponent(),
         new Bazaar.Server.EngineRelay.EngineRelayComponent(),
         new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
@@ -159,6 +162,9 @@ public static class HostComponents
         new VmDisplayGateComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
+        // Off unless Bazaar:VmDisplayAgentTargets:Enabled is true; until then it registers nothing and no screen tool is offered. It starts before
+        // the tools component whatever its place in this list (the kernel orders by dependencies, then id).
+        new VmAgentDisplayTargetsComponent(),
         new HyperVComponent(),
         new OsLimitedComponent(new KvmComponent(), OperatingSystem.IsLinux),
         new VmDensityComponent(),

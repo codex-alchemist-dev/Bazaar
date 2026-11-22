@@ -182,7 +182,7 @@ public sealed class EngineToolDispatcher
 
         try
         {
-            await _recorder.RecordAsync(new EngineToolCallRecord(r.AgentId, r.AdapterId, r.Tool, risk, r.GrantId, decision.Allowed, decision.Reason, hash), ct);
+            await _recorder.RecordAsync(new EngineToolCallRecord(r.AgentId, r.AdapterId, r.Tool, risk, r.GrantId, decision.Allowed, decision.Reason, hash) { GcId = r.GcId }, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

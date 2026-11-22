@@ -61,6 +61,7 @@ public sealed class LinuxHeadModule : IClientModule
     public static IReadOnlyList<ClientCommandContribution> ActionCommands { get; } =
     [
         new(UpdateCoordinator.CheckCommandId, UpdateCheckCommand.Command.Title, "update"),
+        new(UpdateCoordinator.RestartCommandId, "Restart to apply update", "restart"),
         new(DefaultAppCommands.RegisterId, DefaultAppCommands.All[0].Title, "regapp"),
         new(DefaultAppCommands.StatusId, DefaultAppCommands.All[1].Title, "appstatus"),
         new(DefaultAppCommands.UnregisterId, DefaultAppCommands.All[2].Title, "unregapp"),

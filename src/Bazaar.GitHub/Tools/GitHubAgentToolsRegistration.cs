@@ -1,5 +1,7 @@
+using Bazaar.RateLimits;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Security.Policy;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
@@ -28,11 +30,19 @@ public static class GitHubAgentToolsRegistration
 
     /// <summary>
     /// Adds both tools, their policy entries and model definitions. Both need <c>IGitHubAdapter</c> and <c>IGitHubTokenProvider</c>
-    /// (from <c>AddBazaarGitHub</c>). With no token source configured, a call returns a refusal and sends nothing.
+    /// (from <c>AddBazaarGitHub</c>) and count writes against <c>Bazaar:GitHub:WritesPerHour</c> per installation, through the host's
+    /// <see cref="IRateLimiter"/> or an in-memory default. With no token source configured, a call returns a refusal and sends nothing.
     /// </summary>
-    public static IServiceCollection AddBazaarGitHubAgentTools(this IServiceCollection services)
+    public static IServiceCollection AddBazaarGitHubAgentTools(this IServiceCollection services, IConfiguration? configuration = null)
     {
         ArgumentNullException.ThrowIfNull(services);
+        // Bazaar:GitHub:WritesPerHour (doc 21 github.writes_per_hour, default 300). A bad value fails composition.
+        var options = new GitHubAgentToolsOptions
+        {
+            WritesPerHour = configuration?.GetSection(GitHubRegistration.ConfigurationSection).GetValue<int?>("WritesPerHour") ?? GitHubAgentToolsOptions.DefaultWritesPerHour,
+        }.Validate();
+        services.TryAddSingleton(options);
+        services.TryAddSingleton<IRateLimiter>(sp => new GitHubInMemoryRateLimiter(sp.GetService<TimeProvider>() ?? TimeProvider.System));
         services.TryAddSingleton<IGitHubAgentInstallations>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubAgentInstallations(dataSource) : new NoGitHubAgentInstallations());
         services.TryAddSingleton<GitHubPrReadTool>();
