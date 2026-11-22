@@ -34,6 +34,14 @@ public sealed class PsychWardDb : IAsyncLifetime
             .Order(StringComparer.Ordinal)
             .ToList();
         Assert.NotEmpty(names);
+
+        // The module reads agent names from the runtime's agent table (common/0010). A minimal stand-in keeps this test off the full schema.
+        await using (var agentTable = DataSource.CreateCommand(
+            "CREATE TABLE agent (agent_id uuid PRIMARY KEY, name text NOT NULL CHECK (length(name) BETWEEN 1 AND 64))"))
+        {
+            await agentTable.ExecuteNonQueryAsync();
+        }
+
         foreach (var name in names)
         {
             await using var stream = assembly.GetManifestResourceStream(name)!;

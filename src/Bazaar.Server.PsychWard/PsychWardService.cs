@@ -11,9 +11,11 @@ public sealed class PsychWardService(
     IWardStayStore stays,
     IVentStore vents,
     PsychWardSettings settings,
-    TimeProvider? time = null) : IPsychWardService, IDisposable
+    TimeProvider? time = null,
+    IWardJournal? journal = null) : IPsychWardService, IDisposable
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly IWardJournal _journal = journal ?? new NoOpWardJournal();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly PsychWardSettings _settings = Validated(settings);
 
@@ -52,6 +54,7 @@ public sealed class PsychWardService(
                 return WardOutcome.Refuse("The agent is already admitted.", winner);
             }
 
+            await _journal.AdmittedAsync(stay, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(stay);
         }
         finally
@@ -76,6 +79,7 @@ public sealed class PsychWardService(
 
             var updated = current with { CheckIn = checkIn };
             await stays.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            await _journal.CheckedInAsync(updated, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(updated);
         }
         finally
@@ -120,6 +124,7 @@ public sealed class PsychWardService(
 
             var updated = current with { DischargedAt = now, ReviewerId = request.IsOwner ? null : request.ReviewerId };
             await stays.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            await _journal.DischargedAsync(updated, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(updated);
         }
         finally
