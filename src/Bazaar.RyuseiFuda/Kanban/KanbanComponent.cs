@@ -53,6 +53,9 @@ public sealed class KanbanComponent : IBazaarComponent
         services.AddSingleton(TransitionCapability);
         services.AddSingleton(KanbanTransitionTool.Definition);
 
+        // The card a turn woken by an assignment shows the model (doc 12, Assignment wake). Without it that turn has no context.
+        services.AddSingleton<Bazaar.Server.Agents.Turns.Context.IContextSource>(sp => new AssignmentContextSource(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
