@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Bazaar.Client.Tui.Dashboard.Abstractions\Bazaar.Client.Tui.Dashboard.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.OpsPorts\Bazaar.Server.OpsPorts.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SignIn.Postgres\Bazaar.Server.SignIn.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CompanyBuild.Postgres\Bazaar.Server.CompanyBuild.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SignIn.Abstractions\Bazaar.Server.SignIn.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Remote\Bazaar.Server.Remote.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />

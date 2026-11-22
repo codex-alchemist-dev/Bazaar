@@ -46,6 +46,7 @@
     <Project Path="src/Bazaar.Server.AccountApproval.Postgres/Bazaar.Server.AccountApproval.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild/Bazaar.Server.CompanyBuild.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild.Abstractions/Bazaar.Server.CompanyBuild.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CompanyBuild.Postgres/Bazaar.Server.CompanyBuild.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.GcReactions/Bazaar.Server.GcReactions.csproj" />
     <Project Path="src/Bazaar.Server.GcReactions.Abstractions/Bazaar.Server.GcReactions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
@@ -606,6 +607,7 @@
     <Project Path="tests/Bazaar.Server.DeviceEnrolment.Http.Tests/Bazaar.Server.DeviceEnrolment.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DeviceEnrolment.Tests/Bazaar.Server.DeviceEnrolment.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CompanyBuild.Postgres.Tests/Bazaar.Server.CompanyBuild.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Tests/Bazaar.Archive.Tests.csproj" />

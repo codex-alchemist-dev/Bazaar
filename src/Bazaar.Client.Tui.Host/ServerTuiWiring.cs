@@ -4,6 +4,7 @@ using Bazaar.Roles;
 using Bazaar.Roles.Abstractions;
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.CompanyBuild.Postgres;
 using Bazaar.Server.OpsPorts;
 using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Security;
@@ -93,6 +94,8 @@ public sealed class ServerTuiWiring : ITuiHostWiring
         services.AddBazaarRemoteAdminPorts();
         services.AddSingleton<IApprovalStore>(sp => new PostgresApprovalStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.AddBazaarAdminApprovalSource();
+        // Module selection and the rebuild queue (doc 37 section 4a): the same Postgres store the server uses; the TUI only reads the catalogue.
+        services.AddBazaarModuleSelectionPostgres();
 
         var provider = services.BuildServiceProvider();
         var gate = provider.GetRequiredService<RoleStoreOwnerLocalGate>();
@@ -114,11 +117,14 @@ public sealed class ServerTuiWiring : ITuiHostWiring
             Audit: provider.GetRequiredService<IAdminAuditReader>(),
             Users: provider.GetService<IAdminUserDirectory>(),
             Devices: provider.GetService<IAdminDeviceDirectory>(),
-            Approvals: provider.GetService<IAdminApprovalSource>());
+            Approvals: provider.GetService<IAdminApprovalSource>(),
+            Modules: provider.GetService<IAdminModuleSelection>());
         // Writes with an owning operation. Not wired, and why: IOpsMemberRevoker (no operation to remove or suspend a person exists in
-        // identity), IOpsApprovalDecider (a decision needs a signed owner approval and the step-up proof format is undefined), IOpsStepUp
-        // (needs an approval-key device) and IAdminModuleSelection (no stored selection, revision or rebuild queue yet). See doc 58 4a.
-        var writes = new OpsWritePorts(Devices: provider.GetService<IOpsDeviceRevoker>());
+        // identity), IOpsApprovalDecider (a decision needs a signed owner approval and the step-up proof format is undefined) and
+        // IOpsStepUp (needs an approval-key device). See doc 58 4a. Modules is the module-selection store of doc 37 section 4a.
+        var writes = new OpsWritePorts(
+            Modules: provider.GetService<IAdminModuleSelection>(),
+            Devices: provider.GetService<IOpsDeviceRevoker>());
         return new OpsWiring(
             ports,
             signIn,
