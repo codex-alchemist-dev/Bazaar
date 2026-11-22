@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Bazaar.Server.BrowserPool.Abstractions;
@@ -61,8 +62,6 @@ public static class DevToolsFraming
 /// </summary>
 public sealed class DevToolsMessageWriter : IDisposable
 {
-    private static readonly byte[] _terminator = [0];
-
     private readonly Stream _stream;
     private readonly int _max;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -94,16 +93,27 @@ public sealed class DevToolsMessageWriter : IDisposable
             throw new ArgumentException("A DevTools message may not contain a NUL byte.", nameof(json));
         }
 
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        // The message and its NUL go out in one write, so a reader never sees the message without its terminator and a short
+        // message is atomic in the pipe. The rented buffer is cleared on return because a message can carry typed text.
+        var framed = ArrayPool<byte>.Shared.Rent(json.Length + 1);
         try
         {
-            await _stream.WriteAsync(json, ct).ConfigureAwait(false);
-            await _stream.WriteAsync(_terminator, ct).ConfigureAwait(false);
-            await _stream.FlushAsync(ct).ConfigureAwait(false);
+            json.Span.CopyTo(framed);
+            framed[json.Length] = 0;
+            await _gate.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await _stream.WriteAsync(framed.AsMemory(0, json.Length + 1), ct).ConfigureAwait(false);
+                await _stream.FlushAsync(ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
         }
         finally
         {
-            _gate.Release();
+            ArrayPool<byte>.Shared.Return(framed, clearArray: true);
         }
     }
 

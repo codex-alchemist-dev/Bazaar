@@ -11,9 +11,32 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "bazaar-fifo-fake-" + Guid.NewGuid().ToString("N")[..12]);
 
-    public List<string> Created { get; } = [];
+    // Delete runs on the thread that killed the browser (the exit continuation is synchronous), while a test reads the lists.
+    private readonly Lock _gate = new();
+    private readonly List<string> _created = [];
+    private readonly List<string> _deleted = [];
 
-    public List<string> Deleted { get; } = [];
+    public IReadOnlyList<string> Created
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _created];
+            }
+        }
+    }
+
+    public IReadOnlyList<string> Deleted
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _deleted];
+            }
+        }
+    }
 
     public string? Directory { get; private set; }
 
@@ -23,7 +46,11 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
         System.IO.Directory.CreateDirectory(_root);
         foreach (var path in new[] { commandsFifo, repliesFifo })
         {
-            Created.Add(path);
+            lock (_gate)
+            {
+                _created.Add(path);
+            }
+
             File.WriteAllBytes(Real(path), []);
         }
     }
@@ -34,7 +61,11 @@ internal sealed class FakeFifoFactory : IFifoFactory, IDisposable
 
     public void Delete(string path)
     {
-        Deleted.Add(path);
+        lock (_gate)
+        {
+            _deleted.Add(path);
+        }
+
         try
         {
             File.Delete(Real(path));
