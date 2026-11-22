@@ -9,8 +9,13 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preload;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
@@ -99,7 +104,7 @@ internal static class Program
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
-            InstallShell(plain);
+            InstallShell(plain, paths);
             return plain;
         }
 
@@ -107,11 +112,25 @@ internal static class Program
         var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
         var window = new MainWindow(chat.View);
         window.Closed += async (_, _) => await chat.DisposeAsync();
-        InstallShell(window);
+        InstallShell(window, paths);
         return window;
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window) =>
+    private static void InstallShell(MainWindow window, LinuxPaths paths)
+    {
+        // Tinted chrome where the session composites, and a flat desktop posture; the content stays opaque (doc 93).
+        // The person's settings, the desktop's animation switch and the frame-budget monitor feed the same state.
+        var chat = window.Content as Control;
+        var settings = new ClientSettingsStore(VisualSettings.Definitions, paths.SettingsFile, Console.Error.WriteLine);
+        var motion = new MotionSettings(MotionPlatform.Desktop);
+        var materials = new LinuxMaterialEnvironmentSource();
+        var visuals = ShellVisuals.Install(window, chat, null, materials, new FlatPostureSource(), VisualSettings.LoadTheme(settings), motion);
+        var reducedMotion = new LinuxReducedMotion();
+        var binder = VisualSettingsBinder.Start(settings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
+        _ = reducedMotion.RefreshAsync();
+        window.Activated += (_, _) => _ = reducedMotion.RefreshAsync();
+        window.Closed += (_, _) => binder.Dispose();
         ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+    }
 }

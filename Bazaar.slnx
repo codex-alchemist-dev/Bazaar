@@ -196,6 +196,9 @@
     <Project Path="src/Bazaar.Client.Annotation/Bazaar.Client.Annotation.csproj" />
     <Project Path="src/Bazaar.Client.Annotation.Abstractions/Bazaar.Client.Annotation.Abstractions.csproj" />
     <Project Path="tests/Bazaar.Client.Annotation.Tests/Bazaar.Client.Annotation.Tests.csproj" />
+    <Project Path="src/Bazaar.Client.Settings/Bazaar.Client.Settings.csproj" />
+    <Project Path="src/Bazaar.Client.Settings.Abstractions/Bazaar.Client.Settings.Abstractions.csproj" />
+    <Project Path="tests/Bazaar.Client.Settings.Tests/Bazaar.Client.Settings.Tests.csproj" />
     <Project Path="src/Bazaar.Client.Motion/Bazaar.Client.Motion.csproj" />
     <Project Path="src/Bazaar.Client.Motion.Abstractions/Bazaar.Client.Motion.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Motion.Avalonia/Bazaar.Client.Motion.Avalonia.csproj" />
@@ -220,6 +223,16 @@
     <Project Path="src/Bazaar.Client.CompanySetup.Abstractions/Bazaar.Client.CompanySetup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.CompanySetup/Bazaar.Client.CompanySetup.csproj" />
     <Project Path="src/Bazaar.Client.CompanySetup.Avalonia/Bazaar.Client.CompanySetup.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Posture/Bazaar.Client.Posture.csproj" />
+    <Project Path="src/Bazaar.Client.Posture.Abstractions/Bazaar.Client.Posture.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Posture.Avalonia/Bazaar.Client.Posture.Avalonia.csproj" />
+    <Project Path="tests/Bazaar.Client.Posture.Tests/Bazaar.Client.Posture.Tests.csproj" />
+    <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
+    <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Materials/Bazaar.Client.Materials.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Abstractions/Bazaar.Client.Materials.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Avalonia/Bazaar.Client.Materials.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Push/Bazaar.Client.Push.csproj" />
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
@@ -270,6 +283,7 @@
     <Project Path="tests/Bazaar.Client.Input.Tests/Bazaar.Client.Input.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Commands.Tests/Bazaar.Client.Commands.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Theme.Tests/Bazaar.Client.Theme.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Materials.Tests/Bazaar.Client.Materials.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />

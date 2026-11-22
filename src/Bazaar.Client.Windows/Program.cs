@@ -22,10 +22,15 @@ using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
 using Bazaar.Localisation;
@@ -111,10 +116,26 @@ internal static class Program
                 window.Content = firstRun;
             }
 
+            // The chat is the first slot of the posture layout and the panes the second, so a window of 600 dp or more shows both (doc 93).
+            var chatView = window.Content as Control;
+            Control? paneView = null;
             if (showPanes)
             {
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
+                paneView = window.Content as Control;
             }
+
+            // Mica or acrylic on the window chrome and a flat desktop posture; the chat and panes are content and stay opaque (doc 93).
+            // The person's theme, materials, density and motion level come from the client settings file; the OS reduced-motion flag
+            // and the frame-budget monitor feed the same state (doc 93, Settings and Behaviour).
+            var settings = new ClientSettingsStore(VisualSettings.Definitions, SettingsPath(), Console.Error.WriteLine);
+            var motion = new MotionSettings(MotionPlatform.Desktop);
+            var materials = new WindowsMaterialEnvironmentSource();
+            var visuals = ShellVisuals.Install(window, chatView, paneView, materials, new FlatPostureSource(), VisualSettings.LoadTheme(settings), motion);
+            var reducedMotion = WindowsReducedMotion.Create();
+            var binder = VisualSettingsBinder.Start(settings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
+            window.Activated += (_, _) => reducedMotion.Refresh();
+            window.Closed += (_, _) => binder.Dispose();
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
@@ -142,6 +163,9 @@ internal static class Program
                 ? gc.ToString("D")
                 : Environment.GetEnvironmentVariable(name));
     }
+
+    private static string SettingsPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "client-settings.json");
 
     private static string CursorPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");
