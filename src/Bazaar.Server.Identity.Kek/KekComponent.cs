@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Server.Identity.Kek.Tpm;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -24,6 +25,9 @@ public sealed class KekComponent : IBazaarComponent
     public const string KekProviderKey = "Bazaar:Identity:KekProvider";
 
     /// <summary>The configuration key holding the data root.</summary>
+    /// <summary>The configuration key holding the PCR list that binds a <c>tpm</c> KEK (default <c>7</c>).</summary>
+    public const string TpmPcrsKey = "Bazaar:Identity:TpmPcrs";
+
     public const string DataRootKey = "Bazaar:Host:DataRoot";
 
     public ComponentManifest Manifest => ManifestDefinition;
@@ -34,7 +38,10 @@ public sealed class KekComponent : IBazaarComponent
         {
             var dataRoot = configuration[DataRootKey]
                 ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
-            return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
+            return KekProviderFactory.Create(
+                configuration[KekProviderKey],
+                dataRoot,
+                new TpmKekOptions(Pcrs: configuration[TpmPcrsKey] ?? "7"));
         });
         // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
         services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));

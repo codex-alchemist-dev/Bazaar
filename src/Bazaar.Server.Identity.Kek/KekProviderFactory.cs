@@ -1,16 +1,17 @@
 using System.Runtime.Versioning;
+using Bazaar.Server.Identity.Kek.Tpm;
 
 namespace Bazaar.Server.Identity.Kek;
 
 /// <summary>
 /// Chooses and opens the host KEK provider from <c>identity.kek_provider</c> (doc 14). The default is <c>dpapi</c> on a Windows
-/// host and <c>file</c> elsewhere. An unknown value, <c>openbao</c> (not built yet) or <c>dpapi</c> off Windows fails here, never
+/// host and <c>file</c> elsewhere. <c>tpm</c> is an explicit Linux opt-in and fails closed. An unknown value, <c>openbao</c> (not built yet) or <c>dpapi</c> off Windows fails here, never
 /// falls back to another provider.
 /// </summary>
 public static class KekProviderFactory
 {
     /// <summary>The setting's allowed values, as documented in doc 14.</summary>
-    public static IReadOnlyList<string> AllowedKinds { get; } = ["dpapi", "file", "openbao"];
+    public static IReadOnlyList<string> AllowedKinds { get; } = ["dpapi", "file", "tpm", "openbao"];
 
     /// <summary>The platform default: <c>dpapi</c> on Windows, <c>file</c> elsewhere.</summary>
     public static string DefaultKind => OperatingSystem.IsWindows() ? "dpapi" : "file";
@@ -23,6 +24,7 @@ public static class KekProviderFactory
     {
         "file" => Path.Combine(dataRoot, "keys", "kek.bin"),
         "dpapi" => Path.Combine(dataRoot, "keys", "kek-dpapi.bin"),
+        "tpm" => Path.Combine(dataRoot, "keys", "kek-tpm.bin"),
         _ => throw new ArgumentException($"No key file is defined for identity.kek_provider '{kind}'.", nameof(kind)),
     };
 
@@ -41,11 +43,11 @@ public static class KekProviderFactory
         string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
 
     /// <summary>Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under <paramref name="dataRoot"/>.</summary>
-    public static IKekProvider Create(string? kind, string dataRoot)
+    public static IKekProvider Create(string? kind, string dataRoot, TpmKekOptions? tpm = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
         var chosen = Normalise(kind);
-        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, dataRoot) : string.Empty;
+        var keyPath = chosen is "file" or "dpapi" or "tpm" ? KeyPathFor(chosen, dataRoot) : string.Empty;
 
         switch (chosen)
         {
@@ -55,6 +57,10 @@ public static class KekProviderFactory
                 if (!OperatingSystem.IsWindows())
                     throw new PlatformNotSupportedException("identity.kek_provider 'dpapi' needs a Windows host. Use 'file' on this host (doc 14).");
                 return CreateDpapi(keyPath);
+            case "tpm":
+                if (!OperatingSystem.IsLinux())
+                    throw new PlatformNotSupportedException("identity.kek_provider 'tpm' is a Linux option (doc 14). Use 'dpapi' on Windows.");
+                return OpenTpm(keyPath, tpm ?? new TpmKekOptions());
             case "openbao":
                 throw new NotSupportedException("identity.kek_provider 'openbao' is not built in this release (doc 14).");
             default:
@@ -65,4 +71,13 @@ public static class KekProviderFactory
 
     [SupportedOSPlatform("windows")]
     private static DpapiKekProvider CreateDpapi(string keyPath) => DpapiKekProvider.Open(keyPath, new DpapiKeyProtector());
+
+    private static TpmKekProvider OpenTpm(string keyPath, TpmKekOptions options)
+    {
+        // Doc 14 (DECIDED 2026-11-19): systemd-creds where systemd is present, direct tpm2-tools only on hosts without it.
+        var runner = options.Runner ?? new ProcessTpmToolRunner();
+        var systemd = options.SystemdPresent ?? Directory.Exists("/run/systemd/system");
+        ITpmKeySealer sealer = systemd ? new SystemdCredsSealer(runner, options.Pcrs) : new Tpm2ToolsSealer(runner);
+        return TpmKekProvider.Open(keyPath, sealer, TpmKekProvider.ProbeCustodyClass(runner));
+    }
 }
