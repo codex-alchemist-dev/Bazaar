@@ -6,5 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Biometric.Abstractions\Bazaar.Server.Biometric.Abstractions.csproj" />
   </ItemGroup>
 </Project>

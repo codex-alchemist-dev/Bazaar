@@ -28,6 +28,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Mirror;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
 using Bazaar.Server.TalentPool.Component;
@@ -35,6 +36,7 @@ using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
+using Bazaar.Server.Wire.Discovery;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -50,6 +52,7 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new MirrorComponent(),
         new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
@@ -73,6 +76,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new WireDiscoveryComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
         new OpenAiChatAdapterComponent(),

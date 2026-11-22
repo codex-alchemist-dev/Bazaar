@@ -12,7 +12,7 @@ public class GarnetLaunchSpecTests
 
         var spec = GarnetLaunchSpec.Build(options, 6400, "s3cret", recover: false);
 
-        Assert.Equal("Garnet.exe", spec.Executable);
+        Assert.Equal("garnet-server.exe", spec.Executable);
         Assert.Equal(
             [
                 "--port", "6400",
@@ -21,8 +21,7 @@ public class GarnetLaunchSpecTests
                 "--password", "s3cret",
                 "--memory", "512m",
                 "--aof",
-                "--logdir", Path.Combine("data", "garnet"),
-                "--checkpointdir", Path.Combine("data", "garnet", "checkpoints"),
+                "--checkpointdir", Path.Combine("data", "garnet"),
             ],
             spec.Arguments);
     }
@@ -55,7 +54,7 @@ public class GarnetLaunchSpecTests
         var options = new GarnetCacheOptions();
 
         Assert.False(options.Managed);
-        Assert.Equal("Garnet.exe", options.BinaryPath);
+        Assert.Equal("garnet-server.exe", options.BinaryPath);
         Assert.Equal(0, options.ManagedPort);
         Assert.Equal("256m", options.MaxMemory);
         Assert.Equal("bazaar:cache:", options.KeyPrefix);
