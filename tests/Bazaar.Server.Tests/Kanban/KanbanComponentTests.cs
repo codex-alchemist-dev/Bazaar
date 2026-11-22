@@ -39,6 +39,21 @@ public class KanbanComponentTests
     }
 
     [Fact]
+    public void Kanban_registers_the_board_read_and_the_owner_move_handlers()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+
+        using var provider = services.BuildServiceProvider();
+        var types = provider.GetServices<Bazaar.Server.Wire.Connection.IWireRequestHandler>().Select(h => h.Type).ToList();
+        Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardSnapshot, types);
+        Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardMove, types);
+    }
+
+    [Fact]
     public void Kanban_transition_is_registered_as_a_runnable_tool_under_its_model_name()
     {
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");

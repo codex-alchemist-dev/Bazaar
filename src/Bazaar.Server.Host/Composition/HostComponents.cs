@@ -1,5 +1,6 @@
 using Bazaar.Community;
 using Bazaar.Fun;
+using Bazaar.GitHub;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -21,6 +22,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Retention;
 using Bazaar.Server.Vault;
 using Cdax.Core;
 
@@ -36,6 +38,7 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
         new CompanyComponent(),
@@ -53,6 +56,7 @@ public static class HostComponents
         new MailComponent(),
         new ModuleManagerComponent(),
         new RemoteComponent(),
+        new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),
