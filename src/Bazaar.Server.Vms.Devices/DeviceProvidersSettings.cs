@@ -14,7 +14,7 @@ public enum MicroVmMonitorSetting
 /// The device-guest provider settings of doc 62 section 7: <c>vms.devices.*</c>, <c>vms.android.*</c> and <c>vms.microvm.*</c>.
 /// All are install scope and operator-changed, with safe shipped defaults (DECISIONS-LOG round 13). When a change takes effect (live,
 /// or after a restart) is <see cref="LiveKeys"/>. Paths default to empty, which
-/// means unset: the providers never fall back to a profile folder. The iOS, macOS and Mac node keys wait for the parked Apple work.
+/// means unset: the providers never fall back to a profile folder. The iOS, macOS and Mac node keys (doc 62 sections 6 and 7) are live in the iOS and macOS modules, which run only on a Mac node.
 /// </summary>
 public static class DeviceProvidersSettings
 {
@@ -56,6 +56,26 @@ public static class DeviceProvidersSettings
         "Android emulators that may run at once. Applies to new starts without a restart.",
         validate: Between(1, 16, "vms.android.max_concurrent"));
 
+    public static readonly SettingKey<int> IosMaxConcurrent = new(
+        "vms.ios.max_concurrent", 2, SettingScope.Install, SettingRole.Operator,
+        "iOS Simulator guests that may run at once on the Mac node. Applies to new starts without a restart.",
+        validate: Between(1, 16, "vms.ios.max_concurrent"));
+
+    public static readonly SettingKey<int> MacOsMaxConcurrent = new(
+        "vms.macos.max_concurrent", 2, SettingScope.Install, SettingRole.Operator,
+        "macOS virtual machines that may run at once on the Mac node. May lower the Apple limit of 2, never raise it. Applies to new starts without a restart.",
+        validate: Between(1, 2, "vms.macos.max_concurrent"));
+
+    public static readonly SettingKey<string> MacNodeEndpoint = new(
+        DeviceSetupValidator.MacNodeEndpointKey, string.Empty, SettingScope.Install, SettingRole.Operator,
+        "Where the Mac node link connects out to (the Mac makes the connection; it opens no inbound port). Needed for the iOS and macOS providers; empty means no Mac node linked.",
+        validate: CheckEndpoint);
+
+    public static readonly SettingKey<string> MacNodeKeyPin = new(
+        DeviceSetupValidator.MacNodeKeyPinKey, string.Empty, SettingScope.Install, SettingRole.Operator,
+        "Pinned identity key of the Mac node. A mismatch fails closed. Needed for the iOS and macOS providers; empty means no Mac node linked.",
+        validate: CheckKeyPin);
+
     public static readonly SettingKey<MicroVmMonitorSetting> MicroVmMonitor = new(
         "vms.microvm.monitor", MicroVmMonitorSetting.Firecracker, SettingScope.Install, SettingRole.Operator,
         "The microVM monitor: firecracker or cloud_hypervisor.");
@@ -79,6 +99,8 @@ public static class DeviceProvidersSettings
         "vms.devices.idle_stop_minutes",
         "vms.devices.max_concurrent",
         "vms.android.max_concurrent",
+        "vms.ios.max_concurrent",
+        "vms.macos.max_concurrent",
         "vms.microvm.max_concurrent",
     };
 
@@ -99,6 +121,10 @@ public static class DeviceProvidersSettings
         AndroidAvdHome,
         AndroidSystemImage,
         AndroidMaxConcurrent,
+        IosMaxConcurrent,
+        MacOsMaxConcurrent,
+        MacNodeEndpoint,
+        MacNodeKeyPin,
         MicroVmMonitor,
         MicroVmMaxConcurrent,
         MicroVmStateDir,
@@ -122,6 +148,16 @@ public static class DeviceProvidersSettings
 
         return null;
     }
+
+    private static string? CheckEndpoint(string value) =>
+        value.Length == 0 || (value.Length <= 512 && !value.Any(char.IsControl) && !value.Any(char.IsWhiteSpace))
+            ? null
+            : "vms.node.mac.endpoint must be an address with no spaces or control characters, or empty for unset.";
+
+    private static string? CheckKeyPin(string value) =>
+        value.Length == 0 || (value.Length <= 256 && value.All(c => c is '+' or '/' or '=' or '-' or '_' or ':' || char.IsAsciiLetterOrDigit(c)))
+            ? null
+            : "vms.node.mac.key_pin must be a key fingerprint (letters, digits and + / = - _ :), or empty for unset.";
 
     private static string? CheckSystemImage(string value) =>
         value.Length == 0 || (value.Length <= 255 && value.All(c => c is ';' or '-' or '_' or '.' || char.IsAsciiLetterOrDigit(c)))

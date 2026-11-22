@@ -14,6 +14,12 @@ public enum DensityGuestOs
 
     /// <summary>An Android emulator guest (doc 62). Saved only when its backend can save state, and after Windows and Linux guests.</summary>
     Android,
+
+    /// <summary>An iOS Simulator guest on a Mac node (doc 62). Ranked with the other device guests.</summary>
+    Ios,
+
+    /// <summary>A macOS virtual machine on a Mac node (doc 62). Ranked with the other device guests.</summary>
+    MacOs,
 }
 
 /// <summary>A VM the governor is asked to admit or may save: identity, owner agent, guest OS and assigned memory.</summary>

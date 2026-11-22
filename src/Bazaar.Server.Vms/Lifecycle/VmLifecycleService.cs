@@ -234,6 +234,8 @@ public sealed class VmLifecycleService
         VmOs.Windows => DensityGuestOs.Windows,
         VmOs.Linux => DensityGuestOs.Linux,
         VmOs.Android => DensityGuestOs.Android,
+        VmOs.Ios => DensityGuestOs.Ios,
+        VmOs.MacOs => DensityGuestOs.MacOs,
         _ => throw new ArgumentOutOfRangeException(nameof(os), os, null),
     };
 

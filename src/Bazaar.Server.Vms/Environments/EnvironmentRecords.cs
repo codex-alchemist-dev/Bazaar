@@ -8,6 +8,12 @@ public enum VmOs
 
     /// <summary>An Android emulator guest (doc 62). Only the optional Android provider creates one.</summary>
     Android,
+
+    /// <summary>An iOS Simulator guest on a Mac node (doc 62). Only the optional iOS provider creates one. A host process, not a VM.</summary>
+    Ios,
+
+    /// <summary>A macOS virtual machine on a Mac node (doc 62). Only the optional macOS provider creates one. Apple hardware only.</summary>
+    MacOs,
 }
 
 /// <summary>Lifecycle of a golden image (<c>golden_image.state</c>).</summary>

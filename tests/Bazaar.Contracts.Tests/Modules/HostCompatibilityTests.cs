@@ -61,7 +61,7 @@ public class HostCompatibilityTests
     }
 
     [Theory]
-    [InlineData("macos")]
+    [InlineData("darwin")]
     [InlineData("Windows")]
     [InlineData("")]
     public void Unknown_operating_system_names_are_rejected(string os)
