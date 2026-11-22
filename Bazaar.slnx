@@ -266,6 +266,7 @@
     <Project Path="src/Bazaar.Server.CodingBench/Bazaar.Server.CodingBench.csproj" />
     <Project Path="src/Bazaar.Server.VmBench.Abstractions/Bazaar.Server.VmBench.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmBench/Bazaar.Server.VmBench.csproj" />
+    <Project Path="src/Bazaar.Server.VmBench.Display/Bazaar.Server.VmBench.Display.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress.Abstractions/Bazaar.Server.VmEgress.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress/Bazaar.Server.VmEgress.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress.Approvals/Bazaar.Server.VmEgress.Approvals.csproj" />
@@ -585,6 +586,7 @@
     <Project Path="tests/Bazaar.Server.Vms.HyperV.Tests/Bazaar.Server.Vms.HyperV.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingBench.Tests/Bazaar.Server.CodingBench.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmBench.Tests/Bazaar.Server.VmBench.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmBench.Display.Tests/Bazaar.Server.VmBench.Display.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Tests/Bazaar.Server.VmEgress.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Approvals.Tests/Bazaar.Server.VmEgress.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Approvals.Security.Tests/Bazaar.Server.VmEgress.Approvals.Security.Tests.csproj" />
