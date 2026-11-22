@@ -36,6 +36,7 @@
     <ProjectReference Include="..\Bazaar.Server.DataVolume.Windows\Bazaar.Server.DataVolume.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Kek.OpenBao\Bazaar.Server.Identity.Kek.OpenBao.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AccountApproval\Bazaar.Server.AccountApproval.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AccountApproval.Postgres\Bazaar.Server.AccountApproval.Postgres.csproj" />

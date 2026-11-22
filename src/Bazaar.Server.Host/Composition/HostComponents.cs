@@ -49,6 +49,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Identity.Kek.OpenBao;
 using Bazaar.Server.Interrupts;
 using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
@@ -108,6 +109,7 @@ public static class HostComponents
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
+        new OpenBaoKekComponent(),
         new GcComponent(),
         new GcMetadataComponent(),
         new ThinkingGcComponent(),
