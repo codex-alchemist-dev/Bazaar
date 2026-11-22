@@ -9,7 +9,7 @@ namespace Bazaar.Server.CompanyBuild;
 public static class DotnetPublishBuildStep
 {
     /// <summary>The arguments for one publish, in order.</summary>
-    public static IReadOnlyList<string> BuildArguments(string projectPath, string outputDirectory, string configuration = "Release", string? runtimeIdentifier = null)
+    public static IReadOnlyList<string> BuildArguments(string projectPath, string outputDirectory, string configuration = "Release", string? runtimeIdentifier = null, IReadOnlyList<string>? extraArguments = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
@@ -19,6 +19,11 @@ public static class DotnetPublishBuildStep
         {
             // A RID makes the desktop heads self-contained and turns on their ReadyToRun precompilation (doc 40).
             arguments.AddRange(["-r", runtimeIdentifier, "--self-contained", "true"]);
+        }
+
+        if (extraArguments is not null)
+        {
+            arguments.AddRange(extraArguments);
         }
 
         return arguments;
@@ -31,7 +36,8 @@ public static class DotnetPublishBuildStep
         string outputDirectory,
         CancellationToken cancellationToken,
         string configuration = "Release",
-        string? runtimeIdentifier = null)
+        string? runtimeIdentifier = null,
+        IReadOnlyList<string>? extraArguments = null)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -39,7 +45,7 @@ public static class DotnetPublishBuildStep
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        foreach (var argument in BuildArguments(projectPath, outputDirectory, configuration, runtimeIdentifier))
+        foreach (var argument in BuildArguments(projectPath, outputDirectory, configuration, runtimeIdentifier, extraArguments))
         {
             start.ArgumentList.Add(argument);
         }
