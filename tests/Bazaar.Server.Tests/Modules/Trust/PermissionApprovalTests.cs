@@ -37,6 +37,35 @@ public class PermissionApprovalTests
     }
 
     [Fact]
+    public void A_permission_below_an_approved_prefix_grant_is_a_narrowing()
+    {
+        var approved = Set("secret:weather/*", "fs:data/weather/*");
+
+        Assert.True(PermissionApproval.Evaluate(Set("secret:weather/api-key", "fs:data/weather/cache/*"), approved).IsApproved);
+    }
+
+    [Theory]
+    [InlineData("secret:weather")]
+    [InlineData("secret:weather-admin/key")]
+    [InlineData("secret:*")]
+    [InlineData("secret:weather/../owner/key")]
+    [InlineData("fs:weather/api-key")]
+    [InlineData("secret:/*")]
+    public void Nothing_outside_an_approved_prefix_grant_rides_on_it(string declared)
+    {
+        var result = PermissionApproval.Evaluate(Set(declared), Set("secret:weather/*"));
+
+        Assert.False(result.IsApproved);
+        Assert.Equal([declared], result.Unapproved);
+    }
+
+    [Fact]
+    public void An_exact_approval_never_covers_a_prefix_grant()
+    {
+        Assert.False(PermissionApproval.Evaluate(Set("secret:weather/*"), Set("secret:weather/api-key")).IsApproved);
+    }
+
+    [Fact]
     public void Declared_superset_lists_the_added_permissions_sorted()
     {
         var result = PermissionApproval.Evaluate(

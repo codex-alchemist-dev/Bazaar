@@ -36,7 +36,10 @@ public static class CompanyBuildFiles
     }
 
     /// <summary>Renders README.txt. An unsigned set is labelled as such, as doc 37 section 4a requires.</summary>
-    public static string RenderReadme(CompanyBuildPlan plan, CompanyBuildSetReport report)
+    public static string RenderReadme(
+        CompanyBuildPlan plan,
+        CompanyBuildSetReport report,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? hostNotes = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(report);
@@ -53,6 +56,14 @@ public static class CompanyBuildFiles
         if (plan.AddedDependencies.Count > 0)
         {
             text.Append("Added as hard dependencies: ").Append(string.Join(", ", plan.AddedDependencies)).Append('\n');
+        }
+
+        if (hostNotes is not null)
+        {
+            foreach (var (targetId, notes) in hostNotes.Where(n => n.Value.Count > 0).OrderBy(n => n.Key, StringComparer.Ordinal))
+            {
+                text.Append("Client modules that will not load on ").Append(targetId).Append(": ").Append(string.Join("; ", notes)).Append('\n');
+            }
         }
 
         return text.ToString();
@@ -83,7 +94,7 @@ public static class CompanyBuildFiles
     }
 
     /// <summary>Appends one JSON line to <c>build-history.jsonl</c>. The history is kept across rebuilds.</summary>
-    public static void AppendHistory(CompanyBuildOutputLayout layout, CompanyBuildSetReport report)
+    public static void AppendHistory(CompanyBuildOutputLayout layout, CompanyBuildSetReport report, string? address = null, string? keyHashPin = null)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(report);
@@ -93,7 +104,9 @@ public static class CompanyBuildFiles
             report.FinishedAt,
             report.Complete,
             report.IsSigned,
-            [.. report.Targets.Select(t => new CompanyBuildHistoryTarget(t.TargetId, t.Report.Succeeded, t.Report.Attempts, t.Report.Retries))]);
+            [.. report.Targets.Select(t => new CompanyBuildHistoryTarget(t.TargetId, t.Report.Succeeded, t.Report.Attempts, t.Report.Retries))],
+            address,
+            keyHashPin);
         File.AppendAllText(
             layout.HistoryPath,
             JsonSerializer.Serialize(entry, CompanyBuildJsonContext.Default.CompanyBuildHistoryEntry) + "\n",
@@ -118,7 +131,9 @@ public sealed record CompanyBuildHistoryEntry(
     DateTimeOffset FinishedAt,
     bool Complete,
     bool IsSigned,
-    IReadOnlyList<CompanyBuildHistoryTarget> Targets);
+    IReadOnlyList<CompanyBuildHistoryTarget> Targets,
+    string? Address = null,
+    string? KeyHashPin = null);
 
 /// <summary>One target within a history line.</summary>
 public sealed record CompanyBuildHistoryTarget(string TargetId, bool Succeeded, int Attempts, int Retries);

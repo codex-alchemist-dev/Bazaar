@@ -40,7 +40,7 @@ public sealed class CompanyBuildException(string message) : Exception(message);
 /// <summary>One client artifact a company build produces (docs/design/37 section 4a): an output id and the project it is built from.</summary>
 /// <param name="Id">Output folder name and artifact id, for example <c>windows-msix</c>. Letters, digits, dot, dash and underscore only.</param>
 /// <param name="ProjectPath">The client project the target is published from.</param>
-public sealed record CompanyBuildTarget(string Id, string ProjectPath);
+public sealed record CompanyBuildTarget(string Id, string ProjectPath, string? RuntimeIdentifier = null);
 
 /// <summary>The outcome of one target within a company build set.</summary>
 /// <param name="TargetId">The target's id.</param>
@@ -61,3 +61,8 @@ public sealed record CompanyBuildSetReport(
     bool Complete,
     bool IsSigned,
     string OutputDirectory);
+
+/// <summary>One finding of the build-identity setup check. Codes are stable for tests and the setup report.</summary>
+/// <param name="Code">One of <c>no-build</c>, <c>build-incomplete</c>, <c>identity-unrecorded</c>, <c>address-mismatch</c>, <c>key-pin-mismatch</c>.</param>
+/// <param name="Message">Plain text for the setup report. It never carries a secret; the pin is a public hash.</param>
+public sealed record CompanyBuildIdentityIssue(string Code, string Message);
