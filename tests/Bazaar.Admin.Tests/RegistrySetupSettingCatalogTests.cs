@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Bazaar.Admin.Composition;
+using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Host;
@@ -15,9 +16,11 @@ public sealed class RegistrySetupSettingCatalogTests
     public void Every_registered_key_is_exposed_by_name()
     {
         var catalog = RegistrySetupSettingCatalog.Known;
+        var registry = BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]);
 
-        Assert.Equal(SettingRegistry.Known.Definitions.Count, catalog.Definitions.Count);
-        Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
+        Assert.Equal(registry.Definitions.Count, catalog.Definitions.Count);
+        Assert.True(catalog.TryGet("update.channel", out _));
+        Assert.All(registry.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
         Assert.False(catalog.TryGet("no.such.key", out _));
     }
 

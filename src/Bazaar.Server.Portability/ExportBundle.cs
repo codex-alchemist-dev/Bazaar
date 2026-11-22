@@ -19,8 +19,8 @@ public sealed record ExportBundle(string Manifest, IReadOnlyList<BundleFile> Fil
 /// </summary>
 /// <remarks>
 /// Encryption and signing live in <see cref="ExportBundleCipher"/> and <see cref="BundleSigner"/>.
-/// Encryption uses Argon2id (see <see cref="ExportBundleCipher"/>). NOT IMPLEMENTED YET (later slices): README.txt,
-/// splitting into parts of at most 4 GiB, and resumable chunks.
+/// Encryption uses Argon2id (see <see cref="ExportBundleCipher"/>). NOT IMPLEMENTED YET (later slices): splitting into parts of at most 4 GiB, and resumable chunks.
+/// This in-memory writer does not generate README.txt or plaintext flags; <see cref="ExportBundleAssembler"/> does.
 /// Nothing built here is encrypted or signed unless the caller applies those steps.
 /// </remarks>
 public static class ExportBundleWriter
@@ -228,7 +228,16 @@ public static class ExportBundleWriter
     private static string FormatUtc(DateTimeOffset value) =>
         value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture);
 
-    internal sealed record ManifestEntry(string Path, string Sha256, long Bytes);
+    /// <summary>
+    /// One manifest file entry. <see cref="PlaintextPersonal"/> is written only when true: a file that holds decrypted personal data
+    /// (doc 44 section 4.6). Other entries stay as they were.
+    /// </summary>
+    internal sealed record ManifestEntry(
+        string Path,
+        string Sha256,
+        long Bytes,
+        [property: System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+        bool? PlaintextPersonal = null);
 
     internal sealed record ManifestDocument(
         string SchemaVersion,
