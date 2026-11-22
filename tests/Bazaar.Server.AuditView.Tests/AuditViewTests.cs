@@ -13,10 +13,10 @@ internal static class ViewExtensions
 
 public sealed class AuditViewTests
 {
-    private static readonly Guid Owner = Guid.NewGuid();
-    private static readonly Guid Reviewer = Guid.NewGuid();
-    private static readonly Guid AgentId = Guid.NewGuid();
-    private static readonly Guid Stranger = Guid.NewGuid();
+    private static readonly Guid _owner = Guid.NewGuid();
+    private static readonly Guid _reviewer = Guid.NewGuid();
+    private static readonly Guid _agentId = Guid.NewGuid();
+    private static readonly Guid _stranger = Guid.NewGuid();
 
     private sealed class FakePermissions : IPermissionChecker
     {
@@ -68,7 +68,7 @@ public sealed class AuditViewTests
 
         public string ChainDigest()
         {
-                var sb = new StringBuilder();
+            var sb = new StringBuilder();
             foreach (var x in Rows)
                 sb.Append(x.Seq).Append('|').Append(x.Ts.UtcTicks).Append('|').Append(x.Actor).Append('|').Append(x.Kind).Append('|').Append(x.Payload).Append('\n');
             return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
@@ -82,10 +82,10 @@ public sealed class AuditViewTests
     private AuditViewService Service()
     {
         var perms = new FakePermissions()
-            .Grant(Owner, Capabilities.Approve, ScopeKind.Instance)
-            .Grant(Reviewer, new Capability("audit.view.security"), ScopeKind.Company)
-            .Grant(AgentId, Capabilities.Approve, ScopeKind.Instance)
-            .Grant(AgentId, new Capability("audit.view.security"), ScopeKind.Company);
+            .Grant(_owner, Capabilities.Approve, ScopeKind.Instance)
+            .Grant(_reviewer, new Capability("audit.view.security"), ScopeKind.Company)
+            .Grant(_agentId, Capabilities.Approve, ScopeKind.Instance)
+            .Grant(_agentId, new Capability("audit.view.security"), ScopeKind.Company);
         return new AuditViewService(_source, new AuditViewScopeResolver(perms, _options), _log, _options, TimeProvider.System);
     }
 
@@ -100,7 +100,7 @@ public sealed class AuditViewTests
     public async Task Owner_sees_all()
     {
         Seed();
-        var page = await Service().Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery());
+        var page = await Service().Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery());
         Assert.Equal(AuditViewAccess.Granted, page.Access);
         Assert.Equal(6, page.Rows.Count);
         Assert.Contains(page.Rows, r => r.Category == AuditViewCategories.Other);
@@ -110,7 +110,7 @@ public sealed class AuditViewTests
     public async Task Reviewer_sees_only_security()
     {
         Seed();
-        var page = await Service().Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery());
+        var page = await Service().Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery());
         Assert.Equal(AuditViewAccess.Granted, page.Access);
         Assert.Equal([1L, 3L, 5L], page.Rows.Select(r => r.Seq).ToArray());
         Assert.All(page.Rows, r => Assert.Equal(AuditViewCategories.Security, r.Category));
@@ -120,7 +120,7 @@ public sealed class AuditViewTests
     public async Task Reviewer_cannot_widen_with_kind_filter()
     {
         Seed();
-        var page = await Service().Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery(Kinds: ["data.read", "gc."]));
+        var page = await Service().Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery(Kinds: ["data.read", "gc."]));
         Assert.Empty(page.Rows);
     }
 
@@ -128,7 +128,7 @@ public sealed class AuditViewTests
     public async Task Agent_sees_nothing_even_with_grants()
     {
         Seed();
-        var page = await Service().Run(new AuditViewer(AgentId, PrincipalKind.Agent), new AuditViewQuery());
+        var page = await Service().Run(new AuditViewer(_agentId, PrincipalKind.Agent), new AuditViewQuery());
         Assert.Equal(AuditViewAccess.Denied, page.Access);
         Assert.Empty(page.Rows);
     }
@@ -138,8 +138,8 @@ public sealed class AuditViewTests
     {
         Seed();
         var s = Service();
-        Assert.Equal(AuditViewAccess.Denied, (await s.Run(new AuditViewer(Stranger, PrincipalKind.Human), new AuditViewQuery())).Access);
-        Assert.Equal(AuditViewAccess.Denied, (await s.Run(new AuditViewer(Owner, PrincipalKind.Service), new AuditViewQuery())).Access);
+        Assert.Equal(AuditViewAccess.Denied, (await s.Run(new AuditViewer(_stranger, PrincipalKind.Human), new AuditViewQuery())).Access);
+        Assert.Equal(AuditViewAccess.Denied, (await s.Run(new AuditViewer(_owner, PrincipalKind.Service), new AuditViewQuery())).Access);
         Assert.Equal(AuditViewAccess.Denied, (await s.Run(new AuditViewer(Guid.Empty, PrincipalKind.Human), new AuditViewQuery())).Access);
     }
 
@@ -148,7 +148,7 @@ public sealed class AuditViewTests
     {
         Seed();
         var svc = new AuditViewService(_source, new AuditViewScopeResolver(new ThrowingPermissions(), _options), _log, _options, TimeProvider.System);
-        Assert.Equal(AuditViewAccess.Denied, (await svc.Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery())).Access);
+        Assert.Equal(AuditViewAccess.Denied, (await svc.Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery())).Access);
     }
 
     private sealed class ThrowingPermissions : IPermissionChecker
@@ -167,7 +167,7 @@ public sealed class AuditViewTests
         var pages = 0;
         do
         {
-            var page = await s.Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery(Cursor: cursor, PageSize: 10));
+            var page = await s.Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery(Cursor: cursor, PageSize: 10));
             seen.AddRange(page.Rows.Select(r => r.Seq));
             cursor = page.NextCursor;
             pages++;
@@ -182,10 +182,10 @@ public sealed class AuditViewTests
     {
         Seed(30);
         var s = Service();
-        var page = await s.Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery(PageSize: 4));
+        var page = await s.Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery(PageSize: 4));
         Assert.Equal(4, page.Rows.Count);
         Assert.NotNull(page.NextCursor);
-        var next = await s.Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery(Cursor: page.NextCursor, PageSize: 100));
+        var next = await s.Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery(Cursor: page.NextCursor, PageSize: 100));
         Assert.Equal(15, page.Rows.Count + next.Rows.Count);
         Assert.Null(next.NextCursor);
     }
@@ -195,7 +195,7 @@ public sealed class AuditViewTests
     {
         Seed();
         var s = Service();
-        var owner = new AuditViewer(Owner, PrincipalKind.Human);
+        var owner = new AuditViewer(_owner, PrincipalKind.Human);
         var bySeq = await s.Run(owner, new AuditViewQuery(FromSeq: 2, ToSeq: 4));
         Assert.Equal([2L, 3L, 4L], bySeq.Rows.Select(r => r.Seq).ToArray());
         var byKind = await s.Run(owner, new AuditViewQuery(Kinds: ["gc.message", "approval."]));
@@ -211,7 +211,7 @@ public sealed class AuditViewTests
     {
         const string payload = "{\"name\":\"enc:v1:AAECAwQFBgc=\"}";
         _source.Rows.Add(new AuditSourceRow(1, DateTimeOffset.UnixEpoch, "a", "security.signin", payload));
-        var page = await Service().Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery());
+        var page = await Service().Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery());
         Assert.Equal(payload, page.Rows.Single().Payload);
     }
 
@@ -220,11 +220,11 @@ public sealed class AuditViewTests
     {
         Seed();
         var s = Service();
-        await s.Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery());
-        await s.Run(new AuditViewer(AgentId, PrincipalKind.Agent), new AuditViewQuery());
+        await s.Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery());
+        await s.Run(new AuditViewer(_agentId, PrincipalKind.Agent), new AuditViewQuery());
         Assert.Equal(2, _log.Entries.Count);
         Assert.All(_log.Entries, e => Assert.Equal("audit.view", e.Kind));
-        Assert.Equal(Owner.ToString("D"), _log.Entries[0].Actor);
+        Assert.Equal(_owner.ToString("D"), _log.Entries[0].Actor);
         Assert.Contains("\"outcome\":\"granted\"", _log.Entries[0].Payload);
         Assert.Contains("\"returned\":6", _log.Entries[0].Payload);
         Assert.Contains("\"outcome\":\"denied\"", _log.Entries[1].Payload);
@@ -236,7 +236,7 @@ public sealed class AuditViewTests
         Seed();
         _log.Fail = true;
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            Service().Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery()));
+            Service().Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery()));
     }
 
     [Fact]
@@ -245,8 +245,8 @@ public sealed class AuditViewTests
         Seed();
         var before = _source.ChainDigest();
         var s = Service();
-        await s.Run(new AuditViewer(Owner, PrincipalKind.Human), new AuditViewQuery());
-        await s.Run(new AuditViewer(Reviewer, PrincipalKind.Human), new AuditViewQuery());
+        await s.Run(new AuditViewer(_owner, PrincipalKind.Human), new AuditViewQuery());
+        await s.Run(new AuditViewer(_reviewer, PrincipalKind.Human), new AuditViewQuery());
         Assert.Equal(before, _source.ChainDigest());
         Assert.Equal(6, _source.Rows.Count);
     }
