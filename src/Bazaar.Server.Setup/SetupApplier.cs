@@ -1,6 +1,5 @@
 using System.Text.Json.Nodes;
 using Bazaar.Server.Security.Audit;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -12,7 +11,7 @@ namespace Bazaar.Server.Setup;
 /// </summary>
 /// <remarks>
 /// Audit: one <c>setup.plan.applied</c> row through <see cref="IAuditLog"/>, then one <c>setting.changed</c> row per changed
-/// settings key through <see cref="ISettingAuditSink"/>. Secret references are logged by field name and family only, and a
+/// settings key through <see cref="ISetupSettingAudit"/>. Secret references are logged by field name and family only, and a
 /// step's exception is logged by type only, because exception text can carry a value.
 /// </remarks>
 public sealed class SetupApplier
@@ -25,25 +24,26 @@ public sealed class SetupApplier
     private readonly ISetupInstanceLock _instanceLock;
     private readonly List<ISetupStep> _steps;
     private readonly IAuditLog _audit;
-    private readonly ISettingAuditSink _settingAudit;
+    private readonly ISetupSettingAudit _settingAudit;
     private readonly TimeProvider _time;
-    private readonly SettingRegistry _registry;
+    private readonly ISetupSettingCatalog _registry;
 
     /// <param name="steps">The steps to run. They run in <see cref="ISetupStep.Order"/>, ties broken by <see cref="ISetupStep.Id"/>.</param>
-    /// <param name="registry">The settings registry the plan is validated against. Defaults to the registry this build ships.</param>
+    /// <param name="registry">The settings registry the plan is validated against.</param>
     public SetupApplier(
         ISetupInstanceLock instanceLock,
         IEnumerable<ISetupStep> steps,
         IAuditLog audit,
-        ISettingAuditSink settingAudit,
+        ISetupSettingAudit settingAudit,
         TimeProvider time,
-        SettingRegistry? registry = null)
+        ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(instanceLock);
         ArgumentNullException.ThrowIfNull(steps);
         ArgumentNullException.ThrowIfNull(audit);
         ArgumentNullException.ThrowIfNull(settingAudit);
         ArgumentNullException.ThrowIfNull(time);
+        ArgumentNullException.ThrowIfNull(registry);
 
         _steps = steps.OrderBy(step => step.Order).ThenBy(step => step.Id, StringComparer.Ordinal).ToList();
         var duplicate = _steps.GroupBy(step => step.Id, StringComparer.Ordinal).FirstOrDefault(group => group.Count() > 1);
@@ -56,7 +56,7 @@ public sealed class SetupApplier
         _audit = audit;
         _settingAudit = settingAudit;
         _time = time;
-        _registry = registry ?? SettingRegistry.Known;
+        _registry = registry;
     }
 
     /// <summary>Applies <paramref name="request"/>. Never throws for a refused, held or failed apply; only for a broken caller or an audit write that fails.</summary>
@@ -186,17 +186,7 @@ public sealed class SetupApplier
             var newValue = request.Plan.Settings.TryGetValue(key, out var element)
                 ? SetupPlanCanonicalizer.Text(JsonNode.Parse(element.GetRawText()))
                 : "null";
-            await _settingAudit.AppendAsync(
-                new SettingChangeAudit(
-                    key,
-                    SettingScope.Install,
-                    string.Empty,
-                    request.OperatorIdentity,
-                    SettingWriteOutcome.Accepted,
-                    oldValue,
-                    newValue,
-                    null),
-                cancellationToken);
+            await _settingAudit.AppendInstallChangeAsync(key, request.OperatorIdentity, oldValue, newValue, cancellationToken);
         }
 
         // f. The result. Only step ids and issues leave here, never a step's message.

@@ -1,21 +1,9 @@
 // Required CodeQL Analyze check runs on this head.
+using System.Data.Common;
 using Bazaar.Server.Agents.Inbox;
 using Npgsql;
 
 namespace Bazaar.Server.Gc.Mentions;
-
-/// <summary>
-/// Persists the rows that <see cref="InboxPlanner"/> plans as <c>inbox_item</c> rows (docs/design/06-agent-runtime.md).
-/// Writes are idempotent per (recipient, message): a second write of the same plan adds nothing.
-/// </summary>
-public interface IInboxRowWriter
-{
-    /// <summary>Writes the rows in their own transaction. Returns how many rows were inserted.</summary>
-    Task<int> WriteAsync(IReadOnlyList<InboxRow> rows, CancellationToken ct = default);
-
-    /// <summary>Writes the rows inside <paramref name="tx"/>, so they commit or roll back with the message event.</summary>
-    Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct = default);
-}
 
 /// <summary>
 /// SQL-first writer for planned inbox rows. Principals are agents here: an agent principal's id is its
@@ -53,7 +41,7 @@ public sealed class InboxRowWriter(NpgsqlDataSource dataSource) : IInboxRowWrite
     }
 
     /// <inheritdoc />
-    public async Task<int> WriteAsync(NpgsqlTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct = default)
+    public async Task<int> WriteAsync(DbTransaction tx, IReadOnlyList<InboxRow> rows, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(tx);
         ArgumentNullException.ThrowIfNull(rows);
@@ -64,7 +52,7 @@ public sealed class InboxRowWriter(NpgsqlDataSource dataSource) : IInboxRowWrite
             ArgumentNullException.ThrowIfNull(row);
             var kind = KindOf(row.Reason);
 
-            await using var cmd = new NpgsqlCommand(_insertSql, tx.Connection, tx);
+            await using var cmd = new NpgsqlCommand(_insertSql, (NpgsqlConnection)tx.Connection!, (NpgsqlTransaction)tx);
             cmd.Parameters.AddWithValue("agent_id", row.PrincipalId);
             cmd.Parameters.AddWithValue("kind", kind);
             cmd.Parameters.AddWithValue("gc_id", row.GcId);
