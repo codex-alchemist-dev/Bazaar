@@ -113,8 +113,8 @@ public sealed class BadgeMotion : IDisposable
 /// </summary>
 public sealed class TypingDots : StackPanel
 {
-    private const double DotSize = 6;
-    private const double Gap = 4;
+    private const double _dotSize = 6;
+    private const double _gap = 4;
 
     private readonly TypingIndicatorAnimator _animator;
 
@@ -125,17 +125,17 @@ public sealed class TypingDots : StackPanel
     public TypingDots(MotionSettings? settings, Func<Control, IFrameDriver>? driverFactory)
     {
         Orientation = Orientation.Horizontal;
-        Spacing = Gap;
+        Spacing = _gap;
         var dots = new List<Control>();
         for (var i = 0; i < TypingIndicatorPlan.DotCount; i++)
         {
-            var dot = new Ellipse { Width = DotSize, Height = DotSize };
+            var dot = new Ellipse { Width = _dotSize, Height = _dotSize };
             dot.Bind(Shape.FillProperty, dot.GetResourceObservable("SystemControlForegroundBaseMediumBrush"));
             dots.Add(dot);
             Children.Add(dot);
         }
 
-        _animator = new TypingIndicatorAnimator(dots, settings ?? MotionHost.Settings, (driverFactory ?? MotionHost.DriverFor)(this), DotSize + Gap);
+        _animator = new TypingIndicatorAnimator(dots, settings ?? MotionHost.Settings, (driverFactory ?? MotionHost.DriverFor)(this), _dotSize + _gap);
     }
 
     /// <summary>True while the dots loop.</summary>
