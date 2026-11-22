@@ -28,6 +28,7 @@ public static class SetupPlanSections
         new("install.identity", ["install.companyName", "install.companySlug", "install.locale", "install.timezone"], [1]),
         new("install.releaseChannel", ["install.releaseChannel"], [1]),
         new("install.updatePolicy", ["install.updatePolicy"], [2]),
+        new("storage", ["storage"], [3]),
         new("database", ["database"], [3, 4]),
         new("custody", ["custody.kekProvider", "custody.kekRef", "custody.auditAnchorTarget"], [5]),
         new("custody.identityKek", ["custody.identityKek"], [5]),

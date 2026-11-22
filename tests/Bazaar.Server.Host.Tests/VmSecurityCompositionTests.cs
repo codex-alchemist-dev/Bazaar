@@ -7,6 +7,10 @@ using Bazaar.Server.Settings;
 using Bazaar.Server.VmEgress;
 using Bazaar.Server.VmEgress.Approvals;
 using Bazaar.Server.VmMounts.Abstractions;
+using Bazaar.Server.VmMounts.Providers.Canaries;
+using Bazaar.Server.VmMounts.Providers.Guest;
+using Bazaar.Server.VmMounts.Providers.Local;
+using Bazaar.Server.VmMounts.Providers.Smb;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.Configuration;
@@ -133,6 +137,62 @@ public sealed class VmSecurityCompositionTests : IDisposable
         });
 
         Assert.Null(sp.GetService<IMountManager>());
+    }
+
+    [Fact]
+    public void Configuring_a_mounts_root_registers_the_provider_ports_and_composes_the_mount_manager()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bazaar-host-mounts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var sp = Build(new() { ["VmMounts:AgentsRoot"] = root });
+
+            Assert.IsType(
+                OperatingSystem.IsWindows() ? typeof(SmbMountProvider) : typeof(DirectoryMountProvider), sp.GetRequiredService<IMountProvider>());
+            Assert.IsType<GuestChannelMountAdapter>(sp.GetRequiredService<IMountGuestChannel>());
+            Assert.IsType<ContainingCanarySink>(sp.GetRequiredService<ICanarySink>());
+            Assert.NotNull(sp.GetRequiredService<IMountManager>());
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void Without_a_mounts_root_no_provider_port_is_registered()
+    {
+        var sp = Build();
+
+        Assert.Null(sp.GetService<IMountProvider>());
+        Assert.Null(sp.GetService<IMountGuestChannel>());
+        Assert.Null(sp.GetService<ICanarySink>());
+    }
+
+    [Fact]
+    public void Every_vm_mount_descriptor_resolves_once_a_mounts_root_is_configured()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "bazaar-host-mounts-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var sp = Build(new() { ["VmMounts:AgentsRoot"] = root }, out var services);
+
+            var checkedCount = 0;
+            foreach (var d in services.Where(d =>
+                !d.ServiceType.ContainsGenericParameters && (d.ServiceType.Namespace ?? "").StartsWith("Bazaar.Server.VmMounts", StringComparison.Ordinal)))
+            {
+                Assert.NotNull(sp.GetRequiredService(d.ServiceType));
+                checkedCount++;
+            }
+
+            Assert.True(checkedCount > 15, $"Only {checkedCount} mount descriptors matched.");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]

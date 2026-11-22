@@ -97,6 +97,9 @@ Registered in doc 03's settings registry (typed key, default, scope, who may cha
 | `engine.command.timeout_minutes` | int, 1 to 120 | `15` | project | owner | no; 120 is doc 16's hard maximum |
 | `engine.exec.http_allowlist` | list of host names | empty (deny all) | project | owner | yes |
 | `engine.relay.timeout_seconds` [PROPOSED, 2026-11-18] | int, 1 to 600 | `60` | install | owner | no |
+| `engine.studio.mcp_path` [PROPOSED, 2026-11-22] | file path or `auto` | `auto` | device (owner's Windows desktop) | owner | no |
+
+`engine.studio.mcp_path` names the Studio MCP server executable the Windows head starts. `auto` looks for a verified install location; none is verified yet, so with `auto` and nothing found the bridge stays off and the head says so. A set path that does not exist also leaves the bridge off. Until the settings registry reaches the client, the head reads it from `BAZAAR_STUDIO_MCP_PATH`.
 
 ## Behaviour and edge cases
 - **Adapter crash or hang:** the server kills the child after `engine.command.timeout_minutes`, marks the session `failed`, and reports the last output. Commands are idempotent or carry a `command_id` so retries are safe. Timeout values follow doc 15's quota table and doc 16's exec limits.
@@ -123,7 +126,7 @@ Registered in doc 03's settings registry (typed key, default, scope, who may cha
 4. Tool dispatch bridge: forwards granted MCP tool calls, audits to `audit_log` and the GC. Depends on 2, 3.
 5. Godot adapter: build check, commands, canary, output parser. Depends on 3.
 6. Godot scene-diff library for `.tscn`/`.tres`. Independent.
-7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3. [PROPOSED placement, coordinator brief 2026-11-18: server modules `Bazaar.Server.Luau.Abstractions` and `Bazaar.Server.Luau`; tests `Bazaar.Server.Luau.Tests`. Detail in doc 40 section 4b.]
+7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3. [PROPOSED placement, coordinator brief 2026-11-18: server modules `Bazaar.Server.Luau.Abstractions` and `Bazaar.Server.Luau`; tests `Bazaar.Server.Luau.Tests`. Detail in doc 40 section 4c. Status note: the projects exist on main (src/Bazaar.Server.Luau, src/Bazaar.Server.Luau.Abstractions, tests/Bazaar.Server.Luau.Tests).]
 8. Studio bridge in Bazaar.Client.Windows with recorded-transcript tests. Depends on 3, 4. [PROPOSED placement, coordinator brief 2026-11-18: client module `Bazaar.Client.Studio.Abstractions` and `Bazaar.Client.Studio`, composed by the Windows head; tests `Bazaar.Client.Studio.Tests`. Detail in doc 40 section 4b. The server half (WP4 grant verifier) is not built: the bridge codes against `IStudioGrantVerifier` with a fake until WP4 lands the real verifier. Open follow-up.]
 9. Pane descriptor renderer plus plugin loader in `Bazaar.Client.Core`. Depends on 1.
 10. Rojo sync wrapper. Depends on 7.

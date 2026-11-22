@@ -42,6 +42,15 @@ public static class WireTypes
     /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
     public const string GcTyping = "gc.typing";
 
+    /// <summary>Server event on the <c>engine.relay</c> stream: a Studio call for the owner's desktop to run (doc 02, doc 20). Payload <c>EngineRelayRequestFrame</c>.</summary>
+    public const string EngineRelayRequest = "engine.relay.request";
+
+    /// <summary>Client request answering one relay event (doc 02, doc 20). Payload <c>EngineRelayResultFrame</c>.</summary>
+    public const string EngineRelayResult = "engine.relay.result";
+
+    /// <summary>Client asks whether a grant covers a Studio tool (doc 02, doc 20). Payload <c>EngineGrantVerifyRequest</c>, answered with <c>EngineGrantVerifyReply</c>.</summary>
+    public const string EngineGrantVerify = "engine.grant.verify";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
