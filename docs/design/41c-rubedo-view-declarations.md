@@ -44,6 +44,8 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 
 **Conditions.** Any node may carry `visibleWhen` and `enabledWhen`, each a Bool expression over the node's scope. A hidden node stays in the tree so a later data change can show it. A condition that does not evaluate to a Bool fails that node closed.
 
+**Conditions.** Any node may carry `visibleWhen` and `enabledWhen`, each a Bool expression over the node's scope. A hidden node stays in the tree so a later data change can show it. A condition that does not evaluate to a Bool fails that node closed.
+
 **Tab items (structural, not a widget).** A `tabs` node takes only `tab` children, and a `tab` is valid only directly under `tabs`. A tab has a required non-empty `title` prop (a localisation key or literal) and exactly one child, the page. The page is an ordinary node. `tab` is not in the closed set, so the widget set stays at 13. Validator codes: `view.tabs_empty` (no tabs), `view.tab_child` (a child of `tabs` that is not a `tab`), `view.tab_title`, `view.tab_page` (not exactly one page), `view.tab_placement` (a `tab` anywhere else).
 
 Unknown widgets in a newer document render as `placeholder`, never as a crash (doc 41 section 7).
