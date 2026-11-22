@@ -300,6 +300,11 @@ public static partial class SetupPlanValidator
             issues.Add(Error("owner.displayName", $"must be 1 to {_maxNameLength} characters."));
         }
 
+        if (owner.Recovery.BundleRef is not null && !SecretReferences.IsValid(owner.Recovery.BundleRef, SecretReferences.SecretStoreFamilies))
+        {
+            issues.Add(Error("owner.recovery.bundleRef", "must be a secret://bazaar/ reference, or omitted. The bundle itself never goes in a plan."));
+        }
+
         for (var i = 0; i < owner.Recovery.BackupOwners.Count; i++)
         {
             if (IsBlank(owner.Recovery.BackupOwners[i]))

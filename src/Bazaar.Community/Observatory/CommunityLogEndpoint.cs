@@ -18,7 +18,7 @@ namespace Bazaar.Community.Observatory;
 public static class CommunityLogEndpoint
 {
     /// <summary>Route path.</summary>
-    public const string Path = "/community/log";
+    public const string Path = "/" + CommunityRoutes.Log;
 
     /// <summary>Maps the route. Called by host composition, next to <c>MapBazaarHttpSurface</c>.</summary>
     public static IEndpointRouteBuilder MapCommunityLog(this IEndpointRouteBuilder routes)

@@ -11,6 +11,7 @@ using Bazaar.Server.VmMounts.Providers.Canaries;
 using Bazaar.Server.VmMounts.Providers.Guest;
 using Bazaar.Server.VmMounts.Providers.Local;
 using Bazaar.Server.VmMounts.Providers.Smb;
+using Bazaar.Server.Vms.Environments;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.Configuration;
@@ -92,6 +93,42 @@ public sealed class VmSecurityCompositionTests : IDisposable
         Assert.NotNull(sp.GetRequiredService<GuestChannelFactory>());
         Assert.NotNull(sp.GetRequiredService<IGuestConnectionListener>());
         Assert.Contains(sp.GetServices<ISettingContribution>(), c => c is VmTransportSettingContribution);
+    }
+
+    private sealed class FakeVmDirectory(params EnvironmentVmRecord[] records) : IAgentVmDirectory
+    {
+        public Task<IReadOnlyList<EnvironmentVmRecord>> ListAsync(Guid agentId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<EnvironmentVmRecord>>(records);
+    }
+
+    [Fact]
+    public void The_channel_directory_is_composed_and_the_mount_provider_reads_it()
+    {
+        var sp = Build(new() { ["VmMounts:AgentsRoot"] = Path.GetTempPath() });
+
+        Assert.NotNull(sp.GetRequiredService<IGuestChannelDirectory>());
+        Assert.NotNull(sp.GetRequiredService<GuestChannelRegistrar>());
+        Assert.IsType<RepositoryAgentVmLookup>(sp.GetRequiredService<IAgentVmLookup>());
+        Assert.IsType<DirectoryGuestChannelProvider>(sp.GetRequiredService<IGuestChannelProvider>());
+    }
+
+    [Fact]
+    public async Task The_host_lookup_maps_environment_records_and_marks_retired_vms()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        EnvironmentVmRecord Record(VmOs os, string? backend, VmState state) =>
+            new(Guid.NewGuid(), Guid.NewGuid(), os, Guid.NewGuid(), backend, state, 2, 2048, 20, now, now);
+        var lookup = new RepositoryAgentVmLookup(new FakeVmDirectory(
+            Record(VmOs.Linux, "bazaar-a", VmState.Running),
+            Record(VmOs.Windows, "bazaar-b", VmState.Retired),
+            Record(VmOs.Windows, null, VmState.Provisioning)));
+
+        var vms = await lookup.ListAsync(Guid.NewGuid(), TestContext.Current.CancellationToken);
+
+        Assert.Equal([GuestOs.Linux, GuestOs.Windows, GuestOs.Windows], vms.Select(v => v.Os));
+        Assert.Equal([false, true, false], vms.Select(v => v.Retired));
+        Assert.Equal(["bazaar-a", "bazaar-b", null], vms.Select(v => v.VmName));
+        Assert.All(vms, v => Assert.Null(v.GuestInterface));
     }
 
     [Fact]

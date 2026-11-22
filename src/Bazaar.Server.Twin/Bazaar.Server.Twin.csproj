@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Server.Vault\Bazaar.Server.Vault.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Twin.Prose\Bazaar.Server.Twin.Prose.csproj" />
+    <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
   </ItemGroup>
 </Project>
