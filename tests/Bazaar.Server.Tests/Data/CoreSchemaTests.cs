@@ -82,8 +82,7 @@ public sealed class CoreSchemaTests(MigrationDb db) : IClassFixture<MigrationDb>
 
         Assert.Equal(14, await CountAsync(ds, "SELECT count(*) FROM gc_type"));
         Assert.Equal(1, await CountAsync(ds, "SELECT count(*) FROM gc_type WHERE type_key = 'dm' AND default_visibility = 'two_members_owner'"));
-        Assert.Equal(12, await CountAsync(ds, "SELECT count(*) FROM gc_event_kind"));
-        Assert.Equal(1, await CountAsync(ds, "SELECT count(*) FROM gc_event_kind WHERE kind = 'pr_event'"));
+        Assert.Equal(11, await CountAsync(ds, "SELECT count(*) FROM gc_event_kind"));
         Assert.Equal(2, await CountAsync(ds, "SELECT count(*) FROM gc_event_kind WHERE kind IN ('message', 'message_edit')"));
     }
 

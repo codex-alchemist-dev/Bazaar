@@ -16,6 +16,9 @@ namespace Bazaar.Server.Tests.Memory.Consolidation;
 /// <summary>Adapts the scripted <see cref="FakeProvider"/> to <see cref="IModelGateway"/>, optionally moving a fake clock between events.</summary>
 internal sealed class ScriptedGateway(FakeProvider provider, FakeTimeProvider? time = null, TimeSpan advancePerEvent = default) : IModelGateway
 {
+
+    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("ScriptedGateway does not support embeddings.");
     public IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, CancellationToken cancellationToken) =>
         Play(request, cancellationToken);
 
