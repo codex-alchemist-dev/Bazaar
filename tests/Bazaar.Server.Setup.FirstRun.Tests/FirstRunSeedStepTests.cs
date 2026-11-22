@@ -254,7 +254,35 @@ public class FirstRunPlanSectionTests
          FIRSTRUN}
         """;
 
-    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun));
+    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun), new StatusCatalog());
+
+    /// <summary>The two host status keys every plan is checked against; any value passes.</summary>
+    private sealed class StatusCatalog : ISetupSettingCatalog
+    {
+        private static readonly Dictionary<string, ISetupSettingDefinition> _byName = new(StringComparer.Ordinal)
+        {
+            ["host.status.bind"] = new Definition("host.status.bind", typeof(string)),
+            ["host.status.port"] = new Definition("host.status.port", typeof(int)),
+        };
+
+        public IReadOnlyCollection<ISetupSettingDefinition> Definitions => _byName.Values;
+
+        public bool TryGet(string name, out ISetupSettingDefinition? definition) => _byName.TryGetValue(name, out definition);
+
+        private sealed class Definition(string name, Type valueType) : ISetupSettingDefinition
+        {
+            public string Name => name;
+
+            public bool IsInstallScope => true;
+
+            public Type ValueType => valueType;
+
+            public string? CheckValue(System.Text.Json.JsonElement value) => null;
+
+            public SetupSettingEvaluation Evaluate(string actorId, System.Text.Json.JsonElement proposed) =>
+                new(true, null, proposed.GetRawText());
+        }
+    }
 
     [Fact]
     public void The_section_may_be_left_out_and_its_defaults_apply()
