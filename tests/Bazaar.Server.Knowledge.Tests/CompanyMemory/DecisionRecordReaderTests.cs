@@ -1,7 +1,7 @@
 using Bazaar.Server.Knowledge.CompanyMemory;
 using Bazaar.Server.Vault.Markdown;
 
-namespace Bazaar.Server.Tests.Knowledge.CompanyMemory;
+namespace Bazaar.Server.Knowledge.Tests.CompanyMemory;
 
 public sealed class DecisionRecordReaderTests
 {
