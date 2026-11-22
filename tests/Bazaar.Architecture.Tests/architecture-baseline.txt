@@ -3,9 +3,6 @@ src/Bazaar.Client.Core/MainWindow.axaml.cs
 src/Bazaar.Client.Core/Panes/FirstPartyPanes.cs
 src/Bazaar.Client.Core/Panes/PaneHost.cs
 src/Bazaar.Client.Core/Panes/PaneViews.cs
-src/Bazaar.Server/Agents/Recovery/AgentLeaseRecoveryHandler.cs
-src/Bazaar.Server/Agents/Responder/AgentResponder.cs
-src/Bazaar.Server/Agents/Responder/AgentResponderService.cs
 src/Bazaar.Server/Agents/Responder/AgentResponderServiceCollectionExtensions.cs
 src/Bazaar.Server/Agents/Responder/PgResponderGcStore.cs
 src/Bazaar.Server/Agents/Turns/AgentTurnsComponent.cs
