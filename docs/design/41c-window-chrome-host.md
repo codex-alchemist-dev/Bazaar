@@ -29,6 +29,7 @@ The owner's standing answer is to build everything the docs name, so the helper 
 
 - `Bazaar.Client.Shell.Abstractions` holds `IShellAnnouncer` (announce a category and text) so feature modules announce without referencing Avalonia or the accessibility module.
 - `Bazaar.Client.Shell` implements it over `WindowChrome` and adds `ShellHost.Attach(window, content, ...)`, the single call a head makes: it attaches the chrome, wraps the content and returns the announcer. It carries no logic of its own beyond composition, so the helper remains the one place that sets direction and mounts the region (no duplicate behaviour).
+- `ShellHost.Install(window, locale, gate)` is the form heads use once the window's content is already set: it moves that content under the chrome and returns the announcer. Windows and Linux call it today. Android has no window, so `WindowChrome.Attach` and `ShellHost.Install` accept any content host control (a `Window` is one); the Android head installs it on its main view. Until a persisted language setting exists, heads pass `SystemLocaleSource` (in `Bazaar.Localisation`), which starts from the operating system's UI language and can be switched at run time.
 
 ## 3. Boundaries
 
@@ -43,4 +44,4 @@ Avalonia.Headless tests: direction flips for `ar` and not for `en`, and again on
 ## 5. Open questions
 
 - OPEN: where the focus-scope names come from when a layout (doc 41) places panes. Proposed: the layout slot name.
-- OPEN: mirror-sensitive icon marking. Proposed: an attached property `WindowChrome.MirrorsInRtl` on icons, read by a style set in `Bazaar.Accessibility.Avalonia`.
+- Mirror-sensitive icon marking (owner: build it all): the attached property `WindowChrome.MirrorsInRtl` on an icon flips it horizontally while its effective flow direction is right-to-left and follows locale changes; unmarked icons never flip.
