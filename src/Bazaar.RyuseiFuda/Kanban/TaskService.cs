@@ -1,12 +1,12 @@
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Kanban.Data;
 using Npgsql;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// The only writer of task state, edges and gates (doc 12). Each change runs in one transaction with its
@@ -464,6 +464,25 @@ public sealed class TaskService
         return BlockedStatus.CheckStart(taskId, incoming, states);
     }
 
+    /// <summary>A task row by id, or null. Read-only, no locks; the wire move handler uses it to check a card's project before moving it.</summary>
+    public Task<TaskRecord?> GetTaskAsync(Guid taskId, CancellationToken ct = default) => _tasks.GetAsync(taskId, ct);
+
+    /// <summary>The titles of the given tasks, keyed by id. Ids with no task are left out. Read-only.</summary>
+    public async Task<IReadOnlyDictionary<Guid, string>> GetTitlesAsync(IEnumerable<Guid> taskIds, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(taskIds);
+        var titles = new Dictionary<Guid, string>();
+        foreach (var id in taskIds.Distinct())
+        {
+            if (await _tasks.GetAsync(id, ct).ConfigureAwait(false) is { } row)
+            {
+                titles[id] = row.Title;
+            }
+        }
+
+        return titles;
+    }
+
     /// <summary>
     /// The project board: every task with its unfinished blockers and their titles (doc 12, board view). Read-only,
     /// no locks: a snapshot is a consistent read of one statement per table, which is enough for a view that the
@@ -482,7 +501,7 @@ public sealed class TaskService
             var titles = unfinished
                 .Select(id => byId.TryGetValue(id, out var blocker) ? blocker.Title : "(unknown task)")
                 .ToList();
-            return new KanbanBoardCard(task.Id, task.Title, KanbanText.ToSql(task.State), task.OwnerAgentId, unfinished, titles);
+            return new KanbanBoardCard(task.Id, task.Title, KanbanText.ToSql(task.State), task.OwnerAgentId, unfinished, titles, task.Version);
         }).ToList();
 
         return new KanbanBoardSnapshot(projectId, cards);

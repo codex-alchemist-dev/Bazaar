@@ -70,6 +70,22 @@ public class ViewValidatorTests
     }
 
     [Fact]
+    public void An_icon_without_a_name_is_reported()
+    {
+        var document = Doc(Node("icon", new() { ["label"] = "gc.feed.mention" }));
+
+        Assert.Equal(["view.missing_icon_name"], Codes(document));
+    }
+
+    [Fact]
+    public void An_icon_with_a_name_and_a_label_is_valid()
+    {
+        var document = Doc(Node("icon", new() { ["name"] = "check", ["label"] = "gc.feed.mention" }));
+
+        Assert.Empty(Codes(document));
+    }
+
+    [Fact]
     public void An_empty_label_counts_as_missing()
     {
         var document = Doc(Node("button", new() { ["label"] = "" }));

@@ -1,9 +1,9 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Agents.Turns.Tools;
-using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Data;
 using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -36,6 +36,21 @@ public class KanbanComponentTests
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<TaskService>());
         Assert.Same(provider.GetRequiredService<TaskRepository>(), provider.GetRequiredService<TaskRepository>());
+    }
+
+    [Fact]
+    public void Kanban_registers_the_board_read_and_the_owner_move_handlers()
+    {
+        using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
+        var services = new ServiceCollection();
+        services.AddSingleton(dataSource);
+
+        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+
+        using var provider = services.BuildServiceProvider();
+        var types = provider.GetServices<Bazaar.Server.Wire.Connection.IWireRequestHandler>().Select(h => h.Type).ToList();
+        Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardSnapshot, types);
+        Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardMove, types);
     }
 
     [Fact]

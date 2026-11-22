@@ -1,15 +1,15 @@
 using Bazaar.Core;
+using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Jobs;
-using Bazaar.Server.Kanban.Data;
-using Bazaar.Server.Kanban.Wire;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Bazaar.Server.Kanban;
+namespace Bazaar.RyuseiFuda.Kanban;
 
 /// <summary>
 /// Kanban as a Bazaar Component (docs/design/12-kanban-and-dependencies.md, docs/design/BAZAAR-COMPONENTS.md). Registers the task
@@ -56,6 +56,8 @@ public sealed class KanbanComponent : IBazaarComponent
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
+        // Owner move (doc 12, Card revision and client move command): the authorised UI command, owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardMoveHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();

@@ -64,6 +64,7 @@ public static partial class SetupPlanValidator
         ValidateCompany(plan.Company, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
+        ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
 
@@ -316,12 +317,57 @@ public static partial class SetupPlanValidator
         CheckRegistryValue(port, "network.statusPort", portValue, issues);
     }
 
-    private static void ValidateSettings(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    /// <summary>
+    /// The Nigerian Prince Protocol step (docs/design/45 section 1.11). It is offered only when email is on, and enabling it is an
+    /// owner-tier change to <c>security.scam_mail.protocol_enabled</c>, so it is held for approval and never applied silently. Off is
+    /// the default and the safe state, so it needs no check. The plan section is the one place that sets the key.
+    /// </summary>
+    private static void ValidateScamMailProtocol(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    {
+        const string settingName = "security.scam_mail.protocol_enabled";
+        if (plan.Settings.ContainsKey(settingName))
+        {
+            issues.Add(Error("settings." + settingName, "is already set by scamMailProtocol.enabled; set it in one place."));
+        }
+
+        if (!plan.ScamMailProtocol.Enabled)
+        {
+            return;
+        }
+
+        if (!plan.Email.Enabled)
+        {
+            issues.Add(Error("scamMailProtocol.enabled", "needs email to be on; the step is offered only when email is enabled."));
+        }
+
+        if (!registry.TryGet(settingName, out var definition) || definition is null)
+        {
+            issues.Add(Error("scamMailProtocol", "the scam-mail setting is not registered in this build."));
+            return;
+        }
+
+        using var valueDoc = JsonDocument.Parse("true");
+        var value = valueDoc.RootElement.Clone();
+        CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
+    }
+
+    private static void ValidateSettings(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues) =>
+        ValidateSettingValues(plan.Settings, registry, "settings.", issues);
+
+    /// <summary>
+    /// Checks a map of registry values: known key, install scope, type, floor, and the write rule. Shared by the plan and by a
+    /// template's settings presets (doc 45 section 1.8), so both are held to the same registry. Values are normalized in place.
+    /// </summary>
+    internal static void ValidateSettingValues(
+        IDictionary<string, JsonElement> settings,
+        SettingRegistry registry,
+        string pathPrefix,
+        List<SetupValidationIssue> issues)
     {
         var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
-        foreach (var name in plan.Settings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
+        foreach (var name in settings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
         {
-            var path = "settings." + name;
+            var path = pathPrefix + name;
             if (!registry.TryGet(name, out var definition) || definition is null)
             {
                 issues.Add(Error(path, "is not a known setting key in this build."));
@@ -334,9 +380,21 @@ public static partial class SetupPlanValidator
                 continue;
             }
 
-            plan.Settings[name] = NormalizeValue(definition, path, actor, plan.Settings[name], issues);
+            settings[name] = NormalizeValue(definition, path, actor, settings[name], issues);
         }
     }
+
+    /// <summary>True when <paramref name="text"/> is a template id: lower-case letters, digits and dashes (the plan's <c>template:</c> source rule).</summary>
+    internal static bool IsTemplateId(string text) => TemplateIdRegex().IsMatch(text);
+
+    /// <summary>True when <paramref name="text"/> is an exact semantic version (ranges are not semver and are refused).</summary>
+    internal static bool IsSemver(string text) => SemverRegex().IsMatch(text);
+
+    /// <summary>True when <paramref name="text"/> is a Bazaar module name such as <c>Bazaar.GC</c>.</summary>
+    internal static bool IsModuleName(string text) => ModuleNameRegex().IsMatch(text);
+
+    /// <summary>True when <paramref name="text"/> is a lower-case slug such as a role id or a preset name.</summary>
+    internal static bool IsSlug(string text) => SlugRegex().IsMatch(text);
 
     /// <summary>Runs one registry value through the same checks as a write. The stored value becomes the canonical form.</summary>
     private static void CheckRegistryValue(SettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
