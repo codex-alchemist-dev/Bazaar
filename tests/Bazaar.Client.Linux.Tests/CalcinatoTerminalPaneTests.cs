@@ -5,6 +5,7 @@ using Bazaar.Client.Calcinato.Abstractions;
 using Bazaar.Client.Calcinato.Avalonia;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calcinato.Session;
+using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Linux;
 using Bazaar.Client.Panes.Abstractions;
@@ -30,6 +31,27 @@ public class CalcinatoTerminalPaneTests
 
         // The registry puts the pane title above the body; the body is the terminal control.
         Assert.IsType<TerminalControl>(view.Children[1]);
+    }
+
+    [AvaloniaFact]
+    public async Task Show_terminal_opens_one_local_shell_and_draws_the_terminal_control()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            Assert.Skip("The Linux head's PTY runs on Linux only.");
+        }
+
+        await using var sessions = CalcinatoTerminalPanes.CreateSessions();
+        var window = new MainWindow();
+
+        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
+
+        Assert.Single(sessions.Sessions);
+        Assert.NotNull(sessions.Active);
+        var scroll = Assert.IsType<ScrollViewer>(window.Content);
+        var stack = Assert.IsType<StackPanel>(scroll.Content);
+        var pane = Assert.IsType<StackPanel>(Assert.Single(stack.Children));
+        Assert.IsType<TerminalControl>(pane.Children[1]);
     }
 
     /// <summary>A host with no local backend and no remote streams. Opening anything fails, which the test never does.</summary>
