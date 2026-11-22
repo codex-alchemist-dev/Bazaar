@@ -55,6 +55,7 @@ public class ReplayWireTests
     {
         Assert.Equal("replay.frame", WireTypes.ReplayFrame);
         Assert.Equal("replay.fork", WireTypes.ReplayFork);
+        Assert.Equal("replay.points", WireTypes.ReplayPoints);
         var json = JsonSerializer.Serialize(new ReplayForkResult(_gc, null, true), WireJsonContext.Default.ReplayForkResult);
         Assert.Contains("\"newGc\"", json);
         Assert.DoesNotContain("vaultCommit", json);

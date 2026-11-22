@@ -40,6 +40,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(ReplayFrameResult))]
 [JsonSerializable(typeof(ReplayForkRequest))]
 [JsonSerializable(typeof(ReplayForkResult))]
+[JsonSerializable(typeof(ReplayPointsRequest))]
+[JsonSerializable(typeof(ReplayPointsResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]

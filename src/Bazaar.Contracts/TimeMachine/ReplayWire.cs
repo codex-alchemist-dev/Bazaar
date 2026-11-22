@@ -85,3 +85,24 @@ public sealed record ReplayForkRequest(Guid Gc, long Seq, Guid RequestId);
 /// <param name="VaultCommit">The Vault commit the fork branches from, or null when the Vault is not installed.</param>
 /// <param name="Created">False when a repeat returned the first result.</param>
 public sealed record ReplayForkResult(Guid NewGc, string? VaultCommit, bool Created);
+
+/// <summary>Request <c>replay.points</c>: the points in time a GC can be replayed at. Read-only.</summary>
+/// <param name="Gc">The group chat.</param>
+/// <param name="AfterSeq">Return points after this seq; 0 starts at the beginning.</param>
+/// <param name="Limit">Most points to return; the server clamps it to at most 500.</param>
+/// <param name="BucketSeconds">When set, thin points to the last event of each bucket of this many seconds; unset lists every event.</param>
+public sealed record ReplayPointsRequest(Guid Gc, long AfterSeq = 0, int Limit = 100, int? BucketSeconds = null);
+
+/// <summary>Response to <c>replay.points</c>.</summary>
+/// <param name="Gc">The group chat.</param>
+/// <param name="Points">Points in time order.</param>
+/// <param name="Next">Pass as <c>afterSeq</c> for the next page, or null when complete.</param>
+/// <param name="Head">The viewer's visible head, never the true head.</param>
+public sealed record ReplayPointsResult(Guid Gc, IReadOnlyList<ReplayPointWire> Points, long? Next, long Head);
+
+/// <summary>One point in time. Render a frame at <paramref name="Seq"/> with <c>replay.frame</c>.</summary>
+/// <param name="Seq">Seq to render at.</param>
+/// <param name="At">When the point happened.</param>
+/// <param name="Kind">message, edit, quarantine, event, or audit (owner only).</param>
+/// <param name="Label">A short label; never a payload.</param>
+public sealed record ReplayPointWire(long Seq, DateTimeOffset At, string Kind, string Label);
