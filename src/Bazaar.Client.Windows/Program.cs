@@ -6,12 +6,14 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
+using Bazaar.Ex.Head;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Devices;
@@ -21,8 +23,10 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
@@ -78,6 +82,9 @@ internal static class Program
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            .. OrgPanes.Modules,
+            .. CalendarPanes.Modules,
+            .. InterruptPanes.Modules,
             new EnginePaneModule(),
             new DevicesPaneModule(),
             .. GitSolarSystemPanes.Modules,
@@ -132,6 +139,9 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"));
             return window;
         }
 
