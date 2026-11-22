@@ -27,11 +27,20 @@ public sealed class BrowserComponent : IBazaarComponent
             LinuxExecutable: Pick(section, nameof(BrowserOptions.LinuxExecutable), d.LinuxExecutable),
             WindowsExecutable: Pick(section, nameof(BrowserOptions.WindowsExecutable), d.WindowsExecutable),
             LinuxProfileRoot: Pick(section, nameof(BrowserOptions.LinuxProfileRoot), d.LinuxProfileRoot),
-            WindowsProfileRoot: Pick(section, nameof(BrowserOptions.WindowsProfileRoot), d.WindowsProfileRoot));
+            WindowsProfileRoot: Pick(section, nameof(BrowserOptions.WindowsProfileRoot), d.WindowsProfileRoot),
+            MaxSessionAge: TimeSpan.TryParse(section[nameof(BrowserOptions.MaxSessionAge)], System.Globalization.CultureInfo.InvariantCulture, out var age) ? age : default);
 
         services.TryAddSingleton(TimeProvider.System);
         services.AddSingleton(options);
         services.AddSingleton<IBrowserLauncher, BrowserLauncher>();
+        services.AddSingleton<BrowserSessionSweeper>();
+        services.AddSingleton(new BrowserHostOptions());
+
+        // The guest host needs the guest pipe port; the real channel registers it when it ships. Do not require it.
+        if (services.Any(d => d.ServiceType == typeof(IBrowserGuestPipe)))
+        {
+            services.TryAddSingleton<IBrowserGuestHost, GuestPipeBrowserHost>();
+        }
     }
 
     private static string Pick(IConfigurationSection section, string key, string fallback) =>
