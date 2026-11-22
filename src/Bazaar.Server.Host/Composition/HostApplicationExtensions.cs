@@ -49,6 +49,7 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
+        services.AddBazaarFirstRun();
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarLegalHoldReader();

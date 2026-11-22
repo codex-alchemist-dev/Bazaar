@@ -33,6 +33,8 @@
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Gateway\Bazaar.Server.Setup.FirstRun.Gateway.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun\Bazaar.Server.Setup.FirstRun.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcReactions\Bazaar.Server.GcReactions.csproj" />
