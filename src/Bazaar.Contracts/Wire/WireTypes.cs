@@ -30,6 +30,18 @@ public static class WireTypes
     /// <summary>Client removes a principal, or leaves a GC itself. Answered with a <c>GcSendResult</c>: the membership event's seq.</summary>
     public const string GcMemberRemove = "gc.member.remove";
 
+    /// <summary>Client adds or removes an emoji reaction on a message (doc 02, "Reactions on the wire"). Answered with a <c>GcReactResult</c>.</summary>
+    public const string GcReact = "gc.react";
+
+    /// <summary>Client asks for the folded reaction state of a GC. Answered with a <c>GcReactionsReply</c>.</summary>
+    public const string GcReactions = "gc.reactions";
+
+    /// <summary>Server event: one reaction was added or removed (<c>WireGcReaction</c>). Live only.</summary>
+    public const string GcReaction = "gc.reaction";
+
+    /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
+    public const string GcTyping = "gc.typing";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
@@ -86,6 +98,9 @@ public static class WireTypes
 
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
+
+    /// <summary>One terminal frame on a <c>pane:&lt;terminalId&gt;</c> stream, as JSON text (docs/design/55, section 6.1).</summary>
+    public const string PaneFrame = "pane.frame";
 
     /// <summary>Client asks for its server-driven UI profile.</summary>
     public const string UiGet = "ui.get";

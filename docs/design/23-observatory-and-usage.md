@@ -48,6 +48,7 @@ The custom-status line is an enumerated activity kind plus, when `observatory.ac
 - **RyuseiFuda events** [PROPOSED, doc 38] consumed by Observatory: `ryusei.trigger_created`, `ryusei.trigger_paused`, `ryusei.trigger_cancelled`, `ryusei.fire` (with `outcome`), `ryusei.auto_paused`.
 - Each accepted event upserts `agent_activity`, increments `revision`, and publishes a `presence` delta on the cache provider (C07). Events older than the last applied source time are dropped, so duplicates and reordering are harmless.
 - **Clients** subscribe to `presence` (02): a snapshot of all rows, then deltas by revision. Any gap triggers a snapshot re-fetch. Presence is state, not history, so there is no replay.
+- **Sequence numbers on deltas [PROPOSED, from spike S2]:** Garnet pub/sub does not guarantee message order, so every `presence` delta carries its row's `agent_id` and `revision` (the same per-agent, monotonic value stored in `agent_activity`), and the snapshot carries the revision of each row. A client applies a delta only when its `revision` is greater than the revision it holds for that agent, and drops it otherwise (a late duplicate or an older delta that arrived after a newer one). A delta that jumps ahead by more than one is held for up to `presence.reorder_window_ms` (default 500) for the missing ones; if they do not arrive, the client re-fetches the snapshot. Order never matters for correctness: the highest revision wins, and Postgres holds the truth. The same rule applies on Valkey, which keeps one client path for both cache providers.
 - **Restart**: the projector rebuilds rows from availability and open turns. A row with no turn event for 10 minutes shows as `unknown`.
 
 ### Usage accounting
@@ -101,6 +102,7 @@ Registry rules are in 03. Settings may tighten floors, never loosen them.
 | `observatory.activity_label_mode` | enum `kinds_only`, `kinds_and_label` | `kinds_and_label` | install | operator | No (scrubber always on) |
 | `observatory.android_view` | enum `list`, `dashboard_only` | `list` | install | operator | No |
 | `presence.idle_label` | enum `working`, `idle` (owned by 09) | `working` | install | operator | No |
+| `presence.reorder_window_ms` | int, 0 to 5000 | `500` | install | operator | No |
 | `usage.price_table_manual_refresh` | bool | true | install | operator | No |
 | `usage.estimate_label` | bool | true | install | operator | No (off hides that totals are estimates; not recommended) |
 | `telemetry.genai_mapping` | enum `bazaar_internal`, `genai_semconv` | `bazaar_internal` | install | operator | No |

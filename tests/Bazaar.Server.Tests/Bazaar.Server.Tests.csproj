@@ -15,9 +15,6 @@
     <None Include="**/Golden/*.md" Exclude="bin/**;obj/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Vault test helpers still used by Knowledge/Archive and Constellation/VaultGraphSourceTests. Linked, not copied; the owner decides the shared home. -->
-    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
-    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Data\VaultDb.cs" Link="Vault\Data\VaultDb.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
@@ -33,10 +30,16 @@
     <None Include="Testing\Replay\Fixtures\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Conduit\Bazaar.Conduit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Bench\Bazaar.Constellation.Bench.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gc.Archive\Bazaar.Server.Gc.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.ReadAudit\Bazaar.Server.ReadAudit.csproj" />
@@ -61,5 +64,6 @@
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vault.Testing\Bazaar.Server.Vault.Testing.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Protobuf wire codec, name "protobuf" (doc 90). Messages come from the generated wire.proto; the mapping from the contract records is generated, no reflection.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!--
+      Spike S6 saw IL3050 and IL3053 from Google.Protobuf 3.33.0 in a Native AOT publish. With the pinned 3.36.2 neither this
+      module's build nor a Native AOT publish of an app that uses the codec reports them (checked 2026-11-20, linux-x64), so
+      nothing is suppressed. If a later Google.Protobuf brings them back, suppress IL3050 and IL3053 here only, with the reason.
+    -->
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Wire.Generators\Bazaar.Wire.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" />
+    <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The checked-in schema is generated from the records (see the drift test) and is the published artifact. -->
+    <Protobuf Include="..\..\docs\wire\wire.proto" Link="wire.proto" GrpcServices="None" Access="Internal" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Wire.Codec.Protobuf.Tests" />
+  </ItemGroup>
+</Project>
