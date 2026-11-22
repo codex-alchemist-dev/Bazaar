@@ -7,6 +7,15 @@ namespace Bazaar.Server.Providers;
 /// </summary>
 public sealed record ProviderSelection(ProviderRole Role, string Requested, IProvider? Provider, IReadOnlyList<ProviderStatus> Statuses)
 {
+    /// <summary>
+    /// A selection the host has not made yet. Its candidates are not probed, so the startup report does not wait on them. It is
+    /// replaced by the real selection through <see cref="ProviderCapabilityReport.Resolve"/>.
+    /// </summary>
+    public static ProviderSelection Pending(ProviderRole role, string requested) => new(role, requested, null, []) { IsPending = true };
+
+    /// <summary>True until the host replaces a <see cref="Pending"/> selection with its outcome.</summary>
+    public bool IsPending { get; init; }
+
     /// <summary>One line for the startup log and the status page, for example <c>provider search: postgres_fts (requested auto)</c>.</summary>
     public string ToLogLine()
     {
@@ -14,6 +23,11 @@ public sealed record ProviderSelection(ProviderRole Role, string Requested, IPro
         if (Requested == ProviderSelector.None)
         {
             return $"{name}: none (disabled by setting)";
+        }
+
+        if (IsPending)
+        {
+            return $"{name}: pending (requested {Requested})";
         }
 
         var unusable = Statuses

@@ -17,7 +17,7 @@ public sealed class SetupWizardBackend(
     private readonly ISetupReportRenderer _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
 
     public SetupWizardReview DryRun(IReadOnlyList<string> setArguments) =>
-        Review(SetupOrchestrator.DryRun(null, setArguments, _environment, _settings));
+        Review(SetupOrchestrator.DryRun(null, setArguments, _environment, _settings, _applyGate.CoveredSections));
 
     public async Task<SetupWizardReview> ApplyAsync(
         IReadOnlyList<string> setArguments,
