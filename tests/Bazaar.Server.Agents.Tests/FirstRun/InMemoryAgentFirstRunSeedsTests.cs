@@ -7,6 +7,51 @@ public class InMemoryAgentFirstRunSeedsTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    private sealed class CountingGrant : IAgentDefaultPolicyGrant
+    {
+        public List<Guid> Granted { get; } = [];
+
+        public Task GrantAsync(Guid agentId, CancellationToken ct)
+        {
+            Granted.Add(agentId);
+            return Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task Creating_an_agent_grants_the_default_policy_once_for_that_agent()
+    {
+        var grant = new CountingGrant();
+        var seeds = new InMemoryAgentFirstRunSeeds(grant);
+
+        var id = await seeds.CreateHeldAsync("Charles", "seed:charles", ct: Ct);
+
+        Assert.Equal([id], grant.Granted);
+    }
+
+    [Fact]
+    public async Task Marker_hit_and_lookup_do_not_grant_the_default_policy_again()
+    {
+        var grant = new CountingGrant();
+        var seeds = new InMemoryAgentFirstRunSeeds(grant);
+        var id = await seeds.CreateHeldAsync("Charles", "seed:charles", ct: Ct);
+
+        Assert.Equal(id, await seeds.FindByMarkerAsync("seed:charles", Ct));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => seeds.CreateHeldAsync("Charles", "seed:charles", ct: Ct));
+
+        Assert.Equal([id], grant.Granted);
+    }
+
+    [Fact]
+    public async Task Seeds_without_a_grant_still_create_the_agent()
+    {
+        var seeds = new InMemoryAgentFirstRunSeeds();
+
+        var id = await seeds.CreateHeldAsync("Charles", "seed:charles", ct: Ct);
+
+        Assert.Equal(AgentState.Created, seeds.StateOf(id));
+    }
+
     [Fact]
     public async Task Held_agent_stays_in_created_when_the_automatic_step_runs()
     {
