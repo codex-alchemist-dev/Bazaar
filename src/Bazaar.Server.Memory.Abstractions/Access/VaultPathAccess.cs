@@ -5,7 +5,9 @@ namespace Bazaar.Server.Memory.Access;
 /// <list type="bullet">
 /// <item><c>agents/&lt;agent&gt;/memory/**</c>: the agent itself, the owner (logged) and maintenance. Cover never, including its primary's.</item>
 /// <item><c>agents/&lt;agent&gt;/**</c> (other files, such as the profile): the owner and that agent only.</item>
-/// <item><c>projects/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents, cover of a member primary, member humans).</item>
+/// <item><c>projects/&lt;slug&gt;/**</c> and <c>twin/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents,
+/// cover of a member primary, member humans). Which paths are project areas, and of which project, comes from
+/// <see cref="Vault.Search.VaultProjectAreas.ProjectAreaOf"/>, the same source Vault search, link expansion and moves use.</item>
 /// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover.</item>
 /// <item><c>hive/**</c>: owner and maintenance; an agent or cover only when it is a member of one of the copy's target
 /// projects, as <see cref="IHiveCopyTargets"/> reports them (doc 08, section 6). Without that source every agent is
@@ -63,11 +65,15 @@ public sealed class VaultPathAccess : IVaultAccess
         ArgumentNullException.ThrowIfNull(who);
         ArgumentNullException.ThrowIfNull(path);
 
+        if (Vault.Search.VaultProjectAreas.ProjectAreaOf(path.Value) is { } projectSlug)
+        {
+            return ExplainProjectArea(who, projectSlug);
+        }
+
         var segments = path.Segments;
         return segments[0] switch
         {
             "agents" when segments.Count >= 3 => ExplainAgentArea(who, segments),
-            "projects" when segments.Count >= 3 => ExplainProjectArea(who, segments[1]),
             "company" when segments.Count >= 3 && segments[1] == "memory" => ExplainSharedArea(who, "company/memory"),
             "hive" when segments.Count >= 2 => ExplainHiveArea(who, path),
             _ => AccessDecision.Deny("no rule allows this path; denied by default"),
