@@ -21,7 +21,7 @@ public class ModuleSignatureVerifierTests
         string digest = _digest,
         string keyId = _keyId,
         HostRequirements? host = null) =>
-        new(moduleId, version, permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, host ?? _windowsX64, []);
+        new(moduleId, version, "publisher-1", permissions ?? new HashSet<string>(StringComparer.Ordinal) { "gc.post", "network:api.example" }, digest, keyId, host ?? _windowsX64, []);
 
     private static readonly HostRequirements _windowsX64 = new(1, ["windows"], ["x64"], []);
 
@@ -42,7 +42,8 @@ public class ModuleSignatureVerifierTests
             key,
             notBefore ?? _now.AddYears(-1),
             notAfter ?? _now.AddYears(1),
-            revoked));
+            revoked)
+        { ModuleIdScopes = ["bazaar"] });
         return (new EcdsaModuleSignatureVerifier(store, time ?? new FakeTimeProvider(_now)), key);
     }
 
@@ -158,8 +159,8 @@ public class ModuleSignatureVerifierTests
 
         var bytes = ModuleCanonicalForm.Build(package);
 
-        var expected = new List<byte> { 0x02 };
-        foreach (var field in new[] { "m", "v", "d", "permission:a", "permission:b", "host.schema:1", "host.os:windows", "host.arch:x64" })
+        var expected = new List<byte> { 0x03 };
+        foreach (var field in new[] { "m", "v", "d", "publisher-1", "permission:a", "permission:b", "host.schema:1", "host.os:windows", "host.arch:x64" })
         {
             var utf8 = Encoding.UTF8.GetBytes(field);
             expected.AddRange(new byte[] { 0, 0, 0, (byte)utf8.Length });
@@ -184,7 +185,7 @@ public class ModuleSignatureVerifierTests
         using var p384 = ECDsa.Create(ECCurve.NamedCurves.nistP384);
         var store = new InMemoryTrustedKeyStore();
 
-        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", p384, _now.AddDays(-1), _now.AddDays(1))));
+        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", p384, _now.AddDays(-1), _now.AddDays(1)) { ModuleIdScopes = ["bazaar"] }));
     }
 
     [Fact]
@@ -193,9 +194,9 @@ public class ModuleSignatureVerifierTests
         using var first = NewKey();
         using var second = NewKey();
         var store = new InMemoryTrustedKeyStore();
-        store.Add(new TrustedModuleKey(_keyId, "publisher-1", first, _now.AddDays(-1), _now.AddDays(1)));
+        store.Add(new TrustedModuleKey(_keyId, "publisher-1", first, _now.AddDays(-1), _now.AddDays(1)) { ModuleIdScopes = ["bazaar"] });
 
-        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", second, _now.AddDays(-1), _now.AddDays(1))));
+        Assert.Throws<ArgumentException>(() => store.Add(new TrustedModuleKey(_keyId, "publisher-1", second, _now.AddDays(-1), _now.AddDays(1)) { ModuleIdScopes = ["bazaar"] }));
         Assert.Null(store.Find("no-such-key"));
     }
 }
