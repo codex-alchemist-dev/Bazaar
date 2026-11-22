@@ -1,3 +1,4 @@
+using Bazaar.Server.CodingEdit;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
 using Bazaar.Server.Host.Coding;
@@ -32,6 +33,8 @@ public static class CodingHarnessTestFakes
         if (except != typeof(IRuntimeSubagentParentDirectory)) services.AddSingleton<IRuntimeSubagentParentDirectory>(new FakeParentDirectory());
         if (except != typeof(IAgentStateReader)) services.AddSingleton<IAgentStateReader>(new FakeAgentState());
         if (except != typeof(IPushSessionRecords)) services.AddSingleton<IPushSessionRecords>(new FakeSessionRecords());
+        if (except != typeof(ICodingAgentFacts)) services.AddSingleton<ICodingAgentFacts>(new FakeAgentFacts());
+        if (except != typeof(ICodingSessionParents)) services.AddSingleton<ICodingSessionParents>(new FakeSessionParents());
         return services;
     }
 
@@ -79,5 +82,19 @@ public static class CodingHarnessTestFakes
     {
         public ValueTask<PushSessionRecord?> FindAsync(PushGateRequest request, CancellationToken cancellationToken) =>
             ValueTask.FromResult<PushSessionRecord?>(null);
+    }
+
+    private sealed class FakeAgentFacts : ICodingAgentFacts
+    {
+        public ModelIdentity CommitModelFor(string agentId) => new("Fake Model", "fake-model@example.invalid");
+
+        public string ModelIdFor(string agentId) => "fake-model";
+
+        public EditFormat EditFormatFor(string agentId) => EditFormat.WholeFile;
+    }
+
+    private sealed class FakeSessionParents : ICodingSessionParents
+    {
+        public ParentContext? Find(string sessionId) => null;
     }
 }

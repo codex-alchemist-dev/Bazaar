@@ -205,6 +205,17 @@ Decisions for the gaps (the most robust option; the owner may overrule):
 5. **Review is Post, not Read.** It posts the report to the PR's group chat and sets the approval flag, which is never merge authority. The review inputs are commit ids the model supplies, so the host's review sink must check them against the PR's current head before it records a verdict. That binding is OPEN and belongs to the host adapter.
 6. **Exit codes.** 0 is success; 1 is a failed tool or a refused operation; 64 is a usage error (malformed arguments, or no worktree the host holds). The runner's own codes (127, 75, -1) are unchanged.
 
+## Tool dispatch registration (host) [PROPOSED, 2026-11-22]
+Implementation: `src/Bazaar.Server.Host/Coding/CodingToolDispatchExtensions.cs`, called once from `AddBazaarCodingHarness`. It makes the eight tools (`edit` and the seven above) runnable by an agent through the doc 06 dispatcher: per tool, a `ToolRegistration` (a `CodingToolBridge` that hands the call to `ICodingToolRunner`), a doc 15 `ToolCapability` and a `ModelToolDefinition`.
+
+Decisions (the most robust option; the owner may overrule):
+1. **The caller is the dispatcher's, the rest is the host's.** The bridge builds the `CodingToolCall` from the dispatcher's `ToolCallContext` (agent, session), the session taint store (taint, and source trust `external` when hard), and the session id as the worktree key (one worktree per session). Role is Actor: the dispatcher already refuses a reader turn for every tool an operator has not listed as read-only. Nothing in the model's arguments sets any of these. The approval grant is null until the approval-grant lookup exists, so an approval-gated call returns `approval_required`.
+2. **Policy tiers.** `edit`, `search`, `repo_map` and `git_diff` are Tier 0 (class Read, as in the tool table). `git_commit`, `git_push_draft_pr`, `review` and `subagent_spawn` are Tier 1 with a rate rule, so hard taint escalates them to Tier 2 and the owner approves first. All eight are Actor-only. The push tool is class Push.
+3. **Two new host ports, no default.** `ICodingAgentFacts` (commit model, model id, edit format per agent) and `ICodingSessionParents` (a session's subagent limits, valid only when `ParentContext.ParentId` equals the session id) join the start check, so an enabled harness with either unbound stops at start naming it.
+4. **A worktree is held by the host.** `CodingWorktreeRegistry` maps the session's worktree key to a `CodingWorktree`. The flow that starts a coding task creates the worktree through `CodingGitService` and registers it; until then a worktree-needing tool fails with the usage error (exit code 64). That flow is not built here.
+5. **Result shape.** The model receives `{"status", "exit_code", "error_code", "message", "output"}`; `output` is the handler's JSON, embedded as JSON when valid.
+
+
 ## Conflicts
 1. **Subagent depth.** This doc uses depth 1 inside doc 06's runtime limit (depth 2, 3 concurrent). Doc 06 must still state that its limit covers runtime delegation only.
 2. **Parallel subagents.** Cognition (June 2025, a vendor opinion) calls them fragile; Claude Code docs describe them with a default cap of 20; Anthropic (June 2025) calls most coding tasks a poor fit for fan-out. Unresolved; this design defaults to one writer and measures.

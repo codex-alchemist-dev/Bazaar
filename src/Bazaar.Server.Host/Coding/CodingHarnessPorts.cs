@@ -23,6 +23,8 @@ public static class CodingHarnessPorts
         typeof(IRuntimeSubagentParentDirectory),
         typeof(IAgentStateReader),
         typeof(IPushSessionRecords),
+        typeof(ICodingAgentFacts),
+        typeof(ICodingSessionParents),
     ];
 
     /// <summary>Throws, naming the first port with no registration. Fails closed: the harness never starts half-bound.</summary>
