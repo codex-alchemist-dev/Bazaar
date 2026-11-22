@@ -22,6 +22,13 @@ public sealed class ComponentTests
     }
 
     [Fact]
+    public void Guided_setup_is_available_while_the_provider_is_off()
+    {
+        using var sp = Build([]);
+        Assert.NotNull(sp.GetRequiredService<ClaudeCodeGuidedSetup>());
+    }
+
+    [Fact]
     public void Enabled_registers_the_adapter_under_its_wire_name()
     {
         using var sp = Build(new()

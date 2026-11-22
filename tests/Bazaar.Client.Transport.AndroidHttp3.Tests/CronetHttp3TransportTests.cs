@@ -123,7 +123,7 @@ public sealed class CronetHttp3TransportTests
     {
         var (transport, engine, observer) = Make();
         await using var connection = await transport.ConnectAsync(_offer, _json, CancellationToken.None);
-        var handover = new CronetNetworkEvent(CronetNetworkEventKind.Handover, DateTimeOffset.UnixEpoch, "wifi to cell");
+        var handover = new WireNetworkEvent(WireNetworkEventKind.Handover, DateTimeOffset.UnixEpoch, "wifi to cell");
         engine.Stream.Raise(handover);
         Assert.Equal([handover], observer.Events);
 
@@ -132,7 +132,7 @@ public sealed class CronetHttp3TransportTests
         var received = await connection.ReceiveAsync(CancellationToken.None);
         Assert.Equal(0, received.CloseCode);
         var reconnect = Assert.Single(observer.Reconnects);
-        Assert.Equal(ReconnectReason.StreamCut, reconnect.Reason);
+        Assert.Equal(WireReconnectReason.StreamCut, reconnect.Reason);
         Assert.Equal(handover, reconnect.Last);
     }
 
@@ -141,11 +141,11 @@ public sealed class CronetHttp3TransportTests
     {
         var (transport, engine, observer) = Make();
         await using var connection = await transport.ConnectAsync(_offer, _json, CancellationToken.None);
-        engine.Stream.Raise(new CronetNetworkEvent(CronetNetworkEventKind.Suspended, DateTimeOffset.UnixEpoch));
+        engine.Stream.Raise(new WireNetworkEvent(WireNetworkEventKind.Suspended, DateTimeOffset.UnixEpoch));
         engine.Stream.FailReads = true;
         var received = await connection.ReceiveAsync(CancellationToken.None);
         Assert.Equal(0, received.CloseCode);
-        Assert.Equal(ReconnectReason.StreamFailed, Assert.Single(observer.Reconnects).Reason);
+        Assert.Equal(WireReconnectReason.StreamFailed, Assert.Single(observer.Reconnects).Reason);
         // Closed stays closed.
         Assert.True((await connection.ReceiveAsync(CancellationToken.None)).IsClosed);
     }

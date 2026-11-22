@@ -18,6 +18,9 @@ public static class PaneKinds
     /// <summary>Kanban dependency board (doc 12).</summary>
     public const string Kanban = "bazaar.kanban";
 
+    /// <summary>Calcinato terminal pane: a shell or server terminal in the modal emulator (doc 55, section 5.4).</summary>
+    public const string Terminal = "bazaar.terminal";
+
     /// <summary>Start-screen dashboard of what changed while away (CLAUDE.md, client start screen).</summary>
     public const string Dashboard = "bazaar.dashboard";
 
