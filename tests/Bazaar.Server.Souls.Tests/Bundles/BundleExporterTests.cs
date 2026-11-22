@@ -4,7 +4,7 @@ using System.Text.Json;
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls.Bundles;
 
-namespace Bazaar.Server.Tests.Souls.Bundles;
+namespace Bazaar.Server.Souls.Tests.Bundles;
 
 public sealed class BundleExporterTests
 {
