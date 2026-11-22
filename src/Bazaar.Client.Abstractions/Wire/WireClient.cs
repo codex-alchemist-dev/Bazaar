@@ -47,6 +47,9 @@ public sealed class WireClient(
     /// <summary>Raised on the receive loop for each typing delta (<c>presence.update</c> of kind <c>typing</c>). The same rules apply to handlers.</summary>
     public event Action<PresenceTyping>? TypingReceived;
 
+    /// <summary>Raised on the receive loop for each agent presence delta (<c>presence.update</c> of kind <c>agent</c>). The same rules apply to handlers.</summary>
+    public event Action<PresenceUpdate>? PresenceUpdateReceived;
+
     /// <summary>
     /// Raised on the receive loop after each connection is established and its streams are subscribed, the first one included. State
     /// that is not replayed (reactions) is fetched again here. Handlers must hand the work off, not await a request inline.
@@ -321,8 +324,9 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.PresenceUpdate):
                 var presence = codec.DecodePayload<PresenceTyping>(env);
-                // Other kinds of presence delta share this type; only typing is read here, the rest are ignored.
+                // Other kinds of presence delta share this type; typing and agent rows are read here, the rest are ignored.
                 if (presence.Kind == PresenceKinds.Typing) TypingReceived?.Invoke(presence);
+                else if (presence.Kind == PresenceKinds.Agent) PresenceUpdateReceived?.Invoke(codec.DecodePayload<PresenceUpdate>(env));
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.

@@ -20,7 +20,7 @@ Bazaar works on any GitHub or GitLab repository reachable over the internet. It 
 - Merge: the owner approves in Bazaar.Windows or Bazaar.Android, which replace GitHub's PR UI. The server performs the squash merge on the owner's signed approval. The credential is a dedicated owner GitHub App with merge rights or the owner's linked GitHub credential, chosen in setup and changeable in settings (rounds 8 and 12, C25).
 - Done for a card tied to a PR means the PR is merged; reviewer approval is a flag (round 8, C28).
 - Home host: no inbound connections by default. It polls GitHub; a tunnel or overlay is optional for real-time webhooks (round 8, C30).
-- Every PR gets a PR GC (owner brief, 2026-10-25). GC types come from the registry in 01, and this doc registers `pr` and `inbox` (round 6, C19).
+- Every PR gets a PR GC (owner brief, 2026-10-25). GC types come from the registry in 01, and this doc registers `pr` and `inbox` (round 6, C19), and `issue` for issue GCs (PROPOSED, see Issue GCs; OPEN until the owner confirms the type).
 - Commits carry `Co-Authored-By`; the owner signs off at squash-merge with `Signed-off-by` (DCO model, owner, 2026-10-25, CLAUDE.md licences line). CLA is not chosen.
 - Agents never push to the default branch; PRs open as drafts; agent messages are never merge approvals (CLAUDE.md; 17).
 - Shared quota keys live in 15's table (`security.quota.*`); GitHub-specific limits are owned here (round 10, C36).
@@ -61,7 +61,12 @@ Reviewer approval is data for the owner and a gate flag on the card (12). It is 
 | `check_run` or `check_suite` failed | PR GC; author inbox item | Yes (author) |
 | `push` to an agent branch | PR GC `pr_event` | No |
 | `pull_request` closed or merged | PR GC; owner notice; 11 outcome | Owner only |
+| `issues` assigned, assignee is an agent | Issue GC; assignee inbox item, kind `assignment` (PROPOSED: the doc named no issue assignment row; it mirrors `review_requested`) | Yes |
 | Issue or comment from a non-member | `inbox` GC (question 2); provenance `external`, hard taint | Never; digest only |
+
+**PR lookup by branch and membership of woken agents [PROPOSED].** (a) `github_pr.head_ref` holds the head branch name, stored from `pull_request.head.ref` only when the head repository is the base repository (a fork PR stores null, so a fork's branch name never matches a same-named branch of the base repository). A `push` with `ref = refs/heads/<name>` (not a tag, not a branch deletion) finds the open PR in the same repository whose `head_ref` is `<name>`, after the number and head SHA rules, so a push that arrives before the `synchronize` event has stored the new `head_sha` still lands in the PR GC. Only `pull_request` events change `head_ref`; a push never does. (b) An agent that an event names (author, assignee, requested reviewer) or wakes on a PR (review requested, @-mention, review feedback, failed check) becomes a PR GC member if it is not one yet. The add is idempotent, covers agents beyond the create cap, and skips external (hard-tainted) effects and owner notices. A stale `pull_request` event names no members.
+
+**Issue GCs [PROPOSED].** An issue is mirrored the way a PR is, so an assignment, an @-mention in an issue or its body, and issue comments have a GC to be written to and a wake to point at. The server creates the issue GC once, keyed by issue node id (type `issue`, registered by the `github` component with `registered_by = github`; the PR GC's parent-link question applies the same way). `github_issue` is the read model: node id, repo, number, `gc_id` (unique), state, title, author login and `updated_at`. Members: the owner (creator), the bridge principal, the issue author when it is an agent, the assignees that are agents, and agents @-mentioned in a member's text. An agent named by a later event is added then; at most `MaxAgentMembersAtCreate` (7) at creation. Only `issues` events change state, ordered by `updated_at` under a row lock (an older event is stored, never applied over newer state); a row first made by a comment holds the epoch, so the real issue event is not rejected as older. A GC is created only when the event is a member's or the issue itself names an agent (author or assignee); a stranger's issue with no agent involved stays in the `inbox` GC, and a stranger's @-mention never adds a member or wakes (hard taint, unchanged). Entries are written as GC kind `structured` (no new GC event kind is needed). Operator options, `Bazaar:GitHub:IssueGc`: `OwnerPrincipalId` (falls back to `PrGc:OwnerPrincipalId`, then the bridge), `GcTypeKey` (default `issue`; a different key must already be in `gc_type`), `MaxAgentMembersAtCreate`. OPEN: whether `issue` is the type key the owner wants; whether an issue GC is archived like a PR GC (`github.pr_gc_archive_days` covers PRs only); whether closing an issue notifies the owner; labels, milestones and issue-to-task links (doc 12); issue GCs for repos where the App is not installed (T1).
 
 A non-member's text reaches an agent only as a reader-session summary (15). A woken agent that was mentioned by a stranger receives the summary and the hard-taint flag, never the raw text.
 
@@ -118,14 +123,18 @@ github_app(agent_id pk, app_id bigint, installation_id bigint, account_login tex
            status text,                      -- active|suspended|revoked
            key_ref text)                     -- reference only, never the key
 github_pr(pr_node_id text pk, repo_node_id text, number int, gc_id uuid unique,
-          task_id uuid null, head_sha char(40), base_ref text, state text, draft bool,
-          updated_at timestamptz)
+          task_id uuid null, head_sha char(40), head_ref text null, base_ref text, state text, draft bool,
+          updated_at timestamptz)  -- head_ref PROPOSED, migration 0008
+github_issue(issue_node_id text pk, repo_node_id text, number int, gc_id uuid unique,
+             state text, title text null, author_login text null, updated_at timestamptz)  -- PROPOSED, migration 0006 (0007 registers the issue GC type)
 github_delivery(source text, delivery_id text, event text, received_at timestamptz,
-                processed_at timestamptz null, primary key (source, delivery_id))
+                processed_at timestamptz null, primary key (source, delivery_id),
+                payload jsonb null, event_type text null,
+                process_attempts int, next_attempt_at timestamptz null, process_error text null)
 github_rate_state(installation_id bigint, bucket text, remaining int, reset_at timestamptz)
 ```
 
-Delivery rows keep the raw JSON body (`payload jsonb`, null when the body is not JSON) and the event type (`event_type text`), so the PR service and the event mapper read from the table and never need GitHub again. Retention follows the audit rule: rows are kept forever by default, they are crypto-shredded on erasure, and there is no sweeper. A replay never overwrites the first stored payload.
+Delivery rows keep the raw JSON body (`payload jsonb`, null when the body is not JSON) and the event type (`event_type text`), so the PR service and the event mapper read from the table and never need GitHub again. Retention follows the audit rule: rows are kept forever by default, they are crypto-shredded on erasure, and there is no sweeper. A replay never overwrites the first stored payload. The webhook processor claims unprocessed rows with `FOR UPDATE SKIP LOCKED`, counts attempts, retries a failed sink call after `next_attempt_at`, and marks an unparseable row processed with the reason in `process_error`. Webhook rows (`source = github`, key is the delivery guid) and polled rows (`source = poll`, key is the event id) dedupe separately and are not unified.
 
 GC entries for PR events follow the 01 `gc_event` / `gc_message` model (C09). Inbox items are owned by 06 (C04). The owner's merge credential is stored by 14, not in these tables.
 
