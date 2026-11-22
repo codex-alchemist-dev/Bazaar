@@ -31,8 +31,11 @@ public static class GitHubIssueGcRegistration
         if ((owner ?? bridge) is not { } creator || sp.GetService<NpgsqlDataSource>() is not { } dataSource
             || (sp.GetService<IGitHubIssueGcFactory>() ?? FromProvisioner(sp, options, owner)) is not { } factory)
             return inner;
+        // The owner joins by default (read from the database); an override is the creator already, and the setting can switch it off.
+        var ownerIsMember = options.OwnerIsMember ?? sp.GetRequiredService<GitHubPrGcOptions>().OwnerIsMember;
+        var resolver = ownerIsMember && owner is null ? sp.GetService<IGitHubOwnerResolver>() ?? new PgGitHubOwnerResolver(dataSource) : null;
         var service = new GitHubIssueService(
-            dataSource, factory, sp.GetRequiredService<IGitHubGcDirectory>(), options, creator, bridge, sp.GetRequiredService<ILogger<GitHubIssueService>>());
+            dataSource, factory, sp.GetRequiredService<IGitHubGcDirectory>(), options, creator, bridge, sp.GetRequiredService<ILogger<GitHubIssueService>>(), resolver);
         return new GitHubIssueGcEventSink(inner, service);
     }
 

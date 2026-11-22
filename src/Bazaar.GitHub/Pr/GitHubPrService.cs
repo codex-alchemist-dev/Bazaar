@@ -17,7 +17,7 @@ public sealed record GitHubPrApplyResult(Guid GcId, bool GcCreated, bool Applied
 /// PR GC once, keyed by the PR node id, and records <c>github_pr</c>: repo, number, title, state, draft, head and base, author login
 /// and <c>gc_id</c>. The GC id is derived from the node id and <c>github_pr.pr_node_id</c> and <c>gc_id</c> are unique, so concurrent
 /// callers and replays converge on one GC and one row. Only <c>pull_request</c> events change PR state, and an older one is never
-/// applied over newer state (<see cref="GitHubEventOrdering"/>), decided under a row lock. Members are the owner, the bridge, and
+/// applied over newer state (<see cref="GitHubEventOrdering"/>), decided under a row lock. Members are the owner (by default, resolved from the database; doc 21 Owner membership), the bridge, and
 /// the agents that authored, were assigned or were asked to review the PR (doc 21 Event mapping); agents named by a later event
 /// are added then.
 /// </summary>
@@ -28,7 +28,8 @@ public sealed partial class GitHubPrService(
     GitHubPrGcOptions options,
     Guid creator,
     Guid? bridge,
-    ILogger<GitHubPrService> logger)
+    ILogger<GitHubPrService> logger,
+    IGitHubOwnerResolver? ownerResolver = null)
 {
     private static readonly Regex _sha = ShaRegex();
 
@@ -48,6 +49,7 @@ public sealed partial class GitHubPrService(
         var gcId = GcIdFor(node);
         var created = false;
         IReadOnlyList<Guid> atCreate = [];
+        Guid? owner = null;
 
         var known = await ReadAsync(node, cancellationToken).ConfigureAwait(false);
         if (known is null)
@@ -58,7 +60,8 @@ public sealed partial class GitHubPrService(
                 return null;
             }
 
-            atCreate = await MembersAtCreateAsync(ev, cancellationToken).ConfigureAwait(false);
+            owner = await OwnerMemberAsync(cancellationToken).ConfigureAwait(false);
+            atCreate = await MembersAtCreateAsync(ev, owner, cancellationToken).ConfigureAwait(false);
             created = await factory.EnsureAsync(
                 gcId, TitleFor(ev, number), creator, atCreate,
                 new Dictionary<string, string> { ["provider"] = "github", ["pr_node_id"] = node, ["repo_node_id"] = ev.RepoNodeId, ["number"] = number.ToString(System.Globalization.CultureInfo.InvariantCulture) },
@@ -69,12 +72,37 @@ public sealed partial class GitHubPrService(
         if (rowGc is null)
             return null;
 
+        // The owner joins at create when one resolved then; otherwise (no owner yet, or the GC pre-dates this setting) at the first event that finds one.
+        // Idempotent, so a replay adds nothing. Not tied to event content, so a stale event may add the owner too.
+        await EnsureOwnerAsync(rowGc.Value, owner, cancellationToken).ConfigureAwait(false);
+
         // Agents named by this event join the GC (PROPOSED, doc 21): those that joined at create are skipped, the rest (agents beyond the
         // create cap included) are added now. A stale pull_request event is not trusted to name current members.
         if (!(ev.EventName == "pull_request" && !applied))
             await EnsureAgentsAsync(rowGc.Value, NamedLogins(ev), atCreate, cancellationToken).ConfigureAwait(false);
 
         return new GitHubPrApplyResult(rowGc.Value, created, applied);
+    }
+
+    /// <summary>
+    /// The owner principal that is a member of PR GCs: the configured override, else (when <c>OwnerIsMember</c>) the one read from the
+    /// database, else null (setting off, or no owner exists yet: skipped silently, retried at the next event).
+    /// </summary>
+    private async Task<Guid?> OwnerMemberAsync(CancellationToken ct)
+    {
+        if (options.OwnerPrincipalId is { } configured)
+            return configured;
+        return options.OwnerIsMember && ownerResolver is not null
+            ? await ownerResolver.GetOwnerPrincipalIdAsync(ct).ConfigureAwait(false)
+            : null;
+    }
+
+    private async Task EnsureOwnerAsync(Guid gcId, Guid? resolvedAtCreate, CancellationToken ct)
+    {
+        if (resolvedAtCreate is not null)
+            return;
+        if (await OwnerMemberAsync(ct).ConfigureAwait(false) is { } id && id != creator)
+            await factory.AddOwnerAsync(gcId, id, ct).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -189,11 +217,13 @@ public sealed partial class GitHubPrService(
     private static bool? DraftOf(GitHubEvent ev) =>
         ev.Draft ?? ev.Action switch { "converted_to_draft" => true, "ready_for_review" => false, _ => null };
 
-    private async Task<IReadOnlyList<Guid>> MembersAtCreateAsync(GitHubEvent ev, CancellationToken ct)
+    private async Task<IReadOnlyList<Guid>> MembersAtCreateAsync(GitHubEvent ev, Guid? owner, CancellationToken ct)
     {
         var members = new List<Guid> { creator };
         if (bridge is { } b)
             members.Add(b);
+        if (owner is { } o)
+            members.Add(o);
         var agents = 0;
         foreach (var login in NamedLogins(ev))
         {
