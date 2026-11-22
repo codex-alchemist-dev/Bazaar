@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.SupportBundle.Abstractions\Bazaar.SupportBundle.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Diagnostics\Bazaar.Diagnostics.csproj" />
+  </ItemGroup>
+</Project>
