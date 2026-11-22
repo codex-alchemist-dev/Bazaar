@@ -102,3 +102,37 @@ public interface IGmtLessonWriter
     /// <summary>Writes one note as <paramref name="writerAgentId"/>.</summary>
     Task<GmtWriteResult> WriteAsync(GmtLessonWrite write, string writerAgentId, CancellationToken ct);
 }
+
+/// <summary>One lesson a child proposes.</summary>
+/// <param name="ContentClass">What it is.</param>
+/// <param name="Kind">Lesson kind.</param>
+/// <param name="Title">Title.</param>
+/// <param name="Body">Body text.</param>
+public sealed record GmtProposal(GmtContentClass ContentClass, GmtLessonKind Kind, string Title, string Body);
+
+/// <summary>What the host knows about a child that ended: who it was, who receives its lessons and what it proposed.</summary>
+/// <param name="ChildAgent">Provenance of the child.</param>
+/// <param name="TargetAgent">The receiving agent slug (the parent).</param>
+/// <param name="TraceRef">Link to the child's trace.</param>
+/// <param name="ChildTainted">True when the child saw untrusted input.</param>
+/// <param name="ChildQuarantined">True when the child is quarantined.</param>
+/// <param name="Terms">Names to keep out.</param>
+/// <param name="Proposals">The proposed lessons, written by a reader session with no tools (doc 25).</param>
+public sealed record GmtChildProposals(
+    string ChildAgent,
+    string TargetAgent,
+    string? TraceRef,
+    bool ChildTainted,
+    bool ChildQuarantined,
+    GmtTerms Terms,
+    IReadOnlyList<GmtProposal> Proposals);
+
+/// <summary>
+/// Reads the proposals of a child turn that ended. The host provides it (it knows the trace, the session's taint and the agent
+/// slugs). With none registered, no hook is installed and nothing is staged.
+/// </summary>
+public interface IGmtProposalSource
+{
+    /// <summary>The proposals for an ended child, or null when it proposed none.</summary>
+    Task<GmtChildProposals?> ReadAsync(Bazaar.Server.Agents.Turns.Subagents.SubagentEnded ended, CancellationToken ct);
+}

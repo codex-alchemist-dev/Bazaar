@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.GeneticMemory.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -42,6 +43,11 @@ public sealed class GeneticMemoryComponent : IBazaarComponent
             sp.GetRequiredService<GmtOptions>(),
             sp.GetService<TimeProvider>()));
         services.TryAddSingleton<IGeneticMemoryTransfer>(sp => sp.GetRequiredService<GeneticMemoryService>());
+
+        // The child-end hook (doc 06): added only when the host provides a proposal source, so an install without one stages nothing.
+        services.AddSingleton<ISubagentEndHook>(sp => sp.GetService<IGmtProposalSource>() is { } source
+            ? new GmtSubagentEndHook(source, sp.GetRequiredService<IGeneticMemoryTransfer>())
+            : new NoGmtHook());
     }
 
     /// <summary>Reads <c>Reviewer</c> (architect or owner) and <c>WriterAgentId</c>. A value that does not parse fails at start.</summary>
@@ -64,5 +70,10 @@ public sealed class GeneticMemoryComponent : IBazaarComponent
         }
 
         return options;
+    }
+
+    private sealed class NoGmtHook : ISubagentEndHook
+    {
+        public Task OnSubagentEndedAsync(SubagentEnded ended, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }
