@@ -73,6 +73,8 @@ public static class HostApplicationExtensions
         services.AddBazaarComponents(configuration, HostComponents.All);
         // After the components: the Valkey supervisor is one of them, and the deferred cache selection must start after it (doc 40 section 4c.4 item 8).
         services.AddBazaarCacheSelection();
+        // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
+        services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
