@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:988f57eef746d4bf15a86c7bca749f8d4de68202b6eeadd7862b4100b9049c57",
+  "hash": "sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -15,6 +15,8 @@
     { "type": "gc.send", "payload": "Bazaar.Contracts.Wire.GcSend" },
     { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
     { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
+    { "type": "hive.grant.revoke", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
+    { "type": "hive.grant.set", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
     { "type": "pane.frame", "payload": "Bazaar.Contracts.Wire.PaneFrame" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
@@ -94,7 +96,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrChangedFile",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "path", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "status", "type": "string", "nullable": false, "default": false },
@@ -115,7 +116,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrHunk",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "header", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "oldStart", "type": "int32", "nullable": false, "default": false },
@@ -179,7 +179,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrListRow",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "repo", "type": "string", "nullable": false, "default": false },
@@ -485,6 +484,26 @@
         { "name": "far", "value": 0 },
         { "name": "mid", "value": 1 },
         { "name": "near", "value": 2 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "accepted", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "reason", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "approvalRequired", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "fromProject", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "toProject", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "kind", "type": "string", "nullable": false, "default": false }
       ]
     },
     {

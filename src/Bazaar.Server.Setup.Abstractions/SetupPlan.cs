@@ -15,6 +15,9 @@ public sealed class SetupPlan
 
     public SetupDatabaseSection Database { get; init; } = new();
 
+    /// <summary>The encrypted data volume (doc 63 section 10). Every key has a default, so a plan may leave the section out.</summary>
+    public SetupStorageSection Storage { get; init; } = new();
+
     public SetupCustodySection Custody { get; init; } = new();
 
     public SetupOwnerSection Owner { get; init; } = new();
@@ -70,6 +73,36 @@ public sealed class SetupUpdatePolicySection
 
     /// <summary>automatic or manual. Shipped default: manual for everything else.</summary>
     public string Other { get; init; } = "manual";
+}
+
+/// <summary>
+/// The encrypted data volume the data root lives in (doc 63 section 10). The volume is mounted at <c>database.dataRoot</c>.
+/// A blank provider asks for no volume.
+/// </summary>
+public sealed class SetupStorageSection
+{
+    /// <summary><c>production</c> or <c>development</c>. Fixed at setup; a development instance never becomes production.</summary>
+    public string InstanceClass { get; init; } = "production";
+
+    public SetupStorageVolumeSection Volume { get; init; } = new();
+}
+
+public sealed class SetupStorageVolumeSection
+{
+    /// <summary><c>bitlocker-vhdx</c>, <c>luks2</c> or <c>dev-plain</c>. Blank asks for no volume.</summary>
+    public string Provider { get; init; } = "";
+
+    /// <summary>The container file or device. Null means the default file under the boot root.</summary>
+    public string? Container { get; init; }
+
+    /// <summary><c>file</c> or <c>device</c>.</summary>
+    public string ContainerKind { get; init; } = "file";
+
+    /// <summary>The largest size of a file container, in GiB. Required for a file container of an encrypting provider.</summary>
+    public int? MaxGb { get; init; }
+
+    /// <summary>The OS account the host runs as; it gets access to the mount. Required for an encrypting provider.</summary>
+    public string? ServiceAccount { get; init; }
 }
 
 public sealed class SetupDatabaseSection

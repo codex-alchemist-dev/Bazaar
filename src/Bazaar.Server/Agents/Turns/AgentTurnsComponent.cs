@@ -150,7 +150,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
                 sp.GetRequiredService<TurnRunner>(),
                 sp.GetRequiredService<ITurnContextAssembler>(),
                 // Every tool definition a component added. A turn is offered only the ones its allowlist names.
-                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())),
+                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>()),
+                // A reply to a wake with no trigger GC (a card assignment) is posted through the GC post sink when the Gc component is present.
+                sp.GetService<IAgentPostSink>(),
+                sp.GetServices<ITurnReplyTarget>()),
             sp.GetRequiredService<IAgentSessionRegistrar>()));
 
         AddScheduler(services, configuration);
