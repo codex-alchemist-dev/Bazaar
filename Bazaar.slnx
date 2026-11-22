@@ -170,6 +170,7 @@
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Abstractions/Bazaar.Server.Providers.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Valkey.Abstractions/Bazaar.Server.Valkey.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers/Bazaar.Server.Providers.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Linux/Bazaar.Server.Providers.Linux.csproj" />
     <Project Path="src/Bazaar.Server.Sanitization.Abstractions/Bazaar.Server.Sanitization.Abstractions.csproj" />
