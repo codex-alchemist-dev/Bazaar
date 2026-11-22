@@ -11,6 +11,7 @@ using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.Council;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -58,6 +59,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CouncilComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
