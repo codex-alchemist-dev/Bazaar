@@ -254,7 +254,7 @@ public class FirstRunPlanSectionTests
          FIRSTRUN}
         """;
 
-    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun), Bazaar.Server.Setup.Host.RegistrySetupSettingCatalog.Known);
+    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun), TestSettingCatalog.Instance);
 
     [Fact]
     public void The_section_may_be_left_out_and_its_defaults_apply()
