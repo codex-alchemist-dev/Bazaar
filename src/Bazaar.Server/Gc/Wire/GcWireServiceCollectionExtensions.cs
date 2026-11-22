@@ -28,6 +28,7 @@ public static class GcWireServiceCollectionExtensions
 
         services.TryAddSingleton<GcReadAccess>();
         services.TryAddSingleton<IGcReadAccess>(sp => sp.GetRequiredService<GcReadAccess>());
+        services.TryAddSingleton<IGcWriteAccess>(sp => sp.GetRequiredService<GcReadAccess>());
 
         // Per-person AES-256-GCM bodies (docs/design/04 Question 2). The KEK provider is optional at registration: without one the
         // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
@@ -46,6 +47,7 @@ public static class GcWireServiceCollectionExtensions
 
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
+        services.TryAddSingleton<IGcHistorySource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
 
@@ -54,6 +56,7 @@ public static class GcWireServiceCollectionExtensions
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
         services.AddSingleton<IWireRequestHandler, GcEditHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Members.PgGcMembershipSource>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.IGcMembershipSource>(sp => sp.GetRequiredService<Bazaar.Server.Gc.Members.PgGcMembershipSource>());
         services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
         services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();

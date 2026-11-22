@@ -101,5 +101,5 @@ public sealed class AndroidBackGestureBridge : Java.Lang.Object, IOnBackAnimatio
     }
 
     private static BackGestureEdge Edge(BackEvent backEvent) =>
-        backEvent.SwipeEdge == BackEvent.EdgeRight ? BackGestureEdge.Right : BackGestureEdge.Left;
+        backEvent.SwipeEdge == BackEventEdge.Right ? BackGestureEdge.Right : BackGestureEdge.Left;
 }

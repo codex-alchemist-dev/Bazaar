@@ -151,7 +151,7 @@ Roslyn for C# code intelligence is the default and needs no setting.
 10. Worktree and push service over `IGitProvider`; host-side push and draft PR via doc 21. Depends on 4 and doc 21.
 11. Review context package and reviewer tool set. Depends on 8 and 10.
 12. Subagent spawner. Depends on 8.
-13. Benchmark task set and runner. Depends on 6 and 9.
+13. Benchmark task set and runner. Depends on 6 and 9. Module pair `Bazaar.Server.CodingBench` (doc 40): runner with the run quota and first-run approval, scorer (fake-success and trap rules), summaries, edit-format recommendation, report. The task content comes from Bazaar history and is added later; the module validates the mix.
 14. Avalonia.Headless tests for the review-diff view. Depends on 11 and the client shell (doc 28).
 
 ## Conflicts
