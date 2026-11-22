@@ -15,13 +15,15 @@ public sealed class SaveCoordinator : IDisposable
     private readonly IEditorDraftStore _drafts;
     private readonly TimeProvider _clock;
     private readonly TimeSpan _draftDebounce;
+    private readonly IEditorConflictSink? _conflictSink;
     private readonly ConcurrentDictionary<EditorDocumentId, DocumentEntry> _documents = new();
 
     public SaveCoordinator(
         IEditorFileSource source,
         IEditorDraftStore drafts,
         TimeProvider clock,
-        TimeSpan? draftDebounce = null)
+        TimeSpan? draftDebounce = null,
+        IEditorConflictSink? conflictSink = null)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(drafts);
@@ -30,6 +32,7 @@ public sealed class SaveCoordinator : IDisposable
         _drafts = drafts;
         _clock = clock;
         _draftDebounce = draftDebounce ?? DefaultDraftDebounce;
+        _conflictSink = conflictSink;
     }
 
     /// <summary>Raised after a document's state changed (outside any internal lock).</summary>
@@ -122,6 +125,7 @@ public sealed class SaveCoordinator : IDisposable
                 sentVersion = entry.Version;
             }
 
+            EditorConflictItem? reported = null;
             SaveOutcome outcome;
             try
             {
@@ -149,6 +153,11 @@ public sealed class SaveCoordinator : IDisposable
 
                         break;
                     case SaveOutcome.Conflict conflict:
+                        if (entry.Conflict?.ServerRevision != conflict.ServerRevision)
+                        {
+                            reported = new EditorConflictItem(id, baseRevision, content, conflict.ServerRevision, conflict.ServerContent);
+                        }
+
                         entry.Conflict = new SaveConflict(conflict.ServerRevision, conflict.ServerContent);
                         entry.UnavailableReason = null;
                         break;
@@ -161,6 +170,11 @@ public sealed class SaveCoordinator : IDisposable
             // Saved: delete the draft, or rewrite it when edits arrived during the save. Otherwise the draft stays,
             // refreshed so it holds everything typed so far.
             await SyncDraftAsync(entry).ConfigureAwait(false);
+            if (reported is not null)
+            {
+                await NotifyAsync(sink => sink.OpenedAsync(reported, CancellationToken.None)).ConfigureAwait(false);
+            }
+
             Raise(id);
             return outcome;
         }
@@ -190,6 +204,7 @@ public sealed class SaveCoordinator : IDisposable
         }
 
         await SyncDraftAsync(entry).ConfigureAwait(false);
+        await NotifyAsync(sink => sink.ResolvedAsync(id, EditorConflictResolution.KeptMine, CancellationToken.None)).ConfigureAwait(false);
         Raise(id);
     }
 
@@ -217,6 +232,7 @@ public sealed class SaveCoordinator : IDisposable
         }
 
         await SyncDraftAsync(entry).ConfigureAwait(false);
+        await NotifyAsync(sink => sink.ResolvedAsync(id, EditorConflictResolution.TookTheirs, CancellationToken.None)).ConfigureAwait(false);
         Raise(id);
         return content;
     }
@@ -318,6 +334,24 @@ public sealed class SaveCoordinator : IDisposable
         finally
         {
             entry.DraftGate.Release();
+        }
+    }
+
+    /// <summary>Calls the conflict sink if there is one. A sink failure never reaches the editor.</summary>
+    private async Task NotifyAsync(Func<IEditorConflictSink, Task> call)
+    {
+        if (_conflictSink is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await call(_conflictSink).ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // The conflict list is an extra view of a conflict the editor already shows.
         }
     }
 

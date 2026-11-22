@@ -37,7 +37,7 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
     }
 
     /// <summary>Builds the working pane over a host and a file source.</summary>
-    public AthanorPaneViewModel(string title, IEditorHost host, IEditorFileSource source, IEditorDraftStore drafts, TimeProvider? clock = null)
+    public AthanorPaneViewModel(string title, IEditorHost host, IEditorFileSource source, IEditorDraftStore drafts, TimeProvider? clock = null, IEditorConflictSink? conflictSink = null)
         : this(title)
     {
         ArgumentNullException.ThrowIfNull(host);
@@ -49,7 +49,7 @@ public sealed class AthanorPaneViewModel : IPaneViewModel, IAsyncDisposable
         _rawSource = source;
         _source = new RecordingSource(source);
         _workspace = new EditorWorkspace(host, _source);
-        _saves = new SaveCoordinator(_source, drafts, clock ?? TimeProvider.System);
+        _saves = new SaveCoordinator(_source, drafts, clock ?? TimeProvider.System, conflictSink: conflictSink);
 
         _host.Changed += OnHostChanged;
         _host.SaveRequested += OnHostSaveRequested;

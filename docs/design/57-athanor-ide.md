@@ -147,6 +147,10 @@ Revisions are opaque server strings (for a git workspace, the blob id of the fil
 
 Until the server module exists, `IEditorFileSource` has a read-only in-memory implementation for tests and a no-op "server unavailable" implementation for offline (doc 28: offline shows cached state only, no write queue). A server-backed `IEditorFileSource` over this pair lands as `Bazaar.Client.Athanor.Wire` after the contracts are accepted.
 
+**Conflict hand-off (PROPOSED, 2026-11-22).** `IEditorConflictSink` (in `Bazaar.Client.Athanor.Abstractions`) lets a conflict list, for example the Vault offline-sync module (doc 18), receive each save conflict next to the editor's own diff. `SaveCoordinator` calls `OpenedAsync` once per distinct server revision, with the base revision, the user's content and the server copy, and `ResolvedAsync` when the user keeps their text or takes the server copy. The editor never waits on a sink and ignores its failures; with no sink nothing changes, and the editor's own conflict diff and draft remain the source of truth. No sink implementation ships in Athanor.
+
+**Vault root as a workspace (OPEN).** The Vault repository has no host registration or settings key yet (doc 18 write path is PROPOSED, and its access rules apply per principal), so the Vault root stays an operator-configured workspace under `Bazaar:Athanor:Workspaces` with kind `Vault`. Writing the Vault checkout directly would bypass the Vault commit path; the Vault owner must decide whether Athanor saves go through the Vault writer before any automatic registration is built.
+
 ## 7. Key model (PROPOSED details)
 
 Monaco gets raw key events. Athanor's `IEditorKeyHandoff` maps a key event to the client key router first: if the router claims the key (a mnemonic, the command bar, a pane switch), Monaco never sees it. Vim-style editing inside the editor is Monaco's own keymap layer configured to match the client Vim reference (doc 41 §4.12); the exact set of exceptions is documented in the module README and in doc 49 when S12 resolves focus handoff. No Ctrl chords are added.
@@ -165,7 +169,7 @@ Registered through the module manifest (doc 41 §8): `athanor.open`, `athanor.ne
 
 ## 9. Tests
 
-Unit: bridge codec round trips and rejection cases; seq ordering; save coordinator revision conflicts; draft store crash recovery; path normalisation and escape rejection; language registry; theme push golden against `MonacoThemeGenerator`; key handoff mapping. `Avalonia.Headless`: the plain-text fallback host in the `athanor` pane (CLAUDE.md: every UI change gets a headless test). The WebView2 host and the bundle harness arrive with S12.
+Unit: bridge codec round trips and rejection cases; seq ordering; save coordinator revision conflicts; draft store crash recovery; path normalisation and escape rejection; language registry; theme push golden against `MonacoThemeGenerator`; key handoff mapping. `Avalonia.Headless`: the plain-text fallback host in the `athanor` pane (CLAUDE.md: every UI change gets a headless test). End to end (`Bazaar.Athanor.EndToEnd.Tests`): the pane, `WireEditorFileSource`, the host wire handlers and the directory store in one process over a Vault directory: open, edit, save, conflict with keep-mine, read-only without the write scope, offline draft then a later save, and path escape refused on both sides. The WebView2 host and the bundle harness arrive with S12.
 
 ## 10. Open questions
 
