@@ -36,6 +36,7 @@ public sealed class GitHubEventsPoller
     private readonly ILogger<GitHubEventsPoller> _logger;
     private readonly TimeProvider _time;
     private readonly IReadOnlySet<string> _memberLogins;
+    private readonly Bazaar.GitHub.Pr.IGitHubPrLookup? _prLookup;
     private readonly List<RepoState> _repos;
     private readonly Dictionary<string, (DateTimeOffset UpdatedAt, string? HeadSha)> _applied = new(StringComparer.Ordinal);
 
@@ -45,7 +46,8 @@ public sealed class GitHubEventsPoller
         IGitHubDeliveryStore store,
         GitHubIngressOptions options,
         ILogger<GitHubEventsPoller> logger,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        Bazaar.GitHub.Pr.IGitHubPrLookup? prLookup = null)
     {
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentNullException.ThrowIfNull(sink);
@@ -59,6 +61,7 @@ public sealed class GitHubEventsPoller
         _options = options;
         _logger = logger;
         _time = time ?? TimeProvider.System;
+        _prLookup = prLookup;
         _mapper = new GitHubEventMapper(options.AgentLogins);
         _memberLogins = new HashSet<string>(options.MemberLogins.Concat(options.AgentLogins), StringComparer.OrdinalIgnoreCase);
         _repos = [.. options.ParsedRepositories().Select(r => new RepoState(r.Owner, r.Repo))];
@@ -153,8 +156,9 @@ public sealed class GitHubEventsPoller
             .ThenBy(e => e.EventId, StringComparer.Ordinal);
 
         var seenInPage = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var gitHubEvent in ordered)
+        foreach (var polled in ordered)
         {
+            var gitHubEvent = polled;
             ct.ThrowIfCancellationRequested();
             if (cutoff is { } limit && gitHubEvent.UpdatedAt < limit)
             {
@@ -167,6 +171,8 @@ public sealed class GitHubEventsPoller
                 continue;
             }
 
+            // A push carries no PR node id; find the PR in github_pr.
+            gitHubEvent = await Bazaar.GitHub.Pr.GitHubPrResolver.ResolveAsync(_prLookup, gitHubEvent, ct);
             var subject = gitHubEvent.PrNodeId;
             var apply = true;
             if (subject is not null && _applied.TryGetValue(subject, out var last))

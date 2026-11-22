@@ -56,6 +56,7 @@ public sealed partial class GitHubEventMapper
         {
             "pull_request" => MapPullRequest(gitHubEvent),
             "pull_request_review" => MapReview(gitHubEvent),
+            "issues" when gitHubEvent.Action == "assigned" && gitHubEvent.IssueNodeId is not null => MapIssueAssigned(gitHubEvent),
             "issue_comment" or "pull_request_review_comment" or "issues" => MapComment(gitHubEvent),
             "check_run" or "check_suite" => MapCheck(gitHubEvent),
             "push" => MapPush(gitHubEvent),
@@ -187,6 +188,21 @@ public sealed partial class GitHubEventMapper
             .ToList();
 
         return [new MappedGitHubEffect(entry, items, GitHubProvenance.Member)];
+    }
+
+    // Doc 21 (issue GC, PROPOSED): an agent assigned to an issue gets an assignment row, like a review request on a PR. The
+    // entry goes to the issue GC either way; a non-agent assignee only produces the entry.
+    private IReadOnlyList<MappedGitHubEffect> MapIssueAssigned(GitHubEvent e)
+    {
+        var assignee = e.AssignedLogin;
+        var entry = new GcEntryDraft(new GcTarget(GcTargetKind.Issue, e.IssueNodeId), "issue_event", $"Issue assigned to {assignee ?? "someone"}", BodyExcerpt: null);
+        if (assignee is not null && IsAgent(assignee))
+        {
+            var assignment = new InboxItemDraft(InboxRecipientRole.Assignee, assignee, InboxKind.Assignment, Wakes: true);
+            return [new MappedGitHubEffect(entry, [assignment], GitHubProvenance.Member)];
+        }
+
+        return [new MappedGitHubEffect(entry, [], GitHubProvenance.Member)];
     }
 
     private IReadOnlyList<MappedGitHubEffect> MapCheck(GitHubEvent e)

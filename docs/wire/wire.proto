@@ -188,6 +188,19 @@ message Hello {
   StreamCursorList cursors = 9;
 }
 
+message KanbanAssignReply {
+  string status = 1;
+  optional int64 revision = 2;
+  optional string reason = 3;
+}
+
+message KanbanAssignRequest {
+  bytes project_id = 1;
+  bytes card_id = 2;
+  optional bytes assignee_agent_id = 3;
+  int64 expected_revision = 4;
+}
+
 message KanbanBoardCard {
   bytes id = 1;
   string title = 2;
@@ -229,6 +242,28 @@ message Ping {
 
 message Pong {
   optional string nonce = 1;
+}
+
+message PresenceSnapshot {
+  repeated WirePresenceRow rows = 1;
+}
+
+message PresenceSnapshotRequest {
+}
+
+message PresenceTyping {
+  string kind = 1;
+  bytes gc_id = 2;
+  bytes principal_id = 3;
+  bool typing = 4;
+  int32 ttl_ms = 5;
+}
+
+message PresenceUpdate {
+  string kind = 1;
+  bytes agent_id = 2;
+  int64 revision = 3;
+  WirePresenceRow row = 4;
 }
 
 message ReleaseArtifact {
@@ -433,4 +468,18 @@ message WireLimits {
   int32 max_frame_bytes = 1;
   int32 inflight_requests_max = 2;
   int32 replay_page_size = 3;
+}
+
+message WirePresenceRow {
+  bytes agent_id = 1;
+  int64 revision = 2;
+  string availability = 3;
+  repeated string overlays = 4;
+  string presence = 5;
+  string activity_kind = 6;
+  optional bytes gc_id = 7;
+  optional bytes turn_id = 8;
+  optional string label = 9;
+  Instant since = 10;
+  Instant updated_at = 11;
 }
