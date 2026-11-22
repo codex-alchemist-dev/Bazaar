@@ -59,7 +59,7 @@ public class WidgetMappingTests
     [InlineData("placeholder")]
     public void Minimal_document_passes_the_real_validator(string widget)
     {
-        Assert.Empty(ViewValidator.Validate(ViewFixtures.Minimal(widget)));
+        Assert.Empty(ViewValidator.Validate(ViewFixtures.Minimal(widget)).Select(d => d.Code + ": " + d.Message));
     }
 
     /// <summary>A list's item fields are in scope in its template: the template binds "title" and the list shows each row's title.</summary>
@@ -103,7 +103,7 @@ public class WidgetMappingTests
     public void Text_style_small_uses_the_secondary_colour_and_small_size()
     {
         var harness = new Harness();
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Lit("note")), ("style", ViewFixtures.Lit("small")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Lit("note")), ("style", ViewFixtures.Lit("small")));
 
         var text = Assert.IsType<TextBlock>(harness.Build(ViewFixtures.Document(node)));
 
