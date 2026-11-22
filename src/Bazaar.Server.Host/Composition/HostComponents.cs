@@ -15,6 +15,7 @@ using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Audit;
 using Bazaar.Server.BrowserPool.Display;
+using Bazaar.Server.BrowserPool.Egress;
 using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
@@ -38,6 +39,7 @@ using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
@@ -51,10 +53,13 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.Analytics;
+using Bazaar.Server.Analytics.Git;
+using Bazaar.Server.Analytics.Postgres;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.TalentPool.Component;
-using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.VmDensity;
@@ -96,6 +101,7 @@ public static class HostComponents
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
+        new InterruptsComponent(),
         new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
@@ -111,6 +117,9 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new AnalyticsComponent(),
+        new AnalyticsPostgresComponent(),
+        new AnalyticsGitComponent(),
         new AccountApprovalComponent(),
         new OwnerQueueComponent(),
         new CouncilComponent(),
@@ -135,6 +144,7 @@ public static class HostComponents
         new ValkeyComponent(),
         new GarnetComponent(),
         new PresenceComponent(),
+        new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
         // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
         // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
@@ -152,6 +162,7 @@ public static class HostComponents
         new BrowserPoolImageComponent(),
         new BrowserPoolGateComponent(),
         new BrowserPoolAuditComponent(),
+        new BrowserPoolEgressComponent(),
     ];
 
     /// <summary>

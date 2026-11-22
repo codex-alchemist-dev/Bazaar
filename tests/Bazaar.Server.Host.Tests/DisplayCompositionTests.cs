@@ -3,6 +3,7 @@ using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.BrowserPool.Audit;
+using Bazaar.Server.BrowserPool.Egress;
 using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Host.Composition;
@@ -17,6 +18,7 @@ using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Microsoft.Extensions.Configuration;
+using Bazaar.Server.VmEgress;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -32,6 +34,7 @@ public sealed class DisplayCompositionTests
     [
         "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-hyperv", "vm-display-kvm",
         "vm-density", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
+        "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
 
     private static readonly DisplayTarget _target = new("agent-one", Guid.NewGuid(), DisplayGuestOs.Linux, "vm-one");
@@ -61,6 +64,9 @@ public sealed class DisplayCompositionTests
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-display"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-linux-host"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-image"));
+        Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-egress"));
+        Assert.True(listed.IndexOf("browser-pool-gate") < listed.IndexOf("browser-pool-egress"));
+        Assert.True(listed.IndexOf("browser-pool-audit") < listed.IndexOf("browser-pool-egress"));
     }
 
     [Fact]
@@ -208,8 +214,24 @@ public sealed class DisplayCompositionTests
         var gate = Assert.IsType<KillSwitchPoolGate>(host.Services.GetRequiredService<IPoolGate>());
         Assert.Same(gate, host.Services.GetRequiredService<IAsyncPoolGate>());
         Assert.IsType<AuditLogPoolAuditSink>(host.Services.GetRequiredService<IPoolAuditSink>());
-        Assert.IsType<UnconfiguredPoolEgressPolicy>(host.Services.GetRequiredService<IPoolEgressPolicy>());
+        Assert.IsType<AllowlistStorePoolEgressPolicy>(host.Services.GetRequiredService<IPoolEgressPolicy>());
         Assert.Empty(pool.Sessions("agent-one"));
+    }
+
+    [Fact]
+    public async Task The_pool_egress_policy_answers_from_the_egress_store_and_has_no_proxy_for_an_agent_nobody_set_up()
+    {
+        using var host = BuildHost();
+        var policy = host.Services.GetRequiredService<IPoolEgressPolicy>();
+
+        Assert.IsType<AllowlistStorePoolEgressPolicy>(policy);
+        // No database is needed: the default store is in memory and empty, and nothing starts a proxy at load.
+        Assert.Null(await policy.ResolveAsync("agent-one", CancellationToken.None));
+
+        var store = host.Services.GetRequiredService<IEgressAllowlistStore>();
+        await store.SaveAsync("agent-one", new EgressRules([], System.Net.IPAddress.Parse("10.20.0.1"), 3128), CancellationToken.None);
+        Assert.Equal(new PoolEgressEndpoint("10.20.0.1", 3128), await policy.ResolveAsync("agent-one", CancellationToken.None));
+        Assert.Null(await policy.ResolveAsync("agent-two", CancellationToken.None));
     }
 
     [Fact]
