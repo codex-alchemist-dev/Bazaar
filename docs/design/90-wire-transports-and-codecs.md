@@ -144,7 +144,7 @@ Built (WP5a), except `wire.proto`: `schema.json` is `docs/wire/schema.lock.json`
 They ship in release artifacts and are served by `Bazaar.Server.Wire.Discovery`. The schema hash is part of `welcome`; a client that sees a hash it does not know still works (forward-compatible rules) and may log. Outside clients are a supported path now (owner), not only a fallback; the Rust note in S6 stays valid.
 
 ### 6. Discovery surface [PROPOSED]
-`GET /.well-known/bazaar/wire` returns the transport offers, enabled codecs, protocol range, limits that are public, and the schema hash. `GET /.well-known/bazaar/wire/schema/{name}` returns the artifacts above. Read-only, cacheable, rate-limited under the status bucket, allowed on the browser status surface (doc 02 permits a read-only status page). It reveals no user, device or secret data and nothing the `welcome` of an unauthenticated probe would not reveal. Operators can turn it off; the client then relies on `welcome`.
+`GET /.well-known/bazaar/wire` returns the transport offers, enabled codecs, protocol range, limits that are public, and the schema hash. `GET /.well-known/bazaar/wire/schema/{name}` returns the artifacts above. Read-only, cacheable, rate-limited under the status bucket, allowed on the browser status surface (doc 02 permits a read-only status page). It reveals no user, device or secret data and nothing the `welcome` of an unauthenticated probe would not reveal. Operators can turn it off; the client then relies on `welcome`. Implementation status: the keys are declared by `WireDiscoverySettings` in `Bazaar.Server.Wire.Discovery` and read live (the host refreshes an in-memory snapshot every few seconds, so a change applies without a restart). The rate bounds are the floor: the limiter cannot be switched off. `Bazaar.Server.Host` lists the `wire-discovery` component, registers the embedded schema source and maps the route while the component is enabled. The floor ids `ws` and `json` are advertised by a host contribution until the Wire extraction (#839) moves each to the module that owns it.
 
 ### 7. Transforms [PROPOSED]
 Compression is a transform module, negotiated like a codec (`Hello.Transforms`, Mode A header `bazaar-transform`). Rules: off by default; never applied to `hello`, `welcome`, `auth.refresh` or any frame carrying a credential (BREACH and CRIME style leaks mix secrets with attacker-influenced data); decompressed size is capped by `MaxFrameBytes` before inflating (compression-bomb guard), and a ratio above 100:1 closes with 4400. WebSocket `permessage-deflate` stays off.
@@ -159,6 +159,8 @@ Registered in doc 03's settings registry; operator-set, install scope; every cha
 | `wire.codecs.preference` | string list | `json` first until the spike ranks them | install | Operator | No; audited |
 | `wire.codecs.preference.by_device_class` | map | empty | install | Operator | No; audited |
 | `wire.discovery.enabled` | bool | true | install | Operator | No; audited |
+| `wire.discovery.rate.permit_limit` | int | 300 (1 to 6000) | install | Operator | No; audited |
+| `wire.discovery.rate.window_seconds` | int | 60 (1 to 3600) | install | Operator | No; audited |
 | `wire.transport.race_stagger_ms` | int | 250 | install | Operator | No; audited |
 | `wire.quic.stream_per_subscription` | bool | false | install | Operator | No; audited |
 | `wire.decode.max_depth`, `wire.decode.max_string_bytes`, `wire.decode.max_collection_items` | int | 32, 1048576, 100000 | install | Operator | Raising above default: yes |

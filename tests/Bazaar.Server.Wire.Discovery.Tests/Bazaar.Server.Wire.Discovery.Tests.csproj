@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Wire.Discovery\Bazaar.Server.Wire.Discovery.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Wire.Schema\Bazaar.Wire.Schema.csproj" />
   </ItemGroup>
 </Project>
