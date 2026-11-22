@@ -20,7 +20,7 @@ public sealed class OwnerSignedWideningGateTests
 
     private sealed class Biometric(bool pass) : IWideningBiometricCheck
     {
-        public Task<bool> PassedAsync(GrantWideningRequest request, CancellationToken ct = default) => Task.FromResult(pass);
+        public Task<bool> PassedAsync(GrantWideningRequest request, OwnerWideningApproval approval, CancellationToken ct = default) => Task.FromResult(pass);
     }
 
     private static readonly Guid _owner = Guid.NewGuid();
