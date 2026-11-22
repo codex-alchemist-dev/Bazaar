@@ -36,7 +36,7 @@ public sealed class InboxRepositoryGitHubInboxWriter(InboxRepository repository)
 
 /// <summary>
 /// Postgres directory. A PR GC comes from <c>github_pr.gc_id</c> (this module's own table); the Inbox GC is the configured
-/// <see cref="GitHubIngressOptions.InboxGcId"/>; an issue has no GC table yet, so it resolves to null. An agent comes from
+/// <see cref="GitHubIngressOptions.InboxGcId"/>; an issue GC comes from <c>github_issue.gc_id</c>. An agent comes from
 /// <c>github_app.account_login</c>.
 /// </summary>
 public sealed class PgGitHubGcDirectory(NpgsqlDataSource dataSource, GitHubIngressOptions options) : IGitHubGcDirectory
@@ -50,6 +50,13 @@ public sealed class PgGitHubGcDirectory(NpgsqlDataSource dataSource, GitHubIngre
                 return options.InboxGcId;
             case GcTargetKind.PullRequest when target.NodeId is not null:
                 await using (var cmd = dataSource.CreateCommand("SELECT gc_id FROM github_pr WHERE pr_node_id = @id"))
+                {
+                    cmd.Parameters.AddWithValue("id", target.NodeId);
+                    return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as Guid?;
+                }
+
+            case GcTargetKind.Issue when target.NodeId is not null:
+                await using (var cmd = dataSource.CreateCommand("SELECT gc_id FROM github_issue WHERE issue_node_id = @id"))
                 {
                     cmd.Parameters.AddWithValue("id", target.NodeId);
                     return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as Guid?;

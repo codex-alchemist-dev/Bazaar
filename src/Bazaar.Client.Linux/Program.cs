@@ -63,7 +63,7 @@ internal static class Program
         // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
         using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
