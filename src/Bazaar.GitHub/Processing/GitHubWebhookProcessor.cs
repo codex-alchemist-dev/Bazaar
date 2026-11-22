@@ -1,5 +1,6 @@
 using Bazaar.GitHub.Events;
 using Bazaar.GitHub.Ingress;
+using Bazaar.GitHub.Pr;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.GitHub.Processing;
@@ -12,6 +13,7 @@ namespace Bazaar.GitHub.Processing;
 /// <item>The row is marked processed only after the sink accepted it.</item>
 /// <item>A sink (or mapper) failure leaves it unprocessed; it is claimable again after an exponential backoff.</item>
 /// <item>An unparseable row is a poison row: marked processed with the reason in <c>process_error</c>, so it never loops.</item>
+/// <item>A <c>check_run</c>, <c>check_suite</c> or <c>push</c> is resolved to its open PR from <c>github_pr</c> first; with no match it maps to no effect.</item>
 /// <item>An event type the mapping does not use is marked processed without calling the sink.</item>
 /// </list>
 /// </summary>
@@ -30,6 +32,7 @@ public sealed class GitHubWebhookProcessor
     private readonly ILogger<GitHubWebhookProcessor> _logger;
     private readonly TimeProvider _time;
     private readonly IReadOnlySet<string> _memberLogins;
+    private readonly IGitHubPrLookup? _prLookup;
     private readonly Dictionary<string, (DateTimeOffset UpdatedAt, string? HeadSha)> _applied = new(StringComparer.Ordinal);
 
     public GitHubWebhookProcessor(
@@ -38,7 +41,8 @@ public sealed class GitHubWebhookProcessor
         GitHubIngressOptions ingress,
         GitHubWebhookProcessorOptions options,
         ILogger<GitHubWebhookProcessor> logger,
-        TimeProvider? time = null)
+        TimeProvider? time = null,
+        IGitHubPrLookup? prLookup = null)
     {
         ArgumentNullException.ThrowIfNull(queue);
         ArgumentNullException.ThrowIfNull(sink);
@@ -51,6 +55,7 @@ public sealed class GitHubWebhookProcessor
         _options = options;
         _logger = logger;
         _time = time ?? TimeProvider.System;
+        _prLookup = prLookup;
         _mapper = new GitHubEventMapper(ingress.AgentLogins);
         _memberLogins = new HashSet<string>(ingress.MemberLogins.Concat(ingress.AgentLogins), StringComparer.OrdinalIgnoreCase);
     }
@@ -85,6 +90,8 @@ public sealed class GitHubWebhookProcessor
         var gitHubEvent = ((WebhookParseResult.Parsed)parsed).Event;
         try
         {
+            // check_run, check_suite and push carry no PR node id; find the PR in github_pr (a lookup failure retries the row like a sink failure).
+            gitHubEvent = await GitHubPrResolver.ResolveAsync(_prLookup, gitHubEvent, ct).ConfigureAwait(false);
             var apply = true;
             var subject = gitHubEvent.PrNodeId;
             if (subject is not null && _applied.TryGetValue(subject, out var last))

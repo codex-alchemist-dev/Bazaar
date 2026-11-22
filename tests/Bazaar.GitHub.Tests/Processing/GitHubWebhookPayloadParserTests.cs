@@ -139,6 +139,32 @@ public sealed class GitHubWebhookPayloadParserTests
     }
 
     [Fact]
+    public void Check_events_read_the_listed_pull_request_numbers()
+    {
+        var run = ParseOk("check_run", """
+            {"action": "completed", "sender": {"login": "github-actions[bot]"}, "repository": {"node_id": "R_1"},
+             "check_run": {"node_id": "CR_1", "conclusion": "failure", "head_sha": "abc", "pull_requests": [{"number": 7}, {"number": 9}, {"number": 7}]}}
+            """);
+        var suite = ParseOk("check_suite", """
+            {"action": "completed", "sender": {"login": "github-actions[bot]"}, "repository": {"node_id": "R_1"},
+             "check_suite": {"node_id": "CS_1", "conclusion": "failure", "head_sha": "abc", "pull_requests": []}}
+            """);
+
+        Assert.Equal([7, 9], run.PullRequestNumbers);
+        Assert.Empty(suite.PullRequestNumbers);
+    }
+
+    [Fact]
+    public void A_branch_deleting_push_names_no_head()
+    {
+        var e = ParseOk("push", $$$"""
+            {"ref": "refs/heads/x", "after": "{{{new string('0', 40)}}}", "sender": {"login": "bob-bazaar[bot]"}, "repository": {"node_id": "R_1"}}
+            """);
+
+        Assert.Null(e.HeadSha);
+    }
+
+    [Fact]
     public void Association_is_trusted_only_for_the_subject_author_or_a_member_login()
     {
         // The sender (frank) is not the comment author (dave), so dave's OWNER association does not carry over.

@@ -21,7 +21,8 @@ public abstract record WebhookParseResult
 /// Turns a stored webhook body (<c>github_delivery.payload</c> plus <c>event_type</c>) into a <see cref="GitHubEvent"/> (doc 21, Event mapping).
 /// Webhook bodies differ from the Events API shape read by <see cref="GitHubEventsApiParser"/>: the event name is a header,
 /// the actor is <c>sender</c>, and the repository sits at the top level. Pure: no I/O.
-/// Two limits, both from GitHub's payloads: <c>check_run</c>, <c>check_suite</c> and <c>push</c> carry no PR node id, so they have none here;
+/// Two limits, both from GitHub's payloads: <c>check_run</c>, <c>check_suite</c> and <c>push</c> carry no PR node id, so they have none here
+/// (they carry the listed PR numbers and the head SHA, and <see cref="Bazaar.GitHub.Pr.GitHubPrResolver"/> finds the PR from those);
 /// and <c>author_association</c> describes the subject's author, so it is trusted only when the sender is that author, or a known member login.
 /// </summary>
 public static class GitHubWebhookPayloadParser
@@ -126,7 +127,7 @@ public static class GitHubWebhookPayloadParser
                 "issues" => (Str(issue, "node_id"), Str(issue, "body"), Time(Str(issue, "updated_at")), null, null),
                 "check_run" => (Str(checkRun, "node_id"), null, Time(Str(checkRun, "completed_at")) ?? Time(Str(checkRun, "started_at")), Str(checkRun, "head_sha"), Str(checkRun, "conclusion")),
                 "check_suite" => (Str(checkSuite, "node_id"), null, Time(Str(checkSuite, "updated_at")), Str(checkSuite, "head_sha"), Str(checkSuite, "conclusion")),
-                _ => ((string?)null, null, (DateTimeOffset?)null, Str(root, "after"), null),
+                _ => ((string?)null, null, (DateTimeOffset?)null, PushHead(Str(root, "after")), null),
             };
 
             if (eventType is "pull_request" or "pull_request_review" or "pull_request_review_comment" && prNodeId is null)
@@ -160,9 +161,36 @@ public static class GitHubWebhookPayloadParser
                 Draft = Bool(pull, "draft"),
                 BaseRef = Str(Obj(pull, "base"), "ref"),
                 RepoFullName = Str(Obj(root, "repository"), "full_name"),
+                PullRequestNumbers = eventType switch
+                {
+                    "check_run" => Numbers(checkRun),
+                    "check_suite" => Numbers(checkSuite),
+                    _ => [],
+                },
                 AssigneeLogins = Logins(pull, "assignees").Concat(Logins(pull, "requested_reviewers")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             });
         }
+    }
+
+    // A push that deletes the branch has an all-zero "after", which names no commit.
+    private static string? PushHead(string? after) =>
+        string.IsNullOrEmpty(after) || after.All(static c => c == '0') ? null : after;
+
+    private static List<int> Numbers(JsonElement? checkObject)
+    {
+        var numbers = new List<int>();
+        if (checkObject is { ValueKind: JsonValueKind.Object } c && c.TryGetProperty("pull_requests", out var list) && list.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in list.EnumerateArray())
+            {
+                if (Int(item, "number") is { } n && !numbers.Contains(n))
+                {
+                    numbers.Add(n);
+                }
+            }
+        }
+
+        return numbers;
     }
 
     private static string? PrStateOf(JsonElement? pull) =>

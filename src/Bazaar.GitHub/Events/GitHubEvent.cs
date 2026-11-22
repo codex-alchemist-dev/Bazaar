@@ -76,6 +76,9 @@ public sealed record GitHubEvent
     /// <summary><c>owner/name</c> of the repository, used for the GC title only. Keys are node ids.</summary>
     public string? RepoFullName { get; init; }
 
+    /// <summary>check_run or check_suite: the numbers of the PRs the payload lists in <c>pull_requests</c> (empty for forks and for other events). Used only to look the PR up.</summary>
+    public IReadOnlyList<int> PullRequestNumbers { get; init; } = [];
+
     /// <summary>Logins assigned to or asked to review the PR, from the pull request object.</summary>
     public IReadOnlyList<string> AssigneeLogins { get; init; } = [];
 }

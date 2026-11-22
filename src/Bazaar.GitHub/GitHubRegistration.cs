@@ -48,6 +48,8 @@ public static class GitHubRegistration
                     sp.GetRequiredService<GitHubIngressOptions>(), sp.GetRequiredService<ILogger<GitHubGcEventSink>>()))
                 : new UnwiredGitHubEventSink());
         services.AddBazaarGitHubPrGc(configuration);
+        services.TryAddSingleton<IGitHubPrLookup>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubPrLookup(dataSource) : new NoGitHubPrLookup());
         services.TryAddSingleton<IGitHubDeliveryStore>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgGitHubDeliveryStore(dataSource) : new InMemoryGitHubDeliveryStore());
         services.TryAddSingleton(sp => new GitHubEventsPoller(
@@ -56,7 +58,8 @@ public static class GitHubRegistration
             sp.GetRequiredService<IGitHubDeliveryStore>(),
             sp.GetRequiredService<GitHubIngressOptions>(),
             sp.GetRequiredService<ILogger<GitHubEventsPoller>>(),
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            sp.GetService<IGitHubPrLookup>()));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IHostedService, GitHubEventsPollingService>(sp => new GitHubEventsPollingService(
             sp.GetRequiredService<GitHubEventsPoller>(),
             sp.GetRequiredService<GitHubIngressOptions>(),
@@ -72,7 +75,7 @@ public static class GitHubRegistration
             var options = sp.GetRequiredService<GitHubWebhookProcessorOptions>();
             var processor = sink is not UnwiredGitHubEventSink && sp.GetService<NpgsqlDataSource>() is not null
                 ? new GitHubWebhookProcessor(sp.GetRequiredService<IGitHubDeliveryInbox>(), sink, sp.GetRequiredService<GitHubIngressOptions>(),
-                    options, sp.GetRequiredService<ILogger<GitHubWebhookProcessor>>(), sp.GetService<TimeProvider>())
+                    options, sp.GetRequiredService<ILogger<GitHubWebhookProcessor>>(), sp.GetService<TimeProvider>(), sp.GetService<IGitHubPrLookup>())
                 : null;
             return new GitHubWebhookProcessingService(processor, options, sink, sp.GetRequiredService<ILogger<GitHubWebhookProcessingService>>(), sp.GetService<TimeProvider>());
         }));
