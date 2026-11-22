@@ -1,7 +1,9 @@
 using Bazaar.Approvals;
+using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.AgentSafety.Startup;
+using Bazaar.Server.AgentSafety.Wake;
 using Bazaar.Server.Identity.Leases;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Budgets;
@@ -49,6 +51,8 @@ public static class AgentSafetyModule
 
         services.AddAgentSafety(configuration);
         services.AddHostedService<KillSwitchStartupGate>();
+        // The wake loop (doc 06) asks the kill switch before every wake. Replace, so the answer does not depend on registration order.
+        services.Replace(ServiceDescriptor.Singleton<IAgentWakeGate>(sp => new KillSwitchWakeGate(sp.GetRequiredService<KillSwitchEngine>())));
         return services;
     }
 }
