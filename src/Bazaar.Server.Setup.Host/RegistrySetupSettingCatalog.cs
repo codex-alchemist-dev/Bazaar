@@ -14,8 +14,8 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     private readonly SettingRegistry _registry;
     private readonly Dictionary<string, ISetupSettingDefinition> _byName;
 
-    /// <summary>The catalog of the registry this build ships (<see cref="SettingRegistry.Known"/>).</summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.Known);
+    /// <summary>The catalog of the registry this build ships (<see cref="BuiltInSettingRegistries.Known"/>).</summary>
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.Known);
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)
     {
