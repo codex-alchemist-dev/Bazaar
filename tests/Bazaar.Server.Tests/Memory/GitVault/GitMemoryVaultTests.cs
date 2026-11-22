@@ -176,5 +176,8 @@ public sealed class GitMemoryVaultTests : IDisposable
     {
         public Task<VaultEditResult> SubmitAsync(VaultEditRequest request, CancellationToken ct) =>
             Task.FromResult(new VaultEditResult(outcome, "old", "old", paths, null));
+
+        public Task<VaultEditResult> CreateDecisionAsync(DecisionDraft draft, CancellationToken ct) =>
+            Task.FromResult(new VaultEditResult(outcome, "old", "old", paths, null));
     }
 }

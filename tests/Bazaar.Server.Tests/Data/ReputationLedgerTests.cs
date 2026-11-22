@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Data;
 /// <summary>Migration <c>common/0013_reputation_ledger.sql</c> on real PostgreSQL (doc 11, WP1).</summary>
 public sealed class ReputationLedgerTests(MigrationDb db) : IClassFixture<MigrationDb>
 {
-    private static readonly EmbeddedMigrationSource _source = new(typeof(MigrationRunner).Assembly);
+    private static readonly EmbeddedMigrationSource _source = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
     private static readonly string[] _tables =
         ["review", "outcome_event", "outcome_attribution", "reviewer_calibration", "weights_version", "score_snapshot", "reputation_event"];

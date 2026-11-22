@@ -44,6 +44,7 @@ internal sealed unsafe class NodePipeline : IDisposable
     private ulong _styleCapacity;
     private void* _styleMapped;
     private int _styleCount;
+    private SectionPass? _sections;
     private bool _disposed;
 
     /// <param name="finalLayout">Layout the colour target is left in after the pass: present for a swapchain, transfer-source for an offscreen copy.</param>
@@ -62,6 +63,7 @@ internal sealed unsafe class NodePipeline : IDisposable
         CreateRenderPass();
         CreateDescriptors();
         CreatePipeline();
+        _sections = new SectionPass(instanceApi, deviceApi, physicalDevice, _renderPass, reversedZ);
         CreateCornerBuffer();
         ResizeStyleBuffer(NodeStylePacking.StyleStride);
     }
@@ -70,6 +72,16 @@ internal sealed unsafe class NodePipeline : IDisposable
 
     /// <summary>Number of styles uploaded by the last <see cref="UploadStyles"/>. Nodes are drawn only when this is above zero.</summary>
     public int StyleCount => _styleCount;
+
+    /// <summary>Number of section rectangles that will be drawn behind the nodes.</summary>
+    public int SectionCount => _sections?.Count ?? 0;
+
+    /// <summary>Replaces the section rectangles with bytes from <see cref="SectionPacking"/>. Call only when no frame reading them is in flight.</summary>
+    public void UploadSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _sections!.Upload(sectionBytes);
+    }
 
     /// <summary>Copies packed instance bytes into the instance buffer, growing it when needed.</summary>
     public void Upload(ReadOnlySpan<byte> instanceBytes)
@@ -140,6 +152,9 @@ internal sealed unsafe class NodePipeline : IDisposable
         };
         _deviceApi.vkCmdBeginRenderPass(commandBuffer, &begin, VkSubpassContents.Inline);
 
+        // Sections go first so the nodes (and their edges) always draw on top of the backdrop.
+        _sections!.Record(commandBuffer, extent, view);
+
         if (instanceCount > 0 && _styleCount > 0)
         {
             var viewport = new VkViewport
@@ -179,6 +194,8 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
 
         _disposed = true;
+        _sections?.Dispose();
+        _sections = null;
         if (_instanceMapped is not null)
         {
             _deviceApi.vkUnmapMemory(_instanceMemory);

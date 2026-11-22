@@ -1,80 +1,70 @@
-using AndroidX.AppCompat.App;
-using AndroidX.Biometric;
-using AndroidX.Core.Content;
+using Android.App;
+using Android.Content;
+using Android.Hardware.Biometrics;
+using Android.OS;
 using Bazaar.Client.Approvals;
-using Java.Lang;
 
 namespace Bazaar.Client.Android.Approvals;
 
 /// <summary>
-/// The approval biometric prompt over AndroidX BiometricPrompt (doc 29, Approvals). Strong biometric only: no device PIN,
-/// pattern or password fallback, and no weak check. Every call shows a new prompt, and the prompt names the approval and the
-/// start of its content hash so it cannot be mistaken for another request. A success is returned only from the platform's
-/// success callback; every error code goes through <see cref="BiometricErrorMap"/> and none is a success.
+/// The Android fresh-biometric prompt for approvals (doc 29 Approvals). It uses the platform BiometricPrompt with a strong
+/// biometric only: no device PIN or password fallback, and no cached result, so every approval prompts. Every outcome
+/// other than a recognised biometric maps to a refusal. UNVERIFIED on device: this head cannot be built in CI.
 /// </summary>
-/// <remarks>
-/// The binding of the decision to the approval id, the content hash and the decision kind, the single use, and the 30 s grace
-/// are the gate's (<see cref="ApprovalGate"/>); this class is the platform prompt only and caches nothing. Dictation never
-/// reaches it: the gate accepts only a card button tap. Android-only code: it compiles with the Android workload (BazaarAndroid=true).
-/// </remarks>
-public sealed class AndroidBiometricPrompt(Func<AppCompatActivity?> activity) : IBiometricPrompt
+public sealed class AndroidBiometricPrompt(Func<Activity?> activity) : IBiometricPrompt
 {
-    private const int _shownPrefixLength = 8;
-
-    private readonly Func<AppCompatActivity?> _activity = activity ?? throw new ArgumentNullException(nameof(activity));
-
-    /// <inheritdoc />
-    public ValueTask<BiometricOutcome> AuthenticateAsync(BiometricRequest request, CancellationToken cancellationToken)
+    public async ValueTask<BiometricOutcome> AuthenticateAsync(BiometricRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-
-        var host = _activity();
-        if (host is null)
+        var current = activity();
+        if (current is null)
         {
-            // No foreground activity: the prompt cannot be shown, so nothing is approved.
-            return ValueTask.FromResult(BiometricOutcome.Unavailable);
+            return BiometricOutcome.Unavailable;
         }
 
-        if (BiometricManager.From(host).CanAuthenticate(BiometricManager.Authenticators.BiometricStrong) != BiometricManager.BiometricSuccess)
+        var manager = (BiometricManager?)current.GetSystemService(Context.BiometricService);
+        if (manager is null || manager.CanAuthenticate((int)BiometricManager.Authenticators.BiometricStrong) != (int)BiometricCode.Success)
         {
-            return ValueTask.FromResult(BiometricOutcome.Unavailable);
+            return BiometricOutcome.Unavailable;
         }
 
-        var completion = new TaskCompletionSource<BiometricOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var requestShort = request.ApprovalId.ToString("N")[.._shownPrefixLength];
-        var hashShort = request.ContentHash[..System.Math.Min(_shownPrefixLength, request.ContentHash.Length)];
-        host.RunOnUiThread(() =>
-        {
-            var prompt = new BiometricPrompt(host, ContextCompat.GetMainExecutor(host)!, new Callback(completion));
-            var info = new BiometricPrompt.PromptInfo.Builder()
-                .SetTitle(request.Title)!
-                .SetSubtitle($"{request.Subtitle} (request {requestShort}, content {hashShort})")!
-                .SetAllowedAuthenticators(BiometricManager.Authenticators.BiometricStrong)!
-                .SetConfirmationRequired(true)!
-                .SetNegativeButtonText("Cancel")!
-                .Build();
-            prompt.Authenticate(info);
+        var done = new TaskCompletionSource<BiometricOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var executor = current.MainExecutor!;
+        var cancel = new CancellationSignal();
+        var prompt = new BiometricPrompt.Builder(current)
+            .SetTitle(request.Title)!
+            .SetSubtitle(request.Subtitle)!
+            .SetAllowedAuthenticators((int)BiometricManager.Authenticators.BiometricStrong)!
+            .SetNegativeButton("Cancel", executor, new CancelListener(done))!
+            .Build()!;
 
-            // A cancelled token dismisses the prompt and counts as a cancelled prompt.
-            cancellationToken.Register(() => host.RunOnUiThread(() =>
-            {
-                prompt.CancelAuthentication();
-                completion.TrySetResult(BiometricOutcome.Cancelled);
-            }));
+        using var registration = cancellationToken.Register(() =>
+        {
+            cancel.Cancel();
+            done.TrySetResult(BiometricOutcome.Cancelled);
         });
-
-        return new ValueTask<BiometricOutcome>(completion.Task);
+        prompt.Authenticate(cancel, executor, new Callback(done));
+        return await done.Task.ConfigureAwait(false);
     }
 
-    private sealed class Callback(TaskCompletionSource<BiometricOutcome> completion) : BiometricPrompt.AuthenticationCallback
+    private sealed class CancelListener(TaskCompletionSource<BiometricOutcome> done) : Java.Lang.Object, global::Android.Content.IDialogInterfaceOnClickListener
     {
-        public override void OnAuthenticationSucceeded(BiometricPrompt.AuthenticationResult result) =>
-            completion.TrySetResult(BiometricOutcome.Succeeded);
+        public void OnClick(IDialogInterface? dialog, int which) => done.TrySetResult(BiometricOutcome.Cancelled);
+    }
 
-        public override void OnAuthenticationError(int errorCode, ICharSequence errString) =>
-            completion.TrySetResult(BiometricErrorMap.FromErrorCode(errorCode));
+    private sealed class Callback(TaskCompletionSource<BiometricOutcome> done) : BiometricPrompt.AuthenticationCallback
+    {
+        public override void OnAuthenticationSucceeded(BiometricPrompt.AuthenticationResult? result) => done.TrySetResult(BiometricOutcome.Succeeded);
 
-        // One non-matching attempt: the system keeps the prompt open and reports lockout through OnAuthenticationError.
+        public override void OnAuthenticationError(BiometricErrorCode errorCode, Java.Lang.ICharSequence? errString) =>
+            done.TrySetResult(errorCode switch
+            {
+                BiometricErrorCode.UserCanceled or BiometricErrorCode.Canceled => BiometricOutcome.Cancelled,
+                BiometricErrorCode.HwNotPresent or BiometricErrorCode.HwUnavailable or BiometricErrorCode.NoBiometrics => BiometricOutcome.Unavailable,
+                _ => BiometricOutcome.Failed,
+            });
+
+        // A non-matching attempt: the prompt stays open and the person can retry, so this is not a result.
         public override void OnAuthenticationFailed()
         {
         }

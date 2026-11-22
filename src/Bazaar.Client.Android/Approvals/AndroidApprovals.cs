@@ -1,41 +1,45 @@
-using Avalonia.Controls;
-using AndroidX.AppCompat.App;
+using Android.App;
+using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Approvals;
-using Bazaar.Client.Approvals.Avalonia;
-using Bazaar.Contracts.Approvals;
+using Bazaar.Client.Approvals.Http;
+using Bazaar.Client.TalentPool;
+using Bazaar.Client.TalentPool.Http;
 
 namespace Bazaar.Client.Android.Approvals;
 
-/// <summary>
-/// Composes the phone's approval path (doc 29, Approvals): the biometric prompt, the device signer and the gate. An approval
-/// card built here decides only through <see cref="Gate"/>.
-/// </summary>
-/// <remarks>
-/// Enrolment of the approval key is undecided (doc 32 Question 4), so the signer is <see cref="NotEnrolledApprovalSigner"/>:
-/// the biometric prompt is not shown and nothing is signed or sent. There is also no wire type for a signed decision yet
-/// (doc 02), so the sender is <see cref="UnroutedApprovalDecisionSender"/>. Both are the seams to replace once those are decided.
-/// </remarks>
-public sealed class AndroidApprovals
+/// <summary>Builds what the approvals pane needs on this phone: the biometric gate and the server source (doc 29 Approvals).</summary>
+public static class AndroidApprovals
 {
-    private readonly NotEnrolledApprovalSigner _signer = new();
-
-    /// <param name="activity">The running activity, read at each prompt.</param>
-    public AndroidApprovals(Func<AppCompatActivity?> activity)
+    /// <summary>
+    /// The gate and the pending-approvals source, or <c>(null, source)</c> when no approval key is enrolled yet, so the pane
+    /// says it cannot decide. <paramref name="enrolledDeviceId"/> is the key id the server knows, from enrolment (doc 32).
+    /// </summary>
+    public static (ApprovalGate? Gate, IPendingApprovalSource Source) Create(ServerEndpoint endpoint, Func<Activity?> activity, string? enrolledDeviceId)
     {
-        ArgumentNullException.ThrowIfNull(activity);
-        Gate = new ApprovalGate(
-            new SignerReadyBiometricPrompt(new AndroidBiometricPrompt(activity), () => _signer.IsEnrolled),
-            _signer,
-            new UnroutedApprovalDecisionSender());
+        var client = HttpApprovalClient.Create(endpoint);
+        if (string.IsNullOrEmpty(enrolledDeviceId) || !KeystoreDeviceApprovalSigner.HasKey())
+        {
+            return (null, client);
+        }
+
+        var gate = new ApprovalGate(new AndroidBiometricPrompt(activity), new KeystoreDeviceApprovalSigner(enrolledDeviceId), client);
+        return (gate, client);
     }
 
-    /// <summary>The one gate every approval card on this phone decides through.</summary>
-    public ApprovalGate Gate { get; }
+    /// <summary>
+    /// The Talent tool-grant gate and source (docs/design/25), over the same biometric and Keystore key as approvals. The gate is
+    /// null until an approval key and the owner's human id are enrolled, so the pane lists nothing it could not sign.
+    /// <paramref name="ownerHumanId"/> is the owner's id the server knows from enrolment (doc 32).
+    /// </summary>
+    public static (ToolGrantGate? Gate, IPendingToolGrantSource Source) CreateToolGrants(
+        ServerEndpoint endpoint, Func<Activity?> activity, string? enrolledDeviceId, string? ownerHumanId)
+    {
+        var client = HttpToolGrantClient.Create(endpoint);
+        if (string.IsNullOrEmpty(enrolledDeviceId) || !Guid.TryParse(ownerHumanId, out var human) || !KeystoreDeviceApprovalSigner.HasKey())
+        {
+            return (null, client);
+        }
 
-    /// <summary>True when this device can sign a decision. False until enrolment exists.</summary>
-    public bool IsEnrolled => _signer.IsEnrolled;
-
-    /// <summary>An approval card for <paramref name="card"/>, wired to <see cref="Gate"/>.</summary>
-    public Control CreateCardView(ApprovalCardDto card) =>
-        new ApprovalCardView { DataContext = new ApprovalCardViewModel(Gate, card) };
+        return (new ToolGrantGate(new AndroidBiometricPrompt(activity), new KeystoreDeviceApprovalSigner(enrolledDeviceId), client, human), client);
+    }
 }

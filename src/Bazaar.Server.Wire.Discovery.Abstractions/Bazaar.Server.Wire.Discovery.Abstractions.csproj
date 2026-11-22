@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Contracts for the wire discovery route (doc 90 section 6): the catalog of enabled transports and codecs that transport and codec modules feed. BCL only.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+</Project>

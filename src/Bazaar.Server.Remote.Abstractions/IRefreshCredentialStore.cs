@@ -3,6 +3,9 @@ namespace Bazaar.Server.Components.Remote;
 /// <summary>A device paired to a human (doc 32 <c>device</c> table). <paramref name="RevokedAt"/> is set once and never cleared.</summary>
 public sealed record DeviceRecord(Guid Id, Guid HumanId, string Label, string Class, int Revision, DateTimeOffset? RevokedAt);
 
+/// <summary>A person on the instance (doc 32 <c>human</c> table). <paramref name="Role"/> is <c>owner</c> or <c>coworker</c>; <paramref name="Status"/> is <c>active</c>, <c>suspended</c> or <c>removed</c>.</summary>
+public sealed record HumanRecord(Guid Id, string DisplayName, string Role, string Status);
+
 /// <summary>
 /// One issued refresh secret (doc 32 <c>refresh_credential</c>). Only its hash is held. <paramref name="ChainStartedAt"/> is the
 /// issue time of the device's first credential, which the absolute lifetime counts from.
@@ -26,6 +29,9 @@ public interface IRefreshCredentialStore
 
     /// <summary>The device, or null.</summary>
     Task<DeviceRecord?> FindDeviceAsync(Guid deviceId, CancellationToken ct = default);
+
+    /// <summary>The human, or null. Read-only; used by <c>GET /auth/whoami</c> (doc 32 section 5).</summary>
+    Task<HumanRecord?> FindHumanAsync(Guid humanId, CancellationToken ct = default);
 
     /// <summary>Inserts a device and its first live credential in one transaction. Pairing (doc 32 section 3) calls this.</summary>
     Task CreateDeviceAsync(
