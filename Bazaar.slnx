@@ -257,6 +257,8 @@
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode/Bazaar.Server.Providers.ClaudeCode.csproj" />
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode.Windows/Bazaar.Server.Providers.ClaudeCode.Windows.csproj" />
     <Project Path="src/Bazaar.Server.WorkLife/Bazaar.Server.WorkLife.csproj" />
+    <Project Path="src/Bazaar.Server.WorkLife.Scheduler/Bazaar.Server.WorkLife.Scheduler.csproj" />
+    <Project Path="src/Bazaar.Server.WorkLife.Scheduler.Abstractions/Bazaar.Server.WorkLife.Scheduler.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Council/Bazaar.Server.Council.csproj" />
     <Project Path="src/Bazaar.Server.CodingPermissions.Abstractions/Bazaar.Server.CodingPermissions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingPermissions/Bazaar.Server.CodingPermissions.csproj" />
@@ -652,6 +654,7 @@
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Security.Tests/Bazaar.Server.Security.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WorkLife.Tests/Bazaar.Server.WorkLife.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.WorkLife.Scheduler.Tests/Bazaar.Server.WorkLife.Scheduler.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingPermissions.Tests/Bazaar.Server.CodingPermissions.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingEdit.Tests/Bazaar.Server.CodingEdit.Tests.csproj" />
