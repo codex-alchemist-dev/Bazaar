@@ -173,6 +173,17 @@ Revision note. The first draft swapped a directory junction on Windows "with the
 - Checkpoints are anchored externally (the brief's external anchoring). Anchor sinks are operator choices, and the default is the owner's paired devices (each device stores the latest checkpoint and its own copy of the head). Optional sinks: an RFC 3161 timestamp authority, an S3-compatible object store with object lock, and a public transparency log. Each sink is a module behind `IAnchorSink`.
 - Merkle proofs: any single record can be proven against a checkpoint with a logarithmic-size proof. The API returns the proof on request (section 15.1). An auditor can verify a proof with the public key alone.
 
+### 6.5.1 Anchoring and Merkle proofs: pure core (PROPOSED)
+
+Built in `src/Bazaar.Kodo/Anchoring` (package 14, pure parts only; no sink, file, witness or HTTP code). These choices are PROPOSED, not DECIDED:
+
+- **Tree.** Binary Merkle tree over journal record hashes, RFC 6962 shape (split at the largest power of two below n). Leaf = SHA-256(0x00 || record hash), node = SHA-256(0x01 || left || right), empty root = SHA-256 of nothing. A lone node is never duplicated, so `[a,b,c]` and `[a,b,c,c]` have different roots, and an inner node cannot pass as a leaf. This is the same prefix convention as the audit checkpoint tree in doc 48, but that tree promotes odd nodes and has no consistency proofs, so the two roots are not interchangeable. `Bazaar.Kodo` must not reference `Bazaar.Server` (section 19), so the code is separate; unifying them is an open follow-up.
+- **Proofs.** Inclusion proofs (leaf in a tree of n) and consistency proofs (tree of m is a prefix of the tree of n), with verifiers that need only hashes and sizes (RFC 9162 algorithms). A proof does not bind the tree size by itself; the anchor record does.
+- **Anchor record.** `version`, `sinkId`, `treeSize`, `root`, `journalHead`, `anchoredAt` (UTC). Canonical JSON: compact, camelCase, base64 hashes, source-generated, unknown members rejected.
+- **When to anchor.** Every 1,000 new records or 15 minutes (the checkpoint cadence of 6.5), whichever comes first, and never when nothing is new. After a failed attempt, wait 1 minute before retrying. Ranges: 1 to 10,000,000 records, 1 second to 24 hours, retry 1 second to 1 hour. Not wired to settings yet.
+- **Fail safe.** A sink that throws, declines or hangs (30 second timeout) never blocks the journal or the other sinks. With no accepting sink the journal is simply not anchored; the planner counts an anchor as done only when a sink accepted it.
+- **Verifier.** A stored anchor is compared to the current chain: Verified only when the chain is intact and the anchored prefix hashes to the stored root and head. A rewrite with recomputed hashes, a broken chain or lost anchored records is Tampered. A malformed anchor, malformed records or a failed consistency proof between two anchors is Unknown, never Verified, and the status view must not show Unknown as healthy.
+
 ### 6.6 Threat model and stated limits
 
 Kodo defends against:
@@ -939,6 +950,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 |---|---|---|
 | Module identity, naming and projects | PLANNED | No project exists |
 | Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
+| Journal hash chain, checkpoints, anchors, Merkle proofs | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Anchoring` (package 14): Merkle tree, inclusion and consistency proofs with verifiers, anchor record and codec, `IAnchorSink`, planner, fail-safe publisher, anchor verifier. Choices are PROPOSED in 6.5.1. No sinks, checkpoint signing, storage, API route or settings wiring yet. Needs spike K3 (anchor sink latency and object lock support) |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
 | Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |

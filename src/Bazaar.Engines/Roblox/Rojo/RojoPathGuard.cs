@@ -58,7 +58,7 @@ internal static class RojoPathGuard
         return full;
     }
 
-    private static string Contain(string fullRoot, string candidate)
+    internal static string Contain(string fullRoot, string candidate)
     {
         if (string.IsNullOrWhiteSpace(candidate))
         {
@@ -74,18 +74,73 @@ internal static class RojoPathGuard
             throw new RojoException(RojoErrorKind.PathOutsideRoot, $"Rojo path '{candidate}' is outside root '{fullRoot}'.");
         }
 
+        RejectUnsafeSegments(candidate, full[prefix.Length..]);
         RejectLinksBelowRoot(fullRoot, prefix, full);
         return full;
     }
 
-    private static void RejectLinksBelowRoot(string fullRoot, string prefix, string full)
+    /// <summary>
+    /// Refuses names a filesystem would read differently from how this guard did: control characters (NUL and newline), a colon
+    /// (an alternate data stream or drive-relative path on Windows), a trailing dot or space (Windows drops them silently), and
+    /// Windows device names such as NUL or COM1. Applied on every OS so a project behaves the same everywhere.
+    /// </summary>
+    private static void RejectUnsafeSegments(string candidate, string relative)
+    {
+        if (candidate.Any(char.IsControl))
+        {
+            throw new RojoException(RojoErrorKind.PathOutsideRoot, "Rojo path contains a control character.");
+        }
+
+        // The path as given is checked for trailing dots and spaces as well: on Windows the path normaliser has already
+        // dropped them from the resolved form, so only the given form still shows them. A rooted path keeps its drive colon,
+        // so the colon rule applies to the resolved part below the root only.
+        foreach (string segment in candidate.Split('/', '\\'))
+        {
+            if (segment is not ("" or "." or "..") && (segment.EndsWith('.') || segment.EndsWith(' ')))
+            {
+                throw new RojoException(RojoErrorKind.PathOutsideRoot, $"Rojo path segment '{segment}' is not a safe file name.");
+            }
+        }
+
+        foreach (string segment in relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        {
+            if (segment.Contains(':', StringComparison.Ordinal)
+                || segment.EndsWith('.')
+                || segment.EndsWith(' ')
+                || IsReservedDeviceName(segment))
+            {
+                throw new RojoException(RojoErrorKind.PathOutsideRoot, $"Rojo path segment '{segment}' is not a safe file name.");
+            }
+        }
+    }
+
+    private static bool IsReservedDeviceName(string segment)
+    {
+        int dot = segment.IndexOf('.', StringComparison.Ordinal);
+        string stem = (dot < 0 ? segment : segment[..dot]).TrimEnd();
+        if (stem.Equals("CON", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("PRN", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("AUX", StringComparison.OrdinalIgnoreCase)
+            || stem.Equals("NUL", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return stem.Length == 4
+            && (stem.StartsWith("COM", StringComparison.OrdinalIgnoreCase) || stem.StartsWith("LPT", StringComparison.OrdinalIgnoreCase))
+            && stem[3] is >= '0' and <= '9';
+    }
+
+    internal static void RejectLinksBelowRoot(string fullRoot, string prefix, string full)
     {
         string current = fullRoot;
         foreach (string segment in full[prefix.Length..].Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
         {
             current = Path.Combine(current, segment);
+            // LinkTarget is read whether or not the target exists: a dangling link at an output path would otherwise pass
+            // and let the build write through it to wherever it points.
             FileSystemInfo info = Directory.Exists(current) ? new DirectoryInfo(current) : new FileInfo(current);
-            if (info.Exists && info.LinkTarget is not null)
+            if (info.LinkTarget is not null)
             {
                 throw new RojoException(RojoErrorKind.PathOutsideRoot, $"Rojo path '{full}' passes through a link at '{current}'.");
             }

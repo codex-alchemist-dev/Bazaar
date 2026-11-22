@@ -40,7 +40,7 @@ A node is `{ "widget": "<kind>", "props": { ... }, "children": [ ... ] }`. Props
 | `divider` | no | Separator |
 | `placeholder` | no | Failure card (doc 41 section 6, rule 7) |
 
-**Dynamic values.** `text` and `badge` take a `value` prop: a literal, or an expression of any type that renders as text (a Number or Text binding is shown as written). `label` stays a localisation key or literal for translated strings, so a value is never looked up as a key. The validator checks every expression prop the same way, so a bad `value` expression reports like any other.
+**Text props.** `text` and `badge` take a `text` prop: a literal, or an expression of any type that renders as text (a Number or Text binding is shown as written). A bare identifier reads that field of the scope; any other expression is evaluated by Rubedo. `badge` also takes a `variant` from the theme's closed variants. `button` and `icon` take `label` (the accessible name); `icon` also takes `name` from the closed icon set. `visibleWhen` and `enabledWhen` are Rubedo bool expressions (or literal bools) on any node: the first shows or hides it, the second enables or disables it, both evaluated against the node's scope, so a list item's template sees its own fields. A value that is not a bool fails that node closed.
 
 **Conditions.** Any node may carry `visibleWhen` and `enabledWhen`, each a Bool expression over the node's scope. A hidden node stays in the tree so a later data change can show it. A condition that does not evaluate to a Bool fails that node closed.
 
