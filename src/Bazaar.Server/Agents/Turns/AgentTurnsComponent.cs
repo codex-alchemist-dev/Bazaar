@@ -128,7 +128,9 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<NpgsqlDataSource>(),
             sp.GetRequiredService<IModelGateway>(),
             sp.GetRequiredService<IToolDispatcher>(),
-            sp.GetRequiredService<TurnRunnerOptions>()));
+            sp.GetRequiredService<TurnRunnerOptions>(),
+            // Optional: with the Thinking GC module loaded, reasoning and steps go to the agent's Thinking GC (doc 01).
+            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>()));
         services.TryAddSingleton<ITurnRunner>(sp => new TurnRunAdapter(
             sp.GetRequiredService<TurnRunner>(),
             sp.GetRequiredService<ITurnContextAssembler>(),

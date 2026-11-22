@@ -27,6 +27,7 @@ using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -45,6 +46,7 @@ public static class HostComponents
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
+        new ThinkingGcComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
