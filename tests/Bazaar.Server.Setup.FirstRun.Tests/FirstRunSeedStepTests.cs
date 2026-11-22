@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Bazaar.Server.Setup.FirstRun.Tests;
 
 internal sealed class FakeWorld : IFirstRunOwner, IFirstRunStore, IConstitutionAcceptance, IDefaultAgentRoutes, IFirstRunAudit
@@ -254,7 +256,37 @@ public class FirstRunPlanSectionTests
          FIRSTRUN}
         """;
 
-    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun));
+    /// <summary>
+    /// The plan's network block always maps to these two keys, so the loader needs them registered. Nothing else is set.
+    /// </summary>
+    private sealed class NetworkSettings : ISetupSettingCatalog
+    {
+        private readonly Dictionary<string, ISetupSettingDefinition> _byName = new(StringComparer.Ordinal)
+        {
+            ["host.status.bind"] = new Definition("host.status.bind", typeof(string), value => value.ValueKind == JsonValueKind.String),
+            ["host.status.port"] = new Definition("host.status.port", typeof(int), value => value.ValueKind == JsonValueKind.Number),
+        };
+
+        public IReadOnlyCollection<ISetupSettingDefinition> Definitions => _byName.Values;
+
+        public bool TryGet(string name, out ISetupSettingDefinition? definition) => _byName.TryGetValue(name, out definition);
+
+        private sealed class Definition(string name, Type valueType, Func<JsonElement, bool> shape) : ISetupSettingDefinition
+        {
+            public string Name => name;
+
+            public bool IsInstallScope => true;
+
+            public Type ValueType => valueType;
+
+            public string? CheckValue(JsonElement value) => shape(value) ? null : "has the wrong type.";
+
+            public SetupSettingEvaluation Evaluate(string actorId, JsonElement proposed) =>
+                new(true, null, proposed.GetRawText());
+        }
+    }
+
+    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun), new NetworkSettings());
 
     [Fact]
     public void The_section_may_be_left_out_and_its_defaults_apply()
