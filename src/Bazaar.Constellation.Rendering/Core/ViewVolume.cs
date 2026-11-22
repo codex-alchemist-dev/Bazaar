@@ -36,11 +36,15 @@ public sealed class OrthoView : ViewVolume
     public override float ProjectedPixels(in TileBounds b) => MathF.Max(b.MaxX - b.MinX, b.MaxY - b.MinY) * _zoom;
 }
 
-/// <summary>A look-at perspective camera for 3D mode. Right-handed, depth 0 to 1 (Vulkan).</summary>
+/// <summary>
+/// A look-at perspective camera for 3D mode. Right-handed, depth 0 to 1 (Vulkan). With <c>ReversedZ</c> (the default)
+/// near maps to depth 1 and far to 0, which spreads float depth precision evenly over huge ranges; a positive-infinity
+/// <c>Far</c> gives an infinite far plane in either mode.
+/// </summary>
 public sealed record PerspectiveCamera3D(
     float EyeX, float EyeY, float EyeZ,
     float TargetX, float TargetY, float TargetZ,
-    float VerticalFovRadians = 1.0471976f, float Near = 0.1f, float Far = 1.0e9f)
+    float VerticalFovRadians = 1.0471976f, float Near = 0.1f, float Far = 1.0e9f, bool ReversedZ = true)
 {
     /// <summary>Writes the column-major view-projection matrix (clip = M * world).</summary>
     public void WriteViewProjection(Span<float> m, float aspect)
@@ -54,8 +58,21 @@ public sealed record PerspectiveCamera3D(
         float yz = (zx * xy) - (zy * xx);
 
         float f = 1f / MathF.Tan(VerticalFovRadians * 0.5f);
-        float a = Far / (Near - Far);
-        float b = Near * Far / (Near - Far);
+        // Depth is (a * z + b) / -z for view-space z. Forward: near 0, far 1. Reversed: near 1, far 0.
+        bool infinite = float.IsPositiveInfinity(Far);
+        float a;
+        float b;
+        if (ReversedZ)
+        {
+            a = infinite ? 0f : Near / (Far - Near);
+            b = infinite ? Near : Near * Far / (Far - Near);
+        }
+        else
+        {
+            a = infinite ? -1f : Far / (Near - Far);
+            b = infinite ? -Near : Near * Far / (Near - Far);
+        }
+
         float tx = -((xx * EyeX) + (xy * EyeY) + (xz * EyeZ));
         float ty = -((yx * EyeX) + (yy * EyeY) + (yz * EyeZ));
         float tz = -((zx * EyeX) + (zy * EyeY) + (zz * EyeZ));
@@ -96,7 +113,9 @@ public sealed class PerspectiveView : ViewVolume
         Span<float> m = stackalloc float[16];
         camera.WriteViewProjection(m, (float)widthPixels / heightPixels);
 
-        // Gribb and Hartmann: row i, column j is m[(j * 4) + i]. Depth is 0 to 1, so near is row 2 alone.
+        // Gribb and Hartmann: row i, column j is m[(j * 4) + i]. Depth is 0 to 1, so the depth-0 plane is row 2 alone
+        // and the depth-1 plane is row 3 minus row 2. Forward Z: depth 0 is near. Reversed Z: depth 0 is far.
+        bool reversed = camera.ReversedZ;
         for (int p = 0; p < 6; p++)
         {
             for (int j = 0; j < 4; j++)
@@ -108,8 +127,8 @@ public sealed class PerspectiveView : ViewVolume
                     1 => r3 - m[(j * 4) + 0],
                     2 => r3 + m[(j * 4) + 1],
                     3 => r3 - m[(j * 4) + 1],
-                    4 => m[(j * 4) + 2],
-                    _ => r3 - m[(j * 4) + 2],
+                    4 => reversed ? r3 - m[(j * 4) + 2] : m[(j * 4) + 2],
+                    _ => reversed ? m[(j * 4) + 2] : r3 - m[(j * 4) + 2],
                 };
                 _planes[(p * 4) + j] = v;
             }
