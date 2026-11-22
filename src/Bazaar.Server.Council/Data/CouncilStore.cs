@@ -256,6 +256,27 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<SealedBallotReason>> ListSealedReasonsAsync(Guid voteId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_listBallotsSql);
+        cmd.Parameters.AddWithValue("vote_id", voteId);
+        var result = new List<SealedBallotReason>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(new SealedBallotReason(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                CouncilText.ParsePhase(reader.GetString(2)),
+                reader.GetString(3),
+                reader.GetBoolean(7),
+                new ReasoningCiphertext(reader.GetGuid(4), (byte[])reader.GetValue(5), (byte[])reader.GetValue(6))));
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
