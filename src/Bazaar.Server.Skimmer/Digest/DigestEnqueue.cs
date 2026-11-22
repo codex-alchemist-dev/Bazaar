@@ -1,4 +1,3 @@
-using Bazaar.Server.Agents.Inbox;
 
 namespace Bazaar.Server.Skimmer.Digest;
 
@@ -7,7 +6,7 @@ namespace Bazaar.Server.Skimmer.Digest;
 /// </summary>
 /// <param name="AgentId">The agent the item is for.</param>
 /// <param name="Kind">
-/// <see cref="InboxKind.GcDigest"/> for a deferred message, or <see cref="InboxKind.SkimmerPromoted"/>
+/// <c>gc_digest</c> for a deferred message, or <c>skimmer_promoted</c>
 /// for a scored promotion.
 /// </param>
 /// <param name="GcId">The GC of the message.</param>
