@@ -23,7 +23,7 @@ public sealed class CompositionTests
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
-        services.AddBazaarProviders(configuration);
+        services.AddBazaarProviders();
         services.AddBazaarHostWire(configuration);
         services.AddBazaarAgentSafety(new ConfigurationBuilder().Build());
         services.AddBazaarComponents(configuration, [new AuditComponent(), new SettingsComponent()]);
@@ -117,9 +117,19 @@ public sealed class CompositionTests
     }
 
     [Fact]
-    public async Task Explicit_service_host_that_is_unregistered_fails_with_no_fallback()
+    public void Report_lists_every_provider_registered_in_di_with_no_selection()
     {
-        await using var sp = Build(new() { ["Bazaar:Providers:ServiceHost"] = "no_such_host" });
-        Assert.Throws<ProviderSelectionException>(() => sp.GetRequiredService<ProviderCapabilityReport>());
+        var services = new ServiceCollection();
+        services.AddBazaarProviders();
+        services.AddSingleton<ICacheProvider>(new Bazaar.Server.Providers.Fakes.FakeCacheProvider("valkey"));
+        services.AddSingleton<ICacheProvider>(new Bazaar.Server.Providers.Fakes.FakeCacheProvider("garnet", usable: false));
+        services.AddSingleton<ISearchProvider>(new Bazaar.Server.Providers.Fakes.FakeSearchProvider("postgres_fts"));
+        using var sp = services.BuildServiceProvider();
+
+        var report = sp.GetRequiredService<ProviderCapabilityReport>();
+
+        Assert.Equal(2, report.Entries.Count(e => e.Role == ProviderRole.Cache));
+        Assert.Single(report.Entries, e => e.Role == ProviderRole.Search);
+        Assert.Empty(report.MissingRequiredRoles([ProviderRole.Cache, ProviderRole.Search]));
     }
 }

@@ -184,8 +184,6 @@ src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
 src/Bazaar.Server/Settings/SecuritySettings.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
-src/Bazaar.Server/Souls/Judgments/GcLogJudgmentPoster.cs
-src/Bazaar.Server/Souls/Judgments/JudgmentServiceCollectionExtensions.cs
 src/Bazaar.Server/Verification/GateModel.cs
 src/Bazaar.Server/Verification/GitRepo.cs
 src/Bazaar.Server/Verification/PathRules.cs

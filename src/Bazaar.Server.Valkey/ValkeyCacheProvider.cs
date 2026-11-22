@@ -15,7 +15,7 @@ namespace Bazaar.Server.Valkey;
 /// </summary>
 public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
 {
-    /// <summary>The kind name <c>host.provider.cache</c> selects.</summary>
+    /// <summary>The kind name this provider reports.</summary>
     public const string KindName = "valkey";
 
     private const string _ttlFeature = "ttl";

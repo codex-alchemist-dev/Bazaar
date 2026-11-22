@@ -1,38 +1,5 @@
 namespace Bazaar.Server.Settings;
 
-/// <summary>Service host provider (doc 03 <c>host.provider.service_host</c>).</summary>
-public enum ServiceHostProvider
-{
-    Auto,
-    WindowsService,
-    Systemd,
-}
-
-/// <summary>VM backend (doc 03 <c>host.provider.vm</c>).</summary>
-public enum VmProvider
-{
-    Auto,
-    Hyperv,
-    QemuKvm,
-    None,
-}
-
-/// <summary>Cache and presence provider (doc 03 <c>host.provider.cache</c>).</summary>
-public enum CacheProvider
-{
-    Auto,
-    Garnet,
-    Valkey,
-}
-
-/// <summary>Search provider (doc 03 <c>host.provider.search</c>).</summary>
-public enum SearchProvider
-{
-    Auto,
-    PostgresFts,
-    PgSearch,
-}
-
 /// <summary>Where the status listener binds (doc 03 <c>host.status.bind</c>). Anything but Loopback needs approval.</summary>
 public enum StatusBind
 {
