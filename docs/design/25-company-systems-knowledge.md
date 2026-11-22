@@ -154,7 +154,13 @@ Gives `IHiveGrantActions` a wire implementation (`WireHiveGrantActions` in `Baza
 
 Owner approval stays server-side: `hive.grants` changes need owner approval (doc 08 settings, doc 15). The server may therefore answer `accepted: true, approvalRequired: true`, meaning the change is queued and not in force. The pane then shows "waiting for owner approval" and never "granted"; the matrix changes only when a later `bazaar.hive` model shows it. A refusal carries `reason`. A lost connection throws and leaves the matrix unchanged. The contract types are `Bazaar.Contracts.Hive.HiveGrantChangeRequest` and `HiveGrantChangeReply`, registered in `WireJson`.
 
-The server Hive module landed with #812 (grant policy, sanitizer, copy flow, Postgres store). The server-side grant wire handler, the `IHiveGrantApprovals` port (fail closed until the approvals module registers one) and the host adapter that maps `hive.grant.set` / `hive.grant.revoke` frames to it are a follow-up delta on that module (PROPOSED). Until then the client pane shows the request as unavailable.
+The server side lives in `Bazaar.Server.Hive` and `.Abstractions` (the module that landed with #812), as a delta on its grant store and copy service. Defaults chosen by the main session (PROPOSED, replaceable; the owner may change any of them):
+1. **Approval.** The port is `IHiveGrantApprovals.RequestAsync(HiveGrantChange, requestedBy)`. The wire handler never applies a change: it queues through the port and replies `accepted: true, approvalRequired: true`. When the approvals module records the owner's approval, it calls `HiveGrantApplier.ApplyApprovedAsync(change, approvedBy)`, which adds the grant through the store or revokes through `HiveCopyService.RevokeAsync`, so held copies are dropped and written copies deprecated. The default registration is `DenyAllHiveGrantApprovals`, which refuses with reason "approvals not configured" (fail closed).
+2. **Dispatch.** `IHiveGrantWireHandler.HandleAsync(wireType, request, caller, ct)`, implemented by `HiveGrantWireHandler`. The host adapter that maps a wire frame to this call and supplies the caller is a later change and sits in `Bazaar.Server`, not in this module.
+3. **Caller.** `HiveCaller(Principal, IsOwner)` comes from the authenticated session. A non-owner is refused with reason "owner only". `Principal` is recorded as the grantor.
+4. **Refusals.** An unknown kind, equal or empty projects, a blank principal and an unknown wire type come back as `accepted: false` with the reason set. Only cancellation and infrastructure failures throw.
+
+Not in this slice (not specified in the docs): an offer and request exchange between agents, and a grant re-check at read time. Today the grant is checked when a copy is made and again at release, and revoking deprecates the copies.
 
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
