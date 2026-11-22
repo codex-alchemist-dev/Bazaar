@@ -60,7 +60,7 @@ jobs:
           $failed = @()
           foreach ($p in $projects) {
             Write-Host "== $($p.Name)"
-            dotnet test --project $p.FullName --configuration Release
+            dotnet test --project $p.FullName --configuration Release --output Detailed
             if ($LASTEXITCODE -ne 0) { $failed += $p.Name }
           }
           if ($failed) { throw "Tests failed in: $($failed -join ', ')" }

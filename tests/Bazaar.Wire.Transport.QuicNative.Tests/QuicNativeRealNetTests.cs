@@ -15,7 +15,7 @@ namespace Bazaar.Wire.Transport.QuicNative.Tests;
 /// </summary>
 public sealed class QuicNativeRealNetTests
 {
-    private const string SkipReason = "Set BAZAAR_TEST_REAL_NET=1 and install MsQuic (libmsquic) to run.";
+    private const string _skipReason = "Set BAZAAR_TEST_REAL_NET=1 and install MsQuic (libmsquic) to run.";
 
     public static bool Enabled => Environment.GetEnvironmentVariable("BAZAAR_TEST_REAL_NET") == "1" && QuicConnection.IsSupported && QuicListener.IsSupported;
 
@@ -40,7 +40,7 @@ public sealed class QuicNativeRealNetTests
 
     private static QuicWireConnector Connector(X509Certificate2 cert) => new(new QuicWireConnectorOptions { PinCertificate = QuicCertificatePin.Sha256(cert.GetCertHash(HashAlgorithmName.SHA256)) });
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task Loopback_echo_of_frames_with_the_chosen_codec()
     {
         var (listener, cert, offer) = await StartAsync();
@@ -62,7 +62,7 @@ public sealed class QuicNativeRealNetTests
         Assert.Equal(big, (await client.ReceiveAsync(Ct)).Frame.ToArray());
     }
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task Oversized_frame_closes_the_connection_with_4400()
     {
         var (listener, cert, offer) = await StartAsync(maxFrame: 1000);
@@ -87,7 +87,7 @@ public sealed class QuicNativeRealNetTests
         Assert.Equal(StreamWireConnection.BadFrame, seen.CloseCode);
     }
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task Bad_preface_closes_with_4400()
     {
         var (listener, cert, _) = await StartAsync();
@@ -101,7 +101,7 @@ public sealed class QuicNativeRealNetTests
                 DefaultCloseErrorCode = 0,
                 ClientAuthenticationOptions = new SslClientAuthenticationOptions
                 {
-                    ApplicationProtocols = [new SslApplicationProtocol(QuicWireSupport.Alpn)],
+                    ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
                     TargetHost = "localhost",
                     RemoteCertificateValidationCallback = (_, certificate, _, _) => certificate is not null && pin(new X509Certificate2(certificate)),
                 },
@@ -116,7 +116,7 @@ public sealed class QuicNativeRealNetTests
         Assert.Equal(StreamWireConnection.BadFrame, (int?)ex.ApplicationErrorCode);
     }
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task Silent_client_is_closed_with_4408()
     {
         var (listener, cert, offer) = await StartAsync(helloTimeout: TimeSpan.FromMilliseconds(500));
@@ -128,20 +128,29 @@ public sealed class QuicNativeRealNetTests
         Assert.Equal(StreamWireConnection.HelloTimeout, received.CloseCode);
     }
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task Certificate_pin_mismatch_refuses_the_connection()
     {
         var (listener, _, offer) = await StartAsync();
         await using var _ = listener;
         using var other = TestCertificates.CreateLocalhost();
-        await Assert.ThrowsAnyAsync<Exception>(async () => await Connector(other).ConnectAsync(offer, ["json"], Ct));
+        // The pin callback returns false, so System.Net.Quic fails the handshake with an AuthenticationException that names the
+        // RemoteCertificateValidationCallback. An ALPN failure is also an AuthenticationException, so the message must be checked too.
+        var ex = await Assert.ThrowsAsync<System.Security.Authentication.AuthenticationException>(async () => await Connector(other).ConnectAsync(offer, ["json"], Ct));
+        Assert.Contains("RemoteCertificateValidationCallback", ex.Message, StringComparison.Ordinal);
+        Assert.Contains(QuicWireSupport.DiagnosticsMarker, ex.Message, StringComparison.Ordinal);
     }
 
-    [Fact(SkipUnless = nameof(Enabled), Skip = SkipReason)]
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task No_common_codec_closes_with_4400()
     {
         var (listener, cert, offer) = await StartAsync();
         await using var _ = listener;
-        await Assert.ThrowsAnyAsync<Exception>(async () => await Connector(cert).ConnectAsync(offer, ["msgpack"], Ct));
+        // The server finds no common codec and closes the connection with application error code 4400 (BadFrame) before it echoes a
+        // preface; the client sees that close as a QuicException while reading the answer. (Assumption from the code paths: exact
+        // surface is ConnectionAborted with ApplicationErrorCode 4400; if the CI run shows another QuicError, fix this assertion.)
+        var ex = await Assert.ThrowsAsync<QuicException>(async () => await Connector(cert).ConnectAsync(offer, ["msgpack"], Ct));
+        Assert.Equal(StreamWireConnection.BadFrame, (int?)ex.ApplicationErrorCode);
+        Assert.Contains(QuicWireSupport.DiagnosticsMarker, Assert.IsType<string>(ex.Data[QuicWireSupport.DiagnosticsDataKey]), StringComparison.Ordinal);
     }
 }

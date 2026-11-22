@@ -59,14 +59,18 @@ public sealed class QuicWireConnector : IWireTransportConnector
     {
         ArgumentNullException.ThrowIfNull(offer);
         ArgumentNullException.ThrowIfNull(codecs);
-        if (!IsSupported) throw new PlatformNotSupportedException("System.Net.Quic is not available here (MsQuic missing).");
         if (offer.Transport != WireNames.Quic) throw new ArgumentException("Offer is not for the quic transport.", nameof(offer));
+        if (offer.Alpn is not null && !string.Equals(offer.Alpn, QuicWireSupport.Alpn, StringComparison.Ordinal))
+        {
+            throw new NotSupportedException($"The offer names ALPN '{offer.Alpn}', but this client only speaks '{QuicWireSupport.Alpn}'.");
+        }
+
+        if (!IsSupported) throw new PlatformNotSupportedException("System.Net.Quic is not available here (MsQuic missing).");
         var (host, port) = QuicWireSupport.ParseEndpoint(offer.Endpoint);
-        var alpn = new SslApplicationProtocol(offer.Alpn ?? QuicWireSupport.Alpn);
         var pin = _options.PinCertificate;
         var auth = new SslClientAuthenticationOptions
         {
-            ApplicationProtocols = [alpn],
+            ApplicationProtocols = QuicWireSupport.CreateApplicationProtocols(),
             TargetHost = host,
         };
         if (pin is not null)
@@ -109,11 +113,15 @@ public sealed class QuicWireConnector : IWireTransportConnector
                     ReleaseAsync = owned.DisposeAsync,
                 });
         }
-        catch
+        catch (Exception ex)
         {
+            // Describe before disposing: the negotiated ALPN is gone once the connection is.
+            var diagnostics = QuicWireSupport.DescribeFailure("connect", offer.Endpoint, auth.ApplicationProtocols ?? [], connection, ex);
             if (stream is not null) await stream.DisposeAsync().ConfigureAwait(false);
             if (connection is not null) await connection.DisposeAsync().ConfigureAwait(false);
-            throw;
+            var enriched = QuicWireSupport.WithDiagnostics(ex, diagnostics);
+            if (ReferenceEquals(enriched, ex)) throw;
+            throw enriched;
         }
     }
 }

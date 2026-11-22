@@ -57,6 +57,39 @@ public sealed class QuicNativeAlwaysTests
     }
 
     [Fact]
+    public void Both_sides_derive_ALPN_from_the_one_shared_constant()
+    {
+        Assert.Equal("bazaar-wire/1", QuicWireSupport.Alpn); // doc 90 section 9
+        var expected = System.Text.Encoding.UTF8.GetBytes(QuicWireSupport.Alpn);
+        var list = QuicWireSupport.CreateApplicationProtocols();
+        Assert.Equal(expected, Assert.Single(list).Protocol.ToArray());
+        Assert.NotSame(list, QuicWireSupport.CreateApplicationProtocols());
+
+        // Neither transport module may build an SslApplicationProtocol from a literal or from the offer: they share the helper.
+        foreach (var file in new[] { "Bazaar.Server.Transport.QuicNative/QuicWireListener.cs", "Bazaar.Client.Transport.QuicNative/QuicWireConnector.cs" })
+        {
+            var text = File.ReadAllText(Path.Combine(RepoSrc(), file));
+            Assert.Contains("QuicWireSupport.CreateApplicationProtocols()", text);
+            Assert.DoesNotContain("new SslApplicationProtocol(", text);
+            Assert.DoesNotContain("bazaar-wire/1\"", text);
+        }
+    }
+
+    [Fact]
+    public async Task Connector_refuses_an_offer_with_a_different_ALPN_instead_of_failing_the_handshake()
+    {
+        var offer = new TransportOffer(WireNames.Quic, "localhost:4433", "bazaar-wire/2", ["json"]);
+        await Assert.ThrowsAsync<NotSupportedException>(async () => await new QuicWireConnector().ConnectAsync(offer, ["json"], Ct));
+    }
+
+    private static string RepoSrc()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src", "Bazaar.Wire.Abstractions"))) dir = dir.Parent;
+        return dir is null ? throw new DirectoryNotFoundException("Repo src folder not found.") : Path.Combine(dir.FullName, "src");
+    }
+
+    [Fact]
     public void Sha256_pin_matches_only_the_pinned_certificate()
     {
         using var cert = TestCertificates.CreateLocalhost();
