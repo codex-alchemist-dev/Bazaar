@@ -7,6 +7,8 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
+    <PackageReference Include="LibGit2Sharp" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
@@ -15,6 +17,9 @@
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Component migrations: Sql/components/<name>/NNNN_name.sql, read by the host ComponentMigrationSource (never in Data/Sql/common, see Data/Sql/README.md). -->
