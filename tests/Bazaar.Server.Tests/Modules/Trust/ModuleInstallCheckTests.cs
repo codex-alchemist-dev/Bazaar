@@ -69,7 +69,7 @@ public class ModuleInstallCheckTests
     public void A_bad_signature_is_refused_before_the_host_is_checked()
     {
         var (verifier, _) = Setup();
-        var unsigned = new ModulePackage("bazaar.sandbox", "0.1.0", new HashSet<string>(StringComparer.Ordinal), _digest, _keyId, _windowsSandbox, []);
+        var unsigned = new ModulePackage("bazaar.sandbox", "0.1.0", "publisher-2", new HashSet<string>(StringComparer.Ordinal), _digest, _keyId, _windowsSandbox, []);
 
         var decision = ModuleInstallCheck.Evaluate(unsigned, verifier, _windowsHost);
 
@@ -90,8 +90,8 @@ public class ModuleInstallCheckTests
     [Fact]
     public void Permissions_and_host_values_cannot_be_confused_in_the_canonical_form()
     {
-        var asPermission = new ModulePackage("bazaar.sandbox", "0.1.0", new HashSet<string>(StringComparer.Ordinal) { "host.os:windows" }, _digest, _keyId, new HostRequirements(1, ["linux"], ["x64"], []), []);
-        var asHost = new ModulePackage("bazaar.sandbox", "0.1.0", new HashSet<string>(StringComparer.Ordinal), _digest, _keyId, new HostRequirements(1, ["windows"], ["x64"], []), []);
+        var asPermission = new ModulePackage("bazaar.sandbox", "0.1.0", "publisher-2", new HashSet<string>(StringComparer.Ordinal) { "host.os:windows" }, _digest, _keyId, new HostRequirements(1, ["linux"], ["x64"], []), []);
+        var asHost = new ModulePackage("bazaar.sandbox", "0.1.0", "publisher-2", new HashSet<string>(StringComparer.Ordinal), _digest, _keyId, new HostRequirements(1, ["windows"], ["x64"], []), []);
 
         Assert.NotEqual(ModuleCanonicalForm.Build(asPermission), ModuleCanonicalForm.Build(asHost));
     }

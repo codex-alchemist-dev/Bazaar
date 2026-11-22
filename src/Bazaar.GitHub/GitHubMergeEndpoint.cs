@@ -3,7 +3,6 @@ using Bazaar.Approvals;
 using Bazaar.Contracts.Git;
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
-using Bazaar.Server.Http;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -21,11 +20,17 @@ public static class GitHubMergeEndpoint
 {
     private const int _maxBodyBytes = 16 * 1024;
 
-    /// <summary>Maps <c>POST /github/merge</c>. The host calls this next to <c>MapBazaarHttpSurface</c>.</summary>
-    public static IEndpointRouteBuilder MapBazaarGitHubRoutes(this IEndpointRouteBuilder routes)
+    /// <summary>
+    /// Maps <c>POST /github/merge</c>. The host calls this next to <c>MapBazaarHttpSurface</c> and passes its guard
+    /// (<c>HttpSurfaceEndpoints.Guarded</c>), so this module does not reference the server project.
+    /// </summary>
+    public static IEndpointRouteBuilder MapBazaarGitHubRoutes(
+        this IEndpointRouteBuilder routes,
+        Func<HttpContext, Func<HttpContext, PrincipalRef, Task<IResult>>, Task<IResult>> guarded)
     {
         ArgumentNullException.ThrowIfNull(routes);
-        routes.MapPost("/github/merge", (Func<HttpContext, Task<IResult>>)(http => HttpSurfaceEndpoints.Guarded(http, MergeAsync)));
+        ArgumentNullException.ThrowIfNull(guarded);
+        routes.MapPost("/github/merge", (Func<HttpContext, Task<IResult>>)(http => guarded(http, MergeAsync)));
         return routes;
     }
 
@@ -106,7 +111,7 @@ public static class GitHubMergeEndpoint
         }
         catch (MergeNotApprovedException ex)
         {
-            return Error(StatusCodes.Status403Forbidden, "merge_not_approved", ex.Reason);
+            return Error(StatusCodes.Status403Forbidden, "merge_not_approved", ex.Message);
         }
         catch (ArgumentException)
         {

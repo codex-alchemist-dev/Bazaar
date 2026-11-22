@@ -1,9 +1,13 @@
 using Bazaar.GitHub;
+using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.Setup.Host;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
@@ -35,8 +39,12 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
+app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
-app.MapBazaarGitHubRoutes();
+app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
+app.MapBazaarCompanyReadRoutes();
+app.MapCommunityLog();
+app.MapBazaarSetup();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
