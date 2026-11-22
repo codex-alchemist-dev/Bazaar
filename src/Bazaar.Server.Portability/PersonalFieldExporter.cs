@@ -58,8 +58,14 @@ public interface IPersonalExportAuditSink
     Task AppendAsync(PersonalExportAuditRecord record, CancellationToken ct);
 }
 
-/// <summary>Result: bundle files (including <c>personal/index.json</c>) and a notice for the owner when plaintext was produced.</summary>
-public sealed record PersonalExportResult(IReadOnlyList<BundleFile> Files, string? PlaintextNotice);
+/// <summary>
+/// Result: bundle files (including <c>personal/index.json</c>), a notice for the owner when plaintext was produced, and the
+/// paths of the plaintext files among <see cref="Files"/> (empty when none), so the bundle manifest can flag them (doc 44 section 4.6).
+/// </summary>
+public sealed record PersonalExportResult(
+    IReadOnlyList<BundleFile> Files,
+    string? PlaintextNotice,
+    IReadOnlyList<string>? PlaintextPaths = null);
 
 /// <summary>
 /// Personal-field exporter (doc 44 sections 4.6 and 10). Always writes ciphertext envelopes with their key ids and never a
@@ -132,6 +138,7 @@ public sealed class PersonalFieldExporter(
         }
 
         var files = new List<BundleFile>();
+        var plaintextPaths = new List<string>();
         var index = new List<object>();
         foreach (var subject in subjects)
         {
@@ -175,9 +182,9 @@ public sealed class PersonalFieldExporter(
                         ?? throw new PersonalExportRefusedException(PersonalExportRefusal.PlaintextUnavailable);
                     fields[e.Field] = value;
                 }
-                files.Add(new BundleFile(
-                    "personal/" + subject.SubjectId + ".json",
-                    Utf8(JsonSerializer.Serialize(new { subject = subject.SubjectId, fields }))));
+                var plaintextPath = "personal/" + subject.SubjectId + ".json";
+                files.Add(new BundleFile(plaintextPath, Utf8(JsonSerializer.Serialize(new { subject = subject.SubjectId, fields }))));
+                plaintextPaths.Add(plaintextPath);
             }
 
             index.Add(new
@@ -201,7 +208,7 @@ public sealed class PersonalFieldExporter(
             PersonalExportAuditRecord.ExportKind, scope.Actor, _time.GetUtcNow(),
             [.. subjects.Select(s => s.SubjectId)], wantPlaintext), ct);
 
-        return new PersonalExportResult(files, wantPlaintext ? OwnerNotice : null);
+        return new PersonalExportResult(files, wantPlaintext ? OwnerNotice : null, plaintextPaths);
     }
 
     private async Task<List<PersonalSubjectState>> SelectSubjectsAsync(PersonalExportScope scope, CancellationToken ct)
