@@ -1,7 +1,7 @@
 Golden frame: EngineRelayRequestFrame
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526
+Schema hash: sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e
 Payload record: Bazaar.Contracts.Engines.EngineRelayRequestFrame
 Envelope: v=1 t=engine.relay.request k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 345 bytes
