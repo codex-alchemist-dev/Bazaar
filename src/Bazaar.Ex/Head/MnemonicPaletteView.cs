@@ -65,20 +65,49 @@ public sealed class MnemonicPaletteView : StackPanel
         _list.SelectedIndex = _shown.Count > 0 ? 0 : -1;
     }
 
+    /// <summary>Moves the selection down one row, stopping at the last.</summary>
+    public void SelectNext()
+    {
+        if (_shown.Count > 0)
+        {
+            _list.SelectedIndex = Math.Min(_list.SelectedIndex + 1, _shown.Count - 1);
+        }
+    }
+
+    /// <summary>Moves the selection up one row, stopping at the first.</summary>
+    public void SelectPrevious()
+    {
+        if (_shown.Count > 0)
+        {
+            _list.SelectedIndex = Math.Max(_list.SelectedIndex - 1, 0);
+        }
+    }
+
+    /// <summary>Raises <see cref="CommandSelected"/> for the selected row. Returns false when nothing is selected.</summary>
+    public bool Submit()
+    {
+        if (Selected is not { } row)
+        {
+            return false;
+        }
+
+        CommandSelected?.Invoke(this, row.CommandId);
+        return true;
+    }
+
     private void OnQueryKeyDown(object? sender, KeyEventArgs e)
     {
         switch (e.Key)
         {
             case Key.Down when _shown.Count > 0:
-                _list.SelectedIndex = Math.Min(_list.SelectedIndex + 1, _shown.Count - 1);
+                SelectNext();
                 e.Handled = true;
                 break;
             case Key.Up when _shown.Count > 0:
-                _list.SelectedIndex = Math.Max(_list.SelectedIndex - 1, 0);
+                SelectPrevious();
                 e.Handled = true;
                 break;
-            case Key.Enter when Selected is { } row:
-                CommandSelected?.Invoke(this, row.CommandId);
+            case Key.Enter when Submit():
                 e.Handled = true;
                 break;
             case Key.Escape:
