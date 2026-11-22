@@ -13,6 +13,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
+using Bazaar.Ex.Head;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
@@ -124,6 +125,9 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"));
             return window;
         }
 
