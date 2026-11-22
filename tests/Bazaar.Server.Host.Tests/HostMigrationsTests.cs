@@ -26,6 +26,15 @@ public sealed class HostMigrationsTests
     }
 
     [Fact]
+    public void The_first_run_seed_namespace_is_read_from_its_module()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("setup_firstrun", source.Namespaces());
+        Assert.Contains(source.Load("setup_firstrun"), f => f.Version == 1 && f.Name == "firstrun_seed");
+    }
+
+    [Fact]
     public void Portability_import_job_migration_is_in_the_host_source()
     {
         var source = HostMigrations.Source();

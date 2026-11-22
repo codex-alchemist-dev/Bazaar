@@ -1,6 +1,8 @@
 using Bazaar.Core;
 using Bazaar.RateLimits;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Setup.FirstRun;
+using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Http;
 using Bazaar.Server.Setup.Postgres;
 using Microsoft.AspNetCore.Builder;
@@ -20,7 +22,8 @@ namespace Bazaar.Server.Setup.Host;
 /// adapters bind <c>Bazaar.Server</c> types to the setup seams; the setup libraries themselves never reference the server.
 /// </summary>
 /// <remarks>
-/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings). A host or test
+/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings) and
+/// <see cref="FirstRunSeedStep"/> (the first GC and default agent, over the Postgres stores in <c>Bazaar.Server.Setup.FirstRun.Postgres</c>). A host or test
 /// can pass its own steps to the constructor instead, and those replace the defaults. A step whose backing store is not in the tree
 /// is not registered (see doc 45 section 1.3 status rows). With no step registered, an apply of a plan that changes anything ends in
 /// exit 3 with one audit row. The routes are gated: before an owner exists a call needs loopback and the one-time bootstrap code,
@@ -89,6 +92,10 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+
+        // The first-run seed (doc 45 section 1.15) with its Postgres stores. It needs the owner step's row, so it runs after it.
+        services.AddFirstRunPostgres();
+        services.AddFirstRunSeed();
     }
 }
 
