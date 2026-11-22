@@ -85,4 +85,71 @@ public class MnemonicGrammarTests
             Assert.Equal(assignment.CommandId, table.Exact(assignment.Mnemonic)?.CommandId);
         }
     }
+
+    [Fact]
+    public void Navigation_with_an_unknown_code_keeps_the_verb_and_code_but_has_no_binding()
+    {
+        var intent = MnemonicGrammar.Parse("nzzzz", _effective);
+
+        Assert.Equal(MnemonicVerb.Navigate, intent.Verb);
+        Assert.Equal("zzzz", intent.Code);
+        Assert.Null(intent.Binding);
+        Assert.Contains("nzzzz", intent.Explanation, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Empty_text_is_a_run_with_no_binding()
+    {
+        var intent = MnemonicGrammar.Parse(string.Empty, _effective);
+
+        Assert.Equal(MnemonicVerb.Run, intent.Verb);
+        Assert.Null(intent.Binding);
+    }
+
+    [Fact]
+    public void Matching_is_case_sensitive()
+    {
+        var typed = _effective[0].Mnemonic;
+        var shifted = typed.ToUpperInvariant();
+        Assert.SkipWhen(string.Equals(typed, shifted, StringComparison.Ordinal), "The first mnemonic has no letters to shift.");
+
+        Assert.Null(MnemonicGrammar.Parse(shifted, _effective).Binding);
+    }
+
+    [Fact]
+    public void An_empty_effective_list_binds_nothing_and_has_no_candidates()
+    {
+        Assert.Null(MnemonicGrammar.Parse("nrfdrm", []).Binding);
+        Assert.Empty(MnemonicGrammar.Candidates("n", []));
+    }
+
+    [Fact]
+    public void Candidates_for_empty_text_list_every_assignment_shortest_first()
+    {
+        var candidates = MnemonicGrammar.Candidates(string.Empty, _effective);
+
+        Assert.Equal(_effective.Count, candidates.Count);
+        Assert.Equal(candidates.OrderBy(a => a.Mnemonic.Length).ThenBy(a => a.Mnemonic, StringComparer.Ordinal).Select(a => a.Mnemonic), candidates.Select(a => a.Mnemonic));
+    }
+
+    [Fact]
+    public void Candidates_for_text_nothing_starts_with_are_empty()
+    {
+        Assert.Empty(MnemonicGrammar.Candidates("zzzz", _effective));
+    }
+
+    [Fact]
+    public void A_full_mnemonic_is_its_own_candidate()
+    {
+        var mnemonic = _effective[0].Mnemonic;
+
+        Assert.Contains(MnemonicGrammar.Candidates(mnemonic, _effective), a => a.Mnemonic == mnemonic);
+    }
+
+    [Fact]
+    public void Null_arguments_are_rejected()
+    {
+        Assert.Throws<ArgumentNullException>(() => MnemonicGrammar.Parse(null!, _effective));
+        Assert.Throws<ArgumentNullException>(() => MnemonicGrammar.Parse("n", null!));
+    }
 }
