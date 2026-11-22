@@ -117,6 +117,8 @@ Retrieval:
 
 No unscoped query exists. Decay: retrieval weight falls with time since last use, with a half-life per kind; floors apply to failure, T3 and company notes. Decay never deletes; deprecated notes are excluded; working notes are swept at TTL.
 
+**Project areas [PROPOSED; built].** Project memory under `projects/<slug>/**` (section 1) and Twin pages under `twin/<slug>/**` (doc 25) are readable by the project's agents, by a cover whose primary is a member, by member humans, by the owner and by maintenance. Membership comes from `IProjectMembership`; Vault search, body fetch, link expansion and moves resolve it once per request into `VaultCaller.Projects`, and the memory access layer (`VaultPathAccess`) and the search rule (`VaultAccess.ProjectAreaOf`) share one definition of which paths are project areas. No membership source means no project reads (fail closed). Hive copies keep their own grant rule (section 6).
+
 **Cover reads primary (doc 09).** Cover reads the handover note and shared project memory, never private memory. Anything the primary wants the cover to know is written to the handover note or a project note. Per-agent opt-in to private reads is not offered in v1 (DECISIONS-LOG C38 recommendation; the owner answered C38 only in general terms, so question 3 keeps it open). Doc 09 Q1 should match.
 
 ### 9. Embeddings, personal data and erasure [PROPOSED; erasure OPEN]

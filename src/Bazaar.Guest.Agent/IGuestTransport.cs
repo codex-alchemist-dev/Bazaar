@@ -1,9 +1,9 @@
 namespace Bazaar.Guest.Agent;
 
 /// <summary>
-/// The byte channel between the guest agent and the host. Production uses stdin and stdout
-/// (<see cref="StreamGuestTransport"/>). Hyper-V sockets (Windows guests) and AF_VSOCK (Linux guests) plug in here
-/// later, each handing back the socket's two directions.
+/// The byte channel between the guest agent and the host. The default uses stdin and stdout
+/// (<see cref="StreamGuestTransport"/>). Hyper-V sockets (<see cref="HvSocketGuestTransport"/>, Windows guests) and AF_VSOCK
+/// (<see cref="VsockGuestTransport"/>, Linux guests) dial out to the host and hand back the socket's two directions.
 /// </summary>
 public interface IGuestTransport
 {
