@@ -108,6 +108,7 @@ public sealed class ModelGateway : IModelGateway
         var resolution = await _resolver.ResolveAsync(request, cancellationToken).ConfigureAwait(false);
         if (resolution is RouteResolution.Denied denied)
         {
+            await RecordDeniedSafeAsync(request, denied).ConfigureAwait(false);
             yield return new ModelEvent.Failure("policy_denied", $"{denied.Reason}: {denied.Detail}");
             yield break;
         }
@@ -641,6 +642,41 @@ public sealed class ModelGateway : IModelGateway
             NotifyInternalError(ex);
         }
     }
+
+    private async ValueTask RecordDeniedSafeAsync(ModelRequest request, RouteResolution.Denied denied)
+    {
+        try
+        {
+            var provider = denied.Dropped.Count > 0
+                ? denied.Dropped[0].Model.ProviderId
+                : ModelRef.TryParse(request.Route, out var asked) ? asked.ProviderId : null;
+            await _recorder.RecordDeniedAsync(
+                request.AgentId, request.TurnId, request.Route, provider, UsageDenyCode(denied.Reason), _time.GetUtcNow(), CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            NotifyInternalError(ex);
+        }
+    }
+
+    private static string UsageDenyCode(DenyReason reason) => "policy_denied:" + reason switch
+    {
+        DenyReason.UnknownAgent => "unknown_agent",
+        DenyReason.InvalidRoute => "invalid_route",
+        DenyReason.NoRoute => "no_route",
+        DenyReason.ModelNotAllowed => "model_not_allowed",
+        DenyReason.RouteNotAllowed => "route_not_allowed",
+        DenyReason.UnknownRoute => "unknown_route",
+        DenyReason.ToolsNotAllowed => "tools_not_allowed",
+        DenyReason.DelegatedSetExceedsPolicy => "delegated_set_exceeds_policy",
+        DenyReason.CredentialRefused => "credential_refused",
+        DenyReason.ProviderUnavailable => "provider_unavailable",
+        DenyReason.ModelUnavailable => "model_unavailable",
+        DenyReason.DeniedByTightening => "denied_by_tightening",
+        DenyReason.FamilyMismatch => "family_mismatch",
+        _ => "no_eligible_candidate",
+    };
 
     private async ValueTask RecordSafeAsync(UsageAccumulator acc)
     {
