@@ -6,6 +6,7 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
@@ -31,6 +32,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
@@ -86,18 +88,25 @@ internal static class Program
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
             .. GitGuiPanes.Modules,
+            // The terminal pane comes last in pager order (doc 55, section 7).
+            .. CalcinatoPanes.Modules,
         ];
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        var features = new PaneModuleContext()
-            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
-            .WithGitGui(ClientServer.Current);
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext()
+                .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current),
+            terminals);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -124,6 +133,9 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
             return window;
         }
 
@@ -134,6 +146,7 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 

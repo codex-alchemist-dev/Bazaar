@@ -15,9 +15,6 @@
     <None Include="**/Golden/*.md" Exclude="bin/**;obj/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
-    <!-- Vault test helpers still used by Knowledge/Archive and Constellation/VaultGraphSourceTests. Linked, not copied; the owner decides the shared home. -->
-    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Git\TempGitRepository.cs" Link="Vault\Git\TempGitRepository.cs" />
-    <Compile Include="..\Bazaar.Server.Vault.Tests\Vault\Data\VaultDb.cs" Link="Vault\Data\VaultDb.cs" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
@@ -67,5 +64,6 @@
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vault.Testing\Bazaar.Server.Vault.Testing.csproj" />
   </ItemGroup>
 </Project>

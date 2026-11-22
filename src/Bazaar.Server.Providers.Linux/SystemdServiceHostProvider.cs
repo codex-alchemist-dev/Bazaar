@@ -4,6 +4,20 @@ using System.Text;
 namespace Bazaar.Server.Providers.Linux;
 
 /// <summary>
+/// Installed, running and enabled state of the Bazaar unit as systemd reports it. <paramref name="Manager"/> is
+/// <c>systemd</c>, or <c>none</c> when no service manager is running (see <see cref="NoManager"/>).
+/// </summary>
+/// <param name="Manager">The service manager the answer came from.</param>
+/// <param name="Installed">True when systemd has loaded a unit file for the Bazaar unit.</param>
+/// <param name="Running">True when the unit is active.</param>
+/// <param name="Enabled">True when the unit starts at boot.</param>
+public sealed record ServiceUnitStatus(string Manager, bool Installed, bool Running, bool Enabled)
+{
+    /// <summary>The clean answer when no service manager is running: nothing installed, running or enabled.</summary>
+    public static ServiceUnitStatus NoManager { get; } = new("none", false, false, false);
+}
+
+/// <summary>
 /// The Linux service host (doc 03): the host runs as a systemd service and logs go to journald via stdout.
 /// Usable only when systemd is PID 1, which is the case when <c>/run/systemd/system</c> exists.
 /// <see cref="RecoveryAsync"/> reads the restart policy back with <c>systemctl show</c>.
@@ -22,6 +36,12 @@ public sealed class SystemdServiceHostProvider : IServiceHostProvider
     private const string _startLimitIntervalProperty = "StartLimitIntervalUSec";
     private const string _startLimitBurstProperty = "StartLimitBurst";
     private const string _noRestart = "no";
+    private const string _loadStateProperty = "LoadState";
+    private const string _activeStateProperty = "ActiveState";
+    private const string _unitFileStateProperty = "UnitFileState";
+    private const string _loadedState = "loaded";
+    private const string _activeState = "active";
+    private const string _enabledState = "enabled";
     private const ulong _microsecondsPerSecond = 1_000_000;
     private const ulong _microsecondsPerMinute = 60 * _microsecondsPerSecond;
     private static readonly TimeSpan _processTimeout = TimeSpan.FromSeconds(15);
@@ -103,8 +123,49 @@ public sealed class SystemdServiceHostProvider : IServiceHostProvider
         return ParseRecovery(output);
     }
 
-    /// <summary>Turns <c>systemctl show</c> key=value output into a report. Missing keys mean no policy for that part.</summary>
-    private static ServiceRecoveryReport ParseRecovery(string output)
+    /// <summary>
+    /// Reports whether the Bazaar unit is installed, running and enabled. Returns <see cref="ServiceUnitStatus.NoManager"/>
+    /// without running anything when systemd is not running, and also when <c>systemctl</c> cannot be run, so callers
+    /// always get a clean answer.
+    /// </summary>
+    public async Task<ServiceUnitStatus> UnitStatusAsync(CancellationToken ct)
+    {
+        if (!_isLinux() || !_pathExists(_systemdRuntimeDirectory))
+        {
+            return ServiceUnitStatus.NoManager;
+        }
+
+        var arguments = new[]
+        {
+            "show",
+            _unitName,
+            $"--property={_loadStateProperty},{_activeStateProperty},{_unitFileStateProperty}",
+        };
+
+        try
+        {
+            var output = await _runProcess("systemctl", arguments, ct);
+            return ParseUnitStatus(output);
+        }
+        catch (Exception exception) when (exception is not (OperationCanceledException or TimeoutException))
+        {
+            // Missing binary, failed start, or a non-zero exit: systemd cannot answer, so report no manager.
+            return ServiceUnitStatus.NoManager;
+        }
+    }
+
+    /// <summary>Turns <c>systemctl show</c> LoadState, ActiveState and UnitFileState lines into a unit status.</summary>
+    private static ServiceUnitStatus ParseUnitStatus(string output)
+    {
+        var values = ReadProperties(output);
+        var installed = values.GetValueOrDefault(_loadStateProperty) == _loadedState;
+        var running = values.GetValueOrDefault(_activeStateProperty) == _activeState;
+        var enabled = values.GetValueOrDefault(_unitFileStateProperty) == _enabledState;
+        return new ServiceUnitStatus(_kind, installed, running, enabled);
+    }
+
+    /// <summary>Reads <c>key=value</c> lines from <c>systemctl show</c> output. Lines without a key are skipped.</summary>
+    private static Dictionary<string, string> ReadProperties(string output)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -117,6 +178,14 @@ public sealed class SystemdServiceHostProvider : IServiceHostProvider
 
             values[line[..separator].Trim()] = line[(separator + 1)..].Trim();
         }
+
+        return values;
+    }
+
+    /// <summary>Turns <c>systemctl show</c> key=value output into a report. Missing keys mean no policy for that part.</summary>
+    private static ServiceRecoveryReport ParseRecovery(string output)
+    {
+        var values = ReadProperties(output);
 
         var restart = values.GetValueOrDefault(_restartProperty, _noRestart);
         if (restart.Length == 0 || restart == _noRestart)
