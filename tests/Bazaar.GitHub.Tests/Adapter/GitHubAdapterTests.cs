@@ -19,6 +19,7 @@ public sealed class GitHubAdapterTests
 
     private const string _pullsPath = "/repos/codex-alchemist-dev/bazaar/pulls";
     private const string _searchPath = "/repos/codex-alchemist-dev/bazaar/pulls?head=codex-alchemist-dev%3Aagent%2Fx&state=open";
+    private static readonly string _commitPath = "/repos/codex-alchemist-dev/bazaar/commits/" + _headSha;
     private const string _filesPath = "/repos/codex-alchemist-dev/bazaar/pulls/42/files?per_page=100";
 
     private static readonly OpenPrRequest _openRequest = new(_installation, _owner, _repo, "agent/x", "main", "Add x", "Body text");
@@ -60,6 +61,7 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
         h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": true}"""));
+        RouteChecks(h, [RunJson("completed", "success")]);
         using var owner = NewOwnerKey();
         var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
 
@@ -109,6 +111,105 @@ public sealed class GitHubAdapterTests
         Assert.Empty(h.Http.Requests);
     }
 
+    [Theory]
+    [InlineData("completed", "failure", PrChecksState.Failing)]
+    [InlineData("completed", "cancelled", PrChecksState.Failing)]
+    [InlineData("completed", "timed_out", PrChecksState.Failing)]
+    [InlineData("completed", "action_required", PrChecksState.Failing)]
+    [InlineData("completed", "a_conclusion_added_later", PrChecksState.Failing)]
+    [InlineData("in_progress", null, PrChecksState.Pending)]
+    [InlineData("queued", null, PrChecksState.Pending)]
+    [InlineData("completed", "success", PrChecksState.Passing)]
+    [InlineData("completed", "neutral", PrChecksState.Passing)]
+    [InlineData("completed", "skipped", PrChecksState.Passing)]
+    public async Task Check_runs_map_to_one_state(string status, string? conclusion, PrChecksState expected)
+    {
+        var h = Build();
+        RouteChecks(h, [RunJson("completed", "success"), RunJson(status, conclusion)]);
+
+        Assert.Equal(expected, await h.Adapter.GetChecksStateAsync(_pr, _headSha, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_commit_with_no_checks_and_no_statuses_has_no_checks()
+    {
+        var h = Build();
+        RouteChecks(h, []);
+
+        Assert.Equal(PrChecksState.NoChecks, await h.Adapter.GetChecksStateAsync(_pr, _headSha, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("success", PrChecksState.Passing)]
+    [InlineData("pending", PrChecksState.Pending)]
+    [InlineData("failure", PrChecksState.Failing)]
+    [InlineData("error", PrChecksState.Failing)]
+    public async Task A_legacy_commit_status_counts_with_the_check_runs(string state, PrChecksState expected)
+    {
+        var h = Build();
+        RouteChecks(h, [RunJson("completed", "success")], state);
+
+        Assert.Equal(expected, await h.Adapter.GetChecksStateAsync(_pr, _headSha, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_legacy_status_alone_is_enough_to_pass()
+    {
+        var h = Build();
+        RouteChecks(h, [], "success");
+
+        Assert.Equal(PrChecksState.Passing, await h.Adapter.GetChecksStateAsync(_pr, _headSha, CancellationToken.None));
+    }
+
+    [Theory]
+    [InlineData("failure")]
+    [InlineData("in_progress")]
+    public async Task A_verified_approval_with_checks_not_passing_sends_no_merge_request(string state)
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
+        RouteChecks(h, [state == "failure" ? RunJson("completed", "failure") : RunJson("in_progress", null)]);
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None));
+
+        Assert.Contains("checks", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    [Fact]
+    public async Task A_verified_approval_on_a_commit_with_no_checks_is_refused()
+    {
+        var h = Build();
+        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
+        RouteChecks(h, []);
+        using var owner = NewOwnerKey();
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
+
+        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None));
+
+        Assert.Contains("NoChecks", ex.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
+    }
+
+    private static string RunJson(string status, string? conclusion) =>
+        "{\"status\": \"" + status + "\", \"conclusion\": " + (conclusion is null ? "null" : "\"" + conclusion + "\"") + "}";
+
+    private static void RouteChecks(Harness h, string[] runs, string? statusState = null)
+    {
+        h.Http.Route(
+            HttpMethod.Get,
+            _commitPath + "/check-runs?per_page=100",
+            Reply.Json(HttpStatusCode.OK, "{\"total_count\": " + runs.Length + ", \"check_runs\": [" + string.Join(",", runs) + "]}"));
+        h.Http.Route(
+            HttpMethod.Get,
+            _commitPath + "/status",
+            Reply.Json(HttpStatusCode.OK, statusState is null
+                ? "{\"state\": \"pending\", \"total_count\": 0, \"statuses\": []}"
+                : "{\"state\": \"" + statusState + "\", \"total_count\": 1, \"statuses\": [{}]}"));
+    }
+
     private static MergeRequest Merge() => new(_headSha, "Add x (#42)", "Body\n\nSigned-off-by: _owner <owner@example.test>");
 
     private const string _ownerDeviceId = "device-1";
@@ -128,7 +229,7 @@ public sealed class GitHubAdapterTests
             _ownerHuman,
             _ownerDeviceId,
             now.AddMinutes(-1),
-            now.AddMinutes(10),
+            now.AddMinutes(4),
             Enumerable.Repeat((byte)7, OwnerSignedPayload.NonceLength).ToArray());
         var signature = signer.SignData(
             OwnerSignedPayload.Build(payload), HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);

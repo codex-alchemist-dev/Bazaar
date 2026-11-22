@@ -1,5 +1,6 @@
 using System.Text.Json.Nodes;
 using Bazaar.Core;
+using Bazaar.Server.Gateway;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
@@ -9,8 +10,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.Host.Components.Settings;
 
 /// <summary>
-/// Settings as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md). Registers <see cref="SettingRegistry.Known"/>, the Postgres-backed
+/// Settings as a Bazaar Component (docs/design/BAZAAR-COMPONENTS.md). Registers the <see cref="SettingRegistry"/> composed from the built-in
+/// keys and every <see cref="ISettingContribution"/> the enabled components register (resolved lazily, so order does not matter), the Postgres-backed
 /// <see cref="ISettingStore"/>, and an <see cref="ISettingAuditSink"/> that writes each setting change into <see cref="IAuditLog"/>.
+/// The gateway keys (doc 05) arrive as a contribution, <see cref="GatewaySettingContribution"/>, registered here by the host: Bazaar.Server
+/// cannot reference Bazaar.Server.Gateway, so the built-in keys leave them out.
 /// It depends on <c>audit</c> because the sink appends to the audit log, so the kernel starts audit first.
 /// </summary>
 public sealed class SettingsComponent : IBazaarComponent
@@ -26,7 +30,8 @@ public sealed class SettingsComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton(SettingRegistry.Known);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, GatewaySettingContribution>());
+        services.TryAddSingleton<SettingRegistry>(sp => SettingRegistry.WithContributions(sp.GetServices<ISettingContribution>()));
         services.TryAddSingleton<ISettingAuditSink, AuditLogSettingSink>();
         services.TryAddSingleton<ISettingStore, NpgsqlSettingStore>();
     }
