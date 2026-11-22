@@ -1,7 +1,7 @@
 Golden frame: RyuseiTriggerListReply
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7
+Schema hash: sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12
 Payload record: Bazaar.Contracts.Ryusei.RyuseiTriggerListReply
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 438 bytes

@@ -57,6 +57,12 @@ public static class WireTypes
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
+    /// <summary>Owner asks to grant one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
+    public const string HiveGrantSet = "hive.grant.set";
+
+    /// <summary>Owner asks to revoke one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
+    public const string HiveGrantRevoke = "hive.grant.revoke";
+
     /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
     public const string PrList = "pr.list";
 
@@ -92,6 +98,9 @@ public static class WireTypes
 
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
+
+    /// <summary>One terminal frame on a <c>pane:&lt;terminalId&gt;</c> stream, as JSON text (docs/design/55, section 6.1).</summary>
+    public const string PaneFrame = "pane.frame";
 
     /// <summary>Client asks for its server-driven UI profile.</summary>
     public const string UiGet = "ui.get";

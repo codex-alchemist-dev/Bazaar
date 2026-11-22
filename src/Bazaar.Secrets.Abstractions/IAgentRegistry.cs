@@ -18,6 +18,10 @@ public interface IAgentRegistry
 
     Task<AgentRecord?> GetAsync(AgentId id, CancellationToken ct);
 
-    /// <summary>Changes the state of a registered agent. Throws when the agent is unknown.</summary>
-    Task<AgentRecord> SetStateAsync(AgentId id, AgentState state, CancellationToken ct);
+    /// <summary>
+    /// Moves a registered agent to <paramref name="target"/> under <see cref="AgentTransitionRules"/>. Throws
+    /// <see cref="AgentTransitionException"/> for a refused change and <see cref="InvalidOperationException"/> for an unknown agent.
+    /// Same-state requests return the current record and change nothing. Every real transition is audited.
+    /// </summary>
+    Task<AgentRecord> TransitionAsync(AgentId id, AgentState target, OwnerRelease? release, CancellationToken ct);
 }
