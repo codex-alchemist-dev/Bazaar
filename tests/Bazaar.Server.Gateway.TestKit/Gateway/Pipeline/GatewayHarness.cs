@@ -181,7 +181,7 @@ internal sealed class GatewayHarness
         return this;
     }
 
-    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, IEmbeddingProfile? profile = null, IEmbeddingRouteSource? settings = null) => new(
+    public ModelGateway Gateway(PriceTable? prices = null, IQuotaTracker? quota = null, IEmbeddingProfile? profile = null, IEmbeddingRouteSource? settings = null, Bazaar.Server.Gateway.Selection.ICandidateRanker? ranker = null, Bazaar.Server.Gateway.Selection.IEndpointStatsTracker? stats = null) => new(
         World.Resolver(),
         Directory,
         new DictionaryAdapterRegistry(Adapters),
@@ -194,6 +194,8 @@ internal sealed class GatewayHarness
         Suspender,
         Clock,
         InternalErrors.Add,
+        ranker: ranker,
+        selectionStats: stats,
         embeddingProfile: profile,
         embeddingRoute: settings);
 

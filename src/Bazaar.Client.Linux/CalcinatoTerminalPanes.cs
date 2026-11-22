@@ -1,8 +1,12 @@
+using System.Text.Json;
 using Bazaar.Client.Calcinato.Avalonia;
 using Bazaar.Client.Calcinato.Pty;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Calcinato.Sources;
+using Bazaar.Client.Core;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Contracts.Panes;
 
 namespace Bazaar.Client.Linux;
 
@@ -29,5 +33,25 @@ public static class CalcinatoTerminalPanes
         var registry = PaneRegistry.Compose(viewFactory, modules, context.With(sessions).With(TimeProvider.System));
         TerminalPaneViews.Register(registry);
         return registry;
+    }
+
+    /// <summary>
+    /// Shows a terminal pane in <paramref name="window"/> (the <c>--terminal</c> launch flag): opens one local shell when
+    /// the manager has none, then draws the terminal pane from a registry holding the Calcinato module.
+    /// </summary>
+    /// <param name="window">The head's main window. Its content is replaced by the pane.</param>
+    /// <param name="sessions">The session manager the pane follows.</param>
+    public static void ShowTerminal(MainWindow window, TerminalSessionManager sessions)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        ArgumentNullException.ThrowIfNull(sessions);
+
+        if (sessions.Sessions.Count == 0)
+        {
+            sessions.OpenLocal();
+        }
+
+        var registry = Compose(PaneViews.Instance, Bazaar.Client.Calcinato.Panes.CalcinatoPanes.Modules, new PaneModuleContext(), sessions);
+        window.ShowPanes([new PaneDescriptor(PaneKinds.Terminal, "Terminal", string.Empty, JsonElement.Parse("{}"))], registry);
     }
 }

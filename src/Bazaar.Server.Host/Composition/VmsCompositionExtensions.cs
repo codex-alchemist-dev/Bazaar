@@ -1,5 +1,7 @@
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.HyperV;
+using Bazaar.Server.Vms.HyperV.PowerShell;
 using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
@@ -14,6 +16,9 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class VmsCompositionExtensions
 {
+    /// <summary>Configuration section for the Hyper-V backend. Keys: ImageDirectory (golden image VHDX files), VmDirectory (child disks), ScriptDirectory.</summary>
+    public const string HyperVSection = "Bazaar:Vms:HyperV";
+
     /// <summary>Configuration section for the Windows Sandbox backend. Keys: HostBaseImage (GUID), ConfigDirectory, Networking.</summary>
     public const string WindowsSandboxSection = "Bazaar:Vms:WindowsSandbox";
 
@@ -29,10 +34,12 @@ public static class VmsCompositionExtensions
         services.TryAddSingleton<IAgentVmDirectory>(sp => new RepositoryAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton(new VmOperationLocks());
 
-        var backend = WindowsSandboxFromConfiguration(configuration);
+        // Hyper-V is the VM provider for the agent pair and is chosen first; Windows Sandbox serves one-off work and is the fallback (doc 50).
+        IVmBackend? backend = HyperVFromConfiguration(configuration);
+        backend ??= WindowsSandboxFromConfiguration(configuration);
         if (backend is not null)
         {
-            services.TryAddSingleton<IVmBackend>(backend);
+            services.TryAddSingleton(backend);
             services.TryAddSingleton(sp => new VmLifecycleService(
                 sp.GetRequiredService<IEnvironmentVmStore>(),
                 sp.GetRequiredService<IVmBackend>(),
@@ -41,6 +48,24 @@ public static class VmsCompositionExtensions
         }
 
         return services;
+    }
+
+    /// <summary>The Hyper-V backend, or null when its section does not name all three directories.</summary>
+    private static HyperVBackend? HyperVFromConfiguration(IConfiguration configuration)
+    {
+        var section = configuration.GetSection(HyperVSection);
+        var imageDirectory = section["ImageDirectory"];
+        var vmDirectory = section["VmDirectory"];
+        var scriptDirectory = section["ScriptDirectory"];
+        if (string.IsNullOrWhiteSpace(imageDirectory) || string.IsNullOrWhiteSpace(vmDirectory) || string.IsNullOrWhiteSpace(scriptDirectory))
+        {
+            return null;
+        }
+
+        return new HyperVBackend(
+            new PowerShellHyperVHost(new ProcessHyperVCommandRunner(), scriptDirectory, vmDirectory),
+            new DirectoryParentResolver(imageDirectory),
+            new HyperVHostFacts());
     }
 
     /// <summary>The Windows Sandbox backend, or null when its section does not name a base image and a config directory.</summary>
