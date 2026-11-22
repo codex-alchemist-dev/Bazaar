@@ -18,4 +18,10 @@ public interface ICliApplyGate
     /// <see cref="DurableAuditStoreAvailable"/> is true, so a closed gate never builds the applier.
     /// </summary>
     void RegisterApplyServices(IServiceCollection services);
+
+    /// <summary>
+    /// The plan section ids the steps this gate registers apply (<see cref="ISetupStep.Covers"/>). A dry run uses it to list what an
+    /// apply would refuse, so it must not depend on the gate being open. The default is none.
+    /// </summary>
+    IReadOnlyCollection<string> CoveredSections => [];
 }
