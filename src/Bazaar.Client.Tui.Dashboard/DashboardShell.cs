@@ -11,6 +11,8 @@ public sealed record DashboardFrame(IReadOnlyList<string> Lines, bool Bell);
 /// <para>Keys beyond the menu bar: <c>Tab</c> acknowledges the alert banner and dismisses the green banner; on the Logs screen
 /// <c>[</c> and <c>]</c> lower and raise the level filter and <c>f</c> sets the module filter; Ctrl+C leaves. Data is read again on
 /// every key; a timed refresh waits for the Terminal.Gui shell.</para>
+/// <para>With an <see cref="OpsActions"/> the screens that have write actions take one key each (see <see cref="OpsActions.KeyFor"/>); without
+/// one the shell stays read-only.</para>
 /// </summary>
 public sealed class DashboardShell
 {
@@ -23,6 +25,7 @@ public sealed class DashboardShell
     private readonly TimeProvider _clock;
     private readonly TimeZoneInfo _zone;
     private readonly int _rows;
+    private readonly OpsActions? _actions;
     private int _lastDrawn;
 
     public DashboardShell(
@@ -32,7 +35,8 @@ public sealed class DashboardShell
         TuiStyle style,
         TimeProvider? clock = null,
         TimeZoneInfo? zone = null,
-        int rows = DefaultRows)
+        int rows = DefaultRows,
+        OpsActions? actions = null)
     {
         _terminal = terminal ?? throw new ArgumentNullException(nameof(terminal));
         _ports = ports ?? throw new ArgumentNullException(nameof(ports));
@@ -41,6 +45,7 @@ public sealed class DashboardShell
         _clock = clock ?? TimeProvider.System;
         _zone = zone ?? TimeZoneInfo.Local;
         _rows = Math.Max(10, rows);
+        _actions = actions;
     }
 
     public MenuBarState Menu { get; } = new(DefaultMenus.Create());
@@ -51,6 +56,9 @@ public sealed class DashboardShell
 
     /// <summary>The screen shown now. The health overview is the default (owner card 2026-11-18).</summary>
     public string CurrentScreen { get; private set; } = DefaultMenus.Health;
+
+    /// <summary>The outcome of the last write action, shown on the status row until the next key. Null when nothing was done.</summary>
+    public OpsActionOutcome? LastAction { get; private set; }
 
     /// <summary>Reads the ports, updates the alerts and draws one frame.</summary>
     public async Task<DashboardFrame> RenderAsync(CancellationToken ct = default)
@@ -69,7 +77,8 @@ public sealed class DashboardShell
         var top = MenuLines(provisional);
         top.AddRange(BannerLines(provisional));
         var footer = FooterLine(width);
-        var bodyRows = Math.Max(1, _rows - top.Count - 1);
+        var actionRow = StatusLine(width);
+        var bodyRows = Math.Max(1, _rows - top.Count - 1 - (actionRow is null ? 0 : 1));
         var context = provisional with { Rows = bodyRows };
 
         IReadOnlyList<string> body = CurrentScreen == DefaultMenus.Health
@@ -78,6 +87,11 @@ public sealed class DashboardShell
 
         var lines = new List<string>(top);
         lines.AddRange(body.Take(bodyRows));
+        if (actionRow is not null)
+        {
+            lines.Add(actionRow);
+        }
+
         lines.Add(footer);
         return new DashboardFrame(lines.Take(_rows).ToList(), bell);
     }
@@ -132,6 +146,26 @@ public sealed class DashboardShell
         return true;
     }
 
+    /// <summary>
+    /// Handles one key, starting a write action when the key belongs to the screen (<see cref="OpsActions.KeyFor"/>) and the menu is
+    /// closed. Anything else goes to <see cref="HandleKey"/>. Returns false when the user chose to leave.
+    /// </summary>
+    public async Task<bool> HandleKeyAsync(TerminalKey key, OpsSession session, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        if (_actions is not null
+            && !Menu.IsOpen
+            && key is { Kind: TerminalKeyKind.Character }
+            && OpsActions.KeyFor(CurrentScreen, key.Value) is { } kind)
+        {
+            LastAction = await _actions.RunAsync(session, kind, ct).ConfigureAwait(false);
+            return true;
+        }
+
+        LastAction = null;
+        return HandleKey(key);
+    }
+
     /// <summary>Signs in (owner on the box, or an admin code), then draws and reads keys until the user leaves. Returns the exit code: 0 on a normal exit, 1 when sign-in was abandoned, 2 when the terminal cannot read keys.</summary>
     public async Task<int> RunAsync(CancellationToken ct = default)
     {
@@ -167,7 +201,7 @@ public sealed class DashboardShell
 
                 var frame = await RenderAsync(ct).ConfigureAwait(false);
                 Draw(frame);
-                if (!HandleKey(_terminal.ReadKey()))
+                if (!await HandleKeyAsync(_terminal.ReadKey(), session, ct).ConfigureAwait(false))
                 {
                     break;
                 }
@@ -303,6 +337,28 @@ public sealed class DashboardShell
         }
 
         return lines;
+    }
+
+    /// <summary>The status row: the last action's outcome, else the action keys of this screen. Null when there is neither (or no actions are wired).</summary>
+    private string? StatusLine(int width)
+    {
+        if (_actions is null)
+        {
+            return null;
+        }
+
+        if (LastAction is { } outcome)
+        {
+            var text = TextFit.Cut(outcome.Message, width);
+            return outcome.Status switch
+            {
+                OpsActionStatus.Done => Ansi.Green(_style, text),
+                OpsActionStatus.Cancelled => text,
+                _ => _style.Warning(text),
+            };
+        }
+
+        return OpsActions.HintFor(CurrentScreen) is { } hint ? _style.Dim(TextFit.Cut(hint, width)) : null;
     }
 
     private string FooterLine(int width)
