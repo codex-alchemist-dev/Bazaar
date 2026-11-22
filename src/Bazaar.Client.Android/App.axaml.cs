@@ -5,6 +5,8 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Approvals;
+using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
@@ -74,12 +76,15 @@ public sealed class App : Avalonia.Application
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
-        // The approvals pane needs an ApprovalGate (biometric, Keystore signer, sender) and an IPendingApprovalSource; the head adds
-        // them here with .With once the Android biometric prompt and the server source exist. Until then the pane says so (doc 29 Approvals).
+        // The approvals pane gets the biometric gate and the server source. With no enrolled approval key the gate is absent and the pane says so (doc 29 Approvals).
+        var deviceId = MainActivity.Current?.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private)?.GetString("approval_device_id", null);
+        var (gate, approvals) = AndroidApprovals.Create(ClientServer.Current, () => MainActivity.Current, deviceId);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(tiles)
+            .With<IPendingApprovalSource>(approvals)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        if (gate is not null) features = features.With(gate);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
