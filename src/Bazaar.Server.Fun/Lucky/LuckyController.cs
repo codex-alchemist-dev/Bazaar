@@ -1,5 +1,5 @@
 using System.Collections.Immutable;
-using Bazaar.Server.Sanitization;
+using Bazaar.Sanitization;
 
 namespace Bazaar.Server.Fun.Lucky;
 
@@ -69,7 +69,7 @@ public sealed class LuckyController
             }
 
             var seed = nextSeed();
-            participants.Add(new LuckyParticipant(candidate.AgentId, seed, LuckyPersonas.Pick(seed)));
+            participants.Add(new LuckyParticipant(candidate.AgentId, seed, LuckyPersonas.Pick(seed), candidate.OptedIn));
         }
 
         var run = new LuckyRun(
@@ -150,9 +150,12 @@ public sealed class LuckyController
         return LuckyResult.Accept(run with { Ideas = run.Ideas.SetItem(ideaIndex, idea with { OwnerMarked = true }) });
     }
 
-    /// <summary>The agents to wake once at start under the doc 06 brainstorm reason (not a Skimmer override).</summary>
+    /// <summary>
+    /// The agents to wake once at start under the doc 06 brainstorm reason (not a Skimmer override). Only opted-in
+    /// participants are woken (doc 26, section 6); on-shift agents who did not opt in take part only if they wake anyway.
+    /// </summary>
     public static ImmutableArray<string> WakeList(LuckyRun run) =>
-        run.Participants.Select(p => p.AgentId).ToImmutableArray();
+        run.Participants.Where(p => p.OptedIn).Select(p => p.AgentId).ToImmutableArray();
 
     private bool Invited(LuckyCandidate candidate) => _settings.Participation switch
     {

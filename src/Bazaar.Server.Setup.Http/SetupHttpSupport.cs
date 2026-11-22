@@ -70,7 +70,7 @@ public sealed record SetupErrorBody(string Error);
 public sealed record SetupIssueBody(string Severity, string Path, string Message);
 
 /// <summary>The answer of <c>POST /setup/plans</c>.</summary>
-public sealed record SetupPlanReplyBody(int ExitCode, string? PlanHash, IReadOnlyList<SetupIssueBody> Issues);
+public sealed record SetupPlanReplyBody(int ExitCode, string? PlanHash, IReadOnlyList<SetupIssueBody> Issues, IReadOnlyList<string> UnappliedSections);
 
 /// <summary>The answer of <c>POST /setup/plans/{hash}/apply</c>. <see cref="Replayed"/> is true when the stored result was returned.</summary>
 public sealed record SetupApplyReplyBody(
@@ -78,7 +78,8 @@ public sealed record SetupApplyReplyBody(
     string PlanHash,
     IReadOnlyList<string> AppliedSteps,
     IReadOnlyList<SetupIssueBody> Issues,
-    bool Replayed);
+    bool Replayed,
+    IReadOnlyList<string> UnappliedSections);
 
 /// <summary>One step in the status answer.</summary>
 public sealed record SetupStepBody(string Id, string State);
@@ -96,7 +97,7 @@ public sealed record SetupStatusBody(
     IReadOnlyList<SetupHeldBody> HeldApprovals);
 
 /// <summary>The audit payload of one call. It holds the route, the outcome and the caller kind, never a body or a secret.</summary>
-public sealed record SetupCallAuditBody(string Route, string Method, int Status, string Outcome, string Caller, string? PlanHash);
+public sealed record SetupCallAuditBody(string Route, string Method, int Status, string Outcome, string Caller, string? PlanHash, IReadOnlyList<string> UnappliedSections);
 
 /// <summary>Source-generated JSON for the provisioning API (CLAUDE.md: System.Text.Json source generation, no reflection).</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, WriteIndented = false)]

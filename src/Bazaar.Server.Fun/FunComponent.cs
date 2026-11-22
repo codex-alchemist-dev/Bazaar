@@ -1,9 +1,8 @@
 using Bazaar.Core;
-using Bazaar.Server.Fun.Vent;
-using Bazaar.Server.Fun.Ward;
 using Bazaar.Server.Fun.Lucky;
 using Bazaar.Server.Fun.Sidewalk;
-using Bazaar.Server.Sanitization;
+using Bazaar.Server.Fun.Vent;
+using Bazaar.Server.Fun.Ward;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -30,7 +29,6 @@ public sealed class FunComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
         services.TryAddSingleton<VentDrafter>();
         services.AddOptions<VentSettings>()
             .BindConfiguration(VentSettings.SectionName)

@@ -1,4 +1,4 @@
-using Bazaar.Server.Sanitization;
+using Bazaar.Sanitization;
 
 namespace Bazaar.Server.Fun.Vent;
 

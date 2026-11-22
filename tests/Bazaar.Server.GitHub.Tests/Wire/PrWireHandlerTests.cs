@@ -36,7 +36,7 @@ public sealed class PrWireHandlerTests
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;
@@ -319,6 +319,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task Merge_with_a_stale_head_replies_stale_with_the_current_sha_and_merges_nothing()
     {
+        using var f = new Fixture();
         f.Adapter.Head = _moved;
 
         var reply = await MergeAsync(f, SignedMerge(f.Key));
@@ -334,6 +335,7 @@ public sealed class PrWireHandlerTests
     [InlineData(PrChecksRollup.None)]
     public async Task Merge_with_checks_not_passing_replies_checks_failed_and_merges_nothing(PrChecksRollup checks)
     {
+        using var f = new Fixture();
         f.Reads.Checks = checks;
 
         var reply = await MergeAsync(f, SignedMerge(f.Key));
@@ -348,6 +350,7 @@ public sealed class PrWireHandlerTests
     [InlineData(HttpStatusCode.Conflict, PrMergeStatus.Conflict)]
     public async Task Merge_refused_by_github_replies_with_its_own_code_not_a_generic_failure(HttpStatusCode status, PrMergeStatus expected)
     {
+        using var f = new Fixture();
         f.Adapter.MergeFailure = new GitHubApiException(status, "Required status check is expected.", "merge failed");
 
         var reply = await MergeAsync(f, SignedMerge(f.Key));
@@ -359,6 +362,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task Merge_hitting_a_github_rate_limit_stays_a_wire_rate_limited_error()
     {
+        using var f = new Fixture();
         f.Adapter.MergeFailure = new GitHubRateLimitedException(1, DateTimeOffset.UtcNow.AddMinutes(1), HttpStatusCode.Forbidden, "limited");
 
         var reply = await f.Merge.HandleAsync(Request(new FakeConnection("owner"), WireTypes.PrMerge, SignedMerge(f.Key)), Ct);
@@ -370,6 +374,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task Merge_with_a_forged_signature_replies_bad_signature()
     {
+        using var f = new Fixture();
         using var forger = ECDsa.Create(ECCurve.NamedCurves.nistP256);
 
         var reply = await MergeAsync(f, SignedMerge(forger));
@@ -381,6 +386,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task A_replayed_approval_replies_bad_signature_and_merges_only_once()
     {
+        using var f = new Fixture();
         var request = SignedMerge(f.Key);
 
         var first = await MergeAsync(f, request);
@@ -396,6 +402,7 @@ public sealed class PrWireHandlerTests
     {
         // The gate verifies the signature before it reads the head and the checks (doc 21, doc 32 section 5a), so a refused
         // merge has spent the single-use nonce and the same signed request cannot be replayed.
+        using var f = new Fixture();
         var request = SignedMerge(f.Key);
         f.Reads.Checks = PrChecksRollup.Failing;
         var red = await MergeAsync(f, request);
@@ -411,6 +418,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task Approval_for_a_different_merge_is_refused()
     {
+        using var f = new Fixture();
         var request = SignedMerge(f.Key) with { CommitTitle = "A different title" };
 
         var reply = await MergeAsync(f, request);
@@ -422,6 +430,7 @@ public sealed class PrWireHandlerTests
     [Fact]
     public async Task An_agent_principal_never_reaches_merge()
     {
+        using var f = new Fixture();
 
         var reply = await f.Merge.HandleAsync(Request(new FakeConnection("agent"), WireTypes.PrMerge, SignedMerge(f.Key)), Ct);
 

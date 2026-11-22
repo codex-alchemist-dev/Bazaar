@@ -46,8 +46,9 @@ public static class SetupEndpoints
 
         var loaded = SetupPlanLoader.Load(text!, call.Deps.Settings);
         var status = SetupHttpStatus.For(loaded.ExitCode);
-        var body = new SetupPlanReplyBody((int)loaded.ExitCode, loaded.PlanHash, IssuesOf(loaded.Issues));
-        return new SetupReply(status, OutcomeOf(loaded.ExitCode), Json(body, status), loaded.PlanHash);
+        var unapplied = loaded.Plan is null ? [] : call.Deps.Applier.UnappliedSectionsOf(loaded.Plan).Select(section => section.Id).ToList();
+        var body = new SetupPlanReplyBody((int)loaded.ExitCode, loaded.PlanHash, IssuesOf(loaded.Issues), unapplied);
+        return new SetupReply(status, OutcomeOf(loaded.ExitCode), Json(body, status), loaded.PlanHash, unapplied);
     });
 
     private static Task<IResult> ApplyAsync(HttpContext http, string hash) => RunAsync(http, "plans.apply", "POST", async call =>
@@ -68,7 +69,7 @@ public static class SetupEndpoints
         var loaded = SetupPlanLoader.Load(text!, call.Deps.Settings);
         if (loaded.Plan is null || loaded.PlanHash is null)
         {
-            var invalid = new SetupPlanReplyBody((int)loaded.ExitCode, null, IssuesOf(loaded.Issues));
+            var invalid = new SetupPlanReplyBody((int)loaded.ExitCode, null, IssuesOf(loaded.Issues), []);
             return new SetupReply(SetupHttpStatus.For(loaded.ExitCode), OutcomeOf(loaded.ExitCode), Json(invalid, SetupHttpStatus.For(loaded.ExitCode)));
         }
 
@@ -183,7 +184,7 @@ public static class SetupEndpoints
             var actor = decision is { Allowed: true } admitted ? admitted.Actor : SetupHttpConstants.RefusedActor;
             var callerKind = decision is { Allowed: true } ? (decision.Kind == SetupAccessKind.Owner ? "owner" : "bootstrap") : "none";
             var payload = JsonSerializer.Serialize(
-                new SetupCallAuditBody(route, method, reply.Status, reply.Outcome, callerKind, reply.PlanHash),
+                new SetupCallAuditBody(route, method, reply.Status, reply.Outcome, callerKind, reply.PlanHash, reply.UnappliedSections ?? []),
                 SetupHttpJsonContext.Default.SetupCallAuditBody);
             await deps.Audit.AppendAsync(new AuditEntry(time.GetUtcNow(), actor, SetupHttpConstants.AuditKind, payload), CancellationToken.None);
         }
@@ -290,8 +291,8 @@ public static class SetupEndpoints
     private static SetupReply ApplyReply(SetupApplyResult result, bool replayed, string outcome)
     {
         var status = SetupHttpStatus.For(result.ExitCode);
-        var body = new SetupApplyReplyBody((int)result.ExitCode, result.PlanHash, result.AppliedStepIds, IssuesOf(result.Issues), replayed);
-        return new SetupReply(status, outcome, Json(body, status), result.PlanHash);
+        var body = new SetupApplyReplyBody((int)result.ExitCode, result.PlanHash, result.AppliedStepIds, IssuesOf(result.Issues), replayed, result.UnappliedSections);
+        return new SetupReply(status, result.UnappliedSections.Count > 0 ? "held:" + SetupPlanSections.HoldReason : outcome, Json(body, status), result.PlanHash, result.UnappliedSections);
     }
 
     private static List<SetupIssueBody> IssuesOf(IEnumerable<SetupValidationIssue> issues) =>
@@ -365,7 +366,7 @@ public static class SetupEndpoints
     private sealed record SetupCall(HttpContext Http, SetupDeps Deps, SetupAccessDecision Decision);
 
     /// <summary>One answer: its status, the outcome for the audit row, the response, and the plan hash when there is one.</summary>
-    private sealed record SetupReply(int Status, string Outcome, IResult Result, string? PlanHash = null);
+    private sealed record SetupReply(int Status, string Outcome, IResult Result, string? PlanHash = null, IReadOnlyList<string>? UnappliedSections = null);
 }
 
 /// <summary>Log lines for the provisioning API. They carry the route and the exception type only, never a body, header or message.</summary>

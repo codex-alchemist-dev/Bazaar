@@ -12,7 +12,8 @@ public sealed record LuckyCandidate(string AgentId, bool OnShift, bool OptedIn);
 /// <param name="AgentId">The participant.</param>
 /// <param name="Seed">The recorded random seed; the persona is reproduced from it.</param>
 /// <param name="Persona">The persona the seed selects.</param>
-public sealed record LuckyParticipant(string AgentId, int Seed, string Persona);
+/// <param name="OptedIn">True when the agent opted in; only opted-in participants get the start wake (doc 26, section 6).</param>
+public sealed record LuckyParticipant(string AgentId, int Seed, string Persona, bool OptedIn);
 
 /// <summary>Whether an idea is kept as text or quarantined.</summary>
 public enum LuckyIdeaStatus
@@ -29,7 +30,11 @@ public enum LuckyIdeaStatus
 /// <param name="Text">The sanitized idea text; empty when quarantined.</param>
 /// <param name="Status">Kept or quarantined.</param>
 /// <param name="OwnerMarked">True when the owner marked the idea for a Backlog card.</param>
-public sealed record LuckyIdea(string AgentId, string Text, LuckyIdeaStatus Status, bool OwnerMarked = false);
+public sealed record LuckyIdea(string AgentId, string Text, LuckyIdeaStatus Status, bool OwnerMarked = false)
+{
+    /// <summary>The source trust every Lucky idea carries (doc 26, section 6): an agent's text, never an external one.</summary>
+    public const string SourceTrust = "agent";
+}
 
 /// <summary>An open or finished Lucky run.</summary>
 /// <param name="RunId">The run's identifier.</param>

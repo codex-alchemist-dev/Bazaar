@@ -238,6 +238,9 @@ public sealed class CountingStep(string id, int order) : ISetupStep
 
     public int Order { get; } = order;
 
+    /// <summary>Covers every plan section by default, so a plan applies. A test narrows it to drive the unapplied-sections hold.</summary>
+    public IReadOnlyCollection<string> Covers { get; set; } = [.. SetupPlanSections.All.Select(section => section.Id)];
+
     public bool Fail { get; set; }
 
     public int ApplyCalls { get; private set; }

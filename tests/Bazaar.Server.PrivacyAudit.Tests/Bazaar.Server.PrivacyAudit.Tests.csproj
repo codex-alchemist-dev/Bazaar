@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.PrivacyAudit\Bazaar.Server.PrivacyAudit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
   </ItemGroup>
 </Project>
