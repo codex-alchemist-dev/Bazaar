@@ -1,5 +1,5 @@
 using System.Text;
-using Bazaar.Server.Components.Erasure;
+using Bazaar.Erasure;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Tests.Identity;
 using Npgsql;

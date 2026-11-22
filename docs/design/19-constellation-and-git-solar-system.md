@@ -131,6 +131,18 @@ No measured frame times exist for Avalonia/Skia graphs at these sizes (research 
 2. Every parent edge is kept, not only merge comets, so plain parent edges are drawn too.
 3. The git DAG indexer (`src/Bazaar.Server/Constellation/GitDag/`) is the source of these edges.
 
+## Git Solar System client module [PROPOSED] (2026-11-18)
+
+Implements work package 11's client half. Where docs 19, 41 and 52 leave a gap this is the orchestrating Claude's most robust choice; the owner can change it by asking. Doc 52 owns the Git view and diff panes (`Bazaar.Client.GitGui`); this module owns only the solar-system view.
+
+- **Modules.** `Bazaar.Client.GitSolarSystem.Abstractions` (contracts for other modules: `IGitSolarSource`, the command ids, `GitSolarOpenCommit`) and `Bazaar.Client.GitSolarSystem` (scene building, pane view model, pane module, Avalonia view). The module references `Bazaar.Client.Core`, `Bazaar.Contracts`, `Bazaar.Constellation.Rendering` and its own Abstractions. It never references `Bazaar.Client.GitGui`; the two meet through commands only (doc 52, Constellation link).
+- **Wire.** `Bazaar.Contracts/Graph/GitSolarRecords.cs`: `GitSolarSnapshot` (graph version, default branch, branches, commits in the server's index order, edges with the comet flag) and the existing `LayoutFrame` for positions, whose node order is the snapshot's commit order. The server builds it from `GitDagIndex` and `SolarOrbitLayout`; no layout runs on the client (C17). The server route is a later server-side PR; the client codes against `IGitSolarSource` with a fake.
+- **Scene mapping.** One scene node per commit. Cluster id per node is the index of the branch whose orbit the commit sits on, so the renderer colours each orbit alike. Plain parent edges and comet edges are both kept (DECIDED 2026-11-11); a comet edge runs from the merged branch tip to the merge commit.
+- **Ordering and staleness.** Frames pass through `FrameSequencer`; a lower `GraphVersion` is dropped. On disconnect the pane keeps the last snapshot and shows it as stale. A frame whose node count differs from the snapshot is refused.
+- **Commands (keyboard-first, no Ctrl chords).** The pane exposes `git.open-commit` (sha) for the selected commit and handles `git.focus-commit` (sha) and `git.focus-branch` (name) sent by the Git view. Selection moves with arrow keys through a time-ordered accessible list mirror (required for v1, question 3's default), which is also the Android read-only presentation.
+- **Settings.** Reuses `constellation.git_layout` and `constellation.orbit_radius`; the client adds none. The server applies them.
+- **Testing.** Scene builder and view model: plain xUnit, fixtures only. The pane view: `Avalonia.Headless`.
+
 ## Testing
 - **Layout engine:** xUnit v3, no Avalonia. Fixed seed. Invariants: no NaN, settling, hop ordering, determinism. Barnes-Hut matches brute force within tolerance at 1k nodes.
 - **Clustering:** two cliques joined by one edge yield two communities.

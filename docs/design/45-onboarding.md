@@ -47,7 +47,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -77,7 +77,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 0 | Preflight | Checks OS and edition, CPU, memory, disk, free ports, time sync, the data root and its ACL, and the existence of a service account that is not Administrator. Reports Windows edition as an operator fact (doc 03 Conflict 1). | 03 |
 | 1 | Install identity | Install id (generated), company name and slug, default locale, default timezone, release channel (LTSC, Stable, Beta, Alpha or Latest-Commit; Beta while the version is 0.x). | CLAUDE.md, VERSIONING |
 | 2 | Update policy | Confirms the shipped default: automatic for security, manual for everything else. Per-module and per-channel policies are edited later. | Gap decisions; doc 30 |
-| 3 | Data root and bundled PostgreSQL | Creates the data root, starts the bundled PostgreSQL 18 or 19 with pgvector as a hidden supervised child on loopback, and sets the data directory ACL. Choice of major version: section 1.4. | 03, 04, owner brief |
+| 3 | Key, encrypted volume and bundled PostgreSQL | [PROPOSED, doc 63 section 10] Chooses the key-encryption-key provider (moved forward from step 5), creates the encrypted data volume and mounts it as the data root; setup cannot finish without it. Then creates the data root contents, starts the bundled PostgreSQL 18 or 19 with pgvector as a hidden supervised child on loopback, and sets the data directory ACL. Choice of major version: section 1.4. | 03, 04, owner brief |
 | 4 | Schema | Runs the explicit `migrate` command once on the empty database under the instance lock. Records fixed values (partition count) in `schema_setting`. | 04 (C44) |
 | 5 | Custody | Sets the key-encryption-key provider, bootstraps the Identity Service, and sets the audit anchor target. Mounts stay disabled until the anchor is set. | 14, 15 |
 | 6 | Owner | Creates the owner identity, enrols at least one passkey or hardware key, and creates the encrypted recovery bundle. There is no device pairing (section 2.1). | 32, 14 |
@@ -85,9 +85,10 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
-| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
+| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC; PTR when self-hosted). Domains are never hardcoded. Optional plan fields under `email` (PROPOSED, 2026-11-18): `domain`, `backendKind`, `dkimSelector`, `dmarcReportAddress`, `selfHosted`. The check is advice and never blocks the apply. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
 | 13 | Company source | Blank company, a template at a version (section 1.8), or an import (doc 44). The Constitution is drafted here and must be accepted by the owner before any Soul activates. | 24, 44 |
+| 13b | First-run seed [PROPOSED] | Creates the first group chat and the default agent, and records the owner's Constitution acceptance. Section 1.15. | 01, 06, 24 |
 | 14 | Modules | The first module set (Bazaar.GC is always present; Constellation, Conduit, KODO, RyuseiFuda and others by choice). Each module's licence is shown and checked against the licence policy. | 37, brief |
 | 15 | Status and network | Status listener bind (loopback by default; any other bind needs Tier 2 approval). No inbound internet connection by default (doc 03). | 03, 02 |
 | 16 | Plan review and apply | Shows the change list and the plan hash. Apply runs under the lock. | 1.2 |
@@ -106,7 +107,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | Update policy | Confirm | Automatic for security; manual for the rest | Owner gap decision, 2026-11-13. |
 | PostgreSQL major version | Yes | The newest bundled version the release marks as default; PG 18 until PG 19 is marked default | PG 19 GA is expected around 2026-11-19. Both versions stay supported (dual-version rule). |
 | GC partition count | Yes | 16 | Fixed after the first GC data (doc 04). |
-| Key-encryption-key provider | Yes | `dpapi` on Windows; systemd-creds on Linux (doc 03) | `openbao` optional (doc 14). |
+| Key-encryption-key provider | Yes | `dpapi` on Windows; `file` (a protected key file) on Linux and other hosts (doc 14, DECIDED) | `tpm` (Linux opt-in, sealed through `systemd-creds` where systemd is present) and `openbao` optional (doc 14). |
 | Audit anchor target | Yes | Required, no default | Mounts stay disabled until set (doc 14). |
 | Owner passkey or hardware key | Yes | Required to finish [PROPOSED] | A second factor is needed for recovery and high-risk actions (gap decision: biometrics and MFA). |
 | Recovery bundle and printed codes | Yes | Bundle created; printed codes per `recovery.printed_codes_enabled` (doc 32) | Backup-owner quorum is an optional list (doc 32). |
@@ -215,7 +216,7 @@ The file is a plan input. It is never executed and never contains a secret value
 
 One company per install. A template creates the install's one company; it does not create a second one.
 
-## 1.9 Provisioning API [PLANNED]
+## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
 | Route | Purpose |
 |---|---|
@@ -225,6 +226,8 @@ One company per install. A template creates the install's one company; it does n
 
 - **Where it lives.** On the authenticated HTTP surface (doc 02), on its own rate bucket. JSON only; no client UI is served.
 - **Access.** Before the first owner exists, only from loopback, and only with the one-time bootstrap code printed at the first start. This is the same pattern doc 32 uses for pairing codes. After the owner exists, only the owner role may call it, and each call is audited.
+- **Host wiring.** The `setup` Bazaar Component (`Bazaar.Server.Setup.Host`, depends on `audit` and `settings`) registers the apply engine, this API and the durable Postgres stores. `Program.cs` maps the three routes only when the component is enabled (`Bazaar:Components:setup:Enabled`, default true), so a host without it answers 404 on `/setup/*`; a missing dependency answers 503. The bootstrap code is created at start while no owner exists (a `human` row with role `owner`), printed once to standard output and never logged; only its SHA-256 digest is stored (`setup_bootstrap_code`, setup migration 0002), it works once, and it is retired at the next start after an owner exists. The caller check uses the host's connection authenticator, the transport rule is `wire.allow_plaintext_overlay`, and the rate bucket is `setup_api` (30 a minute, working default).
+- **Not yet.** No apply step is registered: an apply of a plan that changes anything ends in exit 3 with one audit row until the database and custody steps land. `GET /setup/status` lists registered steps as pending and holds no approvals.
 - **Not a sign-in route.** These routes are outside the three sign-in routes of doc 32. Doc 02 must list them (conflict, section Conflicts).
 
 ## 1.10 Dependencies bundled as modules [DECIDED install rule; PLANNED mechanics]
@@ -265,6 +268,19 @@ Kodo is the Health API module (module name Bazaar.KODO). It runs as the final se
 ## 1.14 No server tour [DECIDED]
 
 The server has no tour, no first-run screen and no onboarding page. Setup is complete when the plan is applied and Kodo reports, whichever door was used. Tours exist only in the client apps (Part 2).
+
+## 1.15 First-run seed [PROPOSED]
+
+A blank company has nobody to talk to. This step gives a fresh install one place to start, so "install, sign in, create a company, do real work" has something to do. It is a module of its own (`Bazaar.Server.Setup.FirstRun` with `.Abstractions`) that registers one apply step, `firstrun.seed`, after the owner (step 6) and company source (step 13) steps. Everything here is PROPOSED until the owner decides.
+
+- **Plan section `firstRun`.** Keys: `seedGeneralGc` (bool, default true), `generalGcTitle` (default `General`), `seedDefaultAgent` (bool, default true), `defaultAgentName` (default `Claude`, owner 2026-11-22; the wizard lets the operator change it), `defaultAgentPurpose` (free text, may be empty), `defaultAgentSources` (model source ids; empty means every Claude source the gateway has), `defaultAgentProfile` (selection profile of doc 92, default `balanced`; the route is created over those sources and the profile bound to it), `acceptConstitution` (bool, default false). Unknown keys are rejected like every other section.
+- **General group chat.** One GC of the seeded type `general` (doc 01), with the owner as a member and the default agent added when it exists. Created once; the step finds it again by a fixed marker on later applies, so a second apply changes nothing.
+- **Default agent.** One agent with its own identity, in the `general` GC, named `Claude` by default. It takes its model dynamically from any Claude source the gateway has (the Claude Code CLI of doc 91, the owner's Anthropic API key, FreeLLMAPI, or another Claude source), by availability at run time (owner, 2026-11-22). Its whitelist holds only provider-qualified entries from those sources, narrowed by `defaultAgentSources` when the operator lists some; deny by default, doc 05. The wizard asks for the name, purpose and sources (the first-agent step); the create-company screen asks for name and purpose. No Soul content ships with it. It is created `provisioned` and **does not activate until the Constitution is accepted** (doc 24: no activation without an accepted Constitution commit). If the gateway has no Claude source, the agent is still created with an empty whitelist and the step reports that it cannot answer yet; it never routes through a source the gateway does not list.
+- **Constitution acceptance.** `acceptConstitution` is the owner's own act, made on the create-company screen (a checkbox the owner ticks) or in the plan file the owner wrote. When true, the step records the acceptance for the current Constitution commit and the agent activates. When false, the agent waits and the dashboard says so. An acceptance is never inferred, never set by a default, and never made on the owner's behalf by an agent.
+- **Audit.** One `setup.firstrun.seeded` row with the GC id, the agent id and whether acceptance was recorded. No secret appears.
+- **Rollback.** Rolling back removes a seeded agent and its membership and leaves the GC row (the GC log is append-only, doc 01); a rolled-back GC is archived, not deleted.
+- **Ports, not stores.** The step talks to three ports (GC creation, agent provisioning, Constitution acceptance) so it can run with fakes before the stores that back them land. The Postgres adapters are separate slices.
+- **Testing.** Idempotent apply; seed with and without acceptance; provider missing; the agent is not active before acceptance; rollback; and a canary secret check. The end-to-end smoke harness (gap 2) runs it through `POST /setup/plans/{hash}/apply`.
 
 ---
 
@@ -313,6 +329,17 @@ The owner has not chosen a sample-data sandbox company. Empty states explain wha
 ## 2.5 Import at first run [DECIDED via doc 44]
 
 The import wizard is offered after the tour and from the palette. It is the same importer set as the server's import source (section 1.8). Nothing is imported without an explicit choice.
+
+## 2.6 Sign-in and create-company screens [PLANNED; the handoff route's body is PROPOSED]
+
+Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar.Client.CompanySetup`, each with `.Abstractions` and `.Avalonia`). They add no code to Client.Core. A head (Windows first) shows them with `--sign-in`, `--create-company` or `--first-run`.
+
+- **No host to type, no company to choose.** The client already talks to the server it was built for (section 2.1) and an install has one company (decided inputs), so there is no server picker and no company list. The first screen only checks that the server is up (`GET /health/ready`) and offers Retry when it is not.
+- **Sign-in screen.** The person signs in on the server's own sign-in page, opened in their browser (`/signin?audience=native`, doc 32 section 4). The page hands back a single-use code, as `bazaar://signin?code=...` or as text to paste. The client redeems it at `POST /auth/handoff` with `{ "code", "device_class", "client_build" }` and expects the same token body as `POST /auth/refresh` (`access_token`, `token_type`, `expires_in`, `refresh_token`). **The `/auth/handoff` request and reply shape is PROPOSED** until the route is built (doc 32 names the route only). The client never draws a password or passkey prompt and never sees a credential other than the tokens. A saved session is reused, refreshed when its access token has expired, and cleared when the server refuses the refresh. Every failure shows one generic message.
+- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform (DPAPI, Keystore, libsecret) is a later module.
+- **Create-company screen.** The setup wizard in a connected client (section 1.1), over the provisioning API (section 1.9). It collects company name, identifier (derived from the name, editable, fixed after creation), owner name, locale, time zone, key-encryption-key provider and reference, and the recorded no-backup-target acknowledgement, and the owner's own tick that accepts the Constitution (`firstRun.acceptConstitution`, section 1.15; never on by default). It writes a sparse setup plan with `company.source` = `blank`; the server fills every other decision with its shipped default and hashes the normalized plan. The screen checks first (`POST /setup/plans`, writes nothing), shows the plan hash and the server's findings, and applies only that hash (`POST /setup/plans/{hash}/apply`). Before the owner exists the call carries the one-time bootstrap code from the server console (header `X-Bazaar-Bootstrap-Code`); after, the owner's bearer token. A held or failed apply returns to the form with the reason; a replayed apply says the company already exists.
+- **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
+- **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.
 
 ---
 

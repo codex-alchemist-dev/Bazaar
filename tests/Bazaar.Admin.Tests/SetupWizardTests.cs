@@ -1,5 +1,7 @@
 using Bazaar.Admin;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Admin.Tests;
 
@@ -107,7 +109,7 @@ public sealed class SetupWizardTests
         Assert.Equal(wizardHash, HashOf(flags.Stdout));
 
         // File door: the merged document the overlay builds from the same flags, written to a file.
-        var merged = SetupDoorOverlay.Merge(null, _mainFlags, new Dictionary<string, string?>(StringComparer.Ordinal));
+        var merged = SetupDoorOverlay.Merge(null, _mainFlags, new Dictionary<string, string?>(StringComparer.Ordinal), RegistrySetupSettingCatalog.Known);
         using var folder = new TempSetupFolder();
         var config = folder.Write(merged.MergedJson!);
         var file = await RunFlags(new Dictionary<string, string?>(StringComparer.Ordinal), "setup", "--dry-run", "--config", config);
