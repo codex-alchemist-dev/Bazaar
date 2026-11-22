@@ -1,4 +1,6 @@
 using Bazaar.Archive;
+using Bazaar.Server.Gc.Skimmer;
+using Bazaar.Server.Skimmer;
 using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
@@ -30,9 +32,11 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
+using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
@@ -71,15 +75,19 @@ public static class HostComponents
     public static IReadOnlyList<IBazaarComponent> All { get; } =
     [
         new AuditComponent(),
+        new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
+        new SkimmerComponent(),
+        new GcSkimmerComponent(),
         new MirrorComponent(),
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcMetadataComponent(),
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),

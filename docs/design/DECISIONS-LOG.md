@@ -501,7 +501,7 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
 | Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
 
-## Round 32 (2026-11-22): wake loop on by default (overnight plan item 41)
+## Round 35 (2026-11-22): wake loop on by default (overnight plan item 41)
 
 | Item | Decision | Owner may change |
 |---|---|---|

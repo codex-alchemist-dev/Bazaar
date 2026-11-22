@@ -184,6 +184,72 @@ public sealed class TaskService : IKanbanTaskWithdrawal
     }
 
     /// <summary>
+    /// Sets or clears a card's assignee (<paramref name="assigneeAgentId"/> null clears it) if <paramref name="expectedVersion"/>
+    /// still matches. When the assignee changes to an agent other than the actor, one <c>assignment</c> inbox item is written in the
+    /// same transaction so the wake loop wakes it (doc 12, "Assignment wake" [PROPOSED]). Assigning the current assignee again
+    /// changes nothing and returns <see cref="TransitionStatus.Refused"/> with <see cref="TransitionOutcome.NotATransition"/>.
+    /// Authority (doc 12, "Assign authority and command" [PROPOSED]): the owner and the system actor may assign any card; an agent
+    /// may assign only while it is a member of the card's origin GC, and not to itself (it claims instead). Anyone else is
+    /// <see cref="TransitionOutcome.NotAuthorised"/>, checked before the version.
+    /// </summary>
+    public async Task<TransitionResult> AssignAsync(
+        Guid taskId, Guid? assigneeAgentId, TaskActor actor, long expectedVersion, CancellationToken ct = default)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (!await MayAssignAsync(tx, task, assigneeAgentId, actor, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotAuthorised, []);
+        }
+
+        if (task.Version != expectedVersion)
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        if (task.OwnerAgentId == assigneeAgentId)
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotATransition, []);
+        }
+
+        if (!await _tasks.UpdateAsync(tx, task with { OwnerAgentId = assigneeAgentId }, task.Version, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, assigneeAgentId, actor, task.Version + 1, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return TransitionResult.Applied(task.Version + 1);
+    }
+
+    private static async Task<bool> MayAssignAsync(NpgsqlTransaction tx, TaskRecord task, Guid? assignee, TaskActor actor, CancellationToken ct)
+    {
+        switch (actor.Kind)
+        {
+            case TaskActorKind.Owner:
+            case TaskActorKind.System:
+                return true;
+            case TaskActorKind.Agent when assignee != actor.Id:
+                await using (var cmd = new NpgsqlCommand(
+                    "SELECT 1 FROM gc_member WHERE gc_id = @gc AND principal_id = @p AND left_seq IS NULL", tx.Connection, tx))
+                {
+                    cmd.Parameters.AddWithValue("gc", task.OriginGcId);
+                    cmd.Parameters.AddWithValue("p", actor.Id);
+                    return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
+                }
+
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>
     /// Withdraws a task: the only way into <see cref="TaskState.Withdrawn"/> (doc 12, "Withdrawn state"). The gates are
     /// <see cref="TaskTransitionRules.EvaluateWithdrawal"/>. The row keeps its history; one <c>task.transitioned</c> event and a GC
     /// reason line are added. Dependents stop being blocked by it (exclusive graph lock, like Done) but are not moved.
