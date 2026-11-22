@@ -93,9 +93,9 @@ public sealed class SetupDoorsCliTests
 
         var run = await Run(environment, gate, "setup", "apply", "--plan-hash", hash);
 
-        // The applier takes the lock, then fails the changes with no steps (exit 3), as the file path does.
-        Assert.Equal((int)SetupExitCode.ApplyFailedRolledBack, run.ExitCode);
-        Assert.Equal(1, gate.Lock.Acquisitions);
+        // The applier holds the plan for sections no step covers (exit 2) before the lock, as the file path does.
+        Assert.Equal((int)SetupExitCode.Held, run.ExitCode);
+        Assert.Equal(1, gate.RegistrationCount);
         Assert.Contains("Plan hash: " + hash, run.Stdout);
     }
 
