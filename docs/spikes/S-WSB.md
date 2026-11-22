@@ -79,7 +79,7 @@ So a warm start from the zygote is fast, about 1 s to exec-ready. **Verified, on
 
 ## Adapter check (step 2)
 
-The real `IWindowsSandboxHost` adapter is in `src/Bazaar.Server.Vms.WindowsSandbox/WsbCli/` (`WsbCliSandboxHost`, `ProcessWsbCommandRunner`). It is not registered in any host composition, so `auto` still never selects it. The opt-in live test `Live_round_trip_runs_only_when_explicitly_enabled` ran on this PC with `BAZAAR_WSB_LIVE=1`: it wrote a config, started a sandbox, saw it in `list`, stopped it, and deleted the config. The full suite passed 38 of 38 with it, and no sandbox was left running.
+The real `IWindowsSandboxHost` adapter is in `src/Bazaar.Server.Vms.WindowsSandbox/WsbCli/` (`WsbCliSandboxHost`, `ProcessWsbCommandRunner`). `VmsCompositionExtensions` registers it when the `Bazaar:Vms:WindowsSandbox` section names `HostBaseImage` and `ConfigDirectory`, and `WindowsProviders.VmCandidates` lists it with an empty base image; whether `auto` selects it is not checked here. The opt-in live test `Live_round_trip_runs_only_when_explicitly_enabled` ran on this PC with `BAZAAR_WSB_LIVE=1`: it wrote a config, started a sandbox, saw it in `list`, stopped it, and deleted the config. The full suite passed 38 of 38 with it, and no sandbox was left running.
 
 ## Scope decision and remaining items
 

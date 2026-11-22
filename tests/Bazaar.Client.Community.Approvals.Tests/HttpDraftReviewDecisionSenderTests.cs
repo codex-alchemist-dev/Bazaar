@@ -8,7 +8,7 @@ namespace Bazaar.Client.Community.Approvals.Tests;
 
 public sealed class HttpDraftReviewDecisionSenderTests
 {
-    private static readonly Guid DraftId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    private static readonly Guid _draftId = Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
 
     private sealed class Handler(HttpStatusCode status) : HttpMessageHandler
     {
@@ -32,7 +32,7 @@ public sealed class HttpDraftReviewDecisionSenderTests
     }
 
     private static DraftReviewDecisionDto Decision(string? signature = "c2ln") => new(
-        DraftId,
+        _draftId,
         new ApprovalDecisionDto(Guid.NewGuid(), ApprovalDecisionKind.EditThenApprove, "phone-1", signature, DateTimeOffset.UnixEpoch),
         "edited body");
 
@@ -48,7 +48,7 @@ public sealed class HttpDraftReviewDecisionSenderTests
         await sut.SendAsync(decision, CancellationToken.None);
 
         Assert.Equal(HttpMethod.Post, handler.Request!.Method);
-        Assert.Equal($"http://127.0.0.1:8080/community/drafts/{DraftId:D}/decision", handler.Request.RequestUri!.ToString());
+        Assert.Equal($"http://127.0.0.1:8080/community/drafts/{_draftId:D}/decision", handler.Request.RequestUri!.ToString());
         Assert.Equal("Bearer", handler.Request.Headers.Authorization!.Scheme);
         Assert.Equal("tok", handler.Request.Headers.Authorization.Parameter);
         var echoed = JsonSerializer.Deserialize(handler.Body!, CommunityContractsJsonContext.Default.DraftReviewDecisionDto)!;
@@ -90,6 +90,6 @@ public sealed class HttpDraftReviewDecisionSenderTests
     public void Route_constant_matches_the_documented_template()
     {
         Assert.Equal("community/drafts/{id}/decision", CommunityRoutes.DraftDecisionTemplate);
-        Assert.Equal($"community/drafts/{DraftId:D}/decision", CommunityRoutes.DraftDecision(DraftId));
+        Assert.Equal($"community/drafts/{_draftId:D}/decision", CommunityRoutes.DraftDecision(_draftId));
     }
 }

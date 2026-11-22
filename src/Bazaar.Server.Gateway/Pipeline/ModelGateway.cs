@@ -7,6 +7,7 @@ using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Secrets;
+using Bazaar.Server.Gateway.Selection;
 using Bazaar.Server.Gateway.Usage;
 
 namespace Bazaar.Server.Gateway.Pipeline;
@@ -21,6 +22,11 @@ namespace Bazaar.Server.Gateway.Pipeline;
 /// before any content event is swallowed and the next candidate is tried. Once a text, thinking or tool-call event has
 /// been forwarded there is no fallback: a later failure is forwarded and ends the call. Fallback uses only the
 /// candidates in the resolved route.
+/// </para>
+/// <para>
+/// Selection (docs/design/92): when an <see cref="ICandidateRanker"/> is given and the route is bound to a profile, the
+/// resolved candidates are tried in the ranker's order instead of the route's. The ranker can only reorder or omit; any
+/// answer that holds a candidate that was not resolved is ignored. Every attempt's outcome goes back to the stats tracker.
 /// </para>
 /// <para>
 /// Buffering: <see cref="ModelEvent.Warning"/> is forwarded at once. <see cref="ModelEvent.UsageReported"/> is held
@@ -50,6 +56,8 @@ public sealed class ModelGateway : IModelGateway
     private readonly TimeProvider _time;
     private readonly Action<Exception>? _onInternalError;
     private readonly SecretScrubber _scrubber;
+    private readonly ICandidateRanker? _ranker;
+    private readonly IEndpointStatsTracker? _selectionStats;
     private readonly IEmbeddingProfile _embeddingProfile;
     private readonly IEmbeddingRouteSource? _embeddingRoute;
     private readonly Lock _gate = new();
@@ -73,6 +81,8 @@ public sealed class ModelGateway : IModelGateway
         TimeProvider? time = null,
         Action<Exception>? onInternalError = null,
         SecretScrubber? scrubber = null,
+        ICandidateRanker? ranker = null,
+        IEndpointStatsTracker? selectionStats = null,
         IEmbeddingProfile? embeddingProfile = null,
         IEmbeddingRouteSource? embeddingRoute = null)
     {
@@ -89,6 +99,8 @@ public sealed class ModelGateway : IModelGateway
         _time = time ?? TimeProvider.System;
         _onInternalError = onInternalError;
         _scrubber = scrubber ?? new SecretScrubber();
+        _ranker = ranker;
+        _selectionStats = selectionStats;
         _embeddingProfile = embeddingProfile ?? NullEmbeddingProfile.Instance;
         _embeddingRoute = embeddingRoute;
     }
@@ -123,7 +135,8 @@ public sealed class ModelGateway : IModelGateway
         var skips = new List<Skip>();
         ModelEvent.Failure? lastFailure = null;
 
-        while (route.Next(tried, excluded) is { } candidate)
+        var order = await OrderCandidatesAsync(route, request, cancellationToken).ConfigureAwait(false);
+        while (NextCandidate(order, tried, excluded) is { } candidate)
         {
             var (ready, skip) = await PrepareAsync(candidate, requireEmbedding: false, cancellationToken).ConfigureAwait(false);
             if (ready is null)
@@ -147,6 +160,9 @@ public sealed class ModelGateway : IModelGateway
 
             var settled = false;
             var contentSent = false;
+            var attempt = _selectionStats?.Begin(new EndpointKey(candidate.Model.ProviderId, candidate.Model.ModelId), request.AgentId);
+            var attemptStart = _time.GetTimestamp();
+            TimeSpan? firstEvent = null;
             ModelEvent.UsageReported? heldUsage = null;
             ModelEvent.Failure? retryable = null;
             IAsyncEnumerator<ModelEvent>? stream = null;
@@ -173,6 +189,7 @@ public sealed class ModelGateway : IModelGateway
 
                     if (e is ModelEvent.Failure failure)
                     {
+                        attempt?.Complete(new AttemptOutcome(OutcomeKind(failure), firstEvent, _time.GetElapsedTime(attemptStart)));
                         Report(key, candidate.Family, failure);
                         if (!contentSent && _retryableCodes.Contains(failure.Code))
                         {
@@ -191,6 +208,7 @@ public sealed class ModelGateway : IModelGateway
 
                     if (e is ModelEvent.Done done)
                     {
+                        attempt?.Complete(new AttemptOutcome(AttemptOutcomeKind.Success, firstEvent, _time.GetElapsedTime(attemptStart)));
                         if (delegatedRoute is not null
                             && DelegatedRouteAudit.Violations(delegatedRoute, done.ServedModel) is { Count: > 0 } violations)
                         {
@@ -210,7 +228,12 @@ public sealed class ModelGateway : IModelGateway
                         yield break;
                     }
 
-                    contentSent |= IsContent(e);
+                    if (IsContent(e))
+                    {
+                        firstEvent ??= _time.GetElapsedTime(attemptStart);
+                        contentSent = true;
+                    }
+
                     yield return e;
                 }
             }
@@ -222,6 +245,7 @@ public sealed class ModelGateway : IModelGateway
                     _health.Abandon(key);
                 }
 
+                attempt?.Dispose();
                 await RecordSafeAsync(acc).ConfigureAwait(false);
                 if (stream is not null)
                 {
@@ -246,6 +270,158 @@ public sealed class ModelGateway : IModelGateway
         }
 
         yield return NoCapacity(request.AgentId, skips);
+    }
+
+    private static AttemptOutcomeKind OutcomeKind(ModelEvent.Failure failure) =>
+        failure.Code is "rate_limited" or "spend_capped"
+            ? AttemptOutcomeKind.Throttled
+            : HealthTracker.Classify(failure) ? AttemptOutcomeKind.Failure : AttemptOutcomeKind.Abandoned;
+
+    private static RouteCandidate? NextCandidate(IReadOnlyList<RouteCandidate> order, HashSet<ModelRef> tried, HashSet<ModelRef> excluded)
+    {
+        foreach (var candidate in order)
+        {
+            if (!tried.Contains(candidate.Model) && !excluded.Contains(candidate.Model))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The resolved candidates in the order to try them. Without a ranker, or when the route is unbound or the ranker answers
+    /// with anything that was not resolved, this is the route's own order, so selection can never widen policy.
+    /// </summary>
+    private async ValueTask<IReadOnlyList<RouteCandidate>> OrderCandidatesAsync(ResolvedRoute route, ModelRequest request, CancellationToken ct)
+    {
+        if (_ranker is null || route.Candidates.Count < 2)
+        {
+            return route.Candidates;
+        }
+
+        try
+        {
+            var endpoints = new List<Endpoint>(route.Candidates.Count);
+            foreach (var candidate in route.Candidates)
+            {
+                var row = await _directory.GetModelAsync(candidate.Model, ct).ConfigureAwait(false);
+                var provider = await _directory.GetProviderAsync(candidate.Model.ProviderId, ct).ConfigureAwait(false);
+                endpoints.Add(new Endpoint(new EndpointKey(candidate.Model.ProviderId, candidate.Model.ModelId))
+                {
+                    Identity = row?.Identity.ToString().ToLowerInvariant() ?? "native",
+                    Capabilities = CapabilitiesOf(row?.CapsJson),
+                    ContextWindowTokens = ContextWindowOf(row?.CapsJson),
+                    Signals = SignalsOf(candidate, provider),
+                    Price = PriceOf(candidate.Model),
+                });
+            }
+
+            var ranked = _ranker.Order(route.Route, endpoints, new SelectionRequest
+            {
+                Required = request.Tools.Count > 0 ? EndpointCapabilities.Tools : EndpointCapabilities.None,
+                EstimatedInputTokens = (int)Math.Min(int.MaxValue, EstimateInputTokens(request)),
+                ExpectedOutputTokens = request.MaxOutputTokens ?? 0,
+                AffinityKey = request.AgentId,
+            });
+            if (ranked is null)
+            {
+                return route.Candidates;
+            }
+
+            var byKey = route.Candidates.ToDictionary(c => new EndpointKey(c.Model.ProviderId, c.Model.ModelId));
+            var result = new List<RouteCandidate>(ranked.Count);
+            foreach (var endpoint in ranked)
+            {
+                if (!byKey.TryGetValue(endpoint.Key, out var candidate) || result.Contains(candidate))
+                {
+                    return route.Candidates;
+                }
+
+                result.Add(candidate);
+            }
+
+            return result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            NotifyInternalError(ex);
+            return route.Candidates;
+        }
+    }
+
+    /// <summary>The dated price in force, as a ranking hint only (money budgets are rejected). Null when no table or no entry.</summary>
+    private EndpointPrice? PriceOf(ModelRef model) =>
+        _prices?.Lookup(model.ProviderId, model.ModelId, _time.GetUtcNow()) is { } p
+            ? new EndpointPrice((double)p.InputPerMillion, (double)p.OutputPerMillion, (double)(p.CacheReadPerMillion ?? 0))
+            : null;
+
+    /// <summary>Breaker and quota facts for the candidate's key, from the gateway's own trackers.</summary>
+    private ExternalSignals SignalsOf(RouteCandidate candidate, GwProvider? provider)
+    {
+        var key = new ProviderKey(candidate.Model.ProviderId, provider?.SecretRef ?? "none");
+        var now = _time.GetUtcNow();
+        DateTimeOffset? blockedUntil = _quota.BlockedState(key, candidate.Family) is null
+            ? null
+            : _quota.BlockedUntil(key, candidate.Family) ?? now.AddMinutes(1);
+        return new ExternalSignals { BreakerOpen = !_health.IsAvailable(key), QuotaBlockedUntil = blockedUntil };
+    }
+
+    // Capabilities are assumed unless the model's caps JSON says a flag is false: unknown never rejects a candidate.
+    private static EndpointCapabilities CapabilitiesOf(string? capsJson)
+    {
+        var caps = EndpointCapabilities.Tools | EndpointCapabilities.Vision | EndpointCapabilities.Thinking | EndpointCapabilities.PromptCaching | EndpointCapabilities.StructuredOutput;
+        if (string.IsNullOrWhiteSpace(capsJson))
+        {
+            return caps;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(capsJson);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return caps;
+            }
+
+            foreach (var (name, flag) in new[] { ("tools", EndpointCapabilities.Tools), ("vision", EndpointCapabilities.Vision), ("thinking", EndpointCapabilities.Thinking), ("caching", EndpointCapabilities.PromptCaching), ("structured_output", EndpointCapabilities.StructuredOutput) })
+            {
+                if (doc.RootElement.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.False)
+                {
+                    caps &= ~flag;
+                }
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return caps;
+    }
+
+    private static int? ContextWindowOf(string? capsJson)
+    {
+        if (string.IsNullOrWhiteSpace(capsJson))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(capsJson);
+            return doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("context_window", out var value)
+                && value.ValueKind == JsonValueKind.Number
+                && value.TryGetInt32(out var window)
+                && window > 0
+                    ? window
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

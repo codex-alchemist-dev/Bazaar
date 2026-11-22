@@ -23,20 +23,19 @@ public class LinuxProvidersTests
     }
 
     [Fact]
-    public void Auto_selection_probes_systemd_on_linux_and_has_no_candidate_elsewhere()
+    public void Report_lists_systemd_with_its_own_status_on_linux_and_nothing_elsewhere()
     {
-        var selection = ProviderSelector.Select(ProviderRole.ServiceHost, ProviderSelector.Auto, LinuxProviders.ServiceHostCandidates());
+        var report = new ProviderCapabilityReport(LinuxProviders.ServiceHostCandidates());
 
         if (OperatingSystem.IsLinux())
         {
-            var status = Assert.Single(selection.Statuses);
-            Assert.Equal("systemd", status.Kind);
-            Assert.Equal(status.Usable, selection.Provider is not null);
+            var entry = Assert.Single(report.Entries);
+            Assert.Equal(ProviderRole.ServiceHost, entry.Role);
+            Assert.Equal("systemd", entry.Kind);
         }
         else
         {
-            Assert.Null(selection.Provider);
-            Assert.Empty(selection.Statuses);
+            Assert.Empty(report.Entries);
         }
     }
 }

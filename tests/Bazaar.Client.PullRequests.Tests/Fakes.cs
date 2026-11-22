@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Mobile;
-using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Wire;
 
