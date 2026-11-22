@@ -43,6 +43,17 @@ public static class CodingToolHandlerRegistration
         services.AddSingleton<ICodingToolHandler>(sp => new SubagentSpawnToolHandler(
             sp.GetRequiredService<ISubagentSpawner>(),
             sp.GetRequiredService<ICodingToolHostContext>()));
+        return services;
+    }
+
+    /// <summary>
+    /// Registers the <c>shell</c> and <c>run_checks</c> handlers. They need <see cref="IGuestWorktreeSource"/>, <see cref="ICheckSubjectSource"/> and the
+    /// check run store from the host, so a host calls this only once those are bound.
+    /// </summary>
+    public static IServiceCollection AddBazaarCodingGuestToolHandlers(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
         services.AddSingleton<ICodingToolHandler>(sp => new ShellToolHandler(sp.GetRequiredService<IGuestWorktreeSource>()));
         services.AddSingleton<ICodingToolHandler>(sp => new RunChecksToolHandler(sp.GetRequiredService<ICheckSubjectSource>(), sp.GetRequiredService<IGuestWorktreeSource>(), sp.GetRequiredService<Bazaar.Server.CodingStore.ICheckRunStore>()));
         return services;
