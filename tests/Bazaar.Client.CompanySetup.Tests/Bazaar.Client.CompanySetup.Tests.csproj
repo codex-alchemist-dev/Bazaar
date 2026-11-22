@@ -17,5 +17,6 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <!-- The real server loader checks that the plan this client writes is one the server accepts. -->
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
   </ItemGroup>
 </Project>
