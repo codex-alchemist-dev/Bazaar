@@ -64,6 +64,8 @@
     <ProjectReference Include="..\Bazaar.ModulePermissions.Audit\Bazaar.ModulePermissions.Audit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Walkthrough\Bazaar.Server.Walkthrough.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SoulProfile\Bazaar.Server.SoulProfile.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Storage\Bazaar.Server.Setup.Storage.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Storage.Abstractions\Bazaar.Server.Setup.Storage.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BackupPolicy\Bazaar.Server.BackupPolicy.csproj" />
@@ -82,6 +84,8 @@
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Garnet\Bazaar.Server.Garnet.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Kodo\Bazaar.Server.Kodo.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Engines\Bazaar.Server.Engines.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.EngineGcRecorder\Bazaar.Server.EngineGcRecorder.csproj" />
     <ProjectReference Include="..\Bazaar.Server.EngineRelay\Bazaar.Server.EngineRelay.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Postgres\Bazaar.Server.Presence.Postgres.csproj" />

@@ -241,6 +241,10 @@ AD = `bazaar.council.reason.v1`, then key id, vote id, voter principal id and a 
 - Question 1 below stays open. The answer may only loosen by an explicit owner change, recorded in `docs/design/DECISIONS-LOG.md`.
 - After the reveal, reads of reasons go through one audited API (GC read path, doc 04 conventions).
 
+### Implementation status and gaps [PROPOSED, 2026-11-22]
+
+Built: `council/0004` kind row, `AppendSealedAsync` on the Council GC port, sealed `council.reason` rows at reveal (independent) and at decision (follow-up) copied from the stored seal, no reasoning text in `council.reveal` or `council.decision`. Not yet built: (1) rows are written at reveal and decision, never at ballot time, because a ballot-time row would put the voter's clear `choice` in the GC log before the reveal and break the sealed first ballot; (2) the stored seal still uses the key id alone as associated data (the production cipher), not the vote, voter and phase AD above, so the blob can be moved between votes by someone who can write the log; the AD change needs a store migration and is its own work package; (3) `erased_at_write` is always false, the cipher cannot report a destroyed key without opening; (4) the owner's reasoning in `council.decision` is still plaintext; (5) tally reads still decrypt (`ListBallotsAsync`), so one erased voter can still block them; (6) reason rows are appended one at a time, not in one `AppendManyAsync` batch, and carry no `tainted_at_write`; retries are safe through the per-row idempotency keys; (7) no per-viewer open on the read path (GC-READ-1).
+
 ### Open [OPEN]
 
 - Erasure tombstone mechanics for non-message events (a `system` event with `target_seq`) and who appends it: docs 32 and 33, pending counsel.

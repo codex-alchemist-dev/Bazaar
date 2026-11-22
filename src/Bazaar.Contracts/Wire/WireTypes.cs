@@ -111,6 +111,9 @@ public static class WireTypes
     /// <summary>Client asks for every agent's presence row. Answered with a <c>PresenceSnapshot</c> (docs/design/23).</summary>
     public const string PresenceSnapshot = "presence.snapshot";
 
+    /// <summary>One <c>kodo</c> stream frame (snapshot, state change or heartbeat), as the UTF-8 JSON of a Kodo stream event (doc 46, section 15.2).</summary>
+    public const string KodoEvent = "kodo.event";
+
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
 

@@ -15,6 +15,9 @@ public static class WireStreams
     /// <summary>Presence state.</summary>
     public const string Presence = "presence";
 
+    /// <summary>Kodo health state (doc 46, section 15.2).</summary>
+    public const string Kodo = "kodo";
+
     /// <summary>Server-driven UI state.</summary>
     public const string Ui = "ui";
 

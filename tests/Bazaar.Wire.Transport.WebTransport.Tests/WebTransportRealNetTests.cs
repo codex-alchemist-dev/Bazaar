@@ -30,7 +30,10 @@ public sealed class WebTransportRealNetTests
         await listener.StartAsync(ct);
         using var cert = CreateCertificate();
 
+        // CreateSlimBuilder leaves out the HTTP/3 transport; UseQuic registers Kestrel's MsQuic transport (the bind otherwise
+        // fails with "Unable to bind an HTTP/3 endpoint ... UseQuic"). Bind IPv4 loopback and call by IP, as the QUIC tests do.
         var builder = WebApplication.CreateSlimBuilder();
+        builder.WebHost.UseQuic();
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(IPAddress.Loopback, 0, listen =>
         {
             listen.Protocols = HttpProtocols.Http3;
@@ -58,6 +61,6 @@ public sealed class WebTransportRealNetTests
         names.AddIpAddress(IPAddress.Loopback);
         request.CertificateExtensions.Add(names.Build());
         using var self = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddDays(1));
-        return X509CertificateLoader.LoadPkcs12(self.Export(X509ContentType.Pfx), null);
+        return X509CertificateLoader.LoadPkcs12(self.Export(X509ContentType.Pfx), null, X509KeyStorageFlags.UserKeySet);
     }
 }
