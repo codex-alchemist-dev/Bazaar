@@ -9,7 +9,7 @@ namespace Bazaar.Client.Approvals;
 /// </summary>
 public static class EcdsaSignatureFormat
 {
-    private const int P256Size = 32;
+    private const int _p256Size = 32;
 
     /// <summary>Converts a DER (ASN.1 SEQUENCE of two INTEGERs) signature to 64-byte P1363. Throws <see cref="CryptographicException"/> for anything else.</summary>
     public static byte[] DerToP1363(ReadOnlySpan<byte> der)
@@ -23,9 +23,9 @@ public static class EcdsaSignatureFormat
             var s = sequence.ReadIntegerBytes().Span;
             sequence.ThrowIfNotEmpty();
 
-            var result = new byte[P256Size * 2];
-            Place(r, result.AsSpan(0, P256Size));
-            Place(s, result.AsSpan(P256Size, P256Size));
+            var result = new byte[_p256Size * 2];
+            Place(r, result.AsSpan(0, _p256Size));
+            Place(s, result.AsSpan(_p256Size, _p256Size));
             return result;
         }
         catch (AsnContentException ex)
