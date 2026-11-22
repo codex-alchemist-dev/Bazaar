@@ -51,8 +51,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
     // An edit adds a version of a message that already exists: no gc_message row, and the version number comes from the request.
     private const string _insertEditVersionSql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version)
-        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version, withdrawn_by_import)
+        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11, $12)
         """;
 
     // A join or a leave is a new state row keyed by its own seq (gc_member is append-only; the key includes joined_seq).
@@ -175,6 +175,15 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                     nameof(requests));
             if (isEdit && (r.MessageId is null || r.Version is null || r.Version < 2))
                 throw new ArgumentException("An edit needs the message id and a version of 2 or more.", nameof(requests));
+            if (r.WithdrawnByImport is { } job)
+            {
+                if (!isEdit)
+                    throw new ArgumentException("Only a message edit can withdraw an import.", nameof(requests));
+                if (r.AuthorKind != AuthorKind.System)
+                    throw new ArgumentException("Only the system principal withdraws an import.", nameof(requests));
+                if (job.Length is 0 or > AppendRequest.MaxWithdrawnByImportLength)
+                    throw new ArgumentException($"WithdrawnByImport must be 1 to {AppendRequest.MaxWithdrawnByImportLength} characters.", nameof(requests));
+            }
             if (r.Mentions.Count > 0 && !isMessage)
                 throw new ArgumentException("Only a message event carries mentions.", nameof(requests));
             if (r.Sealed is { } sealedPayload && (sealedPayload.Ciphertext.IsEmpty || sealedPayload.KeyId == Guid.Empty))
@@ -243,7 +252,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             {
                 if (isEdit)
                 {
-                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version)));
+                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version), N(r.WithdrawnByImport)));
                 }
                 else
                 {

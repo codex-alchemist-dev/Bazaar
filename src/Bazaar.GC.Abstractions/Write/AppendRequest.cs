@@ -41,6 +41,9 @@ public sealed record AppendRequest(
     /// <summary>Longest accepted <see cref="ClientMsgId"/>.</summary>
     public const int MaxClientMsgIdLength = 200;
 
+    /// <summary>Longest accepted <see cref="WithdrawnByImport"/>.</summary>
+    public const int MaxWithdrawnByImportLength = 200;
+
     /// <summary>The writing session, when there is one.</summary>
     public Guid? SessionId { get; init; }
 
@@ -64,6 +67,12 @@ public sealed record AppendRequest(
 
     /// <summary>The version a <c>message_edit</c> event creates (2 or more). Required for that kind, unused otherwise.</summary>
     public int? Version { get; init; }
+
+    /// <summary>
+    /// The import job id when this <c>message_edit</c> withdraws an import's message (doc 01 Edits, doc 44 8.8, PROPOSED), or
+    /// null. Only the system principal writes it. The message body is a copy of the text it withdraws; earlier versions stay.
+    /// </summary>
+    public string? WithdrawnByImport { get; init; }
 
     /// <summary>
     /// The membership state this event writes (a join or a leave), or null. The writer sets its joined and left seqs to the

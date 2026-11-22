@@ -16,11 +16,12 @@ public sealed class FileKekProvider : AesGcmKekProvider
     {
     }
 
-    /// <summary>Opens the key file at <paramref name="keyPath"/>, creating it with a fresh random key when it does not exist.</summary>
+    /// <summary>Opens the key file at <paramref name="keyPath"/>, creating it with a fresh random key when it does not exist and <paramref name="mode"/> allows it.</summary>
+    /// <exception cref="KekMissingException">The file is missing or empty and <paramref name="mode"/> is <see cref="KekOpenMode.OpenExisting"/>.</exception>
     /// <exception cref="InvalidDataException">The file exists but is not a 32-byte key.</exception>
-    public static FileKekProvider Open(string keyPath)
+    public static FileKekProvider Open(string keyPath, KekOpenMode mode = KekOpenMode.CreateIfMissing)
     {
-        var key = KekKeyFile.OpenOrCreate(keyPath, seal: plain => (byte[])plain.Clone(), open: stored => (byte[])stored.Clone());
+        var key = KekKeyFile.OpenOrCreate(keyPath, seal: plain => (byte[])plain.Clone(), open: stored => (byte[])stored.Clone(), mode);
         return new FileKekProvider(key);
     }
 }
