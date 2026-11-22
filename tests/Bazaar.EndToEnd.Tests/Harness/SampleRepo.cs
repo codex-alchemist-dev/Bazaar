@@ -5,8 +5,8 @@ namespace Bazaar.EndToEnd.Tests.Harness;
 
 /// <summary>
 /// A throwaway git repository with one failing test, standing in for the repository named by the future
-/// <c>Coding:Harness:Repo</c> setting (GAPS.md, gap 9). Every task gets its own worktree on <c>agent/&lt;task&gt;</c>, as doc 17
-/// "Git and worktrees" requires. Uses the real <c>git</c> and <c>sh</c>; nothing here fakes either.
+/// <c>Coding:Harness:Repo</c> setting (GAPS.md, gap 9). The worktree per task comes from the real flow
+/// (<see cref="TaskWorkspaceFlow"/>). Uses the real <c>git</c> and <c>sh</c>; nothing here fakes either.
 /// </summary>
 public sealed class SampleRepo : IDisposable
 {
@@ -59,31 +59,23 @@ public sealed class SampleRepo : IDisposable
         }
     }
 
-    /// <summary>Adds a worktree for the task on a new branch <c>agent/&lt;task&gt;</c>. Returns its path.</summary>
-    public async Task<string> AddWorktreeAsync(string task, CancellationToken ct)
-    {
-        var path = Path.Combine(WorktreesPath, task);
-        await GitAsync(MainPath, ["worktree", "add", "-q", "-b", "agent/" + task, path], ct);
-        return path;
-    }
-
     /// <summary>Applies a unified diff to the worktree. Throws when it does not apply.</summary>
-    public async Task ApplyAsync(string worktree, string diff, CancellationToken ct)
+    public static async Task ApplyAsync(string worktree, string diff, CancellationToken ct)
     {
-        var patch = Path.Combine(_root, Guid.NewGuid().ToString("N") + ".patch");
-        await File.WriteAllTextAsync(patch, diff, ct);
-        await GitAsync(worktree, ["apply", "--whitespace=nowarn", patch], ct);
+        var patch = Path.Combine(Path.GetTempPath(), "bazaar-e2e-" + Guid.NewGuid().ToString("N") + ".patch");
+        try
+        {
+            await File.WriteAllTextAsync(patch, diff, ct);
+            await GitAsync(worktree, ["apply", "--whitespace=nowarn", patch], ct);
+        }
+        finally
+        {
+            File.Delete(patch);
+        }
     }
 
     /// <summary>Runs the repository's test script in <paramref name="dir"/>.</summary>
     public static Task<ProcessResult> RunTestsAsync(string dir, CancellationToken ct) => RunAsync("sh", ["tests/test.sh"], dir, ct);
-
-    public static async Task<string> CommitAllAsync(string worktree, string message, CancellationToken ct)
-    {
-        await GitAsync(worktree, ["add", "-A"], ct);
-        await GitAsync(worktree, ["commit", "-q", "-m", message], ct);
-        return (await GitAsync(worktree, ["rev-parse", "HEAD"], ct)).Trim();
-    }
 
     public static async Task<string> GitAsync(string dir, IReadOnlyList<string> args, CancellationToken ct)
     {

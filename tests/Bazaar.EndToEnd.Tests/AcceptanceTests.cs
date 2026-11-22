@@ -4,6 +4,7 @@ using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.EndToEnd.Tests.Harness;
 using Bazaar.Server.Coding.Checks;
+using Bazaar.Server.CodingGit;
 
 namespace Bazaar.EndToEnd.Tests;
 
@@ -52,7 +53,7 @@ public sealed partial class AcceptanceTests(EndToEndFixture env) : IClassFixture
         return (reply, match.Groups["diff"].Value);
     }
 
-    private static async Task<IReadOnlyList<ChangedFile>> ChangedAgainstMainAsync(SampleRepo repo, string worktree, CancellationToken ct)
+    private static async Task<IReadOnlyList<ChangedFile>> ChangedAgainstMainAsync(string worktree, CancellationToken ct)
     {
         var names = await SampleRepo.GitAsync(worktree, ["diff", "--name-only", "main"], ct);
         var files = new List<ChangedFile>();
@@ -83,24 +84,34 @@ public sealed partial class AcceptanceTests(EndToEndFixture env) : IClassFixture
 
         var (_, diff) = await AskAgentAsync(token, ct);
 
-        var worktree = await repo.AddWorktreeAsync(token, ct);
-        await repo.ApplyAsync(worktree, diff, ct);
+        // Turn start: the real flow opens the task worktree on agent/<task> from the repo the setting names.
+        var flow = TaskWorkspaceFlow.Create(repo.MainPath, Path.Combine(repo.WorktreesPath, "share"));
+        var open = await flow.Workspace.OpenAsync("smoke", token, TaskWorkspaceFlow.RepoId, EndToEndFixture.GcId.ToString("D"), ct);
+        Assert.Equal("agent/" + token, open.Branch);
+        var worktree = open.Path;
+
+        await SampleRepo.ApplyAsync(worktree, diff, ct);
         var after = await SampleRepo.RunTestsAsync(worktree, ct);
         Assert.True(after.ExitCode == 0, after.Output);
 
         // The doc 17 checks run on the real diff: a source-only fix raises no flag.
-        var changed = await ChangedAgainstMainAsync(repo, worktree, ct);
+        var changed = await ChangedAgainstMainAsync(worktree, ct);
         Assert.Equal(["src/add.sh"], changed.Select(c => c.Path));
         Assert.Empty(TestFileChangeFlagger.Flag(changed));
         Assert.Empty(FakeSuccessScanner.Scan(changed));
 
-        var commit = await SampleRepo.CommitAllAsync(worktree, "fix(add): add instead of subtract\n\nCo-Authored-By: Smoke <agent@bazaar.invalid>", ct);
+        var registered = flow.Registry.Find(open.WorktreeKey)!;
+        await flow.Service.CommitAsync(registered, new CommitInput("fix(add): add instead of subtract", null, new ModelIdentity(StubModelServer.Model, "noreply@bazaar.invalid")), ct);
+        var diffAgainstBase = await flow.Service.DiffAgainstBaseAsync(registered, ct);
+        Assert.Equal(["src/add.sh"], diffAgainstBase.ChangedPaths);
 
-        // The result: one commit on agent/<task>, main untouched and still failing, the worktree is its own directory.
-        Assert.Equal(commit, (await SampleRepo.GitAsync(repo.MainPath, ["rev-parse", "agent/" + token], ct)).Trim());
-        Assert.Equal("1", (await SampleRepo.GitAsync(repo.MainPath, ["rev-list", "--count", "main..agent/" + token], ct)).Trim());
+        // The result: the work is committed on agent/<task>, the clone's main is untouched and still failing.
+        Assert.Equal("agent/" + token, (await SampleRepo.GitAsync(worktree, ["rev-parse", "--abbrev-ref", "HEAD"], ct)).Trim());
+        Assert.Equal("1", (await SampleRepo.GitAsync(worktree, ["rev-list", "--count", "main..HEAD"], ct)).Trim());
+        Assert.Contains(token, await SampleRepo.GitAsync(worktree, ["log", "-1", "--format=%B"], ct), StringComparison.Ordinal);
         Assert.Equal(1, (await SampleRepo.RunTestsAsync(repo.MainPath, ct)).ExitCode);
-        Assert.NotEqual(repo.MainPath, worktree);
+        await flow.Workspace.CloseAsync(open.WorktreeKey, ct);
+        Assert.Null(flow.Registry.Find(open.WorktreeKey));
     }
 
     [Fact]
@@ -114,17 +125,19 @@ public sealed partial class AcceptanceTests(EndToEndFixture env) : IClassFixture
         env.Model.AddScript(token, token + " Easy:\n```diff\n" + SampleRepo.CheatDiff + "```");
 
         var (_, diff) = await AskAgentAsync(token, ct);
-        var worktree = await repo!.AddWorktreeAsync(token, ct);
-        await repo.ApplyAsync(worktree, diff, ct);
+        var flow = TaskWorkspaceFlow.Create(repo!.MainPath, Path.Combine(repo.WorktreesPath, "share"));
+        var open = await flow.Workspace.OpenAsync("smoke", token, TaskWorkspaceFlow.RepoId, EndToEndFixture.GcId.ToString("D"), ct);
+        var worktree = open.Path;
+        await SampleRepo.ApplyAsync(worktree, diff, ct);
 
         // The weakened test now passes, which is exactly why the pass alone is not trusted.
         Assert.Equal(0, (await SampleRepo.RunTestsAsync(worktree, ct)).ExitCode);
-        var flags = TestFileChangeFlagger.Flag(await ChangedAgainstMainAsync(repo, worktree, ct));
+        var flags = TestFileChangeFlagger.Flag(await ChangedAgainstMainAsync(worktree, ct));
 
         var flag = Assert.Single(flags);
         Assert.Equal(FlagCodes.TestFileChanged, flag.Code);
         Assert.Equal("tests/test.sh", flag.Path);
         // Nothing was committed: the branch is still at main.
-        Assert.Equal("0", (await SampleRepo.GitAsync(repo.MainPath, ["rev-list", "--count", "main..agent/" + token], ct)).Trim());
+        Assert.Equal("0", (await SampleRepo.GitAsync(worktree, ["rev-list", "--count", "main..HEAD"], ct)).Trim());
     }
 }
