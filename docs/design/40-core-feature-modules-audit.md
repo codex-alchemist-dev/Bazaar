@@ -116,7 +116,7 @@ Applied to the three features:
 
 ## 4b. Community modules (doc 36, work packages 7 and 8) [PROPOSED]
 
-Recorded 2026-11-18 from doc 36. Nothing here is built yet, and nothing is renamed by this entry.
+Recorded 2026-11-18 from doc 36. Status note (origin/main 80c0ee23): `Bazaar.Client.Community`, `.Avalonia`, their tests and `Bazaar.Server.Community.GitHub` exist; no head registers the WP 8 modules yet. Nothing is renamed by this entry.
 
 - **Server, existing:** `Bazaar.Community` (`src/Bazaar.Community`) holds the policy, quotas, quality gates and bot profile. It is the server-side module that will be renamed `Bazaar.Server.Community` by the detach/rename wave.
 - **Abstractions, existing:** `Bazaar.Server.Community.Abstractions` (`src/Bazaar.Server.Community.Abstractions`) holds `ICommunityAdapter`, `OutboundPost`, `PostReceipt`, `ApprovalId` and `CommunityPostException`. An adapter is reachable only through the dispatcher, which verifies the approval first.
@@ -286,3 +286,34 @@ Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), wit
 
 - `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
 - `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
+
+## Projects on main not yet named above (code check, origin/main 80c0ee23, 2026-11-22)
+
+Found by comparing every project touched in the last 24 hours with this doc. Each line is a fact from the code; owners may move them into the sections above. No status tag is changed.
+
+- **Git (doc 52, PROPOSED):** `Bazaar.Server.Git` (engine, forge registry, owner-signed merge gate, read routes; component `git`) and `.Abstractions`; forge providers `Bazaar.Server.Git.GitHub` (`git-github`) and `Bazaar.Server.Git.GitLab` (`git-gitlab`). `Git` references `Bazaar.Approvals.Abstractions`, `Bazaar.Audit.Abstractions`, `Bazaar.Contracts`, `Bazaar.Core`; providers reference `Bazaar.Core` and `Bazaar.Server.Git.Abstractions`.
+- **Git Solar System, server:** `Bazaar.Server.GitSolarSystem` (feed service, snapshot builder, routes; component `git-solar-system`) and `.Abstractions`. References `Bazaar.Contracts`, `Bazaar.Core`.
+- **Company build:** `Bazaar.Server.CompanyBuild` (component `company-build`) and `.Abstractions`. References `Bazaar.CompanyIdentity`, `Bazaar.Contracts`, `Bazaar.Core`. No design doc names it yet.
+- **Provider contracts (doc 03):** `Bazaar.Server.Providers.Abstractions` (namespace `Bazaar.Server.Providers`: `IProvider` with `Kind` and `Probe()`, `IServiceHostProvider`, `IVmProvider`, `ICapacityLimitedProvider`). `Bazaar.Server.Providers.Windows` holds `WindowsProviders`, DPAPI stores, the Event Log writer and the job-object confinement; it does not reference `Bazaar.Server`.
+- **Text sanitizer contract:** `Bazaar.Server.Sanitization.Abstractions` (namespace `Bazaar.Sanitization`: `ITextSanitizer`, `SanitizedText`, `Redaction`). No design doc names it.
+- **First-run seed (doc 45):** `Bazaar.Server.Setup.FirstRun.Abstractions` and `Bazaar.Server.Setup.FirstRun` (`FirstRunSeedStep`, step id `firstrun.seed`).
+- **Mail (doc 22):** `Bazaar.Server.Mail.Abstractions` (`IMailBackend`, `RawMail`, `OutboundMail`) and `Bazaar.Server.MailBackends` (Cloudflare HTTPS sender and signed queue receiver, generic IMAP/SMTP, bait protocol gate; references the Mail abstractions only).
+- **Screen tools (doc 59):** `Bazaar.Server.VmDisplay.AgentTools` (`ScreenCaptureTool`, `ScreenInputTool`) and `Bazaar.Server.VmDisplay.Audit` (`AuditLogDisplayAuditSink`).
+- **VM transports and mounts:** `Bazaar.Server.VmTransport.Abstractions` and `Bazaar.Server.VmMounts.Abstractions` are named only by "each with `.Abstractions`" above. `Bazaar.Server.VmTransport` and `Bazaar.Server.VmMounts` exist; `Bazaar.Server.VmEgress` does not yet.
+- **Windows Sandbox VM backend (doc 50, PROPOSED):** `Bazaar.Server.Vms.WindowsSandbox` references `Bazaar.Contracts`, `Bazaar.Server.Vms` and `Bazaar.Server.Providers.Abstractions`.
+- **Shared sources:** `src/Shared/VmSockets` has no project; `Bazaar.Guest.Agent` and `Bazaar.Server.VmTransport` link it with `Compile Include`.
+- **Client and other projects with no entry yet:** `Bazaar.Client.Android`, `.Linux`, `.Windows`, `.Shell` (+Abstractions), `.SignIn` (+Abstractions, +Avalonia), `.CompanySetup` (+Abstractions, +Avalonia), `.GitGui` (+Github, +Gitlab), `.Kodo`, `.Motion` (+Abstractions, +Avalonia), `Bazaar.Accessibility.Avalonia`, `Bazaar.CompanyIdentity`, `Bazaar.Ex`, `Bazaar.Fun`, `Bazaar.Kodo`, `Bazaar.Localisation`, `Bazaar.Guest.PoolSpawn`.
+
+## Open notes for owning threads (code check, 2026-11-22)
+
+Not edited, because the code and the doc disagree in a way only the owning thread can settle:
+
+- Doc 03 composition root says `AddBazaarServer` and `Supports(os)`; code has `IProvider.Kind` and `Probe()`.
+- GitHub component migration `components/github/0001_github_tables.sql` is embedded, but `HostMigrations.Source()` does not include that assembly, so the tables are not applied.
+- `Bazaar.Server.Hive`: doc 08 says `hive.grants` and `hive.allowed_kinds` are settings keys; code reads the `Bazaar:Hive` config section. `IHiveNoteReader` has no production implementation.
+- Doc 52 contradicts itself on where the GitHub forge provider lives (`Bazaar.GitHub` versus `Bazaar.Server.Git.GitHub`).
+- Doc 91 says `Bazaar.Server.Gateway.Abstractions` moves `IModelAdapter` and related types; they are still in `Bazaar.Server.Gateway`.
+- Doc 16 `vm.transport.service_guid` is not in the settings registry.
+- `GatewaySettings` is registered through `GatewaySettingContribution` in `SettingsComponent`; the shared gateway test support is `tests/Bazaar.Server.Gateway.TestKit` (the Gateway follow-up lines above are older).
+- Doc 45 lines 3 and 274 say everything is not built; the first-run seed step exists. Status tags are for the owner.
+- Doc 50 test count (22) is stale (about 74 test attributes); the Souls test count (162) was not re-run.
