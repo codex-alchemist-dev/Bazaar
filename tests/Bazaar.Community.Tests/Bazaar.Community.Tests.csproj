@@ -13,8 +13,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Community\Bazaar.Community.csproj" />
-    <!-- Test-only: SQL migration and policy helpers the community tests use still live in Bazaar.Server. -->
-    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
   </ItemGroup>
 </Project>
