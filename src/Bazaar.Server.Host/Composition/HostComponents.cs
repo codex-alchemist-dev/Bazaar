@@ -9,6 +9,7 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Display;
 using Bazaar.Server.BrowserPool.Image;
@@ -34,6 +35,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
+using Bazaar.Server.MailPolicy;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
@@ -98,6 +100,8 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new BackupPolicyComponent(),
+        new MailPolicyComponent(),
         new ConduitComponent(),
         new WireDiscoveryComponent(),
         new RemoteComponent(),
