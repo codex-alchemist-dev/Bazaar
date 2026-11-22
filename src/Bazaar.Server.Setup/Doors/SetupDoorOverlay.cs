@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -48,8 +47,10 @@ public static class SetupDoorOverlay
     /// <param name="baseJson">The file text, or null when no file was given. A null base is the empty document.</param>
     /// <param name="setArguments">The <c>path=value</c> flags, in the order given. A repeated path takes the later value.</param>
     /// <param name="environment">The environment variables. Only names with the prefix are read.</param>
-    public static SetupOverlayResult Merge(string? baseJson, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment)
+    /// <param name="settings">The settings catalog the <c>settings.*</c> keys are resolved against.</param>
+    public static SetupOverlayResult Merge(string? baseJson, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment, ISetupSettingCatalog settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(setArguments);
         ArgumentNullException.ThrowIfNull(environment);
 
@@ -77,7 +78,7 @@ public static class SetupDoorOverlay
         {
             doors |= SetupDoors.EnvironmentVariables;
             var segments = name.Split(_segmentSeparator, StringSplitOptions.None);
-            ApplyOne(root, segments, value, issues, environmentPaths);
+            ApplyOne(root, segments, value, issues, environmentPaths, settings);
         }
 
         foreach (var argument in setArguments)
@@ -94,7 +95,7 @@ public static class SetupDoorOverlay
                 continue;
             }
 
-            ApplyOne(root, argument[..equals].Split('.'), argument[(equals + 1)..], issues, seen: null);
+            ApplyOne(root, argument[..equals].Split('.'), argument[(equals + 1)..], issues, seen: null, settings);
         }
 
         if (issues.Count > 0)
@@ -121,9 +122,9 @@ public static class SetupDoorOverlay
         name.StartsWith(EnvironmentPrefix, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value);
 
     /// <summary>Resolves one key and writes its value. <paramref name="seen"/> catches two environment names for one key.</summary>
-    private static void ApplyOne(JsonObject root, IReadOnlyList<string> segments, string text, List<SetupValidationIssue> issues, HashSet<string>? seen)
+    private static void ApplyOne(JsonObject root, IReadOnlyList<string> segments, string text, List<SetupValidationIssue> issues, HashSet<string>? seen, ISetupSettingCatalog settings)
     {
-        var (target, issue) = SetupKeyResolver.Resolve(segments, SettingRegistry.Known);
+        var (target, issue) = SetupKeyResolver.Resolve(segments, settings);
         if (issue is not null || target is null)
         {
             issues.Add(issue ?? new SetupValidationIssue(SetupIssueSeverity.Error, string.Join('.', segments), "is not a known setup key."));
