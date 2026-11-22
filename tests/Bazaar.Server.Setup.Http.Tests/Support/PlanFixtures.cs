@@ -60,5 +60,8 @@ public static class PlanFixtures
     }
 
     /// <summary>The plan hash of the valid plan, computed by the loader the routes use.</summary>
-    public static string ValidHash => Bazaar.Server.Setup.SetupPlanLoader.Load(Valid).PlanHash!;
+    public static string ValidHash => HashOf(Valid);
+
+    /// <summary>The plan hash of <paramref name="plan"/> under the harness settings catalog.</summary>
+    public static string HashOf(string plan) => Bazaar.Server.Setup.SetupPlanLoader.Load(plan, new FakeSettingCatalog()).PlanHash!;
 }
