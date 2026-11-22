@@ -26,6 +26,9 @@ public enum RojoErrorKind
 
     /// <summary>A path resolves outside the root, or passes through a symbolic link or junction.</summary>
     PathOutsideRoot,
+
+    /// <summary>The project file is too large, not valid JSON, or names more source than the guard will check.</summary>
+    InvalidProjectFile,
 }
 
 /// <summary>A Rojo operation failed. <see cref="StandardError"/> holds captured stderr when rojo ran.</summary>
