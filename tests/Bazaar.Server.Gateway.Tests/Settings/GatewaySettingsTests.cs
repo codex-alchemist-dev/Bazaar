@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Settings;
 public sealed class GatewaySettingsTests
 {
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
-    private static readonly SettingRegistry _registry = SettingRegistry.WithContributions([new GatewaySettingContribution()]);
+    private static readonly SettingRegistry _registry = BuiltInSettingRegistries.WithContributions([new GatewaySettingContribution()]);
 
     private static SettingDefinition Lookup(string name)
     {
@@ -60,7 +60,7 @@ public sealed class GatewaySettingsTests
     [Fact]
     public void Gateway_keys_are_not_in_the_host_registry()
     {
-        Assert.DoesNotContain(SettingRegistry.Host.Definitions, d => d.Name.StartsWith("gateway.", StringComparison.Ordinal));
+        Assert.DoesNotContain(BuiltInSettingRegistries.Host.Definitions, d => d.Name.StartsWith("gateway.", StringComparison.Ordinal));
     }
 
     [Theory]
