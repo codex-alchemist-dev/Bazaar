@@ -44,4 +44,4 @@ Avalonia.Headless tests: direction flips for `ar` and not for `en`, and again on
 ## 5. Open questions
 
 - OPEN: where the focus-scope names come from when a layout (doc 41) places panes. Proposed: the layout slot name.
-- OPEN: mirror-sensitive icon marking. Proposed: an attached property `WindowChrome.MirrorsInRtl` on icons, read by a style set in `Bazaar.Accessibility.Avalonia`.
+- Mirror-sensitive icon marking (owner: build it all): the attached property `WindowChrome.MirrorsInRtl` on an icon flips it horizontally while its effective flow direction is right-to-left and follows locale changes; unmarked icons never flip.

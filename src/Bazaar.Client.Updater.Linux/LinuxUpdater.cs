@@ -1,0 +1,477 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Security.Cryptography;
+using System.Text.Json;
+using Bazaar.Contracts.Releases;
+
+namespace Bazaar.Client.Updater.Linux;
+
+/// <summary>
+/// The Linux in-place updater (doc 30 sections 3 to 7). Order of checks: channel, manifest, downgrade, artifact, size, pinned
+/// key; then download, SHA-256 (inline value, <c>.sha256</c> file and the bytes must agree), detached signature, safe
+/// extraction, and one atomic switch of <c>current</c>. The previous release stays for <see cref="Rollback"/>.
+/// Layout under <see cref="LinuxUpdaterSettings.InstallRoot"/>: <c>releases/&lt;version&gt;</c>, symlinks <c>current</c> and
+/// <c>previous</c> (relative targets), and a <c>staging</c> directory that is emptied after every run. One updater runs at a
+/// time per install root; the head owns that guarantee.
+/// </summary>
+public sealed class LinuxUpdater : ILinuxUpdater
+{
+    private const UnixFileMode _privateDirectory = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+    private const int _maxChecksumFileBytes = 1024;
+    private const int _maxSignatureFileBytes = 64 * 1024;
+    private const string _releasesDir = "releases";
+
+    private readonly LinuxUpdaterSettings _settings;
+    private readonly IReleaseSource _source;
+    private readonly IUpdateFileSystem _fs;
+    private readonly IProcessRunner _runner;
+    private readonly TimeProvider _clock;
+    private readonly IClientCompatibility _compat;
+    private readonly RollbackRecord _record;
+
+    /// <summary>Creates the updater.</summary>
+    /// <exception cref="ArgumentException">A setting is missing or malformed.</exception>
+    public LinuxUpdater(LinuxUpdaterSettings settings, IReleaseSource source, IUpdateFileSystem fs, IProcessRunner runner, TimeProvider clock, IClientCompatibility compat)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(fs);
+        ArgumentNullException.ThrowIfNull(runner);
+        ArgumentNullException.ThrowIfNull(clock);
+        ArgumentNullException.ThrowIfNull(compat);
+        Validate(settings);
+        _settings = settings;
+        _source = source;
+        _fs = fs;
+        _runner = runner;
+        _clock = clock;
+        _compat = compat;
+        _record = new RollbackRecord(fs, settings.InstallRoot);
+    }
+
+    private string Root => _settings.InstallRoot;
+
+    private string CurrentLink => UnixPath.Combine(Root, "current");
+
+    private string PreviousLink => UnixPath.Combine(Root, "previous");
+
+    /// <inheritdoc />
+    public async Task<UpdateResult> CheckAsync(CancellationToken ct) => (await PlanAsync(ct).ConfigureAwait(false)).Result;
+
+    /// <inheritdoc />
+    public async Task<UpdateResult> ApplyAsync(CancellationToken ct)
+    {
+        var plan = await PlanAsync(ct).ConfigureAwait(false);
+        if (plan.Artifact is null || plan.Manifest is null || plan.Result.Status != UpdateStatus.Available)
+        {
+            return plan.Result;
+        }
+
+        var manifest = plan.Manifest;
+        var artifact = plan.Artifact;
+        string staging = UnixPath.Combine(Root, "staging");
+        string work = UnixPath.Combine(staging, Guid.NewGuid().ToString("N"));
+        string? partial = null;
+        try
+        {
+            _fs.DeleteDirectory(staging); // Leftovers of a crashed run.
+            _fs.CreateDirectory(work, _privateDirectory);
+
+            string tarball = UnixPath.Combine(work, "package.tar.gz");
+            string checksum = UnixPath.Combine(work, "package.sha256");
+            string signature = UnixPath.Combine(work, "package.asc");
+
+            var failure = await DownloadAsync(artifact.Url, tarball, artifact.SizeBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.Sha256Url!, checksum, _maxChecksumFileBytes, ct).ConfigureAwait(false)
+                ?? await DownloadAsync(artifact.SignatureUrl!, signature, _maxSignatureFileBytes, ct).ConfigureAwait(false)
+                ?? await CheckHashAsync(artifact, tarball, checksum, ct).ConfigureAwait(false)
+                ?? await new GpgSignatureVerifier(_settings, _runner, _fs).VerifyAsync(tarball, signature, ct).ConfigureAwait(false);
+            if (failure is not null)
+            {
+                return Result(failure.Status, manifest.AppVersion, failure.Detail);
+            }
+
+            string releases = UnixPath.Combine(Root, _releasesDir);
+            _fs.CreateDirectory(releases, _privateDirectory | UnixFileMode.GroupRead | UnixFileMode.GroupExecute | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+            partial = UnixPath.Combine(releases, ".partial-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var extractor = new SafeTarGzExtractor(_fs, _settings.MaxExtractedBytes, _settings.MaxArchiveEntries);
+                await using var archive = _fs.OpenRead(tarball);
+                await extractor.ExtractAsync(archive, partial, ct).ConfigureAwait(false);
+            }
+            catch (ArchiveRejectedException e)
+            {
+                return Result(UpdateStatus.ExtractionRejected, manifest.AppVersion, e.Message);
+            }
+
+            string release = UnixPath.Combine(releases, manifest.AppVersion);
+            if (_fs.DirectoryExists(release))
+            {
+                // A release dir left by an earlier install or rollback of this very version; current and previous never point at a newer one.
+                _fs.DeleteDirectory(release);
+            }
+
+            _fs.MoveDirectory(partial, release);
+            partial = null;
+
+            string? oldTarget = _fs.ReadLink(CurrentLink);
+            if (oldTarget is not null)
+            {
+                PointLink(PreviousLink, oldTarget);
+            }
+
+            PointLink(CurrentLink, _releasesDir + "/" + manifest.AppVersion);
+            Prune();
+            return Result(UpdateStatus.Installed, manifest.AppVersion, "Installed.");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return Result(UpdateStatus.InstallFailed, manifest.AppVersion, e.Message);
+        }
+        finally
+        {
+            if (partial is not null)
+            {
+                _fs.DeleteDirectory(partial);
+            }
+
+            _fs.DeleteDirectory(staging);
+        }
+    }
+
+    /// <inheritdoc />
+    public UpdateResult Rollback()
+    {
+        try
+        {
+            string? previous = _fs.ReadLink(PreviousLink);
+            string? current = _fs.ReadLink(CurrentLink);
+            if (previous is null || !TryVersionOf(previous, out string? version) || !_fs.DirectoryExists(UnixPath.Combine(Root, previous)))
+            {
+                return Result(UpdateStatus.NothingToRollBack, null, "There is no previous release.");
+            }
+
+            if (current is not null && TryVersionOf(current, out string? from))
+            {
+                _record.Write(from); // First: a crash after this leaves current alone and only blocks re-offers.
+            }
+
+            PointLink(CurrentLink, previous);
+            if (current is not null)
+            {
+                PointLink(PreviousLink, current);
+            }
+            else
+            {
+                _fs.DeleteFile(PreviousLink);
+            }
+
+            return Result(UpdateStatus.RolledBack, version, "Rolled back.");
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            return Result(UpdateStatus.InstallFailed, null, e.Message);
+        }
+    }
+
+    private sealed record Plan(UpdateResult Result, ReleaseManifest? Manifest = null, ReleaseArtifact? Artifact = null);
+
+    private async Task<Plan> PlanAsync(CancellationToken ct)
+    {
+        if (!ReleaseChannels.IsKnown(_settings.Channel))
+        {
+            return new Plan(Result(UpdateStatus.ChannelRefused, null, $"'{_settings.Channel}' is not a release channel."));
+        }
+
+        if (_settings.Channel == ReleaseChannels.LatestCommit && !_settings.IsOwnerInstall)
+        {
+            return new Plan(Result(UpdateStatus.ChannelRefused, null, "Latest-Commit is owner-only."));
+        }
+
+        string? rolledBackFrom;
+        try
+        {
+            rolledBackFrom = _record.Read();
+        }
+        catch (RollbackRecordException e)
+        {
+            return new Plan(Result(UpdateStatus.SkipRecordInvalid, null, e.Message));
+        }
+
+        ReleaseManifest? manifest;
+        try
+        {
+            manifest = await _source.GetManifestAsync(ct).ConfigureAwait(false);
+        }
+        catch (Exception e) when (e is IOException or HttpRequestException or JsonException or ArgumentException)
+        {
+            return new Plan(Result(UpdateStatus.NoManifest, null, "The feed could not be read: " + e.Message));
+        }
+
+        if (manifest is null)
+        {
+            return new Plan(Result(UpdateStatus.NoManifest, null, "The server offers no release."));
+        }
+
+        string version = manifest.AppVersion;
+        if (manifest.Channel != _settings.Channel)
+        {
+            return new Plan(Result(UpdateStatus.ChannelMismatch, version, $"The release is on {manifest.Channel}, this install follows {_settings.Channel}."));
+        }
+
+        int order = SemVerPrecedence.Compare(version, _settings.InstalledVersion);
+        if (order < 0)
+        {
+            return new Plan(Result(UpdateStatus.DowngradeRefused, version, $"{version} is older than {_settings.InstalledVersion}."));
+        }
+
+        if (order == 0)
+        {
+            return new Plan(Result(UpdateStatus.UpToDate, version, "Already on this version."));
+        }
+
+        if (IsSkipped(version, rolledBackFrom))
+        {
+            return new Plan(Result(UpdateStatus.VersionSkipped, version, $"{version} is skipped by update.skip_versions or was rolled back from; a newer release is needed."));
+        }
+
+        if (CheckCompatibility(manifest) is { } incompatible)
+        {
+            return new Plan(Result(incompatible.Status, version, incompatible.Detail));
+        }
+
+        var artifact = manifest.Find(_settings.Architecture, ReleaseArtifact.FormatTarGz);
+        if (artifact is null || artifact.Os != ReleaseArtifact.OsLinux)
+        {
+            return new Plan(Result(UpdateStatus.NoArtifact, version, $"No tar.gz for {_settings.Architecture}."));
+        }
+
+        // A Linux artifact always carries both companion files (the contract enforces it); the check keeps the nullable types honest.
+        if (artifact.Sha256Url is null || artifact.SignatureUrl is null)
+        {
+            return new Plan(Result(UpdateStatus.NoArtifact, version, "The tar.gz entry names no checksum or signature file."));
+        }
+
+        if (artifact.SizeBytes > _settings.MaxPackageBytes)
+        {
+            return new Plan(Result(UpdateStatus.SizeExceeded, version, $"The package ({artifact.SizeBytes} bytes) exceeds the limit of {_settings.MaxPackageBytes}."));
+        }
+
+        if (manifest.SigningKeyFingerprint != _settings.PinnedKeyFingerprint)
+        {
+            return new Plan(Result(UpdateStatus.FingerprintMismatch, version, "The release is signed by a key this build does not pin."));
+        }
+
+        return new Plan(Result(UpdateStatus.Available, version, "An update is available."), manifest, artifact);
+    }
+
+    private bool IsSkipped(string version, string? rolledBackFrom) =>
+        _settings.SkipVersions.Any(v => SemVerPrecedence.Compare(v, version) == 0)
+        || (rolledBackFrom is not null && SemVerPrecedence.Compare(version, rolledBackFrom) <= 0);
+
+    /// <summary>
+    /// Doc 02: versions are major.minor, minors only add, the server accepts its current major and, when
+    /// <c>wire.previous_major_supported</c>, the previous one. The build speaks every protocol from its min to its max.
+    /// Doc 04: the server runs only on its own schema, so the build must need exactly that schema.
+    /// </summary>
+    private UpdateFailure? CheckCompatibility(ReleaseManifest manifest)
+    {
+        if (!TryProtocol(_compat.RunningProtocol, out var running) || !TryProtocol(_compat.ServerProtocol, out var server)
+            || string.IsNullOrWhiteSpace(_compat.ServerSchemaVersion))
+        {
+            return new UpdateFailure(UpdateStatus.CompatibilityUnknown, "The client's protocol or the server's protocol or schema is not known.");
+        }
+
+        var min = Version.Parse(manifest.MinProtocol); // Validated by the manifest contract.
+        var max = Version.Parse(manifest.MaxProtocol);
+
+        if (max < running)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolDowngradeRefused, $"The build speaks up to protocol {manifest.MaxProtocol}, below the running {_compat.RunningProtocol}.");
+        }
+
+        int lowestAccepted = _compat.ServerAcceptsPreviousMajor && server.Major > 0 ? server.Major - 1 : server.Major;
+        if (max.Major < lowestAccepted)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolBuildTooOld, $"The server (protocol {_compat.ServerProtocol}) would refuse this build with upgrade_required (4426).");
+        }
+
+        if (min.Major > server.Major)
+        {
+            return new UpdateFailure(UpdateStatus.ProtocolBuildTooNew, $"The build needs protocol {manifest.MinProtocol} or later; upgrade the server (protocol {_compat.ServerProtocol}) first.");
+        }
+
+        return manifest.SchemaVersion == _compat.ServerSchemaVersion
+            ? null
+            : new UpdateFailure(UpdateStatus.SchemaMismatch, $"The build needs schema {manifest.SchemaVersion}; the server is at {_compat.ServerSchemaVersion}.");
+    }
+
+    private static bool TryProtocol(string? text, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out Version? version)
+    {
+        version = null;
+        string[] parts = (text ?? string.Empty).Split('.');
+        if (parts.Length != 2
+            || !int.TryParse(parts[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int major)
+            || !int.TryParse(parts[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int minor))
+        {
+            return false;
+        }
+
+        version = new Version(major, minor);
+        return true;
+    }
+
+    /// <summary>Downloads one file into the staging area, never more than <paramref name="maxBytes"/>.</summary>
+    private async Task<UpdateFailure?> DownloadAsync(string url, string path, long maxBytes, CancellationToken ct)
+    {
+        try
+        {
+            await using var input = await _source.OpenAsync(url, ct).ConfigureAwait(false);
+            await using var output = _fs.CreateFile(path);
+            var buffer = new byte[81920];
+            long total = 0;
+            int read;
+            while ((read = await input.ReadAsync(buffer, ct).ConfigureAwait(false)) > 0)
+            {
+                total += read;
+                if (total > maxBytes)
+                {
+                    return new UpdateFailure(UpdateStatus.SizeExceeded, $"A download exceeded its limit of {maxBytes} bytes.");
+                }
+
+                await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+            }
+
+            return null;
+        }
+        catch (Exception e) when (e is IOException or HttpRequestException)
+        {
+            return new UpdateFailure(UpdateStatus.DownloadFailed, e.Message);
+        }
+    }
+
+    private async Task<UpdateFailure?> CheckHashAsync(ReleaseArtifact artifact, string tarball, string checksumFile, CancellationToken ct)
+    {
+        string fileText;
+        await using (var stream = _fs.OpenRead(checksumFile))
+        using (var reader = new StreamReader(stream))
+        {
+            fileText = await reader.ReadToEndAsync(ct).ConfigureAwait(false);
+        }
+
+        // "sha256sum" format: "<hex>  <name>". Only the hash matters.
+        string fromFile = fileText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant() ?? string.Empty;
+        if (fromFile != artifact.Sha256)
+        {
+            return new UpdateFailure(UpdateStatus.ChecksumMismatch, "The .sha256 file does not match the manifest.");
+        }
+
+        string actual;
+        await using (var stream = _fs.OpenRead(tarball))
+        {
+            actual = Convert.ToHexStringLower(await SHA256.HashDataAsync(stream, ct).ConfigureAwait(false));
+        }
+
+        return actual == artifact.Sha256
+            ? null
+            : new UpdateFailure(UpdateStatus.ChecksumMismatch, "The downloaded package does not match its SHA-256.");
+    }
+
+    /// <summary>Points <paramref name="link"/> at <paramref name="target"/> by creating a temporary link and renaming it over the old one.</summary>
+    private void PointLink(string link, string target)
+    {
+        string temp = link + ".tmp-" + Guid.NewGuid().ToString("N");
+        _fs.CreateSymbolicLink(temp, target);
+        try
+        {
+            _fs.RenameOver(temp, link);
+        }
+        catch
+        {
+            _fs.DeleteFile(temp);
+            throw;
+        }
+    }
+
+    /// <summary>Keeps the releases that <c>current</c> and <c>previous</c> name and removes the rest, including partial extractions.</summary>
+    private void Prune()
+    {
+        var keep = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string link in new[] { CurrentLink, PreviousLink })
+        {
+            if (_fs.ReadLink(link) is { } target && TryVersionOf(target, out string? version))
+            {
+                keep.Add(version);
+            }
+        }
+
+        foreach (string dir in _fs.EnumerateDirectories(UnixPath.Combine(Root, _releasesDir)))
+        {
+            if (!keep.Contains(UnixPath.GetFileName(dir)))
+            {
+                _fs.DeleteDirectory(dir);
+            }
+        }
+    }
+
+    /// <summary>Accepts only <c>releases/&lt;version&gt;</c>, so a tampered link cannot make the updater act outside the releases directory.</summary>
+    private static bool TryVersionOf(string linkTarget, [NotNullWhen(true)] out string? version)
+    {
+        version = null;
+        string prefix = _releasesDir + "/";
+        if (!linkTarget.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string name = linkTarget[prefix.Length..];
+        if (!SemVerPrecedence.TryParse(name, out _, out _))
+        {
+            return false;
+        }
+
+        version = name;
+        return true;
+    }
+
+    private UpdateResult Result(UpdateStatus status, string? version, string detail) =>
+        new(status, version, detail, _clock.GetUtcNow());
+
+    private static void Validate(LinuxUpdaterSettings s)
+    {
+        if (string.IsNullOrEmpty(s.InstallRoot) || !UnixPath.IsRooted(s.InstallRoot))
+        {
+            throw new ArgumentException("InstallRoot must be an absolute path.", nameof(s));
+        }
+
+        if (!SemVerPrecedence.TryParse(s.InstalledVersion, out _, out _))
+        {
+            throw new ArgumentException("InstalledVersion must be a SemVer version.", nameof(s));
+        }
+
+        if (s.Architecture is not (ReleaseArtifact.ArchLinuxX64 or ReleaseArtifact.ArchLinuxArm64))
+        {
+            throw new ArgumentException("Architecture must be linux-x64 or linux-arm64.", nameof(s));
+        }
+
+        if (s.PinnedKeyFingerprint is not { Length: 40 or 64 } fingerprint || !fingerprint.All(c => c is (>= '0' and <= '9') or (>= 'a' and <= 'f')))
+        {
+            throw new ArgumentException("PinnedKeyFingerprint must be 40 or 64 lowercase hex characters.", nameof(s));
+        }
+
+        if (string.IsNullOrWhiteSpace(s.PinnedKeyPath) || string.IsNullOrWhiteSpace(s.GpgPath))
+        {
+            throw new ArgumentException("PinnedKeyPath and GpgPath are required.", nameof(s));
+        }
+
+        if (s.SkipVersions is null || s.SkipVersions.Any(v => !SemVerPrecedence.TryParse(v, out _, out _)))
+        {
+            throw new ArgumentException("SkipVersions must hold SemVer versions.", nameof(s));
+        }
+
+        if (s.MaxPackageBytes < 1 || s.MaxExtractedBytes < 1 || s.MaxArchiveEntries < 1 || s.GpgTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentException("Limits and the gpg timeout must be positive.", nameof(s));
+        }
+    }
+}
