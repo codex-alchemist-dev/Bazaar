@@ -40,8 +40,8 @@ Not found anywhere in docs: a module manifest, a module lifecycle, a capability 
 - OS code is split across assemblies for Windows (`src/Bazaar.Server.Providers.Windows`) but not for Linux. `src/Bazaar.Server/Providers/Linux/` lives inside the platform-neutral core assembly. This departs from doc 03's project split.
 
 **Model gateway (real adapter seam).**
-- `src/Bazaar.Server/Gateway/Adapters/IModelAdapter.cs` is one interface per wire family, with implementations for Anthropic, OpenAI and Gemini. `IAdapterRegistry` and `ModelGateway` select among them.
-- FreeLLMAPI is in `src/Bazaar.Server/Gateway/FreeLlmApi/` (11 files, including its own wiring, routing adapter and health probe) inside the core assembly. It is not a separate module project and not a sidecar. It does plug into the adapter seam.
+- `src/Bazaar.Server.Gateway/Adapters/IModelAdapter.cs` is one interface per wire family, with implementations for Anthropic, OpenAI and Gemini. `IAdapterRegistry` and `ModelGateway` select among them.
+- FreeLLMAPI is in `src/Bazaar.Server.Gateway/FreeLlmApi/` (11 files, including its own wiring, routing adapter and health probe) inside the core assembly. It is not a separate module project and not a sidecar. It does plug into the adapter seam.
 
 **Wire and GC (interfaces exist for extension points).**
 - `IWireRequestHandler` is one handler per request type; its comment says "W4 and later modules add theirs". This is a real registration point.
