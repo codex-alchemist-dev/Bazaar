@@ -98,9 +98,9 @@ public sealed class CommunityComponent : IBazaarComponent
             sp.GetRequiredService<CommunityDraftOptions>(),
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<CommunityDraftExpiryService>>()));
-        // Agent tool (doc 36 WP8). Resolving the agent's sponsor and profile needs ICommunityAgentIdentitySource, which the host binds;
-        // without it the tool refuses with no_profile. Registered lazily so a host without the binding still starts.
-        services.TryAddSingleton<ICommunityAgentIdentitySource, UnboundCommunityAgentIdentitySource>();
+        // Agent tool (doc 36 WP8). The agent's sponsor and profile come from ICommunityAgentIdentitySource: by default the operator list in
+        // Bazaar:Community:Profiles, which a host can replace. An unlisted agent gets no_profile. Registered lazily so a host without the binding still starts.
+        services.TryAddSingleton<ICommunityAgentIdentitySource>(_ => ConfiguredCommunityAgentIdentitySource.From(configuration));
         services.TryAddSingleton(sp => new CommunityProposePostTool(
             sp.GetRequiredService<ICommunityDraftCreator>(),
             sp.GetRequiredService<ICommunityAgentIdentitySource>(),
