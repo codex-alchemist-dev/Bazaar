@@ -60,7 +60,7 @@ public sealed class SealedGitRepoFactory : ISealedGitRepoFactory
 /// </summary>
 public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
 {
-    private const long MaxFileBytes = 256L * 1024 * 1024;
+    private const long _maxFileBytes = 256L * 1024 * 1024;
 
     private static readonly string[] _requiredDirs = ["refs/heads", "refs/tags", "objects/info", "objects/pack"];
 
@@ -353,7 +353,7 @@ public sealed class SealedGitRepo : ISealedGitRepo, IDisposable
                 continue;
             }
 
-            if (file.Length > MaxFileBytes)
+            if (file.Length > _maxFileBytes)
             {
                 throw new InvalidOperationException($"'{logical}' is larger than the 256 MiB sealed file limit. Nothing was sealed.");
             }
