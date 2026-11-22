@@ -30,6 +30,18 @@ public static class WireTypes
     /// <summary>Client removes a principal, or leaves a GC itself. Answered with a <c>GcSendResult</c>: the membership event's seq.</summary>
     public const string GcMemberRemove = "gc.member.remove";
 
+    /// <summary>Client adds or removes an emoji reaction on a message (doc 02, "Reactions on the wire"). Answered with a <c>GcReactResult</c>.</summary>
+    public const string GcReact = "gc.react";
+
+    /// <summary>Client asks for the folded reaction state of a GC. Answered with a <c>GcReactionsReply</c>.</summary>
+    public const string GcReactions = "gc.reactions";
+
+    /// <summary>Server event: one reaction was added or removed (<c>WireGcReaction</c>). Live only.</summary>
+    public const string GcReaction = "gc.reaction";
+
+    /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
+    public const string GcTyping = "gc.typing";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
@@ -44,6 +56,21 @@ public static class WireTypes
 
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
+
+    /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
+    public const string PrList = "pr.list";
+
+    /// <summary>Owner asks for one PR's summary. Answered with a <c>PrSummaryReply</c>.</summary>
+    public const string PrSummary = "pr.summary";
+
+    /// <summary>Owner asks for a file's hunks, keyed by head sha. Answered with a <c>PrHunksReply</c>.</summary>
+    public const string PrHunks = "pr.hunks";
+
+    /// <summary>Owner posts a comment or request-changes review; never approve. Answered with a <c>PrReviewReply</c>.</summary>
+    public const string PrReview = "pr.review";
+
+    /// <summary>Owner-signed squash merge (doc 21, Merge request path). Answered with a <c>PrMergeReply</c>.</summary>
+    public const string PrMerge = "pr.merge";
 
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
