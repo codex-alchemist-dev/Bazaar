@@ -109,6 +109,16 @@ public class GitLabMergeExecutorTests
     }
 
     [Fact]
+    public async Task A_missing_merge_request_on_merge_is_the_neutral_not_found()
+    {
+        var (executor, http, _) = Create();
+        http.Json(HttpMethod.Put, _merge, "{}", HttpStatusCode.NotFound);
+
+        await Assert.ThrowsAsync<ForgeNotFoundException>(() =>
+            executor.SquashMergeAsync(new PrRef("gitlab", "group/sub/project", 42), Request(), CancellationToken.None));
+    }
+
+    [Fact]
     public void The_executor_reports_gitlab()
     {
         var (executor, _, _) = Create();

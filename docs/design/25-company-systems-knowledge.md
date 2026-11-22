@@ -116,7 +116,7 @@ No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, 
 4. Twin prose step in a reader session with the ref validator. Needs 3, 05, 15. Status: the prompt builder, reply parser, ref validator, page renderer and Vault page writer are in `Bazaar.Server.Twin`; the model call is the `ITwinProseWriter` seam, with a fake in tests. The real reader session (doc 15) is not wired yet: no reader-session primitive exists beyond the reader scratch store.
 5. Decision-chain index from Vault front matter. Needs 18.
 6. Archive generator, chapter validator, Vault write through `VaultWriter`. Needs 1, 5.
-7. Hive grant table, Vault copy flow and sanitizer on 08 §6 scopes. Needs 08, 18.
+7. Hive grant table, Vault copy flow and sanitizer on 08 §6 scopes. Needs 08, 18. Status: grant table (`hive_grant`), held-copy ledger (`hive_held_copy`, `hive_copy`) and `HiveComponent` host wiring are built (`hive` migration namespace); see doc 40. Settings reach the component through the `Bazaar:Hive` configuration section until the Settings service feeds `hive.*` keys at runtime.
 8. Talent Pool store, manifest validator, Council `hire` motion hook. Needs 07, 10, 11.
 9. GMT staging, child-end hook in 06, review queue. Needs 06, 08, 15.
 10. Client panels for all seven. Needs 27, 28, 29. Packages 1 to 9 run in parallel; 10 follows each one.
