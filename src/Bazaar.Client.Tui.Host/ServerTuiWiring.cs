@@ -3,6 +3,7 @@ using Bazaar.Client.Tui.Dashboard;
 using Bazaar.Roles;
 using Bazaar.Roles.Abstractions;
 using Bazaar.Server.OpsPorts;
+using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.WebAdmin.Security;
@@ -84,7 +85,9 @@ public sealed class ServerTuiWiring : ITuiHostWiring
         var gate = provider.GetRequiredService<RoleStoreOwnerLocalGate>();
         var signIn = new OpsSignIn(
             gate,
-            redeemer: null,
+            // The admin-code door: the shared Postgres handoff store the server issues into (doc 32 section 4, doc 51 Session; PROPOSED).
+            // Fail closed: when the table is not there yet (an older server) or the database errors, a code is simply refused.
+            redeemer: new FailClosedRedeemer(new PostgresAdminHandoffRedeemer(new PostgresHandoffCodeStore(dataSource), clock)),
             provider.GetRequiredService<IAdminSessionStore>(),
             provider.GetRequiredService<IOpsAuthorizer>(),
             provider.GetRequiredService<IAdminAudit>(),
@@ -116,6 +119,22 @@ public sealed class ServerTuiWiring : ITuiHostWiring
         }
 
         return new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+    }
+
+    /// <summary>Turns a database failure while redeeming into a refusal, so the admin-code door never throws into the sign-in flow.</summary>
+    private sealed class FailClosedRedeemer(IAdminHandoffRedeemer inner) : IAdminHandoffRedeemer
+    {
+        public async Task<AdminIdentity?> RedeemAsync(string code, CancellationToken ct = default)
+        {
+            try
+            {
+                return await inner.RedeemAsync(code, ct).ConfigureAwait(false);
+            }
+            catch (NpgsqlException)
+            {
+                return null;
+            }
+        }
     }
 
     private sealed class Disposables(params IAsyncDisposable?[] items) : IAsyncDisposable

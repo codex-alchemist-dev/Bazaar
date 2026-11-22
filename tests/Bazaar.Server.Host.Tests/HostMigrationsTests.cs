@@ -54,6 +54,15 @@ public sealed class HostMigrationsTests
     }
 
     [Fact]
+    public void Signin_handoff_code_migration_is_in_the_host_source()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("signin", source.Namespaces());
+        Assert.Contains(source.Load("signin"), f => f.Version == 1 && f.Name == "handoff_code");
+    }
+
+    [Fact]
     public void Host_plan_orders_the_portability_migration_after_common()
     {
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), []);
