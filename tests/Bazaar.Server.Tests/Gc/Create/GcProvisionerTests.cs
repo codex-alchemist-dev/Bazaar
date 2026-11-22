@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
+using Npgsql;
 
 namespace Bazaar.Server.Tests.Gc.Create;
 
@@ -51,5 +52,37 @@ public sealed class GcProvisionerTests(GcDb db) : IClassFixture<GcDb>
         Assert.True(await svc.AddMemberAsync(id, human, ct));
         Assert.False(await svc.AddMemberAsync(id, human, ct));
         await Assert.ThrowsAsync<GcCreateRefusedException>(() => svc.CreateAsync(Guid.NewGuid(), "no_such_type", "x", _owner, null, ct));
+    }
+
+    [Fact]
+    public async Task A_dm_is_one_two_member_gc_whichever_side_asks_first()
+    {
+        GcTestSkip.WithoutDatabase();
+        var svc = new GcCreateService(db.DataSource);
+        var ct = TestContext.Current.CancellationToken;
+        var a = new GcPrincipal(Guid.NewGuid(), PrincipalKind.Human, "Ada");
+        var b = new GcPrincipal(Guid.NewGuid(), PrincipalKind.Agent, "Bo");
+
+        var first = await svc.EnsureDmAsync(a, b, ct);
+        var second = await svc.EnsureDmAsync(b, a, ct);
+        Assert.Equal(first, second);
+
+        await using var cmd = db.DataSource.CreateCommand(
+            "SELECT g.type_key, (SELECT count(*) FROM gc_member m WHERE m.gc_id = g.gc_id) FROM gc g WHERE g.gc_id = $1");
+        cmd.Parameters.AddWithValue(first);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        Assert.True(await reader.ReadAsync(ct));
+        Assert.Equal("dm", reader.GetString(0));
+        Assert.Equal(2L, reader.GetInt64(1));
+    }
+
+    [Fact]
+    public async Task A_dm_with_oneself_or_an_empty_id_is_refused()
+    {
+        var svc = new GcCreateService(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=unused"));
+        var a = new GcPrincipal(Guid.NewGuid(), PrincipalKind.Human, "Ada");
+        await Assert.ThrowsAsync<GcCreateRefusedException>(() => svc.EnsureDmAsync(a, a, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<GcCreateRefusedException>(() =>
+            svc.EnsureDmAsync(a, new GcPrincipal(Guid.Empty, PrincipalKind.Human, "x"), TestContext.Current.CancellationToken));
     }
 }

@@ -49,8 +49,9 @@ A head supplies every identifier on each evaluation. A missing value is a runtim
 expr      := or
 or        := and ( "||" and )*
 and       := equality ( "&&" equality )*
-equality  := relation ( ("==" | "!=") relation )?
+equality  := operand ( ("==" | "!=") operand )?
 relation  := sum ( ("<" | "<=" | ">" | ">=") sum )?
+operand   := sum | "(" relation ")"   -- a relation under == or != needs parentheses
 sum       := product ( ("+" | "-") product )*
 product   := unary ( ("*" | "/" | "%") unary )*
 unary     := ("!" | "-") unary | call
@@ -108,8 +109,8 @@ Owner correction (2026-11-13): an earlier draft offered "inside Client.Core" as 
 
 ## 10. Document integration
 
-- A layout node gets an optional `visibleWhen` string (a Rubedo source). It replaces the reserved field, which the validator rejects today. This is additive within schema version 1 once the owner approves.
-- Commands may use `enabledWhen` the same way (later WP).
+- A layout node gets an optional `visibleWhen` string (a Rubedo source). It replaces the reserved field. Additive within schema version 1. IMPLEMENTED (WP5): `LayoutValidator` compiles it against the standard schema and requires `bool` (issue codes `bad-visible-when`, `visible-when-invalid`, `visible-when-type`); `LayoutTree.Build` with a `RubedoContext` omits a node whose rule is false, hides children with it, and omits and reports a node whose rule errors (`visible-when-error`, fail closed). A `visibleWhen` string is exempt from the forbidden-fragment scan (rules need `<` and `>`). PROPOSED: a container whose children are all hidden stays as an empty container.
+- Commands may use `enabledWhen` the same way. IMPLEMENTED in `Bazaar.Client.Commands` (the command registry module, not Client.Core): `Command` takes an optional `enabledWhen` Rubedo bool source, compiled at construction through `VisibilityRule` (an invalid source throws `ArgumentException` naming the diagnostic code). `Command.IsEnabled(RubedoContext)` evaluates it; a runtime error disables the command (fail closed). The existing `Func<bool>` predicate still works, and both must pass when both are set. `CommandMatcher.Search` takes an optional `RubedoContext`; without one, a rule-bearing command fails closed and is left out.
 - The document's `dslVersion` (integer, 1 for v1) is checked on load. An unknown version is a document-level rejection.
 
 ## 11. Questions for the owner (answered 2026-11-13)
@@ -126,5 +127,13 @@ Owner answers (2026-11-13, by card):
 2. Type checker with the closed function table, tests for each type mismatch.
 3. Evaluator with decimal arithmetic and budgets, tests for each limit.
 4. Golden corpus (JSON) and a runner shared by every head.
-5. Wire into layout `visibleWhen`, replacing the reserved field, with validator tests.
+5. DONE: wire into layout `visibleWhen`, replacing the reserved field, with validator tests.
 6. Owner review of the corpus before the language is marked DECIDED.
+
+## 13. Tooling (PROPOSED)
+
+Added by the coordinator under the gap rule (the doc specified no tooling). Not yet confirmed by the owner.
+
+- **Canonical formatter. PROPOSED, built.** `RubedoFormatter.Format(source, schema?)` in `Bazaar.Rubedo` returns the canonical source, or the compile diagnostics unchanged when the source does not compile. It never throws. It prints the parsed tree: single spaces around binary operators, none inside parentheses, `, ` between call arguments, strings unchanged, number literals without leading zeros or trailing fraction zeros (the value is identical), and the fewest parentheses that keep the same tree. Parentheses the grammar requires are always kept: any comparison or equality operand of `==`, `!=`, `<`, `<=`, `>`, `>=` that is itself one of those. A result over a limit in section 6 (the spaces can push it past 512 characters) is a diagnostic, not output.
+- **Properties, tested against the golden corpus:** idempotent (`Format(Format(x)) == Format(x)`); the formatted source compiles and evaluates to the same value or error code for the case's context; output fits the section 6 limits.
+- **Language server, docs generator, analysis library and playground: PROPOSED, designed in `41d-rubedo-tooling.md`.** Each is its own module; none changes the language.
