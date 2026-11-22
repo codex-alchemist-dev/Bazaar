@@ -33,6 +33,10 @@ name: PR sign-off
 on:
   pull_request:
     types: [opened, edited, synchronize, ready_for_review]
+  # Merge queue: the workflow must start so the required check reports; the job's `if` skips it (a skipped job counts
+  # as a pass, and the description was already checked on the pull request).
+  merge_group:
+    types: [checks_requested]
   # Started by pr-maintenance.yml after it merges main into a PR branch. A push made with
   # GITHUB_TOKEN does not start workflows, so this run is what gives the new head commit its check.
   workflow_dispatch:
@@ -46,7 +50,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || inputs.pr_number || github.ref }}
   cancel-in-progress: true
 
 jobs:

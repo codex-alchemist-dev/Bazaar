@@ -44,6 +44,23 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
 - Required checks are set in the "Protect main" ruleset. Their names must not change:
   renaming a job breaks the match and leaves PRs waiting forever.
 
+## Merge queue (prepared 2026-11-22, not on until the owner enables it)
+
+`ci.yml`, `codeql.yml` and `pr-sponsor.yml` now also start on `merge_group` events, so every required check reports
+on a queue run. A queue run is not a pull request, so `changes` treats it like `main`: full build, test and format,
+the Windows leg included, and a real CodeQL scan. The sign-off job is skipped there (it was checked on the PR).
+Pull requests keep the light affected-only checks. With the queue on, a pull request waits in the queue for the one full
+run instead of the whole set repeating each time `main` moves.
+
+Owner steps (GitHub web, Settings > Rules > Rulesets > "Protect main" > Edit):
+1. Tick "Require merge queue".
+2. Merge method: Squash. Build concurrency 3. Minimum group size 1, maximum 3. Wait time to meet the minimum group size 5 minutes.
+3. Status check timeout 60 minutes. "Only merge non-failing pull requests" (all queue entries must pass).
+4. Leave the required status checks as they are (same six names). Save.
+Auto-merge keeps working: a pull request with auto-merge on joins the queue when its checks pass. Check once that the
+squash commit still carries the `Signed-off-by` line from the description. If a group fails, GitHub drops the bad
+pull request and re-runs the rest.
+
 ## Required checks
 
 | Required check | What runs it | When it reports on a docs-only PR |

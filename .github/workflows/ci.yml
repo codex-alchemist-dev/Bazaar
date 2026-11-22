@@ -20,6 +20,10 @@ on:
   pull_request:
     # ready_for_review starts the first full run when a draft is marked ready (drafts skip every job below).
     types: [opened, synchronize, reopened, ready_for_review]
+  # Merge queue: the queue runs the full required set once on the merged result (a queue run is not a pull request,
+  # so `changes` treats it like main and builds everything). Needs the "Protect main" ruleset to enable the queue.
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
   schedule:
     # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).

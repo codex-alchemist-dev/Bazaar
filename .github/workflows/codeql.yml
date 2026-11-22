@@ -21,6 +21,9 @@ on:
     # so the required Analyze checks would never count for the PR.
     branches: ['**']
   pull_request:
+  # Merge queue: the gate treats any event other than a branch push as "scan", so the queue always gets a real scan.
+  merge_group:
+    types: [checks_requested]
   schedule:
     # Weekly, Monday 06:17 UTC: catches new queries against unchanged code.
     - cron: '17 6 * * 1'
