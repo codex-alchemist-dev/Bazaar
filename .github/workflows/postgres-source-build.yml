@@ -32,6 +32,10 @@ on:
         description: 'Repository path of the public key the signature is verified with. Not a secret. Required, no default.'
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
