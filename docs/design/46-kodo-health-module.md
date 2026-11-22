@@ -493,6 +493,21 @@ Each module ships a manifest that Kodo reads from the module's signed package. S
 
 Rules: `permissions` are declared at install and approved by the owner (module trust rule in section 19); a module with no `health` block does not load; a `probes` entry must exist in the signed catalogue; `runbooks` entries are signed with the module package.
 
+### 11.1 Manifest core choices (PROPOSED)
+
+Built as a pure core in `src/Bazaar.Kodo/Manifest` (no file IO, no clock reads, no stores). All of the choices below are PROPOSED; nothing here is DECIDED.
+
+- **Decoder.** Source-generated `System.Text.Json`, unknown fields rejected. A pre-pass over the tokens rejects duplicate field names at any level, nesting deeper than 6, and input over 64 KiB. Any other parse failure, including an unknown field or a wrong value type, is `manifest_malformed`. The member `kodo.contract` keeps its dotted name.
+- **Canonical bytes.** The manifest re-serialised in declaration order without whitespace and without the `signature` block, the same profile as the runtime manifest (section 6.1). The signature covers those bytes, so reordering or re-spacing the stored file does not change what is signed. The SHA-256 of the canonical bytes is the manifest digest, so an owner approval can be bound to one exact manifest.
+- **Signature.** The existing `RuntimeSignatureChecker` and `IRuntimeSignatureVerifier` check it against a `RuntimeTrustRoot`; no crypto is duplicated. The `alg` field must equal the pinned key's algorithm (`signature_alg_mismatch` otherwise), so a manifest cannot choose its own. The sketch's `Ed25519` is illustrative: the shipped verifier is RSA PKCS#1 SHA-256, as for the runtime manifest, and a further verifier plugs in without a change here.
+- **Rules.** No `health` block: `health_missing`. `health.liveness` and `readiness` are `builtin` or `module`; self-test budgets are 1 to 60000 ms with quick not above full; `scheduled` is `off`, `hourly`, `daily` or `weekly`. `kodo.contract` must be 1. `id` and dependency ids use the module id shape, no self dependency, no repeats, and a module is not both hard and soft. `kind` is `first-party` or `third-party`; `version` is SemVer.
+- **Probes.** Each id must have the component id shape, no instance-like hex run, no repeat, and exist in the probe catalogue the caller passes (`ModuleProbeCatalogue`; an entry ending in a dot is a family prefix). The caller builds it from the signed package catalogue after checking that file's own signature. No module-id prefix rule is applied.
+- **Runbooks.** Each path must be `runbooks/<name>.json`, relative, with `/` separators only, segments of letters, digits, `.`, `_` and `-`, starting with a letter or digit, no `..`, no backslash or colon, no Windows device names, no repeats ignoring case. The manifest names runbooks; their definitions are still verified one by one by the runbook catalogue (section 16.2).
+- **Permissions.** Each is a dotted name with an optional scope (`db.read:gc`, `kodo.observe`), lowercase, no wildcard, no repeat, at most 64. A valid manifest never grants one: the decision lists every declared permission the owner has not approved, and a module with any pending permission is `NeedsOwnerApproval`, not `Loadable`. `kodo.observe` is not special-cased.
+- **Decision.** `ModuleLoadDecision` has an outcome (`Loadable`, `NeedsOwnerApproval`, `Rejected`), all findings in a fixed order with stable cause codes (`ModuleManifestCauses`) and the field, the pending permissions, and the digest. The caller passes the time and the permissions already approved.
+- **Limits.** Per list: dependencies 64, probes 128, runbooks 32, permissions 64, each entry at most 128 characters.
+- **Not built.** Reading the package from disk, the signed catalogue file, the approval store and owner prompt, the install dry run, the `health` block's link to `IModuleHealth`, the module trust rule of section 19, and the module manager UI.
+
 ## 12. Score, SLOs and the status view
 
 ### 12.1 Colour and words
@@ -998,6 +1013,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | State model (5 states plus `unobserved` display) | PLANNED | Table design in 8 |
 | Built-in probes | PLANNED | Catalogue in 9.1; most depend on modules that are not built |
 | Module health contract | PLANNED | Depends on doc 42 |
+| Module manifest | PARTIAL | Pure core in `src/Bazaar.Kodo/Manifest`: strict decoder, canonical bytes, rule validator, signature check against the trust root through the runtime verifier, load decision with stable cause codes and an owner-approval list. Choices PROPOSED in 11.1. No package reader, signed catalogue file, approval store, install dry run or manager UI yet |
 | Score and SLOs | PLANNED | Formula in 12 |
 | Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
