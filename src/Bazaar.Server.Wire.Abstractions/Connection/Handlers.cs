@@ -40,7 +40,7 @@ public sealed record WireReply
         new() { Error = new WireError(code, message, retryAfterMs) };
 
     /// <summary>True when the same request id may be retried and must run again (a server fault).</summary>
-    internal bool IsRetryable => Error?.Code == WireErrorCodes.Internal;
+    public bool IsRetryable => Error?.Code == WireErrorCodes.Internal;
 }
 
 /// <summary>One request, as a handler sees it.</summary>
@@ -84,7 +84,7 @@ public interface IWireConnection
     IReadOnlyList<StreamCursor> HelloCursors { get; }
 
     /// <summary>This connection's subscriptions, created after <c>hello</c>; null when no subscription engine is registered.</summary>
-    Sync.SubscriptionSession? Subscriptions { get; }
+    Sync.ISubscriptionSession? Subscriptions { get; }
 
     /// <summary>Cancelled when the connection ends.</summary>
     CancellationToken Closed { get; }
