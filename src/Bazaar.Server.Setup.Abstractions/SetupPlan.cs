@@ -15,6 +15,9 @@ public sealed class SetupPlan
 
     public SetupDatabaseSection Database { get; init; } = new();
 
+    /// <summary>The encrypted data volume (doc 63 section 10). Every key has a default, so a plan may leave the section out.</summary>
+    public SetupStorageSection Storage { get; init; } = new();
+
     public SetupCustodySection Custody { get; init; } = new();
 
     public SetupOwnerSection Owner { get; init; } = new();
@@ -72,6 +75,36 @@ public sealed class SetupUpdatePolicySection
     public string Other { get; init; } = "manual";
 }
 
+/// <summary>
+/// The encrypted data volume the data root lives in (doc 63 section 10). The volume is mounted at <c>database.dataRoot</c>.
+/// A blank provider asks for no volume.
+/// </summary>
+public sealed class SetupStorageSection
+{
+    /// <summary><c>production</c> or <c>development</c>. Fixed at setup; a development instance never becomes production.</summary>
+    public string InstanceClass { get; init; } = "production";
+
+    public SetupStorageVolumeSection Volume { get; init; } = new();
+}
+
+public sealed class SetupStorageVolumeSection
+{
+    /// <summary><c>bitlocker-vhdx</c>, <c>luks2</c> or <c>dev-plain</c>. Blank asks for no volume.</summary>
+    public string Provider { get; init; } = "";
+
+    /// <summary>The container file or device. Null means the default file under the boot root.</summary>
+    public string? Container { get; init; }
+
+    /// <summary><c>file</c> or <c>device</c>.</summary>
+    public string ContainerKind { get; init; } = "file";
+
+    /// <summary>The largest size of a file container, in GiB. Required for a file container of an encrypting provider.</summary>
+    public int? MaxGb { get; init; }
+
+    /// <summary>The OS account the host runs as; it gets access to the mount. Required for an encrypting provider.</summary>
+    public string? ServiceAccount { get; init; }
+}
+
 public sealed class SetupDatabaseSection
 {
     public int PostgresMajor { get; init; } = 18;
@@ -90,6 +123,14 @@ public sealed class SetupCustodySection
 
     /// <summary>A bootstrap reference (env:, file:, dpapi: or systemd-creds:) that must match <see cref="KekProvider"/>. Required.</summary>
     public string KekRef { get; init; } = "";
+
+    /// <summary>
+    /// The identity KEK provider (doc 14 <c>identity.kek_provider</c>): file, dpapi, openbao or tpm. Optional; absent means the server
+    /// default (dpapi on Windows, file elsewhere). Separate from <see cref="KekProvider"/>, which is how the bootstrap secret is held.
+    /// Left out of the canonical form when absent, so a plan without it keeps its hash.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? IdentityKek { get; init; }
 
     /// <summary>Where the audit anchor is published, as an absolute https URL. Null means no external anchor.</summary>
     public string? AuditAnchorTarget { get; init; }
@@ -158,6 +199,13 @@ public sealed class SetupModelSource
 public sealed class SetupEmailSection
 {
     public bool Enabled { get; init; }
+
+    /// <summary>
+    /// The mail back end (doc 22): <c>bazaar_client</c>, <c>imap_smtp</c>, <c>cloudflare</c> or <c>builtin_server</c>. Required when
+    /// <see cref="Enabled"/> is true, and empty otherwise. Maps to the registry key <c>mail.backend</c>. The operator domain is not a
+    /// plan field: it is a <c>mail_domain</c> row set in the mail panel.
+    /// </summary>
+    public string Backend { get; init; } = "";
 }
 
 public sealed class SetupScamMailSection

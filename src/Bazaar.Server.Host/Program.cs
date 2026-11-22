@@ -1,5 +1,10 @@
+using Bazaar.Server.Analytics;
+using Bazaar.Server.Host.Analytics;
+using Bazaar.Archive.Http;
+using Bazaar.Server.Host.Auth;
 using Bazaar.GitHub;
 using Bazaar.Community.Observatory;
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Core;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Http;
@@ -7,6 +12,7 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
@@ -51,13 +57,20 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Listen(status.Address, statu
 
 var app = builder.Build();
 app.UseBazaarGetOnly();
+app.UseBazaarAuthenticatedCaller();
 app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
+app.MapBazaarSignIn();
 app.MapBazaarHttpSurface();
+app.MapCompanyMemory((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) => run(h, principal.Id.ToString("N"))));
+app.MapArchive((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) => run(h, principal.Id, principal.Kind)));
+app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
+app.MapBazaarAnalytics(AnalyticsHostAuth.ResolveAsync);
 app.MapBazaarSetup();
+app.MapBazaarAuthSignOut();
 app.UseBazaarWire();
 if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
 {
@@ -67,5 +80,9 @@ if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryCompon
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
 var exitCode = app.Services.GetRequiredService<HostExitCode>();
 
+var setupStart = app.Services.GetService<SetupPlanStartOutcome>();
+
 await app.RunAsync();
-return exitCode.Value;
+
+// --setup-only returns the plan's exit code (doc 45 section 1.7); a serving host returns its own.
+return setupStart is { ExitCode: not 0 } ? setupStart.ExitCode : exitCode.Value;

@@ -38,6 +38,7 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
         [
             Read(assembly, 1, "0001_council", "council"),
             Read(assembly, 2, "0002_council_high_impact", "council_high_impact"),
+            Read(assembly, 3, "0003_council_membership", "council_membership"),
         ];
     }
 
