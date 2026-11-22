@@ -29,7 +29,7 @@ permissions:
 
 concurrency:
   group: pr-automerge-${{ github.event.pull_request.number || 'sweep' }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'pull_request_review' }}
 
 jobs:
   automerge:

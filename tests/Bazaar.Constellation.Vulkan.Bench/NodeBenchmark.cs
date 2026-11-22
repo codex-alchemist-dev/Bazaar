@@ -13,7 +13,7 @@ namespace Bazaar.Constellation.Vulkan.Bench;
 /// Frame time is wall clock per submitted frame; GPU time comes from timestamp queries.
 /// This is not a swapchain: frames render into an offscreen image, so no window is needed.
 /// </summary>
-public sealed unsafe class NodeBenchmark : IDisposable
+public sealed unsafe partial class NodeBenchmark : IDisposable
 {
     /// <summary>Bytes per node in the storage buffer: vec4 (x, y, cluster, state).</summary>
     public const int NodeBytes = 16;
@@ -53,6 +53,7 @@ public sealed unsafe class NodeBenchmark : IDisposable
     private VkPipelineLayout _pipelineLayout;
     private VkPipeline _pipeline;
     private VkPipeline _pointPipeline;
+    private VkPipeline _pointNoWritePipeline;
     private VkShaderModule _vertexModule;
     private VkShaderModule _fragmentModule;
 
@@ -71,6 +72,15 @@ public sealed unsafe class NodeBenchmark : IDisposable
 
     /// <summary>Draw one point per node instead of a quad (two triangles).</summary>
     public bool PointMode { get; set; }
+
+    /// <summary>Starts a new dynamic-rendering scope per draw chunk, so each chunk is a separate pass.</summary>
+    public bool RenderPassPerChunk { get; set; }
+
+    /// <summary>Added to node x positions. Moving every node off screen isolates vertex and clip cost.</summary>
+    public float PositionOffset { get; set; }
+
+    /// <summary>Points only: keep the fragment stage but write no colour, isolating render-target write cost.</summary>
+    public bool ColorWritesOff { get; set; }
 
     public string DeviceName { get; private set; } = string.Empty;
     public string DriverVersion { get; private set; } = string.Empty;
@@ -101,6 +111,7 @@ public sealed unsafe class NodeBenchmark : IDisposable
         CreateCommandObjects();
         CreateOffscreenTarget();
         CreatePipeline(shaderDirectory);
+        CreateDensityResources(shaderDirectory);
     }
 
     /// <summary>Allocates a device-local node buffer of <paramref name="nodeCount"/> nodes and fills it with synthetic data.</summary>
@@ -176,6 +187,37 @@ public sealed unsafe class NodeBenchmark : IDisposable
             Percentile(gpuMs, 0.5), Percentile(gpuMs, 0.95));
     }
 
+    private void BeginColorPass(VkAttachmentLoadOp loadOp)
+    {
+        var colorAttachment = new VkRenderingAttachmentInfo
+        {
+            sType = VkStructureType.RenderingAttachmentInfo,
+            imageView = _imageView,
+            imageLayout = VkImageLayout.ColorAttachmentOptimal,
+            loadOp = loadOp,
+            storeOp = VkAttachmentStoreOp.Store,
+        };
+        var renderingInfo = new VkRenderingInfo
+        {
+            sType = VkStructureType.RenderingInfo,
+            renderArea = new VkRect2D(0, 0, _width, _height),
+            layerCount = 1,
+            colorAttachmentCount = 1,
+            pColorAttachments = &colorAttachment,
+        };
+        _deviceApi.vkCmdBeginRendering(_commandBuffer, &renderingInfo);
+    }
+
+    private void DrawRange(int first, int count, PushConstants push)
+    {
+        VkPipeline pipelineToBind = !PointMode ? _pipeline : ColorWritesOff ? _pointNoWritePipeline : _pointPipeline;
+        _deviceApi.vkCmdBindPipeline(_commandBuffer, VkPipelineBindPoint.Graphics, pipelineToBind);
+        VkDescriptorSet set = _descriptorSet;
+        _deviceApi.vkCmdBindDescriptorSets(_commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &set, 0, null);
+        _deviceApi.vkCmdPushConstants(_commandBuffer, _pipelineLayout, VkShaderStageFlags.Vertex, 0, (uint)sizeof(PushConstants), &push);
+        _deviceApi.vkCmdDraw(_commandBuffer, PointMode ? 1u : 6u, (uint)count, 0, (uint)first);
+    }
+
     private void RenderFrame(int instanceCount, out double gpuMs, out bool ok)
     {
         ok = true;
@@ -190,39 +232,31 @@ public sealed unsafe class NodeBenchmark : IDisposable
         _deviceApi.vkCmdResetQueryPool(_commandBuffer, _queryPool, 0, 2);
         _deviceApi.vkCmdWriteTimestamp(_commandBuffer, VkPipelineStageFlags.TopOfPipe, _queryPool, 0);
 
-        var colorAttachment = new VkRenderingAttachmentInfo
-        {
-            sType = VkStructureType.RenderingAttachmentInfo,
-            imageView = _imageView,
-            imageLayout = VkImageLayout.ColorAttachmentOptimal,
-            loadOp = VkAttachmentLoadOp.DontCare,
-            storeOp = VkAttachmentStoreOp.Store,
-        };
-        var renderingInfo = new VkRenderingInfo
-        {
-            sType = VkStructureType.RenderingInfo,
-            renderArea = new VkRect2D(0, 0, _width, _height),
-            layerCount = 1,
-            colorAttachmentCount = 1,
-            pColorAttachments = &colorAttachment,
-        };
-        _deviceApi.vkCmdBeginRendering(_commandBuffer, &renderingInfo);
-        _deviceApi.vkCmdBindPipeline(_commandBuffer, VkPipelineBindPoint.Graphics, PointMode ? _pointPipeline : _pipeline);
-        VkDescriptorSet set = _descriptorSet;
-        _deviceApi.vkCmdBindDescriptorSets(_commandBuffer, VkPipelineBindPoint.Graphics, _pipelineLayout, 0, 1, &set, 0, null);
-
         var push = new PushConstants
         {
-            Transform = new Vector4(PositionScale, PositionScale * _width / (float)_height, 0f, 0f),
+            Transform = new Vector4(PositionScale, PositionScale * _width / (float)_height, PositionOffset, 0f),
             Quad = new Vector4(QuadSize, 0f, 0f, 0f),
         };
-        _deviceApi.vkCmdPushConstants(_commandBuffer, _pipelineLayout, VkShaderStageFlags.Vertex, 0, (uint)sizeof(PushConstants), &push);
         int chunk = DrawChunk > 0 ? DrawChunk : instanceCount;
-        for (int first = 0; first < instanceCount; first += chunk)
+        if (RenderPassPerChunk)
         {
-            _deviceApi.vkCmdDraw(_commandBuffer, PointMode ? 1u : 6u, (uint)Math.Min(chunk, instanceCount - first), 0, (uint)first);
+            // One dynamic-rendering scope per chunk. Later scopes load what earlier ones wrote.
+            for (int first = 0; first < instanceCount; first += chunk)
+            {
+                BeginColorPass(first == 0 ? VkAttachmentLoadOp.DontCare : VkAttachmentLoadOp.Load);
+                DrawRange(first, Math.Min(chunk, instanceCount - first), push);
+                _deviceApi.vkCmdEndRendering(_commandBuffer);
+            }
         }
-        _deviceApi.vkCmdEndRendering(_commandBuffer);
+        else
+        {
+            BeginColorPass(VkAttachmentLoadOp.DontCare);
+            for (int first = 0; first < instanceCount; first += chunk)
+            {
+                DrawRange(first, Math.Min(chunk, instanceCount - first), push);
+            }
+            _deviceApi.vkCmdEndRendering(_commandBuffer);
+        }
 
         _deviceApi.vkCmdWriteTimestamp(_commandBuffer, VkPipelineStageFlags.BottomOfPipe, _queryPool, 1);
         Check(_deviceApi.vkEndCommandBuffer(_commandBuffer), "vkEndCommandBuffer");
@@ -380,22 +414,30 @@ public sealed unsafe class NodeBenchmark : IDisposable
         _vertexModule = CreateShaderModule(Path.Combine(shaderDirectory, "nodes.vert.spv"));
         _fragmentModule = CreateShaderModule(Path.Combine(shaderDirectory, "nodes.frag.spv"));
 
-        var binding = new VkDescriptorSetLayoutBinding
+        var bindings = stackalloc VkDescriptorSetLayoutBinding[2];
+        bindings[0] = new VkDescriptorSetLayoutBinding
         {
             binding = 0,
             descriptorType = VkDescriptorType.StorageBuffer,
             descriptorCount = 1,
-            stageFlags = VkShaderStageFlags.Vertex,
+            stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Compute,
+        };
+        bindings[1] = new VkDescriptorSetLayoutBinding
+        {
+            binding = 1,
+            descriptorType = VkDescriptorType.StorageBuffer,
+            descriptorCount = 1,
+            stageFlags = VkShaderStageFlags.Fragment | VkShaderStageFlags.Compute,
         };
         var layoutInfo = new VkDescriptorSetLayoutCreateInfo
         {
             sType = VkStructureType.DescriptorSetLayoutCreateInfo,
-            bindingCount = 1,
-            pBindings = &binding,
+            bindingCount = 2,
+            pBindings = bindings,
         };
         Check(_deviceApi.vkCreateDescriptorSetLayout(&layoutInfo, null, out _setLayout), "vkCreateDescriptorSetLayout");
 
-        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 1 };
+        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 2 };
         var poolInfo = new VkDescriptorPoolCreateInfo
         {
             sType = VkStructureType.DescriptorPoolCreateInfo,
@@ -518,21 +560,37 @@ public sealed unsafe class NodeBenchmark : IDisposable
         VkPipeline pointPipeline;
         Check(_deviceApi.vkCreateGraphicsPipelines(VkPipelineCache.Null, 1, &pipelineInfo, null, &pointPipeline), "vkCreateGraphicsPipelines(points)");
         _pointPipeline = pointPipeline;
+
+        blendAttachment.colorWriteMask = 0;
+        VkPipeline noWritePipeline;
+        Check(_deviceApi.vkCreateGraphicsPipelines(VkPipelineCache.Null, 1, &pipelineInfo, null, &noWritePipeline), "vkCreateGraphicsPipelines(points, no write)");
+        _pointNoWritePipeline = noWritePipeline;
     }
 
     private void UpdateDescriptor()
     {
-        var bufferInfo = new VkDescriptorBufferInfo { buffer = _nodeBuffer, offset = 0, range = (ulong)(_nodeCount * NodeBytes) };
-        var write = new VkWriteDescriptorSet
+        var nodeInfo = new VkDescriptorBufferInfo { buffer = _nodeBuffer, offset = 0, range = (ulong)(_nodeCount * NodeBytes) };
+        var densityInfo = new VkDescriptorBufferInfo { buffer = _densityBuffer, offset = 0, range = (ulong)DensityCellBytes };
+        var writes = stackalloc VkWriteDescriptorSet[2];
+        writes[0] = new VkWriteDescriptorSet
         {
             sType = VkStructureType.WriteDescriptorSet,
             dstSet = _descriptorSet,
             dstBinding = 0,
             descriptorCount = 1,
             descriptorType = VkDescriptorType.StorageBuffer,
-            pBufferInfo = &bufferInfo,
+            pBufferInfo = &nodeInfo,
         };
-        _deviceApi.vkUpdateDescriptorSets(1, &write, 0, null);
+        writes[1] = new VkWriteDescriptorSet
+        {
+            sType = VkStructureType.WriteDescriptorSet,
+            dstSet = _descriptorSet,
+            dstBinding = 1,
+            descriptorCount = 1,
+            descriptorType = VkDescriptorType.StorageBuffer,
+            pBufferInfo = &densityInfo,
+        };
+        _deviceApi.vkUpdateDescriptorSets(2, writes, 0, null);
     }
 
     private void CopyBuffer(VkBuffer source, VkBuffer destination, ulong size)

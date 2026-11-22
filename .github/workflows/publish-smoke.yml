@@ -17,7 +17,7 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
-      - 'src/**'
+      - 'src/Bazaar.Client*/**'
       - 'Directory.*'
       - 'global.json'
       - 'NuGet.config'

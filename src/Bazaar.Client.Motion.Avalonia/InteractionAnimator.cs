@@ -6,7 +6,7 @@ namespace Bazaar.Client.Motion.Avalonia;
 /// starts from the current value and velocity, so a flip in mid-flight does not jump. A change of motion settings ends the running
 /// plan at its final frame, and the next one uses the new level. Only transform and opacity are ever written.
 /// </summary>
-public abstract class InteractionAnimator
+public abstract class InteractionAnimator : IDisposable
 {
     private readonly IFrameDriver _driver;
     private IInteractionPlan? _plan;
@@ -19,8 +19,17 @@ public abstract class InteractionAnimator
     {
         Settings = settings;
         _driver = driver;
-        settings.Changed += (_, _) => Interrupt();
+        settings.Changed += OnSettingsChanged;
     }
+
+    /// <summary>Stops listening to the motion settings. Call when the control goes away, so a long-lived settings object does not keep it alive.</summary>
+    public void Dispose()
+    {
+        Settings.Changed -= OnSettingsChanged;
+        GC.SuppressFinalize(this);
+    }
+
+    private void OnSettingsChanged(object? sender, EventArgs e) => Interrupt();
 
     protected MotionSettings Settings { get; }
 
@@ -99,7 +108,9 @@ public abstract class InteractionAnimator
         var delta = _lastTimestamp is { } last ? timestamp - last : TimeSpan.Zero;
         _lastTimestamp = timestamp;
         Advance(delta);
-        if (IsRunning)
+
+        // A plan that ended and started another inside Advance (a Completed handler) has already asked for its own frame.
+        if (IsRunning && generation == _generation)
         {
             RequestNext(generation);
         }
