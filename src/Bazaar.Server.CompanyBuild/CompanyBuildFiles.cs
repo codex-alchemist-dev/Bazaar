@@ -36,7 +36,10 @@ public static class CompanyBuildFiles
     }
 
     /// <summary>Renders README.txt. An unsigned set is labelled as such, as doc 37 section 4a requires.</summary>
-    public static string RenderReadme(CompanyBuildPlan plan, CompanyBuildSetReport report)
+    public static string RenderReadme(
+        CompanyBuildPlan plan,
+        CompanyBuildSetReport report,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? hostNotes = null)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(report);
@@ -53,6 +56,14 @@ public static class CompanyBuildFiles
         if (plan.AddedDependencies.Count > 0)
         {
             text.Append("Added as hard dependencies: ").Append(string.Join(", ", plan.AddedDependencies)).Append('\n');
+        }
+
+        if (hostNotes is not null)
+        {
+            foreach (var (targetId, notes) in hostNotes.Where(n => n.Value.Count > 0).OrderBy(n => n.Key, StringComparer.Ordinal))
+            {
+                text.Append("Client modules that will not load on ").Append(targetId).Append(": ").Append(string.Join("; ", notes)).Append('\n');
+            }
         }
 
         return text.ToString();
