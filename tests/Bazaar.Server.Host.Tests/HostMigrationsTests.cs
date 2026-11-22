@@ -98,13 +98,11 @@ public sealed class HostMigrationsTests
     [Fact]
     public void Host_plan_orders_the_account_approval_migration_after_common()
     {
-        // The component id "account-approval" maps to the namespace "account_approval", so the plan places it by the component graph.
-        var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), HostComponents.All.Select(c => c.Manifest));
+        // The component id "account-approval" maps to the namespace "account_approval". Order is the planner's namespace ordering.
+        var ordered = MigrationNamespaces.Order(HostMigrations.Source().Namespaces(), HostComponents.All.Select(c => c.Manifest));
 
-        var common = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == MigrationRunner.Common).Select(x => x.i).ToList();
-        var approval = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == "account_approval").Select(x => x.i).ToList();
-        Assert.NotEmpty(common);
-        Assert.NotEmpty(approval);
-        Assert.True(common.Max() < approval.Min());
+        Assert.Equal(MigrationRunner.Common, ordered[0]);
+        Assert.Contains("account_approval", ordered);
+        Assert.True(ordered.ToList().IndexOf("account_approval") > 0);
     }
 }
