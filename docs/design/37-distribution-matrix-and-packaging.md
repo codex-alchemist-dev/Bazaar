@@ -109,7 +109,7 @@ The check is read-only toward the build: it never modifies the publish directory
 - Deterministic: the same inputs give the same zip bytes (sorted entries, fixed timestamps), so tests compare bytes.
 - Sources are pluggable through `ISupportBundleSource` in `Bazaar.SupportBundle.Abstractions`, so other modules can add their own redacted section. A source cannot read another source's output.
 
-**Out of scope here.** Uploading a bundle, the server-side crash pipeline (doc 43), and the server's audit and recovery export (a different artifact, see doc 33). Linux and Android use the same module and flags later.
+**Out of scope here.** Uploading a bundle, the server-side crash pipeline (doc 43), and the server's audit and recovery export (a different artifact, see doc 33). The Linux head has the same two flags (its self-check is the data-directory check until it composes a module list). Android uses the same module later.
 
 **Testing.** Unit tests for the builder (redaction, caps, determinism, failing source), an end-to-end test that runs the self-check runner with a failing check and reads the zip, and PowerShell script tests run on a Windows runner in CI against the `publish-smoke` output.
 
