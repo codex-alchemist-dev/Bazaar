@@ -1,0 +1,312 @@
+{
+  "dslVersion": 1,
+  "name": "bazaar.kodo.monitor",
+  "data": {
+    "state": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "headline": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "scoreText": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "freshnessText": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "restartVisible": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "restartEnabled": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "restartReason": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "isolateVisible": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "isolateEnabled": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "isolateReason": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "rollBackVisible": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "rollBackEnabled": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "rollBackReason": {
+      "capability": "kodo.status",
+      "type": "text"
+    },
+    "incidentExitVisible": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "incidentExitEnabled": {
+      "capability": "kodo.status",
+      "type": "bool"
+    },
+    "incidentExitReason": {
+      "capability": "kodo.status",
+      "type": "text"
+    }
+  },
+  "actions": {
+    "restart": {
+      "kind": "invoke",
+      "target": "kodo.restart"
+    },
+    "isolate": {
+      "kind": "invoke",
+      "target": "kodo.isolate"
+    },
+    "rollBack": {
+      "kind": "invoke",
+      "target": "kodo.rollback"
+    },
+    "incidentExit": {
+      "kind": "invoke",
+      "target": "kodo.incident.exit"
+    }
+  },
+  "root": {
+    "widget": "stack",
+    "children": [
+      {
+        "widget": "row",
+        "children": [
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "healthy",
+              "visibleWhen": {
+                "expr": "state == \"healthy\""
+              }
+            }
+          },
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "degraded",
+              "visibleWhen": {
+                "expr": "state == \"degraded\""
+              }
+            }
+          },
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "failing",
+              "visibleWhen": {
+                "expr": "state == \"failing\""
+              }
+            }
+          },
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "recovering",
+              "visibleWhen": {
+                "expr": "state == \"recovering\""
+              }
+            }
+          },
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "frozen",
+              "visibleWhen": {
+                "expr": "state == \"frozen\""
+              }
+            }
+          },
+          {
+            "widget": "badge",
+            "props": {
+              "value": {
+                "expr": "headline"
+              },
+              "variant": "unobserved",
+              "visibleWhen": {
+                "expr": "state == \"unobserved\""
+              }
+            }
+          }
+        ]
+      },
+      {
+        "widget": "text",
+        "props": {
+          "value": {
+            "expr": "scoreText"
+          }
+        }
+      },
+      {
+        "widget": "text",
+        "props": {
+          "value": {
+            "expr": "freshnessText"
+          },
+          "style": "small"
+        }
+      },
+      {
+        "widget": "stack",
+        "children": [
+          {
+            "widget": "row",
+            "children": [
+              {
+                "widget": "button",
+                "props": {
+                  "label": "Restart",
+                  "action": "restart",
+                  "visibleWhen": {
+                    "expr": "restartVisible"
+                  },
+                  "enabledWhen": {
+                    "expr": "restartEnabled"
+                  }
+                }
+              },
+              {
+                "widget": "text",
+                "props": {
+                  "value": {
+                    "expr": "restartReason"
+                  },
+                  "style": "small",
+                  "visibleWhen": {
+                    "expr": "restartVisible && !restartEnabled"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "widget": "row",
+            "children": [
+              {
+                "widget": "button",
+                "props": {
+                  "label": "Isolate",
+                  "action": "isolate",
+                  "visibleWhen": {
+                    "expr": "isolateVisible"
+                  },
+                  "enabledWhen": {
+                    "expr": "isolateEnabled"
+                  }
+                }
+              },
+              {
+                "widget": "text",
+                "props": {
+                  "value": {
+                    "expr": "isolateReason"
+                  },
+                  "style": "small",
+                  "visibleWhen": {
+                    "expr": "isolateVisible && !isolateEnabled"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "widget": "row",
+            "children": [
+              {
+                "widget": "button",
+                "props": {
+                  "label": "Roll back",
+                  "action": "rollBack",
+                  "visibleWhen": {
+                    "expr": "rollBackVisible"
+                  },
+                  "enabledWhen": {
+                    "expr": "rollBackEnabled"
+                  }
+                }
+              },
+              {
+                "widget": "text",
+                "props": {
+                  "value": {
+                    "expr": "rollBackReason"
+                  },
+                  "style": "small",
+                  "visibleWhen": {
+                    "expr": "rollBackVisible && !rollBackEnabled"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "widget": "row",
+            "children": [
+              {
+                "widget": "button",
+                "props": {
+                  "label": "Exit incident mode",
+                  "action": "incidentExit",
+                  "visibleWhen": {
+                    "expr": "incidentExitVisible"
+                  },
+                  "enabledWhen": {
+                    "expr": "incidentExitEnabled"
+                  }
+                }
+              },
+              {
+                "widget": "text",
+                "props": {
+                  "value": {
+                    "expr": "incidentExitReason"
+                  },
+                  "style": "small",
+                  "visibleWhen": {
+                    "expr": "incidentExitVisible && !incidentExitEnabled"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
