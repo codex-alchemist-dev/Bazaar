@@ -15,6 +15,7 @@ public class ModuleInstallRegistrationTests
         services.AddSingleton(NpgsqlDataSource.Create("Host=localhost;Database=unused"));
         services.AddSingleton<IModuleInstallStore, InstallAuditLog>();
         services.AddSingleton<IModuleSignatureVerifier>(_ => new EcdsaModuleSignatureVerifier(new InMemoryTrustedKeyStore()));
+        services.AddSingleton<IOwnerApprovalVerifier, OwnerApprovalTestKey>();
         return services;
     }
 
@@ -25,6 +26,19 @@ public class ModuleInstallRegistrationTests
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IOwnerApprovalSigner));
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(ITrustedKeyStore));
+    }
+
+    [Fact]
+    public void The_install_service_cannot_be_built_without_an_owner_approval_verifier()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IModuleInstallStore, InstallAuditLog>();
+        services.AddSingleton<IModuleSignatureVerifier>(_ => new EcdsaModuleSignatureVerifier(new InMemoryTrustedKeyStore()));
+        using var provider = services.AddModuleInstallGate().BuildServiceProvider();
+
+        var ex = Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ModuleInstallService>());
+
+        Assert.Contains(nameof(IOwnerApprovalVerifier), ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
