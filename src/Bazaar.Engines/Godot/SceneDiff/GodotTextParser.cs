@@ -28,10 +28,23 @@ internal static class GodotTextParser
     /// <summary>The path of the scene root node.</summary>
     public const string RootPath = ".";
 
+    /// <summary>Largest file accepted, in chars. A scene is text; tens of MiB is already far beyond a real one.</summary>
+    public const int MaxTextChars = 32 * 1024 * 1024;
+
+    /// <summary>Longest single physical line, in chars. Packed arrays put a whole mesh on one line, so this is generous.</summary>
+    public const int MaxLineChars = 8 * 1024 * 1024;
+
+    /// <summary>Deepest nesting of brackets, braces and parentheses inside one value.</summary>
+    public const int MaxNestingDepth = 128;
+
     /// <summary>Parses one file. Throws <see cref="SceneParseException"/> with a 1-based line number on bad input.</summary>
     public static ParsedScene Parse(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
+        if (text.Length > MaxTextChars)
+        {
+            throw new SceneParseException(1, $"file is larger than {MaxTextChars} characters");
+        }
 
         string[] lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         var nodes = new Dictionary<string, ParsedNode>(StringComparer.Ordinal);
@@ -82,6 +95,11 @@ internal static class GodotTextParser
         while (index < lines.Length)
         {
             string line = lines[index];
+            if (line.Length > MaxLineChars)
+            {
+                throw new SceneParseException(index + 1, $"line is longer than {MaxLineChars} characters");
+            }
+
             if (index > start)
             {
                 text.Append('\n');
@@ -121,6 +139,11 @@ internal static class GodotTextParser
             }
             else if (c is '(' or '[' or '{')
             {
+                if (closers.Count >= MaxNestingDepth)
+                {
+                    throw new SceneParseException(lineNumber, $"nesting is deeper than {MaxNestingDepth}");
+                }
+
                 closers.Push(Closer(c));
             }
             else if (c is ')' or ']' or '}')
@@ -233,6 +256,11 @@ internal static class GodotTextParser
 
             if (c is '(' or '[' or '{')
             {
+                if (closers.Count >= MaxNestingDepth)
+                {
+                    throw new SceneParseException(line, $"nesting is deeper than {MaxNestingDepth}");
+                }
+
                 closers.Push(Closer(c));
             }
             else if (c is ')' or ']' or '}')
