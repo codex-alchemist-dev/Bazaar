@@ -1,8 +1,9 @@
 namespace Bazaar.Server.Vault.Search;
 
 /// <summary>
-/// Who is asking. The owner reads every document; an agent reads shared areas and its own private memory
-/// (<see cref="AgentOwner"/>, "agent:&lt;id&gt;"). Other agents' private memory is never returned (doc 18, "Access").
+/// Who is asking. The owner reads every document; an agent reads <c>company/</c>, <c>shared/</c>, its own area and its own
+/// private memory (<see cref="AgentOwner"/>, "agent:&lt;id&gt;"). Other agents' private memory is never returned, and other
+/// documents with no owner (project areas, <c>hive/</c>) are the owner's only until callers carry membership (doc 18, "Access").
 /// </summary>
 public sealed record VaultCaller(bool IsOwner, string? AgentOwner)
 {

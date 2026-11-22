@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Erasure;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -45,6 +46,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+        services.AddBazaarLegalHoldReader();
 
         // The sealed-storage components (doc 61) need an audit sink from the host; there is no silent default.
         services.TryAddSingleton<ISealAuditSink, HostSealAuditSink>();

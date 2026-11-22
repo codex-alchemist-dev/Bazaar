@@ -196,7 +196,7 @@ public sealed partial class SealedGitRepo
                         continue;
                     }
 
-                    if (file.Length > MaxFileBytes)
+                    if (file.Length > _maxFileBytes)
                     {
                         throw new InvalidOperationException($"'{logical}' is larger than the 256 MiB sealed file limit. Nothing was imported.");
                     }

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bazaar.Server.Portability.Sandbox</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- SourceRecord and ImportLimits are the contract types the child process returns and enforces. -->
+    <ProjectReference Include="..\Bazaar.Server.Portability\Bazaar.Server.Portability.csproj" />
+  </ItemGroup>
+</Project>
