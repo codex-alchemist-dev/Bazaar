@@ -44,7 +44,7 @@ jobs:
     # the pull_request-only suite is not linked to the PR). Skipping it here, and with it the analyze jobs that need it,
     # stops every PR being scanned twice. Fork pull requests still run here.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
       contents: read
@@ -83,7 +83,7 @@ jobs:
 
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
     needs: changes
     timeout-minutes: 60
     permissions:

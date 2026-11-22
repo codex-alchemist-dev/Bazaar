@@ -9,12 +9,19 @@ namespace Bazaar.Server.CompanyBuild;
 public static class DotnetPublishBuildStep
 {
     /// <summary>The arguments for one publish, in order.</summary>
-    public static IReadOnlyList<string> BuildArguments(string projectPath, string outputDirectory, string configuration = "Release")
+    public static IReadOnlyList<string> BuildArguments(string projectPath, string outputDirectory, string configuration = "Release", string? runtimeIdentifier = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(projectPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         ArgumentException.ThrowIfNullOrWhiteSpace(configuration);
-        return ["publish", projectPath, "-c", configuration, "-o", outputDirectory, "--nologo"];
+        List<string> arguments = ["publish", projectPath, "-c", configuration, "-o", outputDirectory, "--nologo"];
+        if (!string.IsNullOrWhiteSpace(runtimeIdentifier))
+        {
+            // A RID makes the desktop heads self-contained and turns on their ReadyToRun precompilation (doc 40).
+            arguments.AddRange(["-r", runtimeIdentifier, "--self-contained", "true"]);
+        }
+
+        return arguments;
     }
 
     /// <summary>Runs the publish and throws with the tail of stderr when it exits non-zero, so the runner can report it.</summary>
@@ -23,7 +30,8 @@ public static class DotnetPublishBuildStep
         string projectPath,
         string outputDirectory,
         CancellationToken cancellationToken,
-        string configuration = "Release")
+        string configuration = "Release",
+        string? runtimeIdentifier = null)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -31,7 +39,7 @@ public static class DotnetPublishBuildStep
             RedirectStandardError = true,
             UseShellExecute = false,
         };
-        foreach (var argument in BuildArguments(projectPath, outputDirectory, configuration))
+        foreach (var argument in BuildArguments(projectPath, outputDirectory, configuration, runtimeIdentifier))
         {
             start.ArgumentList.Add(argument);
         }
