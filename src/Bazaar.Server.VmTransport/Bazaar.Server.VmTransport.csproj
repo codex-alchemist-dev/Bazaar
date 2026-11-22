@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>

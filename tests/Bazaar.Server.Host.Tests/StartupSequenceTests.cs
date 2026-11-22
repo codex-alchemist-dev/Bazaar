@@ -59,7 +59,7 @@ public sealed class StartupSequenceTests
         var exit = new HostExitCode();
         var lifetime = new FakeLifetime();
         var options = Options.Create(new BazaarReadinessOptions { RequiredRoles = [.. required ?? []] });
-        var report = new ProviderCapabilityReport([ProviderSelector.Select(ProviderRole.Cache, ProviderSelector.None, Array.Empty<ICacheProvider>())]);
+        var report = new ProviderCapabilityReport([]);
         return (new StartupSequence(instanceLock, gate, report, options, state, exit, lifetime, NullLogger<StartupSequence>.Instance), state, exit, lifetime);
     }
 

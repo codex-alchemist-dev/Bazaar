@@ -6,6 +6,8 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calcinato.Panes;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -20,14 +22,18 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
+using Bazaar.Client.SignIn;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
@@ -39,6 +45,15 @@ internal static class Program
     {
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        // Logging first, so every later line (and a failed start) lands in the client log the support bundle reads (doc 37 section 4d).
+        SupportBundleCommands.InstallLog();
+        // --self-check and --support-bundle run headless and exit, before the single-instance mutex and any window.
+        if (SupportBundleCommands.TryRun(args, WindowsModules.Create) is { } exitCode)
+        {
+            Environment.ExitCode = exitCode;
+            return;
+        }
+
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -69,29 +84,24 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
-        IPaneModule[] modules =
-        [
-            RyuseiFudaPanes.Board,
-            new DashboardPaneModule(),
-            new ConstellationPaneModule(),
-            new GcPaneModule(),
-            new VaultSearchPaneModule(),
-            .. RyuseiFudaPanes.Modules,
-            new EnginePaneModule(),
-            .. GitSolarSystemPanes.Modules,
-            .. GitGuiPanes.Modules,
-        ];
+        var modules = WindowsModules.Create();
+        var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        var features = new PaneModuleContext()
-            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
-            .WithGitGui(ClientServer.Current);
+        var features = CalcinatoTerminalPanes.AddServices(
+            new PaneModuleContext()
+                .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current),
+            terminals);
+        features = ComposeMergeApproval(features);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
             report: message => Console.Error.WriteLine($"Bazaar: {message}"),
             features: features);
+        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
 
@@ -118,6 +128,9 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
             return window;
         }
 
@@ -128,6 +141,29 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Registers the merge identity and approver for the saved session (doc 52, Merge identity). Runs off the calling thread with a
+    /// short budget; any failure, or no session, leaves both out and the merge card says this client cannot approve.
+    /// </summary>
+    private static PaneModuleContext ComposeMergeApproval(PaneModuleContext features)
+    {
+        try
+        {
+            using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var whoAmI = new HttpWhoAmIClient(ClientServer.Current.CreateHttpClient());
+            return MergeSessionResolver
+                .ComposeAsync(features, ClientSessions.Store, whoAmI, WindowsDeviceApprovalPlatform.TryCreate(), cancellationToken: budget.Token)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException or HttpRequestException)
+        {
+            Console.Error.WriteLine("Bazaar: merge approval is not available.");
+            return features;
         }
     }
 
