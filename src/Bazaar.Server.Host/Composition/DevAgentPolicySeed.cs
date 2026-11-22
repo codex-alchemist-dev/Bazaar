@@ -44,8 +44,9 @@ public sealed class DevAgentPolicySeed(
     }
 
     /// <summary>
-    /// Policy entries for the Claude Code CLI provider: the default route, the default model's route and its provider-qualified
-    /// model, or nothing when the provider is off. Other configured models stay an explicit owner edit (doc 05, doc 91).
+    /// Policy entries for the Claude Code CLI provider: the <c>claude</c> route, the default model's route and every configured CLI
+    /// model, provider-qualified, or nothing when the provider is off. The operator listed those models, so they are all granted;
+    /// the Anthropic key's other models stay an explicit owner edit (doc 05, doc 91).
     /// </summary>
     public static IReadOnlyList<string> EntriesFor(ClaudeCodeOptions options)
     {
@@ -55,13 +56,18 @@ public sealed class DevAgentPolicySeed(
             return [];
         }
 
-        var model = options.EffectiveModels()[0];
-        return [ClaudeCodeProvider.DefaultRoute, ClaudeCodeProvider.RouteFor(model), $"{ClaudeCodeProvider.ProviderId}:{model}"];
+        var models = options.EffectiveModels();
+        return
+        [
+            ClaudeCodeProvider.DefaultRoute,
+            ClaudeCodeProvider.RouteFor(models[0]),
+            .. models.Select(m => $"{ClaudeCodeProvider.ProviderId}:{m}"),
+        ];
     }
 
     /// <summary>
-    /// The whole seeded policy for one agent, or null when no source grants anything. The default route is the Claude Code route
-    /// when that provider is on (it falls back to the owner's Anthropic key inside the Claude family), otherwise the FreeLLMAPI
+    /// The whole seeded policy for one agent, or null when no source grants anything. The default route is <c>claude</c>
+    /// when the Claude Code provider is on (every Claude source the agent may use, CLI first, then the owner's Anthropic key), otherwise the FreeLLMAPI
     /// route, otherwise the Anthropic Haiku route. FreeLLMAPI stays an allowed route beside it: the gateway never falls back
     /// across model families (doc 05), so that switch is a route choice, not an automatic failover.
     /// </summary>

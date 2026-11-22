@@ -18,8 +18,11 @@ public static class ClaudeCodeProvider
     /// <summary>The model family class. Shared with the owner's Anthropic key, so a fallback between the two never leaves Claude.</summary>
     public const string Family = "claude";
 
-    /// <summary>The route that runs the default model through the CLI, with the owner's Anthropic key as its same-family fallback.</summary>
-    public const string DefaultRoute = "claude-code";
+    /// <summary>
+    /// The Claude route: every Claude source the install offers, in priority order (the CLI's models first, then the owner's
+    /// Anthropic key, then any stored members of a route with this name). An agent's policy still decides which of them it may use.
+    /// </summary>
+    public const string DefaultRoute = "claude";
 
     /// <summary>The route for one model id, for example <c>claude-code/claude-sonnet-5-5</c>.</summary>
     public static string RouteFor(string modelId) => $"{DefaultRoute}/{modelId}";
@@ -29,8 +32,10 @@ public static class ClaudeCodeProvider
 /// Overlays the config-defined Claude Code provider, its models and its routes on another directory. Nothing is stored, so a
 /// disabled config leaves no row behind. The provider has no credential (<c>auth_kind</c> <c>none</c>): the CLI holds the
 /// operator's own sign-in and Bazaar never sees it. Models carry the <c>subscription</c> identity, so usage is labelled and the
-/// cost is notional. The default route lists the CLI first and the owner's Anthropic key second when that source offers the
-/// same model, so an exhausted plan falls back inside the Claude family and never leaves it (doc 05).
+/// cost is notional. The route <c>claude</c> lists every Claude source (the CLI first, then the owner's Anthropic key), so the
+/// first agent draws from whichever is available and an exhausted plan falls back inside the Claude family and never leaves it
+/// (doc 05). Members that another directory stores under the same route name are appended, so an operator can add a further
+/// Claude source (a model row in the <c>claude</c> family) without code.
 /// </summary>
 public sealed class ClaudeCodeGatewayDirectory : IGatewayDirectory
 {
@@ -61,6 +66,7 @@ public sealed class ClaudeCodeGatewayDirectory : IGatewayDirectory
             Enabled: true);
 
         var anthropicModels = anthropic is { Enabled: true } ? anthropic.EffectiveModels() : [];
+        List<ModelRef> all = [];
         foreach (var modelId in options.EffectiveModels())
         {
             var member = new ModelRef(ClaudeCodeProvider.ProviderId, modelId);
@@ -74,6 +80,7 @@ public sealed class ClaudeCodeGatewayDirectory : IGatewayDirectory
                 now,
                 now,
                 "config");
+            all.Add(member);
 
             List<ModelRef> members = [member];
             if (anthropicModels.Contains(modelId, StringComparer.Ordinal))
@@ -82,12 +89,13 @@ public sealed class ClaudeCodeGatewayDirectory : IGatewayDirectory
             }
 
             _routes[ClaudeCodeProvider.RouteFor(modelId)] = new GwRoute(ClaudeCodeProvider.RouteFor(modelId), RouteStrategy.Priority, members, []);
-            if (modelId == options.EffectiveModels()[0])
-            {
-                _routes[ClaudeCodeProvider.DefaultRoute] = new GwRoute(ClaudeCodeProvider.DefaultRoute, RouteStrategy.Priority, members, []);
-            }
         }
+
+        all.AddRange(anthropicModels.Select(m => new ModelRef(AnthropicDirectProvider.ProviderId, m)));
+        _claude = all.Distinct().ToList();
     }
+
+    private readonly List<ModelRef> _claude;
 
     public ValueTask<GwProvider?> GetProviderAsync(string providerId, CancellationToken cancellationToken) =>
         providerId == ClaudeCodeProvider.ProviderId
@@ -99,8 +107,15 @@ public sealed class ClaudeCodeGatewayDirectory : IGatewayDirectory
             ? ValueTask.FromResult<GwModel?>(found)
             : _inner.GetModelAsync(model, cancellationToken);
 
-    public ValueTask<GwRoute?> GetRouteAsync(string routeId, CancellationToken cancellationToken) =>
-        _routes.TryGetValue(routeId, out var found)
-            ? ValueTask.FromResult<GwRoute?>(found)
-            : _inner.GetRouteAsync(routeId, cancellationToken);
+    public async ValueTask<GwRoute?> GetRouteAsync(string routeId, CancellationToken cancellationToken)
+    {
+        if (routeId == ClaudeCodeProvider.DefaultRoute)
+        {
+            var stored = await _inner.GetRouteAsync(routeId, cancellationToken).ConfigureAwait(false);
+            var members = _claude.Concat(stored?.Members ?? []).Distinct().ToList();
+            return new GwRoute(routeId, RouteStrategy.Priority, members, []);
+        }
+
+        return _routes.TryGetValue(routeId, out var found) ? found : await _inner.GetRouteAsync(routeId, cancellationToken).ConfigureAwait(false);
+    }
 }

@@ -85,6 +85,39 @@ public sealed class ClaudeCodeGatewayTests
     }
 
     [Fact]
+    public async Task The_claude_route_lists_every_claude_source_and_adds_stored_members()
+    {
+        var anthropic = new AnthropicDirectOptions { Enabled = true, Models = ["claude-haiku-5-5", "claude-sonnet-5-5"] };
+        var cli = new ClaudeCodeOptions { Enabled = true, Models = ["claude-haiku-5-5", "claude-opus-5-5"] };
+        var time = new FakeTimeProvider();
+        var inner = new AnthropicDirectGatewayDirectory(new StoredRouteDirectory(new GwRoute("claude", RouteStrategy.Priority, [new ModelRef("my-proxy", "claude-x")], [])), anthropic, time);
+        var directory = new ClaudeCodeGatewayDirectory(inner, cli, anthropic, time);
+
+        var route = await directory.GetRouteAsync("claude", TestContext.Current.CancellationToken);
+
+        Assert.NotNull(route);
+        Assert.Equal(
+            [
+                new ModelRef("claude-code-cli", "claude-haiku-5-5"),
+                new ModelRef("claude-code-cli", "claude-opus-5-5"),
+                new ModelRef("anthropic-direct", "claude-haiku-5-5"),
+                new ModelRef("anthropic-direct", "claude-sonnet-5-5"),
+                new ModelRef("my-proxy", "claude-x"),
+            ],
+            route.Members);
+    }
+
+    private sealed class StoredRouteDirectory(GwRoute route) : IGatewayDirectory
+    {
+        public ValueTask<GwProvider?> GetProviderAsync(string providerId, CancellationToken cancellationToken) => ValueTask.FromResult<GwProvider?>(null);
+
+        public ValueTask<GwModel?> GetModelAsync(ModelRef model, CancellationToken cancellationToken) => ValueTask.FromResult<GwModel?>(null);
+
+        public ValueTask<GwRoute?> GetRouteAsync(string routeId, CancellationToken cancellationToken) =>
+            ValueTask.FromResult<GwRoute?>(routeId == route.Id ? route : null);
+    }
+
+    [Fact]
     public void The_seeded_policy_makes_the_cli_route_the_default_and_keeps_freellmapi_as_a_second_route()
     {
         var free = new FreeLlmApiOptions { Enabled = true, DefaultModel = "some-model", RouteName = "agent-default" };
@@ -92,11 +125,11 @@ public sealed class ClaudeCodeGatewayTests
         var policy = DevAgentPolicySeed.PolicyFor(free, new AnthropicDirectOptions { Enabled = true }, _cli);
 
         Assert.NotNull(policy);
-        Assert.Equal("claude-code", policy.Value.DefaultRoute);
+        Assert.Equal("claude", policy.Value.DefaultRoute);
         Assert.Equal(
             [
-                "claude-code",
-                "claude-code/claude-haiku-5-5",
+                "claude",
+                "claude/claude-haiku-5-5",
                 "claude-code-cli:claude-haiku-5-5",
                 "agent-default",
                 "freellmapi:some-model",
@@ -113,7 +146,7 @@ public sealed class ClaudeCodeGatewayTests
         var policy = DevAgentPolicySeed.PolicyFor(new FreeLlmApiOptions(), new AnthropicDirectOptions(), _cli);
 
         Assert.NotNull(policy);
-        Assert.Equal("claude-code", policy.Value.DefaultRoute);
+        Assert.Equal("claude", policy.Value.DefaultRoute);
         Assert.Null(DevAgentPolicySeed.PolicyFor(new FreeLlmApiOptions(), new AnthropicDirectOptions(), new ClaudeCodeOptions()));
     }
 
@@ -127,7 +160,7 @@ public sealed class ClaudeCodeGatewayTests
         var resolution = await resolver.ResolveAsync(new ModelRequest(AgentId, "", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
 
         var allowed = Assert.IsType<RouteResolution.Allowed>(resolution);
-        Assert.Equal("claude-code", allowed.Route.Route);
+        Assert.Equal("claude", allowed.Route.Route);
         Assert.Equal(["claude-code-cli", "anthropic-direct"], allowed.Route.Candidates.Select(c => c.Model.ProviderId));
     }
 
@@ -137,7 +170,7 @@ public sealed class ClaudeCodeGatewayTests
         var policy = AgentModelPolicy.Create(AgentId, ["agent-default", "freellmapi:some-model"], "agent-default", 1);
         var resolver = new RouteResolver(new FixedPolicy(policy), Directory());
 
-        var resolution = await resolver.ResolveAsync(new ModelRequest(AgentId, "claude-code", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
+        var resolution = await resolver.ResolveAsync(new ModelRequest(AgentId, "claude", [new ModelMessage(ModelRole.User, "hi")], []), TestContext.Current.CancellationToken);
 
         Assert.IsType<RouteResolution.Denied>(resolution);
     }
