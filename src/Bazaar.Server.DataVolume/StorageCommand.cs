@@ -18,15 +18,31 @@ public static class StorageCommand
     private const string _usage =
         "usage: storage init --provider <kind> [--container <path>] [--container-kind file|device] [--max-gb <n>] [--service-account <name>] [--dry-run]";
 
+    /// <summary>The usage line of <c>storage migrate</c>.</summary>
+    internal const string MigrateUsage =
+        "usage: storage migrate --from <old plain data root> --provider <kind> [--container <path>] [--container-kind file|device] [--max-gb <n>] [--service-account <name>] [--dry-run]";
+
     private const long _bytesPerGb = 1024L * 1024 * 1024;
 
     /// <param name="createOrOpenKek">Opens the KEK, creating it when absent. This command is setup, so unlike <c>volume open</c> it may create one.</param>
+    public static Task<int> RunAsync(
+        string[] args,
+        IConfiguration configuration,
+        IEnumerable<IDataVolumeOperator> operators,
+        IEnumerable<IDataVolumeProvider> providers,
+        Func<IKekProvider> createOrOpenKek,
+        TextWriter output,
+        CancellationToken cancellationToken = default) =>
+        RunAsync(args, configuration, operators, providers, createOrOpenKek, migrate: null, output, cancellationToken);
+
+    /// <param name="migrate">What <c>storage migrate</c> needs; without it that verb is not available.</param>
     public static async Task<int> RunAsync(
         string[] args,
         IConfiguration configuration,
         IEnumerable<IDataVolumeOperator> operators,
         IEnumerable<IDataVolumeProvider> providers,
         Func<IKekProvider> createOrOpenKek,
+        StorageMigrateServices? migrate,
         TextWriter output,
         CancellationToken cancellationToken = default)
     {
@@ -37,24 +53,37 @@ public static class StorageCommand
         ArgumentNullException.ThrowIfNull(createOrOpenKek);
         ArgumentNullException.ThrowIfNull(output);
 
-        if (args.Length == 0 || !string.Equals(args[0], "init", StringComparison.OrdinalIgnoreCase))
+        var verb = args.Length == 0 ? string.Empty : args[0].ToLowerInvariant();
+        if (verb is not ("init" or "migrate"))
         {
             await output.WriteLineAsync(_usage, CancellationToken.None);
+            await output.WriteLineAsync(MigrateUsage, CancellationToken.None);
             return VolumeCommand.UsageExitCode;
         }
 
-        var parsed = InitArguments.Parse(args.AsSpan(1));
+        var isMigrate = verb == "migrate";
+        var usage = isMigrate ? MigrateUsage : _usage;
+        var parsed = StorageArguments.Parse(args.AsSpan(1), isMigrate);
         if (parsed.Error is not null)
         {
-            await output.WriteLineAsync($"storage init: {parsed.Error}", CancellationToken.None);
-            await output.WriteLineAsync(_usage, CancellationToken.None);
+            await output.WriteLineAsync($"storage {verb}: {parsed.Error}", CancellationToken.None);
+            await output.WriteLineAsync(usage, CancellationToken.None);
             return VolumeCommand.UsageExitCode;
+        }
+
+        if (isMigrate && migrate is null)
+        {
+            await output.WriteLineAsync("storage migrate: not available in this host (no migration services were provided).", CancellationToken.None);
+            return FailedExitCode;
         }
 
         try
         {
             var options = ReadOptions(configuration);
-            var plan = BuildPlan(parsed, options, operators.ToList(), providers.ToList());
+            if (isMigrate)
+                return await StorageMigrateCommand.RunAsync(parsed, options, operators.ToList(), providers.ToList(), createOrOpenKek, migrate!, output, cancellationToken);
+
+            var plan = BuildPlan(parsed, options, operators.ToList(), providers.ToList(), resuming: false);
             if (parsed.DryRun)
             {
                 await PrintDryRunAsync(plan, options, output);
@@ -65,13 +94,13 @@ public static class StorageCommand
         }
         catch (DataVolumeRefusedException e)
         {
-            await output.WriteLineAsync($"storage init refused: {e.Code}: {OneLine(e.Message)}", CancellationToken.None);
+            await output.WriteLineAsync($"storage {verb} refused: {e.Code}: {OneLine(e.Message)}", CancellationToken.None);
             return DataVolumeRefusedException.ExitCode;
         }
         catch (ArgumentException e)
         {
-            await output.WriteLineAsync($"storage init: {OneLine(e.Message)}", CancellationToken.None);
-            await output.WriteLineAsync(_usage, CancellationToken.None);
+            await output.WriteLineAsync($"storage {verb}: {OneLine(e.Message)}", CancellationToken.None);
+            await output.WriteLineAsync(usage, CancellationToken.None);
             return VolumeCommand.UsageExitCode;
         }
     }
@@ -79,12 +108,41 @@ public static class StorageCommand
     private static async Task<int> InitAsync(
         InitPlan plan, DataVolumeOptions options, Func<IKekProvider> createOrOpenKek, TextWriter output, CancellationToken cancellationToken)
     {
-        var kekPath = KekPath(options);
-        var kekExisted = File.Exists(kekPath);
+        var kekExisted = File.Exists(KekPath(options));
         var kek = OpenKek(createOrOpenKek);
+        var state = new VolumeCreationState();
+        try
+        {
+            await CreateVolumeAsync(plan, options, kek, state, beforeOperatorCreate: null, cancellationToken);
+        }
+        catch (Exception e)
+        {
+            await ReportFailureAsync(e, plan, options, kekExisted, state.ContainerMayExist, state.VolumeId, output);
+            return FailedExitCode;
+        }
+        finally
+        {
+            (kek as IDisposable)?.Dispose();
+        }
+
+        var volumeId = state.VolumeId;
+        await output.WriteLineAsync($"storage init: ok: volume {volumeId} provider {plan.ProviderKind}", CancellationToken.None);
+        await output.WriteLineAsync($"set {DataVolumeOptions.InstallIdKey}={plan.InstallId} and {DataVolumeOptions.VolumeIdKey}={volumeId} in host config", CancellationToken.None);
+        await output.WriteLineAsync("the PostgreSQL cluster is created by the next setup step; this command does not run initdb", CancellationToken.None);
+        return 0;
+    }
+
+    /// <summary>
+    /// Creates the volume and writes the descriptor and marker, then runs the guard checks (shared by <c>init</c> and <c>migrate</c>).
+    /// Clears the volume key buffer on every path. <paramref name="beforeOperatorCreate"/> runs immediately before the operator
+    /// is called, so a caller can journal the intent: after it, a container may exist that this code never deletes.
+    /// </summary>
+    internal static async Task CreateVolumeAsync(
+        InitPlan plan, DataVolumeOptions options, IKekProvider kek, VolumeCreationState state,
+        Func<CancellationToken, ValueTask>? beforeOperatorCreate, CancellationToken cancellationToken)
+    {
         byte[]? key = null;
-        var volumeId = plan.Plain ? Guid.CreateVersion7().ToString() : null;
-        var containerMayExist = false;
+        state.VolumeId = plan.Plain ? Guid.CreateVersion7().ToString() : null;
         try
         {
             // An empty mount point the operator can mount on. A folder that already exists was checked to be empty.
@@ -94,46 +152,41 @@ public static class StorageCommand
             {
                 key = VolumeKeyCustody.NewKey();
                 var request = new DataVolumeCreateRequest(plan.ContainerKind, plan.ContainerPath, options.DataRoot, plan.MaxSizeBytes, plan.ServiceAccount);
-                containerMayExist = true;
-                volumeId = await plan.Operator!.CreateAsync(request, key, cancellationToken);
-                if (string.IsNullOrWhiteSpace(volumeId))
+                if (beforeOperatorCreate is not null)
+                    await beforeOperatorCreate(cancellationToken);
+
+                state.ContainerMayExist = true;
+                state.VolumeId = await plan.Operator!.CreateAsync(request, key, cancellationToken);
+                if (string.IsNullOrWhiteSpace(state.VolumeId))
                     throw new InvalidOperationException("The operator returned no volume id.");
             }
 
             var volume = new NewDataVolume(
-                plan.InstallId, volumeId!, plan.ProviderKind, plan.Plain ? "none" : plan.ContainerKind,
+                plan.InstallId, state.VolumeId!, plan.ProviderKind, plan.Plain ? "none" : plan.ContainerKind,
                 plan.Plain ? string.Empty : plan.ContainerPath, plan.Plain ? DataVolumeCiphers.None : DataVolumeCiphers.XtsAes256, options.InstanceClass);
             await DataVolumeInitializer.InitializeAsync(options, volume, key ?? [], kek, TimeProvider.System, cancellationToken);
-
-            // The same checks the host makes at start, against what the OS now reports, before setup goes on.
-            var checkOptions = new DataVolumeOptions
-            {
-                BootRoot = options.BootRoot,
-                DataRoot = options.DataRoot,
-                InstallId = plan.InstallId,
-                VolumeId = volumeId!,
-                InstanceClass = options.InstanceClass,
-                IsDevelopmentEnvironment = plan.Plain,
-            };
-            await new DataVolumeGuard(checkOptions, kek, [plan.Provider]).VerifyAsync(cancellationToken);
-        }
-        catch (Exception e)
-        {
-            await ReportFailureAsync(e, plan, options, kekExisted, containerMayExist, volumeId, output);
-            return FailedExitCode;
+            await VerifyGuardAsync(plan, options, kek, state.VolumeId!, cancellationToken);
         }
         finally
         {
             if (key is not null)
                 CryptographicOperations.ZeroMemory(key);
-
-            (kek as IDisposable)?.Dispose();
         }
+    }
 
-        await output.WriteLineAsync($"storage init: ok: volume {volumeId} provider {plan.ProviderKind}", CancellationToken.None);
-        await output.WriteLineAsync($"set {DataVolumeOptions.InstallIdKey}={plan.InstallId} and {DataVolumeOptions.VolumeIdKey}={volumeId} in host config", CancellationToken.None);
-        await output.WriteLineAsync("the PostgreSQL cluster is created by the next setup step; this command does not run initdb", CancellationToken.None);
-        return 0;
+    /// <summary>The same checks the host makes at start, against what the OS now reports.</summary>
+    internal static async Task VerifyGuardAsync(InitPlan plan, DataVolumeOptions options, IKekProvider kek, string volumeId, CancellationToken cancellationToken)
+    {
+        var checkOptions = new DataVolumeOptions
+        {
+            BootRoot = options.BootRoot,
+            DataRoot = options.DataRoot,
+            InstallId = plan.InstallId,
+            VolumeId = volumeId,
+            InstanceClass = options.InstanceClass,
+            IsDevelopmentEnvironment = plan.Plain,
+        };
+        await new DataVolumeGuard(checkOptions, kek, [plan.Provider]).VerifyAsync(cancellationToken);
     }
 
     /// <summary>States exactly what exists. Nothing is deleted: removing a container or a mounted volume destroys data and is the operator's call.</summary>
@@ -184,12 +237,12 @@ public static class StorageCommand
         }
 
         await output.WriteLineAsync($"cipher: {(plan.Plain ? DataVolumeCiphers.None : DataVolumeCiphers.XtsAes256)}", CancellationToken.None);
-        await output.WriteLineAsync($"kek: {(File.Exists(kekPath) ? "exists, will be reused" : "will be created")} at {kekPath}", CancellationToken.None);
+        await output.WriteLineAsync(File.Exists(kekPath) ? $"kek: exists, will be reused at {kekPath}" : $"kek: will be created under {Path.GetDirectoryName(kekPath)}", CancellationToken.None);
         await output.WriteLineAsync($"descriptor: {options.DescriptorPath}", CancellationToken.None);
         await output.WriteLineAsync($"marker: {options.MarkerPath}", CancellationToken.None);
     }
 
-    private static DataVolumeOptions ReadOptions(IConfiguration configuration)
+    internal static DataVolumeOptions ReadOptions(IConfiguration configuration)
     {
         DataVolumeOptions options;
         try
@@ -213,12 +266,14 @@ public static class StorageCommand
         return options;
     }
 
-    private static InitPlan BuildPlan(InitArguments args, DataVolumeOptions options, List<IDataVolumeOperator> operators, List<IDataVolumeProvider> providers)
+    /// <param name="resuming">A resumed migration: the descriptor, the mount point's content and the container are its own earlier work, not obstacles.</param>
+    internal static InitPlan BuildPlan(
+        StorageArguments args, DataVolumeOptions options, List<IDataVolumeOperator> operators, List<IDataVolumeProvider> providers, bool resuming)
     {
-        if (File.Exists(options.DescriptorPath))
+        if (!resuming && File.Exists(options.DescriptorPath))
             throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"A volume descriptor already exists at '{options.DescriptorPath}'. storage init never overwrites or re-keys an install.");
 
-        if (Directory.Exists(options.DataRoot) && Directory.EnumerateFileSystemEntries(options.DataRoot).Any())
+        if (!resuming && Directory.Exists(options.DataRoot) && Directory.EnumerateFileSystemEntries(options.DataRoot).Any())
             throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"The data root '{options.DataRoot}' is not empty. A new volume mounts on an empty folder; use storage migrate for existing data.");
 
         var kind = args.Provider!;
@@ -257,7 +312,7 @@ public static class StorageCommand
         {
             if (IsInside(options.DataRoot, containerPath))
                 throw new DataVolumeRefusedException(DataVolumeRefusal.NotInitialised, "The container file must not be inside the data root it encrypts.");
-            if (File.Exists(containerPath) || Directory.Exists(containerPath))
+            if (!resuming && (File.Exists(containerPath) || Directory.Exists(containerPath)))
                 throw new DataVolumeRefusedException(DataVolumeRefusal.AlreadyInitialised, $"The container '{containerPath}' already exists. storage init never reuses or replaces a container.");
         }
 
@@ -265,7 +320,7 @@ public static class StorageCommand
         return new InitPlan(kind, provider, volumeOperator, installId, installIdGenerated, args.ContainerKind, containerPath, maxBytes, args.ServiceAccount);
     }
 
-    private static IKekProvider OpenKek(Func<IKekProvider> createOrOpenKek)
+    internal static IKekProvider OpenKek(Func<IKekProvider> createOrOpenKek)
     {
         try
         {
@@ -277,10 +332,24 @@ public static class StorageCommand
         }
     }
 
-    private static string KekPath(DataVolumeOptions options) => Path.Combine(options.BootRoot, "keys", "kek.bin");
+    /// <summary>
+    /// The host KEK files under <c>keys/</c>: the <c>file</c> provider's and the <c>dpapi</c> provider's (doc 14). Each provider keeps
+    /// its own file, so both can be present while a provider switch re-wraps.
+    /// </summary>
+    internal static IReadOnlyList<string> KekFileNames { get; } = ["kek.bin", "kek-dpapi.bin"];
+
+    /// <summary>True when <paramref name="name"/> is one of <see cref="KekFileNames"/>.</summary>
+    internal static bool IsKekFileName(string name) => KekFileNames.Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The KEK file at the boot root: the one that exists, or the <c>file</c> provider's path when none does yet.</summary>
+    internal static string KekPath(DataVolumeOptions options)
+    {
+        var keys = Path.Combine(options.BootRoot, "keys");
+        return KekFileNames.Select(n => Path.Combine(keys, n)).FirstOrDefault(File.Exists) ?? Path.Combine(keys, KekFileNames[0]);
+    }
 
     /// <summary>True when <paramref name="path"/> is <paramref name="folder"/> or lies below it.</summary>
-    private static bool IsInside(string folder, string path)
+    internal static bool IsInside(string folder, string path)
     {
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(folder));
@@ -290,81 +359,5 @@ public static class StorageCommand
             || candidate.StartsWith(root + Path.AltDirectorySeparatorChar, comparison);
     }
 
-    private static string OneLine(string message) => message.ReplaceLineEndings(" ").Trim();
-
-    private sealed record InitPlan(
-        string ProviderKind,
-        IDataVolumeProvider Provider,
-        IDataVolumeOperator? Operator,
-        string InstallId,
-        bool InstallIdGenerated,
-        string ContainerKind,
-        string ContainerPath,
-        long MaxSizeBytes,
-        string ServiceAccount)
-    {
-        public bool Plain => Operator is null;
-    }
-
-    private sealed record InitArguments(string? Provider, string? Container, string ContainerKind, long? MaxGb, string? ServiceAccount, bool DryRun, string? Error)
-    {
-        public static InitArguments Parse(ReadOnlySpan<string> args)
-        {
-            string? provider = null, container = null, serviceAccount = null;
-            var containerKind = "file";
-            long? maxGb = null;
-            var dryRun = false;
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-
-            for (var i = 0; i < args.Length; i++)
-            {
-                var option = args[i].ToLowerInvariant();
-                if (!seen.Add(option))
-                    return Fail($"{args[i]} was given twice.");
-
-                if (option == "--dry-run")
-                {
-                    dryRun = true;
-                    continue;
-                }
-
-                if (option is not ("--provider" or "--container" or "--container-kind" or "--max-gb" or "--service-account"))
-                    return Fail($"unknown option '{args[i]}'.");
-
-                if (i + 1 >= args.Length || args[i + 1].StartsWith("--", StringComparison.Ordinal))
-                    return Fail($"{args[i]} needs a value.");
-
-                var value = args[++i];
-                switch (option)
-                {
-                    case "--provider":
-                        provider = value.Trim().ToLowerInvariant();
-                        break;
-                    case "--container":
-                        container = value;
-                        break;
-                    case "--container-kind":
-                        containerKind = value.Trim().ToLowerInvariant();
-                        if (containerKind is not ("file" or "device"))
-                            return Fail("--container-kind must be file or device.");
-                        break;
-                    case "--max-gb":
-                        if (!long.TryParse(value, out var gb) || gb is < 1 or > 1_000_000)
-                            return Fail("--max-gb must be a whole number of at least 1.");
-                        maxGb = gb;
-                        break;
-                    default:
-                        serviceAccount = value;
-                        break;
-                }
-            }
-
-            if (string.IsNullOrWhiteSpace(provider))
-                return Fail("--provider is required.");
-
-            return new InitArguments(provider, container, containerKind, maxGb, serviceAccount, dryRun, null);
-        }
-
-        private static InitArguments Fail(string error) => new(null, null, "file", null, null, false, error);
-    }
+    internal static string OneLine(string message) => message.ReplaceLineEndings(" ").Trim();
 }

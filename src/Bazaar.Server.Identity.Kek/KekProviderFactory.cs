@@ -16,15 +16,40 @@ public static class KekProviderFactory
     public static string DefaultKind => OperatingSystem.IsWindows() ? "dpapi" : "file";
 
     /// <summary>
+    /// The key file for a kind, under <paramref name="dataRoot"/>. Each kind has its own file, so the source and target of a switch
+    /// coexist while the re-wrap runs. <c>file</c> keeps the historical <c>keys/kek.bin</c>.
+    /// </summary>
+    public static string KeyPathFor(string kind, string dataRoot) => kind switch
+    {
+        "file" => Path.Combine(dataRoot, "keys", "kek.bin"),
+        "dpapi" => Path.Combine(dataRoot, "keys", "kek-dpapi.bin"),
+        _ => throw new ArgumentException($"No key file is defined for identity.kek_provider '{kind}'.", nameof(kind)),
+    };
+
+    /// <summary>Opens a provider that must already exist (the re-wrap source). It never creates a key.</summary>
+    /// <exception cref="FileNotFoundException">The key file for the kind is absent.</exception>
+    public static IKekProvider OpenExisting(string kind, string dataRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        var chosen = Normalise(kind);
+        if (chosen is "openbao" || !File.Exists(KeyPathFor(chosen, dataRoot)))
+            throw new FileNotFoundException($"No existing KEK file for identity.kek_provider '{chosen}'.", KeyPathFor(chosen, dataRoot));
+        return Create(chosen, dataRoot, KekOpenMode.OpenExisting);
+    }
+
+    private static string Normalise(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
+
+    /// <summary>
     /// Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under
-    /// <paramref name="keyRoot"/> (<c>keys/kek.bin</c>). <paramref name="mode"/> decides whether a missing key is created.
+    /// <paramref name="keyRoot"/>. <paramref name="mode"/> decides whether a missing key is created.
     /// </summary>
     /// <exception cref="KekMissingException">The key is missing or empty and <paramref name="mode"/> is <see cref="KekOpenMode.OpenExisting"/>.</exception>
     public static IKekProvider Create(string? kind, string keyRoot, KekOpenMode mode = KekOpenMode.CreateIfMissing)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyRoot);
-        var keyPath = Path.Combine(keyRoot, "keys", "kek.bin");
-        var chosen = string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
+        var chosen = Normalise(kind);
+        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, keyRoot) : string.Empty;
 
         switch (chosen)
         {
