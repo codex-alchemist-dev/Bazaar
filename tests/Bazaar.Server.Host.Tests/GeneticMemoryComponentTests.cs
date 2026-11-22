@@ -1,13 +1,13 @@
 using Bazaar.Core;
-using Bazaar.Server.GeneticMemory;
-using Bazaar.Server.GeneticMemory.Abstractions;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.GeneticMemory;
+using Bazaar.Server.GeneticMemory.Abstractions;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
-using Npgsql;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Tests;
 
