@@ -123,3 +123,26 @@ public class WalkthroughEndpointTests
         Assert.Equal(HttpStatusCode.ServiceUnavailable, reply.StatusCode);
     }
 }
+
+public class WalkthroughComponentTests
+{
+    [Fact]
+    public async Task The_component_maps_the_routes_only_when_enabled()
+    {
+        foreach (var enabled in new[] { false, true })
+        {
+            var builder = WebApplication.CreateBuilder();
+            builder.WebHost.UseTestServer();
+            if (enabled) new WalkthroughComponent().AddServices(builder.Services, builder.Configuration);
+            var app = builder.Build();
+            app.MapBazaarWalkthrough();
+            await app.StartAsync(TestContext.Current.CancellationToken);
+            await using (app)
+            {
+                var reply = await app.GetTestClient().GetAsync("/prefs/walkthrough", TestContext.Current.CancellationToken);
+                // Enabled with no resolver registered: 503. Not enabled: no route, 404.
+                Assert.Equal(enabled ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.NotFound, reply.StatusCode);
+            }
+        }
+    }
+}
