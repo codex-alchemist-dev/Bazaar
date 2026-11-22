@@ -1,3 +1,4 @@
+using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Dashboard;
@@ -28,8 +29,13 @@ public static class WindowsModules
         .. OrgPanes.Modules,
         .. CalendarPanes.Modules,
         .. InterruptPanes.Modules,
+        .. OrgPanes.Modules,
+        .. CalendarPanes.Modules,
+        .. InterruptPanes.Modules,
         new EnginePaneModule(),
         .. GitSolarSystemPanes.Modules,
         .. GitGuiPanes.Modules,
+        // The terminal pane comes last in pager order (doc 55, section 7).
+        .. CalcinatoPanes.Modules,
     ];
 }
