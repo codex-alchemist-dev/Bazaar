@@ -15,6 +15,18 @@ public sealed class RouterKeyHandoff : IEditorKeyHandoff
         _clientClaims = clientClaims;
     }
 
+    /// <summary>A handoff over the router's own key strokes: the event is converted in <see cref="EditorKeyCodes"/>, never twice.</summary>
+    public static RouterKeyHandoff ForStrokes(Func<Bazaar.Client.Input.KeyStroke, bool> claims, IEnumerable<string>? excluded = null)
+    {
+        ArgumentNullException.ThrowIfNull(claims);
+        var skip = new HashSet<string>(excluded ?? [], StringComparer.Ordinal);
+        return new RouterKeyHandoff(key =>
+            EditorKeyCodes.TryToChord(key, out var chord)
+            && !skip.Contains(chord)
+            && EditorKeyCodes.TryToKeyStroke(key, out var stroke)
+            && claims(stroke));
+    }
+
     /// <inheritdoc />
     public bool TryClaim(EditorKeyEvent key)
     {
