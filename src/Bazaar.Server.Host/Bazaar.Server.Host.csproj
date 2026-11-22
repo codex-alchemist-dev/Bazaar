@@ -16,6 +16,9 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Http.Auth.Abstractions\Bazaar.Server.Http.Auth.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity\Bazaar.Server.Identity.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
@@ -40,6 +43,7 @@
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcReactions\Bazaar.Server.GcReactions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Portability.Postgres\Bazaar.Server.Portability.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Conduit\Bazaar.Conduit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mirror\Bazaar.Server.Mirror.csproj" />
     <ProjectReference Include="..\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
@@ -54,14 +58,22 @@
     <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BackupPolicy\Bazaar.Server.BackupPolicy.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MailPolicy\Bazaar.Server.MailPolicy.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.HyperV\Bazaar.Server.Vms.HyperV.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmEgress\Bazaar.Server.VmEgress.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals\Bazaar.Server.VmEgress.Approvals.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals.Security\Bazaar.Server.VmEgress.Approvals.Security.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmMounts\Bazaar.Server.VmMounts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport\Bazaar.Server.VmTransport.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Garnet\Bazaar.Server.Garnet.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Valkey\Bazaar.Server.Valkey.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn\Bazaar.Server.SignIn.csproj" />
     <ProjectReference Include="..\Bazaar.GitHub\Bazaar.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
@@ -81,8 +93,10 @@
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Catalogue\Bazaar.Server.Gateway.Catalogue.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />

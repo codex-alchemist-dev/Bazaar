@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- A composition root for the setup module: it adapts Bazaar.Server types to the setup seams, so it may reference the server. -->
+    <ProjectReference Include="..\Bazaar.Conduit\Bazaar.Conduit.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BackupPolicy\Bazaar.Server.BackupPolicy.csproj" />
@@ -23,6 +24,10 @@
     <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Http\Bazaar.Server.Setup.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Constitution\Bazaar.Server.Setup.Constitution.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Constitution.Abstractions\Bazaar.Server.Setup.Constitution.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun\Bazaar.Server.Setup.FirstRun.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />

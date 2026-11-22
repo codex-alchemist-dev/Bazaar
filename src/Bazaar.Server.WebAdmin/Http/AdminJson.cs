@@ -25,6 +25,7 @@ public sealed record AdminSelectionRequest(IReadOnlyList<string>? Selected, long
 [JsonSerializable(typeof(AdminSelectionPreview))]
 [JsonSerializable(typeof(AdminSelectionCommit))]
 [JsonSerializable(typeof(AdminRebuildStart))]
+[JsonSerializable(typeof(AdminCatalogueReport))]
 [JsonSerializable(typeof(AdminStatusView))]
 [JsonSerializable(typeof(AdminKodoView))]
 [JsonSerializable(typeof(IReadOnlyList<AdminUser>))]

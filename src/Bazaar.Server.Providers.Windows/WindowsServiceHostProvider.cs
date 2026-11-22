@@ -10,7 +10,7 @@ namespace Bazaar.Server.Providers.Windows;
 /// </summary>
 public sealed partial class WindowsServiceHostProvider : IServiceHostProvider
 {
-    /// <summary>The kind name a <c>host.provider.service_host</c> setting selects.</summary>
+    /// <summary>The kind name this provider reports.</summary>
     public const string KindName = "windows_service";
 
     /// <summary>The service name the installer registers by default.</summary>
