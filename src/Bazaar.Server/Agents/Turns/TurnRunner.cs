@@ -321,7 +321,8 @@ public sealed class TurnRunner
                         request.Role,
                         new ModelToolCall(call.CallId, call.Name, call.ArgumentsJson),
                         idempotentNow,
-                        request.ChainDepth);
+                        request.ChainDepth,
+                        request.TriggerGcId);
                     await ReportAsync(progress, TurnActivityKind.ToolStarted, call.Name, ct).ConfigureAwait(false);
                     var result = await _dispatcher.InvokeAsync(dispatch, ct).ConfigureAwait(false);
                     await ReportAsync(progress, TurnActivityKind.ToolFinished, call.Name, ct).ConfigureAwait(false);

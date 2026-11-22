@@ -163,6 +163,24 @@ public sealed class StatusEndpointsTests
         }
     }
 
+    [Fact]
+    public async Task Walkthrough_prefs_path_accepts_get_and_put_only()
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // No route is mapped in this test app, so the guard lets GET and PUT through and routing answers 404.
+            var get = await client.GetAsync("/prefs/walkthrough", TestContext.Current.CancellationToken);
+            var put = await client.PutAsync("/prefs/walkthrough", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            var post = await client.PostAsync("/prefs/walkthrough", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            var delete = await client.DeleteAsync("/prefs/walkthrough", TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, get.StatusCode);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, put.StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, post.StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, delete.StatusCode);
+        }
+    }
+
     [Theory]
     [InlineData("PATCH", "/auth/refresh")]
     [InlineData("GET", "/auth/refresh")]

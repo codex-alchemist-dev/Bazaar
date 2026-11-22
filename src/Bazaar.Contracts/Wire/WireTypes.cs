@@ -96,6 +96,9 @@ public static class WireTypes
     /// <summary>Client marks a GC read up to a sequence.</summary>
     public const string GcRead = "gc.read";
 
+    /// <summary>Client lists the GCs it is a member of (doc 02, GC list). Answered with a <c>GcListReply</c>.</summary>
+    public const string GcList = "gc.list";
+
     /// <summary>Replay gap too large; the client resyncs from the tail.</summary>
     public const string Resync = "resync";
 

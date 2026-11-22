@@ -312,7 +312,31 @@ Kodo is the Health API module (module name Bazaar.KODO). It runs as the final se
 - **Checks:** schema version and migration state; the instance lock; PostgreSQL and pgvector health; each provider role's usability (doc 03); every secret reference resolves, with no value shown; the audit chain head is writable and the anchor target is reachable (docs 14, 15); the backup target is reachable and a restore drill is scheduled (doc 33); the status bind is inside its floor; clock sync; disk headroom; each model source is reachable (doc 05); at least one owner second factor exists; the server's identity and key hash match the identity baked into the company build (section 2.1).
 - **Identity KEK custody (doc 14, DECIDED 2026-11-19).** `identity.kekCustody` reads `custody.identityKek` and `identity.tpm.allowVirtual`. A plan that picks `tpm` and allows a virtual TPM is amber (a vTPM is weaker custody, and the acknowledgement names it); any other choice is green. The check reads the plan only. A VM host without the opt-in is refused by the TPM provider at start-up, which also records the custody class in the audit log (`identity.kek.custody`).
 - **Result.** Green, amber or red, plus the 0 to 100 score described in doc 46. Red blocks "setup complete" but does not stop the running server. Amber completes only with a recorded acknowledgement that names each amber item.
-- **Probe status (2026-11-19).** `host.disk` and `host.clock` run Kodo core's `DiskFreeProbe` and `ClockDriftProbe` through `IHostReadings` (**BUILT**, `KodoDiskHeadroomCheck`, `KodoClockSyncCheck`); setup ships a runtime `DriveInfoHostReadings` (disk and memory real; the clock has no reference source, so it stays not-evaluated, never green). Kodo core has no probes yet for the other twelve checks, so setup defines the seam `ISetupInfrastructureProbe` (**BUILT**, per check id) and `ProbeBackedCheck` (healthy green, degraded amber, failed red, unavailable not-evaluated); `SetupVerificationChecks.Create(probes, hostReadings, volumes)` builds the list. The Host adapter that supplies the real probes (schema, PostgreSQL, secrets, audit, backup, models, identity) is **PLANNED**; until then those checks stay not-evaluated placeholders.
+- **Probe status (2026-11-19).** `host.disk` and `host.clock` run Kodo core's `DiskFreeProbe` and `ClockDriftProbe` through `IHostReadings` (**BUILT**, `KodoDiskHeadroomCheck`, `KodoClockSyncCheck`); setup ships a runtime `DriveInfoHostReadings` (disk and memory real; the clock has no reference source, so it stays not-evaluated, never green). Kodo core has no probes yet for the other twelve checks, so setup defines the seam `ISetupInfrastructureProbe` (**BUILT**, per check id) and `ProbeBackedCheck` (healthy green, degraded amber, failed red, unavailable not-evaluated); `SetupVerificationChecks.Create(probes, hostReadings, volumes)` builds the list. The real probes are in the second status line below.
+- **Real probes (2026-11-22).** `Bazaar.Server.Setup.Probes` holds read-only `ISetupInfrastructureProbe` implementations, each with a time limit, no secret, host name, path or URL in its result, and fakes for its service in tests. `SetupVerificationProbeSet` (in `Bazaar.Server.Setup.Host`) builds them from the container, and a probe whose service is not registered is left out so its check stays not-evaluated. A module's own registered probe or check for the same id wins. The catalogue gained three preflight checks, `host.os`, `host.ports` and `host.dataRoot` (18 infrastructure checks in all).
+
+| Check id | Status | What it reads |
+| --- | --- | --- |
+| `host.disk` | **BUILT** | Kodo `DiskFreeProbe` on the volume that holds `database.dataRoot` (platform default when unset: `%ProgramData%\Bazaar`, `/var/lib/bazaar`). |
+| `host.os` | **BUILT** | Windows or Linux, 64-bit. |
+| `host.ports` | **BUILT** | `network.statusPort` is not already listening. In use is amber, because it is expected when this server runs. |
+| `host.dataRoot` | **BUILT** | The data root exists and is not marked read-only. It creates no file, so write access is proven by the first write; a root that does not exist yet is amber. |
+| `database.postgres` | **BUILT** (over the shared `NpgsqlDataSource`; no Docker test) | Server major equals `database.postgresMajor` and pgvector is installed or installable. |
+| `schema.migrations` | **BUILT** (needs the host's `ISchemaStateReader`, registered by `Bazaar.Server.Host`) | `MigrationRunner.GetStateAsync`: current, behind or ahead. Never migrates. |
+| `instance.lock` | **BUILT** (host's `IInstanceLockReader`) | This process holds the running-instance lock. It never takes the lock. |
+| `providers.roles` | **BUILT** (host's `IProviderRoleReader`) | Cache and search each have a usable provider (red if not); service host and VM missing is amber. |
+| `secrets.resolution` | **PARTIAL** | `custody.kekRef` of `env:` or `file:` kind exists (never read into a result). `dpapi:`, `systemd-creds:` and every `secret://` reference have no existence check, so the check stays not-evaluated for them. |
+| `audit.anchorReachable` | **BUILT** | `HEAD` to `custody.auditAnchorTarget`, no credentials, no redirects, 5 s limit. Any HTTP answer counts as reachable. |
+| `backups.reachable` | **PARTIAL** | A `file:` target folder exists. Other target kinds need their own client and stay not-evaluated. |
+| `models.reachable` | **BUILT** | `HEAD` to the catalogue base URL of each plan source the catalogue knows; reports counts and catalogue ids only. |
+| `host.clock` | not evaluated | Setup has no reference time source. |
+| `audit.chainHead` | not evaluated | Proving it writable is a write; verification is read-only until a sandbox copy exists. |
+| `backups.drill` | not evaluated | No restore-drill schedule store exists. |
+| `pairing.offer` | not evaluated | No pairing offer store exists. |
+| `remote.reachable` | module check | `Bazaar.Conduit` owns it. |
+| `server.identity` | module check | `Bazaar.Server.CompanyBuild` owns it. |
+
+Mail and TLS-identity probes are not built: mail has no setup-visible endpoint to read before the mail panel sets the domain, and the server identity is the company build's check.
 - **Shown in** the wizard, the Monitor pane of every client (doc 46), and the read-only status page (summary only, doc 23).
 
 ## 1.13 Changing setup later [PLANNED]
@@ -532,6 +556,35 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 ## 2.8 Native sign-in redeem [shape built; flow PLANNED]
 
 The client's sign-in ends at `bazaar://signin?code=...` (doc 32 section 4). The client redeems the code with `POST /auth/handoff` `{ "code", "device_class", "client_build" }` and receives `{ "access_token", "token_type", "expires_in", "refresh_token" }`, the same body as `/auth/refresh`; the refresh secret goes in the platform keystore and the access token stays in memory. Every failure is one generic 401 `invalid_grant`, so the client shows one "sign in again" message and starts the page flow again. The request and reply shape is now built in `Bazaar.Server.SignIn` (doc 32 section 4, status DECIDED-in-code); the client screens that drive it are still PLANNED, and the second factor stays a separate step (section 2.1).
+
+## 2.9 First-run walkthrough after sign-in [PROPOSED]
+
+One client module, `Bazaar.Client.Walkthrough` with `.Abstractions` and `.Avalonia`, adds no code to Client.Core. It is a short card shown once after sign-in. It guides the person through the first three real actions and uses their own company (section 2.4: no sample data). It is separate from the keyboard-first tour (section 2.3), which teaches navigation; this one teaches what to do first.
+
+- **Steps.** Welcome, create the company, meet the first agent, give a first task, done. Every step is skippable. Nothing advances by itself and nothing depends on animation or a timer (section 2.2); the card has no motion, so reduced motion needs no substitute.
+- **Real actions, not copies.** A step's button opens the real screen (create-company, the agent's profile, the task composer) through the `IWalkthroughActions` port. The head wires those to the shell.
+- **Done is a server fact.** A step shows as done when the server reports it (`IWalkthroughFactsSource`: company exists, first agent name, a first task given). A returning person whose company already exists starts at the first step not yet done. If the server cannot be asked, the walkthrough still works and says so.
+- **Progress.** A human preference saved with `prefs.set` through `IWalkthroughProgressStore` (section 2.3 rule: follows the account, an empty cache never stops the app). Skip hides it until it is replayed. Replay is a palette command and never resets settings.
+- **Routes [PROPOSED, doc 2 HTTP surface must list them].** Both need the person's bearer token and answer for that person only. JSON, snake_case keys, one generic error body like the other routes.
+  - `GET /onboarding/walkthrough/facts` answers 200 `{ "company_created": bool, "first_agent_name": string|null, "first_task_given": bool }`. The server computes the three facts from its own state (a company exists; the first agent's display name; the person has created a task or sent an agent request). It never returns agent or task content.
+  - `GET /prefs/walkthrough` answers 200 `{ "dismissed": bool, "finished": bool, "current": string, "completed": [string] }` or 404 when none is saved. `PUT /prefs/walkthrough` takes the same body and answers 204. These are the HTTP form of `prefs.set` for the key `onboarding.walkthrough` (doc 2), so one rule applies: the server validates the body (unknown step names are refused with 400) and stores it per person. An unreachable server falls back to the local cache.
+  - The walkthrough never reads or writes anything else about a person.
+- **Storage and sign-in.** Preferences are stored per person in `walkthrough_prefs` (walkthrough migration 0001); the person id is the human id from the sign-in token, resolved the same way as `GET /auth/whoami` (doc 32 section 5).
+- **Where the facts come from [PROPOSED].** The host computes them from stores that exist: the company profile gives `company_created`; the first-run seed markers (section 1.15) give the first agent (its name and id) and the first chat; `first_task_given` is true when the person has written a message in that first chat. The check reads who wrote, never message text. The token check is the `GET /auth/whoami` check: a valid signature and expiry, then a live device and an active human, so revocation is immediate.
+- **Facts add two ids [PROPOSED].** The facts body may also carry `first_agent_id` and `first_chat_id` (GUIDs, null when none), so the first-task composer knows whom to mention and where to post. They identify the first agent and the group chat the company seeded with that agent (section 1.15). Nothing else about the agent travels.
+- **Look.** Colours come from the theme resources (doc 93), so Void, Graphite, Paper and Rubedo overrides restyle the card. The phone swipe prompts of doc 93 ("First-run coach", package 8) are a separate head concern and are not part of this module.
+- **Testing.** Unit tests for the step flow, skip, replay, facts and failure paths; an Avalonia.Headless test drives the card by its `walkthrough-*` automation ids.
+
+## 2.10 First-task composer [PROPOSED]
+
+One client module, `Bazaar.Client.FirstTask` (with `.Avalonia`), adds no code to Client.Core. It is the screen the walkthrough's "give a first task" step opens: a short text box, a Send button and one line of what happens next.
+
+- **What Send does.** It posts one `gc.send` to the first group chat, mentioning the first agent (ids from section 2.9 facts). It is an ordinary group chat message: the agent answers there, and the person can follow or edit it like any other. No private channel, no new task store. When the facts carry no chat or agent yet, Send is off and the screen says the company's first agent is not ready.
+- **Nothing hidden.** The text is the person's own words, shown back after sending. The module stores nothing; the walkthrough's "task given" fact is the server's, computed from the chat (section 2.9).
+- **Keyboard first.** The box takes no focus by default (doc 27); Tab reaches Send. Enter inserts a new line; Send is a button. No Ctrl chords.
+- **Agent profile screen.** The profile card is `Bazaar.Client.Souls`; the walkthrough's "meet your first agent" step opens it from the read-only profile route (doc 07, PROPOSED), keyed by the `first_agent_id` fact. When the server has no profile to show, the step says it cannot open and the name from the facts stays on the card.
+- **Sending.** The Windows head sends over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
+- **Testing.** Unit tests for the view model (disabled without ids, sends once, trims, shows failures without repeating a secret) and an Avalonia.Headless test by `firsttask-*` ids; the sender adapter is tested against a fake wire.
 
 ---
 

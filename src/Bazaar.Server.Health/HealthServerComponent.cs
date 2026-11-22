@@ -1,7 +1,10 @@
 using Bazaar.Core;
+using Bazaar.Server.Jobs;
+using Bazaar.Server.Knowledge.Metrics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Health;
 
@@ -10,6 +13,9 @@ public sealed class HealthServerComponent : IBazaarComponent
 {
     /// <summary>Configuration section for the health settings until the Settings service feeds them.</summary>
     public const string SectionName = "Bazaar:Health";
+
+    /// <summary>Migration namespace and history key for this component's SQL. Equals <see cref="ComponentManifest.MigrationNamespace"/>.</summary>
+    public const string MigrationProvider = "health";
 
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "health",
@@ -27,9 +33,12 @@ public sealed class HealthServerComponent : IBazaarComponent
 public static class HealthServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers <see cref="IProjectHealthService"/> over the host's <c>IMetricStore</c> and <see cref="TimeProvider"/>. Settings read
-    /// <c>Bazaar:Health</c> (<c>CoverageDropPoints</c>, <c>BuildFailureStreak</c>, <c>WindowDays</c>, <c>MoraleSignals</c>). Bound by hand, no
-    /// reflection. Every registration is TryAdd, so a host or test can substitute first.
+    /// Registers <see cref="IProjectHealthService"/>, the metric store and the recurring collection job. The store is Postgres when the
+    /// host registered an <see cref="NpgsqlDataSource"/> (the <c>health</c> migration creates <c>metric_samples</c>), otherwise in memory.
+    /// Settings read <c>Bazaar:Health</c> (<c>CoverageDropPoints</c>, <c>BuildFailureStreak</c>, <c>WindowDays</c>, <c>MoraleSignals</c>,
+    /// <c>CollectIntervalMinutes</c>, default 60). Bound by hand, no reflection. Every registration is TryAdd, so a host or test can
+    /// substitute first. The collection job needs the host's job poller and does nothing until a module registers an
+    /// <see cref="IHealthProjectSource"/>.
     /// </summary>
     public static IServiceCollection AddBazaarHealth(this IServiceCollection services, IConfiguration? configuration = null)
     {
@@ -46,7 +55,19 @@ public static class HealthServiceCollectionExtensions
             MoraleSignals = signals is { Length: > 0 } ? signals : d.MoraleSignals,
         });
         services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<IMetricStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgMetricStore(dataSource) : new InMemoryMetricStore());
         services.TryAddSingleton<IProjectHealthService, ProjectHealthService>();
+        services.TryAddSingleton<IHealthReportStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgHealthReportStore(dataSource) : new InMemoryHealthReportStore());
+        services.TryAddSingleton<HealthReportFactSource>();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, HealthReportFactSource>(sp => sp.GetRequiredService<HealthReportFactSource>()));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, HealthReportFactSource>(sp => sp.GetRequiredService<HealthReportFactSource>()));
+
+        services.TryAddSingleton<HealthCollectJobHandler>();
+        services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<HealthCollectJobHandler>());
+        var minutes = Math.Clamp(Int(s, "CollectIntervalMinutes", 60), 1, 24 * 60);
+        services.AddSingleton(new RecurringJob(HealthCollectJobHandler.JobKind, TimeSpan.FromMinutes(minutes)));
         return services;
     }
 

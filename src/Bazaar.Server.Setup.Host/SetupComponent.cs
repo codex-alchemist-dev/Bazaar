@@ -77,7 +77,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         // The verifier (doc 45 section 1.12). Probes answer infrastructure checks by id. Any ISetupVerificationCheck a module registers
         // replaces the placeholder with the same id, so a module owns its own check without Setup referencing it.
         services.TryAddSingleton<ISetupVerifier>(sp => new SetupVerifier(SetupVerificationChecks.Create(
-            sp.GetServices<ISetupInfrastructureProbe>(),
+            SetupVerificationProbeSet.Build(sp),
             replacements: sp.GetServices<ISetupVerificationCheck>())));
 
         services.AddBazaarSetupPostgres();

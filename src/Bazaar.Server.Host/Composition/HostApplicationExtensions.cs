@@ -1,27 +1,27 @@
-using Bazaar.Server.Security;
 using Bazaar.Core;
 using Bazaar.Erasure;
 using Bazaar.Fun;
 using Bazaar.Sanitization;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
-using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
-using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.VmDensity;
@@ -113,6 +113,7 @@ public static class HostApplicationExtensions
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         services.AddBazaarCouncilHostAdapters();
+        services.AddBazaarCouncilSettings();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);

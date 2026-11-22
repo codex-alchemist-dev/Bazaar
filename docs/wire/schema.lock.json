@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526",
+  "hash": "sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -9,6 +9,7 @@
     { "type": "engine.relay.result", "payload": "Bazaar.Contracts.Engines.EngineRelayResultFrame" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
     { "type": "gc.history", "payload": "Bazaar.Contracts.Wire.GcHistory" },
+    { "type": "gc.list", "payload": "Bazaar.Contracts.Wire.GcListRequest" },
     { "type": "gc.member.add", "payload": "Bazaar.Contracts.Wire.GcMemberAdd" },
     { "type": "gc.member.remove", "payload": "Bazaar.Contracts.Wire.GcMemberRemove" },
     { "type": "gc.message", "payload": "Bazaar.Contracts.Wire.WireGcMessage" },
@@ -739,6 +740,38 @@
         { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
         { "n": 2, "name": "before", "type": "int64", "nullable": false, "default": false },
         { "n": 3, "name": "limit", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListItem",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "title", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "memberCount", "type": "int32", "nullable": false, "default": false },
+        { "n": 5, "name": "headSeq", "type": "int64", "nullable": false, "default": false },
+        { "n": 6, "name": "lastActivityTs", "type": "datetime", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "items", "type": "list<ref:Bazaar.Contracts.Wire.GcListItem>", "nullable": false, "default": false },
+        { "n": 2, "name": "hasMore", "type": "bool", "nullable": false, "default": false },
+        { "n": 3, "name": "defaultGcId", "type": "guid", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "limit", "type": "int32", "nullable": false, "default": false },
+        { "n": 2, "name": "includeThinking", "type": "bool", "nullable": false, "default": true }
       ]
     },
     {

@@ -5,8 +5,8 @@ using Bazaar.Server.Vms.HyperV.PowerShell;
 using Bazaar.Server.Vms.Kvm;
 using Bazaar.Server.Vms.Kvm.Virsh;
 using Bazaar.Server.Vms.Lifecycle;
-using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.Ports;
+using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
@@ -46,7 +46,7 @@ public static class VmsCompositionExtensions
         services.TryAddSingleton<IAgentVmDirectory>(sp => new RepositoryAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton(new VmOperationLocks());
         // The read port for other modules (not the agent pauser's directory above): it reads records and calls no backend.
-        services.TryAddSingleton<ModuleAgentVmDirectory>(sp => new EnvironmentAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
+        services.TryAddSingleton<ModuleAgentVmDirectory>(sp => new EnvironmentAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>(), sp.GetService<IVmBackend>()));
 
         // Hyper-V is the VM provider for the agent pair and is chosen first, then KVM on Linux hosts; Windows Sandbox serves one-off work and is the fallback (doc 50).
         // Each backend's host facts fail closed on the wrong OS, so the host decides in practice.
