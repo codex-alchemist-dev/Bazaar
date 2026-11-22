@@ -411,7 +411,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet on Windows is verified for the cache role. Spike S2 passed three of three runs on the owner's PC (record: `docs/spikes/S2.md`). Tested: Garnet 2.2.13 (official `win-x64-based-readytorun` release) with StackExchange.Redis 3.4.35. All five used checks passed before the kill and after restart (SET with expiry, GET, GET of a missing key, a 64 KiB snapshot, expiry). 1000 of 1000 keys survived `taskkill /F` and restart. Restart to first authenticated connection: median 1566 ms, range 1418 to 3932 ms. | MEASURED (spike result, not a design change) | 03, 11, 23, 35 |
 | Windows persistence needs `--aof --aof-commit-wait`, restarted with `-r`. A control run without `--aof` kept 0 of 1000 keys, so persistence is required for data to survive a kill. Garnet binds loopback only with password authentication. | MEASURED | 03 |
 | Presence over plain PUBLISH/SUBSCRIBE works through StackExchange.Redis, but handler order is not guaranteed (1 of 6 batteries out of order). Presence deltas must carry a sequence number or timestamp (doc 23 to specify). | MEASURED | 23 |
-| Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
+| Garnet stops being "only after S2" in doc 03 (cache provider module, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
 ## Round 30 (2026-11-19): Linux TPM-sealed KEK
@@ -491,3 +491,12 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 |---|---|---|
 | Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
 
+
+## Round 34 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |

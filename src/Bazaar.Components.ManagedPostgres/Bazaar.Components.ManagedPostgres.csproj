@@ -12,4 +12,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.DataVolume.Abstractions\Bazaar.Server.DataVolume.Abstractions.csproj" />
+  </ItemGroup>
 </Project>

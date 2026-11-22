@@ -12,7 +12,7 @@ namespace Bazaar.Server.Gateway.Adapters.OpenAi;
 /// Upstream problems (HTTP errors, rate limits, timeouts, dropped or malformed streams) end the stream with a
 /// <see cref="ModelEvent.Failure"/>; only the caller's own cancellation propagates as an exception.
 /// </summary>
-public sealed class OpenAiChatAdapter : IModelAdapter
+public sealed partial class OpenAiChatAdapter : IModelAdapter, IEmbeddingAdapter
 {
     private readonly HttpClient _http;
     private readonly TimeProvider _time;

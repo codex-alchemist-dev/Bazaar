@@ -26,7 +26,7 @@ public class LayeringTests
         // A feature module may use the pure shared libraries it names here (doc 41b section 2c). Each edge is listed, so a new one is a decision.
         var allowed = project switch
         {
-            "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme" },
+            "Bazaar.Client.Views" => new[] { "Bazaar.Client.Theme", "Bazaar.Client.Navigation.Abstractions", "Bazaar.Client.Preferences.Abstractions" },
             // RyuseiFuda renders its panes from Rubedo view documents through the mapper (doc 41c).
             "Bazaar.Client.RyuseiFuda" => new[] { "Bazaar.Client.Views" },
             _ => [],
@@ -56,6 +56,9 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Souls")]
     [InlineData("Bazaar.Client.Mobile")]
     [InlineData("Bazaar.Client.Push")]
+    [InlineData("Bazaar.Client.Navigation")]
+    [InlineData("Bazaar.Client.Preferences")]
+    [InlineData("Bazaar.Client.Updates")]
     public void Client_feature_module_does_not_reference_client_core(string project)
     {
         Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");

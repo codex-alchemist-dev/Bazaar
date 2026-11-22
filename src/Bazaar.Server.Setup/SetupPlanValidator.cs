@@ -59,6 +59,8 @@ public static partial class SetupPlanValidator
         }
 
         ValidateBackups(plan.Backups, issues);
+        ValidateBackupSettings(plan, registry, issues);
+        ValidateEmail(plan, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
         ValidateFirstRun(plan.FirstRun, issues);
@@ -248,6 +250,58 @@ public static partial class SetupPlanValidator
         if (backups.DrillIntervalDays is < 1 or > 365)
         {
             issues.Add(Error("backups.drillIntervalDays", "must be 1 to 365."));
+        }
+    }
+
+    /// <summary>
+    /// The backups section is also registry keys (doc 45 step 8; doc 33): a value set twice (in the section and in <c>settings</c>) is an
+    /// error, and a target runs through the registry's checks (shape, no credentials, and held for owner approval when it leaves the install).
+    /// </summary>
+    private static void ValidateBackupSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.BackupTargetKey, "backups.target", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupDrillIntervalKey, "backups.drillIntervalDays", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupNoTargetAcknowledgedKey, "backups.acknowledgeNoTarget", issues);
+
+        if (plan.Backups.Target is null || IsBlank(plan.Backups.Target))
+        {
+            return;
+        }
+
+        if (!registry.TryGet(SetupSettingProjection.BackupTargetKey, out var definition) || definition is null)
+        {
+            issues.Add(Error("backups.target", "the backup target setting is not registered in this build."));
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Backups.Target, SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "backups.target", value, issues);
+    }
+
+    /// <summary>
+    /// The email section (doc 45 step 11; doc 22): off with no back end, or on with one of the four v1 back ends. The operator domain
+    /// is not a plan field. A value set twice (in the section and in <c>settings</c>) is an error.
+    /// </summary>
+    private static void ValidateEmail(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.MailEnabledKey, "email.enabled", issues);
+        RejectDuplicate(plan, SetupSettingProjection.MailBackendKey, "email.backend", issues);
+
+        if (SetupSettingProjection.IsEmailChoiceCoherent(plan))
+        {
+            return;
+        }
+
+        issues.Add(plan.Email.Enabled
+            ? Error("email.backend", $"is required when email.enabled is true: one of {string.Join(", ", SetupSettingProjection.MailBackends)}.")
+            : Error("email.backend", "must be empty while email.enabled is false."));
+    }
+
+    private static void RejectDuplicate(SetupPlan plan, string key, string planPath, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(key))
+        {
+            issues.Add(Error("settings." + key, $"is already set by {planPath}; set it in one place."));
         }
     }
 
