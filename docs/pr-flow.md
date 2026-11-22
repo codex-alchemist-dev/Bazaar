@@ -33,7 +33,17 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   required checks never queue behind the owner's PC. Build and test (and the PostgreSQL 19 leg) use the PC only for
   the owner's own same-repo runs, and only while the repository has at most `CI_OVERFLOW_QUEUE` queued runs
   (default 8); otherwise they overflow to hosted. Repository variable `CI_RUNNER_MODE` forces `self`, `hosted`
-  or `auto`. The default is `hosted` (owner 2026-11-22, PC runners stopped): every job runs on GitHub until the variable is set to `auto` or `self`. Publish smoke runs on pull requests (not drafts) that touch code, and on main.
+  or `auto`. The default is `hybrid` (owner 2026-11-22, PC runners back on): Linux legs run on the PC's Linux runners for the owner's own same-repo runs whatever the queue, and Windows legs run on GitHub, until the PC's Windows workspaces are cleaned and the variable is set to `auto` or `self`. Set `hosted` to keep every job off the PC. Publish smoke runs on pull requests (not drafts) that touch code, and on main.
+- Idle-runner routing (2026-11-22, owner: whichever pool is free takes the job): the default mode is `idle`. A job
+  cannot race both pools, so the `changes` job asks GitHub which PC runners are online and not busy at that moment. A
+  free PC Linux runner means the Linux leg (and the PostgreSQL 19 leg) goes to the PC, otherwise to GitHub. The Windows
+  leg goes to the PC only when repository variable `CI_PC_WINDOWS` is `true`, otherwise it stays hosted. Listing runners
+  needs repository administration read access, which the workflow token lacks, so the owner adds a fine-grained token
+  (Administration: read, this repository only) as repository secret `CI_RUNNERS_READ_TOKEN`. Without it, or on any API
+  error, `idle` behaves like `hybrid`. Known limits: the check is a snapshot, so several runs starting together can all
+  pick the same free runner; and a job already sent to the PC waits there if the PC goes off (set `CI_RUNNER_MODE` to
+  `hosted`). A watchdog that moves a stuck job is not built (a queued job cannot be moved; the run would have to be
+  cancelled and dispatched again, which risks the required checks).
 - Faster pull request builds (2026-11-22, owner: do everything to speed up CI): a pull request builds, tests and
   format-checks only the affected projects, through one temporary solution (`scripts/ci/build-affected.sh` and
   `.ps1`, which write `Bazaar.affected.slnx`, not tracked). That is one restore, one parallel build, parallel tests

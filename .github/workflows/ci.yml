@@ -66,7 +66,7 @@ jobs:
     steps:
       # Picks where the heavy jobs run. The repository is public, so GitHub-hosted runners are free; the owner's PC
       # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
-      # Repository variable CI_RUNNER_MODE: hosted (default, never the PC), auto (PC while not backed up), self (always the PC).
+      # Repository variable CI_RUNNER_MODE: hybrid (default: Linux legs on the PC, Windows on hosted), hosted (never the PC), auto (PC while not backed up), self (always the PC).
       # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
       # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
       # behind the PC. The job names of the required checks do not change.
@@ -74,7 +74,9 @@ jobs:
         id: runners
         env:
           GH_TOKEN: ${{ github.token }}
-          MODE: ${{ vars.CI_RUNNER_MODE || 'hosted' }}
+          MODE: ${{ vars.CI_RUNNER_MODE || 'idle' }}
+          RUNNERS_TOKEN: ${{ secrets.CI_RUNNERS_READ_TOKEN }}
+          PC_WINDOWS: ${{ vars.CI_PC_WINDOWS || 'false' }}
           LIMIT: ${{ vars.CI_OVERFLOW_QUEUE || '8' }}
           OWNER_RUN: ${{ github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
@@ -91,6 +93,30 @@ jobs:
           }
           if [ "$OWNER_RUN" != "true" ] || [ "$MODE" = hosted ]; then hosted "not an owner run, or mode=hosted"; exit 0; fi
           if [ "$MODE" = self ]; then self "mode=self"; exit 0; fi
+          # idle (the default): pick the pool that has a free runner right now. A job cannot race both pools, so each run
+          # asks the GitHub API which PC runners are online and not busy at this moment: an idle PC runner means the job goes
+          # to the PC, otherwise to GitHub. Windows goes to the PC only when repository variable CI_PC_WINDOWS is 'true'
+          # (its workspaces need cleaning first). Listing runners needs repository administration read access, which the
+          # workflow token does not have: add a fine-grained token (Administration: read, this repository only) as secret
+          # CI_RUNNERS_READ_TOKEN. Without it, or on any API error, idle behaves like hybrid.
+          if [ "$MODE" = idle ] && [ -n "${RUNNERS_TOKEN:-}" ]; then
+            json="$(GH_TOKEN="$RUNNERS_TOKEN" gh api "repos/$GITHUB_REPOSITORY/actions/runners?per_page=100" 2>/dev/null)" || json=""
+            if [ -n "$json" ]; then
+              idle() { printf '%s' "$json" | jq --arg l "$1" '[.runners[] | select(.status=="online" and .busy==false and ([.labels[].name] | index($l)))] | length'; }
+              il="$(idle bazaar-linux-pg)"; iw="$(idle bazaar-win)"
+              if [ "${il:-0}" -ge 1 ]; then echo 'linuxpg=["self-hosted","bazaar-linux-pg"]' >> "$GITHUB_OUTPUT"; l=PC; else echo 'linuxpg="ubuntu-latest"' >> "$GITHUB_OUTPUT"; l=hosted; fi
+              if [ "${iw:-0}" -ge 1 ] && [ "$PC_WINDOWS" = true ]; then echo 'win=["self-hosted","bazaar-win"]' >> "$GITHUB_OUTPUT"; w=PC; else echo 'win="windows-latest"' >> "$GITHUB_OUTPUT"; w=hosted; fi
+              echo "runners: idle PC runners linux=$il win=$iw (PC Windows allowed: $PC_WINDOWS); Linux on $l, Windows on $w (mode=idle)"
+              exit 0
+            fi
+            echo "runners: could not list runners, using hybrid"
+          fi
+          if [ "$MODE" = hybrid ] || [ "$MODE" = idle ]; then
+            echo 'linuxpg=["self-hosted","bazaar-linux-pg"]' >> "$GITHUB_OUTPUT"
+            echo 'win="windows-latest"' >> "$GITHUB_OUTPUT"
+            echo "runners: Linux on the PC, Windows hosted (mode=hybrid)"
+            exit 0
+          fi
           queued="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?status=queued&per_page=1" --jq .total_count 2>/dev/null)" || queued=""
           case "$queued" in ''|*[!0-9]*) hosted "queue count unavailable"; exit 0;; esac
           if [ "$queued" -gt "$LIMIT" ]; then hosted "$queued runs queued, limit $LIMIT"; else self "$queued runs queued, limit $LIMIT"; fi
