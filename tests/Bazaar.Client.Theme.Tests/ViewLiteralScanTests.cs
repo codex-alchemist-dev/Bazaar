@@ -11,8 +11,8 @@ public partial class ViewLiteralScanTests
     /// <summary>Source projects held to the no-literals rule.</summary>
     private static readonly string[] _scannedProjects = ["src/Bazaar.Client.Views"];
 
-    /// <summary>Files that are the token-resolution point and so parse colour text by design.</summary>
-    private static readonly string[] _allowed = ["ViewTheme.cs"];
+    /// <summary>Files that are the token-resolution point or the built-in theme definitions, so they hold colour text by design.</summary>
+    private static readonly string[] _allowed = ["ViewTheme.cs", "BuiltInThemes.cs"];
 
     [GeneratedRegex(@"#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\b|Color\.(?:FromRgb|FromArgb)\(|Brushes\.|Colors\.|TimeSpan\.From|Duration\s*=\s*[0-9]")]
     private static partial Regex Literal();

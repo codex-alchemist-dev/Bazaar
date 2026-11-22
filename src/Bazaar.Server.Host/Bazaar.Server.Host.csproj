@@ -162,6 +162,7 @@
     <ProjectReference Include="..\Bazaar.Server.VmDensity\Bazaar.Server.VmDensity.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity.Abstractions\Bazaar.Server.VmDensity.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity.HostProbes\Bazaar.Server.VmDensity.HostProbes.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDensity.Vms\Bazaar.Server.VmDensity.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Display\Bazaar.Server.BrowserPool.Display.csproj" />

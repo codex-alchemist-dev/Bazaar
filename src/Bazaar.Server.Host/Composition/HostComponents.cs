@@ -69,6 +69,7 @@ using Bazaar.Server.Vault;
 using Bazaar.Server.SoulProfile;
 using Bazaar.Server.Walkthrough;
 using Bazaar.Server.VmDensity;
+using Bazaar.Server.VmDensity.Vms;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
@@ -179,6 +180,9 @@ public static class HostComponents
         new HyperVComponent(),
         new OsLimitedComponent(new KvmComponent(), OperatingSystem.IsLinux),
         new VmDensityComponent(),
+        // Gives the governor its VM directory and control over the VM module. Every VM counts as busy until something can read exec, terminal
+        // and browser activity, so it saves nothing; nothing in the host calls the governor yet either.
+        new VmDensityVmsComponent(),
         new BrowserPoolComponent(),
         new BrowserPoolDisplayComponent(),
         new BrowserPoolLinuxHostComponent(),

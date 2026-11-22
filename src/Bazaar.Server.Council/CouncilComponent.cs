@@ -1,3 +1,5 @@
+using Bazaar.Server.Council.Health;
+using Bazaar.Server.Health;
 using Bazaar.Core;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;
@@ -44,5 +46,7 @@ public sealed class CouncilComponent : IBazaarComponent
             sp.GetRequiredService<ICouncilReasoningCipher>()));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, CouncilSettingContribution>());
         services.AddBazaarCouncilService();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, CouncilHealthFactSource>(sp => new CouncilHealthFactSource(sp.GetRequiredService<NpgsqlDataSource>())));
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, CouncilHealthProjectSource>(sp => new CouncilHealthProjectSource(sp.GetRequiredService<NpgsqlDataSource>())));
     }
 }
