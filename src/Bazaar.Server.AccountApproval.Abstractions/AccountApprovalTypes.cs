@@ -190,7 +190,7 @@ public sealed record Denied(string RequestId, DecisionRule Rule) : AccountApprov
 public sealed record Pending(string RequestId, int Remaining, int Quorum)
     : AccountApprovalDecision(RequestId, DecisionRule.AwaitingPeerApprovals);
 
-/// <summary>Result of the site vote policy (doc 59 section 7, DECISIONS-LOG round 28).</summary>
+/// <summary>Result of the site vote policy (doc 59 section 7, DECISIONS-LOG round 31).</summary>
 public enum SiteAccessOutcome
 {
     /// <summary>Unanimous: the site opens for login-free reading in anonymous profiles, with no owner step.</summary>
