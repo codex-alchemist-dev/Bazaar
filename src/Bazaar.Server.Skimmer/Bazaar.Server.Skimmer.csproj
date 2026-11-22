@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.Skimmer</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+  </ItemGroup>
+</Project>
