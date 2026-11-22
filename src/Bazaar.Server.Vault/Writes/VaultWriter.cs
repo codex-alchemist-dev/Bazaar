@@ -63,6 +63,11 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         ValidateTrailerValue(request.BaseCommit, nameof(request.BaseCommit));
         ValidateOptionalTrailerValue(request.GcId, nameof(request.GcId));
         ValidateOptionalTrailerValue(request.TaskId, nameof(request.TaskId));
+        foreach (var (key, value) in request.ExtraTrailers ?? [])
+        {
+            ValidateTrailerValue(key, nameof(request.ExtraTrailers));
+            ValidateTrailerValue(value, nameof(request.ExtraTrailers));
+        }
 
         using var documentLease = await AcquireAsync(_documentQueues.GetOrAdd(request.DocId, _ => new SemaphoreSlim(1, 1)), ct);
         using var laneLease = await AcquireAsync(_vaultLane, ct);
@@ -165,6 +170,14 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         var message = new StringBuilder($"Merge {request.Branch} into vault");
         message.Append("\n\n");
         AppendTrailers(message, request.AgentId, request.GcId, request.TaskId, request.BaseCommit);
+        if (request.ExtraTrailers is not null)
+        {
+            foreach (var (key, value) in request.ExtraTrailers)
+            {
+                message.Append(key).Append(": ").Append(value).Append('\n');
+            }
+        }
+
         return message.ToString();
     }
 
@@ -349,13 +362,15 @@ public enum VaultEditOutcome
 /// <param name="AgentId">The agent's identity (<c>Bazaar-Agent</c> trailer).</param>
 /// <param name="GcId">The GC the edit belongs to, or null for memory writes (<c>Bazaar-GC</c> trailer).</param>
 /// <param name="TaskId">The task, or null (<c>Bazaar-Task</c> trailer).</param>
+/// <param name="ExtraTrailers">Further trailers for the merge commit, in order (for example offline-write ids); null for none.</param>
 public sealed record VaultEditRequest(
     Guid DocId,
     string BaseCommit,
     string Branch,
     string AgentId,
     string? GcId,
-    string? TaskId);
+    string? TaskId,
+    IReadOnlyList<KeyValuePair<string, string>>? ExtraTrailers = null);
 
 /// <summary>A new decision record. The writer assigns the number and the file path.</summary>
 public sealed record DecisionDraft(Guid DocId, string Slug, string Title, string Body, string AgentId);
