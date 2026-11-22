@@ -156,6 +156,9 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        // The one host IRateLimiter, counted in the cache provider above and falling back to an in-process limiter (doc 15, PROPOSED). It
+        // replaces the limiters other components register with TryAdd, so it wins whatever the order.
+        new Bazaar.RateLimits.Cache.RateLimitsCacheComponent(),
         new KodoServerComponent(),
         new PresenceComponent(),
         new Bazaar.Server.Engines.EnginesComponent(),
