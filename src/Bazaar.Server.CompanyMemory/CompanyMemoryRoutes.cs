@@ -16,9 +16,13 @@ public sealed record RecordDecisionBody(
     IReadOnlyList<string>? Supersedes = null,
     string? DecidedIn = null);
 
+/// <summary>The JSON body of <c>POST /company-memory/pages</c>: a knowledge page without its writer, who is the caller.</summary>
+public sealed record WritePageBody(Guid DocId, string Slug, string Title, string Body, string? GcId = null);
+
 /// <summary>
 /// HTTP routes for Company Memory (doc 25): <c>POST /company-memory/decisions</c> records a decision and
-/// <c>GET /company-memory/decisions/{reference}/chain</c> returns its chain. Bodies are JSON (camelCase).
+/// <c>GET /company-memory/decisions/{reference}/chain</c> returns its chain. <c>POST /company-memory/pages</c> writes a knowledge
+/// page, <c>GET /company-memory/pages</c> lists them and <c>GET /company-memory/pages/{slug}</c> reads one. Bodies are JSON (camelCase).
 /// </summary>
 /// <remarks>
 /// The host supplies <c>guarded</c>: it authenticates the caller, applies its limits and then runs the handler with the
@@ -53,7 +57,77 @@ public static class CompanyMemoryRoutes
         };
         routes.Map("/company-memory/decisions", record).WithMetadata(new HttpMethodMetadata(["POST"]));
         routes.Map("/company-memory/decisions/{**reference}", chain).WithMetadata(new HttpMethodMetadata(["GET"]));
+        RequestDelegate writePage = async http =>
+        {
+            var result = await guarded(http, WritePageAsync);
+            await result.ExecuteAsync(http);
+        };
+        RequestDelegate listPages = async http =>
+        {
+            var result = await guarded(http, ListPagesAsync);
+            await result.ExecuteAsync(http);
+        };
+        RequestDelegate readPage = async http =>
+        {
+            var result = await guarded(http, ReadPageAsync);
+            await result.ExecuteAsync(http);
+        };
+        routes.Map("/company-memory/pages", writePage).WithMetadata(new HttpMethodMetadata(["POST"]));
+        routes.Map("/company-memory/pages", listPages).WithMetadata(new HttpMethodMetadata(["GET"]));
+        routes.Map("/company-memory/pages/{slug}", readPage).WithMetadata(new HttpMethodMetadata(["GET"]));
         return routes;
+    }
+
+    private static async Task<IResult> WritePageAsync(HttpContext http, string callerId)
+    {
+        WritePageBody? body;
+        try
+        {
+            body = await JsonSerializer.DeserializeAsync(http.Request.Body, CompanyMemoryJson.Default.WritePageBody, http.RequestAborted);
+        }
+        catch (JsonException)
+        {
+            return Results.BadRequest();
+        }
+
+        if (body is null)
+        {
+            return Results.BadRequest();
+        }
+
+        try
+        {
+            var memory = http.RequestServices.GetRequiredService<ICompanyMemory>();
+            var written = await memory.WritePageAsync(
+                new WriteKnowledgePageRequest(body.DocId, body.Slug, body.Title, body.Body, callerId, body.GcId), http.RequestAborted);
+            return Results.Text(JsonSerializer.Serialize(written, CompanyMemoryJson.Default.WrittenKnowledgePage), "application/json");
+        }
+        catch (ArgumentException exception)
+        {
+            return Results.Text(exception.Message, "text/plain", statusCode: StatusCodes.Status400BadRequest);
+        }
+        catch (InvalidOperationException exception)
+        {
+            // A path or an id that belongs to another page.
+            return Results.Text(exception.Message, "text/plain", statusCode: StatusCodes.Status409Conflict);
+        }
+    }
+
+    private static async Task<IResult> ListPagesAsync(HttpContext http, string callerId)
+    {
+        var memory = http.RequestServices.GetRequiredService<ICompanyMemory>();
+        var pages = await memory.ListPagesAsync(http.RequestAborted);
+        return Results.Text(JsonSerializer.Serialize(pages, CompanyMemoryJson.Default.IReadOnlyListKnowledgePage), "application/json");
+    }
+
+    private static async Task<IResult> ReadPageAsync(HttpContext http, string callerId)
+    {
+        var slug = http.Request.RouteValues["slug"]?.ToString() ?? string.Empty;
+        var memory = http.RequestServices.GetRequiredService<ICompanyMemory>();
+        var page = await memory.ReadPageAsync(slug, http.RequestAborted);
+        return page is null
+            ? Results.NotFound()
+            : Results.Text(JsonSerializer.Serialize(page, CompanyMemoryJson.Default.KnowledgePage), "application/json");
     }
 
     private static async Task<IResult> RecordAsync(HttpContext http, string callerId)

@@ -47,7 +47,8 @@ public static class StatusEndpoints
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs")
         || path.Equals("/constellation/tiles", StringComparison.Ordinal)
-        || path.Equals("/company-memory/decisions", StringComparison.Ordinal);
+        || path.Equals("/company-memory/decisions", StringComparison.Ordinal)
+        || path.Equals("/company-memory/pages", StringComparison.Ordinal);
 
     /// <summary>
     /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and

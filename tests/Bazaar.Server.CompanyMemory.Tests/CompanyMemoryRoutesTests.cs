@@ -20,7 +20,7 @@ public sealed class CompanyMemoryRoutesTests
         builder.WebHost.UseUrls("http://127.0.0.1:0");
         builder.Logging.ClearProviders();
         builder.Services.AddSingleton<ICompanyDecisionStore>(sp => sp.GetRequiredService<RecordingStore>());
-        builder.Services.AddSingleton<ICompanyMemory>(sp => new CompanyMemoryService(sp.GetRequiredService<ICompanyDecisionStore>()));
+        builder.Services.AddSingleton<ICompanyMemory>(sp => new CompanyMemoryService(sp.GetRequiredService<ICompanyDecisionStore>(), pages: new InMemoryKnowledgePageStore()));
         builder.Services.AddSingleton<RecordingStore>();
         var app = builder.Build();
         app.MapCompanyMemory(guard);
@@ -106,6 +106,45 @@ public sealed class CompanyMemoryRoutesTests
             var ct = TestContext.Current.CancellationToken;
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/company-memory/decisions", Json("a"), ct)).StatusCode);
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/company-memory/decisions/0001/chain", ct)).StatusCode);
+        }
+    }
+
+    private static StringContent Page(Guid id, string slug, string body) =>
+        new($$"""{"docId":"{{id}}","slug":"{{slug}}","title":"T","body":"{{body}}","agentId":"someone-else"}""", Encoding.UTF8, "application/json");
+
+    [Fact]
+    public async Task Pages_are_written_listed_and_read_over_http()
+    {
+        var (app, client) = await StartAsync(Allow);
+        await using (app)
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var id = Guid.NewGuid();
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsync("/company-memory/pages", Page(id, "onboarding", "Welcome."), ct)).StatusCode);
+
+            var read = await client.GetAsync("/company-memory/pages/onboarding", ct);
+            using var one = JsonDocument.Parse(await read.Content.ReadAsStringAsync(ct));
+            var list = await client.GetAsync("/company-memory/pages", ct);
+            using var all = JsonDocument.Parse(await list.Content.ReadAsStringAsync(ct));
+
+            Assert.Equal("Welcome.", one.RootElement.GetProperty("body").GetString());
+            Assert.Equal("onboarding", all.RootElement[0].GetProperty("slug").GetString());
+            Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/company-memory/pages/missing", ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsync("/company-memory/pages", Page(Guid.NewGuid(), "Bad Slug", "x"), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync("/company-memory/pages", Page(Guid.NewGuid(), "onboarding", "Other."), ct)).StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_refusing_guard_blocks_the_page_routes()
+    {
+        var (app, client) = await StartAsync((_, _) => Task.FromResult(Results.StatusCode(401)));
+        await using (app)
+        {
+            var ct = TestContext.Current.CancellationToken;
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsync("/company-memory/pages", Page(Guid.NewGuid(), "a", "x"), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/company-memory/pages", ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/company-memory/pages/a", ct)).StatusCode);
         }
     }
 }

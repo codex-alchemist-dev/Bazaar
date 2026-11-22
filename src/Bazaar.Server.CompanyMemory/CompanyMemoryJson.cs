@@ -9,4 +9,8 @@ namespace Bazaar.Server.CompanyMemory;
 [JsonSerializable(typeof(RecordDecisionBody))]
 [JsonSerializable(typeof(RecordedDecision))]
 [JsonSerializable(typeof(DecisionChainView))]
+[JsonSerializable(typeof(WritePageBody))]
+[JsonSerializable(typeof(WrittenKnowledgePage))]
+[JsonSerializable(typeof(KnowledgePage))]
+[JsonSerializable(typeof(IReadOnlyList<KnowledgePage>))]
 internal sealed partial class CompanyMemoryJson : JsonSerializerContext;

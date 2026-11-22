@@ -53,6 +53,9 @@ public sealed class StatusEndpointsTests
             var memory = await client.PostAsync("/company-memory/decisions", new StringContent(string.Empty), TestContext.Current.CancellationToken);
             Assert.NotEqual(HttpStatusCode.MethodNotAllowed, memory.StatusCode);
 
+            var pages = await client.PostAsync("/company-memory/pages", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, pages.StatusCode);
+
             var delete = await client.DeleteAsync("/blobs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, delete.StatusCode);
         }
