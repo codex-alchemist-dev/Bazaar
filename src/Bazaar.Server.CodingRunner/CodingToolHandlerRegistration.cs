@@ -11,15 +11,21 @@ namespace Bazaar.Server.CodingRunner;
 public static class CodingToolHandlerRegistration
 {
     /// <summary>
-    /// Registers one <see cref="ICodingToolHandler"/> per tool: <c>search</c>, <c>repo_map</c>, <c>git_diff</c>, <c>git_commit</c>,
-    /// <c>git_push_draft_pr</c>, <c>review</c> and <c>subagent_spawn</c>. The services they wrap and the
-    /// <see cref="ICodingToolHostContext"/> come from the host; none is defaulted, so a missing one fails resolution instead of
-    /// running a tool unguarded. The edit handler is registered separately by the host.
+    /// Registers one <see cref="ICodingToolHandler"/> per tool: <c>read</c>, <c>list</c>, <c>search</c>, <c>repo_map</c>, <c>git_diff</c>,
+    /// <c>git_commit</c>, <c>git_push_draft_pr</c>, <c>review</c> and <c>subagent_spawn</c>. The services they wrap, the
+    /// <see cref="ICodingToolHostContext"/> and the <see cref="IWorktreeFilesSource"/> come from the host; none is defaulted, so a
+    /// missing one fails resolution instead of running a tool unguarded. The edit handler is registered separately by the host.
     /// </summary>
     public static IServiceCollection AddBazaarCodingToolHandlers(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.AddSingleton<ICodingToolHandler>(sp => new ReadToolHandler(
+            sp.GetRequiredService<IWorktreeFilesSource>(),
+            sp.GetRequiredService<ICodingToolHostContext>()));
+        services.AddSingleton<ICodingToolHandler>(sp => new ListToolHandler(
+            sp.GetRequiredService<IWorktreeFilesSource>(),
+            sp.GetRequiredService<ICodingToolHostContext>()));
         services.AddSingleton<ICodingToolHandler>(sp => new SearchToolHandler(sp.GetRequiredService<ISearchTool>()));
         services.AddSingleton<ICodingToolHandler>(sp => new RepoMapToolHandler(sp.GetRequiredService<IRepoMapBuilder>()));
         services.AddSingleton<ICodingToolHandler>(sp => new GitDiffToolHandler(
