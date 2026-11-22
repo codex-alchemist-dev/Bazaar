@@ -25,7 +25,7 @@ public class WireCodecGeneratorTests
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] Files, string Text) Run(string source)
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location) && a.GetName().Name != "Bazaar.Contracts")
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
         var compilation = CSharpCompilation.Create(
@@ -68,6 +68,40 @@ public class WireCodecGeneratorTests
     }
 
     [Fact]
+    public void The_msgpack_target_emits_direct_reader_and_writer_code_with_the_same_keys()
+    {
+        var (diagnostics, files, text) = Run("""
+            using Bazaar.Contracts.Wire;
+            [assembly: Bazaar.Wire.Generators.GenerateWireCodec("msgpack")]
+            [WirePayload("a.one")] public sealed record A(int FirstValue, string? Name);
+            """);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("WireMsgPack.g.cs", files);
+        Assert.DoesNotContain("WireCbor.g.cs", files);
+        Assert.Contains("class WireMsgPackPayloads", text);
+        Assert.Contains("\"firstValue\"u8", text);
+        Assert.Contains("\"name\"u8", text);
+        Assert.DoesNotContain("Typeless", text);
+        Assert.DoesNotContain("MessagePackSerializer", text);
+    }
+
+    [Fact]
+    public void Both_targets_can_be_requested_together()
+    {
+        var (diagnostics, files, _) = Run("""
+            using Bazaar.Contracts.Wire;
+            [assembly: Bazaar.Wire.Generators.GenerateWireCodec("cbor")]
+            [assembly: Bazaar.Wire.Generators.GenerateWireCodec("msgpack")]
+            [WirePayload] public sealed record A(int X);
+            """);
+
+        Assert.Empty(diagnostics);
+        Assert.Contains("WireCbor.g.cs", files);
+        Assert.Contains("WireMsgPack.g.cs", files);
+    }
+
+    [Fact]
     public void Output_is_stable_between_runs()
     {
         const string Source = "using Bazaar.Contracts.Wire;\n" + _optIn + "\n[WirePayload] public sealed record A(int X); [WirePayload] public sealed record B(string Y);";
@@ -103,7 +137,7 @@ public class WireCodecGeneratorTests
     public void A_missing_contracts_marker_is_reported()
     {
         var references = AppDomain.CurrentDomain.GetAssemblies()
-            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
+            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location) && a.GetName().Name != "Bazaar.Contracts")
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
         var compilation = CSharpCompilation.Create("NoContracts", [CSharpSyntaxTree.ParseText(_optIn, cancellationToken: TestContext.Current.CancellationToken)], references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
