@@ -111,6 +111,8 @@ public sealed class GitWorkspaceAdaptersTests : IDisposable
         public Task PostReviewAsync(PrRef pr, ReviewRequest review, CancellationToken cancellationToken) => throw new NotImplementedException();
 
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => throw new NotImplementedException();
+
+        public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 
     private static readonly CodingRepoBinding _binding = new("/srv/repos/repo1", 11, "acme", "repo1", 99);
