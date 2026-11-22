@@ -41,6 +41,14 @@ public sealed unsafe partial class NodeBenchmark
     public const int ScreenHeight = 720;
     public const int ScreenCells = ScreenWidth * ScreenHeight;
 
+    /// <summary>Decimation grid: one cell per 2x2 pixels.</summary>
+    public const int CellsX = ScreenWidth / 2;
+
+    public const int CellsY = ScreenHeight / 2;
+
+    /// <summary>Survivor buffer: 8 header words (draw-indirect command, occupancy counter) then one word per survivor.</summary>
+    public const long SurvivorBytes = (8L + 2_100_000) * 4;
+
     /// <summary>Voxels per axis for the aggregate grid: 2048 x 2048 in 2D, 160 x 160 x 160 in 3D (16 MiB each).</summary>
     public static int AggregateGrid(int dim) => dim == 2 ? 2048 : 160;
 
@@ -64,11 +72,20 @@ public sealed unsafe partial class NodeBenchmark
     private VkPipeline _reprojectPipeline;
     private VkBuffer _voxelBuffer;
     private VkDeviceMemory _voxelMemory;
+    private VkBuffer _survivorBuffer;
+    private VkDeviceMemory _survivorMemory;
+    private VkBuffer _hostReadback;
+    private VkDeviceMemory _hostReadbackMemory;
+    private uint* _hostReadbackMapped;
+    private VkPipeline _claimPipeline;
+    private VkPipeline _selectPipeline;
+    private VkPipeline _occupancyPipeline;
+    private VkPipeline _pointsIndirectPipeline;
     private VkBuffer _screenBuffer;
     private VkDeviceMemory _screenMemory;
 
     /// <summary>Bytes of GPU memory the topology benchmark allocated (voxel grid plus screen grid).</summary>
-    public static long TopologyGpuBytes => (AggregateCells(2) * 4) + (ScreenCells * 4L);
+    public static long TopologyGpuBytes => (AggregateCells(2) * 4) + (ScreenCells * 4L) + SurvivorBytes;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct TopoPush
@@ -98,22 +115,24 @@ public sealed unsafe partial class NodeBenchmark
         // Voxel grid is sized for the larger of the 2D and 3D aggregates (both are 16 MiB).
         _voxelBuffer = CreateStorageBuffer((ulong)(AggregateCells(2) * 4), out _voxelMemory);
         _screenBuffer = CreateStorageBuffer((ulong)(ScreenCells * 4L), out _screenMemory);
+        _survivorBuffer = CreateStorageBuffer((ulong)SurvivorBytes, out _survivorMemory, VkBufferUsageFlags.IndirectBuffer | VkBufferUsageFlags.TransferSrc);
+        CreateHostReadback();
 
-        var bindings = stackalloc VkDescriptorSetLayoutBinding[2];
-        for (uint b = 0; b < 2; b++)
+        var bindings = stackalloc VkDescriptorSetLayoutBinding[3];
+        for (uint b = 0; b < 3; b++)
         {
             bindings[b] = new VkDescriptorSetLayoutBinding
             {
                 binding = b,
                 descriptorType = VkDescriptorType.StorageBuffer,
                 descriptorCount = 1,
-                stageFlags = VkShaderStageFlags.Compute | VkShaderStageFlags.Fragment,
+                stageFlags = b == 2 ? VkShaderStageFlags.Compute | VkShaderStageFlags.Vertex : VkShaderStageFlags.Compute | VkShaderStageFlags.Fragment,
             };
         }
 
-        var layoutInfo = new VkDescriptorSetLayoutCreateInfo { sType = VkStructureType.DescriptorSetLayoutCreateInfo, bindingCount = 2, pBindings = bindings };
+        var layoutInfo = new VkDescriptorSetLayoutCreateInfo { sType = VkStructureType.DescriptorSetLayoutCreateInfo, bindingCount = 3, pBindings = bindings };
         Check(_deviceApi.vkCreateDescriptorSetLayout(&layoutInfo, null, out _topoSetLayout), "vkCreateDescriptorSetLayout(topology)");
-        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 2 };
+        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 3 };
         var poolInfo = new VkDescriptorPoolCreateInfo { sType = VkStructureType.DescriptorPoolCreateInfo, maxSets = 1, poolSizeCount = 1, pPoolSizes = &poolSize };
         Check(_deviceApi.vkCreateDescriptorPool(&poolInfo, null, out _topoPool), "vkCreateDescriptorPool(topology)");
         VkDescriptorSetLayout setLayout = _topoSetLayout;
@@ -122,11 +141,12 @@ public sealed unsafe partial class NodeBenchmark
         Check(_deviceApi.vkAllocateDescriptorSets(&allocate, &set), "vkAllocateDescriptorSets(topology)");
         _topoSet = set;
 
-        var infos = stackalloc VkDescriptorBufferInfo[2];
+        var infos = stackalloc VkDescriptorBufferInfo[3];
         infos[0] = new VkDescriptorBufferInfo { buffer = _voxelBuffer, offset = 0, range = (ulong)(AggregateCells(2) * 4) };
         infos[1] = new VkDescriptorBufferInfo { buffer = _screenBuffer, offset = 0, range = (ulong)(ScreenCells * 4L) };
-        var writes = stackalloc VkWriteDescriptorSet[2];
-        for (uint b = 0; b < 2; b++)
+        infos[2] = new VkDescriptorBufferInfo { buffer = _survivorBuffer, offset = 0, range = (ulong)SurvivorBytes };
+        var writes = stackalloc VkWriteDescriptorSet[3];
+        for (uint b = 0; b < 3; b++)
         {
             writes[b] = new VkWriteDescriptorSet
             {
@@ -139,7 +159,7 @@ public sealed unsafe partial class NodeBenchmark
             };
         }
 
-        _deviceApi.vkUpdateDescriptorSets(2, writes, 0, null);
+        _deviceApi.vkUpdateDescriptorSets(3, writes, 0, null);
 
         var pushRange = new VkPushConstantRange
         {
@@ -163,18 +183,22 @@ public sealed unsafe partial class NodeBenchmark
         _shadePipeline = CreateTopoGraphics(Module("shade.vert"), Module("shade.frag"), VkPrimitiveTopology.TriangleList, false);
         _edgesLodPipeline = CreateTopoGraphics(Module("edges_lod.vert"), Module("flat.frag"), VkPrimitiveTopology.LineList, true);
         _edgeBinPipeline = CreateTopoCompute(Module("edgebin.comp"));
+        _claimPipeline = CreateTopoCompute(Module("claim.comp"));
+        _selectPipeline = CreateTopoCompute(Module("select.comp"));
+        _occupancyPipeline = CreateTopoCompute(Module("occupancy.comp"));
+        _pointsIndirectPipeline = CreateTopoGraphics(Module("points_indirect.vert"), Module("flat.frag"), VkPrimitiveTopology.PointList, false);
         _splatPipeline = CreateTopoCompute(Module("splat.comp"));
         _binPipeline = CreateTopoCompute(Module("bin.comp"));
         _reprojectPipeline = CreateTopoCompute(Module("reproject.comp"));
     }
 
-    private VkBuffer CreateStorageBuffer(ulong size, out VkDeviceMemory memory)
+    private VkBuffer CreateStorageBuffer(ulong size, out VkDeviceMemory memory, VkBufferUsageFlags extra = 0)
     {
         var info = new VkBufferCreateInfo
         {
             sType = VkStructureType.BufferCreateInfo,
             size = size,
-            usage = VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst,
+            usage = VkBufferUsageFlags.StorageBuffer | VkBufferUsageFlags.TransferDst | extra,
             sharingMode = VkSharingMode.Exclusive,
         };
         Check(_deviceApi.vkCreateBuffer(&info, null, out VkBuffer buffer), "vkCreateBuffer(topology)");
@@ -394,10 +418,15 @@ public sealed unsafe partial class NodeBenchmark
     // ---- frames ----
 
     /// <summary>Points at <paramref name="instances"/> sampled nodes plus <paramref name="edges"/> line segments, both generated from the node index.</summary>
-    public CellStats MeasureDraw(Topology topology, int dim, long n, Viewpoint view, int instances, int edges, int warmup, int measured, float lodMinPixels = 0f, float lodMaxPixels = 0f) =>
+    public CellStats MeasureDraw(Topology topology, int dim, long n, Viewpoint view, int instances, int edges, int warmup, int measured, float lodMinPixels = 0f, float lodMaxPixels = 0f, float pointSizeOverride = 0f) =>
         Measure(warmup, measured, ["points", "edges"], () =>
         {
             TopoPush push = MakeTopoPush(topology, dim, n, view);
+            if (pointSizeOverride > 0f)
+            {
+                push.PointSize = pointSizeOverride;
+            }
+
             return RunSegment((cb, stamp) =>
             {
                 BeginTopoRendering(cb);
@@ -476,7 +505,7 @@ public sealed unsafe partial class NodeBenchmark
     /// Per-frame aggregate path: clear the screen grid, project every non-empty voxel into it, shade it, then draw sampled edges.
     /// Needs <see cref="BuildAggregate"/> first. Cost does not depend on the node count.
     /// </summary>
-    public CellStats MeasureAggregate(Topology topology, int dim, long n, Viewpoint view, int edges, int warmup, int measured) =>
+    public CellStats MeasureAggregate(Topology topology, int dim, long n, Viewpoint view, int edges, int warmup, int measured, float lodMinPixels = 0f, float lodMaxPixels = 0f) =>
         Measure(warmup, measured, ["clear", "reproject", "shade", "edges"], () =>
         {
             TopoPush push = MakeTopoPush(topology, dim, n, view);
@@ -496,7 +525,7 @@ public sealed unsafe partial class NodeBenchmark
                 ComputeBarrier(cb, _screenBuffer, (ulong)(ScreenCells * 4L), VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.FragmentShader,
                     VkAccessFlags.ShaderWrite, VkAccessFlags.ShaderRead);
                 stamp();
-                DrawShadeAndEdges(cb, push, n, edges, stamp);
+                DrawShadeAndEdges(cb, push, n, edges, stamp, lodMinPixels, lodMaxPixels);
             });
         });
 
@@ -514,7 +543,7 @@ public sealed unsafe partial class NodeBenchmark
         });
     }
 
-    private void DrawShadeAndEdges(VkCommandBuffer cb, TopoPush push, long n, int edges, Action stamp)
+    private void DrawShadeAndEdges(VkCommandBuffer cb, TopoPush push, long n, int edges, Action stamp, float lodMinPixels = 0f, float lodMaxPixels = 0f)
     {
         push.C = ScreenWidth;
         BeginTopoRendering(cb);
@@ -523,10 +552,7 @@ public sealed unsafe partial class NodeBenchmark
         _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, _shadePipeline);
         _deviceApi.vkCmdDraw(cb, 3, 1, 0, 0);
         stamp();
-        push.Stride = (uint)Math.Max(1, edges > 0 ? n / edges : 1);
-        Push(cb, push);
-        _deviceApi.vkCmdBindPipeline(cb, VkPipelineBindPoint.Graphics, _edgesPipeline);
-        _deviceApi.vkCmdDraw(cb, (uint)edges * 2, 1, 0, 0);
+        DrawEdges(cb, push, n, edges, lodMinPixels, lodMaxPixels);
         stamp();
         _deviceApi.vkCmdEndRendering(cb);
     }
