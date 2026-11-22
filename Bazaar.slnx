@@ -109,6 +109,8 @@
     <Project Path="tests/Bazaar.Server.Git.Tests/Bazaar.Server.Git.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Git.GitLab/Bazaar.Server.Git.GitLab.csproj" />
     <Project Path="tests/Bazaar.Server.Git.GitLab.Tests/Bazaar.Server.Git.GitLab.Tests.csproj" />
+    <Project Path="src/Bazaar.Server.Git.GitHub/Bazaar.Server.Git.GitHub.csproj" />
+    <Project Path="tests/Bazaar.Server.Git.GitHub.Tests/Bazaar.Server.Git.GitHub.Tests.csproj" />
     <Project Path="src/Bazaar.Client.GitGui/Bazaar.Client.GitGui.csproj" />
     <Project Path="tests/Bazaar.Client.GitGui.Tests/Bazaar.Client.GitGui.Tests.csproj" />
     <Project Path="src/Bazaar.Client.GitGui.Github/Bazaar.Client.GitGui.Github.csproj" />
