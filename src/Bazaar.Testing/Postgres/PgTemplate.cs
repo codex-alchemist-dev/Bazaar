@@ -115,7 +115,7 @@ public sealed class PgTemplate
             {
                 try
                 {
-                    await ExecAdminAsync(_source, $"CREATE DATABASE \"{name}\" TEMPLATE \"{Name}\"").ConfigureAwait(false);
+                    await CreateCloneAsync(name).ConfigureAwait(false);
                     return name;
                 }
                 catch (PostgresException ex) when (ex.SqlState == "55006" && attempt < 20)
@@ -127,6 +127,37 @@ public sealed class PgTemplate
         finally
         {
             _cloneLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// CREATE DATABASE ... TEMPLATE forces a checkpoint, and test processes for different projects run at the same time against
+    /// one server, each with its own template. A server-wide advisory lock lets only one clone run at a time across all of them,
+    /// so the checkpoints queue instead of piling up and starving every other command on the server.
+    /// </summary>
+    private const long _cloneAdvisoryLockKey = 0x42415A_434C4F4E; // "BAZ" "CLON"
+
+    private async Task CreateCloneAsync(string name)
+    {
+        await using var conn = new NpgsqlConnection(_source.AdminConnectionString);
+        await conn.OpenAsync().ConfigureAwait(false);
+        await using (var lockCmd = new NpgsqlCommand("SELECT pg_advisory_lock(@k)", conn))
+        {
+            lockCmd.Parameters.AddWithValue("k", _cloneAdvisoryLockKey);
+            await lockCmd.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+
+        try
+        {
+            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{name}\" TEMPLATE \"{Name}\"", conn);
+            await create.ExecuteNonQueryAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            // The lock is session-level and the connection is not pooled, so closing it releases the lock even if this fails.
+            await using var unlock = new NpgsqlCommand("SELECT pg_advisory_unlock(@k)", conn);
+            unlock.Parameters.AddWithValue("k", _cloneAdvisoryLockKey);
+            try { await unlock.ExecuteNonQueryAsync().ConfigureAwait(false); } catch (NpgsqlException) { }
         }
     }
 
