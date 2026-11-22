@@ -187,6 +187,7 @@ Steps, each its own PR:
 3. **Move.** `git mv src/Bazaar.Server/Gc` to `src/Bazaar.Server.Gc`; it references `Bazaar.GC.Abstractions`, `Bazaar.Souls.Abstractions` and, until Wire and Identity are extracted, `Bazaar.Server`. `Bazaar.Server` must not reference `Bazaar.Server.Gc`; the Host composes it. `GcComponent` becomes the module entry point.
 4. **Guard.** A layering test in `tests/Bazaar.Architecture.Tests`: no project other than `Bazaar.Server.Gc`, the Host and tests references `Bazaar.Server.Gc`; every other consumer references `Bazaar.GC.Abstractions` only. The architecture baseline shrinks by the moved files.
 5. **Module contracts owed by other modules.** The GC module exposes `IGcProvisioner` in `Bazaar.GC.Abstractions` (PROPOSED with the Time Machine thread, 2026-11-20): `CreateProjectGcAsync(gcId, title, owner, ct)` makes a `project` GC with no parent, no link metadata and the owner as only member, idempotent on `gcId` (derive it with `GcCreateService.DeterministicGcId(requestId)`). The Time Machine's Host adapter implements `IForkTargetProvisioner` on top of it and records the link in its own `fork_link` table, so the GC module never depends on the Time Machine. The same seam carries `CreateAsync(gcId, typeKey, title, owner, metadata)`, `FindAsync(typeKey, ownerId, metadataKey, metadataValue)` and `AddMemberAsync(gcId, member)` (idempotent), so modules such as mail onboarding create and find their own GCs (for example an `inbox` GC keyed by `mail.mailbox_id`) without reading `gc` or `gc_member` directly. `GcEvent` `MessageId`, `Version` and `TargetSeq` stay stable for replay.
+   The GC side of Archive cold storage lives in `Bazaar.Server.Gc.Archive` (PROPOSED, 2026-11-22): `PgGcArchiveBridge` implements `IGcArchiveBridge` (message text through `IGcBodyCodec`, the Thinking-GC flag, and the `archived_at` stamp after one `archived` system event, retry-safe) and the public `IGcMessageTextSource` (`Bazaar.GC.Abstractions`, opens one message version's text; the caller checks access), and `PgProjectGcLister` implements `IProjectGcLister` (a project id is the project GC's id; it lists that GC and the GCs below it, leaving out Thinking GCs). `AppendResult.MessageId` returns the message an append wrote, so writers need no second read.
 
 Order: step 1 first (unblocks the Agents extraction), then steps 2 to 4 once Agents is out of `Bazaar.Server`, so the two moves do not conflict.
 
@@ -288,3 +289,11 @@ Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), wit
 
 - `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
 - `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
+
+## Bazaar Archive cold storage module (doc 25, [PROPOSED])
+
+Docs section this implements: doc 25 "Archive cold storage".
+
+`Bazaar.Archive.Abstractions` holds `IArchiveSource`, `IArchiveStore`, `IArchiveRestoreTarget`, `IArchiveSearchIndex` and the manifest types. `Bazaar.Archive` holds the archiver, verifier, restorer, the directory store, an in-memory search index and `ArchiveComponent` (id `archive`). It references only Bazaar.Core and its own Abstractions. Source and restore adapters for GCs and projects come from the modules that own that data.
+
+`Bazaar.Archive.Gc` holds the GC and project source adapters (`GcArchiveSource`, `ProjectArchiveSource`) over `IGcLogReader`. Three things the GC owner must still implement through `IGcArchiveBridge` and `IProjectGcLister`: message text opening, the Thinking GC flag, and the `archived_at` system event. `ArchiveComponent` is registered in `HostComponents`.

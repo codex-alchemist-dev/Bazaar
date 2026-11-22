@@ -108,4 +108,5 @@ public sealed record AppendRequest(
 /// <param name="EventId">The event's id.</param>
 /// <param name="Duplicate">True when the idempotency key had been used and this is the original event.</param>
 /// <param name="CreatedAt">When the original event was written.</param>
-public sealed record AppendResult(Guid GcId, long Seq, Guid EventId, bool Duplicate, DateTimeOffset CreatedAt);
+/// <param name="MessageId">The message the event wrote or edited, or null for an event that carries no message. A repeat returns the original's.</param>
+public sealed record AppendResult(Guid GcId, long Seq, Guid EventId, bool Duplicate, DateTimeOffset CreatedAt, Guid? MessageId = null);
