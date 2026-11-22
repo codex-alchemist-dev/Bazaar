@@ -22,7 +22,7 @@ public enum DmAccessStatus
 }
 
 /// <summary>A DM access request (<c>gc_access_request</c>).</summary>
-public sealed record DmAccessRequest(Guid Id, Guid GcId, Guid Requester, DmAccessStatus Status, Guid? DecidedBy, DateTimeOffset CreatedAt);
+public sealed record DmAccessRequest(Guid Id, Guid GcId, Guid Requester, DmAccessStatus Status, Guid? DecidedBy, DateTimeOffset CreatedAt, long? DecidedSeq = null);
 
 /// <summary>Who may decide a request. Mirrors the setting <c>gc.dm_access_approvers</c>; the owner is always an approver.</summary>
 public enum DmApprovers
@@ -39,6 +39,20 @@ public enum DmApprovers
 /// <param name="ShowOwnerReadMarker">The value of <c>privacy.owner_dm_read_marker</c>; default on.</param>
 public sealed record DmAccessOptions(DmApprovers Approvers = DmApprovers.Owner, bool ShowOwnerReadMarker = true);
 
+/// <summary>Supplies the settings the flow reads, fresh on each call so a change of setting applies at once.</summary>
+public interface IDmAccessOptionsSource
+{
+    /// <summary>The current options.</summary>
+    ValueTask<DmAccessOptions> GetAsync(CancellationToken ct);
+}
+
+/// <summary>An <see cref="IDmAccessOptionsSource"/> that always returns the same options.</summary>
+public sealed class StaticDmAccessOptionsSource(DmAccessOptions options) : IDmAccessOptionsSource
+{
+    /// <inheritdoc />
+    public ValueTask<DmAccessOptions> GetAsync(CancellationToken ct) => ValueTask.FromResult(options);
+}
+
 /// <summary>Storage of requests. The Postgres form sits over <c>gc_access_request</c>.</summary>
 public interface IDmAccessLedger
 {
@@ -53,6 +67,12 @@ public interface IDmAccessLedger
 
     /// <summary>Resolves a pending request once. Returns false when it is unknown or already resolved.</summary>
     Task<bool> ResolveAsync(Guid requestId, DmAccessStatus decision, Guid decidedBy, DateTimeOffset at, CancellationToken ct);
+
+    /// <summary>
+    /// Records the seq of the grant's <c>system</c> event on a resolved request. A grant reads forward from this seq (doc 32), and an
+    /// approved request without one grants nothing, so the read fails closed until this call lands.
+    /// </summary>
+    Task SetDecidedSeqAsync(Guid requestId, long seq, CancellationToken ct);
 }
 
 /// <summary>Finds a DM. Returns null when the GC does not exist or is not a DM.</summary>
@@ -65,8 +85,8 @@ public interface IDmDirectory
 /// <summary>Writes the <c>system</c> event in the DM's log for a request or a decision, so both members see it.</summary>
 public interface IDmAccessEvents
 {
-    /// <summary>Appends one system event. <paramref name="kind"/> is <c>access_requested</c>, <c>access_granted</c> or <c>access_denied</c>.</summary>
-    Task AppendAsync(Guid gcId, string kind, Guid requestId, Guid requester, Guid actor, CancellationToken ct);
+    /// <summary>Appends one system event and returns its seq. <paramref name="kind"/> is <c>access_requested</c>, <c>access_granted</c> or <c>access_denied</c>.</summary>
+    Task<long> AppendAsync(Guid gcId, string kind, Guid requestId, Guid requester, Guid actor, CancellationToken ct);
 }
 
 /// <summary>What happened to a request or a decision.</summary>

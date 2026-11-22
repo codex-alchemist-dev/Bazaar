@@ -21,7 +21,7 @@ public class DmAccessServiceTests
         public readonly DmAccessService Service;
 
         public Rig(DmAccessOptions? options = null) =>
-            Service = new DmAccessService(new FakeDirectory(), Ledger, Events, Audit, options, new FakeTimeProvider(new DateTimeOffset(2026, 11, 22, 12, 0, 0, TimeSpan.Zero)));
+            Service = new DmAccessService(new FakeDirectory(), Ledger, Events, Audit, new StaticDmAccessOptionsSource(options ?? new DmAccessOptions()), new FakeTimeProvider(new DateTimeOffset(2026, 11, 22, 12, 0, 0, TimeSpan.Zero)));
     }
 
     private sealed class FakeDirectory : IDmDirectory
@@ -55,16 +55,23 @@ public class DmAccessServiceTests
             Rows[i] = Rows[i] with { Status = decision, DecidedBy = decidedBy };
             return Task.FromResult(true);
         }
+
+        public Task SetDecidedSeqAsync(Guid requestId, long seq, CancellationToken ct)
+        {
+            var i = Rows.FindIndex(r => r.Id == requestId);
+            Rows[i] = Rows[i] with { DecidedSeq = seq };
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeEvents : IDmAccessEvents
     {
         public readonly List<string> Kinds = [];
 
-        public Task AppendAsync(Guid gcId, string kind, Guid requestId, Guid requester, Guid actor, CancellationToken ct)
+        public Task<long> AppendAsync(Guid gcId, string kind, Guid requestId, Guid requester, Guid actor, CancellationToken ct)
         {
             Kinds.Add(kind);
-            return Task.CompletedTask;
+            return Task.FromResult(100L + Kinds.Count);
         }
     }
 
@@ -140,6 +147,21 @@ public class DmAccessServiceTests
         Assert.Equal(DmReadBasis.Grant, read.Basis);
         Assert.Contains("access_granted", rig.Events.Kinds);
         Assert.Contains(rig.Audit.Entries, e => e.Kind == "dm.access.granted" && e.Actor == _owner.Id.ToString("D"));
+    }
+
+    [Fact]
+    public async Task A_grant_records_the_seq_of_its_system_event_and_a_grant_without_one_reads_nothing()
+    {
+        var rig = new Rig();
+        var request = (await rig.Service.RequestAsync(_carol, _gc, Ct)).Request!;
+
+        var result = await rig.Service.DecideAsync(_owner, request.Id, approve: true, Ct);
+
+        Assert.Equal(102L, result.Request!.DecidedSeq);
+        Assert.Equal(102L, rig.Ledger.Rows[0].DecidedSeq);
+
+        rig.Ledger.Rows[0] = rig.Ledger.Rows[0] with { DecidedSeq = null };
+        Assert.False((await rig.Service.AuthorizeReadAsync(_carol, _gc, Ct)).Allowed);
     }
 
     [Fact]

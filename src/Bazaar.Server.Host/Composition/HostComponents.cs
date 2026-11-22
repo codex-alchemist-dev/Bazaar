@@ -18,6 +18,7 @@ using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcMetadata;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -45,6 +46,7 @@ public static class HostComponents
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcMetadataComponent(),
         new CompanyComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),

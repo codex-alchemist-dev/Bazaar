@@ -60,6 +60,8 @@ public static class HostApplicationExtensions
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
         services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
+        // The DM access flow reads gc.dm_access_approvers live from the settings store. Registered first, so the gc-metadata component keeps it.
+        services.TryAddSingleton<Bazaar.Server.GcMetadata.IDmAccessOptionsSource, Components.GcMetadata.SettingsDmAccessOptionsSource>();
         services.AddBazaarComponents(configuration, HostComponents.All);
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();

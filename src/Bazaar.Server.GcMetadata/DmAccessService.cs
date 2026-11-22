@@ -13,10 +13,10 @@ public sealed class DmAccessService(
     IDmAccessLedger ledger,
     IDmAccessEvents events,
     IAuditLog audit,
-    DmAccessOptions? options = null,
+    IDmAccessOptionsSource? options = null,
     TimeProvider? time = null) : IDmAccessService, IDmReadAuthorizer
 {
-    private readonly DmAccessOptions _options = options ?? new DmAccessOptions();
+    private readonly IDmAccessOptionsSource _options = options ?? new StaticDmAccessOptionsSource(new DmAccessOptions());
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <inheritdoc />
@@ -57,7 +57,8 @@ public sealed class DmAccessService(
         if (dm is null)
             return new DmAccessResult(DmAccessOutcome.NotADm, request);
 
-        if (!MayDecide(decider, dm, request))
+        var settings = await _options.GetAsync(ct).ConfigureAwait(false);
+        if (!MayDecide(decider, dm, request, settings))
         {
             await WriteAuditAsync(now, decider, "dm.access.refused", request.GcId, request.Id, request.Requester, ct).ConfigureAwait(false);
             return new DmAccessResult(DmAccessOutcome.NotAllowed, request);
@@ -67,9 +68,10 @@ public sealed class DmAccessService(
         if (!await ledger.ResolveAsync(requestId, status, decider.Id, now, ct).ConfigureAwait(false))
             return new DmAccessResult(DmAccessOutcome.NotPending, request);
 
-        await events.AppendAsync(request.GcId, approve ? "access_granted" : "access_denied", request.Id, request.Requester, decider.Id, ct).ConfigureAwait(false);
+        var seq = await events.AppendAsync(request.GcId, approve ? "access_granted" : "access_denied", request.Id, request.Requester, decider.Id, ct).ConfigureAwait(false);
+        await ledger.SetDecidedSeqAsync(request.Id, seq, ct).ConfigureAwait(false);
         await WriteAuditAsync(now, decider, approve ? "dm.access.granted" : "dm.access.denied", request.GcId, request.Id, request.Requester, ct).ConfigureAwait(false);
-        return new DmAccessResult(approve ? DmAccessOutcome.Granted : DmAccessOutcome.Denied, request with { Status = status, DecidedBy = decider.Id });
+        return new DmAccessResult(approve ? DmAccessOutcome.Granted : DmAccessOutcome.Denied, request with { Status = status, DecidedBy = decider.Id, DecidedSeq = seq });
     }
 
     /// <inheritdoc />
@@ -85,22 +87,24 @@ public sealed class DmAccessService(
         if (viewer.Kind == PrincipalKind.Owner)
         {
             await WriteAuditAsync(_time.GetUtcNow(), viewer, "dm.owner_read", gcId, null, null, ct).ConfigureAwait(false);
-            return new DmReadDecision(true, DmReadBasis.Owner, _options.ShowOwnerReadMarker);
+            var settings = await _options.GetAsync(ct).ConfigureAwait(false);
+            return new DmReadDecision(true, DmReadBasis.Owner, settings.ShowOwnerReadMarker);
         }
 
+        // A grant reads forward from its decided seq only; one still missing its seq grants nothing yet (doc 32).
         var granted = (await ledger.ListAsync(gcId, ct).ConfigureAwait(false))
-            .Any(r => r.Requester == viewer.Id && r.Status == DmAccessStatus.Approved);
+            .Any(r => r.Requester == viewer.Id && r.Status == DmAccessStatus.Approved && r.DecidedSeq is not null);
         return granted ? new DmReadDecision(true, DmReadBasis.Grant, false) : new DmReadDecision(false, DmReadBasis.None, false);
     }
 
     // The owner always decides. A member decides only when the setting allows it, never for their own request. An agent never decides.
-    private bool MayDecide(DmActor decider, DmInfo dm, DmAccessRequest request)
+    private static bool MayDecide(DmActor decider, DmInfo dm, DmAccessRequest request, DmAccessOptions options)
     {
         if (decider.Kind == PrincipalKind.Agent)
             return false;
         if (decider.Kind == PrincipalKind.Owner)
             return true;
-        return _options.Approvers == DmApprovers.OwnerOrDmMember
+        return options.Approvers == DmApprovers.OwnerOrDmMember
             && decider.Id != request.Requester
             && dm.ActiveMembers.Contains(decider.Id);
     }
