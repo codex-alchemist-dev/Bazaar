@@ -12,12 +12,12 @@ namespace Bazaar.Accessibility.Avalonia;
 /// </summary>
 public sealed class WindowChrome
 {
-    private readonly Window _window;
+    private readonly Control _host;
     private readonly ILocaleSource _locale;
 
-    private WindowChrome(Window window, ILocaleSource locale, GatedLiveRegion region)
+    private WindowChrome(Control host, ILocaleSource locale, GatedLiveRegion region)
     {
-        _window = window;
+        _host = host;
         _locale = locale;
         Region = region;
     }
@@ -28,8 +28,8 @@ public sealed class WindowChrome
     /// <summary>The live region; modules announce through <see cref="GatedLiveRegion.Announce"/>.</summary>
     public GatedLiveRegion Region { get; }
 
-    /// <summary>Applies the locale's direction to the window now and on every locale change.</summary>
-    public static WindowChrome Attach(Window window, ILocaleSource locale, AnnouncementGate gate, Func<string, int, string>? withHeldBack = null)
+    /// <summary>Applies the locale's direction to the host (a <see cref="Window"/>, or the main view on Android) now and on every locale change.</summary>
+    public static WindowChrome Attach(Control window, ILocaleSource locale, AnnouncementGate gate, Func<string, int, string>? withHeldBack = null)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentNullException.ThrowIfNull(locale);
@@ -55,7 +55,7 @@ public sealed class WindowChrome
     }
 
     private void ApplyDirection() =>
-        _window.FlowDirection = TextDirectionOf.ForLocale(_locale.Locale) == TextDirection.RightToLeft
+        _host.FlowDirection = TextDirectionOf.ForLocale(_locale.Locale) == TextDirection.RightToLeft
             ? FlowDirection.RightToLeft
             : FlowDirection.LeftToRight;
 }
