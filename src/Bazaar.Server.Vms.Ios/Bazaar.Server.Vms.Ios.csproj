@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Platform-neutral: the module reaches a Mac node only through IMacNodeLink (doc 62 section 6). -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Abstractions\Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.MacNode.Abstractions\Bazaar.Server.Vms.MacNode.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Ios.Abstractions\Bazaar.Server.Vms.Ios.Abstractions.csproj" />
+    <!-- Devices owns the vms.* setting keys the component reads (DeviceProvidersSettings). It does not reference this module. -->
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices\Bazaar.Server.Vms.Devices.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.Ios.Tests" />
+  </ItemGroup>
+</Project>
