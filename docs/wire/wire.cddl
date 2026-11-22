@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -31,6 +31,7 @@ float32-array = #6.85(bstr)
 ; graph.lod = graph-lod-frame
 ; hello = hello
 ; lagged = lagged
+; pane.frame = pane-frame
 ; ping = ping
 ; pong = pong
 ; resync = resync
@@ -42,7 +43,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
@@ -320,6 +321,10 @@ lagged = {
   lastSent: int,  ; 2
   * tstr => any
 }
+pane-frame = {
+  frame: tstr,  ; 1
+  * tstr => any
+}
 ping = {
   ? nonce: tstr,  ; 1
   * tstr => any
@@ -397,6 +402,7 @@ wire-gc-message = {
   edited: bool,  ; 8
   mentions: [* uuid-text],  ; 9
   ? replyToN: int,  ; 10
+  ? withdrawn: bool,  ; 11
   * tstr => any
 }
 wire-limits = {
