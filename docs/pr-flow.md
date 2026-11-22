@@ -23,6 +23,12 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
     full work.
   - "Code" means anything outside `docs/**`, `**/*.md` and `.github/ISSUE_TEMPLATE/**`. A change to
     `.github/workflows/**` counts as code.
+- Runner choice (2026-11-22): the repository is public, so GitHub-hosted runners are free. The `changes` job,
+  Secret scan, CodeQL, PR sign-off and the Android and Linux start-up gates always run hosted, so the cheap
+  required checks never queue behind the owner's PC. Build and test (and the PostgreSQL 19 leg) use the PC only for
+  the owner's own same-repo runs, and only while the repository has at most `CI_OVERFLOW_QUEUE` queued runs
+  (default 8); otherwise they overflow to hosted. Repository variable `CI_RUNNER_MODE` forces `self`, `hosted`
+  or `auto` (default). Publish smoke runs on pull requests (not drafts) that touch code, and on main.
 - Required checks are set in the "Protect main" ruleset. Their names must not change:
   renaming a job breaks the match and leaves PRs waiting forever.
 
