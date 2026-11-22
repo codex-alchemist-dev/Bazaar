@@ -9,8 +9,6 @@
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
-  </ItemGroup>
-  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
   <ItemGroup>

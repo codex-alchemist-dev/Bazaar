@@ -9,6 +9,7 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity\Bazaar.Server.Identity.csproj" />
   </ItemGroup>
 </Project>

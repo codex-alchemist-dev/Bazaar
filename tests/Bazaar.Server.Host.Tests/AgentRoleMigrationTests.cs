@@ -11,7 +11,7 @@ public sealed class AgentRoleMigrationTests
 
         Assert.Contains("agents", source.Namespaces());
         var file = Assert.Single(source.Load("agents"));
-        Assert.Equal(1, file.Version);
+        Assert.Equal(2, file.Version);
         Assert.Contains("ALTER TABLE agent ADD COLUMN IF NOT EXISTS role text NULL", file.Sql, StringComparison.Ordinal);
     }
 }
