@@ -17,6 +17,7 @@ public sealed class ModuleManagerSettingsTests
     private static readonly string[] _expectedNames =
     [
         "update.channel",
+        "company.source",
         "deps.update.deferWarnDays",
         "deps.update.autoSecurityPatches",
         "releases.ring.canaryPercent",

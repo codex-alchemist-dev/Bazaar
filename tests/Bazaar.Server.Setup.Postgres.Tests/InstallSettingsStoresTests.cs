@@ -145,6 +145,7 @@ public sealed class InstallSettingsStoresTests
         var second = await step.ApplyAsync(plan, Context("hash-b"), ct);
 
         Assert.True(second.Succeeded);
-        Assert.Equal("0 of 10 settings changed.", second.Message);
+        // The projection also maps fields owned by other steps' sections, so the total moves when one is added; the count changed must stay 0.
+        Assert.Matches(@"^0 of \d+ settings changed\.$", second.Message);
     }
 }
