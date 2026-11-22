@@ -34,6 +34,7 @@
     <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AuditReader\Bazaar.Server.AuditReader.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MemberRoster\Bazaar.Server.MemberRoster.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.StatusProviders\Bazaar.Server.StatusProviders.csproj" />
     <ProjectReference Include="..\Bazaar.GitHub\Bazaar.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
