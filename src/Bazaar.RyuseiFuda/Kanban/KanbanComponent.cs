@@ -58,6 +58,8 @@ public sealed class KanbanComponent : IBazaarComponent
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
         // Owner move (doc 12, Card revision and client move command): the authorised UI command, owner principal only.
         services.AddSingleton<IWireRequestHandler, BoardMoveHandler>();
+        // Owner assign (doc 12, Assign authority and command [PROPOSED]): owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardAssignHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();

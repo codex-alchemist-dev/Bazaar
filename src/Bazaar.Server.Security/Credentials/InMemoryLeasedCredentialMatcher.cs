@@ -10,8 +10,8 @@ namespace Bazaar.Server.Security.Credentials;
 /// when it revokes one. A value stops matching at its expiry and is zeroed when it is released, replaced or found expired.
 /// </summary>
 /// <remarks>
-/// The Identity lease store holds no values, so the adapter that feeds this matcher from the credential broker is a
-/// follow-up. Thread-safe: every call takes one lock. Matching is an exact, case-sensitive match on UTF-8 bytes. No method
+/// The Identity lease store holds no values; <see cref="LeasedCredentialObserver"/> feeds this matcher from lease events, with the value from the host's <see cref="ILeasedCredentialValueSource"/>.
+/// Thread-safe: every call takes one lock. Matching is an exact, case-sensitive match on UTF-8 bytes. No method
 /// returns a value or says which lease matched.
 /// </remarks>
 public sealed class InMemoryLeasedCredentialMatcher(TimeProvider? timeProvider = null) : ILeasedCredentialMatcher
@@ -88,6 +88,23 @@ public sealed class InMemoryLeasedCredentialMatcher(TimeProvider? timeProvider =
                     entry.Clear();
                 }
             }
+        }
+    }
+
+    /// <summary>Stops matching every lease of every agent (a global revocation) and zeroes the values.</summary>
+    public void ReleaseAll()
+    {
+        lock (_gate)
+        {
+            foreach (var leases in _byAgent.Values)
+            {
+                foreach (var entry in leases.Values)
+                {
+                    entry.Clear();
+                }
+            }
+
+            _byAgent.Clear();
         }
     }
 
