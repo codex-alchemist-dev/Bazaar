@@ -47,6 +47,29 @@ public sealed class PostgresFirstRunStoreTests
     }
 
     [Fact]
+    public async Task The_agent_gets_the_model_label_of_its_first_claude_route_and_none_without_one()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await FirstRunDatabase.CreateAsync(ct);
+        var store = new PostgresFirstRunStore(db.DataSource);
+
+        await store.EnsureDefaultAgentAsync("Claude", "", null, _whitelist, ct);
+
+        Assert.Equal("Haiku 5.5", await FirstRunDatabase.ScalarAsync<string>(db.DataSource, "SELECT model FROM agent", ct));
+    }
+
+    [Fact]
+    public async Task An_agent_with_no_claude_route_has_no_model_label()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await FirstRunDatabase.CreateAsync(ct);
+
+        await new PostgresFirstRunStore(db.DataSource).EnsureDefaultAgentAsync("Claude", "", null, ["custom/local-model"], ct);
+
+        Assert.Equal(0, await FirstRunDatabase.ScalarAsync<long>(db.DataSource, "SELECT count(*) FROM agent WHERE model IS NOT NULL", ct));
+    }
+
+    [Fact]
     public async Task An_empty_whitelist_writes_no_policy_row()
     {
         var ct = TestContext.Current.CancellationToken;

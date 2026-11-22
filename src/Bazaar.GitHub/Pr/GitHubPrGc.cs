@@ -19,17 +19,27 @@ public interface IGitHubPrGcFactory
 
     /// <summary>Adds an agent to an existing PR GC. A current member changes nothing. Returns true when this call added it.</summary>
     Task<bool> AddAgentAsync(Guid gcId, Guid agentId, string displayName, CancellationToken cancellationToken);
+
+    /// <summary>Adds the owner to an existing PR GC. A current member changes nothing. Returns true when this call added it.</summary>
+    Task<bool> AddOwnerAsync(Guid gcId, Guid ownerId, CancellationToken cancellationToken) => AddAgentAsync(gcId, ownerId, "owner", cancellationToken);
 }
 
 /// <summary>Operator options for PR GCs, bound from <c>Bazaar:GitHub:PrGc</c> (doc 40, GitHub PR GC creation).</summary>
 public sealed class GitHubPrGcOptions
 {
     /// <summary>
-    /// Optional override. The owner reads every PR GC without a setting or a membership row, through the implicit owner-reader role
-    /// (doc 01, Membership and permissions). When set, this principal also creates the GC and is a member; when null the bridge
-    /// principal creates it and the owner reads implicitly.
+    /// Optional override. When set, this principal creates the GC and is a member whatever <see cref="OwnerIsMember"/> says. When null the
+    /// bridge principal creates it, and the owner (read from the database, <see cref="IGitHubOwnerResolver"/>) is a member when
+    /// <see cref="OwnerIsMember"/> is true. The owner can always read through the implicit owner-reader role (doc 01).
     /// </summary>
     public Guid? OwnerPrincipalId { get; init; }
+
+    /// <summary>
+    /// Whether the company owner is a member of every PR GC without any setting (PROPOSED, doc 21, Owner membership of PR and issue GCs).
+    /// Default true. Set false to tighten: the owner then reads through the owner-reader role only. Has no effect on an
+    /// <see cref="OwnerPrincipalId"/> override, whose principal is the creator and so a member.
+    /// </summary>
+    public bool OwnerIsMember { get; init; } = true;
 
     /// <summary>The GC type key. Doc 21 registers <c>pr</c>.</summary>
     public string GcTypeKey { get; init; } = "pr";

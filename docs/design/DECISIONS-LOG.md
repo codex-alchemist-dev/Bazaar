@@ -501,7 +501,15 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
 | Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
 
-## Round 35 (2026-11-22): wake loop on by default (overnight plan item 41)
+## Round 35 (2026-11-19): server TUI
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 58, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 58 |
+| Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 58 |
+
+## Round 36 (2026-11-22): wake loop on by default (overnight plan item 41)
 
 | Item | Decision | Owner may change |
 |---|---|---|
@@ -511,3 +519,15 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | Setting audit | The host logs one line at start with the loop state and whether it came from the default or the operator. Changes go through host configuration, which follows the same change audit as other bootstrap options. | Yes. |
 
 See doc 06 "Wake loop default" and doc 38.
+
+## Round 37 (2026-11-22): shared cache-backed rate limiter
+
+| Item | Decision | Docs |
+|---|---|---|
+| One host `IRateLimiter`, backed by the cache provider so counts are shared and survive a restart | PROPOSED | 15, 03 |
+| `ICacheCounter` (atomic increment, TTL set on a new key) in `Bazaar.Server.Providers.Abstractions`; `ICacheProvider` unchanged; Garnet and Valkey implement it | PROPOSED | 03, 15 |
+| Module `Bazaar.RateLimits.Cache`, component `rate-limits-cache`; sliding-window counter over two fixed buckets, TTL 2x window, window length in the key | PROPOSED | 15 |
+| Increment first, undo on denial (never over-admits; a failed undo over-counts and fails closed) | PROPOSED | 15 |
+| `Bazaar:RateLimits:CacheTimeout` default 150 ms; on timeout, error or no counter fall back to the in-process limiter, warn once per outage, recover automatically; never fail open, never throw | PROPOSED | 15 |
+| The component replaces earlier `IRateLimiter` registrations, so it wins regardless of component order | PROPOSED | 15 |
+| Open: whether a cache flush should fall back to the durable Postgres `rate_bucket`; whether the strictest limits (for example new repositories) should fail closed during an outage instead of using the in-process fallback | OPEN | 15 |
