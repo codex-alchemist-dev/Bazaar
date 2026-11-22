@@ -21,6 +21,8 @@ using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
+using Bazaar.Server.VmDisplay.GuestChannel;
+using Bazaar.Server.VmTransport;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Microsoft.Extensions.Configuration;
@@ -38,7 +40,7 @@ public sealed class DisplayCompositionTests
 {
     private static readonly string[] _componentIds =
     [
-        "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
+        "vm-display", "vm-display-gate", "vm-display-guest-channel", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
         "vm-density", "vm-density-vms", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
         "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
@@ -67,6 +69,7 @@ public sealed class DisplayCompositionTests
         var listed = manifests.Select(m => m.Id).ToList();
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-gate"));
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-audit"));
+        Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-guest-channel"));
         Assert.True(listed.IndexOf("vm-display-agent-tools") < listed.IndexOf("vm-display-agent-targets"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-display"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-linux-host"));
@@ -144,9 +147,33 @@ public sealed class DisplayCompositionTests
 
         var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
 
-        // The gate said yes; no source serves a VM target that no hypervisor knows (there is no guest source and no browser session).
+        // The gate said yes; no source can serve the VM: no hypervisor knows it, the guest source finds no live channel (none is registered
+        // yet), and there is no browser session.
         Assert.NotEqual(DisplayFailure.Refused, capture.Failure);
         Assert.NotEqual(DisplayFailure.Disabled, capture.Failure);
+    }
+
+    [Fact]
+    public async Task The_guest_source_has_an_adapter_and_with_no_live_channel_a_guest_only_capture_and_input_fail_closed()
+    {
+        using var host = BuildHost(services =>
+        {
+            services.AddSingleton<ILeasedCredentialMatcher>(new InMemoryLeasedCredentialMatcher());
+            services.AddSingleton<IKillSwitchReader>(new FixedKillSwitch(frozen: false));
+        });
+        var display = host.Services.GetRequiredService<IGuestDisplay>();
+
+        // The host's transport module registers a directory; nothing registers a channel in it yet.
+        Assert.NotNull(host.Services.GetService<IGuestChannelDirectory>());
+        Assert.Contains(DisplaySourceKind.Guest, display.AvailableSources(_target));
+        Assert.DoesNotContain(DisplaySourceKind.Guest, display.AvailableSources(_target with { Os = DisplayGuestOs.Windows }));
+
+        var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target, DisplaySourceKind.Guest), CancellationToken.None));
+        Assert.Equal(DisplayFailure.SourceFailed, capture.Failure);
+        Assert.Contains("no live guest channel", capture.InnerException?.Message ?? capture.Message, StringComparison.Ordinal);
+
+        var input = await Assert.ThrowsAsync<DisplayException>(() => display.SendInputAsync(new InputBatch(_target, [new KeyStroke("Enter")]), CancellationToken.None));
+        Assert.NotEqual(DisplayFailure.Refused, input.Failure);
     }
 
     [Fact]
@@ -188,15 +215,18 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public void Hypervisor_adapters_follow_the_operating_system_and_no_guest_exec_or_browser_driver_serves_a_vm_target()
+    public void Hypervisor_adapters_follow_the_operating_system_the_guest_exec_serves_linux_vm_targets_and_no_browser_driver_serves_one()
     {
         using var host = BuildHost();
         var consoles = host.Services.GetServices<IHypervisorConsole>().Select(c => c.GetType()).ToList();
 
         Assert.Contains(typeof(HyperVConsole), consoles);
         Assert.Equal(OperatingSystem.IsLinux(), consoles.Contains(typeof(KvmConsole)));
-        // The guest channel has no host adapter yet, so there is no guest source.
-        Assert.Empty(host.Services.GetServices<IDisplayGuestExec>());
+        // The guest channel adapter is the one guest source; it serves a Linux VM target and never a browser session or a Windows guest.
+        var guestExec = Assert.IsType<GuestChannelDisplayExec>(Assert.Single(host.Services.GetServices<IDisplayGuestExec>()));
+        Assert.True(guestExec.Supports(_target));
+        Assert.False(guestExec.Supports(_target with { BrowserSessionId = "no-such-session" }));
+        Assert.False(guestExec.Supports(_target with { Os = DisplayGuestOs.Windows }));
         // The pool's page driver exists but serves nothing: no session has a DevTools pipe.
         Assert.All(host.Services.GetServices<IBrowserPageDriver>(), driver => Assert.False(driver.Supports(_target with { BrowserSessionId = "no-such-session" })));
     }

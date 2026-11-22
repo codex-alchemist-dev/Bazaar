@@ -37,6 +37,7 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Health;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
@@ -74,6 +75,7 @@ using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
+using Bazaar.Server.VmDisplay.GuestChannel;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Bazaar.Server.WebAdmin;
@@ -128,6 +130,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
         new AnalyticsGitComponent(),
@@ -159,6 +162,7 @@ public static class HostComponents
         new Bazaar.Server.Engines.EnginesComponent(),
         new Bazaar.Server.EngineGcRecorder.EngineGcRecorderComponent(),
         new Bazaar.Server.EngineRelay.EngineRelayComponent(),
+        new Bazaar.Server.EngineTool.EngineToolComponent(),
         new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
         // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
@@ -166,6 +170,8 @@ public static class HostComponents
         // "not supported" off Windows; the KVM adapter is limited to Linux here.
         new VmDisplayComponent(),
         new VmDisplayGateComponent(),
+        // The guest source's only adapter: IDisplayGuestExec over the channel directory. No channel is registered yet, so every guest call fails.
+        new VmDisplayGuestChannelComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
         // Off unless Bazaar:VmDisplayAgentTargets:Enabled is true; until then it registers nothing and no screen tool is offered. It starts before

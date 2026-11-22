@@ -19,6 +19,10 @@
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Analytics/Bazaar.Client.Analytics.csproj" />
+    <Project Path="src/Bazaar.Client.Settings.Abstractions/Bazaar.Client.Settings.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Settings/Bazaar.Client.Settings.csproj" />
+    <Project Path="src/Bazaar.Client.Settings.Avalonia/Bazaar.Client.Settings.Avalonia.csproj" />
+    <Project Path="tests/Bazaar.Client.Settings.Tests/Bazaar.Client.Settings.Tests.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment.Abstractions/Bazaar.Client.DeviceEnrolment.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment/Bazaar.Client.DeviceEnrolment.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
@@ -203,10 +207,12 @@
     <Project Path="src/Bazaar.Server.Setup.Abstractions/Bazaar.Server.Setup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Setup.Host/Bazaar.Server.Setup.Host.csproj" />
     <Project Path="src/Bazaar.Server.EngineGcRecorder/Bazaar.Server.EngineGcRecorder.csproj" />
+    <Project Path="src/Bazaar.Server.EngineTool/Bazaar.Server.EngineTool.csproj" />
     <Project Path="src/Bazaar.Server.EngineRelay/Bazaar.Server.EngineRelay.csproj" />
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
     <Project Path="tests/Bazaar.Server.EngineGcRecorder.Tests/Bazaar.Server.EngineGcRecorder.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.EngineTool.Tests/Bazaar.Server.EngineTool.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.EngineRelay.Tests/Bazaar.Server.EngineRelay.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Sanitization.Tests/Bazaar.Server.Sanitization.Tests.csproj" />
@@ -485,6 +491,7 @@
     <Project Path="src/Bazaar.Server.VmDisplay.AgentTools.Vms/Bazaar.Server.VmDisplay.AgentTools.Vms.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Gate/Bazaar.Server.VmDisplay.Gate.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.GuestChannel/Bazaar.Server.VmDisplay.GuestChannel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -773,6 +780,7 @@
     <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Vms.Tests/Bazaar.Server.VmDisplay.AgentTools.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Gate.Tests/Bazaar.Server.VmDisplay.Gate.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.GuestChannel.Tests/Bazaar.Server.VmDisplay.GuestChannel.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmTransport.Tests/Bazaar.Server.VmTransport.Tests.csproj" />
   </Folder>
 </Solution>

@@ -16,13 +16,21 @@ public static partial class HealthEndpoints
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z", RegexOptions.CultureInvariant)]
     private static partial Regex ProjectIdRegex();
 
+    /// <summary>The same route behind a guard in the host's shape: a null result lets the request through, anything else answers it.</summary>
+    public static IEndpointRouteBuilder MapBazaarProjectHealth(this IEndpointRouteBuilder app, Func<HttpContext, ValueTask<IResult?>> guard)
+    {
+        ArgumentNullException.ThrowIfNull(guard);
+        return app.MapBazaarProjectHealth(builder => builder.AddEndpointFilter(async (context, next) =>
+            await guard(context.HttpContext).ConfigureAwait(false) ?? await next(context).ConfigureAwait(false)));
+    }
+
     public static IEndpointRouteBuilder MapBazaarProjectHealth(this IEndpointRouteBuilder app, Func<RouteHandlerBuilder, RouteHandlerBuilder> guard)
     {
         ArgumentNullException.ThrowIfNull(app);
         ArgumentNullException.ThrowIfNull(guard);
 
         guard(app.MapGet("/projects/{projectId}/health",
-            async (string projectId, IProjectHealthService health, CancellationToken ct) =>
+            async (string projectId, [Microsoft.AspNetCore.Mvc.FromServices] IProjectHealthService health, CancellationToken ct) =>
             {
                 if (!ProjectIdRegex().IsMatch(projectId))
                     return Results.Json(new { error = "bad_project_id" }, statusCode: StatusCodes.Status400BadRequest);
