@@ -161,6 +161,8 @@ Applied to the three features:
 
 - **Web admin panel (doc 51, PROPOSED mechanics):** `Bazaar.Server.WebAdmin.Abstractions` (the gate, session, audit and per-section ports) and `Bazaar.Server.WebAdmin` (endpoints under `/admin`, embedded assets, session store, audit recorder). Component id `web-admin`. It references neither `Bazaar.Server` nor any feature implementation; each section reads through a port that the owning module (Kodo, module manager, identity, audit, approvals, company build) implements, and a missing port shows "unavailable".
 
+- **Knowledge (doc 25, PROPOSED 2026-11-18):** client modules `Bazaar.Client.Health`, `Bazaar.Client.Twin`, `Bazaar.Client.Archive`, `Bazaar.Client.CompanyMemory` and `Bazaar.Client.Hive` (panes only, referencing `Bazaar.Client.Core` and `Bazaar.Contracts`); server modules `Bazaar.Server.Twin.Prose`, `Bazaar.Server.Hive` and `Bazaar.Server.TalentPool`, each with its `.Abstractions`. The existing code under `Bazaar.Server/Knowledge/` moves in the Knowledge extraction.
+
 ## 4a. Renames (planned, small PRs)
 
 | Now | Target | Notes |
