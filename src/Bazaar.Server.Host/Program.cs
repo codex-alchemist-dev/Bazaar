@@ -1,3 +1,4 @@
+using Bazaar.Server.SoulProfile;
 using Bazaar.Server.Walkthrough;
 using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
@@ -41,6 +42,7 @@ app.MapBazaarHttpSurface();
 app.MapCommunityLog();
 app.MapBazaarSetup();
 app.MapBazaarWalkthrough();
+app.MapBazaarSoulProfile();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.

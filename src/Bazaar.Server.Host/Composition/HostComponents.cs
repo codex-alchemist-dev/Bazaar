@@ -28,6 +28,7 @@ using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
+using Bazaar.Server.SoulProfile;
 using Bazaar.Server.Walkthrough;
 
 namespace Bazaar.Server.Host.Composition;
@@ -44,6 +45,7 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new WalkthroughComponent(),
+        new SoulProfileComponent(),
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),

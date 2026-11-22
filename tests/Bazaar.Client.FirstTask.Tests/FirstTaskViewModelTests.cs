@@ -1,6 +1,4 @@
-using Bazaar.Client.Components.Chat;
 using Bazaar.Contracts.Wire;
-using System.Threading.Channels;
 
 namespace Bazaar.Client.FirstTask.Tests;
 
@@ -92,32 +90,46 @@ public class FirstTaskViewModelTests
         Assert.Equal(FirstTaskViewModel.MaxLength, model.Text.Length);
     }
 
-    private sealed class FakeWire(bool fail) : IGcWire
+    private static async Task Until(Func<bool> condition)
     {
-        public GcSend? Last { get; private set; }
-
-        public ChannelReader<WireGcMessage> Messages => Channel.CreateUnbounded<WireGcMessage>().Reader;
-
-        public Task SubscribeAsync(string stream, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<GcSendResult> SendAsync(GcSend request, CancellationToken cancellationToken)
-        {
-            Last = request;
-            return fail ? throw new IOException("down") : Task.FromResult(new GcSendResult(1, 1));
-        }
-
-        public Task<GcPage> HistoryAsync(GcHistory request, CancellationToken cancellationToken) => throw new NotSupportedException();
+        for (var i = 0; i < 200 && !condition(); i++) await Task.Delay(10, TestContext.Current.CancellationToken);
+        Assert.True(condition());
     }
 
     [Fact]
-    public async Task The_wire_sender_posts_one_gc_send_mentioning_the_agent_and_reports_failures()
+    public async Task The_wire_sender_posts_one_gc_send_mentioning_the_agent_with_the_token_in_hello()
     {
-        var wire = new FakeWire(fail: false);
-        Assert.Equal(FirstTaskOutcome.Sent, await new GcFirstTaskSender(wire).SendAsync(Target, "hi", TestContext.Current.CancellationToken));
-        Assert.Equal(Target.ChatId, wire.Last!.GcId);
-        Assert.Equal([Target.AgentId], wire.Last.Mentions);
-        Assert.Equal("hi", wire.Last.Text);
+        var transport = new FakeWireTransport();
+        var sender = new WireFirstTaskSender(() => transport, () => Task.FromResult<string?>("tok"), "windows", "test");
 
-        Assert.Equal(FirstTaskOutcome.Failed, await new GcFirstTaskSender(new FakeWire(fail: true)).SendAsync(Target, "hi", TestContext.Current.CancellationToken));
+        var send = sender.SendAsync(Target, "hi", TestContext.Current.CancellationToken);
+        await Until(() => transport.Count > 0 && transport.Latest.SentOfType(WireTypes.GcSend).Any());
+        var request = transport.Latest.SentOfType(WireTypes.GcSend).Single();
+        var payload = transport.Codec.DecodePayload<GcSend>(request);
+        Assert.Equal(Target.ChatId, payload.GcId);
+        Assert.Equal([Target.AgentId], payload.Mentions);
+        Assert.Equal("hi", payload.Text);
+        Assert.Contains("tok", transport.Codec.DecodePayload<Hello>(transport.Latest.SentOfType(WireTypes.Hello).Single()).Credential ?? "");
+
+        transport.Latest.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, request.Id, null, null,
+            DateTimeOffset.UnixEpoch, transport.Codec.EncodePayload(new GcSendResult(7, 1))));
+        Assert.Equal(FirstTaskOutcome.Sent, await send);
+    }
+
+    [Fact]
+    public async Task The_wire_sender_fails_without_a_token_without_connecting()
+    {
+        var transport = new FakeWireTransport();
+        var sender = new WireFirstTaskSender(() => transport, () => Task.FromResult<string?>(null), "windows", "test");
+
+        Assert.Equal(FirstTaskOutcome.Failed, await sender.SendAsync(Target, "hi", TestContext.Current.CancellationToken));
+        Assert.Equal(0, transport.Count);
+    }
+
+    [Fact]
+    public void The_endpoint_factory_maps_http_to_ws_and_https_to_wss_without_throwing()
+    {
+        Assert.NotNull(WireFirstTaskSender.For(new Bazaar.Client.Abstractions.Server.ServerEndpoint(new Uri("http://127.0.0.1:8080/")), () => Task.FromResult<string?>("t"), "windows", "x"));
+        Assert.NotNull(WireFirstTaskSender.For(new Bazaar.Client.Abstractions.Server.ServerEndpoint(new Uri("https://example.test/")), () => Task.FromResult<string?>("t"), "windows", "x"));
     }
 }

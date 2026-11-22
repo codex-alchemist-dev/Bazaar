@@ -9,7 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.FirstTask.Abstractions\Bazaar.Client.FirstTask.Abstractions.csproj" />
-    <ProjectReference Include="..\Bazaar.Client.Components.Chat\Bazaar.Client.Components.Chat.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>

@@ -364,7 +364,8 @@ One client module, `Bazaar.Client.FirstTask` (with `.Avalonia`), adds no code to
 - **What Send does.** It posts one `gc.send` to the first group chat, mentioning the first agent (ids from section 2.7 facts). It is an ordinary group chat message: the agent answers there, and the person can follow or edit it like any other. No private channel, no new task store. When the facts carry no chat or agent yet, Send is off and the screen says the company's first agent is not ready.
 - **Nothing hidden.** The text is the person's own words, shown back after sending. The module stores nothing; the walkthrough's "task given" fact is the server's, computed from the chat (section 2.7).
 - **Keyboard first.** The box takes no focus by default (doc 27); Tab reaches Send. Enter inserts a new line; Send is a button. No Ctrl chords.
-- **Agent profile screen.** The profile card already exists as `Bazaar.Client.Souls`; it needs a Soul profile read route (doc 07), which is not specified yet. The walkthrough's "meet your agent" step shows the agent's name from the facts until that route exists. Owner decision needed on the route; not invented here.
+- **Agent profile screen.** The profile card is `Bazaar.Client.Souls`; the walkthrough's "meet your first agent" step opens it from the read-only profile route (doc 07, PROPOSED), keyed by the `first_agent_id` fact. When the server has no profile to show, the step says it cannot open and the name from the facts stays on the card.
+- **Sending.** The Windows head sends over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
 - **Testing.** Unit tests for the view model (disabled without ids, sends once, trims, shows failures without repeating a secret) and an Avalonia.Headless test by `firsttask-*` ids; the sender adapter is tested against a fake wire.
 
 ---

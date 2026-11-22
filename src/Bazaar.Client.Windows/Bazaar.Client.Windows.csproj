@@ -38,5 +38,7 @@
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Walkthrough.Avalonia\Bazaar.Client.Walkthrough.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.FirstTask.Avalonia\Bazaar.Client.FirstTask.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Souls\Bazaar.Client.Souls.csproj" />
   </ItemGroup>
 </Project>
