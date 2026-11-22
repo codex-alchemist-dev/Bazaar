@@ -18,6 +18,7 @@
     <Project Path="src/Bazaar.Client.Rubedo.Tokens/Bazaar.Client.Rubedo.Tokens.csproj" />
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Analytics/Bazaar.Client.Analytics.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment.Abstractions/Bazaar.Client.DeviceEnrolment.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.DeviceEnrolment/Bazaar.Client.DeviceEnrolment.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
@@ -120,6 +121,14 @@
     <Project Path="src/Bazaar.Server.Transport.WebTransport/Bazaar.Server.Transport.WebTransport.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics.Abstractions/Bazaar.Server.Analytics.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics/Bazaar.Server.Analytics.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics.Postgres/Bazaar.Server.Analytics.Postgres.csproj" />
+    <Project Path="src/Bazaar.Server.Analytics.Git/Bazaar.Server.Analytics.Git.csproj" />
+    <Project Path="tests/Bazaar.Server.Analytics.Git.Tests/Bazaar.Server.Analytics.Git.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Analytics.Postgres.Tests/Bazaar.Server.Analytics.Postgres.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Analytics.Tests/Bazaar.Server.Analytics.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Analytics.Tests/Bazaar.Client.Analytics.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Calendar.Abstractions/Bazaar.Server.Calendar.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Calendar/Bazaar.Server.Calendar.csproj" />
     <Project Path="src/Bazaar.Server.Org.Abstractions/Bazaar.Server.Org.Abstractions.csproj" />

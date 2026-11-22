@@ -79,4 +79,7 @@ public static class PaneKinds
 
     /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
     public const string GitSolarSystem = "bazaar.git-solar-system";
+
+    /// <summary>Agent analytics: per-agent throughput, review pass rate and revert rate, framed as what would help the company, never a ranking (doc 25).</summary>
+    public const string AgentAnalytics = "bazaar.agent-analytics";
 }
