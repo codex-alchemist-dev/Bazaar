@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

@@ -29,7 +29,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var ds = db.DataSource;
         await new MigrationRunner(ds).MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", ct);
         var audit = new InMemorySettingAuditSink();
-        return (ds, audit, new NpgsqlSettingStore(ds, audit, SettingRegistry.Known));
+        return (ds, audit, new NpgsqlSettingStore(ds, audit, BuiltInSettingRegistries.Known));
     }
 
     private static async Task<string?> RawValueAsync(NpgsqlDataSource ds, string key)
@@ -103,7 +103,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
         var ct = TestContext.Current.CancellationToken;
         await store.SetAsync(HostSettings.ReadinessRequiredRoles, ["postgres", "search", "service_host", "cache"], _operator, cancellationToken: ct);
 
-        var reopened = new NpgsqlSettingStore(ds, new InMemorySettingAuditSink(), SettingRegistry.Known);
+        var reopened = new NpgsqlSettingStore(ds, new InMemorySettingAuditSink(), BuiltInSettingRegistries.Known);
         var roles = await reopened.GetAsync(HostSettings.ReadinessRequiredRoles, cancellationToken: ct);
         Assert.Equal(_rolesWithCache, roles);
         Assert.NotNull(await RawValueAsync(ds, "host.readiness.required_roles"));

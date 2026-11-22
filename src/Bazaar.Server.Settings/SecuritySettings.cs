@@ -1,4 +1,3 @@
-
 using Bazaar.Server.Security.Policy;
 
 namespace Bazaar.Server.Settings;

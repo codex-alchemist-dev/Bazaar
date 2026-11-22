@@ -6,6 +6,10 @@
     <PackageReference Include="Avalonia" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Views\*.view.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
