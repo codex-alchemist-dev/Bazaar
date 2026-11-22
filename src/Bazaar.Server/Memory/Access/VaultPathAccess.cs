@@ -6,7 +6,10 @@ namespace Bazaar.Server.Memory.Access;
 /// <item><c>agents/&lt;agent&gt;/memory/**</c>: the agent itself, the owner (logged) and maintenance. Cover never, including its primary's.</item>
 /// <item><c>agents/&lt;agent&gt;/**</c> (other files, such as the profile): the owner and that agent only.</item>
 /// <item><c>projects/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents, cover of a member primary, member humans).</item>
-/// <item><c>company/memory/**</c> and <c>hive/**</c>: owner, maintenance and all agents, including cover.</item>
+/// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover.</item>
+/// <item><c>hive/**</c>: owner and maintenance; an agent or cover only when it is a member of one of the copy's target
+/// projects, as <see cref="IHiveCopyTargets"/> reports them (doc 08, section 6). Without that source every agent is
+/// denied. A copy still in its review window is not in the Vault at all.</item>
 /// </list>
 /// The handover note has no path convention in the design docs, so cover does not read it through these rules.
 /// Matching is ordinal and case-sensitive.
@@ -14,12 +17,17 @@ namespace Bazaar.Server.Memory.Access;
 public sealed class VaultPathAccess : IVaultAccess
 {
     private readonly IProjectMembership _membership;
+    private readonly IHiveCopyTargets? _hiveTargets;
 
-    /// <param name="membership">Project membership, consulted for project areas.</param>
-    public VaultPathAccess(IProjectMembership membership)
+    /// <param name="membership">Project membership, consulted for project areas and Hive target projects.</param>
+    /// <param name="hiveTargets">
+    /// The target projects of each Hive copy. Null means no grant data is available, and agents are denied all of <c>hive/**</c>.
+    /// </param>
+    public VaultPathAccess(IProjectMembership membership, IHiveCopyTargets? hiveTargets = null)
     {
         ArgumentNullException.ThrowIfNull(membership);
         _membership = membership;
+        _hiveTargets = hiveTargets;
     }
 
     /// <inheritdoc />
@@ -61,7 +69,7 @@ public sealed class VaultPathAccess : IVaultAccess
             "agents" when segments.Count >= 3 => ExplainAgentArea(who, segments),
             "projects" when segments.Count >= 3 => ExplainProjectArea(who, segments[1]),
             "company" when segments.Count >= 3 && segments[1] == "memory" => ExplainSharedArea(who, "company/memory"),
-            "hive" when segments.Count >= 2 => ExplainSharedArea(who, "hive"),
+            "hive" when segments.Count >= 2 => ExplainHiveArea(who, path),
             _ => AccessDecision.Deny("no rule allows this path; denied by default"),
         };
     }
@@ -111,6 +119,34 @@ public sealed class VaultPathAccess : IVaultAccess
         }
 
         return AccessDecision.Deny("not a member of this project, or the project is unknown");
+    }
+
+    private AccessDecision ExplainHiveArea(VaultPrincipal who, VaultPath path)
+    {
+        if (who.Kind is VaultPrincipalKind.Owner or VaultPrincipalKind.Maintenance)
+        {
+            return AccessDecision.Allow("owner and maintenance read hive copies");
+        }
+
+        if (who.Kind is not (VaultPrincipalKind.Agent or VaultPrincipalKind.Cover))
+        {
+            return AccessDecision.Deny("hive copies are readable by the owner, maintenance and agents in a target project only");
+        }
+
+        if (_hiveTargets is null)
+        {
+            return AccessDecision.Deny("no Hive grant data is available; hive copies are denied to agents by default");
+        }
+
+        foreach (var target in _hiveTargets.TargetProjectsOf(path))
+        {
+            if (_membership.IsMember(who, target))
+            {
+                return AccessDecision.Allow("member of a target project of this hive copy");
+            }
+        }
+
+        return AccessDecision.Deny("not a member of any target project of this hive copy");
     }
 
     private static AccessDecision ExplainSharedArea(VaultPrincipal who, string area) =>
