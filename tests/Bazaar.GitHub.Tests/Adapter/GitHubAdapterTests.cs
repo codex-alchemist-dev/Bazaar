@@ -2,10 +2,8 @@ using System.Net;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Bazaar.Approvals;
-using Bazaar.Contracts.GitHub;
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
-using Bazaar.GitHub.Wire;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.GitHub.Tests;
@@ -46,10 +44,9 @@ public sealed class GitHubAdapterTests
     public async Task A_merge_with_a_forged_owner_signature_sends_no_merge_request()
     {
         var h = Build();
-        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
         using var owner = NewOwnerKey();
         using var forger = NewOwnerKey();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new StubReads(), Verifier(owner));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
 
         var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(
             () => gate.MergeAsync(Approval(forger), Merge(), CancellationToken.None));
@@ -66,53 +63,11 @@ public sealed class GitHubAdapterTests
         h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": true}"""));
         RouteChecks(h, [RunJson("completed", "success")]);
         using var owner = NewOwnerKey();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new StubReads(), Verifier(owner));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
 
         await gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None);
 
         Assert.Single(h.Http.Requests, r => r.Method == "PUT");
-    }
-
-    [Theory]
-    [InlineData(PrChecksRollup.Failing)]
-    [InlineData(PrChecksRollup.Pending)]
-    [InlineData(PrChecksRollup.None)]
-    public async Task Checks_that_are_not_green_refuse_every_caller_and_do_not_spend_the_owner_nonce(PrChecksRollup rollup)
-    {
-        var h = Build();
-        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
-        h.Http.Route(HttpMethod.Put, _pullsPath + "/42/merge", Reply.Json(HttpStatusCode.OK, """{"merged": true}"""));
-        using var owner = NewOwnerKey();
-        var reads = new StubReads { Checks = rollup };
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, reads, Verifier(owner));
-        var approval = Approval(owner);
-
-        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(approval, Merge(), CancellationToken.None));
-
-        Assert.Equal(MergeRefusalReason.ChecksNotPassing, ex.Reason);
-        Assert.Equal(rollup, ex.Checks);
-        Assert.DoesNotContain(h.Http.Requests, r => r.Method == "PUT");
-
-        // The same signed approval still works once the checks are green: its nonce was never spent.
-        reads.Checks = PrChecksRollup.Passing;
-        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, _headSha)));
-        await gate.MergeAsync(approval, Merge(), CancellationToken.None);
-        Assert.Single(h.Http.Requests, r => r.Method == "PUT");
-    }
-
-    [Fact]
-    public async Task A_moved_head_is_refused_before_checks_are_read_or_the_nonce_spent()
-    {
-        var h = Build();
-        h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, "ffffffffffffffffffffffffffffffffffffffff")));
-        using var owner = NewOwnerKey();
-        var reads = new StubReads();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, reads, Verifier(owner));
-
-        var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None));
-
-        Assert.Equal(MergeRefusalReason.HeadMoved, ex.Reason);
-        Assert.Equal(0, reads.CheckCalls);
     }
 
     [Fact]
@@ -121,7 +76,7 @@ public sealed class GitHubAdapterTests
         var h = Build();
         h.Http.Route(HttpMethod.Get, _pullsPath + "/42", Reply.Json(HttpStatusCode.OK, PullJson(42, "ffffffffffffffffffffffffffffffffffffffff")));
         using var owner = NewOwnerKey();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new StubReads(), Verifier(owner));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
 
         var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), Merge(), CancellationToken.None));
 
@@ -134,7 +89,7 @@ public sealed class GitHubAdapterTests
     {
         var h = Build();
         using var owner = NewOwnerKey();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new StubReads(), Verifier(owner));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
         var otherHead = new MergeRequest("0000000000000000000000000000000000000000", "t", "m");
 
         await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), otherHead, CancellationToken.None));
@@ -147,7 +102,7 @@ public sealed class GitHubAdapterTests
     {
         var h = Build();
         using var owner = NewOwnerKey();
-        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, new StubReads(), Verifier(owner));
+        var gate = new OwnerSignedMerge(h.Adapter, h.Adapter, Verifier(owner));
         var retitled = new MergeRequest(_headSha, "Something else entirely", "Body");
 
         var ex = await Assert.ThrowsAsync<MergeNotApprovedException>(() => gate.MergeAsync(Approval(owner), retitled, CancellationToken.None));
@@ -286,22 +241,6 @@ public sealed class GitHubAdapterTests
     {
         var key = new OwnerDeviceKey(_ownerHuman.ToString("D"), _ownerDeviceId, owner.ExportSubjectPublicKeyInfo());
         return new OwnerSignatureVerifier(new SingleKeyRegistry(key), new InMemoryOwnerNonceStore());
-    }
-
-    private sealed class StubReads : IGitHubPrReadModel
-    {
-        public PrChecksRollup Checks { get; set; } = PrChecksRollup.Passing;
-        public int CheckCalls { get; private set; }
-
-        public Task<PrRef?> ResolveAsync(string prId, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<PrListReply> ListAsync(PrListRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
-        public Task<PrSummaryReply?> GetSummaryAsync(string prId, PrRef pr, CancellationToken cancellationToken) => throw new NotSupportedException();
-
-        public Task<PrChecksRollup> GetChecksAsync(PrRef pr, string headSha, CancellationToken cancellationToken)
-        {
-            CheckCalls++;
-            return Task.FromResult(Checks);
-        }
     }
 
     private sealed class SingleKeyRegistry(OwnerDeviceKey key) : IOwnerKeyRegistry
