@@ -20,6 +20,8 @@ using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Community.GitHub;
+using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
@@ -113,6 +115,7 @@ public static class HostComponents
         new RolesComponent(),
         new SignInComponent(),
         new WebAdminComponent(),
+        new CommunityGitHubComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
