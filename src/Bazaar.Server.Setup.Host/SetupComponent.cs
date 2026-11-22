@@ -62,6 +62,12 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         services.TryAddSingleton<IBootstrapCodeStore>(sp => new PostgresBootstrapCodeStoreAdapter(sp.GetRequiredService<PostgresBootstrapCodeStore>()));
         services.TryAddSingleton<ISetupAccessGate>(sp => new SetupAccessGate(
             sp.GetRequiredService<IBootstrapCodeStore>(), sp.GetRequiredService<ISetupOwnerDirectory>()));
+
+        // The config-path door (doc 45 section 1.1): --setup-plan or BAZAAR_SETUP_PLAN applies a local plan file before serving. It starts
+        // before the code issuer, so a plan that creates the owner retires the code and --setup-only never announces one.
+        services.TryAddSingleton(SetupPlanStartOptions.FromConfiguration(configuration));
+        services.TryAddSingleton<SetupPlanStartOutcome>();
+        services.AddHostedService<SetupPlanOnStartService>();
         services.AddHostedService<SetupBootstrapCodeIssuer>();
 
         // The setup rate bucket needs a limiter; this registers the in-process one unless the host already has a limiter.
@@ -93,6 +99,7 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+        services.AddSingleton<ISetupStep>(sp => new GatewaySourcesStep(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<IModelSourceCatalogue>()));
 
         // The default Constitution in the Vault (doc 24), drafted just before the first-run seed so there is a commit to accept. The Vault
         // repository and writer identity come from the same Memory:Vault keys as the memory module. Unset, the step fails with a message.

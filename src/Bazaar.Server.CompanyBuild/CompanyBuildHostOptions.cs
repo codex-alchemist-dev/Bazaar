@@ -1,3 +1,4 @@
+using Bazaar.CompanyIdentity;
 using Bazaar.Server.CompanyBuild.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +14,9 @@ namespace Bazaar.Server.CompanyBuild;
 /// <remarks>
 /// <c>CompanyId</c> and <c>ServerAddress</c> must both be present or the module registers nothing and the check reports not evaluated.
 /// <c>ServerKeyHashPin</c> is required with them. <c>OutputRoot</c> defaults to <c>company-build</c> under <c>Bazaar:Host:DataRoot</c>.
-/// A value that is present but malformed is a configuration error and stops startup, so a wrong pin never reads as "not set".
+/// The update trust (doc 37 section 4c) is optional: <c>UpdateSigningKeyFingerprint</c>, <c>UpdateSigningPublicKey</c> (armoured, public)
+/// and <c>ReleaseManifestUrl</c> must come together, with <c>IsOwnerInstall</c> optional (default false). The manifest must be https on the
+/// server's own origin. A value that is present but malformed is a configuration error and stops startup, so a wrong pin never reads as "not set".
 /// </remarks>
 public static class CompanyBuildHostOptions
 {
@@ -46,12 +49,33 @@ public static class CompanyBuildHostOptions
                 throw new ArgumentException($"{SectionName}:ServerAddress must be an absolute URL.");
 
             services.TryAddSingleton(new CompanyBuildOutputLayout(outputRoot, companyId));
-            services.TryAddSingleton<IServerIdentitySource>(new StaticServerIdentitySource(uri, pin));
+            var source = new StaticServerIdentitySource(uri, pin);
+            services.TryAddSingleton<IServerIdentitySource>(source);
+            services.TryAddSingleton(CompanyServerIdentity.Create(uri, pin, ReadUpdateTrust(section)));
         }
         catch (ArgumentException e)
         {
             throw new InvalidOperationException($"{SectionName} is not valid: {e.Message}", e);
         }
+    }
+
+    private static UpdateTrust? ReadUpdateTrust(IConfigurationSection section)
+    {
+        var fingerprint = Value(section["UpdateSigningKeyFingerprint"]);
+        var key = Value(section["UpdateSigningPublicKey"]);
+        var manifest = Value(section["ReleaseManifestUrl"]);
+        if (fingerprint is null && key is null && manifest is null)
+            return null;
+
+        if (fingerprint is null || key is null || manifest is null)
+            throw new ArgumentException("UpdateSigningKeyFingerprint, UpdateSigningPublicKey and ReleaseManifestUrl are needed together.");
+        if (!Uri.TryCreate(manifest, UriKind.Absolute, out var manifestUri))
+            throw new ArgumentException("ReleaseManifestUrl must be an absolute URL.");
+        var owner = Value(section["IsOwnerInstall"]);
+        if (owner is not null && !bool.TryParse(owner, out _))
+            throw new ArgumentException("IsOwnerInstall must be true or false.");
+
+        return UpdateTrust.Create(fingerprint, key, manifestUri, owner is not null && bool.Parse(owner));
     }
 
     private static string? Value(string? raw) => string.IsNullOrWhiteSpace(raw) ? null : raw.Trim();

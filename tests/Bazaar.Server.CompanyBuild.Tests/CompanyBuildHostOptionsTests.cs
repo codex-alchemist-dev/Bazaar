@@ -76,4 +76,58 @@ public sealed class CompanyBuildHostOptionsTests
             ["Bazaar:CompanyBuild:ServerKeyHashPin"] = pin,
             ["Bazaar:CompanyBuild:OutputRoot"] = Path.GetTempPath(),
         }));
+
+    private static Dictionary<string, string?> Complete(params (string Key, string? Value)[] extra)
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["Bazaar:CompanyBuild:CompanyId"] = "CDAX",
+            ["Bazaar:CompanyBuild:ServerAddress"] = "https://bazaar.example/",
+            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = Pin,
+            ["Bazaar:CompanyBuild:OutputRoot"] = Path.GetTempPath(),
+        };
+        foreach (var (key, value) in extra)
+            values[$"Bazaar:CompanyBuild:{key}"] = value;
+        return values;
+    }
+
+    private static readonly (string, string?)[] _trust =
+    [
+        ("UpdateSigningKeyFingerprint", new string('c', 40)),
+        ("UpdateSigningPublicKey", "-----BEGIN PGP PUBLIC KEY BLOCK-----\nabc\n-----END PGP PUBLIC KEY BLOCK-----"),
+        ("ReleaseManifestUrl", "https://bazaar.example/releases/manifest.json"),
+    ];
+
+    [Fact]
+    public void Without_update_trust_the_identity_has_none()
+    {
+        using var provider = Register(Complete()).BuildServiceProvider();
+
+        var identity = provider.GetRequiredService<Bazaar.CompanyIdentity.CompanyServerIdentity>();
+        Assert.Null(identity.Update);
+        Assert.Equal(Pin, identity.KeyHashPin);
+    }
+
+    [Fact]
+    public void Update_trust_is_passed_into_the_identity()
+    {
+        using var provider = Register(Complete([.. _trust, ("IsOwnerInstall", "true")])).BuildServiceProvider();
+
+        var update = provider.GetRequiredService<Bazaar.CompanyIdentity.CompanyServerIdentity>().Update;
+        Assert.NotNull(update);
+        Assert.Equal(new string('c', 40), update.UpdateSigningKeyFingerprint);
+        Assert.True(update.IsOwnerInstall);
+    }
+
+    [Fact]
+    public void Partial_update_trust_stops_startup() =>
+        Assert.Throws<InvalidOperationException>(() => Register(Complete(_trust[0])));
+
+    [Fact]
+    public void A_manifest_on_another_origin_stops_startup() =>
+        Assert.Throws<InvalidOperationException>(() => Register(Complete(_trust[0], _trust[1], ("ReleaseManifestUrl", "https://other.example/m.json"))));
+
+    [Fact]
+    public void A_bad_owner_flag_stops_startup() =>
+        Assert.Throws<InvalidOperationException>(() => Register(Complete([.. _trust, ("IsOwnerInstall", "maybe")])));
 }

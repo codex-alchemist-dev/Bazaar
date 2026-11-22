@@ -168,10 +168,7 @@ src/Bazaar.Server/Memory/Write/MemoryCommitMessage.cs
 src/Bazaar.Server/Memory/Write/MemoryCommitResult.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteItem.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteQueue.cs
-src/Bazaar.Server/Mentions/HandleSlug.cs
-src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Providers/Linux/LinuxProviders.cs
-src/Bazaar.Server/Sanitization/TextSanitizer.cs
 src/Bazaar.Server/Settings/ConstellationSettings.cs
 src/Bazaar.Server/Settings/FloorCheckingSettingStore.cs
 src/Bazaar.Server/Settings/HostSettingValues.cs
@@ -184,9 +181,3 @@ src/Bazaar.Server/Settings/PostgresSettingAuditSink.cs
 src/Bazaar.Server/Settings/SecurityFloors.cs
 src/Bazaar.Server/Settings/SecuritySettings.cs
 src/Bazaar.Server/Settings/SettingWriteResult.cs
-src/Bazaar.Server/Verification/GateModel.cs
-src/Bazaar.Server/Verification/GitRepo.cs
-src/Bazaar.Server/Verification/PathRules.cs
-src/Bazaar.Server/Verification/ProcessRunner.cs
-src/Bazaar.Server/Verification/TestCounter.cs
-src/Bazaar.Server/Verification/VerificationGate.cs

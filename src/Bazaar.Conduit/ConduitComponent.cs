@@ -1,8 +1,12 @@
+using System.Net;
 using Bazaar.Conduit.Settings;
+using Bazaar.Conduit.Setup;
 using Bazaar.Core;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Setup;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Conduit;
 
@@ -28,5 +32,29 @@ public sealed class ConduitComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddSingleton<ISettingContribution, ConduitSettingContribution>();
+
+        // The wizard's remote access check replaces the placeholder with the same id (doc 45 step 15b). It makes a real HTTPS request only
+        // when the plan turns a named Cloudflare tunnel on.
+        services.TryAddSingleton(TimeProvider.System);
+        services.AddSingleton<ISetupVerificationCheck>(sp => new RemoteReachabilityCheck(FetchStatusAsync, sp.GetRequiredService<TimeProvider>()));
+    }
+
+    private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(10) };
+
+    private static async Task<HttpStatusCode?> FetchStatusAsync(Uri uri, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await _http.GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            return response.StatusCode;
+        }
+        catch (HttpRequestException)
+        {
+            return null;
+        }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
     }
 }

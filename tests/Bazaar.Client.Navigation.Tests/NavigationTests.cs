@@ -86,3 +86,26 @@ public class NavigationTests
         Assert.Throws<InvalidOperationException>(() => runner.Register("a.b", _ => Task.CompletedTask));
     }
 }
+
+public class LatePaneSurfaceTests
+{
+    [Fact]
+    public async Task Before_binding_nothing_can_be_shown_and_after_binding_the_head_decides()
+    {
+        var surface = new LatePaneSurface();
+        Assert.False(surface.CanShow("bazaar.org"));
+        await Assert.ThrowsAsync<NavigationException>(() => surface.ShowAsync("bazaar.org", TestContext.Current.CancellationToken));
+
+        var shown = new List<string>();
+        surface.Bind(k => k == "bazaar.org", (k, _) =>
+        {
+            shown.Add(k);
+            return Task.CompletedTask;
+        });
+
+        Assert.True(surface.CanShow("bazaar.org"));
+        Assert.False(surface.CanShow("other"));
+        await surface.ShowAsync("bazaar.org", TestContext.Current.CancellationToken);
+        Assert.Equal(["bazaar.org"], shown);
+    }
+}

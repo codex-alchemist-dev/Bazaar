@@ -4,6 +4,7 @@ using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
+using Bazaar.Server.ThinkingGc;
 using Npgsql;
 
 namespace Bazaar.Server.Agents.Turns;
@@ -23,6 +24,10 @@ namespace Bazaar.Server.Agents.Turns;
 /// model on the next model step. A tool step an abandoned turn left for the same call is settled by <see cref="ToolStepPlanner"/>:
 /// a finished call is reused, an unknown one is not run and the model is told, and an idempotent one may run again.
 /// </para>
+/// <para>
+/// When an <see cref="IThinkingRecorder"/> is given, the model's reasoning, each tool step and the turn's end are written to the
+/// agent's Thinking GC under the GC that woke the turn (doc 01, Thinking GCs). A recorder failure never fails the turn.
+/// </para>
 /// </summary>
 public sealed class TurnRunner
 {
@@ -37,9 +42,10 @@ public sealed class TurnRunner
     private readonly TurnRepository _turns;
     private readonly TurnStepRepository _steps;
     private readonly InboxRepository _inbox;
+    private readonly IThinkingRecorder? _thinking;
 
     /// <exception cref="ArgumentException">The options are inconsistent (see <see cref="TurnRunnerOptions.Validate"/>).</exception>
-    public TurnRunner(NpgsqlDataSource dataSource, IModelGateway gateway, IToolDispatcher dispatcher, TurnRunnerOptions? options = null)
+    public TurnRunner(NpgsqlDataSource dataSource, IModelGateway gateway, IToolDispatcher dispatcher, TurnRunnerOptions? options = null, IThinkingRecorder? thinking = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         ArgumentNullException.ThrowIfNull(gateway);
@@ -53,6 +59,7 @@ public sealed class TurnRunner
         _turns = new TurnRepository(dataSource);
         _steps = new TurnStepRepository(dataSource);
         _inbox = new InboxRepository(dataSource);
+        _thinking = thinking;
     }
 
     /// <summary>
@@ -77,7 +84,7 @@ public sealed class TurnRunner
         if (!await _leases.TryAcquireAsync(request.AgentId, holder, _options.LeaseDuration, cancellationToken).ConfigureAwait(false))
             return TurnResult.NotAcquired;
 
-        var progress = new Progress(holder);
+        var progress = new Progress(holder, request);
 
         // The wall clock is a linked token, so a model call in flight is cancelled when it passes, and an external cancel still
         // reaches the call. A cancel that is not the caller's therefore means the wall clock passed.
@@ -146,6 +153,7 @@ public sealed class TurnRunner
 
             var hash = ModelRequestHash.Compute(request.Route, messages, tools);
             var (response, reused) = await CallModelAsync(request, progress, messages, tools, hash, ct).ConfigureAwait(false);
+            await RecordThinkingAsync(progress, ThinkingEntryKind.Reasoning, progress.TakeThinking(), ct).ConfigureAwait(false);
 
             // A reused response was paid for by the abandoned turn, so only a new call counts against the ceiling.
             if (!reused)
@@ -167,6 +175,7 @@ public sealed class TurnRunner
                         return await FailAsync(progress, $"step cap of {stepCap} reached", TurnEndReason.StepCap).ConfigureAwait(false);
 
                     var content = await RunToolAsync(request, progress, call, hash, ct).ConfigureAwait(false);
+                    await RecordThinkingAsync(progress, ThinkingEntryKind.Tool, $"Tool {call.Name}: {progress.LastToolOutcome}", ct).ConfigureAwait(false);
                     messages.Add(new ModelMessage(ModelRole.Tool, content, ToolCallId: call.CallId));
                 }
 
@@ -221,7 +230,7 @@ public sealed class TurnRunner
         }
 
         var modelRequest = new ModelRequest(request.AgentId.ToString("D"), request.Route, messages, tools, turnId.ToString("D"));
-        var response = await ReadResponseAsync(modelRequest, ct).ConfigureAwait(false);
+        var response = await ReadResponseAsync(modelRequest, progress, ct).ConfigureAwait(false);
         await CompleteStepAsync(turnId, n, JsonSerializer.Serialize(response, TurnJsonContext.Default.ModelStepResponse), ct).ConfigureAwait(false);
         progress.PendingStep = null;
         return (response, false);
@@ -250,6 +259,7 @@ public sealed class TurnRunner
                     var reusedN = await _steps.BeginAsync(turnId, TurnStepKind.Tool, hash, prior.Idempotent, ct).ConfigureAwait(false);
                     progress.ToolSteps++;
                     await CompleteStepAsync(turnId, reusedN, json, ct).ConfigureAwait(false);
+                    progress.LastToolOutcome = stored.Outcome;
                     return ToolStepPlanner.ResultText(stored.Outcome, stored.ResultJson, stored.Reason);
                 }
 
@@ -259,6 +269,7 @@ public sealed class TurnRunner
                     var unknownN = await _steps.BeginAsync(turnId, TurnStepKind.Tool, hash, prior!.Idempotent, ct).ConfigureAwait(false);
                     progress.ToolSteps++;
                     await _steps.MarkUnfinishedAsync(turnId, unknownN, TurnStepStatus.Unknown, ct).ConfigureAwait(false);
+                    progress.LastToolOutcome = ToolDispatchOutcome.Unknown;
                     return ToolStepPlanner.ResultText(ToolDispatchOutcome.Unknown, null, null);
                 }
 
@@ -281,15 +292,17 @@ public sealed class TurnRunner
                     var stored = new ToolStepResponse(call.CallId, call.Name, result.Outcome, result.ResultJson, result.Reason);
                     await CompleteStepAsync(turnId, n, JsonSerializer.Serialize(stored, TurnJsonContext.Default.ToolStepResponse), ct).ConfigureAwait(false);
                     progress.PendingStep = null;
+                    progress.LastToolOutcome = result.Outcome;
                     return ToolStepPlanner.ResultText(result.Outcome, result.ResultJson, result.Reason);
                 }
         }
     }
 
     /// <summary>Reads one streamed model response into a <see cref="ModelStepResponse"/>. A failure event or a broken stream throws.</summary>
-    private async Task<ModelStepResponse> ReadResponseAsync(ModelRequest request, CancellationToken ct)
+    private async Task<ModelStepResponse> ReadResponseAsync(ModelRequest request, Progress progress, CancellationToken ct)
     {
         var text = new StringBuilder();
+        var thinking = new StringBuilder();
         var calls = new List<PendingToolCall>();
         StopReason? stop = null;
         var served = "";
@@ -328,12 +341,19 @@ public sealed class TurnRunner
                     served = done.ServedModel;
                     break;
 
-                case ModelEvent.ThinkingDelta:
+                case ModelEvent.ThinkingDelta thinkingDelta:
+                    // Reasoning is not part of the stored step. It goes to the Thinking GC, when there is a recorder (doc 01, doc 06).
+                    thinking.Append(thinkingDelta.Text);
+                    break;
+
                 case ModelEvent.Warning:
-                    // Reasoning is not stored in the turn; Thinking GCs are a separate writer (doc 06). Warnings do not change the response.
+                    // Warnings do not change the response.
                     break;
             }
         }
+
+        // Kept even when the stream then fails: what the model thought before the failure is still worth reading.
+        progress.PendingThinking = thinking.ToString();
 
         if (stop is null)
             throw new GatewayModelException("stream_dropped", "The stream ended without a done event.");
@@ -362,6 +382,7 @@ public sealed class TurnRunner
         await _inbox.CompleteAsync(progress.Holder, progress.ClaimedIds, CancellationToken.None).ConfigureAwait(false);
         await _turns.EndAsync(turnId, TurnStatus.Completed, CancellationToken.None).ConfigureAwait(false);
         progress.Finished = true;
+        await RecordThinkingAsync(progress, ThinkingEntryKind.TurnEnd, "Turn completed with a final message.", CancellationToken.None).ConfigureAwait(false);
         return Result(TurnOutcome.Completed, progress, finalText, null, TurnEndReason.FinalMessage);
     }
 
@@ -382,7 +403,33 @@ public sealed class TurnRunner
         }
 
         await _inbox.ReleaseAsync(progress.Holder, CancellationToken.None).ConfigureAwait(false);
+        await RecordThinkingAsync(progress, ThinkingEntryKind.TurnEnd, $"Turn failed: {reason}.", CancellationToken.None).ConfigureAwait(false);
         return Result(TurnOutcome.Failed, progress, null, reason, endReason);
+    }
+
+    /// <summary>
+    /// Writes one entry to the agent's Thinking GC. Skipped with no recorder, no working GC or blank text. A recorder failure is
+    /// swallowed so a turn is never lost to its own diary; an external cancel still reaches the caller.
+    /// </summary>
+    private async Task RecordThinkingAsync(Progress progress, ThinkingEntryKind kind, string? text, CancellationToken ct)
+    {
+        if (_thinking is null || progress.TurnId is not { } turnId || progress.Request.TriggerGcId is null || string.IsNullOrWhiteSpace(text))
+            return;
+
+        try
+        {
+            await _thinking.RecordAsync(
+                new ThinkingEntry(progress.Request.AgentId, turnId, progress.Request.TriggerGcId, ++progress.ThinkingOrdinal, kind, text), ct)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // The turn's own state is already durable; the entry is idempotent and a later turn does not depend on it.
+        }
     }
 
     private static TurnResult Result(
@@ -398,9 +445,28 @@ public sealed class TurnRunner
         : $"turn error ({ex.GetType().Name})";
 
     /// <summary>Mutable state of one run, shared by the steps so the cleanup knows what to undo.</summary>
-    private sealed class Progress(string holder)
+    private sealed class Progress(string holder, TurnRequest request)
     {
         public string Holder { get; } = holder;
+
+        public TurnRequest Request { get; } = request;
+
+        /// <summary>Reasoning text of the model step just read, until it is written to the Thinking GC.</summary>
+        public string? PendingThinking { get; set; }
+
+        /// <summary>Entries written to the Thinking GC so far in this run; the next entry's ordinal is this plus one.</summary>
+        public int ThinkingOrdinal { get; set; }
+
+        /// <summary>How the tool step just run ended.</summary>
+        public ToolDispatchOutcome LastToolOutcome { get; set; }
+
+        /// <summary>Returns the pending reasoning and clears it.</summary>
+        public string? TakeThinking()
+        {
+            var text = PendingThinking;
+            PendingThinking = null;
+            return text;
+        }
 
         public Guid? TurnId { get; set; }
 

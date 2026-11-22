@@ -97,6 +97,26 @@ public static class SupportBundleCommands
             output);
     }
 
+    /// <summary>
+    /// Runs the palette command: writes <c>support/bazaar-support-&lt;time&gt;.zip</c> under the data directory and reports the
+    /// path (or the failure) through <paramref name="report"/>. Returns the path, or null when it failed.
+    /// </summary>
+    public static string? SaveFromPalette(IPaneModule[] modules, string dataDir, TimeProvider clock, Action<string> report)
+    {
+        try
+        {
+            var path = Path.Combine(dataDir, "support", $"bazaar-support-{clock.GetUtcNow():yyyyMMdd-HHmmss}.zip");
+            WriteBundle(path, dataDir, modules);
+            report($"Bazaar: support bundle saved to {path}");
+            return path;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            report($"Bazaar: could not save the support bundle ({ex.GetType().Name}).");
+            return null;
+        }
+    }
+
     private static string ClientVersion() =>
         typeof(SupportBundleCommands).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
             .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "unknown";

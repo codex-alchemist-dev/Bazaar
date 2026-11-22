@@ -1,5 +1,5 @@
 -- GitHub component tables (docs/design/21-github-integration.md, "Data and interfaces"; work package 1).
--- Applies only through the GitHub component's migration source (components/github, embedded in Bazaar.Server.GitHub).
+-- Applies only through the host component migration source (Sql/components/github, embedded in Bazaar.GitHub).
 -- Never place this file in Data/Sql/common. Owner of the github_* tables: doc 21.
 -- No cross-table foreign keys: agent_id, gc_id and task_id are plain uuids owned by other components' tables.
 -- Enums are text with CHECK (doc 04). Timestamps are timestamptz in UTC. Secrets are never stored here: key_ref is a
