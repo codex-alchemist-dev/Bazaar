@@ -10,9 +10,18 @@
 name: Publish smoke
 
 on:
+  # Not a required check, so it does not need the push-on-every-branch trick: pull requests and main only,
+  # and only when something that can break a publish changed.
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/Bazaar.Client*/**'
+      - 'Directory.*'
+      - 'global.json'
+      - 'NuGet.config'
+      - '.github/workflows/publish-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -25,6 +34,7 @@ concurrency:
 jobs:
   publish-smoke:
     name: Publish ${{ matrix.head }} (${{ matrix.rid }})
+    if: github.event.pull_request.draft != true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:

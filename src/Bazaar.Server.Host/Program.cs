@@ -4,11 +4,17 @@ using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
+using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
 {
     return await MigrateSubcommand.RunAsync(args[1..], Console.Out);
+}
+
+if (args.Length > 0 && args[0].Equals("kek", StringComparison.OrdinalIgnoreCase))
+{
+    return await KekSubcommand.RunAsync(args[1..], Console.Out);
 }
 
 if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
@@ -32,6 +38,7 @@ app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
 app.MapCommunityLog();
+app.MapBazaarSetup();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.

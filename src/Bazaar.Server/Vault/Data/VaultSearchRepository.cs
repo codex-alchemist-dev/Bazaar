@@ -22,12 +22,26 @@ public sealed record VaultBlockRow(
 /// </summary>
 public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
 {
-    // Access, shared by every query. $1 is the caller's IsOwner and $2 the caller's agent owner (or null).
-    private const string _accessClause = "($1::boolean OR d.owner IS NULL OR d.owner = $2::text)";
+    // Access, shared by every query; the same rule as VaultAccess.CanRead, and it fails closed. $1 is the caller's IsOwner,
+    // $2 the caller's agent owner (or null) and $3 the caller's project slugs (text[], empty when membership is unresolved).
+    // An owned document is its agent's only. An ownerless one is readable by an agent only under company/ or shared/
+    // (VaultAccess.AgentReadablePrefixes), under its own agents/<id>/ area, or in a project area (VaultAccess.ProjectAreaOf:
+    // projects/<slug>/... or twin/<slug>/..., the slug being the second segment and something following it) whose slug is in
+    // $3. Everything else is the owner's. Slugs arrive only as the array parameter, never in the SQL text.
+    private const string _accessClause = """
+        ($1::boolean
+         OR ($2::text IS NOT NULL AND d.owner IS NOT NULL AND d.owner = $2::text)
+         OR ($2::text IS NOT NULL AND d.owner IS NULL
+             AND (starts_with(d.path, 'company/') OR starts_with(d.path, 'shared/')
+                  OR (starts_with($2::text, 'agent:') AND starts_with(d.path, 'agents/' || substr($2::text, 7) || '/'))
+                  OR ((starts_with(d.path, 'projects/') OR starts_with(d.path, 'twin/'))
+                      AND split_part(d.path, '/', 3) <> ''
+                      AND split_part(d.path, '/', 2) = ANY($3::text[])))))
+        """;
 
     private const string _filterClause = """
-        AND ($3::text IS NULL OR d.project = $3::text)
-        AND ($4::text IS NULL OR d.type = $4::text)
+        AND ($4::text IS NULL OR d.project = $4::text)
+        AND ($5::text IS NULL OR d.type = $5::text)
         """;
 
     /// <summary>Full-text candidates, best first. Uses the <c>tsv</c> column written by the indexer.</summary>
@@ -39,10 +53,10 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
                    ts_rank(b.tsv, q.query)::float8 AS score
             FROM vault_blocks b
             JOIN vault_docs d ON d.doc_id = b.doc_id
-            CROSS JOIN websearch_to_tsquery('english', $5::text) AS q(query)
-            WHERE d.vault_id = $6 AND b.tsv @@ q.query AND {_accessClause} {_filterClause}
+            CROSS JOIN websearch_to_tsquery('english', $6::text) AS q(query)
+            WHERE d.vault_id = $7 AND b.tsv @@ q.query AND {_accessClause} {_filterClause}
             ORDER BY score DESC, b.doc_id, b.ordinal
-            LIMIT $7
+            LIMIT $8
             """);
         AddCommonParameters(cmd, caller, project, type);
         cmd.Parameters.AddWithValue(text);
@@ -58,13 +72,13 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
     {
         await using var cmd = dataSource.CreateCommand($"""
             SELECT b.doc_id, b.ordinal, d.path, d.title, d.type, d.project, b.heading_path, b.body,
-                   (1 - (e.embedding <=> $5::text::halfvec))::float8 AS score
+                   (1 - (e.embedding <=> $6::text::halfvec))::float8 AS score
             FROM vault_block_embedding e
             JOIN vault_blocks b ON b.doc_id = e.doc_id AND b.ordinal = e.ordinal
             JOIN vault_docs d ON d.doc_id = b.doc_id
-            WHERE e.profile_id = $6 AND d.vault_id = $7 AND {_accessClause} {_filterClause}
-            ORDER BY e.embedding <=> $5::text::halfvec, b.doc_id, b.ordinal
-            LIMIT $8
+            WHERE e.profile_id = $7 AND d.vault_id = $8 AND {_accessClause} {_filterClause}
+            ORDER BY e.embedding <=> $6::text::halfvec, b.doc_id, b.ordinal
+            LIMIT $9
             """);
         AddCommonParameters(cmd, caller, project, type);
         cmd.Parameters.AddWithValue(VaultEmbeddingRepository.ToVectorLiteral(vector));
@@ -89,10 +103,10 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
         await using var cmd = dataSource.CreateCommand($"""
             WITH neighbours AS (
                 SELECT l.target_doc AS doc_id FROM vault_links l
-                WHERE l.src_doc = ANY($4::uuid[]) AND l.target_doc IS NOT NULL
+                WHERE l.src_doc = ANY($5::uuid[]) AND l.target_doc IS NOT NULL
                 UNION
                 SELECT l.src_doc FROM vault_links l
-                WHERE l.target_doc = ANY($4::uuid[])
+                WHERE l.target_doc = ANY($5::uuid[])
             )
             SELECT first_block.doc_id, first_block.ordinal, d.path, d.title, d.type, d.project, first_block.heading_path,
                    first_block.body, 0::float8 AS score
@@ -102,9 +116,9 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
                 SELECT b.doc_id, b.ordinal, b.heading_path, b.body FROM vault_blocks b
                 WHERE b.doc_id = d.doc_id ORDER BY b.ordinal LIMIT 1
             ) first_block
-            WHERE d.vault_id = $3 AND NOT (d.doc_id = ANY($4::uuid[])) AND {_accessClause}
+            WHERE d.vault_id = $4 AND NOT (d.doc_id = ANY($5::uuid[])) AND {_accessClause}
             ORDER BY d.path
-            LIMIT $5
+            LIMIT $6
             """);
         AddAccessParameters(cmd, caller);
         cmd.Parameters.AddWithValue(vaultId);
@@ -118,7 +132,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
     {
         await using var cmd = dataSource.CreateCommand($"""
             SELECT b.body FROM vault_blocks b JOIN vault_docs d ON d.doc_id = b.doc_id
-            WHERE d.vault_id = $3 AND b.doc_id = $4 AND b.ordinal = $5 AND {_accessClause}
+            WHERE d.vault_id = $4 AND b.doc_id = $5 AND b.ordinal = $6 AND {_accessClause}
             """);
         AddAccessParameters(cmd, caller);
         cmd.Parameters.AddWithValue(vaultId);
@@ -139,6 +153,7 @@ public sealed class VaultSearchRepository(NpgsqlDataSource dataSource)
     {
         cmd.Parameters.AddWithValue(caller.IsOwner);
         cmd.Parameters.AddWithValue((object?)caller.AgentOwner ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(caller.Projects.Order(StringComparer.Ordinal).ToArray());
     }
 
     private static void AddCommonParameters(NpgsqlCommand cmd, VaultCaller caller, string? project, string? type)

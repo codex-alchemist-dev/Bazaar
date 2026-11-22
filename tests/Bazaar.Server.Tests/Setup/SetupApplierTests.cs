@@ -1,7 +1,9 @@
 using System.Text.Json.Nodes;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 
@@ -12,7 +14,7 @@ public sealed class SetupApplierTests
 {
     private const string _operator = "operator-test";
 
-    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
     private static SetupApplyRequest Request(SetupPlan plan, string? hash = null, SetupStateSnapshot? state = null) =>
         new(plan, hash ?? SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator, "starter", "1.0.0", state);
@@ -20,7 +22,7 @@ public sealed class SetupApplierTests
     private static JsonObject PayloadOf(AuditEntry entry) => (JsonObject)JsonNode.Parse(entry.Payload)!;
 
     private static SetupApplier Applier(Harness harness, params ISetupStep[] steps) =>
-        new(harness.Lock, steps, harness.Audit, harness.SettingAudit, harness.Time);
+        new(harness.Lock, steps, harness.Audit, new SettingAuditSinkSetupAudit(harness.SettingAudit), harness.Time, RegistrySetupSettingCatalog.Known);
 
     private static RecordingStep Step(string id, int order, List<string> calls, StepBehaviour behaviour = StepBehaviour.Succeed) =>
         new(id, order, calls, behaviour);
@@ -60,7 +62,7 @@ public sealed class SetupApplierTests
         var harness = new Harness();
         var calls = new List<string>();
         // A missing backup target is a hold (doc 45 section 1.7), and the loader still returns the plan with that hold.
-        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null")).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"target\": \"file:/mnt/backup/bazaar\"", "\"target\": null"), RegistrySetupSettingCatalog.Known).Plan!;
 
         var result = await Applier(harness, Step("database.schema", 10, calls)).ApplyAsync(Request(plan), TestContext.Current.CancellationToken);
 
@@ -190,7 +192,7 @@ public sealed class SetupApplierTests
     public async Task Removed_setting_is_audited_with_a_null_new_value()
     {
         var harness = new Harness();
-        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"settings\": { \"host.shutdown_timeout_seconds\": 20 }", "\"settings\": {}")).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.With("\"settings\": { \"host.shutdown_timeout_seconds\": 20 }", "\"settings\": {}"), RegistrySetupSettingCatalog.Known).Plan!;
         var state = new SetupStateSnapshot(new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["settings.host.shutdown_timeout_seconds"] = "20",
@@ -261,7 +263,8 @@ public sealed class SetupApplierTests
         var services = new ServiceCollection();
         services.AddSingleton<ISetupInstanceLock>(harness.Lock);
         services.AddSingleton<IAuditLog>(harness.Audit);
-        services.AddSingleton<ISettingAuditSink>(harness.SettingAudit);
+        services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(harness.SettingAudit));
+        services.AddSingleton<ISetupSettingCatalog>(RegistrySetupSettingCatalog.Known);
         services.AddSingleton<TimeProvider>(harness.Time);
         services.AddSetupApply([]);
 
@@ -289,6 +292,31 @@ public sealed class SetupApplierTests
         Assert.Contains("InvalidOperationException", row.Payload, StringComparison.Ordinal);
         Assert.DoesNotContain(SetupFixtures.Canary, string.Join("|", result.Issues.Select(issue => issue.Path + issue.Message)), StringComparison.Ordinal);
         Assert.Empty(harness.SettingAudit.Entries);
+    }
+
+    [Fact]
+    public async Task Applied_row_records_the_template_id_version_and_hash_and_null_hash_when_no_template()
+    {
+        var harness = new Harness();
+        var calls = new List<string>();
+        var plan = ValidPlan();
+        const string templateHash = "3f9c2a7e1b4d8f60a5c1e2d3b4a59687766554433221100ffeeddccbbaa9988";
+
+        var withTemplate = new SetupApplyRequest(plan, SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator, "starter", "1.0.0", null, templateHash);
+        await Applier(harness, Step("database.schema", 10, calls)).ApplyAsync(withTemplate, TestContext.Current.CancellationToken);
+
+        var row = PayloadOf(Assert.Single(harness.Audit.Entries));
+        Assert.Equal("starter", row["templateId"]!.GetValue<string>());
+        Assert.Equal("1.0.0", row["templateVersion"]!.GetValue<string>());
+        Assert.Equal(templateHash, row["templateHash"]!.GetValue<string>());
+
+        var plainHarness = new Harness();
+        var withoutTemplate = new SetupApplyRequest(plan, SetupPlanCanonicalizer.Hash(plan), SetupEntryPath.Cli, _operator);
+        await Applier(plainHarness, Step("database.schema", 10, calls)).ApplyAsync(withoutTemplate, TestContext.Current.CancellationToken);
+
+        var plainRow = PayloadOf(Assert.Single(plainHarness.Audit.Entries));
+        Assert.Null(plainRow["templateHash"]);
+        Assert.Null(plainRow["templateId"]);
     }
 
     /// <summary>Holds the fakes one test uses. Each test makes its own, so nothing is shared.</summary>
