@@ -185,6 +185,7 @@ Each change writes an audit entry (doc 15 `audit_log`). Floors cannot be loosene
 | gc.invite_policy | `any-member` or `owner-only` | `any-member` | install | operator | no; always logged |
 | gc.edit_window_hours | int, 0 = unlimited | 0 | install | operator | no |
 | gc.unarchive_policy | `owner` or `any-member` | `owner` | install | operator | no |
+| gc.default_gc_rule [PROPOSED] | `most_recently_active` or `none` | `most_recently_active` | install | operator | no; audited. Picks the `defaultGcId` of `gc.list` (doc 02, GC list) |
 | gc.broadcast_mentions | `owner-only` or `owner-and-agents-rate-limited` | `owner-and-agents-rate-limited` | install | operator | no |
 | gc.broadcast_mention_rate_per_hour | int | 2 [PROPOSED] | install | operator | no |
 | gc.dashboard_order | `unread-mentions-then-activity` or `activity` | `unread-mentions-then-activity` | install (each person's client) | each person | no |
