@@ -57,9 +57,23 @@ public class SecurityDisplayGateTests
     }
 
     [Fact]
-    public async Task Disabled_by_default_and_calls_no_reader()
+    public async Task Default_options_make_real_decisions()
     {
         var r = new Rig { Options = new DisplayGateOptions() };
+
+        Assert.True(r.Options.Enabled);
+        Assert.True((await r.Gate.CheckCaptureAsync(Vm(), Ct)).Allowed);
+        r.Kill.Frozen = true;
+        AssertDenied(await r.Gate.CheckCaptureAsync(Vm(), Ct), SecurityDisplayGate.ReasonFrozen);
+        r.Kill.Frozen = false;
+        r.Taint.State = TaintState.Hard;
+        AssertDenied(await r.Gate.CheckInputAsync(Browser(), Keys, Ct), SecurityDisplayGate.ReasonHardTaintAccount);
+    }
+
+    [Fact]
+    public async Task Switched_off_refuses_everything_and_calls_no_reader()
+    {
+        var r = new Rig { Options = new DisplayGateOptions { Enabled = false } };
 
         Assert.False(r.Options.Enabled);
         AssertDenied(await r.Gate.CheckCaptureAsync(Vm(), Ct), SecurityDisplayGate.ReasonNotEnabled);

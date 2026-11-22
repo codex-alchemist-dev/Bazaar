@@ -23,11 +23,11 @@ public sealed record DisplayGateOptions
     public const string SectionName = "Bazaar:VmDisplayGate";
 
     /// <summary>
-    /// Whether the gate allows anything. Default false: the gate denies every call. The Security area reports that nothing
-    /// registers agent sessions in the session directory yet, so the taint reader would report Clean for every agent. The gate
-    /// must not be switched on until that wiring lands.
+    /// Whether the gate makes real decisions. Default true: agent sessions are registered in the session directory (PR #1050), so
+    /// the taint reader sees the agent's live sessions. Setting it to false is the tightening direction: the gate then refuses
+    /// every capture and every input, and never allows anything.
     /// </summary>
-    public bool Enabled { get; init; }
+    public bool Enabled { get; init; } = true;
 
     /// <summary>Input under hard taint (setting <c>security.screen.input_hard_taint</c>). Default <see cref="InputUnderHardTaint.AccountBrowsers"/>.</summary>
     public InputUnderHardTaint InputUnderHardTaint { get; init; } = InputUnderHardTaint.AccountBrowsers;

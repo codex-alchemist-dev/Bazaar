@@ -76,12 +76,13 @@ public class ComponentTests
     }
 
     [Fact]
-    public async Task The_gate_is_off_by_default_and_on_when_configured()
+    public async Task The_gate_is_on_by_default_and_refuses_everything_when_switched_off()
     {
-        using ServiceProvider off = Build(true, AddReaders);
-        using ServiceProvider on = Build(true, AddReaders, Config(("Bazaar:VmDisplayGate:Enabled", "true")));
+        using ServiceProvider on = Build(true, AddReaders);
+        using ServiceProvider off = Build(true, AddReaders, Config(("Bazaar:VmDisplayGate:Enabled", "false")));
 
         Assert.Equal(SecurityDisplayGate.ReasonNotEnabled, (await off.GetRequiredService<IDisplayGate>().CheckCaptureAsync(_target, TestContext.Current.CancellationToken)).Reason);
+        Assert.False((await off.GetRequiredService<IDisplayGate>().CheckInputAsync(_target, [new KeyStroke("Tab")], TestContext.Current.CancellationToken)).Allowed);
         Assert.True((await on.GetRequiredService<IDisplayGate>().CheckCaptureAsync(_target, TestContext.Current.CancellationToken)).Allowed);
     }
 
@@ -131,7 +132,7 @@ public class ComponentTests
         Assert.Equal(9, o.ReadTimeoutSeconds);
 
         DisplayGateOptions d = DisplayGateOptions.Bind(Config());
-        Assert.False(d.Enabled);
+        Assert.True(d.Enabled);
         Assert.Equal(InputUnderHardTaint.AccountBrowsers, d.InputUnderHardTaint);
         Assert.Equal(5, d.ReadTimeoutSeconds);
         Assert.Equal(InputUnderHardTaint.All, DisplayGateOptions.Bind(Config(("Bazaar:VmDisplayGate:InputUnderHardTaint", "all"))).InputUnderHardTaint);
