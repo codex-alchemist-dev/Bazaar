@@ -8,13 +8,13 @@ namespace Bazaar.Server.Gateway.Data;
 public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
 {
     private const string _columns =
-        "id, ts, agent_id, turn_id, provider_id, key_ref, model_id, served_model, identity, input, cache_write_5m, cache_write_1h, cache_read, output, thinking, latency_ms, status, error_code, retry_after_s, estimated, price_version";
+        "id, ts, agent_id, turn_id, provider_id, key_ref, model_id, served_model, identity, input, cache_write_5m, cache_write_1h, cache_read, output, thinking, latency_ms, status, error_code, retry_after_s, estimated, price_version, source";
 
     public async ValueTask AppendAsync(GatewayUsageRecord record, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);
         await using var cmd = dataSource.CreateCommand(
-            $"INSERT INTO gw_usage ({_columns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)");
+            $"INSERT INTO gw_usage ({_columns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)");
         var tokens = record.Tokens;
         cmd.Parameters.AddWithValue(record.Id);
         cmd.Parameters.AddWithValue(record.Timestamp);
@@ -37,12 +37,14 @@ public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
             UsageStatus.Success => "success",
             UsageStatus.Error => "error",
             UsageStatus.Aborted => "aborted",
+            UsageStatus.Denied => "denied",
             _ => throw new ArgumentOutOfRangeException(nameof(record)),
         });
         cmd.Parameters.AddWithValue((object?)record.ErrorCode ?? DBNull.Value);
         cmd.Parameters.AddWithValue((object?)record.RetryAfterSeconds ?? DBNull.Value);
         cmd.Parameters.AddWithValue(record.Estimated);
         cmd.Parameters.AddWithValue((object?)record.PriceVersion ?? DBNull.Value);
+        cmd.Parameters.AddWithValue(record.Source ?? UsageSource.For(record.ProviderId));
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
@@ -64,8 +66,8 @@ public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
                 r.GetString(8) == "native" ? GatewayIdentity.Native : GatewayIdentity.Pooled,
                 new GatewayTokenUsage(r.GetInt64(9), r.GetInt64(10), r.GetInt64(11), r.GetInt64(12), r.GetInt64(13), r.GetInt64(14)),
                 r.GetInt64(15),
-                r.GetString(16) switch { "success" => UsageStatus.Success, "error" => UsageStatus.Error, _ => UsageStatus.Aborted },
-                r.IsDBNull(17) ? null : r.GetString(17), r.IsDBNull(18) ? null : r.GetInt32(18), r.GetBoolean(19), r.IsDBNull(20) ? null : r.GetString(20)));
+                r.GetString(16) switch { "success" => UsageStatus.Success, "error" => UsageStatus.Error, "denied" => UsageStatus.Denied, _ => UsageStatus.Aborted },
+                r.IsDBNull(17) ? null : r.GetString(17), r.IsDBNull(18) ? null : r.GetInt32(18), r.GetBoolean(19), r.IsDBNull(20) ? null : r.GetString(20), r.GetString(21)));
         }
 
         return result;
