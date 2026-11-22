@@ -1,10 +1,13 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Updater.Linux;
 using Bazaar.CompanyIdentity;
 using Bazaar.Contracts.Releases;
+using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Linux.Updates;
 
@@ -27,7 +30,27 @@ public sealed class UpdateHost : IDisposable
         Coordinator = coordinator;
         Compatibility = compat;
         _http = http;
+        // No command palette exists in any head yet (only the CommandRegistry/CommandMatcher library in Bazaar.Client.Commands),
+        // so the head owns a registry holding just its local commands. Still missing: a palette view that opens on its mnemonic,
+        // lists Commands.Commands and runs UpdateCheckCommand.RunAsync for update.check; and loading the server's commands.
+        Commands = CommandRegistry.Load([UpdateCheckCommand.Command], []).Registry;
     }
+
+    /// <summary>The head's local commands (currently only <c>update.check</c>), ready for a palette to list.</summary>
+    public CommandRegistry Commands { get; }
+
+    /// <summary>
+    /// Pass to <c>ChatHost.Start</c> as the welcome callback. Records the server's compatibility facts; until the first welcome
+    /// arrives the updater fails closed and applies nothing.
+    /// </summary>
+    public void OnWelcome(Welcome welcome)
+    {
+        ArgumentNullException.ThrowIfNull(welcome);
+        Compatibility.Record(welcome);
+    }
+
+    /// <summary>Creates the handler for <c>update.check</c>; <paramref name="owner"/> gives the window its notice belongs to.</summary>
+    public UpdateCheckCommand CreateCheckCommand(Func<Window?> owner) => new(Coordinator, owner);
 
     /// <summary>The coordinator behind the command and the background check.</summary>
     public UpdateCoordinator Coordinator { get; }
