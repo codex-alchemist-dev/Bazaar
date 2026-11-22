@@ -47,6 +47,9 @@ public static class StatusEndpoints
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
+    /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
+    private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
+
     /// <summary>
     /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
     /// nothing else; any other method on these paths is a 405.
@@ -79,7 +82,7 @@ public static class StatusEndpoints
         }
         else
         {
-            var isApi = IsApiRoute(path);
+            var isApi = IsApiRoute(path) || IsSetupRoute(path);
             allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || (isApi && (HttpMethods.IsPost(method) || HttpMethods.IsPatch(method)));
             allow = isApi ? "GET, HEAD, POST, PATCH" : "GET, HEAD";
         }
