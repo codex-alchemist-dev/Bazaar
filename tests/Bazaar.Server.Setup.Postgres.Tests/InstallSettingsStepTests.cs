@@ -54,13 +54,29 @@ public sealed class InstallSettingsStepTests
 
         Assert.True(result.Succeeded, result.Message);
         var rows = await RowsAsync(db.DataSource, ct);
-        Assert.Equal(4, rows.Count);
+        Assert.Equal(10, rows.Count);
         Assert.Equal("20", rows["host.shutdown_timeout_seconds"]);
         Assert.Equal("\"loopback\"", rows["host.status.bind"]);
         Assert.Equal("9000", rows["host.status.port"]);
         Assert.Equal("\"latest_commit\"", rows["update.channel"]);
         await using var by = db.DataSource.CreateCommand("SELECT DISTINCT updated_by FROM setting");
         Assert.Equal(_operator, await by.ExecuteScalarAsync(ct));
+    }
+
+    [Theory]
+    [InlineData("automatic", "true")]
+    [InlineData("manual", "false")]
+    public async Task Apply_writes_the_security_update_policy_as_the_auto_patch_flag(string security, string stored)
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await SetupDatabase.CreateAsync(ct);
+        var plan = new SetupPlan { Install = new SetupInstallSection { UpdatePolicy = new SetupUpdatePolicySection { Security = security } } };
+
+        var result = await Step(db.DataSource).ApplyAsync(plan, Context(), ct);
+
+        Assert.True(result.Succeeded, result.Message);
+        Assert.Equal(stored, (await RowsAsync(db.DataSource, ct))["deps.update.autoSecurityPatches"]);
     }
 
     [Fact]
@@ -78,11 +94,11 @@ public sealed class InstallSettingsStepTests
 
         Assert.True(first.Succeeded);
         Assert.True(second.Succeeded);
-        Assert.Equal("4 of 4 settings changed.", first.Message);
-        Assert.Equal("0 of 4 settings changed.", second.Message);
+        Assert.Equal("10 of 10 settings changed.", first.Message);
+        Assert.Equal("0 of 10 settings changed.", second.Message);
         await using var after = db.DataSource.CreateCommand("SELECT max(updated_at) FROM setting");
         Assert.Equal(written, (DateTime)(await after.ExecuteScalarAsync(ct))!);
-        Assert.Equal(4, (await RowsAsync(db.DataSource, ct)).Count);
+        Assert.Equal(10, (await RowsAsync(db.DataSource, ct)).Count);
     }
 
     [Fact]
@@ -96,7 +112,7 @@ public sealed class InstallSettingsStepTests
 
         var result = await step.ApplyAsync(Plan(port: 9001), Context("hash-b"), ct);
 
-        Assert.Equal("1 of 4 settings changed.", result.Message);
+        Assert.Equal("1 of 10 settings changed.", result.Message);
         Assert.Equal("9001", (await RowsAsync(db.DataSource, ct))["host.status.port"]);
     }
 
@@ -128,7 +144,7 @@ public sealed class InstallSettingsStepTests
 
         var rows = await RowsAsync(db.DataSource, ct);
         Assert.Equal("9000", rows["host.status.port"]);
-        Assert.Equal(4, rows.Count);
+        Assert.Equal(10, rows.Count);
         await using var by = db.DataSource.CreateCommand("SELECT updated_by FROM setting WHERE key = 'host.status.port'");
         Assert.Equal("first-operator", await by.ExecuteScalarAsync(ct));
     }
@@ -165,7 +181,7 @@ public sealed class InstallSettingsStepTests
 
         await step.RollbackAsync(Plan(), Context("hash-b"), ct);
 
-        Assert.Equal(4, (await RowsAsync(db.DataSource, ct)).Count);
+        Assert.Equal(10, (await RowsAsync(db.DataSource, ct)).Count);
     }
 
     [Fact]

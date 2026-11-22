@@ -10,9 +10,11 @@ public sealed record SetupProjectedSetting(string Key, string PlanPath, JsonElem
 
 /// <summary>
 /// The install-scope settings a plan sets (doc 45 section 1.2: "the settings values (registry keys from doc 03 and setup-only keys)").
-/// They are the <c>settings</c> map plus four plan fields that map to one registry key each: <c>network.statusBind</c> and
+/// They are the <c>settings</c> map plus the plan fields that map to registry keys: <c>network.statusBind</c> and
 /// <c>network.statusPort</c> (doc 03 <c>host.status.*</c>), <c>scamMailProtocol.enabled</c> (doc 15 <c>security.scam_mail.protocol_enabled</c>)
-/// (only when on) and <c>install.releaseChannel</c> (doc 30 <c>update.channel</c>, wire form snake_case). The apply step writes them and the applier audits them from
+/// (only when on) <c>install.releaseChannel</c> (doc 30 <c>update.channel</c>, wire form snake_case), <c>install.updatePolicy.security</c> (doc 42 <c>deps.update.autoSecurityPatches</c>),
+/// the backups section (<c>backup.target</c>, <c>backup.drill_interval_days</c>, <c>backup.no_target_acknowledged</c>; doc 33) and the email section
+/// (<c>mail.enabled</c>, <c>mail.backend</c>; doc 22). The apply step writes them and the applier audits them from
 /// this one list, so both agree on what a plan changes. Pure: nothing is stored.
 /// </summary>
 public static class SetupSettingProjection
@@ -29,14 +31,41 @@ public static class SetupSettingProjection
     /// <summary>Registry key set by <c>install.releaseChannel</c>.</summary>
     public const string UpdateChannelKey = "update.channel";
 
-    /// <summary>The registry key a derived plan path maps to, or null when the path is not one of the four mapped plan fields.</summary>
-    public static string? DerivedKeyForPath(string planPath) => planPath switch
+    /// <summary>Registry key set by <c>install.updatePolicy.security</c> (doc 42 section 10; <c>automatic</c> is true).</summary>
+    public const string AutoSecurityPatchesKey = "deps.update.autoSecurityPatches";
+
+    /// <summary>Registry key set by <c>backups.target</c> (empty when the plan has none).</summary>
+    public const string BackupTargetKey = "backup.target";
+
+    /// <summary>Registry key set by <c>backups.drillIntervalDays</c>.</summary>
+    public const string BackupDrillIntervalKey = "backup.drill_interval_days";
+
+    /// <summary>Registry key set by <c>backups.acknowledgeNoTarget</c>, true only when the plan has no target and acknowledges it.</summary>
+    public const string BackupNoTargetAcknowledgedKey = "backup.no_target_acknowledged";
+
+    /// <summary>Registry key set by <c>email.enabled</c>.</summary>
+    public const string MailEnabledKey = "mail.enabled";
+
+    /// <summary>Registry key set by <c>email.backend</c> (wire form snake_case; <c>none</c> while email is off).</summary>
+    public const string MailBackendKey = "mail.backend";
+
+    /// <summary>The back end ids an enabled email section may name (doc 22 back ends table), in plan form.</summary>
+    public static readonly IReadOnlyList<string> MailBackends = ["bazaar_client", "imap_smtp", "cloudflare", "builtin_server"];
+
+    /// <summary>The registry keys a derived plan path feeds, or empty when the path is not one of the mapped plan fields.</summary>
+    public static IReadOnlyList<string> DerivedKeysForPath(string planPath) => planPath switch
     {
-        "network.statusBind" => StatusBindKey,
-        "network.statusPort" => StatusPortKey,
-        "scamMailProtocol.enabled" => ScamMailKey,
-        "install.releaseChannel" => UpdateChannelKey,
-        _ => null,
+        "network.statusBind" => [StatusBindKey],
+        "network.statusPort" => [StatusPortKey],
+        "scamMailProtocol.enabled" => [ScamMailKey],
+        "install.releaseChannel" => [UpdateChannelKey],
+        "install.updatePolicy.security" => [AutoSecurityPatchesKey],
+        "backups.target" => [BackupTargetKey, BackupNoTargetAcknowledgedKey],
+        "backups.acknowledgeNoTarget" => [BackupNoTargetAcknowledgedKey],
+        "backups.drillIntervalDays" => [BackupDrillIntervalKey],
+        "email.enabled" => [MailEnabledKey, MailBackendKey],
+        "email.backend" => [MailBackendKey],
+        _ => [],
     };
 
     /// <summary>Every setting the plan sets, sorted by key (ordinal). A key set in both places is the validator's error, so it appears once here.</summary>
@@ -59,7 +88,42 @@ public static class SetupSettingProjection
         }
 
         Add(projected, UpdateChannelKey, "install.releaseChannel", Parse(JsonSerializer.Serialize(WireChannel(plan.Install.ReleaseChannel), SetupPlanJsonContext.Default.String)));
+        // Doc 45 step 2. Only the security half has a registry key. The "other" half has none (every non-security update is manual
+        // and nothing stores an automatic choice), so it is not projected and the apply step refuses "automatic" (see IsOtherUpdatePolicyBacked).
+        Add(projected, AutoSecurityPatchesKey, "install.updatePolicy.security", Parse(string.Equals(plan.Install.UpdatePolicy.Security, "automatic", StringComparison.Ordinal) ? "true" : "false"));
+
+        // Doc 45 step 8 (doc 33). The target is empty when the plan has none. The acknowledgement counts only for a plan with no target.
+        var noTarget = plan.Backups.Target is null;
+        Add(projected, BackupTargetKey, "backups.target", Parse(JsonSerializer.Serialize(plan.Backups.Target ?? string.Empty, SetupPlanJsonContext.Default.String)));
+        Add(projected, BackupDrillIntervalKey, "backups.drillIntervalDays", Parse(JsonSerializer.Serialize(plan.Backups.DrillIntervalDays, SetupPlanJsonContext.Default.Int32)));
+        Add(projected, BackupNoTargetAcknowledgedKey, "backups.acknowledgeNoTarget", Parse(noTarget && plan.Backups.AcknowledgeNoTarget ? "true" : "false"));
+
+        // Doc 45 step 11 (doc 22). The back end is stored only while email is on, so an off plan leaves "none".
+        Add(projected, MailEnabledKey, "email.enabled", Parse(plan.Email.Enabled ? "true" : "false"));
+        Add(projected, MailBackendKey, "email.backend", Parse(JsonSerializer.Serialize(plan.Email.Enabled ? plan.Email.Backend : "none", SetupPlanJsonContext.Default.String)));
         return [.. projected.Values];
+    }
+
+    /// <summary>
+    /// True when the email section is coherent: off with no back end, or on with one of <see cref="MailBackends"/>. The registry checks
+    /// each key alone, so this rule across the two keys lives here, for the validator and the apply step both.
+    /// </summary>
+    public static bool IsEmailChoiceCoherent(SetupPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return plan.Email.Enabled
+            ? MailBackends.Contains(plan.Email.Backend, StringComparer.Ordinal)
+            : plan.Email.Backend.Length == 0;
+    }
+
+    /// <summary>
+    /// True when the plan's <c>install.updatePolicy.other</c> can be honoured: only <c>manual</c> can, because no store holds an automatic
+    /// choice for non-security updates. A plan that asks for <c>automatic</c> there cannot be applied honestly.
+    /// </summary>
+    public static bool IsOtherUpdatePolicyBacked(SetupPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return string.Equals(plan.Install.UpdatePolicy.Other, "manual", StringComparison.Ordinal);
     }
 
     private static void Add(SortedDictionary<string, SetupProjectedSetting> projected, string key, string path, JsonElement value) =>

@@ -1,10 +1,10 @@
+using System.Buffers;
 using System.Text;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Wire.Codec.Cbor;
 using Bazaar.Wire.Conformance;
 using Bazaar.Wire.Schema.Generated;
-using System.Buffers;
 
 namespace Bazaar.Wire.Schema.Tests;
 

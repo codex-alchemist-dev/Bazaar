@@ -7,7 +7,7 @@ namespace Bazaar.Server.Interrupts;
 /// a per-agent advisory lock, so two writers cannot both see room for a frame. The stack is read from the table, never from
 /// memory, so a restarted host sees the same top frame.
 /// </summary>
-public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterruptReasonCipher reasonCipher, TimeProvider? timeProvider = null) : IInterruptStackService
+public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterruptReasonCipher reasonCipher, TimeProvider? timeProvider = null) : IInterruptStackService, IInterruptStackReader
 {
     /// <summary>Identical system pushes inside this window collapse into the live frame.</summary>
     public static readonly TimeSpan SystemDedupeWindow = TimeSpan.FromSeconds(60);
@@ -27,6 +27,12 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
         SELECT {_columns} FROM interrupt_frame
         WHERE agent_id = @agent_id AND state IN ('active', 'suspended')
         ORDER BY (state = 'active') DESC, pushed_at DESC, id DESC
+        """;
+
+    private const string _allLiveSql = $"""
+        SELECT {_columns} FROM interrupt_frame
+        WHERE state IN ('active', 'suspended')
+        ORDER BY agent_id, (state = 'active') DESC, pushed_at DESC, id DESC
         """;
 
     private const string _findSql = $"SELECT {_columns} FROM interrupt_frame WHERE id = @id AND agent_id = @agent_id";
@@ -147,6 +153,14 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
     {
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         return await ReadLiveAsync(conn, null, agentId, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<InterruptFrame>> ListLiveFramesAsync(CancellationToken ct = default)
+    {
+        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var cmd = Command(conn, null, _allLiveSql);
+        return await ReadFramesAsync(cmd, ct).ConfigureAwait(false);
     }
 
     private static NpgsqlCommand Command(NpgsqlConnection conn, NpgsqlTransaction? tx, string sql)

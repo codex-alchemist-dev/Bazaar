@@ -40,7 +40,9 @@ public sealed class CompanyBuildException(string message) : Exception(message);
 /// <summary>One client artifact a company build produces (docs/design/37 section 4a): an output id and the project it is built from.</summary>
 /// <param name="Id">Output folder name and artifact id, for example <c>windows-msix</c>. Letters, digits, dot, dash and underscore only.</param>
 /// <param name="ProjectPath">The client project the target is published from.</param>
-public sealed record CompanyBuildTarget(string Id, string ProjectPath, string? RuntimeIdentifier = null);
+/// <param name="RuntimeIdentifier">The .NET runtime identifier for a self-contained desktop publish, or null.</param>
+/// <param name="ExtraArguments">Extra <c>dotnet publish</c> arguments the target needs, for example the Android framework and packaging properties. Passed as a list, never through a shell.</param>
+public sealed record CompanyBuildTarget(string Id, string ProjectPath, string? RuntimeIdentifier = null, IReadOnlyList<string>? ExtraArguments = null);
 
 /// <summary>The outcome of one target within a company build set.</summary>
 /// <param name="TargetId">The target's id.</param>
