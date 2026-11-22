@@ -73,8 +73,9 @@ public sealed record CommunityDraft(
     Guid? SupersededBy = null);
 
 /// <summary>
-/// Persistence seam for drafts. No <c>community_draft</c> table or migration exists yet; the host binds this when one does. Every
-/// state change is a compare-and-set on the status, so two concurrent decisions cannot both win.
+/// Persistence seam for drafts. <see cref="NpgsqlCommunityDraftStore"/> is the production implementation over the
+/// <c>community_draft</c> table (migration community/0005). Every state change is a compare-and-set on the status, so two
+/// concurrent decisions cannot both win.
 /// </summary>
 public interface ICommunityDraftStore
 {
@@ -89,6 +90,12 @@ public interface ICommunityDraftStore
     /// and inserts <paramref name="replacement"/>. False, with nothing written, when the original is no longer Pending.
     /// </summary>
     Task<bool> TrySupersedeAsync(Guid originalId, CommunityDraft replacement, CancellationToken ct = default);
+
+    /// <summary>Stores a new draft. False, with nothing written, when a draft with this id already exists.</summary>
+    Task<bool> TryAddAsync(CommunityDraft draft, CancellationToken ct = default);
+
+    /// <summary>Pending drafts whose approval is still open at <paramref name="openAt"/>, newest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<CommunityDraft>> ListPendingAsync(DateTimeOffset openAt, int limit, CancellationToken ct = default);
 }
 
 /// <summary>Finds a platform's policy record for the quality gates. The host binds it over <see cref="Policy.PlatformPolicyLoader"/>.</summary>
