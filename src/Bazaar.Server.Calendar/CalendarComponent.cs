@@ -7,7 +7,8 @@ namespace Bazaar.Server.Calendar;
 
 /// <summary>
 /// The Company Calendar module (docs/design/24 section 4). Registers the repository and the writer, which depend on the shared
-/// database and the GC components.
+/// database and the GC components. Host composition maps <c>POST /company/calendar</c> with
+/// <see cref="CalendarReadRoute.MapCompanyCalendar"/>.
 /// </summary>
 public sealed class CalendarComponent : IBazaarComponent
 {

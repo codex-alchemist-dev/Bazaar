@@ -7,7 +7,7 @@ namespace Bazaar.Rubedo.Analysis;
 /// Editor text for the closed function table (doc 41a section 5): parameter names and one-line meanings. The types come from
 /// <see cref="RubedoFunctionTable"/>, so only the words live here.
 /// </summary>
-internal static class FunctionDocs
+public static class FunctionDocs
 {
     private static readonly Dictionary<string, (string[] Names, string Description)> _docs = new(StringComparer.Ordinal)
     {

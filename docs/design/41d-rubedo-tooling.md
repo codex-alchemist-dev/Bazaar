@@ -49,6 +49,7 @@ No module references `Bazaar.Server.csproj`. The language server and docs genera
 - One command writes a reference folder: identifiers, functions, operators and precedence, limits, widgets, actions, diagnostic codes, with a worked example for each function taken from the golden corpus.
 - Output is deterministic Markdown with stable anchors, so a doc diff in a PR shows real language changes only.
 - A CI check regenerates the reference and fails when the committed copy differs. The function table is the single source of truth.
+- IMPLEMENTED: `Bazaar.Rubedo.Docs` (`RubedoReferenceGenerator.Generate()`), the `bazaar-rubedo-docs` tool (`--out <dir>`, `--check <dir>`, exit 1 on drift) and the committed copy in `docs/reference/rubedo/`. `Bazaar.Rubedo.Docs.Tests` is the drift check, and it also scans the engine source for diagnostic codes missing from the catalog.
 
 ## 7. Playground
 
