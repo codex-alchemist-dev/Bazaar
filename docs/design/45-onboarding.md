@@ -1,6 +1,6 @@
 # Onboarding: Server Setup and Client First Run
 
-Status: DRAFT for owner review (2026-11-13). The direction is DECIDED by the owner (brief of 2026-11-13). Every mechanism below is PLANNED (designed, not built) unless a line says otherwise. Owner questions: 6
+Status: DRAFT for owner review (2026-11-13). The direction is DECIDED by the owner (brief of 2026-11-13). Every mechanism below is PLANNED (designed, not built) unless a line says otherwise; built so far: the apply engine, the `install.settings`, `constitution.seed` and `firstrun.seed` steps, the provisioning API (sections 1.3, 1.9, 1.15) and the config-path start option (section 1.1). Owner questions: 6
 Depends on: 02-wire-protocol-and-sync.md (HTTP surface, status), 03-server-host-and-providers.md (config layers, settings registry, floors), 04-postgres-schema-and-migrations.md (`migrate`, partitions), 05-model-gateway.md (sources, routing), 14-identity-service-and-passport.md (`ISecretStore`, KEK, merge credential), 15-security-taint-and-approvals.md (`audit_log`, scam-mail setting), 22-email-subsystem.md (mail back ends, bait-protocol wizard), 24-company-systems-core.md (Constitution), 27-client-architecture.md (client shell, prefs, keyboard model), 29-android-client.md (radial menu), 32-remote-access-auth-and-privacy.md (recovery, privacy profile; no pairing), 33-backup-dr-and-export.md (backup targets, restore), 37-distribution-matrix-and-packaging.md (per-company packages). Named in the brief but not yet in `docs/design/`: 41 (client mnemonic navigation), 44 (data portability and importers), 46 (Kodo health API), 48 (audit view).
 Used by: 30-linux-client-and-packaging.md, 34-testing-strategy.md
 
@@ -43,13 +43,14 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 # Part 1: Server setup
 
-## 1.1 Entry points [PLANNED]
+## 1.1 Entry points [PLANNED; the config-path start option is BUILT]
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
 | Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
+| Config-path start option, `Bazaar.Server.Host --setup-plan <file>` or `BAZAAR_SETUP_PLAN` | Container images, service managers, clean-install scripts | **BUILT** (`SetupPlanOnStartService` in `Bazaar.Server.Setup.Host`). The host loads the file with `SetupPlanLoader`, computes the plan hash and runs the same apply pipeline in-process before it serves: the same validation, floors, holds, instance lock and `setup.plan.applied` audit row, with entry path `file` and operator identity `host:setup-plan`. The operator started the process, so the file is local operator input and needs no bootstrap code; the single-use code and the HTTP routes are unchanged (a validate-then-apply over HTTP therefore still needs a code per admitted call, and this door is how a script does both in one start). It runs after the startup sequence (lock, schema gate) and before the bootstrap-code issuer. A plan hash already stored as applied (exit 0) is not applied again on a restart; a stored failure is retried; a held apply is not stored. With `--setup-only` (or `BAZAAR_SETUP_ONLY=1`) the process exits after the apply with the plan's exit code (0 applied, 1 invalid or unreadable file, 2 held, 3 failed and rolled back) and announces no bootstrap code. Without it a failed apply is logged and the server keeps serving, so the owner can finish through the provisioning API. Not yet: the `--set` and `BAZAAR__SETUP__` overlay is not merged at start (the CLI does that), and no dry-run flag exists here (use `bazaar-admin setup validate`). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
 | Environment variables | Containers, service managers | `BAZAAR__SETUP__...`, the same double-underscore convention as doc 03. Values and references only. |
 | Provisioning API | Automation, and the clients | Authenticated HTTP, section 1.9. |
@@ -283,7 +284,7 @@ Kodo is the Health API module (module name Bazaar.KODO). It runs as the final se
 
 The server has no tour, no first-run screen and no onboarding page. Setup is complete when the plan is applied and Kodo reports, whichever door was used. Tours exist only in the client apps (Part 2).
 
-## 1.15 First-run seed [PROPOSED]
+## 1.15 First-run seed [PROPOSED; the `constitution.seed` and `firstrun.seed` steps are BUILT]
 
 A blank company has nobody to talk to. This step gives a fresh install one place to start, so "install, sign in, create a company, do real work" has something to do. It is a module of its own (`Bazaar.Server.Setup.FirstRun` with `.Abstractions`) that registers one apply step, `firstrun.seed`, after the owner (step 6) and company source (step 13) steps. Everything here is PROPOSED until the owner decides.
 
