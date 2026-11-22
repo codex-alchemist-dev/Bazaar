@@ -19,7 +19,7 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
     private readonly CalendarActor _owner = new(AuthorKind.Owner, Guid.CreateVersion7());
 
     private CalendarService Service(CalendarPolicy? policy = null) =>
-        new(db.DataSource, new ReversingBodyCodec(), new DelegateCalendarGcAppender(db.GcWriter(new FakeTimeProvider(_now)).AppendAsync), policy);
+        new(db.DataSource, new ReversingBodyCodec(), db.GcWriter(new FakeTimeProvider(_now)), policy);
 
     private static CalendarDraft Vacation(Guid agent, string title = "Leave", int days = 3, DateTimeOffset? start = null) => new()
     {

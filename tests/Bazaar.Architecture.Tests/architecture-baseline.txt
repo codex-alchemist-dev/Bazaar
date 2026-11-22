@@ -21,7 +21,11 @@ src/Bazaar.Server/Agents/Turns/Tools/ToolDispatcher.cs
 src/Bazaar.Server/Agents/Turns/TurnRunAdapter.cs
 src/Bazaar.Server/Agents/Turns/TurnRunner.cs
 src/Bazaar.Server/AssemblyMarker.cs
+src/Bazaar.Server/Calendar/CalendarRepository.cs
+src/Bazaar.Server/Calendar/CalendarRules.cs
+src/Bazaar.Server/Calendar/CalendarService.cs
 src/Bazaar.Server/Calendar/CalendarSettings.cs
+src/Bazaar.Server/Calendar/CalendarTypes.cs
 src/Bazaar.Server/Company/Availability/CalendarAvailabilityFeed.cs
 src/Bazaar.Server/Company/CompanyComponent.cs
 src/Bazaar.Server/Company/Org/LoanRules.cs
@@ -237,6 +241,8 @@ src/Bazaar.Server/Memory/Write/MemoryCommitMessage.cs
 src/Bazaar.Server/Memory/Write/MemoryCommitResult.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteItem.cs
 src/Bazaar.Server/Memory/Write/MemoryWriteQueue.cs
+src/Bazaar.Server/Org/Data/OrgRelationRepository.cs
+src/Bazaar.Server/Org/OrgRelation.cs
 src/Bazaar.Server/Providers/Fakes/FakeCacheProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeSearchProvider.cs
 src/Bazaar.Server/Providers/Fakes/FakeServiceHostProvider.cs
