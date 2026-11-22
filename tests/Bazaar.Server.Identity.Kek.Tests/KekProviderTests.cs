@@ -163,7 +163,7 @@ public sealed class KekProviderTests : IDisposable
 
         Assert.IsType<FileKekProvider>(provider.GetRequiredService<IKekProvider>());
         Assert.Equal("identity-kek", KekComponent.ManifestDefinition.Id);
-        Assert.Equal(["identity:kek:provider"], KekComponent.ManifestDefinition.Provides);
+        Assert.Equal(["identity:kek:provider", "identity:dek:service", "secrets:kek"], KekComponent.ManifestDefinition.Provides);
     }
 
     [Fact]
