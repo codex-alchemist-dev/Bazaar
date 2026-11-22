@@ -104,7 +104,7 @@ public static class KodoStatusViewModel
         _ => throw new ArgumentOutOfRangeException(nameof(state), state, null),
     };
 
-    private static string Label(KodoControl control) => control switch
+    internal static string Label(KodoControl control) => control switch
     {
         KodoControl.Restart => "Restart",
         KodoControl.Isolate => "Isolate",
@@ -113,7 +113,7 @@ public static class KodoStatusViewModel
         _ => throw new ArgumentOutOfRangeException(nameof(control), control, null),
     };
 
-    private static string FormatAge(TimeSpan age)
+    internal static string FormatAge(TimeSpan age)
     {
         if (age.TotalMinutes < 1)
         {
