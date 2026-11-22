@@ -400,6 +400,26 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
 | Wire transports and codecs (owner, 2026-11-19) | **DECIDED**: JSON over WebSocket stays as the default and the floor. Every other transport (HTTP/3 over QUIC, native QUIC, WebTransport, gRPC with gRPC-Web) and every other codec (MemoryPack, CBOR, MessagePack, Protobuf, others later) is its own optional module with `.Abstractions`, picked by the installer; transport and codec are negotiated per connection; the C# contract records are the single source, generated for every codec, with a published schema for outside clients. The Protobuf ban of round 15 is lifted for the gRPC and Protobuf codec modules only. Design details are PROPOSED. | `docs/design/90-wire-transports-and-codecs.md`; docs 02, 39; S6; CLAUDE.md |
 
+## Round 30 (2026-11-19): Spike S2 result (Garnet on Windows)
+
+| Decision | Status | Docs |
+|---|---|---|
+| Garnet on Windows is verified for the cache role. Spike S2 passed three of three runs on the owner's PC (record: `docs/spikes/S2.md`). Tested: Garnet 2.2.13 (official `win-x64-based-readytorun` release) with StackExchange.Redis 3.4.35. All five used checks passed before the kill and after restart (SET with expiry, GET, GET of a missing key, a 64 KiB snapshot, expiry). 1000 of 1000 keys survived `taskkill /F` and restart. Restart to first authenticated connection: median 1566 ms, range 1418 to 3932 ms. | MEASURED (spike result, not a design change) | 03, 11, 23, 35 |
+| Windows persistence needs `--aof --aof-commit-wait`, restarted with `-r`. A control run without `--aof` kept 0 of 1000 keys, so persistence is required for data to survive a kill. Garnet binds loopback only with password authentication. | MEASURED | 03 |
+| Presence over plain PUBLISH/SUBSCRIBE works through StackExchange.Redis, but handler order is not guaranteed (1 of 6 batteries out of order). Presence deltas must carry a sequence number or timestamp (doc 23 to specify). | MEASURED | 23 |
+| Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
+| Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
+
+## Round 30 (2026-11-19): Linux TPM-sealed KEK
+
+| Decision | Status | Docs |
+|---|---|---|
+| `identity.kek_provider` gains an explicit `tpm` value (not folded into `file`); auditable, fails closed | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Shipped PCR policy: signed policy (PCR 7 plus a policy authorised by an offline-held signing key), key held in the owner's recovery bundle; fallback raw PCR-7-only policy if the owner declines to hold a key | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Sealing path: `systemd-creds` where systemd is present; direct tpm2-tools only on non-systemd hosts | **DECIDED 2026-11-19 (owner card)** | 14 |
+| vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
+| Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |
+
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
 | Decision | Ruling | Docs |
@@ -410,3 +430,14 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Loop-guard trip | Writes `guard_event`, one idempotent system notice and the Psych Ward hand-off (default no-op until doc 26 is built); the post is refused. | 06 |
 | Binding writers | `ISoulBindingAdmin.BindAsync` is for the hire flow, which does not exist on the server yet; `RetirementCoordinator` ends the binding first. Until a hire flow exists, an unbound agent cannot post with the default setting. | 06, 07 |
 | Not done in this change | Mention depth (needs the wake's depth on the inbox row, which doc 06 owns) and @here/@all agent broadcasts (needs the broadcast rate counter; #438 keeps them ignored). | 06, 01 |
+
+## Round 30 (2026-11-20): Claude Code CLI provider
+
+| Decision | Status | Docs |
+|---|---|---|
+| A provider that drives the Claude Code CLI so agents can use the operator's own Claude plan instead of an API key | DECIDED (owner request, 2026-11-20) | 91, 05 |
+| Terms finding: allowed is an end user signing in to the unmodified binary with their own plan; not allowed is Bazaar handling the login, using the Agent SDK with plan credentials, sharing a plan, or reselling. Round-the-clock fleet use is outside "ordinary, individual usage" and risks the account | RESEARCHED (primary pages read 2026-11-20) | 91 section 2 |
+| Guard rails T1 to T9: unmodified binary only; Bazaar never touches the login; token env var refused; one login, one human; off by default with acknowledgement; conservative caps; stop on rate limit or account error; API key mode as the compliant fallback | PROPOSED | 91 section 2 |
+| C14 sentence "no subscription login can be configured" narrowed: the gateway still never holds a subscription credential; the CLI provider is the one exception route (usage identity `subscription`) | PROPOSED | 05, 05b |
+| One model step per CLI process, tools off in the CLI, tools offered as definitions only through a loopback MCP bridge, calls executed by `ToolDispatcher` | PROPOSED | 91 sections 5 and 7 |
+| Modules: `Bazaar.Server.Gateway.Abstractions` (adapter seam extraction), `Bazaar.Server.Providers.ClaudeCode` and `.Abstractions` | PROPOSED | 91 section 4 |
