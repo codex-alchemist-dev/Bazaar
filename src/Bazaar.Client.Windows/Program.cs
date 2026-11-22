@@ -17,6 +17,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -79,6 +80,7 @@ internal static class Program
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
             // The terminal pane comes last in pager order (doc 55, section 7).
             .. CalcinatoPanes.Modules,
         ];
@@ -87,7 +89,8 @@ internal static class Program
         var features = CalcinatoTerminalPanes.AddServices(
             new PaneModuleContext()
                 .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current)),
+                .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current),
             terminals);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
