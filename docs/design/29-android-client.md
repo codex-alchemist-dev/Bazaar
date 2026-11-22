@@ -48,6 +48,7 @@ Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `IT
 - Card: agent, action, target, exact payload (diff summary or arguments), taint sources collapsed with quoted excerpts, expiry (default 24 h), link to the GC. The action's tier follows doc 15's ladder.
 - Actions: Approve once, Deny, Approve for this task (1 h, scope shown). No "always allow".
 - Approve requires a fresh biometric prompt. The response is signed by a device key in the Android Keystore (signing unverified; spike).
+- Phone pane `bazaar.approvals` (module `Bazaar.Client.Approvals.Phone`): pending approvals as cards with Approve, Reject (the card's Deny) and Detail; Detail opens the full card. Decisions go through the biometric gate only. The head supplies the gate and the pending-approval source; without them the pane says what is missing and decides nothing. [PROPOSED]
 - Edit-then-approve is desktop-only.
 - A changed payload invalidates the card. Offline, the request waits; nothing auto-approves.
 

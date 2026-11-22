@@ -5,6 +5,7 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
@@ -67,11 +68,14 @@ public sealed class App : Avalonia.Application
             new DashboardPaneModule(),
             new ConstellationPaneModule(),
             new GcPaneModule(),
+            new ApprovalsPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
+        // The approvals pane needs an ApprovalGate (biometric, Keystore signer, sender) and an IPendingApprovalSource; the head adds
+        // them here with .With once the Android biometric prompt and the server source exist. Until then the pane says so (doc 29 Approvals).
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(tiles)
@@ -79,7 +83,7 @@ public sealed class App : Avalonia.Application
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
-        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
+        var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry), kind => ApprovalsPaneModule.PhoneBody(kind, registry)));
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {
