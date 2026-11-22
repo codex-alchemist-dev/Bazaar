@@ -94,7 +94,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "healthy",
@@ -106,7 +106,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "degraded",
@@ -118,7 +118,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "failing",
@@ -130,7 +130,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "recovering",
@@ -142,7 +142,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "frozen",
@@ -154,7 +154,7 @@
           {
             "widget": "badge",
             "props": {
-              "text": {
+              "value": {
                 "expr": "headline"
               },
               "variant": "unobserved",
@@ -168,7 +168,7 @@
       {
         "widget": "text",
         "props": {
-          "text": {
+          "value": {
             "expr": "scoreText"
           }
         }
@@ -176,7 +176,7 @@
       {
         "widget": "text",
         "props": {
-          "text": {
+          "value": {
             "expr": "freshnessText"
           },
           "style": "small"
@@ -204,7 +204,7 @@
               {
                 "widget": "text",
                 "props": {
-                  "text": {
+                  "value": {
                     "expr": "restartReason"
                   },
                   "style": "small",
@@ -234,7 +234,7 @@
               {
                 "widget": "text",
                 "props": {
-                  "text": {
+                  "value": {
                     "expr": "isolateReason"
                   },
                   "style": "small",
@@ -264,7 +264,7 @@
               {
                 "widget": "text",
                 "props": {
-                  "text": {
+                  "value": {
                     "expr": "rollBackReason"
                   },
                   "style": "small",
@@ -294,7 +294,7 @@
               {
                 "widget": "text",
                 "props": {
-                  "text": {
+                  "value": {
                     "expr": "incidentExitReason"
                   },
                   "style": "small",

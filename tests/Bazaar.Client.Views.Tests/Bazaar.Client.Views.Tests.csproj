@@ -13,10 +13,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <!-- The shared pilot view documents: the same files the Rubedo tests validate, rendered here through the real mapper. -->
-    <None Include="..\Bazaar.Rubedo.Tests\Golden\pilots\*.json" Link="Golden\pilots\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- The shared pilot document, so the desktop head renders the same file the validator and every other head load. -->
+    <None Include="..\Bazaar.Rubedo.Tests\Golden\pilots\gc-feed.view.json" Link="Golden\pilots\gc-feed.view.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+
     <ProjectReference Include="..\..\src\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Kodo\Bazaar.Client.Kodo.csproj" />
