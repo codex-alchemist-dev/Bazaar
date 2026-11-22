@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 
 namespace Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 
@@ -24,8 +25,8 @@ public sealed class ProcessWsbCommandRunner(string executable = "wsb.exe") : IWs
         }
 
         using var process = StartProcess(startInfo);
-        var stdout = process.StandardOutput.ReadToEndAsync(CancellationToken.None);
-        var stderr = process.StandardError.ReadToEndAsync(CancellationToken.None);
+        var stdout = ReadCappedAsync(process.StandardOutput);
+        var stderr = ReadCappedAsync(process.StandardError);
 
         try
         {
@@ -38,6 +39,26 @@ public sealed class ProcessWsbCommandRunner(string executable = "wsb.exe") : IWs
         }
 
         return new WsbCommandResult(process.ExitCode, await stdout, await stderr);
+    }
+
+    /// <summary>Most characters kept from each of stdout and stderr. The rest is read and dropped so the child never blocks on a full pipe.</summary>
+    public const int MaxCapturedChars = 4 * 1024 * 1024;
+
+    private static async Task<string> ReadCappedAsync(TextReader reader)
+    {
+        var text = new StringBuilder();
+        var buffer = new char[8192];
+        int read;
+        while ((read = await reader.ReadAsync(buffer.AsMemory()).ConfigureAwait(false)) > 0)
+        {
+            var room = MaxCapturedChars - text.Length;
+            if (room > 0)
+            {
+                text.Append(buffer, 0, Math.Min(read, room));
+            }
+        }
+
+        return text.ToString();
     }
 
     private Process StartProcess(ProcessStartInfo startInfo)
