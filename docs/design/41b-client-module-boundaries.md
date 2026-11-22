@@ -30,14 +30,47 @@ Each feature with a client surface has a separate server module and client modul
 
 | Feature | Server module | Client module | Notes |
 |---|---|---|---|
-| Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` | Client panes and views. |
+| Constellation | `Bazaar.Server.Constellation` | `Bazaar.Client.Constellation` with `Bazaar.Client.Constellation.Abstractions` | Client panes and views. The abstractions hold the tile-source contract. |
 | Constellation renderer (shared renderer) | none | `Bazaar.Client.Constellation.Renderer` (name as the owner gave it; standalone and shared, see note) | Not part of Constellation, despite the name, which is the owner's and may be renamed. A general Vulkan renderer with a Skia fallback, used by Constellation and by other modules such as RyuseiFuda, and later other CDAX projects. Future Dep: it will become an externally imported dependency, with a Bazaar-free core and an adapter in its own repo. Other modules depend on it only through its contract. |
-| GC | `Bazaar.Server.GC` | `Bazaar.Client.GC` | Chat pane and GC views. |
+| GC | `Bazaar.Server.GC` | `Bazaar.Client.Gc` | GC pane. Depends on `Bazaar.Client.Chat.Abstractions` for the chat contract. |
+| Chat | not specified here | `Bazaar.Client.Chat` with `Bazaar.Client.Chat.Abstractions` | Chat view, timeline and connection. The GC pane binds it only through the abstractions. |
+| Souls | not specified here | `Bazaar.Client.Souls` | Soul panes and binding views. |
+| Dashboard | not specified here | `Bazaar.Client.Dashboard` | Start-screen dashboard pane. Reads Constellation tiles only through `Bazaar.Client.Constellation.Abstractions`. |
 | Git | `Bazaar.Server.Git` | `Bazaar.Client.GitGui` (with `.Github`, `.Gitlab`) | Per doc 41 §4.14. |
 | Kanban (RyuseiFuda) | `Bazaar.Server.RyuseiFuda` | `Bazaar.Client.RyuseiFuda` | Dependency board views. |
 | Vault | `Bazaar.Server.Vault` | `Bazaar.Client.Vault` | Vault search pane. |
+| Org (company systems) | `Bazaar.Server.Org` | `Bazaar.Client.Org` (+ `.Abstractions`) | Org lens pane. Doc 24 section 5. |
+| Calendar (company systems) | `Bazaar.Server.Calendar` | `Bazaar.Client.Calendar` (+ `.Abstractions`) | Month grid pane. Doc 24 section 5. |
+| Interrupts (company systems) | `Bazaar.Server.Interrupts` | `Bazaar.Client.Interrupts` (+ `.Abstractions`) | Stack indicator and stack pane. Doc 24 section 5. |
 
-Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. This table is a plan for the move, not a list of what exists today. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
+Server and client modules share contract types only through `Bazaar.Contracts` and each module's `.Abstractions` project. The client halves in this table (Constellation, GC, Chat, Souls, Dashboard, Vault) exist as separate projects, built on `Bazaar.Client.Abstractions` (wire, server and pane contracts) and `Bazaar.Client.Panes.Abstractions` (`IPaneModule`, `PaneRegistry`, `IPaneViewFactory`). Server halves and the Git and RyuseiFuda rows follow the same pattern as each feature splits. A client feature module never references `Bazaar.Client.Core`; an architecture test enforces this. Names follow the owner's pattern (`Bazaar.Server.<Name>` and `Bazaar.Client.<Name>`). Doc 40 still lists the pre-split names (`Bazaar.GC`, `Bazaar.Constellation`, `Bazaar.RyuseiFuda`, `Bazaar.Vault`); when each feature splits, its server half takes the `Server` prefix. Doc 40 is not edited here, and its names need updating in the split PRs.
+
+## 2b. Phone shell, posture and engine panes
+
+The remaining Client.Core code that is not host plumbing moves like the feature modules above. Placement, by the same rule (Client.Core is an adapter and holds no functionality):
+
+| Target | Holds | Why |
+|---|---|---|
+| `Bazaar.Client.Mobile` | Phone shell, pane pager pages, posture source and layout, phone profile and profile caches, radial menu, phone widget policy, Android settings | The Android head's shell and fold-posture logic (doc 29). It needs only `Bazaar.Client.Panes.Abstractions` and `Bazaar.Client.Abstractions`, and never `Bazaar.Client.Core`. |
+| `Bazaar.Client.Engines` | Engine pane view and view model | Out-of-process engine panes (doc 41, panes table). Kinds are namespaced by the engine. |
+| `Bazaar.Client.Core` (adapter, stays) | `PaneHost`, the generic fallback in `PaneViews` (the `IPaneViewFactory` the heads pass to `PaneRegistry`), and `FirstPartyPanes` composition helpers | These are the pane-registry adapter named in section 2. They hold no feature. |
+
+Each new project gets an architecture rule entry that it does not reference `Bazaar.Client.Core`.
+
+## 2c. Theme, commands, input and preload
+
+The last feature code in Client.Core is pure library code with no Avalonia dependency. It moves the same way, one module per area, so that `Bazaar.Client.Core` keeps only the host: `App`, `MainWindow`, `PaneHost`, `PaneViews` (the `IPaneViewFactory` the heads pass to `PaneRegistry`) and the `FirstPartyPanes` composition helper.
+
+| Target | Holds | Why |
+|---|---|---|
+| `Bazaar.Client.Theme` | `ThemeModel`, `ThemeTokens`, `ThemeValidator`, the Avalonia and Monaco theme generators | One theme file drives Avalonia and Monaco (doc 41 section 3). The validator and generators are plain code, trim- and ReadyToRun-friendly. |
+| `Bazaar.Client.Commands` | `Command`, `CommandRegistry`, `CommandSource`, `CommandMatcher`, `FuzzyScorer`, `CommandRecency` | The command palette engine (doc 41, command bindings). Fuzzy matching and recency are a feature, not host plumbing. |
+| `Bazaar.Client.Input` | `KeyStroke`, `KeyRouter`, `Mnemonic`, `MnemonicTable` | The mnemonic key model with no Ctrl chords (doc 27, doc 28 section 4). `Bazaar.Ex` builds on it, so it can stop referencing `Bazaar.Client.Core`. |
+| `Bazaar.Client.Preload` | `PreloadAutostart` | The preloader's autostart entry (doc 40, ReadyToRun and preloader). |
+
+Two more modules take what the heads each carried a copy of. `Bazaar.Client.Launcher` holds the Avalonia side of the single-instance launcher (the pipe listener, bringing the main window forward, hiding the window of the warm preload process) on top of the pure `Bazaar.Client.Components.Launcher`. `Chat.ChatHost` in `Bazaar.Client.Chat` owns the chat start, error logging and disposal order. `Bazaar.Client.Modules` is the host side of the module contract (doc 41 section 8): `ClientModuleHost.Load` checks each `IClientModule` manifest the same way for every module (validity, host requirements, unique id, pane kinds and commands) and calls `Register` once; a module that fails is skipped and reported, and the rest still load. It references only `Bazaar.Contracts`. Every first-party pane module also implements `IClientModule` (manifest built by `FirstPartyManifest.Create`), and the Windows and Android heads load them through `ClientModuleHost.Load` and compose the `IPaneModule`s that loaded. A module contributes its navigation commands through `ClientModuleBuilder.AddCommand(ClientCommandContribution)`: the id must be in the manifest, the default mnemonic is lowercase letters and digits, and `ClientModuleLoadResult.Commands` returns them for the mnemonic engine (`MnemonicAssignment.FromContributions`). The shell commands `unread` and `settings` stay with the mnemonic engine.
+
+Each of the four references only `Bazaar.Contracts` (Theme and Commands need nothing else), and each gets the architecture rule that it never references `Bazaar.Client.Core`. Heads reference them directly.
 
 ## 3. Dependencies after the move
 

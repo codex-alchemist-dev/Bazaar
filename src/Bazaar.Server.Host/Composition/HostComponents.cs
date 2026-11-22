@@ -1,11 +1,13 @@
 using Bazaar.Community;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
-using Bazaar.Server.Company;
+using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
@@ -16,11 +18,16 @@ using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
+using Bazaar.Server.Modules;
+using Bazaar.Server.Org;
+using Bazaar.Server.Retention;
+using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -35,22 +42,29 @@ public static class HostComponents
     [
         new AuditComponent(),
         new SettingsComponent(),
+        new SetupComponent(),
+        new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),
-        new CompanyComponent(),
+        new CalendarComponent(),
+        new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
         new CommunityComponent(),
+        new RolesComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
+        new HiveComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
+        new ModuleManagerComponent(),
         new RemoteComponent(),
+        new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
         new GeminiGenerateContentAdapterComponent(),

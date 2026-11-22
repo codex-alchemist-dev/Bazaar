@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -27,7 +26,7 @@ public static class SetupPlanLoader
         [""] =
         [
             "schemaVersion", "install", "database", "custody", "owner", "privacy", "backups", "models", "email",
-            "scamMailProtocol", "company", "modules", "network", "settings",
+            "scamMailProtocol", "company", "modules", "network", "firstRun", "settings",
         ],
         ["install"] = ["companyName", "companySlug", "locale", "timezone", "releaseChannel", "updatePolicy"],
         ["install.updatePolicy"] = ["security", "other"],
@@ -44,10 +43,11 @@ public static class SetupPlanLoader
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
+        ["firstRun"] = ["seedGeneralGc", "generalGcTitle", "seedDefaultAgent", "defaultAgentName", "defaultAgentPurpose", "defaultAgentSources", "defaultAgentProfile", "acceptConstitution"],
     };
 
     /// <summary>Paths whose value may be JSON null (the typed plan's nullable properties). Every other null is an error.</summary>
-    private static readonly HashSet<string> _nullablePaths = new(StringComparer.Ordinal)
+    internal static readonly HashSet<string> NullablePaths = new(StringComparer.Ordinal)
     {
         "database.dataRoot",
         "custody.auditAnchorTarget",
@@ -63,11 +63,10 @@ public static class SetupPlanLoader
         "custody", "custody.kekProvider", "custody.kekRef", "company", "company.source",
     ];
 
-    /// <summary>Loads and validates a setup file. <paramref name="registry"/> defaults to the registry this build ships.</summary>
-    public static SetupLoadResult Load(string json, SettingRegistry? registry = null)
+    /// <summary>Loads and validates a setup file.</summary>
+    public static SetupLoadResult Load(string json, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(json);
-        registry ??= SettingRegistry.Known;
 
         var issues = new List<SetupValidationIssue>();
         JsonDocument document;
@@ -166,7 +165,7 @@ public static class SetupPlanLoader
             }
 
             // A null is allowed only where the schema says the value may be absent. Elsewhere it would reach the typed plan as null.
-            if (allowed is not null && property.Value.ValueKind == JsonValueKind.Null && !_nullablePaths.Contains(childPath))
+            if (allowed is not null && property.Value.ValueKind == JsonValueKind.Null && !NullablePaths.Contains(childPath))
             {
                 issues.Add(Error(childPath, "must not be null; omit the key to use its default."));
                 continue;
