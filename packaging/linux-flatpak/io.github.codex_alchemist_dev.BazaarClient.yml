@@ -10,10 +10,10 @@
 #
 # Build (on a machine with flatpak, flatpak-builder, org.freedesktop.Platform and org.freedesktop.Sdk installed):
 #   packaging/linux-flatpak/build-flatpak.sh [--arch x86_64|aarch64] [output-dir]
-#   flatpak install --user out/flatpak/TheBazaarAuthors.BazaarClient.flatpak
-#   flatpak run TheBazaarAuthors.BazaarClient
+#   flatpak install --user out/flatpak/io.github.codex_alchemist_dev.BazaarClient.flatpak
+#   flatpak run io.github.codex_alchemist_dev.BazaarClient
 
-app-id: TheBazaarAuthors.BazaarClient
+app-id: io.github.codex_alchemist_dev.BazaarClient
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'        # Must equal FREEDESKTOP_BRANCH in .github/workflows/linux-package-flatpak.yml
 sdk: org.freedesktop.Sdk
@@ -45,11 +45,11 @@ modules:
       - cp -a bazaar-client-tarball/. /app/lib/bazaar-client/
       - chmod 755 /app/lib/bazaar-client/Bazaar.Client.Linux
       - install -Dm755 bazaar-client-launcher.sh /app/bin/bazaar-client
-      - install -Dm644 TheBazaarAuthors.BazaarClient.desktop /app/share/applications/TheBazaarAuthors.BazaarClient.desktop
-      - install -Dm644 TheBazaarAuthors.BazaarClient.metainfo.xml /app/share/metainfo/TheBazaarAuthors.BazaarClient.metainfo.xml
+      - install -Dm644 io.github.codex_alchemist_dev.BazaarClient.desktop /app/share/applications/io.github.codex_alchemist_dev.BazaarClient.desktop
+      - install -Dm644 io.github.codex_alchemist_dev.BazaarClient.metainfo.xml /app/share/metainfo/io.github.codex_alchemist_dev.BazaarClient.metainfo.xml
       # Application icon: scalable SVG named after the app-id (placeholder artwork, shared with the AppImage;
       # build-flatpak.sh stages packaging/linux-appimage/bazaar-client.svg here).
-      - install -Dm644 bazaar-client.svg /app/share/icons/hicolor/scalable/apps/TheBazaarAuthors.BazaarClient.svg
+      - install -Dm644 bazaar-client.svg /app/share/icons/hicolor/scalable/apps/io.github.codex_alchemist_dev.BazaarClient.svg
     sources:
       # The reproducible tarball from packaging/linux/build-tarball.sh. Its single top-level directory is stripped.
       - type: archive
@@ -62,8 +62,8 @@ modules:
         commands:
           - exec /app/lib/bazaar-client/Bazaar.Client.Linux "$@"
       - type: file
-        path: TheBazaarAuthors.BazaarClient.desktop
+        path: io.github.codex_alchemist_dev.BazaarClient.desktop
       - type: file
-        path: TheBazaarAuthors.BazaarClient.metainfo.xml
+        path: io.github.codex_alchemist_dev.BazaarClient.metainfo.xml
       - type: file
         path: bazaar-client.svg
