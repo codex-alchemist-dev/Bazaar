@@ -1,3 +1,4 @@
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Membership;
 
 namespace Bazaar.Server.Council.Service;
@@ -138,6 +139,13 @@ public interface ICouncilStore
     /// the caller decides whether that is a rejection (independent) or a change (follow-up versions are kept in the store).
     /// </summary>
     Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct);
+
+    /// <summary>
+    /// All ballots for a vote, both phases, in submit order, with the reasoning still sealed (doc 10, Seal once, copy ciphertext).
+    /// Never decrypts, so reveal and decision copy the stored bytes into <c>council.reason</c> events without plaintext passing
+    /// through them, and a voter whose key was destroyed by erasure cannot block the read.
+    /// </summary>
+    Task<IReadOnlyList<SealedBallotReason>> ListSealedReasonsAsync(Guid voteId, CancellationToken ct);
 }
 
 /// <summary>
@@ -148,6 +156,20 @@ public interface ICouncilGcEvents
 {
     /// <summary>Appends a <c>council.*</c> event (open, reveal, transition or decision) to the vote's GC.</summary>
     Task AppendAsync(Guid gcId, string kind, string payloadJson, string idempotencyKey, CancellationToken ct);
+
+    /// <summary>
+    /// Appends a <c>council.reason</c> event whose reasoning is sealed (doc 10, Per-person sealed reasons). The clear payload
+    /// carries no reasoning text; <paramref name="sealedBlob"/> is stored as the event's sealed payload under <paramref name="keyId"/>.
+    /// Idempotent by <paramref name="idempotencyKey"/>.
+    /// </summary>
+    Task AppendSealedAsync(
+        Guid gcId,
+        string kind,
+        string payloadJson,
+        ReadOnlyMemory<byte> sealedBlob,
+        Guid keyId,
+        string idempotencyKey,
+        CancellationToken ct);
 }
 
 /// <summary>

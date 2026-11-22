@@ -40,7 +40,8 @@ public static class GcWireServiceCollectionExtensions
         // host working (reads need no audit sink; writes only come from the settings component).
         services.TryAddSingleton<Bazaar.Server.Settings.ISettingStore>(sp => new Bazaar.Server.Settings.NpgsqlSettingStore(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
-            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink()));
+            sp.GetService<Bazaar.Server.Settings.ISettingAuditSink>() ?? new Bazaar.Server.Settings.InMemorySettingAuditSink(),
+            sp.GetService<Bazaar.Server.Settings.SettingRegistry>()));
 
         services.TryAddSingleton<Bazaar.Server.Gc.Mentions.IInboxRowWriter>(sp => new Bazaar.Server.Gc.Mentions.InboxRowWriter(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
@@ -60,6 +61,9 @@ public static class GcWireServiceCollectionExtensions
         services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
         services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.IGcMemberListSource>(sp => new Bazaar.Server.Gc.Members.PgGcMemberListSource(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+        services.AddSingleton<IWireRequestHandler, GcListHandler>();
         return services;
     }
 }

@@ -62,3 +62,6 @@ public sealed record TaskEventRecord(
     string Actor,
     string PayloadJson,
     DateTimeOffset At);
+
+/// <summary>One column move read from <c>task_events</c>: the task, the SQL state names it left and entered, and when (doc 12, Events).</summary>
+public sealed record TaskTransitionFact(Guid TaskId, string From, string To, DateTimeOffset At);
