@@ -40,6 +40,12 @@
     <Project Path="src/Bazaar.Rubedo.Docs.Tool/Bazaar.Rubedo.Docs.Tool.csproj" />
     <Project Path="src/Bazaar.Rubedo.LanguageServer/Bazaar.Rubedo.LanguageServer.csproj" />
     <Project Path="src/Bazaar.Client.Kodo/Bazaar.Client.Kodo.csproj" />
+    <Project Path="src/Bazaar.Client.Org/Bazaar.Client.Org.csproj" />
+    <Project Path="src/Bazaar.Client.Org.Abstractions/Bazaar.Client.Org.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Calendar/Bazaar.Client.Calendar.csproj" />
+    <Project Path="src/Bazaar.Client.Calendar.Abstractions/Bazaar.Client.Calendar.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Interrupts/Bazaar.Client.Interrupts.csproj" />
+    <Project Path="src/Bazaar.Client.Interrupts.Abstractions/Bazaar.Client.Interrupts.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Rubedo.Playground/Bazaar.Client.Rubedo.Playground.csproj" />
     <Project Path="src/Bazaar.Client.Community/Bazaar.Client.Community.csproj" />
     <Project Path="src/Bazaar.Client.Community.Avalonia/Bazaar.Client.Community.Avalonia.csproj" />
@@ -317,6 +323,9 @@
     <Project Path="tests/Bazaar.Rubedo.LanguageServer.Tests/Bazaar.Rubedo.LanguageServer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Org.Tests/Bazaar.Client.Org.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Calendar.Tests/Bazaar.Client.Calendar.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Interrupts.Tests/Bazaar.Client.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Rubedo.Playground.Tests/Bazaar.Client.Rubedo.Playground.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
