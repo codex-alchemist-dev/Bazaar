@@ -68,7 +68,7 @@ public sealed class OwnerSignedMergeGate : IOwnerSignedMergeGate
             var forge = _registry.Resolve(approval.Pr.Provider);
             var current = await forge.GetHeadShaAsync(approval.Pr, cancellationToken).ConfigureAwait(false);
             if (!string.Equals(current, payload.HeadSha, StringComparison.OrdinalIgnoreCase))
-                throw new MergeNotApprovedException("the PR head moved after approval, so the owner must approve again", "head_moved");
+                throw new MergeNotApprovedException("the PR head moved after approval, so the owner must approve again", "head_moved", current);
 
             if (_options.RequireGreenChecks)
             {
