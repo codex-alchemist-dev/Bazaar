@@ -410,6 +410,16 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
+## Round 30 (2026-11-19): Linux TPM-sealed KEK
+
+| Decision | Status | Docs |
+|---|---|---|
+| `identity.kek_provider` gains an explicit `tpm` value (not folded into `file`); auditable, fails closed | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Shipped PCR policy: signed policy (PCR 7 plus a policy authorised by an offline-held signing key), key held in the owner's recovery bundle; fallback raw PCR-7-only policy if the owner declines to hold a key | **DECIDED 2026-11-19 (owner card)** | 14 |
+| Sealing path: `systemd-creds` where systemd is present; direct tpm2-tools only on non-systemd hosts | **DECIDED 2026-11-19 (owner card)** | 14 |
+| vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
+| Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |
+
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
 | Decision | Ruling | Docs |
