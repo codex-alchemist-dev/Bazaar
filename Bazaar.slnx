@@ -208,6 +208,8 @@
     <Project Path="src/Bazaar.Server.Agents.Abstractions/Bazaar.Server.Agents.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Agents/Bazaar.Server.Agents.csproj" />
     <Project Path="src/Bazaar.Server.Identity.Postgres/Bazaar.Server.Identity.Postgres.csproj" />
+    <Project Path="src/Bazaar.Server.Identity.Abstractions/Bazaar.Server.Identity.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Identity/Bazaar.Server.Identity.csproj" />
     <Project Path="src/Bazaar.Server.Skimmer/Bazaar.Server.Skimmer.csproj" />
     <Project Path="src/Bazaar.Server.Host/Bazaar.Server.Host.csproj" />
     <Project Path="src/Bazaar.GitHub/Bazaar.GitHub.csproj" />
@@ -494,6 +496,7 @@
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Hiring.Tests/Bazaar.Server.Council.Hiring.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Identity.Tests/Bazaar.Server.Identity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.GcReactions.Tests/Bazaar.Server.GcReactions.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Skimmer.Tests/Bazaar.Server.Skimmer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
