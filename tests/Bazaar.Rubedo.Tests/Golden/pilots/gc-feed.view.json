@@ -33,7 +33,7 @@
             "children": [
               { "widget": "text", "props": { "value": { "expr": "name" } } },
               { "widget": "badge", "props": { "label": "gc.feed.unread", "value": { "expr": "unread" }, "visibleWhen": { "expr": "unread > 0" } } },
-              { "widget": "icon", "props": { "label": "gc.feed.mention", "visibleWhen": { "expr": "mentioned" } } },
+              { "widget": "icon", "props": { "name": "mention", "label": "gc.feed.mention", "visibleWhen": { "expr": "mentioned" } } },
               { "widget": "button", "props": { "label": "gc.feed.open", "action": "openGc" } }
             ]
           }
