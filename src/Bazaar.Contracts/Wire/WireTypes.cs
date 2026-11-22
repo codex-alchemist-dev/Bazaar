@@ -90,6 +90,9 @@ public static class WireTypes
     /// <summary>Presence delta.</summary>
     public const string PresenceUpdate = "presence.update";
 
+    /// <summary>Client asks for every agent's presence row. Answered with a <c>PresenceSnapshot</c> (docs/design/23).</summary>
+    public const string PresenceSnapshot = "presence.snapshot";
+
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
 

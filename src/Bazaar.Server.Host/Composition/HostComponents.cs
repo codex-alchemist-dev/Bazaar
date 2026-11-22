@@ -27,12 +27,13 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
-using Bazaar.Server.Modules;
 using Bazaar.Server.Mirror;
+using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
+using Bazaar.Server.Presence;
 using Bazaar.Server.Retention;
-using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
@@ -88,5 +89,6 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        new PresenceComponent(),
     ];
 }

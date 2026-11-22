@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
+  "hash": "sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0",
   "messages": [
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
@@ -15,6 +15,8 @@
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
     { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
+    { "type": "presence.snapshot", "payload": "Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
+    { "type": "presence.update", "payload": "Bazaar.Contracts.Wire.PresenceUpdate" },
     { "type": "resync", "payload": "Bazaar.Contracts.Wire.Resync" },
     { "type": "ryusei.trigger.list", "payload": "Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest" },
     { "type": "ryusei.trigger.pause", "payload": "Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
@@ -494,6 +496,44 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Wire.PresenceSnapshot",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "rows", "type": "list<ref:Bazaar.Contracts.Wire.WirePresenceRow>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceSnapshotRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceTyping",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "principalId", "type": "guid", "nullable": false, "default": false },
+        { "n": 4, "name": "typing", "type": "bool", "nullable": false, "default": false },
+        { "n": 5, "name": "ttlMs", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceUpdate",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "revision", "type": "int64", "nullable": false, "default": false },
+        { "n": 4, "name": "row", "type": "ref:Bazaar.Contracts.Wire.WirePresenceRow", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.Resync",
       "kind": "record",
       "payload": true,
@@ -599,7 +639,8 @@
         { "n": 7, "name": "ts", "type": "datetime", "nullable": false, "default": false },
         { "n": 8, "name": "edited", "type": "bool", "nullable": false, "default": false },
         { "n": 9, "name": "mentions", "type": "list<guid>", "nullable": false, "default": false },
-        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false }
+        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false },
+        { "n": 11, "name": "withdrawn", "type": "bool", "nullable": false, "default": true }
       ]
     },
     {
@@ -609,6 +650,23 @@
         { "n": 1, "name": "maxFrameBytes", "type": "int32", "nullable": false, "default": false },
         { "n": 2, "name": "inflightRequestsMax", "type": "int32", "nullable": false, "default": false },
         { "n": 3, "name": "replayPageSize", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.WirePresenceRow",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "availability", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "overlays", "type": "list<string>", "nullable": false, "default": false },
+        { "n": 5, "name": "presence", "type": "string", "nullable": false, "default": false },
+        { "n": 6, "name": "activityKind", "type": "string", "nullable": false, "default": false },
+        { "n": 7, "name": "gcId", "type": "guid", "nullable": true, "default": false },
+        { "n": 8, "name": "turnId", "type": "guid", "nullable": true, "default": false },
+        { "n": 9, "name": "label", "type": "string", "nullable": true, "default": false },
+        { "n": 10, "name": "since", "type": "datetime", "nullable": false, "default": false },
+        { "n": 11, "name": "updatedAt", "type": "datetime", "nullable": false, "default": false }
       ]
     }
   ]

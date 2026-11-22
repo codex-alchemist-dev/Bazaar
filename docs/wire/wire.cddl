@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Schema hash sha256:d264462dfa2c8299514010933cfd845defa2952c3fcf4a71c36585ec552aded0.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -33,6 +33,8 @@ float32-array = #6.85(bstr)
 ; lagged = lagged
 ; ping = ping
 ; pong = pong
+; presence.snapshot = presence-snapshot-request
+; presence.update = presence-update
 ; resync = resync
 ; ryusei.trigger.list = ryusei-trigger-list-request
 ; ryusei.trigger.pause = ryusei-trigger-change-request
@@ -42,7 +44,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
@@ -328,6 +330,28 @@ pong = {
   ? nonce: tstr,  ; 1
   * tstr => any
 }
+presence-snapshot = {
+  rows: [* wire-presence-row],  ; 1
+  * tstr => any
+}
+presence-snapshot-request = {
+  * tstr => any
+}
+presence-typing = {
+  kind: tstr,  ; 1
+  gcId: uuid-text,  ; 2
+  principalId: uuid-text,  ; 3
+  typing: bool,  ; 4
+  ttlMs: -2147483648..2147483647,  ; 5
+  * tstr => any
+}
+presence-update = {
+  kind: tstr,  ; 1
+  agentId: uuid-text,  ; 2
+  revision: int,  ; 3
+  row: wire-presence-row,  ; 4
+  * tstr => any
+}
 resync = {
   s: tstr,  ; 1
   latestN: int,  ; 2
@@ -397,11 +421,26 @@ wire-gc-message = {
   edited: bool,  ; 8
   mentions: [* uuid-text],  ; 9
   ? replyToN: int,  ; 10
+  ? withdrawn: bool,  ; 11
   * tstr => any
 }
 wire-limits = {
   maxFrameBytes: -2147483648..2147483647,  ; 1
   inflightRequestsMax: -2147483648..2147483647,  ; 2
   replayPageSize: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+wire-presence-row = {
+  agentId: uuid-text,  ; 1
+  revision: int,  ; 2
+  availability: tstr,  ; 3
+  overlays: [* tstr],  ; 4
+  presence: tstr,  ; 5
+  activityKind: tstr,  ; 6
+  ? gcId: uuid-text,  ; 7
+  ? turnId: uuid-text,  ; 8
+  ? label: tstr,  ; 9
+  since: #6.0(tstr),  ; 10
+  updatedAt: #6.0(tstr),  ; 11
   * tstr => any
 }
