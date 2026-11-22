@@ -15,6 +15,7 @@ using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
@@ -92,6 +93,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CompanyMemoryComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),

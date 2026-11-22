@@ -34,7 +34,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Org Chart | Relationship structure for the company, not a rigid hierarchy. | Partial (`src/Bazaar.Server/Org`) | `docs/design/24` §2 |
 | Interrupt System | A formal interrupt and resume stack for work. | Partial (`src/Bazaar.Server/Interrupts`; stack service merged) | `docs/design/24` §3 |
 | Company Calendar | Internal planning, release and vacation calendar. | Partial (`src/Bazaar.Server/Calendar`) | `docs/design/24` §4 |
-| Company Memory | Institutional memory and decision chains, kept in the Vault (`company/memory/`). | Planned (v1 scope) | `docs/design/08` §6, `docs/design/25` |
+| Company Memory | Institutional memory and decision chains, kept in the Vault (`company/memory/`). | Partly built: record a decision, read its chain (`Bazaar.Server.CompanyMemory`) | `docs/design/08` §6, `docs/design/25` |
 | Health System | Per-project tech debt, morale and coverage metrics. | Planned (v1 scope) | `docs/design/25` |
 | Company Analytics | Per-agent metrics, framed as "improve the company". | Planned (v1 scope) | `docs/design/25` |
 | Observatory | Live dashboard of what each agent is doing, plus which model lanes are near a limit. | Partial (`src/Bazaar.Server.Community/Observatory`; usage rollup in flight) | `docs/design/23` |

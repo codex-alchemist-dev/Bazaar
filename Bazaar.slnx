@@ -45,6 +45,8 @@
     <Project Path="src/Bazaar.Server.GcReactions.Abstractions/Bazaar.Server.GcReactions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CompanyMemory/Bazaar.Server.CompanyMemory.csproj" />
+    <Project Path="src/Bazaar.Server.CompanyMemory.Abstractions/Bazaar.Server.CompanyMemory.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Constitution/Bazaar.Server.Constitution.csproj" />
     <Project Path="src/Bazaar.Server.Constitution.Abstractions/Bazaar.Server.Constitution.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
@@ -590,6 +592,7 @@
     <Project Path="tests/Bazaar.Server.VmDensity.Tests/Bazaar.Server.VmDensity.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Tests/Bazaar.Server.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vault.Tests/Bazaar.Server.Vault.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CompanyMemory.Tests/Bazaar.Server.CompanyMemory.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Audit.Tests/Bazaar.ModulePermissions.Audit.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.Fs.Tests/Bazaar.ModulePermissions.Fs.Tests.csproj" />
     <Project Path="tests/Bazaar.ModulePermissions.HostServices.Tests/Bazaar.ModulePermissions.HostServices.Tests.csproj" />
