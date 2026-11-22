@@ -48,12 +48,13 @@ public static class StatusEndpoints
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
     /// <summary>
-    /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
+    /// The refresh and handoff routes (<c>/auth/refresh</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
-        && path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase);
+        && (path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/handoff", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and

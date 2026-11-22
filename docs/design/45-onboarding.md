@@ -314,6 +314,10 @@ The owner has not chosen a sample-data sandbox company. Empty states explain wha
 
 The import wizard is offered after the tour and from the palette. It is the same importer set as the server's import source (section 1.8). Nothing is imported without an explicit choice.
 
+## 2.6 Native sign-in redeem [shape built; flow PLANNED]
+
+The client's sign-in ends at `bazaar://signin?code=...` (doc 32 section 4). The client redeems the code with `POST /auth/handoff` `{ "code", "device_class", "client_build" }` and receives `{ "access_token", "token_type", "expires_in", "refresh_token" }`, the same body as `/auth/refresh`; the refresh secret goes in the platform keystore and the access token stays in memory. Every failure is one generic 401 `invalid_grant`, so the client shows one "sign in again" message and starts the page flow again. The request and reply shape is now built in `Bazaar.Server.SignIn` (doc 32 section 4, status DECIDED-in-code); the client screens that drive it are still PLANNED, and the second factor stays a separate step (section 2.1).
+
 ---
 
 ## Conflicts and gaps
