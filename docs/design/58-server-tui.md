@@ -46,6 +46,8 @@ The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
 Status and readiness; logs (tail, filter by level and module); Kodo health, incidents and runbook links; modules (selection, build reports, rebuild); users, roles, devices and revocation; approvals; audit view; setup changes through the same wizard (`ISetupPrompter` again). **Permissions (DECIDED, owner card 2026-11-18): everything the apps allow.** An admin can do in the TUI whatever the same account can do in a client, including modules, rebuilds, users, roles and settings. Risky actions keep the usual approval step-up. The TUI adds no privilege.
 
+**Menus (DECIDED, owner card 2026-11-18, "Health first, admin tucked away").** The top-level menus are Health, Kodo, Logs and Events. Modules, Users and Approvals sit under one Admin menu, with audit and rebuilds reachable from there. Admin actions follow the permissions above.
+
 ### 3a. Alerts (DECIDED, owner card 2026-11-18, "Banner for serious, quiet for minor")
 The resident TUI follows Kodo's severity grades (doc 46). A serious failure shows a banner at the top with what failed, and rings the terminal bell once; the banner stays until acknowledged. A minor one only turns its line amber on the overview, with no banner and no sound. Colour is never the only signal (section 4). The bell can be turned off in settings.
 
