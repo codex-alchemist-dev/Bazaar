@@ -5,6 +5,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.CompanyIdentity\Bazaar.CompanyIdentity.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
@@ -13,7 +15,6 @@
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
     <PackageReference Include="Markdig" />
     <PackageReference Include="Npgsql" />
-    <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
@@ -46,6 +47,7 @@
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Agents\Bazaar.Server.Agents.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
@@ -53,6 +55,5 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />
-    <EmbeddedResource Include="Souls\Presets\Data\*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>
