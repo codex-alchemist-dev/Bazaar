@@ -37,7 +37,7 @@ public sealed class GarnetCacheOptions
     public bool Managed { get; set; }
 
     /// <summary>The Garnet executable for a managed child. A bare name is looked up on the PATH.</summary>
-    public string BinaryPath { get; set; } = "Garnet.exe";
+    public string BinaryPath { get; set; } = "garnet-server.exe";
 
     /// <summary>The loopback TCP port of the managed child. 0 picks a free loopback port at each start (the default).</summary>
     public int ManagedPort { get; set; }
@@ -58,7 +58,7 @@ public sealed class GarnetCacheOptions
     public bool AofCommitWait { get; set; }
 
     /// <summary>
-    /// Directory for the managed child's append-only file and checkpoints (<c>--logdir</c>, <c>--checkpointdir</c>) and its pid file. The
+    /// Directory for the managed child's append-only file and checkpoints (<c>--checkpointdir</c>; <c>--logdir</c> is only valid with <c>--storage-tier</c>, so it is not passed) and its pid file. The
     /// password is never written here.
     /// </summary>
     public string DataDirectory { get; set; } = Path.Combine(AppContext.BaseDirectory, "garnet-data");

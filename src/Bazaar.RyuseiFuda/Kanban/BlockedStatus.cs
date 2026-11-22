@@ -5,6 +5,7 @@ public sealed record StartCheck(bool Allowed, IReadOnlyList<Guid> UnfinishedBloc
 
 /// <summary>
 /// Derived Blocked marking. Blocked is never stored: a task is blocked while any of its blockers is not Done.
+/// A withdrawn blocker no longer counts (doc 12, "Withdrawn state"), and a withdrawn task is never blocked.
 /// A blocker id missing from <c>states</c> counts as unfinished (conservative: unknown is not Done).
 /// </summary>
 public static class BlockedStatus
@@ -14,17 +15,19 @@ public static class BlockedStatus
         Guid taskId,
         IEnumerable<TaskEdge> edges,
         IReadOnlyDictionary<Guid, TaskState> states) =>
-        edges
-            .Where(e => e.BlockedId == taskId && !IsDone(e.BlockerId, states))
-            .Select(e => e.BlockerId)
-            .ToList();
+        IsWithdrawn(taskId, states)
+            ? []
+            : edges
+                .Where(e => e.BlockedId == taskId && !IsSatisfied(e.BlockerId, states))
+                .Select(e => e.BlockerId)
+                .ToList();
 
     /// <summary>True while the task has at least one unfinished blocker, whatever column it is in.</summary>
     public static bool IsBlocked(
         Guid taskId,
         IEnumerable<TaskEdge> edges,
         IReadOnlyDictionary<Guid, TaskState> states) =>
-        edges.Any(e => e.BlockedId == taskId && !IsDone(e.BlockerId, states));
+        !IsWithdrawn(taskId, states) && edges.Any(e => e.BlockedId == taskId && !IsSatisfied(e.BlockerId, states));
 
     /// <summary>
     /// Ready to In progress guard: refused while any blocker is unfinished. Nothing changes on refusal.
@@ -69,4 +72,11 @@ public static class BlockedStatus
 
     private static bool IsDone(Guid taskId, IReadOnlyDictionary<Guid, TaskState> states) =>
         states.TryGetValue(taskId, out var state) && state == TaskState.Done;
+
+    private static bool IsWithdrawn(Guid taskId, IReadOnlyDictionary<Guid, TaskState> states) =>
+        states.TryGetValue(taskId, out var state) && state == TaskState.Withdrawn;
+
+    /// <summary>A blocker that no longer holds its dependents back: Done, or withdrawn.</summary>
+    private static bool IsSatisfied(Guid taskId, IReadOnlyDictionary<Guid, TaskState> states) =>
+        states.TryGetValue(taskId, out var state) && state is TaskState.Done or TaskState.Withdrawn;
 }

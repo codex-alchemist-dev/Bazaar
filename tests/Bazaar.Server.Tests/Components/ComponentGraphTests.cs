@@ -132,4 +132,57 @@ public class ComponentGraphTests
     {
         Assert.Throws<ComponentGraphException>(() => ComponentGraph.Impact([M("a")], "zzz"));
     }
+
+    private static ComponentManifest Optional(string id, ComponentKind kind = ComponentKind.Feature, params string[] dependsOn) =>
+        new(id, "0.1.0", kind, dependsOn, [], EnabledByDefault: false);
+
+    [Fact]
+    public void A_manifest_is_enabled_by_default_unless_it_says_otherwise()
+    {
+        Assert.True(M("a").EnabledByDefault);
+        Assert.False(Optional("playground").EnabledByDefault);
+    }
+
+    [Fact]
+    public void An_optional_component_may_exist_and_may_depend_on_default_on_ones()
+    {
+        var ordered = ComponentGraph.Order([Optional("playground", ComponentKind.Feature, "gc"), M("gc")]);
+
+        Assert.Equal(["gc", "playground"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void An_optional_component_may_depend_on_another_optional_one()
+    {
+        var ordered = ComponentGraph.Order([Optional("b", ComponentKind.Feature, "a"), Optional("a")]);
+
+        Assert.Equal(["a", "b"], ordered.Select(m => m.Id));
+    }
+
+    [Fact]
+    public void A_kernel_component_cannot_be_optional()
+    {
+        var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order([Optional("core", ComponentKind.Kernel)]));
+
+        Assert.Contains("core", ex.Message);
+    }
+
+    [Fact]
+    public void A_default_on_component_cannot_hard_depend_on_an_optional_one()
+    {
+        var ex = Assert.Throws<ComponentGraphException>(() => ComponentGraph.Order([M("vault", "playground"), Optional("playground")]));
+
+        Assert.Contains("vault", ex.Message);
+        Assert.Contains("playground", ex.Message);
+    }
+
+    [Fact]
+    public void A_default_on_component_may_softly_depend_on_an_optional_one()
+    {
+        var soft = new ComponentManifest("vault", "0.1.0", ComponentKind.Feature, [], [], ["playground"]);
+
+        var ordered = ComponentGraph.Order([soft, Optional("playground")]);
+
+        Assert.Equal(2, ordered.Count);
+    }
 }

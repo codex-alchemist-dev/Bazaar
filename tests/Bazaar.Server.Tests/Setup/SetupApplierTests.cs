@@ -180,10 +180,10 @@ public sealed class SetupApplierTests
         Assert.Equal("applied", payload["outcome"]!.GetValue<string>());
         // The settings map plus the plan fields that map to one registry key each (network block, release channel).
         Assert.Equal(
-            new List<string> { "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel" },
+            new List<string> { "deps.update.autoSecurityPatches", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel" },
             payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
-        Assert.Equal(4, harness.SettingAudit.Entries.Count);
-        Assert.Equal(["\"loopback\"", "8443", "\"beta\""], harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
+        Assert.Equal(5, harness.SettingAudit.Entries.Count);
+        Assert.Equal(["true", "\"loopback\"", "8443", "\"beta\""], harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
 
         var setting = Assert.Single(harness.SettingAudit.Entries, e => e.Key == "host.shutdown_timeout_seconds");
         Assert.Equal(SettingWriteOutcome.Accepted, setting.Outcome);
