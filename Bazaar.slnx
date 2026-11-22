@@ -93,6 +93,7 @@
     <Project Path="src/Bazaar.Wire.Schema/Bazaar.Wire.Schema.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3/Bazaar.Client.Transport.AndroidHttp3.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android/Bazaar.Client.Transport.AndroidHttp3.Android.csproj" />
+    <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android.Head/Bazaar.Client.Transport.AndroidHttp3.Android.Head.csproj" />
     <Project Path="src/Bazaar.Server.Blobs.Abstractions/Bazaar.Server.Blobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Blobs/Bazaar.Server.Blobs.csproj" />
     <Project Path="src/Bazaar.Server.Calendar.Abstractions/Bazaar.Server.Calendar.Abstractions.csproj" />
@@ -228,6 +229,10 @@
     <Project Path="src/Bazaar.Server.Coding.Abstractions/Bazaar.Server.Coding.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
+    <Project Path="src/Bazaar.Server.CodingBench.Abstractions/Bazaar.Server.CodingBench.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingBench/Bazaar.Server.CodingBench.csproj" />
+    <Project Path="src/Bazaar.Server.VmBench.Abstractions/Bazaar.Server.VmBench.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.VmBench/Bazaar.Server.VmBench.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress.Abstractions/Bazaar.Server.VmEgress.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress/Bazaar.Server.VmEgress.csproj" />
     <Project Path="src/Bazaar.Server.VmEgress.Approvals/Bazaar.Server.VmEgress.Approvals.csproj" />
@@ -433,6 +438,7 @@
     <Project Path="tests/Bazaar.Wire.Codec.MemoryPack.Tests/Bazaar.Wire.Codec.MemoryPack.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Tests/Bazaar.Client.Transport.AndroidHttp3.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Engines.Tests/Bazaar.Server.Engines.Tests.csproj" />
@@ -496,6 +502,8 @@
     <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingBench.Tests/Bazaar.Server.CodingBench.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmBench.Tests/Bazaar.Server.VmBench.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Tests/Bazaar.Server.VmEgress.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmEgress.Approvals.Tests/Bazaar.Server.VmEgress.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmMounts.Tests/Bazaar.Server.VmMounts.Tests.csproj" />
