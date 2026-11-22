@@ -13,6 +13,8 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="Deadline">The requested deadline. The service caps it at council.vote_deadline_cap_hours from open.</param>
 /// <param name="MembershipSubjectId">For membership votes (hire, promote, retire), the agent the vote is about. Excluded
 /// from voting when council.exclude_membership_subject is set. Null for other motions.</param>
+/// <param name="HighImpact">Set by the proposer: a high-impact ordinary motion goes to follow-up on enough dissent
+/// (council.followup_dissent_share). Stored on the vote; default false.</param>
 public sealed record MotionDraft(
     string SubjectRef,
     VoteKind Kind,
@@ -22,7 +24,8 @@ public sealed record MotionDraft(
     string ProposerId,
     string? SubjectAuthorId,
     DateTimeOffset Deadline,
-    string? MembershipSubjectId = null);
+    string? MembershipSubjectId = null,
+    bool HighImpact = false);
 
 /// <summary>
 /// Council operations (docs/design/10-council-and-voting.md, Data and interfaces). Vote ids are Guids, generated at open.
@@ -46,6 +49,14 @@ public interface ICouncilService
 
     /// <summary>Applies the deadline rules to a vote whose deadline has passed. Does nothing before the deadline.</summary>
     Task ProcessDeadlineAsync(Guid voteId, CancellationToken ct);
+
+    /// <summary>
+    /// Re-drives the decision record of a Decided vote: writes <c>council.decision</c> (and the Vault file when a writer is
+    /// set) if a crash after the decided transition left it out. Does nothing when the vote is not Decided. Safe to repeat:
+    /// the event key and the stored vault number make a second call write nothing new.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The vote is Decided but its history or ballots do not give one decision.</exception>
+    Task RedriveDecisionAsync(Guid voteId, CancellationToken ct);
 
     /// <summary>Withdraws a vote. Allowed for the proposer or the owner, before the vote is decided.</summary>
     /// <exception cref="CouncilRejectedException">The actor may not withdraw, or the vote is already terminal.</exception>
