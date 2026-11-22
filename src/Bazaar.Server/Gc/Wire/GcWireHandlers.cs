@@ -43,10 +43,10 @@ public sealed class SubscribeHandler : IWireRequestHandler
 /// original). Denied and missing GCs get the same answer. The commit notifies listeners, so subscribers receive the message
 /// through the dispatcher; this handler does not fan out.
 /// </summary>
-public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcReadAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
+public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, IGcWriteAccess access, Bazaar.Server.Gc.Mentions.IInboxRowWriter inbox) : IWireRequestHandler
 {
     /// <summary>Longest accepted message text, in characters. Replaced by the <c>gc.message_max_bytes</c> setting when it is wired.</summary>
-    public const int MaxTextLength = 64 * 1024;
+    public const int MaxTextLength = GcLimits.MaxTextLength;
 
     /// <inheritdoc />
     public string Type => WireTypes.GcSend;
@@ -131,7 +131,7 @@ public sealed class GcSendHandler(IGcLogWriter writer, IGcBodyCodec bodies, GcRe
 }
 
 /// <summary><c>gc.history</c>: older message entries, for paging back past a hole or a <c>resync</c>.</summary>
-public sealed class GcHistoryHandler(PgGcStreamSource source, GcReadAccess access) : IWireRequestHandler
+public sealed class GcHistoryHandler(IGcHistorySource source, IGcReadAccess access) : IWireRequestHandler
 {
     /// <summary>Largest page a client may ask for.</summary>
     public const int MaxPage = 200;
@@ -149,7 +149,7 @@ public sealed class GcHistoryHandler(PgGcStreamSource source, GcReadAccess acces
         // Only a full grant reads history. A limited (former member) grant is denied, the same as a missing GC.
         var grant = await access.GetGrantAsync(request.GcId, GcWirePrincipals.PrincipalOf(context.Connection.Principal), cancellationToken)
             .ConfigureAwait(false);
-        if (!grant.Allowed || grant.ThroughSeq is not null)
+        if (!grant.IsFull)
             return WireReply.Fail(WireErrorCodes.NotFound);
 
         var page = await source.ReadHistoryAsync(request.GcId, request.Before, request.Limit, cancellationToken).ConfigureAwait(false);

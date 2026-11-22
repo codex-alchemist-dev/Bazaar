@@ -37,6 +37,7 @@ public sealed class TurnRunner : ITurnRunner
     private readonly TimeProvider _time;
     private readonly TurnRunnerOptions _options;
     private readonly HashSet<string> _idempotent;
+    private readonly IRunningTurnRegistrar? _running;
 
     public TurnRunner(
         LeaseRepository leases,
@@ -48,7 +49,8 @@ public sealed class TurnRunner : ITurnRunner
         IToolDispatcher dispatcher,
         IAgentPostSink posts,
         TimeProvider time,
-        TurnRunnerOptions options)
+        TurnRunnerOptions options,
+        IRunningTurnRegistrar? running = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
@@ -63,6 +65,7 @@ public sealed class TurnRunner : ITurnRunner
         _time = time ?? throw new ArgumentNullException(nameof(time));
         _options = options;
         _idempotent = new HashSet<string>(options.IdempotentTools, StringComparer.Ordinal);
+        _running = running;
     }
 
     public Task<TurnRunOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken) =>
@@ -118,6 +121,19 @@ public sealed class TurnRunner : ITurnRunner
                     ct).ConfigureAwait(false);
             }
 
+            // The lease is held and the turn exists: it is now a running turn (doc 06, "Running-turn registry").
+            run.Registration = _running?.Register(new RunningTurnInfo(
+                run.TurnId,
+                request.AgentId,
+                request.SessionId,
+                request.Holder,
+                request.ToolAllowlist,
+                request.Depth,
+                _options.StepCap,
+                request.TriggerGcId,
+                request.TriggerGcSeq,
+                request.Route));
+
             await LoadHistoryAsync(run, ct).ConfigureAwait(false);
             var plan = await _assembler.BuildAsync(
                 new TurnContextRequest(
@@ -138,6 +154,10 @@ public sealed class TurnRunner : ITurnRunner
         {
             failure = ex;
         }
+
+        // Whatever ended the run (final message, crash, lost lease, cancel), the turn stops being a running turn first, and always
+        // before the lease is released.
+        run.Registration?.Dispose();
 
         try
         {
@@ -448,6 +468,7 @@ public sealed class TurnRunner : ITurnRunner
         public TurnEndReason? Reason { get; set; }
         public bool PostDone { get; set; }
         public InFlight? InFlight { get; set; }
+        public IDisposable? Registration { get; set; }
 
         /// <summary>Completed model responses of an earlier run of this turn, in order. Each is used before the gateway is called.</summary>
         public Queue<ModelStepPayload> ReplayModel { get; } = new();

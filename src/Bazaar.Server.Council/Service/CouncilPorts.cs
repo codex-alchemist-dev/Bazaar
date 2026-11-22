@@ -1,3 +1,5 @@
+using Bazaar.Server.Council.Membership;
+
 namespace Bazaar.Server.Council.Service;
 
 /// <summary>
@@ -19,6 +21,10 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="RevealSeed">Seed for the stored, randomised reason order (council.reason_order).</param>
 /// <param name="VaultDecisionNo">NNNN of the decision file, once written; null before.</param>
 /// <param name="CreatedAt">When the vote opened.</param>
+/// <param name="HighImpact">The proposer's high-impact flag, fixed at open (doc 10, Follow-up on dissent).</param>
+/// <param name="MembershipKind">The membership motion kind, fixed at open; null for a vote that is not a membership vote.</param>
+/// <param name="MembershipSubjectId">The membership subject (agent id, or template id for a hire), fixed at open; set exactly when the kind is.</param>
+/// <param name="MembershipOutcomeDeliveredAt">When every membership sink accepted the outcome; null until then.</param>
 public sealed record CouncilVoteRecord(
     Guid VoteId,
     Guid GcId,
@@ -35,7 +41,11 @@ public sealed record CouncilVoteRecord(
     string? SubjectAuthorId,
     long RevealSeed,
     int? VaultDecisionNo,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool HighImpact = false,
+    MembershipMotionKind? MembershipKind = null,
+    string? MembershipSubjectId = null,
+    DateTimeOffset? MembershipOutcomeDeliveredAt = null);
 
 /// <summary>
 /// One stored ballot (council_ballot, one row per voter and phase). Reasoning is plaintext here; the store encrypts it
@@ -111,6 +121,15 @@ public interface ICouncilStore
     /// </summary>
     Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct);
 
+    /// <summary>
+    /// Decided membership votes whose outcome has not been delivered to the membership sinks, whatever their age, oldest
+    /// vote id first, at most <paramref name="limit"/> ids. The deadline sweeper re-drives each.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListUndeliveredMembershipDecisionsAsync(int limit, CancellationToken ct);
+
+    /// <summary>Marks a membership vote's outcome delivered at <paramref name="at"/>. Idempotent: a vote already marked keeps its first time.</summary>
+    Task MarkMembershipOutcomeDeliveredAsync(Guid voteId, DateTimeOffset at, CancellationToken ct);
+
     /// <summary>The vote's transition history in version order (council_transition).</summary>
     Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct);
 
@@ -139,4 +158,15 @@ public interface ICouncilDecisionWriter
 {
     /// <summary>Writes the decision file for a decided or owner-resolved vote and returns its number.</summary>
     Task<int> WriteDecisionAsync(Guid voteId, string slug, string markdownBody, CancellationToken ct);
+}
+
+/// <summary>
+/// Port to the live follow-up dissent share (doc 10, Follow-up on dissent). The host adapter reads the operator setting
+/// <c>council.followup_dissent_share</c>; the module cannot reference the settings store, so it asks through this port at
+/// each tally and an operator change applies without a restart. Without an adapter <see cref="CouncilOptions.FollowupDissentShare"/> stands.
+/// </summary>
+public interface ICouncilDissentShareSource
+{
+    /// <summary>Reads the current dissent share, a fraction in (0, 1].</summary>
+    Task<decimal> GetFollowupDissentShareAsync(CancellationToken ct);
 }

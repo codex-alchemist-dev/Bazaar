@@ -153,3 +153,238 @@ Run: `Bazaar.Constellation.Vulkan.Bench.Android` on an Android 15 (API 35) x86_6
 | instances | 16.8M | 16.8M | 1M | 8 001 | 2.29 | 3.67 | 1.92 | 3.30 |
 
 The 300k-instance cap is the phone-tier figure from section 6. Above it, the emulator tracks the PC roughly linearly and did not show the PC cliff in the range measured here (1M instances at 1.9 ms GPU p50). The emulator's translation layer dominates these numbers, so they don't say anything about phone-GPU cliffs.
+
+### 10.3 PC re-run and run-to-run variance (2026-11-13)
+Same bench, Release build, Intel Arc B580, Vulkan 1.4.356. GPU p50 and p95 in ms. Earlier run in section 10 for comparison.
+
+| Row | Earlier p50 | Re-run p50 | Re-run p95 |
+|---|---|---|---|
+| 1M nodes, 1M instances | 0.50 | 0.58 | 0.97 |
+| 10M nodes, 2M instances | 1.72 | 1.02 | 1.42 |
+| 100M nodes, 2M instances | 1.00 | 1.00 | 1.39 |
+| 1B nodes (100.7M window), 2M instances | 1.54 | 1.00 | 1.00 |
+| 100k instances, 100.7M resident | 0.37 | 0.29 | 0.29 |
+| 1M instances, 100.7M resident | 1.78 | 0.50 | 0.77 |
+| 2M instances, 100.7M resident | 1.00 | 1.00 | 1.00 |
+| 10M instances, 100.7M resident | 318 | 326 | 328 |
+| 50M instances, 100.7M resident | 2 427 | 2 467 | 2 536 |
+| 100M instances, 100.7M resident | not measured | 5 111 | 5 151 |
+
+The cliff reproduces. Above about 2M instances per frame the cost grows about linearly with instance count, at about 50 ms per million. The 100M-instance row takes 5.1 s per frame.
+
+Small-count rows vary between the two runs. The largest gap is the 10M-node, 2M-instance row (1.72 against 1.02 ms), and some 1M-instance rows differ by about 1.3 ms. Treat differences under about 2 ms, or any single-run number, as noise until a repeat-run spread is measured (section 10.4 once added).
+
+### 10.4 Root-cause controls for the cliff, and the density fix (2026-11-14)
+Bench modes `rootcause` and `passes`, `density`. Release build, Intel Arc B580, 10M nodes in one frame unless noted. GPU p50 in ms.
+
+**Controls.** Each row changes one thing against the baseline:
+
+| Control | GPU p50 (ms) |
+|---|---|
+| Triangles, 10M instances, on screen (three repeats: 322.3, 323.4, 323.7) | ~323 |
+| Triangles, 10M instances, all moved off screen | 5.0 |
+| One point per node, on screen | 162 |
+| One point per node, off screen | 4.2 |
+| One point per node, on screen, colour writes disabled | 4.2 |
+| Triangles, 2M or 1M per render pass (5 or 10 passes per frame) | 323 / 322 |
+| Points, 2M or 1M per render pass | 162 / 161 |
+
+What this rules out: vertex fetch and clipping (off-screen draws are cheap), per-draw-call and per-render-pass overhead (splitting changes nothing), and scattered writes (clustering the nodes changes nothing). Colour writes to the target are what cost time: with writes disabled the on-screen points cost the same as the off-screen ones.
+
+**Root cause, not proven.** The cost is about flat up to about 4M instances per frame, then rises roughly linearly at about 50 ns per instance, whatever the frame is split into. The likely cause is a per-frame limit inside the driver or hardware for on-screen primitive or fragment work. The controls do not show which. Solving it inside the driver is not in our hands, so the fix below avoids it.
+
+**Fix: density path (section 5, far zoom).** A compute pass bins every node into a 512 x 288 grid of counters with atomic adds. One fullscreen triangle then shades the grid. Per-frame cost no longer depends on per-node rasterisation. Code: `NodeBenchmark.Density.cs`, `Shaders/density.*`.
+
+| Nodes in the frame | Before: every node drawn (GPU p50 / p95, ms) | After: density grid (GPU p50 / p95, ms) | Speed-up |
+|---|---|---|---|
+| 1M | 1.01 / 2.58 | 0.040 / 0.040 | about 25x |
+| 10M | 321.7 / 323.4 | 4.40 / 4.42 | about 73x |
+| 100M | 5 107.7 / 5 146.4 | 68.7 / 68.9 | about 74x |
+
+**What the fix does not solve.** The density cost still grows with node count, at about 0.69 ns per node. At 100M nodes it is about 69 ms per frame, which is about five times the 14 ms PC budget in section 6. At the 1B target it would be about 690 ms. The 1B target needs tile-level aggregates, so the grid is built from precomputed per-tile counts, not per-node atomics. That is the next step, and it belongs with the server tile format in section 3.
+
+**Run-to-run variance.** Three repeats of the 10M triangle baseline gave 322.3, 323.4 and 323.7 ms, a spread of about 1.4 ms. The earlier full re-run gave 318 to 326 ms for the same row. Each density row was measured in a single run; repeat spread for the density path is not yet measured.
+
+### 10.5 Per-tile aggregate path (2026-11-14)
+Bench mode `aggregate`. Release build, Intel Arc B580. Nodes are generated from their global index and streamed in chunks of 16M nodes (256 MB). Each chunk is binned into one 512 x 288 grid, then discarded, so the whole graph never sits on the GPU at once. The per-frame cost is one fullscreen shade of the finished grid.
+
+| Nodes | Build, one-time (wall ms, 3 runs) | Per-frame GPU p50 / p95 (ms, 3 runs) | Per-frame wall p50 (ms) |
+|---|---|---|---|
+| 100M | 1 017 / 873 / 902 | 0.025 / 0.030, 0.020 / 0.023, 0.025 / 0.025 | 0.27, 0.12, 0.14 |
+| 1B | 9 660 / 9 648 / 9 632 | 0.059 / 0.060, 0.060 / 0.060, 0.059 / 0.060 | 0.33, 0.33, 0.32 |
+
+**Against the budget.** The per-frame cost is about 0.06 ms at 1B, far inside the 14 ms PC budget in section 6. It no longer depends on node count.
+
+**What the number does not include.**
+- The build is paid once per graph version, not per frame. At 1B it is about 9.6 s on this PC, mostly CPU generation and copy. The GPU part is about 0.7 s. The server builds aggregates in batch, per section 3, so this cost moves there.
+- The grid is built in the layout's fixed frame with the transform in force at build time. Panning or zooming does not re-bin it, so a view change needs either a re-bin or per-tile levels. Per-tile levels for zoom are the next step and are not built yet.
+- Hit-testing and focus are not covered here.
+
+**Variance.** Build time at 100M varies by about 15% across three runs (873 to 1 017 ms). At 1B it varies by about 0.3% (9 632 to 9 660 ms). Per-frame GPU p50 varies by about 25% at 100M (0.020 to 0.025 ms), and by under 2% at 1B. Earlier per-node density rows (section 10.4) were single runs, so their spread is still unmeasured.
+
+### 10.6 Aggregate path re-run and the 1B frame spike (2026-11-18)
+Bench modes `aggregate` and `spike`. Release build, Intel Arc B580. Same method as 10.5.
+
+**Re-run (three runs each, GPU p50 and p95 in ms):**
+
+| Nodes | One-time build (ms) | Per-frame GPU p50 / p95 | Per-frame wall p95 (ms) |
+|---|---|---|---|
+| 100M | 1 061 / 880 / 914 | 0.009 / 0.016, 0.010 / 0.010, 0.016 / 0.016 | 0.13, 0.23, 0.17 |
+| 1B | 9 468 / 9 162 / 9 295 | 0.022 / 0.022, 0.018 / 0.018, 0.061 / 0.071 | 0.22, 0.21, 1.21 |
+
+A second 1B re-run gave the same pattern: 0.018 ms in run 1, then 0.048 and 0.060 ms GPU p50 in runs 2 and 3, with wall p95 at 1.26 and 1.57 ms.
+
+**Spike check.** One 1B build (9 299 ms), then three frame blocks with 60 s idle between them:
+
+| Frame block | GPU p50 / p95 (ms) | Wall p95 (ms) |
+|---|---|---|
+| Immediately after the build | 0.026 / 0.027 | 0.28 |
+| After 60 s idle | 0.059 / 0.072 | 1.29 |
+| After a further 60 s idle | 0.059 / 0.071 | 1.36 |
+
+**Reading.** The slow frames are real and repeatable, but their cause is not known. They are not explained by GPU clock recovery: idling for 60 s does not bring the fast time back. The grid and the shader are the same in every block, so the difference is in driver or runtime state, not in the data. The first block was fast, and every later block was slow.
+
+**Next checks for the spike** (not yet run): time the same frame block in a fresh process without a build, to see if the build leaves state behind; count frames per block and compare the first 200 in a process with no prior work; and read the adapter's clock state before and after a block, if a tool for it is available on this machine.
+
+Per-frame cost at 100M stays far inside the 14 ms PC budget in both states. At 1B the slow state is still about 0.06 ms, so the budget is not at risk from this spike.
+
+### 10.7 Procedural topology benchmark: draw path and density path (2026-11-19)
+Bench modes `topology-draw` and `topology-density`, Release, Intel Arc B580, offscreen 1280x720, 30 warm-up and 200 measured frames per cell (full per-frame splat: 10 frames at 100M, 3 at 1B and 2B, so its p95 and p99 are the maximum). Nodes and edges are generated in the shaders from the node index (`Shaders/topology.glsl`), so nothing is stored. Topologies: uniform random, clustered (64 gaussian blobs), power-law hub and spoke (1024 hubs), grid or lattice, chain or ring, each with one outgoing edge per node. 2D orthographic and 3D perspective (reversed-Z, no depth test), three viewpoints each (whole, mid zoom, close zoom). GPU times are the sum of per-pass timestamps; per-pass medians are in the CSV. Raw CSVs: `tests/Bazaar.Constellation.Vulkan.Bench/results/topo-draw.csv` (150 cells) and `topo-density.csv` (210 cells), one run each.
+
+**Draw path** (M stride-sampled points plus 1 000 000 line segments, no culling). 76 of 150 cells meet GPU p95 <= 2.5 ms and p99 <= 3.3 ms. Cost does not depend on the node count: at M = 1M, N = 100M, 1B and 2B agree within a few percent for the same topology. The edge pass is the larger pass in 52 of the 74 failing cells: uniform random edges cost about 6 ms (2D whole), 6 ms (mid) and 17 ms (2D close); hub and spoke 4 to 7 ms in 2D whole and mid. Points cost about 0.42 ms per million when spread out, but pile up on a thin curve: the ring costs 4.2, 14.5 and 40.1 ms at 0.5M, 1M and 2M points in 2D whole (same-pixel overdraw).
+
+**Density path.** Three variants, all ending in one fullscreen shade of a 1280x720 count grid:
+- Full per-frame splat of every node, generated from its index: 3.1 to 74.7 ms at 100M (median 10.5), 37 to 918 ms at 1B (median 67), 58 to 2 316 ms at 2B (median 90). The worst cases are the grid and the ring in 2D, where many nodes land in one cell and the atomic adds serialise. None of the 30 cells meets the target.
+- Aggregate: the graph is binned once into a voxel grid (2D 2048x2048, 3D 160^3, 16 MiB), then each frame projects the non-empty voxels into the screen grid. Build (one time) takes 4 to 1 438 ms. Clear, reproject and shade together cost at most 1.1 ms in any of the 90 cells (p50) and do not depend on N. 54 of 90 cells meet the target; in every one of the 36 misses the 1M-edge line pass is the larger part.
+- Cached (camera still, grid already built): shade plus the edge pass only; 55 of 90 cells meet the target.
+
+**Limits of what was measured.**
+- The aggregate grid has a fixed resolution; at the close viewpoint one voxel covers many pixels, so a real close view would need a finer tile level. The cost shown for close is that of the coarse grid, not of a close-zoom tile selection.
+- Edges are a fixed stride sample drawn every frame, not culled and not bundled; this is the baseline the culling and bundling work has to beat.
+- The draw cells use no tile selection (`ViewSelector`) and no compute culling or indirect draws yet.
+- Wall-clock p99 shows 5 to 70 ms hitches in many cells whose GPU p99 is under 1 ms (121 of 150 draw cells have wall p99 above 3.3 ms); the cause was not isolated.
+- Single run per cell; run-to-run spread is not measured here (section 10.3 shows the small rows vary by up to a factor of two between runs).
+
+### 10.8 Edge pass options (2026-11-19)
+Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M points drawn every frame, 5 topologies x 2D and 3D x 3 viewpoints (30 cells per option; one run each). Section 11.1 asks for a default cap of 100k edges and no far-zoom line drawing. Results (GPU p95 <= 2.5 ms and p99 <= 3.3 ms counts as meeting the target):
+
+| Option | Cells meeting | Edge pass p50, median / max (ms) | Total GPU p50, median / max (ms) |
+|---|---|---|---|
+| a. 100k edges, plain line list | 24 of 30 | 0.05 / 3.13 | 0.85 / 14.5 |
+| b. 100k edges, screen-length LOD (drop below 2 px or above 400 px, or behind the camera) | 24 of 30 | 0.03 / 0.98 | 0.80 / 14.5 |
+| b'. 1M edges with the same LOD | 19 of 30 | 0.36 / 5.71 | 1.51 / 14.5 |
+| c. edges baked into the aggregate grid at build (4M sampled edges, 32 points each), no lines per frame (no points drawn either) | 30 of 30 | 0 | 0.14 / 0.65 |
+
+- The 100k cap alone fixes most of the 1M-edge cost found in 10.7 (uniform 2D whole went from 6.0 ms to 0.6 ms). The remaining edge-pass cost is 3.1 ms for uniform 2D mid and close, because the edges are long.
+- The screen-length LOD removes those long edges: uniform 2D close 3.1 ms to 0.02 ms, uniform 3D close 1.6 ms to 0.01 ms. It does not fix uniform 2D mid (still 3.07 ms p95 over the target), and it moves clustered and hub and spoke 2D whole slightly higher (edge pass 0.33 to 0.69 ms and 0.75 to 0.98 ms) because the vertex shader now projects both endpoints.
+- With LOD, 1M edges still miss in 11 cells (hub and spoke 2D whole 10.5 ms, uniform 2D whole 9.4 ms): the LOD range keeps many mid-length edges.
+- Option c has no per-frame edge cost. Its cost moves to build time (46 to 777 ms for the baked edges, on top of the node build in 10.7) and its image is edge density in the grid, not lines. It is also a different frame: it draws no points.
+- The remaining misses in a and b are not edges. The ring topology piles its points on a thin curve (14.5 ms 2D whole, 8.6 ms 3D whole, 2.9 ms 3D mid), which is point overdraw, not edge cost.
+
+### 10.9 Point overdraw, decimation and frame pipelining (2026-11-19)
+Bench modes `topology-overdraw`, `topology-pipeline` and `hostjitter`. Same machine and method as 10.7 (one run per cell, 30 warm-up and 200 measured frames; the pipelining table uses 600 measured frames). 150 draw cells: N = 1B with M = 0.5M, 1M and 2M points, plus N = 100M and N = 2B at M = 1M, 5 topologies, 2D and 3D, 3 viewpoints. Edges are 100k with the screen-length LOD of 10.8 in every variant. "Meets" means GPU p95 <= 2.5 ms and p99 <= 3.3 ms. Raw CSVs: `results/topo-overdraw*.csv`, `results/topo-pipeline*.csv`.
+
+**Cause.** The ring puts 400 to 800 points on each of about 2 400 pixels, and the rasteriser pays for the same-pixel writes: ring 2D whole costs 3.9, 14.5 and 40 ms for 0.5M, 1M and 2M points. 1 px points with no blending (option a) does not change this.
+
+**Variants.**
+- a. 1 px points, no blending: of the 30 cells that fail today, 18 meet; the ring whole views are unchanged.
+- b. Density path when estimated points per pixel exceeds T: the aggregate path (clear, reproject, shade, 100k edges) costs at most 0.7 ms.
+- c. Decimation: a compute pass lets one sampled point claim each 2x2-pixel cell (atomic max), a second pass appends the winners to a survivor list behind a draw-indirect header, then one indirect draw. Points outside the view are dropped. GPU p50 median 0.33 ms, max 3.6 ms.
+- d. c, with b when points per pixel exceeds T. Points per pixel is estimated as M divided by the number of non-empty cells of the aggregate screen grid (counting costs at most 0.19 ms GPU and is not included in the frame totals).
+
+| Variant | Cells meeting (GPU) |
+|---|---|
+| Plain draw, 100k LOD edges | 113 of 150 (the earlier 1M-edge draw: 76 of 150) |
+| c. decimation | 148 of 150 |
+| b. density path above T = 1 point per pixel over the plain draw | 150 of 150 (T = 2: 145, T = 4: 138) |
+| d. decimation plus density above T = 2 | 150 of 150, worst p99 2.10 ms (T = 4: 149, T = 8: 148) |
+
+Recommended threshold: T = 2 estimated points per pixel. The density path is a count image, not points, so the switch changes what is on screen. The two decimation misses are hub and spoke 2D mid (N = 1B, M = 2M, p99 4.19 ms, the LOD edge pass is 2.06 ms) and hub and spoke 3D whole (N = 100M, M = 1M, p99 3.64 ms, claim pass 0.98 ms). The decimation winner is the highest sample index in a cell, not the most important node.
+
+**Wall-time hitches.** Fps is judged on wall time. With the benchmark at normal priority, wall p99 meets 3.3 ms in only 57 of 150 cells even under policy d, while GPU p99 is under it in all of them. Frames in flight (1, 2 and 3, draw frame with 500k points, N = 1B, 30 cells, 600 frames) lowers the wall p50 (median 0.90, 0.61, 0.38 ms) but not the p99 (median 6.81, 6.11, 5.38 ms; cells meeting 2, 2, 7 of 30). A host-only 0.5 ms busy-wait (`hostjitter`) shows the cause: p99 3.98 ms and max 24.4 ms at normal priority (110 of 6 000 intervals over 2 ms), against p99 0.506 ms and max 2.2 ms at High process priority and Highest thread priority. The machine runs CI runners and builds, so the thread is being preempted. With `BAZAAR_BENCH_BOOST=1` (High priority): the 30-cell pipeline table has wall p99 median 0.43, 0.37 and 0.41 ms for 1, 2 and 3 frames in flight and 29 of 30 cells meet 3.3 ms in each (the exception is one cell with 4.2 to 4.3 ms), so pipelining does not matter once the scheduler stops interfering. In the boosted overdraw table, plain draw meets in 135 of 150 cells (GPU) and 136 of 150 (wall p99), decimation in 150 and 149, and policy d (T = 1, 2 or 4) in 150 of 150 for both GPU and wall p99.
+
+The real client therefore needs its render thread at a raised priority (or a dedicated high-priority thread) to hold a wall p99 near its GPU p99 on a busy machine.
+
+### 10.10 Compute culling and indirect draws (2026-11-20)
+Bench mode `topology-cull`, same machine and method as 10.9 (Intel Arc B580, offscreen 1280x720, 30 warm-up and 200 measured frames, one run per cell, `BAZAAR_BENCH_BOOST=1`, 100k LOD edges in every variant). 150 draw cells: N = 1B with M = 0.5M, 1M and 2M points, plus N = 100M and N = 2B at M = 1M, 5 topologies, 2D and 3D, 3 viewpoints. Raw CSV: `results/topo-cull.csv` (also the 10.9 baselines re-measured in this run). `vkCmdDrawIndirectCount` is supported on this device (drawIndirectCount, multiDrawIndirect, drawIndirectFirstInstance enabled).
+
+**Path.** The M sampled points are binned once per (topology, N, M) into 4096 tiles (2D 64x64, 3D 16^3; counts, tight bounds, prefix sum, scatter; 4 compute passes). Per frame: a compute pass tests each tile (8-corner frustum test; with Hi-Z also a test against the previous frame's depth pyramid) and appends one `VkDrawIndirectCommand` per surviving tile; one `vkCmdDrawIndirectCount` draws them. Hi-Z variant: points are drawn with a reversed-Z depth buffer, then an 11-level 2x2-min pyramid (640x360 down to 1x1) is built by compute.
+
+| Variant | Cells meeting (GPU p95 <= 2.5 ms, p99 <= 3.3 ms) | Cells meeting (wall p99 <= 3.3 ms) | GPU p50 median (ms) |
+|---|---|---|---|
+| cbase: plain draw | 133 of 150 | 122 | 0.565 |
+| cdec: decimation + indirect draw (10.9 c) | 148 of 150 | 144 | 0.167 |
+| ctile: tile cull + indirect count | 130 of 150 | 130 | 0.270 |
+| cthiz: ctile + depth write + Hi-Z | 137 of 150 | 134 | 0.204 |
+| cthizbig: cthiz, 24 px occluder points (3D, N = 1B, M = 1M, mid and close; 10 cells) | 9 of 10 | 8 | 0.474 |
+
+**Results.**
+- The cull pass itself is cheap: 3.3 to 7.6 microseconds p50 for 4096 tiles; the Hi-Z pyramid build 13 to 18 microseconds. Neither is a cost problem.
+- Culling cuts work in the zoomed views (median 42 percent of the sampled points drawn; 2D close 0 to 1 percent) but does nothing in the whole views, where every tile is visible. The whole-view misses are therefore the same ones as before: ring (2D whole 3.5, 10 and 25 ms at 0.5M, 1M, 2M points) and clustered or hub 2D whole.
+- Point overdraw is not fixed by tile culling (ctile misses 20 cells, mostly ring and clustered whole views). Decimation (10.9 c) is better in the 2D cases because it removes same-pixel points.
+- Hi-Z with points as occluders removes almost nothing: tiles drawn were 155 051 of 156 012 frustum-visible (41 of 150 cells had any tile occluded); in 2D every depth is equal. With 24 px occluder points tiles are occluded (for example hub and spoke 3D close at N = 1B, M = 1M: 253 of 685 frustum-visible tiles drawn), so the test works, but the gain depends on having real occluders.
+- cthiz is faster than ctile in several 3D cells (N = 1B, M = 1M: ring 3D mid GPU p50 1.82 ms to 0.63 ms, ring 3D whole 6.79 ms to 2.37 ms) because the depth test rejects the same-pixel writes early, not because tiles were culled. 2D has no such gain (ring 2D whole still 10 ms).
+- Misses: ctile 20 cells, cthiz 13 cells, all in ring, clustered and hub 2D whole views and the 2M-point cells; cthiz worst GPU p99 26.2 ms (ring 2D whole, M = 2M).
+
+**Conclusion.** For the target, the indirect-count path works and is cheap, but the thing that decides whether the B580 holds 400 fps is overdraw decimation (10.9 c, 148 of 150) combined with the density switch (10.9 d, 150 of 150), not tile culling. Tile cull plus indirect draw is the right shape for the real renderer (per-tile commands, resident tile pool), and belongs in front of decimation, but it was not measured with real tile selection: `ViewSelector` (#908) is not merged, so tiles here are a fixed grid over the sampled points.
+
+**Limits.** One run per cell. Tiles are a uniform grid over a stride sample, not the quadtree or octree of section 3. Hi-Z occluders are the 1 to 4 px points themselves, so it is nearly idle by construction; real node discs or cluster impostors would occlude more. The Hi-Z frame uses a second rendering scope for edges and a depth attachment, so part of its difference from ctile is that. The cull path was not combined with decimation or the density switch in one frame.
+
+## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
+
+**Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
+
+**What this changes in section 6.** The 60 fps rows stay as the floor for phones. On the PC tier the target becomes:
+
+| Item | PC tier target |
+|---|---|
+| Frame time, p95, GPU | 400 fps: ≤ 2.5 ms; floor 300 fps: ≤ 3.3 ms |
+| Frame time, p99 | ≤ 3.3 ms (no hitch below 300 fps) |
+| Instances drawn per frame | hard cap, default 2 000 000 (the B580 draws 2M in about 1 ms, section 10), operator-tightenable |
+| Edges drawn per frame | hard cap, default 1 000 000 line segments, bundled or sampled beyond that |
+| Graph size | no term: frame cost depends on the caps and the view, never on node count |
+
+## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
+
+**Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
+
+**DECIDED (owner, 2026-11-19 08:18 UTC): the budget is adaptive, not one fixed number.** The owner asked for it to be "dynamic based on current performance", or to read what GPU it has. Both, in two layers:
+1. **Startup tier.** The client detects the GPU (vendor, model, VRAM) and runs a short micro-benchmark, then picks a starting tier: instance cap, edge cap, resident pool size, tile threshold. The tier table is a setting (configurability rule); operators can tighten it, never loosen it above the section 6 floors.
+2. **Closed-loop controller.** Each frame the client measures GPU frame time (rolling p95 over a short window) and raises or lowers detail to hold the target: LOD refine threshold, instance cap, edge density, density-field resolution. It drops detail fast when over budget and recovers slowly, with hysteresis so the picture does not flicker. A frame that would exceed the budget drops detail, never frames.
+3. **Target.** Defaults to the display refresh rate. **Acceptance bar (benchmarks, not the runtime target): the Arc B580 holds 300 fps at every size and mode, 400 fps preferred.** That is a p95 of 3.3 ms (2.5 ms for 400) at 100M, 1B and 2B nodes.
+4. **Quality first (owner, 2026-11-19 08:19 UTC).** Headroom is spent on detail before anything else: when the rolling p95 sits under 80% of the target for a calm stretch, detail rises (more instances, finer refine threshold, denser edges), up to twice the tier's starting caps. Detail only drops to hold the target. `FrameBudgetController` and `RenderTiers` in Rendering Core implement the loop.
+5. Phones keep the section 6 phone tier as their starting tier and the same controller. 60 fps stays their floor.
+
+The numbers in the old fixed table (2 000 000 instances, 100 000 edges, 2.5 / 3.3 ms) are now the B580 starting tier and the benchmark bar, not constants. Graph size is not an input: frame cost depends on the caps and the view, never on node count.
+
+**Method.** Out-of-core and bounded per frame; none of this touches data the view cannot show.
+1. **Selection.** Each frame the client picks a bounded set of tiles by walking the tile tree from the root, splitting the largest on-screen tile first, stopping at the instance cap, the tile cap, or the pixel threshold (below 96 px a tile is drawn from its sample). The CPU reference is `ViewSelector` in `Bazaar.Constellation.Rendering.Core`; the GPU compute pass must produce the same set and is tested against it.
+2. **Tree.** 2D uses the quadtree, 3D the octree from section 3 (tile format v1 already carries `dimensions`). 3D uses a perspective camera and frustum culling; far tiles collapse to density splats and cluster impostors.
+3. **Far and mid.** A density field (compute splat, section 5) and per-tile sampled nodes. Edges are drawn from per-tile bundled summaries (cluster-to-cluster ribbons), not per edge, until a tile is near.
+4. **Near.** All nodes and their real edges for the few visible leaf tiles, under the caps.
+5. **GPU-driven draw.** Compute culling writes indirect arguments; one indirect-count draw per layer. Tile data resident in a fixed GPU pool with LRU, streamed under the section 6 bandwidth limit. A frame that would exceed a cap drops detail (coarser tiles), never frames.
+6. **Not yet measured on the B580:** swapchain present cost, compute culling, density splat, indirect count draws, mesh shaders, 3D. These decide whether 400 fps holds or only 300; they are the first benchmark milestone.
+
+**Fully zoomed out (every node on screen).** Culling cannot help there, since nothing is outside the view, so the cost must not scale with nodes. Three things carry it: (a) a precomputed hierarchical cluster LOD, built on the server (section 3), where the root-level tiles hold cluster summaries and per-tile samples, so the selector never descends below the pixel threshold; (b) a density (heat) splat for every tile whose nodes fall below one pixel: a compute pass adds each tile's count into a screen-resolution texture, one write per tile, not per node, then a log tone map; (c) cost is set by screen pixels and the tile cap, not by node count: at most one splat per tile and one texel read per pixel. The result at 2 billion nodes on a 1080p screen is a few thousand tiles and about two million pixels of work. Edges at this distance are cluster-to-cluster bundles from per-tile summaries, never individual edges. The benchmark's far-zoom script covers this case explicitly in 2D and 3D.
+
+**3D mixed case: close-up detail with distant galaxies (owner, 2026-11-19 08:20 UTC).** This is the hardest 3D view and the one that matters most: the camera is next to a few nodes while far clusters are still in frame.
+- **Per-tile LOD by screen-space error.** Each tile's level is chosen from its projected size (the selector already splits the largest on-screen tile first), so tiles near the camera descend to full nodes and distant tiles stop at a sample, a cluster impostor (one billboard per cluster) or a density splat, all in the same frame under the same caps.
+- **Occlusion.** A Hi-Z pyramid from the previous frame's depth culls tiles hidden behind nearer geometry before they are drawn (compute pass, conservative, one-frame lag; nodes are sparse, so it pays mostly for dense clusters).
+- **Depth range.** Distances span many orders of magnitude, so rendering uses reversed-Z with a float depth buffer and camera-relative coordinates (tile origins are re-based to the eye on the CPU in double precision, so the GPU only sees small offsets). Logarithmic depth is the fallback if a device lacks a float depth format.
+- **Benchmark script.** 3D: the camera sits inside a dense leaf tile at full detail while clusters at 1e3, 1e5 and 1e7 times that distance stay on screen; then a fly-out and fly-in over the same scene. Pass criteria are the same p95 bar, plus no popping beyond one frame of LOD change and no depth fighting or jitter at the close-up nodes.
+
+**Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass on the B580: p95 ≤ 3.3 ms (≤ 2.5 ms for the 400 fps goal) at every size, with the controller on, and the detail level it settles at reported alongside. The owner's PC runs it (benchmark thread).
+
+**Honest limit.** "No matter what" is met by bounding work per frame and adapting to measured cost, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
+
+### 11.1 B580 draw baselines and what they change (measured 2026-11-19, benchmark thread)
+150 cells (5 topologies, 2D and 3D, whole, mid and close views), offscreen 1280x720, one point draw plus one line list of 1M edges generated in the shader, no culling, no depth test, no tile selection:
+- Node count barely matters (100M, 1B and 2B within a few percent at 1M points). Points cost about 0.42 ms per million, except thin-curve overdraw (a 2D ring seen whole: 4.2, 14.5 and 40 ms at 0.5M, 1M and 2M points).
+- **Edges are the problem, not nodes.** A flat 1M-edge line list costs about 6 ms in the whole and mid views and 16 to 17 ms close (uniform topology), 4 to 7 ms for hub-and-spoke, and the cost does not follow the point count. 76 of 150 cells meet p95 ≤ 2.5 ms and p99 ≤ 3.3 ms; edges cause 52 of the 74 misses.
+- **Decision from this (implementation default, a tier setting):** the edge cap drops from 1 000 000 to 100 000 on the B580 tier (30 000 phone, 200 000 high), edges draw only for near tiles, and everything farther uses cluster bundles. Edge density is also the first thing the frame controller sheds.
+- Host-side wall-clock p99 hitches (121 of 150 cells above 3.3 ms while GPU p99 was under 1 ms) look like a per-frame fence wait; to be isolated before a wall-clock fps claim is made.
+
+## 12. Node icons, sections and on-demand frame pacing
+
+The owner's 2026-11-20 asks (real icons per node kind, performance-driven LOD rungs, sections, no frames at standstill, a pacer targeting the display's refresh rate with VRR) are recorded in `constellation-node-detail-and-pacing.md`. Section 11's target "defaults to the display refresh rate" is now refined there: 0 fps when still, a lower rate for small movements, the full rate for big ones.
+

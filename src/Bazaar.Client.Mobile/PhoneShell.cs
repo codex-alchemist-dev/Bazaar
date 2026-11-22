@@ -22,7 +22,10 @@ public sealed class PhoneShell : UserControl
 
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null)
+    /// <param name="gestures">The swipe and hold thresholds. Null uses the doc 93 defaults.</param>
+    /// <param name="haptics">Plays the haptic ticks for radial sectors and swipe commits. Null plays none.</param>
+    /// <param name="radialSectors">The radial menu's sectors, in order. Null uses the doc 29 default seven.</param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -31,10 +34,29 @@ public sealed class PhoneShell : UserControl
         var title = new TextBlock { Text = "Bazaar", FontSize = 22, Margin = new Thickness(16, 16, 16, 8), FontWeight = FontWeight.SemiBold };
         DockPanel.SetDock(title, Dock.Top);
 
-        // The pager is the last child, so DockPanel gives it the remaining height.
-        Content = new DockPanel { Children = { title, _pager } };
+        // The gesture layer wraps the pager and is the last child, so DockPanel gives it the remaining height.
+        Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures, haptics);
+        Gestures.SwipeProgressed += (_, dx) => _pager.RenderTransform = new TranslateTransform(dx, 0);
+        Gestures.SwipeCancelled += (_, _) => _pager.RenderTransform = null;
+        Gestures.SwipeCommitted += (_, direction) =>
+        {
+            _pager.RenderTransform = null;
+            _ = direction == SwipeDirection.Next ? GoToNext() : GoToPrevious();
+        };
+        Gestures.DictationChanged += (_, on) => DictationChanged?.Invoke(this, on);
+        Gestures.RadialReleased += (_, release) => RadialReleased?.Invoke(this, release);
+        Content = new DockPanel { Children = { title, Gestures } };
         BuildPages();
     }
+
+    /// <summary>The swipe and hold layer over the pager. Heads and tests reach the radial overlay through it.</summary>
+    public PhoneGestureLayer Gestures { get; }
+
+    /// <summary>Dictation should start (true) or stop (false) as the finger moves in the radial menu.</summary>
+    public event EventHandler<bool>? DictationChanged;
+
+    /// <summary>The radial menu was released: a sector to open, a transcript to place in the composer, or a cancel.</summary>
+    public event EventHandler<RadialRelease>? RadialReleased;
 
     public LayoutVariant Layout { get; private set; } = LayoutVariant.Folded;
 
@@ -48,6 +70,24 @@ public sealed class PhoneShell : UserControl
 
     /// <summary>Index of the page on screen, or -1 when there are no pages.</summary>
     public int SelectedPage => _pages.Count == 0 ? -1 : _pager.SelectedIndex;
+
+    /// <summary>Shows the next page. Returns false on the last page. Also the route for the accessibility action "Next chat".</summary>
+    public bool GoToNext() => Step(+1);
+
+    /// <summary>Shows the previous page. Returns false on the first page. Also the route for the accessibility action "Previous chat".</summary>
+    public bool GoToPrevious() => Step(-1);
+
+    private bool Step(int delta)
+    {
+        var target = _pager.SelectedIndex + delta;
+        if (_pages.Count == 0 || target < 0 || target >= _pages.Count)
+        {
+            return false;
+        }
+
+        _pager.SelectedIndex = target;
+        return true;
+    }
 
     /// <summary>Shows a page by index. Out-of-range indexes are ignored.</summary>
     public void GoToPage(int index)

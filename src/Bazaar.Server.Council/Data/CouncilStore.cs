@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
 using Npgsql;
 using NpgsqlTypes;
@@ -19,14 +20,17 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
 {
     private const string _voteColumns = """
         vote_id, gc_id, subject_ref, kind, motion_class, state, version, options::text, deadline_at, extensions,
-        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at
+        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact,
+        membership_kind, membership_subject_id, membership_outcome_delivered_at
         """;
 
     private const string _insertVoteSql = """
         INSERT INTO council_vote (vote_id, gc_id, subject_ref, kind, motion_class, state, version, options, deadline_at,
-            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at)
+            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact,
+            membership_kind, membership_subject_id)
         VALUES (@vote_id, @gc_id, @subject_ref, @kind, @motion_class, @state, @version, @options::jsonb, @deadline_at,
-            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at)
+            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at, @high_impact,
+            @membership_kind, @membership_subject_id)
         """;
 
     private const string _insertTransitionSql = """
@@ -66,6 +70,19 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         WHERE t.to_state = 'decided' AND t.at >= @since
         ORDER BY t.at, t.vote_id
         LIMIT @limit
+        """;
+
+    private const string _undeliveredMembershipSql = """
+        SELECT vote_id FROM council_vote
+        WHERE state = 'decided' AND membership_kind IS NOT NULL AND membership_outcome_delivered_at IS NULL
+        ORDER BY vote_id
+        LIMIT @limit
+        """;
+
+    // The first delivery time stays: a repeat matches no row and changes nothing.
+    private const string _markDeliveredSql = """
+        UPDATE council_vote SET membership_outcome_delivered_at = @at
+        WHERE vote_id = @vote_id AND membership_outcome_delivered_at IS NULL
         """;
 
     private const string _listTransitionsSql = """
@@ -134,6 +151,9 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             cmd.Parameters.AddWithValue("reveal_seed", vote.RevealSeed);
             cmd.Parameters.AddWithValue("vault_decision_no", CouncilText.Nullable(vote.VaultDecisionNo));
             cmd.Parameters.AddWithValue("created_at", vote.CreatedAt);
+            cmd.Parameters.AddWithValue("high_impact", vote.HighImpact);
+            cmd.Parameters.AddWithValue("membership_kind", CouncilText.Nullable(vote.MembershipKind is { } kind ? CouncilText.ToSql(kind) : null));
+            cmd.Parameters.AddWithValue("membership_subject_id", CouncilText.Nullable(vote.MembershipSubjectId));
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
@@ -227,7 +247,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
                 voterId,
                 CouncilText.ParsePhase(reader.GetString(2)),
                 reader.GetString(3),
-                cipher.Decrypt(voterId, sealedText),
+                await cipher.OpenAsync(voterId, sealedText, ct).ConfigureAwait(false),
                 reader.GetBoolean(7),
                 reader.GetFieldValue<DateTimeOffset>(8)));
         }
@@ -256,6 +276,24 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListUndeliveredMembershipDecisionsAsync(int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_undeliveredMembershipSql);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task MarkMembershipOutcomeDeliveredAsync(Guid voteId, DateTimeOffset at, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_markDeliveredSql);
+        cmd.Parameters.AddWithValue("vote_id", voteId);
+        cmd.Parameters.AddWithValue("at", at);
+        _ = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct)
     {
         await using var cmd = dataSource.CreateCommand(_listTransitionsSql);
@@ -278,7 +316,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     public async Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(ballot);
-        var sealedText = cipher.Encrypt(ballot.VoterId, ballot.Reasoning);
+        var sealedText = await cipher.SealAsync(ballot.VoterId, ballot.Reasoning, ct).ConfigureAwait(false);
         var phase = CouncilText.ToSql(ballot.Phase);
 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
@@ -391,7 +429,11 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             SubjectAuthorId: r.IsDBNull(12) ? null : r.GetString(12),
             RevealSeed: r.GetInt64(13),
             VaultDecisionNo: r.IsDBNull(14) ? null : r.GetInt32(14),
-            CreatedAt: r.GetFieldValue<DateTimeOffset>(15));
+            CreatedAt: r.GetFieldValue<DateTimeOffset>(15),
+            HighImpact: r.GetBoolean(16),
+            MembershipKind: r.IsDBNull(17) ? null : CouncilText.ParseMembershipKind(r.GetString(17)),
+            MembershipSubjectId: r.IsDBNull(18) ? null : r.GetString(18),
+            MembershipOutcomeDeliveredAt: r.IsDBNull(19) ? null : r.GetFieldValue<DateTimeOffset>(19));
     }
 }
 
@@ -428,6 +470,26 @@ internal static class CouncilText
         BallotPhase.Independent => "independent",
         BallotPhase.FollowUp => "followup",
         _ => throw new ArgumentOutOfRangeException(nameof(phase), phase, null),
+    };
+
+    public static string ToSql(MembershipMotionKind kind) => kind switch
+    {
+        MembershipMotionKind.Hire => "hire",
+        MembershipMotionKind.Promote => "promote",
+        MembershipMotionKind.Retire => "retire",
+        MembershipMotionKind.RoleChange => "role_change",
+        MembershipMotionKind.ConstitutionChange => "constitution_change",
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+    };
+
+    public static MembershipMotionKind ParseMembershipKind(string text) => text switch
+    {
+        "hire" => MembershipMotionKind.Hire,
+        "promote" => MembershipMotionKind.Promote,
+        "retire" => MembershipMotionKind.Retire,
+        "role_change" => MembershipMotionKind.RoleChange,
+        "constitution_change" => MembershipMotionKind.ConstitutionChange,
+        _ => throw new FormatException($"Unknown council membership kind '{text}'."),
     };
 
     public static VoteKind ParseKind(string text) => text switch

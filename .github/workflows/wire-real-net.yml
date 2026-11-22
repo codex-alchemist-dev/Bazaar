@@ -1,6 +1,5 @@
 # Real-network tests for the wire transports (doc 90, section 10). They need MsQuic, which Windows ships, so they run
-# only on the owner's self-hosted Windows runners (label bazaar-win, win-1 to win-4), never on hosted runners. The job
-# does not run for forks or for any actor other than the owner, so it never reaches the owner's machine from outside.
+# on the GitHub-hosted Windows runner (CI is hosted-only). The job does not run for forks.
 # It is not a required check: it reports the behaviour the always-on in-memory tests cannot (real QUIC streams, close
 # codes, certificate pinning, keep-alive).
 #
@@ -29,9 +28,8 @@ concurrency:
 jobs:
   real-net:
     name: Wire real-network tests (Windows, MsQuic)
-    # No hosted fallback: when the guard is false the job is skipped and nothing is queued anywhere.
-    if: github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, bazaar-win]
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-latest
     timeout-minutes: 30
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
@@ -49,18 +47,15 @@ jobs:
         with:
           global-json-file: global.json
 
-      # The Windows self-hosted runners have no bash on PATH, so this uses PowerShell 7.
+      # PowerShell 7 is on the hosted Windows image.
       - name: Run the real-network wire tests
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $projects = @(Get-ChildItem -Path 'tests/Bazaar.Wire.Transport.*.Tests', 'tests/Bazaar.Transport.*.Tests' -Directory -ErrorAction SilentlyContinue)
           if (-not $projects) { throw 'No wire transport test projects found.' }
-          # One failing project must not hide the others: run them all, then fail at the end.
-          $failed = @()
           foreach ($p in $projects) {
             Write-Host "== $($p.Name)"
             dotnet test --project $p.FullName --configuration Release --output Detailed
-            if ($LASTEXITCODE -ne 0) { $failed += $p.Name }
+            if ($LASTEXITCODE -ne 0) { throw "Tests failed in $($p.Name)" }
           }
-          if ($failed) { throw "Tests failed in: $($failed -join ', ')" }

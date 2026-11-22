@@ -18,7 +18,7 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
     private CouncilStore NewStore() => new(db.DataSource, new CouncilTestCipher());
 
-    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null) => new(
+    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null, bool highImpact = false) => new(
         Guid.CreateVersion7(),
         gcId,
         "task:42",
@@ -34,7 +34,8 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
         "agent-author",
         987654321L,
         null,
-        _opened);
+        _opened,
+        highImpact);
 
     private static StoredBallot NewBallot(Guid voteId, string voter, BallotPhase phase, string choice, string reasoning, DateTimeOffset at) =>
         new(voteId, voter, phase, choice, reasoning, TaintedAtWrite: false, SubmittedAt: at);
@@ -92,6 +93,49 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
         // Opening writes the first transition in the same transaction: null to Collecting, reason "open".
         Assert.Equal([(1L, (string?)null, "collecting", "open")], await TransitionsAsync(vote.VoteId));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_high_impact_flag_round_trips(bool highImpact)
+    {
+        SkipWithoutDatabase();
+        var store = NewStore();
+        var gcId = await db.CreateGcAsync();
+        var vote = NewVote(gcId, highImpact: highImpact);
+
+        await store.InsertVoteAsync(vote, Ct);
+
+        Assert.Equal(highImpact, (await store.FindVoteAsync(vote.VoteId, Ct))!.HighImpact);
+    }
+
+    [Fact]
+    public async Task The_membership_fields_round_trip_and_delivery_is_marked_once()
+    {
+        SkipWithoutDatabase();
+        var store = NewStore();
+        var gcId = await db.CreateGcAsync();
+        var vote = NewVote(gcId) with
+        {
+            MembershipKind = Bazaar.Server.Council.Membership.MembershipMotionKind.Hire,
+            MembershipSubjectId = "template-7",
+        };
+        await store.InsertVoteAsync(vote, Ct);
+        Assert.True(await store.TryTransitionAsync(vote.VoteId, 1, VoteState.Revealed, "all eligible ballots cast", _due, null, null, Ct));
+        Assert.True(await store.TryTransitionAsync(vote.VoteId, 2, VoteState.Decided, "decided by tally", _due, null, null, Ct));
+
+        var loaded = (await store.FindVoteAsync(vote.VoteId, Ct))!;
+        Assert.Equal(vote.MembershipKind, loaded.MembershipKind);
+        Assert.Equal("template-7", loaded.MembershipSubjectId);
+        Assert.Null(loaded.MembershipOutcomeDeliveredAt);
+        Assert.Contains(vote.VoteId, await store.ListUndeliveredMembershipDecisionsAsync(1000, Ct));
+
+        await store.MarkMembershipOutcomeDeliveredAsync(vote.VoteId, _due, Ct);
+        await store.MarkMembershipOutcomeDeliveredAsync(vote.VoteId, _due.AddHours(1), Ct);
+
+        Assert.Equal(_due, (await store.FindVoteAsync(vote.VoteId, Ct))!.MembershipOutcomeDeliveredAt);
+        Assert.DoesNotContain(vote.VoteId, await store.ListUndeliveredMembershipDecisionsAsync(1000, Ct));
     }
 
     [Fact]
