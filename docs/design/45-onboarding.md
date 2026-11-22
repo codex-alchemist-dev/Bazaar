@@ -47,7 +47,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 
 | Entry point | Who uses it | Notes |
 |---|---|---|
-| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). |
+| Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. Not a TUI (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -85,7 +85,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
-| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
+| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC; PTR when self-hosted). Domains are never hardcoded. Optional plan fields under `email` (PROPOSED, 2026-11-18): `domain`, `backendKind`, `dkimSelector`, `dmarcReportAddress`, `selfHosted`. The check is advice and never blocks the apply. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
 | 13 | Company source | Blank company, a template at a version (section 1.8), or an import (doc 44). The Constitution is drafted here and must be accepted by the owner before any Soul activates. | 24, 44 |
 | 13b | First-run seed [PROPOSED] | Creates the first group chat and the default agent, and records the owner's Constitution acceptance. Section 1.15. | 01, 06, 24 |
@@ -216,7 +216,7 @@ The file is a plan input. It is never executed and never contains a secret value
 
 One company per install. A template creates the install's one company; it does not create a second one.
 
-## 1.9 Provisioning API [PLANNED]
+## 1.9 Provisioning API [BUILT behind its gates; no apply step registered yet]
 
 | Route | Purpose |
 |---|---|
@@ -226,6 +226,8 @@ One company per install. A template creates the install's one company; it does n
 
 - **Where it lives.** On the authenticated HTTP surface (doc 02), on its own rate bucket. JSON only; no client UI is served.
 - **Access.** Before the first owner exists, only from loopback, and only with the one-time bootstrap code printed at the first start. This is the same pattern doc 32 uses for pairing codes. After the owner exists, only the owner role may call it, and each call is audited.
+- **Host wiring.** The `setup` Bazaar Component (`Bazaar.Server.Setup.Host`, depends on `audit` and `settings`) registers the apply engine, this API and the durable Postgres stores. `Program.cs` maps the three routes only when the component is enabled (`Bazaar:Components:setup:Enabled`, default true), so a host without it answers 404 on `/setup/*`; a missing dependency answers 503. The bootstrap code is created at start while no owner exists (a `human` row with role `owner`), printed once to standard output and never logged; only its SHA-256 digest is stored (`setup_bootstrap_code`, setup migration 0002), it works once, and it is retired at the next start after an owner exists. The caller check uses the host's connection authenticator, the transport rule is `wire.allow_plaintext_overlay`, and the rate bucket is `setup_api` (30 a minute, working default).
+- **Not yet.** No apply step is registered: an apply of a plan that changes anything ends in exit 3 with one audit row until the database and custody steps land. `GET /setup/status` lists registered steps as pending and holds no approvals.
 - **Not a sign-in route.** These routes are outside the three sign-in routes of doc 32. Doc 02 must list them (conflict, section Conflicts).
 
 ## 1.10 Dependencies bundled as modules [DECIDED install rule; PLANNED mechanics]
@@ -334,7 +336,7 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 
 - **No host to type, no company to choose.** The client already talks to the server it was built for (section 2.1) and an install has one company (decided inputs), so there is no server picker and no company list. The first screen only checks that the server is up (`GET /health/ready`) and offers Retry when it is not.
 - **Sign-in screen.** The person signs in on the server's own sign-in page, opened in their browser (`/signin?audience=native`, doc 32 section 4). The page hands back a single-use code, as `bazaar://signin?code=...` or as text to paste. The client redeems it at `POST /auth/handoff` with `{ "code", "device_class", "client_build" }` and expects the same token body as `POST /auth/refresh` (`access_token`, `token_type`, `expires_in`, `refresh_token`). **The `/auth/handoff` request and reply shape is PROPOSED** until the route is built (doc 32 names the route only). The client never draws a password or passkey prompt and never sees a credential other than the tokens. A saved session is reused, refreshed when its access token has expired, and cleared when the server refuses the refresh. Every failure shows one generic message.
-- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform (DPAPI, Keystore, libsecret) is a later module.
+- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform is the module `Bazaar.Client.SignIn.Storage`: one file sealed through the head's `ISecretProtector` (DPAPI on Windows today; Keystore and libsecret come with their heads), written atomically, and a file that cannot be opened reads as signed out.
 - **Create-company screen.** The setup wizard in a connected client (section 1.1), over the provisioning API (section 1.9). It collects company name, identifier (derived from the name, editable, fixed after creation), owner name, locale, time zone, key-encryption-key provider and reference, and the recorded no-backup-target acknowledgement, and the owner's own tick that accepts the Constitution (`firstRun.acceptConstitution`, section 1.15; never on by default). It writes a sparse setup plan with `company.source` = `blank`; the server fills every other decision with its shipped default and hashes the normalized plan. The screen checks first (`POST /setup/plans`, writes nothing), shows the plan hash and the server's findings, and applies only that hash (`POST /setup/plans/{hash}/apply`). Before the owner exists the call carries the one-time bootstrap code from the server console (header `X-Bazaar-Bootstrap-Code`); after, the owner's bearer token. A held or failed apply returns to the form with the reason; a replayed apply says the company already exists.
 - **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
 - **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.

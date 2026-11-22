@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -39,7 +38,7 @@ public static partial class SetupPlanValidator
     private static partial Regex SemverRegex();
 
     /// <summary>Validates and normalizes <paramref name="plan"/>, adding every issue found to <paramref name="issues"/>.</summary>
-    public static void Validate(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    public static void Validate(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(registry);
@@ -328,7 +327,7 @@ public static partial class SetupPlanValidator
     /// The network block maps to two registry keys (doc 03). The values go through the registry, so a non-loopback bind is held
     /// for approval. A value set twice (in the block and in settings) is an error, so there is one answer.
     /// </summary>
-    private static void ValidateNetwork(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    private static void ValidateNetwork(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         if (plan.Network.StatusPort is < 1 or > 65535)
         {
@@ -361,7 +360,7 @@ public static partial class SetupPlanValidator
     /// owner-tier change to <c>security.scam_mail.protocol_enabled</c>, so it is held for approval and never applied silently. Off is
     /// the default and the safe state, so it needs no check. The plan section is the one place that sets the key.
     /// </summary>
-    private static void ValidateScamMailProtocol(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    private static void ValidateScamMailProtocol(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         const string settingName = "security.scam_mail.protocol_enabled";
         if (plan.Settings.ContainsKey(settingName))
@@ -390,7 +389,7 @@ public static partial class SetupPlanValidator
         CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
     }
 
-    private static void ValidateSettings(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues) =>
+    private static void ValidateSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues) =>
         ValidateSettingValues(plan.Settings, registry, "settings.", issues);
 
     /// <summary>
@@ -399,11 +398,10 @@ public static partial class SetupPlanValidator
     /// </summary>
     internal static void ValidateSettingValues(
         IDictionary<string, JsonElement> settings,
-        SettingRegistry registry,
+        ISetupSettingCatalog registry,
         string pathPrefix,
         List<SetupValidationIssue> issues)
     {
-        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
         foreach (var name in settings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
         {
             var path = pathPrefix + name;
@@ -413,13 +411,13 @@ public static partial class SetupPlanValidator
                 continue;
             }
 
-            if (definition.Scope != SettingScope.Install)
+            if (!definition.IsInstallScope)
             {
                 issues.Add(Error(path, "is not an install-scope setting; the setup plan sets install values only."));
                 continue;
             }
 
-            settings[name] = NormalizeValue(definition, path, actor, settings[name], issues);
+            settings[name] = NormalizeValue(definition, path, settings[name], issues);
         }
     }
 
@@ -436,17 +434,16 @@ public static partial class SetupPlanValidator
     internal static bool IsSlug(string text) => SlugRegex().IsMatch(text);
 
     /// <summary>Runs one registry value through the same checks as a write. The stored value becomes the canonical form.</summary>
-    private static void CheckRegistryValue(SettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
+    private static void CheckRegistryValue(ISetupSettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
     {
-        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
-        NormalizeValue(definition, path, actor, value, issues);
+        NormalizeValue(definition, path, value, issues);
     }
 
     /// <summary>
     /// Type check and floor check (a reason is an error, exit 1), then the write rule (a value that needs approval or that
     /// the actor may not write is held, exit 2). Returns the canonical JSON in every case, so the hash is always defined.
     /// </summary>
-    private static JsonElement NormalizeValue(SettingDefinition definition, string path, SettingActor actor, JsonElement value, List<SetupValidationIssue> issues)
+    private static JsonElement NormalizeValue(ISetupSettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
     {
         var reason = definition.CheckValue(value);
         if (reason is not null)
@@ -455,8 +452,8 @@ public static partial class SetupPlanValidator
             return value.Clone();
         }
 
-        var evaluation = definition.Evaluate(actor, value);
-        if (evaluation.Outcome != SettingWriteOutcome.Accepted)
+        var evaluation = definition.Evaluate(SetupConstants.PlanActorId, value);
+        if (!evaluation.Accepted)
         {
             issues.Add(new SetupValidationIssue(SetupIssueSeverity.Hold, path, evaluation.Reason ?? "is held for approval."));
         }

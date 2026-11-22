@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -64,11 +63,10 @@ public static class SetupPlanLoader
         "custody", "custody.kekProvider", "custody.kekRef", "company", "company.source",
     ];
 
-    /// <summary>Loads and validates a setup file. <paramref name="registry"/> defaults to the registry this build ships.</summary>
-    public static SetupLoadResult Load(string json, SettingRegistry? registry = null)
+    /// <summary>Loads and validates a setup file.</summary>
+    public static SetupLoadResult Load(string json, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(json);
-        registry ??= SettingRegistry.Known;
 
         var issues = new List<SetupValidationIssue>();
         JsonDocument document;
