@@ -19,14 +19,14 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
 {
     private const string _voteColumns = """
         vote_id, gc_id, subject_ref, kind, motion_class, state, version, options::text, deadline_at, extensions,
-        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at
+        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact
         """;
 
     private const string _insertVoteSql = """
         INSERT INTO council_vote (vote_id, gc_id, subject_ref, kind, motion_class, state, version, options, deadline_at,
-            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at)
+            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact)
         VALUES (@vote_id, @gc_id, @subject_ref, @kind, @motion_class, @state, @version, @options::jsonb, @deadline_at,
-            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at)
+            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at, @high_impact)
         """;
 
     private const string _insertTransitionSql = """
@@ -134,6 +134,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             cmd.Parameters.AddWithValue("reveal_seed", vote.RevealSeed);
             cmd.Parameters.AddWithValue("vault_decision_no", CouncilText.Nullable(vote.VaultDecisionNo));
             cmd.Parameters.AddWithValue("created_at", vote.CreatedAt);
+            cmd.Parameters.AddWithValue("high_impact", vote.HighImpact);
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
@@ -391,7 +392,8 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             SubjectAuthorId: r.IsDBNull(12) ? null : r.GetString(12),
             RevealSeed: r.GetInt64(13),
             VaultDecisionNo: r.IsDBNull(14) ? null : r.GetInt32(14),
-            CreatedAt: r.GetFieldValue<DateTimeOffset>(15));
+            CreatedAt: r.GetFieldValue<DateTimeOffset>(15),
+            HighImpact: r.GetBoolean(16));
     }
 }
 
