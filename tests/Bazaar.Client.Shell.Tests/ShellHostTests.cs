@@ -43,4 +43,17 @@ public class ShellHostTests
 
         Assert.False(shell.Announcer.Announce(AnnouncementCategory.GroupMessage, "hello"));
     }
+
+    [AvaloniaFact]
+    public void Install_moves_existing_content_under_the_chrome()
+    {
+        var content = new TextBlock { Text = "chat" };
+        var window = new Window { Content = content };
+
+        IShellAnnouncer announcer = ShellHost.Install(window, new FakeLocale("he"), new AnnouncementGate(TimeProvider.System));
+
+        Assert.Equal(FlowDirection.RightToLeft, window.FlowDirection);
+        Assert.Contains(content, Assert.IsType<Grid>(window.Content).Children);
+        Assert.True(announcer.Announce(AnnouncementCategory.ApprovalRequest, "needs you"));
+    }
 }

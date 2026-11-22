@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Soul;
 using Bazaar.Server.Souls;
 using Bazaar.Server.Souls.Retirement;
+using Bazaar.Server.Souls.Tests.Retirement;
 using Bazaar.Testing.Postgres;
 
 namespace Bazaar.Server.Tests.Souls.Retirement;

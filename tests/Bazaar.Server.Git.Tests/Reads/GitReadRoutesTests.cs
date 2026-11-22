@@ -111,6 +111,42 @@ public sealed class GitReadRoutesTests : IAsyncLifetime
         Assert.DoesNotContain("secret", text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Missing_repo_or_pr_is_404_not_found()
+    {
+        _forge.OnList = _ => throw new ForgeNotFoundException("no such repo");
+
+        var (status, body) = await Get(_base);
+
+        Assert.Equal(HttpStatusCode.NotFound, status);
+        Assert.Equal("not_found", body.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task Rate_limit_is_429_with_retry_after()
+    {
+        _forge.OnList = _ => throw new ForgeRateLimitedException(TimeSpan.FromSeconds(12));
+
+        using var response = await _http.GetAsync(_base, TestContext.Current.CancellationToken);
+        using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.Equal("12", Assert.Single(response.Headers.GetValues("Retry-After")));
+        Assert.Equal("rate_limited", body.RootElement.GetProperty("error").GetString());
+        Assert.Equal(12, body.RootElement.GetProperty("retryAfterSeconds").GetInt32());
+    }
+
+    [Fact]
+    public async Task Rate_limit_without_a_hint_is_429_without_retry_after()
+    {
+        _forge.OnList = _ => throw new ForgeRateLimitedException(null);
+
+        using var response = await _http.GetAsync(_base, TestContext.Current.CancellationToken);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
+        Assert.False(response.Headers.Contains("Retry-After"));
+    }
+
     [Theory]
     [InlineData("/git/fake/repos/acme/widgets/prs/0")]
     [InlineData("/git/fake/repos/acme/widgets/prs/-3")]

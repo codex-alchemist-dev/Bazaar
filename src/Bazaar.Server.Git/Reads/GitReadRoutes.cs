@@ -10,8 +10,8 @@ namespace Bazaar.Server.Git.Reads;
 /// <summary>
 /// The guarded read routes (doc 52, Wire and routes): <c>GET /git/{provider}/repos/{owner}/{repo}/prs</c> and its sub-routes.
 /// Host composition passes the HTTP surface guard (bearer, rate bucket) as <c>guard</c>, so this module never references
-/// Bazaar.Server. Answers: 200 JSON from the source-generated context, 400 bad input, 404 <c>unknown_provider</c>,
-/// 409 <c>head_moved</c> with the current sha, 502 <c>forge_unavailable</c>.
+/// Bazaar.Server. Answers: 200 JSON from the source-generated context, 400 bad input, 404 <c>unknown_provider</c> or <c>not_found</c>,
+/// 409 <c>head_moved</c> with the current sha, 429 <c>rate_limited</c> with <c>Retry-After</c>, 502 <c>forge_unavailable</c>.
 /// </summary>
 /// <remarks>
 /// Nested owners (doc 52, PROPOSED): <c>GET /git/gitlab/repos/{**path}</c> takes a GitLab subgroup project such as
@@ -24,13 +24,13 @@ namespace Bazaar.Server.Git.Reads;
 public static partial class GitReadRoutes
 {
     [GeneratedRegex(@"^[a-z][a-z0-9-]{0,31}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex ProviderRegex();
+    internal static partial Regex ProviderRegex();
 
     [GeneratedRegex(@"^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex SegmentRegex();
+    internal static partial Regex SegmentRegex();
 
     [GeneratedRegex(@"^[0-9a-fA-F]{40}\z", RegexOptions.CultureInvariant)]
-    private static partial Regex ShaRegex();
+    internal static partial Regex ShaRegex();
 
     [GeneratedRegex(@"^[0-9]+\z", RegexOptions.CultureInvariant)]
     private static partial Regex NumberRegex();
@@ -210,6 +210,16 @@ public static partial class GitReadRoutes
         {
             return Results.Json(new Dictionary<string, string> { ["error"] = "unknown_provider" }, ErrorContext.Default.DictionaryStringString, statusCode: StatusCodes.Status404NotFound);
         }
+        catch (ForgeNotFoundException)
+        {
+            return Results.Json(new Dictionary<string, string> { ["error"] = "not_found" }, ErrorContext.Default.DictionaryStringString, statusCode: StatusCodes.Status404NotFound);
+        }
+        catch (ForgeRateLimitedException limited)
+        {
+            int? seconds = limited.RetryAfter is { } span ? (int)Math.Ceiling(Math.Max(0, span.TotalSeconds)) : null;
+            var body = Results.Json(new GitRateLimitedDto("rate_limited", seconds), GitReadContractsJsonContext.Default.GitRateLimitedDto, statusCode: StatusCodes.Status429TooManyRequests);
+            return new RetryAfterResult(body, seconds);
+        }
         catch (HeadMovedException moved)
         {
             return Results.Json(new GitHeadMovedDto(moved.CurrentSha), GitReadContractsJsonContext.Default.GitHeadMovedDto, statusCode: StatusCodes.Status409Conflict);
@@ -226,11 +236,21 @@ public static partial class GitReadRoutes
         }
     }
 
+    private sealed class RetryAfterResult(IResult inner, int? seconds) : IResult
+    {
+        public Task ExecuteAsync(HttpContext httpContext)
+        {
+            if (seconds is { } s)
+                httpContext.Response.Headers.RetryAfter = s.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return inner.ExecuteAsync(httpContext);
+        }
+    }
+
     private static IResult BadRequest(string error) =>
         Results.Json(new Dictionary<string, string> { ["error"] = error }, ErrorContext.Default.DictionaryStringString, statusCode: StatusCodes.Status400BadRequest);
 
     /// <summary>A provider id and a repo of two to <see cref="_maxRepoSegments"/> segments, each one a valid name.</summary>
-    private static bool ValidRepo(string provider, string fullName)
+    internal static bool ValidRepo(string provider, string fullName)
     {
         if (!ProviderRegex().IsMatch(provider))
             return false;
@@ -239,7 +259,10 @@ public static partial class GitReadRoutes
         return segments.Length is >= 2 and <= _maxRepoSegments && segments.All(s => SegmentRegex().IsMatch(s));
     }
 
-    private static bool ValidPr(string provider, string fullName, string n, out PrRef pr)
+    internal static bool ValidPr(string provider, string owner, string repo, string n, out PrRef pr) =>
+        ValidPr(provider, owner + "/" + repo, n, out pr);
+
+    internal static bool ValidPr(string provider, string fullName, string n, out PrRef pr)
     {
         pr = null!;
         if (!ValidRepo(provider, fullName)
