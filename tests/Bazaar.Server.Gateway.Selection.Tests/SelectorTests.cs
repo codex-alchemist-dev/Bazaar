@@ -416,4 +416,36 @@ public class SelectorTests
         Assert.Equal(0, s.InFlight);
         Assert.Equal(2000, s.Successes, 1);
     }
+
+    [Fact]
+    public async Task Identity_tiers_keep_pooled_behind_native_even_when_pooled_is_faster()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (selector, stats, _, signals) = Make(Best());
+        var ranker = new ProfileBoundRanker(selector);
+        await ranker.BindAsync("claude", new SelectionBinding("t", IdentityTiers: true), ct);
+        Succeed(stats, _a, 3000);
+        Succeed(stats, _b, 100);
+        var native = Ep(_a, identity: "native");
+        var pooled = Ep(_b, identity: "pooled");
+
+        var ordered = ranker.Order("claude", [pooled, native], new SelectionRequest())!;
+        Assert.Equal([_a, _b], ordered.Select(e => e.Key));
+        Assert.All(ordered, e => Assert.Contains(e, new[] { native, pooled }));
+
+        signals.Map[_a] = new ExternalSignals { BreakerOpen = true };
+        var blocked = ranker.Order("claude", [native with { Signals = signals.Map[_a] }, pooled], new SelectionRequest())!;
+        Assert.Equal(_b, blocked[0].Key);
+    }
+
+    [Fact]
+    public async Task Pooled_first_flips_the_tiers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (selector, _, _, _) = Make(Best());
+        var ranker = new ProfileBoundRanker(selector);
+        await ranker.BindAsync("claude", new SelectionBinding("t", IdentityTiers: true, NativeFirst: false), ct);
+        var ordered = ranker.Order("claude", [Ep(_a, identity: "native"), Ep(_b, identity: "pooled")], new SelectionRequest())!;
+        Assert.Equal(_b, ordered[0].Key);
+    }
 }

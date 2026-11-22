@@ -89,10 +89,19 @@ public interface ICandidateRanker
     IReadOnlyList<Endpoint>? Order(string routeId, IReadOnlyList<Endpoint> candidates, SelectionRequest request);
 }
 
+/// <summary>
+/// How a route is bound. <c>IdentityTiers</c> makes the endpoint identity a hard tier (doc 05 Claude lane): the preferred identity
+/// (<c>native</c> when <c>NativeFirst</c>, else <c>pooled</c>) leads and the other only backs it up, so a pooled endpoint serves
+/// when the native one is blocked, failing or quota-limited, not merely when it scores better.
+/// </summary>
+public sealed record SelectionBinding(string Profile, bool IdentityTiers = false, bool NativeFirst = true);
+
 /// <summary>Used by the first-run wizard and the admin panel to bind a route to a profile (doc 92, wizard contract).</summary>
 public interface IAgentSelectionSetup
 {
     Task<IReadOnlyList<string>> ListProfilesAsync(CancellationToken cancellationToken = default);
 
     Task BindAsync(string routeId, string profileName, CancellationToken cancellationToken = default);
+
+    Task BindAsync(string routeId, SelectionBinding binding, CancellationToken cancellationToken = default);
 }

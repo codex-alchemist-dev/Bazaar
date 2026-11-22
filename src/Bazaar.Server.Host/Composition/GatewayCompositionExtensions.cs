@@ -4,6 +4,7 @@ using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
+using Bazaar.Server.Gateway.ClaudeLane;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Health;
@@ -71,13 +72,22 @@ public static class GatewayCompositionExtensions
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         // Config-defined sources overlay the stored directory: FreeLLMAPI first, then the owner's Anthropic key on top.
-        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => AnthropicDirectWiring.CreateDirectory(
-            FreeLlmApiWiring.CreateDirectory(
-                sp.GetRequiredService<GatewayDirectoryRepository>(),
-                FreeLlmApiOptionsOf(sp),
-                sp.GetRequiredService<TimeProvider>()),
-            AnthropicDirectOptionsOf(sp),
-            sp.GetRequiredService<TimeProvider>())));
+        services.AddOptions<ClaudeLaneOptions>().BindConfiguration(ClaudeLaneOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ClaudeLaneOptions>, ClaudeLaneOptionsValidator>());
+        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp =>
+        {
+            var directory = AnthropicDirectWiring.CreateDirectory(
+                FreeLlmApiWiring.CreateDirectory(
+                    sp.GetRequiredService<GatewayDirectoryRepository>(),
+                    FreeLlmApiOptionsOf(sp),
+                    sp.GetRequiredService<TimeProvider>()),
+                AnthropicDirectOptionsOf(sp),
+                sp.GetRequiredService<TimeProvider>());
+            var lane = sp.GetRequiredService<IOptions<ClaudeLaneOptions>>().Value;
+            return lane.Enabled
+                ? new ClaudeLaneGatewayDirectory(directory, lane, AnthropicDirectOptionsOf(sp), FreeLlmApiOptionsOf(sp), sp.GetRequiredService<TimeProvider>())
+                : directory;
+        }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
         // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
         // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
@@ -92,6 +102,13 @@ public static class GatewayCompositionExtensions
                 {
                     ranker.BindAsync(binding.Key, binding.Value).GetAwaiter().GetResult();
                 }
+            }
+
+            // The Claude lane route is always selection-ordered, with identity as a hard tier (doc 05 Claude lane, doc 92).
+            var lane = sp.GetRequiredService<IOptions<ClaudeLaneOptions>>().Value;
+            if (lane.Enabled)
+            {
+                ranker.BindAsync(lane.RouteName, new SelectionBinding(lane.Profile, IdentityTiers: true, NativeFirst: lane.NativeFirst)).GetAwaiter().GetResult();
             }
 
             return ranker;
