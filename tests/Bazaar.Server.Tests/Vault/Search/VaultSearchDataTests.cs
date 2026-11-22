@@ -144,7 +144,9 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
         var seed = Guid.NewGuid();
         var publicTarget = Guid.NewGuid();
         var privateTarget = Guid.NewGuid();
-        await index.ReplaceDocumentAsync(Doc(vault, publicTarget, "projects/x/Plan.md"), [Block(0, "plan")], [], Ct);
+        var projectTarget = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, publicTarget, "shared/research/Plan.md"), [Block(0, "plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, projectTarget, "projects/x/Plan.md", project: "x"), [Block(0, "project plan")], [], Ct);
         await index.ReplaceDocumentAsync(
             Doc(vault, privateTarget, "agents/alpha/memory/note.md", type: "memory", owner: "agent:alpha"), [Block(0, "note")], [], Ct);
         await index.ReplaceDocumentAsync(
@@ -153,6 +155,7 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
             [
                 new VaultLinkRecord(seed, 0, 0, "link", "Plan", publicTarget, null, null),
                 new VaultLinkRecord(seed, 0, 1, "link", "note", privateTarget, null, null),
+                new VaultLinkRecord(seed, 0, 2, "link", "projects/x/Plan", projectTarget, null, null),
             ],
             Ct);
         var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
@@ -160,9 +163,194 @@ public sealed class VaultSearchDataTests(VaultDb db) : IClassFixture<VaultDb>
         var forBeta = await search.ExpandNeighboursAsync(vault, [seed], _beta, Ct);
         var forAlpha = await search.ExpandNeighboursAsync(vault, [seed], _alpha, Ct);
 
+        // The project document has no owner; without membership on the caller it is the owner's only (fail closed).
         Assert.Equal([publicTarget], forBeta.Select(card => card.DocId));
         Assert.Equal(new[] { publicTarget, privateTarget }.Order(), forAlpha.Select(card => card.DocId).Order());
         Assert.All(forAlpha, card => Assert.Equal(VaultHitBasis.Extracted, card.Basis));
+    }
+
+    // Regression: ownerless documents used to be returned to every caller, so search ignored project membership and Hive grants.
+    [Fact]
+    public async Task Ownerless_documents_outside_company_and_shared_areas_are_filtered_from_agent_search()
+    {
+        SkipWithoutDatabase();
+        var index = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        var project = Guid.NewGuid();
+        var hive = Guid.NewGuid();
+        var decision = Guid.NewGuid();
+        var company = Guid.NewGuid();
+        var shared = Guid.NewGuid();
+        var ownCharter = Guid.NewGuid();
+        var otherCharter = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, project, "projects/x/Auth.md", project: "x"), [Block(0, "auth project")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, hive, "hive/procedure/auth.md", type: "memory"), [Block(0, "auth hive")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, decision, "decisions/0001-auth.md", type: "decision"), [Block(0, "auth decision")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, company, "company/Constitution.md", type: "constitution"), [Block(0, "auth company")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, shared, "shared/research/auth.md"), [Block(0, "auth shared")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, ownCharter, "agents/alpha/charter.md", type: "charter"), [Block(0, "auth alpha charter")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, otherCharter, "agents/beta/charter.md", type: "charter"), [Block(0, "auth beta charter")], [], Ct);
+        var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
+        var anonymous = new VaultCaller(IsOwner: false, AgentOwner: null);
+
+        var forAlpha = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", _alpha, Limit: 20), Ct)).Cards.Select(c => c.DocId);
+        var forOwner = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", _owner, Limit: 20), Ct)).Cards.Select(c => c.DocId);
+        var forAnonymous = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", anonymous, Limit: 20), Ct)).Cards;
+
+        Assert.Equal(new[] { company, shared, ownCharter }.Order(), forAlpha.Order());
+        Assert.Equal(new[] { project, hive, decision, company, shared, ownCharter, otherCharter }.Order(), forOwner.Order());
+        Assert.Empty(forAnonymous);
+        Assert.Null(await search.FetchBodyAsync(vault, project, 0, _alpha, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, hive, 0, _alpha, Ct));
+        Assert.Equal("auth company", await search.FetchBodyAsync(vault, company, 0, _alpha, Ct));
+        Assert.Equal("auth project", await search.FetchBodyAsync(vault, project, 0, _owner, Ct));
+    }
+
+    // Project membership: alpha is a member of x, beta of y. Ownerless project areas (projects/<slug>/, twin/<slug>/) open
+    // to members only; decisions/, hive/, archive/, drafts/ and root files stay the owner's.
+    private static readonly VaultCaller _alphaInX = new(IsOwner: false, AgentOwner: "agent:alpha") { Projects = new HashSet<string> { "x" } };
+    private static readonly VaultCaller _betaInY = new(IsOwner: false, AgentOwner: "agent:beta") { Projects = new HashSet<string> { "y" } };
+
+    [Fact]
+    public async Task Search_and_body_fetch_filter_project_areas_by_membership()
+    {
+        SkipWithoutDatabase();
+        var index = new VaultIndexRepository(db.DataSource);
+        var profile = await NewProfileAsync();
+        var vault = Guid.NewGuid();
+        var xPlan = Guid.NewGuid();
+        var xTwin = Guid.NewGuid();
+        var yPlan = Guid.NewGuid();
+        var yTwin = Guid.NewGuid();
+        var ySemantic = Guid.NewGuid();
+        var lookalike = Guid.NewGuid();
+        var rootish = Guid.NewGuid();
+        var decision = Guid.NewGuid();
+        var hive = Guid.NewGuid();
+        var archive = Guid.NewGuid();
+        var draft = Guid.NewGuid();
+        var root = Guid.NewGuid();
+        var betaPrivateInX = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, xPlan, "projects/x/Plan.md", project: "x"), [Block(0, "auth x plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, xTwin, "twin/x/overview.md", type: "twin"), [Block(0, "auth x twin")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, yPlan, "projects/y/Plan.md", project: "y"), [Block(0, "auth y plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, yTwin, "twin/y/overview.md", type: "twin"), [Block(0, "auth y twin")], [], Ct);
+        // Front matter claiming project x does not matter: access follows the path.
+        await index.ReplaceDocumentAsync(Doc(vault, lookalike, "projects/xy/Plan.md", project: "x"), [Block(0, "auth xy plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, rootish, "projects/x.md", project: "x"), [Block(0, "auth projects file")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, decision, "decisions/0001-auth.md", type: "decision", project: "x"), [Block(0, "auth decision")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, hive, "hive/procedure/auth.md", type: "memory"), [Block(0, "auth hive")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, archive, "archive/2026-10.md", type: "archive"), [Block(0, "auth archive")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, draft, "drafts/alpha/auth.md", type: "draft"), [Block(0, "auth draft")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, root, "Index.md", type: "index"), [Block(0, "auth home")], [], Ct);
+        await index.ReplaceDocumentAsync(
+            Doc(vault, betaPrivateInX, "projects/x/memory/beta.md", type: "memory", owner: "agent:beta"), [Block(0, "auth beta private")], [], Ct);
+        // A similarity-only hit in project y: the vector query must apply the same rule.
+        await index.ReplaceDocumentAsync(Doc(vault, ySemantic, "projects/y/Zebra.md", project: "y"), [Block(0, "zebra notes")], [], Ct);
+        await EmbedAsync(ySemantic, profile, 0, "zebra notes", vector: [1, 0, 0]);
+        var search = new VaultSearchService(new VaultSearchRepository(db.DataSource), new AxisEmbedder(profile));
+        var noIdentity = new VaultCaller(IsOwner: false, AgentOwner: null) { Projects = new HashSet<string> { "x", "y" } };
+
+        async Task<IEnumerable<Guid>> Hits(VaultCaller caller) =>
+            (await search.SearchAsync(new VaultSearchQuery(vault, "auth", caller, Limit: 50), Ct)).Cards.Select(c => c.DocId).Order();
+
+        Assert.Equal(new[] { xPlan, xTwin }.Order(), await Hits(_alphaInX));
+        Assert.Equal(new[] { yPlan, yTwin, ySemantic, betaPrivateInX }.Order(), await Hits(_betaInY));
+        Assert.Empty(await Hits(_alpha));
+        Assert.Empty(await Hits(noIdentity));
+        Assert.Equal(
+            new[] { xPlan, xTwin, yPlan, yTwin, ySemantic, lookalike, rootish, decision, hive, archive, draft, root, betaPrivateInX }.Order(),
+            await Hits(_owner));
+
+        Assert.Equal("auth x plan", await search.FetchBodyAsync(vault, xPlan, 0, _alphaInX, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, yPlan, 0, _alphaInX, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, betaPrivateInX, 0, _alphaInX, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, xPlan, 0, _betaInY, Ct));
+        Assert.Null(await search.FetchBodyAsync(vault, xPlan, 0, _alpha, Ct));
+        Assert.Equal("auth y plan", await search.FetchBodyAsync(vault, yPlan, 0, _owner, Ct));
+    }
+
+    // The SQL access clause and VaultAccess.CanRead must agree on every document and caller (one rule, two places).
+    [Fact]
+    public async Task Sql_access_matches_the_in_process_rule_for_every_document_and_caller()
+    {
+        SkipWithoutDatabase();
+        var index = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        (string Path, string? Owner)[] documents =
+        [
+            ("company/Constitution.md", null), ("shared/research/a.md", null), ("agents/alpha/charter.md", null),
+            ("agents/beta/charter.md", null), ("agents/alpha/memory/a.md", "agent:alpha"), ("projects/x/Index.md", null),
+            ("projects/x/deep/nested/a.md", null), ("projects/y/Index.md", null), ("projects/xy/Index.md", null),
+            ("projects/x.md", null), ("projects/x", null), ("twin/x/a.md", null), ("twin/y/a.md", null), ("twin/x.md", null),
+            ("twin/x", null),
+            ("projects/x/memory/beta.md", "agent:beta"), ("decisions/0001-a.md", null), ("drafts/alpha/a.md", null),
+            ("hive/procedure/a.md", null), ("archive/a.md", null), ("Index.md", null), ("companyish/a.md", null),
+        ];
+        var ids = new Dictionary<Guid, (string Path, string? Owner)>();
+        foreach (var document in documents)
+        {
+            var id = Guid.NewGuid();
+            ids[id] = document;
+            await index.ReplaceDocumentAsync(
+                Doc(vault, id, document.Path, type: document.Owner is null ? "research" : "memory", owner: document.Owner),
+                [Block(0, "auth " + document.Path)], [], Ct);
+        }
+
+        var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
+        VaultCaller[] callers =
+        [
+            _owner, _alpha, _beta, _alphaInX, _betaInY,
+            new(IsOwner: false, AgentOwner: "agent:alpha") { Projects = new HashSet<string> { "x", "y" } },
+            new(IsOwner: false, AgentOwner: null) { Projects = new HashSet<string> { "x" } },
+        ];
+
+        foreach (var caller in callers)
+        {
+            var expected = ids.Where(pair => VaultAccess.CanRead(pair.Value.Path, pair.Value.Owner, caller)).Select(pair => pair.Key).Order();
+            var actual = (await search.SearchAsync(new VaultSearchQuery(vault, "auth", caller, Limit: 50), Ct)).Cards.Select(c => c.DocId).Order();
+            Assert.Equal(expected, actual);
+        }
+    }
+
+    [Fact]
+    public async Task Link_expansion_does_not_leak_a_neighbour_in_a_project_the_caller_is_not_a_member_of()
+    {
+        SkipWithoutDatabase();
+        var index = new VaultIndexRepository(db.DataSource);
+        var vault = Guid.NewGuid();
+        var seed = Guid.NewGuid();
+        var xPlan = Guid.NewGuid();
+        var yPlan = Guid.NewGuid();
+        var yTwin = Guid.NewGuid();
+        var backlinkFromY = Guid.NewGuid();
+        await index.ReplaceDocumentAsync(Doc(vault, xPlan, "projects/x/Plan.md", project: "x"), [Block(0, "x plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, yPlan, "projects/y/Plan.md", project: "y"), [Block(0, "y plan")], [], Ct);
+        await index.ReplaceDocumentAsync(Doc(vault, yTwin, "twin/y/overview.md", type: "twin"), [Block(0, "y twin")], [], Ct);
+        await index.ReplaceDocumentAsync(
+            Doc(vault, seed, "projects/x/Index.md", project: "x"),
+            [Block(0, "links")],
+            [
+                new VaultLinkRecord(seed, 0, 0, "link", "projects/x/Plan", xPlan, null, null),
+                new VaultLinkRecord(seed, 0, 1, "link", "projects/y/Plan", yPlan, null, null),
+                new VaultLinkRecord(seed, 0, 2, "link", "twin/y/overview", yTwin, null, null),
+            ],
+            Ct);
+        // A document in project y that links back to the seed must not surface through the inbound direction either.
+        await index.ReplaceDocumentAsync(
+            Doc(vault, backlinkFromY, "projects/y/Notes.md", project: "y"),
+            [Block(0, "back")],
+            [new VaultLinkRecord(backlinkFromY, 0, 0, "link", "projects/x/Index", seed, null, null)],
+            Ct);
+        var search = new VaultSearchService(new VaultSearchRepository(db.DataSource));
+
+        var forAlpha = await search.ExpandNeighboursAsync(vault, [seed], _alphaInX, Ct);
+        var forBeta = await search.ExpandNeighboursAsync(vault, [seed], _betaInY, Ct);
+        var forOwner = await search.ExpandNeighboursAsync(vault, [seed], _owner, Ct);
+
+        Assert.Equal([xPlan], forAlpha.Select(card => card.DocId));
+        Assert.Equal(new[] { yPlan, yTwin, backlinkFromY }.Order(), forBeta.Select(card => card.DocId).Order());
+        Assert.Equal(new[] { xPlan, yPlan, yTwin, backlinkFromY }.Order(), forOwner.Select(card => card.DocId).Order());
     }
 
     [Fact]
