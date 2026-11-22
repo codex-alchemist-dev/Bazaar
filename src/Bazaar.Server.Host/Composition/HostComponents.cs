@@ -22,6 +22,8 @@ using Bazaar.Server.Gc;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Kodo;
+using Bazaar.Server.Kodo.WebAdmin;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
@@ -54,6 +56,8 @@ public static class HostComponents
         new RolesComponent(),
         new WebAdminComponent(),
         new AuditReaderComponent(),
+        new KodoComponent(),
+        new KodoWebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),

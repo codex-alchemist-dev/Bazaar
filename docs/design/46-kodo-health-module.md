@@ -640,6 +640,17 @@ The pure core lives in `src/Bazaar.Kodo/Api`: the snapshot builder and the `kodo
 - **Score caps are enforced at the builder.** A score above the section 12.2 caps is rejected, not clamped: critical red 49, integrity or contract failure 10, critical unknown 70, and an underlying `failing` state 49. The builder takes the observation the score was computed from, and `KodoScore.CapFor` is the one cap rule shared with `KodoScore.Compute`.
 - **Wire strings.** The wire carries strings from `KodoWireNames`, never C# member names. Probe statuses are `green`, `amber`, `red` and `unknown`. `unobserved` is a display value only.
 
+### 15.7 Server snapshot holder and admin read port (PROPOSED 2026-11-22)
+
+Section 15.6 builds a snapshot but leaves no server-side place to keep the latest one. This slice adds the smallest holder and the web admin read port (doc 51 section 5). Every choice is PROPOSED. Owner to ratify.
+
+- **Where it lives.** `Bazaar.Server.Kodo.Abstractions` and `Bazaar.Server.Kodo` (component id `kodo`), separate from the Bazaar-free `src/Bazaar.Kodo` core, which gains no reference and no DI. The holder depends on `Bazaar.Contracts` and `Bazaar.Core` only. The admin adapter is its own project, `Bazaar.Server.Kodo.WebAdmin` (component id `kodo-web-admin`), so the Kodo module stays free of WebAdmin.
+- **A thin holder, fed through an interface.** `IKodoSnapshotPublisher.Publish` takes a `KodoStatusSnapshotDto`, which the evaluator host builds with `KodoStatusSnapshotBuilder`. The holder does no evaluation. `IKodoSnapshotProvider.Current` returns the latest one, or null before the first publish. The evaluator host loop that calls `Publish` is not part of this slice.
+- **Ordering.** The holder keeps one reference swapped by compare-and-exchange. A snapshot with a lower revision is dropped. An equal revision wins only with a later `AsOf`. A restarted server starts empty, so a reset revision does not need special handling here.
+- **Incidents.** The incident record (section 16.3) is not built. `IKodoIncidentSource.ListOpenAsync` is the seam: it returns summaries (id, title, severity word, opened at, runbook link) and the shipped default returns none. The incident module registers the real source.
+- **Admin mapping.** `Score` is the status score, or null while no snapshot exists. Checks are one `kodo.state` entry (the displayed state, with `underlying: <state>` while frozen) followed by one entry per component (id, wire state, cause code). Incidents are newest first, at most 50, titles cut to 200 characters, and a runbook link is kept only if it is an http(s) URL or a site-relative path. The view carries no journal head, controls, evidence or log text.
+- **Open.** The view has no freshness field, so a snapshot that stops being refreshed still shows its last score. Section 8.3's "never show stale green" is not applied here until the heartbeat budget (15.6) is wired to the publisher.
+
 ## 16. Recovery: alerts, runbooks and incident mode
 
 ### 16.1 Alerts
@@ -903,7 +914,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
-| Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
+| Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. A server snapshot holder and the admin read port exist (15.7). No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
 | Alerts, runbooks, incident mode, summaries | PLANNED | Depends on doc 15 approval gates |
 | Release ring cohort signals and auto-halt | PLANNED | Depends on doc 49 (rings, channels) and doc 37 (signed releases) |
 | Testing: fault harness, self-checks, chaos mode | PLANNED | Depends on doc 17 sandbox and doc 33 restore |

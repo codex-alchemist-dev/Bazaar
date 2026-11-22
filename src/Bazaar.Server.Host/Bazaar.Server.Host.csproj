@@ -33,6 +33,8 @@
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AuditReader\Bazaar.Server.AuditReader.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Kodo\Bazaar.Server.Kodo.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Kodo.WebAdmin\Bazaar.Server.Kodo.WebAdmin.csproj" />
     <ProjectReference Include="..\Bazaar.GitHub\Bazaar.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
