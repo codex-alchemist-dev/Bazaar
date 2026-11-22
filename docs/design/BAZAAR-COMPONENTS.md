@@ -28,6 +28,7 @@ Every component declares one manifest. In code (first-party) it is a static `Com
 | `settings` | Settings keys it reads, with safe defaults (doc 03 configurability rule). |
 | `trust` | `first-party` (compiled in) or `third-party` (section 8). Default for first-party components. |
 | `process` | `in-process` (default) or `out-of-process` (section 7). |
+| `enabledByDefault` | PROPOSED. `true` (default) or `false`. The state when the operator has set no `Bazaar:Components:<id>:Enabled` value (section 3). A `false` component is optional: shipped in the build, off until switched on. Not allowed on `kind: kernel` or on a component another default-on component depends on. |
 
 ### 2.1 Module sides (owner, 2026-11-16)
 
@@ -63,6 +64,8 @@ Lifecycle, in order, for every enabled component:
 
 Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled component is not registered and its migrations are not applied, but its contracts are still validated so that a dependent that needs it fails at startup, not at first use. Core components cannot be disabled.
 
+**Optional components (PROPOSED, 2026-11-22).** When no `Enabled` setting exists for a component, the host uses the manifest's `enabledByDefault` (default `true`). A component with `enabledByDefault: false` is optional: it is not registered, its migrations are not applied and its panes and commands do not appear until the operator (or, for a client module, the company's module list) switches it on. An explicit setting always wins over the manifest, in either direction. The manifest validator rejects `enabledByDefault: false` on a kernel component and on any component that a default-on component lists in `dependsOn` as a hard edge, because the host would otherwise fail to start with the defaults. The same field is read by the client module host (doc 41b, `ClientModuleHost.Load`) so that the Rubedo playground (doc 41d section 7) ships in the build but stays off until a company includes it. Built on the server: `ComponentManifest.EnabledByDefault`, the two validator rules in `ComponentGraph.Order`, and `BazaarComponentRegistration.IsEnabled(configuration, manifest)` (used by `AddBazaarComponents` and the module activation host). Not built: not applying the migrations of an optional component that is off (the runner still applies every namespace it finds), and the `ClientModuleHost` read of the field (client code PR).
+
 ## 4. Contracts and dependencies
 
 - A component references another component only through its contract assembly (`<Name>.Abstractions`) or through `Bazaar.Contracts`. A reference to another component's implementation project is a rule violation (section 6).
@@ -78,6 +81,11 @@ Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and 
 - **Soft edges** (`softDependsOn`) mean a feature works better with the target. Soft edges may form cycles, for example A and B each softly depend on each other while both hard-depend on C. Soft edges never set start order. A missing or disabled soft target degrades only the features that name it. The rest of the module still runs.
 - Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
 - Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
+- Built: `ComponentGraph.Order` (start order from hard edges, cycles refused) and `ComponentGraph.Impact` (for one failed node, the transitive hard dependents to block and the soft dependents to mark amber). Not built: the `dependency` kind (doc 42 Q8 is open), `requires`, version ranges, and wiring `Impact` to the Kodo gates.
+
+### 4.2 Principal: who did it (owner, 2026-11-19)
+
+Every record of who acted uses one type, `Principal`, defined in `Cdax.Core` (the standalone Core, with no package references) (it carries no feature): a `kind` and an `id`. Kinds are `agent`, `user`, `service` and `system`. Its canonical text form is `kind:id` (for example `user:dom`, `agent:charles`, `service:kek`, `system:setup`). Audit entries, setting changes, module and install decisions, secret scopes and callers, approvals and telemetry consent all carry a `Principal`, so a person's change is recorded the same way as an agent's. An agent-only field remains only where the thing really is per-agent (for example an agent's own model usage or Kanban assignee). The audit log keeps its single `actor` text column and its hash chain, now written as the canonical `kind:id`, so no migration is needed. Existing bare values (`kek`, `setup:plan`) are read as `service:` or `system:` by a one-time mapping.
 
 ## 5. Data ownership: migrations per component
 
@@ -161,4 +169,35 @@ Until wave 1 lands, new work follows the rule the coordinator relays to running 
 1. Owner: confirm that every base function, including Kanban, GC and gateway, is a first-party component in v1, and that third-party loading is wave 5 (after signing and approval).
 2. Owner: component enable/disable is a setting. Which components an operator may disable is a policy question (for example, may the taint policy be disabled?). Default: core components cannot be disabled.
 3. Schema: the `(component_id, version)` history and the namespace folder layout need one answer before wave 2. Default: as in section 5.
-4. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
+4. Owner: confirm the optional-component rule above (`enabledByDefault`, explicit setting wins). Proposed because the Rubedo playground and other opt-in modules need a manifest-level default, and without one each module invents its own flag.
+5. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
+
+## 13. Standalone Core readiness audit (PROPOSED, 2026-11-19)
+
+Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core System repo, dependency-free and product-neutral. This is the audit of `src/Bazaar.Core` at main d7874f05. Nothing here is DECIDED; the two owner questions at the end block the code.
+
+**What Core holds (9 files, about 210 lines).** `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, `IBazaarComponent` and `BazaarComponentRegistration`. It has no reference to `Bazaar.Server`, `Bazaar.Contracts` or any other Bazaar project, and no `AgentId`, company, tenant or Postgres concept.
+
+**Findings.**
+
+| # | Finding | Where | Effect on standalone use |
+|---|---|---|---|
+| 1 | Two package references: `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.DependencyInjection` | `Bazaar.Core.csproj`; `IBazaarComponent.AddServices(IServiceCollection, IConfiguration)`; `BazaarComponentRegistration` | Core is not dependency-free. The manifest, kind and graph are pure; only the entry point and registration use the two packages. |
+| 2 | Product names in public API: `IBazaarComponent`, `BazaarComponentRegistration.AddBazaarComponents`, namespace `Bazaar.Core`, assembly `Bazaar.Core` | 5 files in Core; `IBazaarComponent` is used in 32 files, `AddBazaarComponents` in 23, `ComponentManifest` in 41 | Not product-neutral. |
+| 3 | Product-specific configuration key `Bazaar:Components:<id>:Enabled` | `BazaarComponentRegistration.IsEnabled`; 14 files reference the key | Hard-coded prefix. |
+| 4 | A Bazaar rename recorded in generic code: `LegacyIds = { ryusei -> ryusei-schedule }` | `BazaarComponentRegistration` | History of one product's component ids inside the generic kernel. |
+| 5 | Doc comments cite `docs/design/BAZAAR-COMPONENTS.md` and Bazaar terms (migration namespace, `gateway:adapter:openai_chat`) | all Core files | Cosmetic. |
+| 6 | `ComponentManifest.MigrationNamespace` encodes the Bazaar SQL-per-component layout | `ComponentManifest` | Mild: a Postgres-migration convention in the kernel, but it is only a pure string mapping. |
+
+**Proposed split (needs the owner's go-ahead).**
+
+1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, and a neutral component interface that does not mention DI or configuration. No package references.
+2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter.
+3. The architecture tests gain a rule that `Bazaar.Core` has no package or project references, so it stays dependency-free once split.
+
+**Owner questions.**
+
+1. **Names.** What are the standalone repo's namespace and public type names? The docs record "CDAX" only as a trademark and the pilot company (`Bazaar.CDAX`), and nowhere as the name of a Core System repo. Renaming `IBazaarComponent` and `Bazaar.Core` touches about 40 files and every component's registration, and the `Bazaar:Components` key is an operator-facing setting that needs a compatibility read of the old key.
+2. **Scope of the split.** Is the DI and configuration adapter module (item 2 above) the intended shape, or should Core keep `IServiceCollection` and accept the one package?
+
+Coordination: the "Converge Bazaar and Resibo shared features" thread is adding `Principal` and `Scope` to Core and deleting `ProviderSelector` (#919). This audit touches none of those files; any change there lands through that thread.

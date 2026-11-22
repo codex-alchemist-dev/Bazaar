@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 // Tests pass no CancellationToken to fake-clock and loopback calls; the harness applies its own timeouts.
 #pragma warning disable xUnit1051
 using System.Net.WebSockets;
@@ -10,6 +11,41 @@ namespace Bazaar.Server.Tests.Wire;
 /// <summary>Connection manager (W3) through the protocol harness (PRH).</summary>
 public sealed class ConnectionTests
 {
+    private sealed class FixedSchemaIdentity(string? value) : Bazaar.Server.SchemaIdentity.ISchemaIdentityProvider
+    {
+        public ValueTask<string?> GetAsync(CancellationToken ct = default) => ValueTask.FromResult(value);
+    }
+
+    [Fact]
+    public async Task Welcome_carries_the_schema_identity_when_a_provider_is_registered()
+    {
+        await using var server = await WireTestServer.StartAsync(
+            services: s => s.AddSingleton<Bazaar.Server.SchemaIdentity.ISchemaIdentityProvider>(new FixedSchemaIdentity("sha256:abc")));
+        await using var client = new WireTestClient();
+        await client.ConnectAsync(server.SocketUri, "good");
+
+        var reply = await client.HelloAsync(WireTestClient.DefaultHello());
+
+        var welcome = client.Codec.DecodePayload<Welcome>(reply);
+        Assert.Equal("sha256:abc", welcome.SchemaVersion);
+        Assert.Null(welcome.MinimumBuild);
+    }
+
+    [Fact]
+    public async Task Welcome_schema_identity_is_null_without_a_provider_or_with_an_unknown_one()
+    {
+        await using var bare = await WireTestServer.StartAsync();
+        await using var c1 = new WireTestClient();
+        await c1.ConnectAsync(bare.SocketUri, "good");
+        Assert.Null(c1.Codec.DecodePayload<Welcome>(await c1.HelloAsync(WireTestClient.DefaultHello())).SchemaVersion);
+
+        await using var unknown = await WireTestServer.StartAsync(
+            services: s => s.AddSingleton<Bazaar.Server.SchemaIdentity.ISchemaIdentityProvider>(new FixedSchemaIdentity(null)));
+        await using var c2 = new WireTestClient();
+        await c2.ConnectAsync(unknown.SocketUri, "good");
+        Assert.Null(c2.Codec.DecodePayload<Welcome>(await c2.HelloAsync(WireTestClient.DefaultHello())).SchemaVersion);
+    }
+
     [Fact]
     public async Task Header_credential_gets_a_welcome()
     {
@@ -32,6 +68,8 @@ public sealed class ConnectionTests
         Assert.Equal(256 * 1024, welcome.Limits.MaxFrameBytes);
         Assert.Equal(32, welcome.Limits.InflightRequestsMax);
         Assert.Null(welcome.UpgradeRequired);
+        Assert.True(welcome.PreviousMajorSupported);
+        Assert.Null(welcome.SchemaVersion);
     }
 
     [Fact]
@@ -127,7 +165,9 @@ public sealed class ConnectionTests
 
         var reply = await client.HelloAsync(WireTestClient.DefaultHello(min: 0, max: 0));
 
-        Assert.True(client.Codec.DecodePayload<Welcome>(reply).UpgradeRequired);
+        var welcome = client.Codec.DecodePayload<Welcome>(reply);
+        Assert.True(welcome.UpgradeRequired);
+        Assert.False(welcome.PreviousMajorSupported);
         Assert.Equal(WireCloseCodes.UpgradeRequired, await client.WaitForCloseAsync());
     }
 

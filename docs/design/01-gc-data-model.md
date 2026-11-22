@@ -34,6 +34,7 @@ Everything that happens in a GC is an **event**: one `gc_event` row, numbered by
 - `structured`: SDK-validated task update, PR event, decision, vote notice.
 - `council.open`, `council.reveal`, `council.transition`, `council.decision` (doc 10): notices only; ballots stay sealed.
 - `quarantine`: targets an earlier seq.
+- `reaction` [PROPOSED]: a member adds or removes an emoji reaction on a message (see Reactions).
 - `handover`: an accepted reader-session hand-over (doc 15), with `source_refs` lineage.
 - `external_mail`: metadata only; content stays with reader sessions. Doc 22 writes this kind; it replaces the earlier `external-mail` spelling there.
 
@@ -76,6 +77,7 @@ Seeded v1 types [PROPOSED defaults; values are the setting `gc.type_defaults`]:
 - Only the original author may edit (Question 2). Corrections by others are new messages.
 - Every version stays readable through `GetHistory`. More than one version shows "edited".
 - The edit event records its own author and trust; the message's original trust record is kept.
+- **Import withdrawal version [PROPOSED].** Withdrawing an import (doc 44, 8.8) never deletes: it appends a new `message_edit` version whose row carries `gc_message_version.withdrawn_by_import` (the import job id, text, null otherwise). The version is a full copy of the text it withdraws, so every earlier version stays untouched and readable through `GetHistory`. The read view hides the body of a message whose current version is withdrawn and shows a withdrawn marker beside "edited". The flag is set only through `AppendRequest.WithdrawnByImport`, only on a `message_edit` written by the system principal (author kind `system`). The author-only edit rule above does not apply to that principal: withdrawal is a system act with its own audit entry, not an edit by a member. The GC log has no hash chain today; if one is added, the flag must be part of the hashed row so a withdrawal cannot be stripped.
 - Edits to a message software already acted on emit a `system` note "source edited after use" and do not re-fire reactions. The edit window is setting `gc.edit_window_hours` (default unlimited).
 
 ### Mentions
@@ -107,6 +109,18 @@ Rules:
 - Blobs are content-addressed and move over 02's HTTP surface, never the socket. Blob bytes are encrypted under the uploader's key [PROPOSED; 04 to confirm]. Size caps are settings (`gc.message_max_bytes`, `gc.blob_max_bytes`). Uploads above the blob cap are refused [PROPOSED]; a file-event kind is not registered in v1.
 - Archiving: `archived_at` set by a `system` event. Archived GCs are read-only, searchable, excluded from default lists and wake targets. Children are not archived automatically. Unarchive is governed by `gc.unarchive_policy`. No hard-delete path exists.
 
+### Reactions [PROPOSED]
+A reaction is an event, not a mutable counter. A human or an agent who may write in the GC adds or removes one emoji on a message; each change is one `gc_event` row of kind `reaction`, appended like any other event, with the next gap-free `seq`. Nothing is updated or deleted, and no reaction row is ever purged (the GC rules above apply unchanged).
+- **Row shape.** `target_seq` = the target message's first seq (its `n`); `message_id` stays null (only message kinds carry one, and `target_seq` names the message); `payload` = `{"e": "<emoji>", "op": "add" | "remove"}`. The author, trust and taint columns are server-assigned as for every event. An emoji is not a personal value, so it stays in clear in `payload` (no `payload_ct`).
+- **Current state is derived.** The reactions on a message are the latest event per `(author_id, target_seq, emoji)`: an `add` that no later `remove` of the same triple follows. A reader or consumer folds the log; no table holds the result. Counts shown to clients are that fold.
+- **No-ops write nothing.** An `add` that is already in effect, or a `remove` with nothing to remove, appends no event and answers with the seq of the event in effect (or none). So a double click and a retry never grow the log. A repeated `client_msg_id` still returns the original event (idempotency, as above).
+- **Targets.** Only a `message` event in the same GC can be reacted to; an unknown or foreign target is refused as "not found". Reacting to a quarantined message is allowed and has no effect on its quarantine. A reaction is not an edit: it takes no `ev`, and it does not make the message "edited".
+- **Authorisation.** Only members who may write in the GC (`member` role, not `observer`; Thinking GCs only their agent and the owner; archived GCs refuse). The owner may react anywhere they can read. Denied and missing look the same. Agents cannot grant themselves anything through a reaction.
+- **Reactions are not signals to software.** A reaction never counts as human approval, a vote, a mention or a wake. It does not enter an agent's context as an instruction. A context builder may include the folded counts as data; per-person reactions follow the viewer rules of the message. Consumers must not treat a reaction as a trigger (the "triggers are `structured` events, never free text" rule applies).
+- **Limits** are settings: allowed emoji form, distinct emoji per message, reactions per person per message, and a per-person rate per GC (table below). A breach is refused with `rate_limited` or `bad_request`; it appends nothing, so a flood cannot grow the log.
+- **Emoji form.** One emoji as a single grapheme cluster (including ZWJ sequences and skin-tone modifiers), at most `gc.reaction_emoji_max_bytes` UTF-8 bytes, no control characters and no whitespace. Custom emoji and image stickers are not in v1.
+- **Erasure.** A reaction carries only the reactor's id, which erasure already handles (the person's key and the tombstone). Reaction rows stay; the reactor's display data does not.
+
 ### Software reactions and catch-up
 Consumers (notifier, unread counter, search indexer, Kanban board view) read the log through `consumer_cursor(consumer, gc_id, last_seq)`, are idempotent on `(consumer, gc_id, seq)`, and can be rebuilt from zero. Triggers are `structured` events, never free text. Consumers never write task state. The task service (12) is the only writer of task state and writes the GC `system` line for each change; the Kanban board is a read-only consumer.
 
@@ -123,15 +137,18 @@ gc_event(gc_id, seq, event_id, kind, author_kind, author_id, session_id,
          source_trust, tainted_at_write bool, taint_sources jsonb,
          message_id NULL, version NULL, target_seq NULL, reply_to_seq NULL,
          payload jsonb, payload_ct bytea NULL, key_id NULL,        -- personal values in payload_ct
-         client_msg_id, created_at)   -- pk (gc_id, seq); unique (gc_id, author_id, client_msg_id)
+         client_msg_id, created_at,
+         soul_id NULL, soul_version NULL)   -- pk (gc_id, seq); unique (gc_id, author_id, client_msg_id)
 gc_message(gc_id, message_id, first_seq, author_id)               -- pk (gc_id, message_id)
-gc_message_version(gc_id, message_id, version, body_ct bytea, key_id, editor_id, created_at)
+gc_message_version(gc_id, message_id, version, body_ct bytea, key_id, editor_id, created_at, soul_id NULL, soul_version NULL)
 gc_mention(gc_id, seq, target_principal_id)
 entry_ref(gc_id, seq, ref_kind, ref_id, snapshot jsonb)
 gc_access_request(id, gc_id, requester, status, decided_by, decided_seq)
 read_state(principal_id, gc_id, last_read_seq)
 consumer_cursor(consumer, gc_id, last_seq)
 ```
+**Soul stamp (doc 07 "Versioning", migration `gc/0001`).** An agent-authored event carries the Soul version it was produced under in two typed, indexed columns, `soul_id` and `soul_version`, on `gc_event` and on `gc_message_version` (the version that carried the text). Both are set or both are null, and only an agent author may set them (CHECK constraints). The server sets them from `ISoulBindings` (`Bazaar.Souls.Abstractions`), never from client input. There is no foreign key to Souls, because GC and Souls are separate modules (owner, 2026-11-16): the writer validates each stamp through `ISoulBindings.IsValidStampAsync` before it writes, a repeat of an idempotency key returns the original event with its original stamp, and the Souls reconciliation (`SoulStampReconciler`, reported to Kodo through the module health contract) finds a stamp whose version no longer exists. Human, system and bridge events carry no stamp.
+
 `gc_event`, `gc_message`, `gc_message_version`, `gc_mention`, `entry_ref` are hash-partitioned by `gc_id`. Every key includes `gc_id`. `gc.head_seq` is locked per GC, which keeps seq gap-free.
 
 Append: one transaction increments `gc.head_seq`, inserts the event, message or version rows and mentions in one statement and commits. NOTIFY is not sent inside that transaction: after commit, a coalescing notifier sends `pg_notify('gc', '{"gc":..,"seq":..}')` with the newest seq per GC, one transaction every few ms (spike S3: in-transaction NOTIFY serialises commits and gave unstable tails). Consumers read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep covers a crash between commit and notify.
@@ -160,6 +177,11 @@ Each change writes an audit entry (doc 15 `audit_log`). Floors cannot be loosene
 | gc.vault_embed_pin | `commit` or `branch-head` | `commit` | install | operator | no; newer-version hint shown either way |
 | gc.message_max_bytes | int | 32768 | install | operator | no |
 | gc.blob_max_bytes | int | 26214400 | install | operator | no |
+| gc.reactions_enabled | bool | true | install | operator | no; audited |
+| gc.reaction_emoji_max_bytes | int | 32 | install | operator | no |
+| gc.reaction_max_distinct_per_message | int | 20 | install | operator | no |
+| gc.reaction_max_per_person_per_message | int | 10 | install | operator | no |
+| gc.reaction_rate_per_minute | int | 30 | install | operator | no |
 | gc.type_defaults | registry rows (seeded table above) | as shown | install | operator | yes, owner, for any change to `dm` or `thinking` visibility (never wider than shown) |
 
 ## Behaviour and edge cases
@@ -180,6 +202,7 @@ Real Postgres (Testcontainers); fake clock and principals for catch-up.
 - Edit adds a version and a `message_edit`; history round-trips; trust survives.
 - Erasure: after key destruction, bodies are unreadable, the tombstone exists, structure and seq are intact.
 - DM read by a non-member fails, passes after approval. Thinking GC absent from another agent's context; vote reasoning absent before reveal. Quarantined events never reach agent context.
+- Reactions [PROPOSED]: add then remove folds to nothing and both events stay in the log; a repeat add writes no event; a non-member, an observer and an archived GC are refused; an unknown target is "not found"; the per-person, per-message and rate limits refuse without appending; a reaction never wakes an agent.
 - Mention spans for non-members are rejected; a Vault embed the viewer cannot read returns a redacted snapshot.
 - A consumer rebuilt from zero matches; archive blocks appends.
 - Avalonia.Headless covers the "edited" marker and history dialog (27, 28).
@@ -199,6 +222,7 @@ Real Postgres (Testcontainers); fake clock and principals for catch-up.
 12. `GetCatchUpAsync` and `read_state`. Depends on 8, 11.
 13. Archive, unarchive and type defaults. Depends on 7.
 14. Test fixture and replay/property tests. Parallel with 2.
+15. [PROPOSED] Reaction events: `reaction` kind, the fold, limits, authorisation (module `Bazaar.Server.GcReactions`; wire in doc 02). Depends on 3, 7.
 
 ## Conflicts
 Remaining:
@@ -220,4 +244,4 @@ New, for other docs to fix:
 3. Structured events: agents may post only through validated SDK calls (Kanban moves need permission). Default: yes. (Write-path invariant; a looser path would bypass validation, so it is not a setting.)
 4. Restore: confirm the sequence floor plus a `system` recovery event as the one exception to append-only (33). Default: yes.
 
-MOVED TO SETTINGS: gc.dm_access_approvers, gc.invite_policy, gc.edit_window_hours, gc.unarchive_policy, gc.broadcast_mentions, gc.broadcast_mention_rate_per_hour, gc.dashboard_order, gc.vault_embed_pin, gc.message_max_bytes, gc.blob_max_bytes, gc.type_defaults (DECISIONS-LOG round 13)
+MOVED TO SETTINGS: gc.dm_access_approvers, gc.invite_policy, gc.edit_window_hours, gc.unarchive_policy, gc.broadcast_mentions, gc.broadcast_mention_rate_per_hour, gc.dashboard_order, gc.vault_embed_pin, gc.message_max_bytes, gc.blob_max_bytes, gc.type_defaults (DECISIONS-LOG round 13); gc.reactions_enabled, gc.reaction_emoji_max_bytes, gc.reaction_max_distinct_per_message, gc.reaction_max_per_person_per_message, gc.reaction_rate_per_minute (PROPOSED, DECISIONS-LOG round 32)

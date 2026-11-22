@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gc;
+using Bazaar.Souls.Abstractions;
 
 namespace Bazaar.Server.Gc.Write;
 
@@ -10,6 +11,14 @@ namespace Bazaar.Server.Gc.Write;
 /// <param name="KeyId">The key the body is sealed under.</param>
 /// <param name="Nonce">The cipher nonce, when the cipher uses one.</param>
 public sealed record MessageBody(ReadOnlyMemory<byte> BodyCiphertext, Guid KeyId, ReadOnlyMemory<byte> Nonce = default);
+
+/// <summary>
+/// The sealed form of an event's payload: ciphertext plus the id of the key it is sealed under. The log stores the bytes
+/// it is given and never holds a key (doc 01, doc 61). Both parts are always present together.
+/// </summary>
+/// <param name="Ciphertext">The sealed bytes. Not empty.</param>
+/// <param name="KeyId">The key the bytes are sealed under.</param>
+public sealed record SealedPayload(ReadOnlyMemory<byte> Ciphertext, Guid KeyId);
 
 /// <summary>
 /// One event to append. Seq, event id and time are assigned by the writer; provenance is set by the caller from the
@@ -31,6 +40,9 @@ public sealed record AppendRequest(
 {
     /// <summary>Longest accepted <see cref="ClientMsgId"/>.</summary>
     public const int MaxClientMsgIdLength = 200;
+
+    /// <summary>Longest accepted <see cref="WithdrawnByImport"/>.</summary>
+    public const int MaxWithdrawnByImportLength = 200;
 
     /// <summary>The writing session, when there is one.</summary>
     public Guid? SessionId { get; init; }
@@ -57,6 +69,12 @@ public sealed record AppendRequest(
     public int? Version { get; init; }
 
     /// <summary>
+    /// The import job id when this <c>message_edit</c> withdraws an import's message (doc 01 Edits, doc 44 8.8, PROPOSED), or
+    /// null. Only the system principal writes it. The message body is a copy of the text it withdraws; earlier versions stay.
+    /// </summary>
+    public string? WithdrawnByImport { get; init; }
+
+    /// <summary>
     /// The membership state this event writes (a join or a leave), or null. The writer sets its joined and left seqs to the
     /// event's own seq, so the caller's values are only a plan.
     /// </summary>
@@ -71,11 +89,26 @@ public sealed record AppendRequest(
     /// <summary>Kind-specific payload as JSON text.</summary>
     public string? PayloadJson { get; init; }
 
+    /// <summary>
+    /// The event's sealed payload, or null (the default). When set, the writer stores the ciphertext in <c>payload_ct</c> and the
+    /// key id in <c>key_id</c>; both are set or both null. A repeat of an earlier key returns the original event with its
+    /// original sealed bytes.
+    /// </summary>
+    public SealedPayload? Sealed { get; init; }
+
     /// <summary>The message body; required for kind <c>message</c>, not allowed otherwise.</summary>
     public MessageBody? Message { get; init; }
 
     /// <summary>Principals mentioned. Already validated against membership by the caller (doc 01 WP8).</summary>
     public IReadOnlyList<Guid> Mentions { get; init; } = [];
+
+    /// <summary>
+    /// The Soul version the author produced this event under (doc 07 "Versioning"), set by the server from
+    /// <see cref="ISoulBindings"/>, never from client input. Only an agent-authored event carries one. The writer checks it
+    /// with <see cref="ISoulBindings.IsValidStampAsync"/> before it writes, because the log has no foreign key to Souls.
+    /// A repeat of an earlier key returns the original event with its original stamp.
+    /// </summary>
+    public SoulRef? Soul { get; init; }
 }
 
 /// <summary>The stored identity of an appended event.</summary>
@@ -84,4 +117,5 @@ public sealed record AppendRequest(
 /// <param name="EventId">The event's id.</param>
 /// <param name="Duplicate">True when the idempotency key had been used and this is the original event.</param>
 /// <param name="CreatedAt">When the original event was written.</param>
-public sealed record AppendResult(Guid GcId, long Seq, Guid EventId, bool Duplicate, DateTimeOffset CreatedAt);
+/// <param name="MessageId">The message the event wrote or edited, or null for an event that carries no message. A repeat returns the original's.</param>
+public sealed record AppendResult(Guid GcId, long Seq, Guid EventId, bool Duplicate, DateTimeOffset CreatedAt, Guid? MessageId = null);

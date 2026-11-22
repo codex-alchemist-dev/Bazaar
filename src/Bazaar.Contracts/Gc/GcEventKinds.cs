@@ -18,11 +18,24 @@ public static class GcEventKinds
     /// <summary>An SDK-validated structured record: task update, PR event, decision, vote notice.</summary>
     public const string Structured = "structured";
 
+    /// <summary>
+    /// A pull request state change in a <c>pr</c> GC: opened, ready, review, checks, merged or closed. Provider-neutral; the
+    /// provider and its PR id are in the payload (docs/design/21, "Git model").
+    /// </summary>
+    public const string PrEvent = "pr_event";
+
     /// <summary>Targets an earlier sequence number and marks it quarantined.</summary>
     public const string Quarantine = "quarantine";
 
     /// <summary>An accepted reader-session hand-over.</summary>
     public const string Handover = "handover";
+
+    /// <summary>
+    /// A member adds or removes one emoji reaction on a message (docs/design/01, "Reactions"). The payload is
+    /// <c>{"e":"&lt;emoji&gt;","op":"add"|"remove"}</c> and <c>target_seq</c> is the message's first seq. The <c>gc-reactions</c>
+    /// component's migration registers the kind.
+    /// </summary>
+    public const string Reaction = "reaction";
 
     /// <summary>Metadata for an external mail; the content stays with reader sessions.</summary>
     public const string ExternalMail = "external_mail";

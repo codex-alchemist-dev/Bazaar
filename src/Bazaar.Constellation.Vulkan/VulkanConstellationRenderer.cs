@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Bazaar.Constellation.Rendering;
 using Bazaar.Constellation.Rendering.Core;
 
@@ -7,14 +8,17 @@ namespace Bazaar.Constellation.Vulkan;
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
 /// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
-/// radius and ring width from its style: SetScene gives every node the fallback style, and SetNodeStyles replaces
-/// that with per-node styles. The adapter does not map its own styles yet.
+/// radius and ring width from its style: SetScene gives every node the default style,
+/// and SetNodeStyles replaces that with explicit per-node styles (the adapter colours nodes by cluster this way).
+/// Rendering is on demand: a <see cref="FramePacer"/> decides whether a frame is due, and <see cref="Draw"/> returns without
+/// touching the GPU at a standstill. Scene, style, size and section changes and the input hooks wake it; the host sleeps for
+/// <see cref="NextFrameDelay"/> (or until input) between draws.
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
 {
     /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
-    private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
+    private static readonly (float R, float G, float B, float A) _background = ConstellationNodeStyles.DefaultTheme.Background;
 
     /// <summary>Style used for every node until per-node styles arrive from the adapter (RGBA, radius in world units).</summary>
     private static readonly NodeStyle _nodeStyle = NodeStyle.Create(0.80f, 0.86f, 0.95f, 1f, 0.012f);
@@ -29,18 +33,27 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     private int _dimensions;
     private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
-    private ConstellationScene? _scene;
+    private RenderScene? _scene;
     private int _widthPixels;
     private int _heightPixels;
+    private readonly FramePacer _pacer;
+    private readonly Func<TimeSpan> _clock;
+    private byte[] _sectionBytes = [];
     private bool _disposed;
 
     public VulkanConstellationRenderer(
         Func<VulkanProbeResult>? probe = null,
         double frameBlendSeconds = 0.25,
-        Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null)
+        Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null,
+        VulkanConstellationRendererOptions? options = null)
     {
+        options ??= new VulkanConstellationRendererOptions();
+        long start = Stopwatch.GetTimestamp();
+        _clock = options.Clock ?? (() => Stopwatch.GetElapsedTime(start));
+        _pacer = new FramePacer(options.DisplayRefreshHz, _clock, options.Pacer);
+        _pacer.Wake(); // the first frame after construction is always due
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
-        _createSwapchain = createSwapchain ?? VulkanSwapchain.TryCreate;
+        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface));
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
@@ -83,12 +96,18 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
             swapchain.SetStyles(NodeStylePacking.Pack(_palette));
         }
 
+        if (_sectionBytes.Length > 0)
+        {
+            swapchain.SetSections(_sectionBytes);
+        }
+
+        _pacer.Wake();
         _widthPixels = surface.WidthPixels;
         _heightPixels = surface.HeightPixels;
         return new RenderAttachResult(true, string.Empty);
     }
 
-    public void SetScene(ConstellationScene scene)
+    public void SetScene(RenderScene scene)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
@@ -99,12 +118,59 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         _dimensions = 0;
         _sequencer.Reset();
         _interpolator.Reset();
+        _pacer.Wake();
     }
 
     /// <summary>
-    /// Sets the style of every node of the current scene. The table is read when this is called; later changes to it
-    /// need another call. Throws when no scene is set or the table does not match the scene's node count.
+    /// Sets the section rectangles drawn behind the nodes (from <see cref="SectionSet.Compute"/>), in the same world space as
+    /// the node positions. Replaces the previous set; an empty list clears it. Wakes the pacer.
     /// </summary>
+    public void SetSections(IReadOnlyList<SectionRect> sections)
+    {
+        ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(sections);
+        _sectionBytes = SectionPacking.Pack(sections);
+        _swapchain?.SetSections(_sectionBytes);
+        _pacer.Wake();
+    }
+
+    /// <summary>What the frame pacer is doing now. Quality control reads this to trade rate for detail on small movement.</summary>
+    public PacerMode PacerMode => _pacer.Mode;
+
+    /// <summary>Frames actually drawn (not skipped by the pacer).</summary>
+    public long FramesRendered { get; private set; }
+
+    /// <summary>
+    /// How long the host loop should wait before calling <see cref="Draw"/> again: null at a standstill (sleep until input or
+    /// <see cref="RequestFrame"/>), <see cref="TimeSpan.Zero"/> when a frame is due now, otherwise the remaining delay.
+    /// </summary>
+    public TimeSpan? NextFrameDelay
+    {
+        get
+        {
+            FrameDue due = _pacer.NextFrameDue(_clock());
+            return due.Kind switch
+            {
+                FrameDueKind.Skip => null,
+                FrameDueKind.RenderNow => TimeSpan.Zero,
+                _ => due.Delay,
+            };
+        }
+    }
+
+    /// <summary>Makes the next frame due now (data change, resize, anything the pacer cannot see) and starts the settle tail.</summary>
+    public void RequestFrame() => _pacer.Wake();
+
+    /// <summary>Reports camera input: a button or key press (0 pixels) or movement of the given size. Wakes at once from a standstill.</summary>
+    public void OnCameraInput(float deltaPixels) => _pacer.OnInput(deltaPixels);
+
+    /// <summary>Reports zoom input as a ratio (2 = twice as close). Large zooms count as big movement.</summary>
+    public void OnZoomInput(float ratio) => _pacer.OnInput(_pacer.ZoomRatioToPixels(ratio));
+
+    /// <summary>Sets the display's maximum refresh rate, for example when the window moves to another monitor.</summary>
+    public void SetDisplayRefreshHz(double hz) => _pacer.DisplayRefreshHz = hz;
+
+    /// <inheritdoc/>
     public void SetNodeStyles(NodeStyleTable styles)
     {
         ThrowIfDisposed();
@@ -121,6 +187,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
 
         _styles = styles;
         RebuildPalette();
+        _pacer.Wake();
     }
 
     /// <summary>Rebuilds the palette from the current table and sends its packed styles to the swapchain, when one is attached.</summary>
@@ -152,6 +219,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
 
         _dimensions = frame.Dimensions;
         _interpolator.Push(frame, nowSeconds);
+        _pacer.Wake(); // the blend toward the new frame needs frames until it settles
         return true;
     }
 
@@ -166,16 +234,24 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         {
             _ = _swapchain.Resize(widthPixels, heightPixels);
         }
+
+        _pacer.Wake();
     }
 
     /// <summary>
     /// Clears the background, draws the interpolated node instances, and presents.
-    /// Does nothing until a surface is attached. Before the first accepted frame only the background is shown.
+    /// Does nothing until a surface is attached, and nothing at a standstill: when the pacer says Skip, this returns without
+    /// touching the GPU. Before the first accepted frame only the background is shown.
     /// </summary>
     public void Draw(double nowSeconds)
     {
         ThrowIfDisposed();
         if (_swapchain is null)
+        {
+            return;
+        }
+
+        if (!TryBeginFrame())
         {
             return;
         }
@@ -190,6 +266,20 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         _instances.Fill(positions, _dimensions, _palette);
         NodeView view = FitView(positions, _dimensions);
         _ = _swapchain.Present(_background, _instances.Bytes, _instances.InstanceCount, view);
+    }
+
+    /// <summary>Asks the pacer whether to draw; false at a standstill. When true, pacing restarts from this frame and the count rises.</summary>
+    internal bool TryBeginFrame()
+    {
+        TimeSpan now = _clock();
+        if (_pacer.NextFrameDue(now).Kind == FrameDueKind.Skip)
+        {
+            return false;
+        }
+
+        _pacer.OnFrameStarted(now);
+        FramesRendered++;
+        return true;
     }
 
     private ReadOnlySpan<float> SamplePositions(double nowSeconds)

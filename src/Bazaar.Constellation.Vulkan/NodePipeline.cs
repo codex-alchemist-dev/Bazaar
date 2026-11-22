@@ -26,6 +26,7 @@ internal sealed unsafe class NodePipeline : IDisposable
     private readonly VkPhysicalDevice _physicalDevice;
     private readonly VkFormat _format;
     private readonly VkImageLayout _finalLayout;
+    private readonly bool _reversedZ;
     private VkRenderPass _renderPass;
     private VkDescriptorSetLayout _setLayout;
     private VkDescriptorPool _descriptorPool;
@@ -43,19 +44,26 @@ internal sealed unsafe class NodePipeline : IDisposable
     private ulong _styleCapacity;
     private void* _styleMapped;
     private int _styleCount;
+    private SectionPass? _sections;
     private bool _disposed;
 
     /// <param name="finalLayout">Layout the colour target is left in after the pass: present for a swapchain, transfer-source for an offscreen copy.</param>
-    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout)
+    /// <param name="reversedZ">
+    /// Adds a reversed-Z depth attachment (<see cref="ReversedZDepth"/>) as attachment 1: the render pass clears it to 0, the pipeline tests
+    /// greater-or-equal. Framebuffers must then carry a depth view second. Off by default: the 2D path has no depth.
+    /// </param>
+    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout, bool reversedZ = false)
     {
         _instanceApi = instanceApi;
         _deviceApi = deviceApi;
         _physicalDevice = physicalDevice;
         _format = format;
         _finalLayout = finalLayout;
+        _reversedZ = reversedZ;
         CreateRenderPass();
         CreateDescriptors();
         CreatePipeline();
+        _sections = new SectionPass(instanceApi, deviceApi, physicalDevice, _renderPass, reversedZ);
         CreateCornerBuffer();
         ResizeStyleBuffer(NodeStylePacking.StyleStride);
     }
@@ -64,6 +72,16 @@ internal sealed unsafe class NodePipeline : IDisposable
 
     /// <summary>Number of styles uploaded by the last <see cref="UploadStyles"/>. Nodes are drawn only when this is above zero.</summary>
     public int StyleCount => _styleCount;
+
+    /// <summary>Number of section rectangles that will be drawn behind the nodes.</summary>
+    public int SectionCount => _sections?.Count ?? 0;
+
+    /// <summary>Replaces the section rectangles with bytes from <see cref="SectionPacking"/>. Call only when no frame reading them is in flight.</summary>
+    public void UploadSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _sections!.Upload(sectionBytes);
+    }
 
     /// <summary>Copies packed instance bytes into the instance buffer, growing it when needed.</summary>
     public void Upload(ReadOnlySpan<byte> instanceBytes)
@@ -115,11 +133,13 @@ internal sealed unsafe class NodePipeline : IDisposable
         (float R, float G, float B, float A) clear, int instanceCount, NodeView view)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        var clearValue = new VkClearValue();
-        clearValue.color.float32[0] = clear.R;
-        clearValue.color.float32[1] = clear.G;
-        clearValue.color.float32[2] = clear.B;
-        clearValue.color.float32[3] = clear.A;
+        var clearValues = stackalloc VkClearValue[2];
+        clearValues[0] = new VkClearValue();
+        clearValues[0].color.float32[0] = clear.R;
+        clearValues[0].color.float32[1] = clear.G;
+        clearValues[0].color.float32[2] = clear.B;
+        clearValues[0].color.float32[3] = clear.A;
+        clearValues[1] = ReversedZDepth.ClearValue();
 
         var begin = new VkRenderPassBeginInfo
         {
@@ -127,10 +147,13 @@ internal sealed unsafe class NodePipeline : IDisposable
             renderPass = _renderPass,
             framebuffer = framebuffer,
             renderArea = new VkRect2D { offset = new VkOffset2D(0, 0), extent = extent },
-            clearValueCount = 1,
-            pClearValues = &clearValue,
+            clearValueCount = _reversedZ ? 2u : 1u,
+            pClearValues = clearValues,
         };
         _deviceApi.vkCmdBeginRenderPass(commandBuffer, &begin, VkSubpassContents.Inline);
+
+        // Sections go first so the nodes (and their edges) always draw on top of the backdrop.
+        _sections!.Record(commandBuffer, extent, view);
 
         if (instanceCount > 0 && _styleCount > 0)
         {
@@ -171,6 +194,8 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
 
         _disposed = true;
+        _sections?.Dispose();
+        _sections = null;
         if (_instanceMapped is not null)
         {
             _deviceApi.vkUnmapMemory(_instanceMemory);
@@ -226,26 +251,31 @@ internal sealed unsafe class NodePipeline : IDisposable
             finalLayout = _finalLayout,
         };
         var colorRef = new VkAttachmentReference { attachment = 0, layout = VkImageLayout.ColorAttachmentOptimal };
+        var depthRef = new VkAttachmentReference { attachment = 1, layout = VkImageLayout.DepthStencilAttachmentOptimal };
+        var attachments = stackalloc VkAttachmentDescription[2];
+        attachments[0] = attachment;
+        attachments[1] = ReversedZDepth.Attachment(VkImageLayout.DepthStencilAttachmentOptimal);
         var subpass = new VkSubpassDescription
         {
             pipelineBindPoint = VkPipelineBindPoint.Graphics,
             colorAttachmentCount = 1,
             pColorAttachments = &colorRef,
+            pDepthStencilAttachment = _reversedZ ? &depthRef : null,
         };
         var dependency = new VkSubpassDependency
         {
             srcSubpass = VK_SUBPASS_EXTERNAL,
             dstSubpass = 0,
-            srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
-            dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput,
+            srcStageMask = VkPipelineStageFlags.ColorAttachmentOutput | (_reversedZ ? VkPipelineStageFlags.EarlyFragmentTests | VkPipelineStageFlags.LateFragmentTests : default),
+            dstStageMask = VkPipelineStageFlags.ColorAttachmentOutput | (_reversedZ ? VkPipelineStageFlags.EarlyFragmentTests | VkPipelineStageFlags.LateFragmentTests : default),
             srcAccessMask = default,
-            dstAccessMask = VkAccessFlags.ColorAttachmentWrite,
+            dstAccessMask = VkAccessFlags.ColorAttachmentWrite | (_reversedZ ? VkAccessFlags.DepthStencilAttachmentWrite : default),
         };
         var info = new VkRenderPassCreateInfo
         {
             sType = VkStructureType.RenderPassCreateInfo,
-            attachmentCount = 1,
-            pAttachments = &attachment,
+            attachmentCount = _reversedZ ? 2u : 1u,
+            pAttachments = attachments,
             subpassCount = 1,
             pSubpasses = &subpass,
             dependencyCount = 1,
@@ -392,6 +422,7 @@ internal sealed unsafe class NodePipeline : IDisposable
                     attachmentCount = 1,
                     pAttachments = &blendAttachment,
                 };
+                VkPipelineDepthStencilStateCreateInfo depthStencil = ReversedZDepth.DepthStencilState();
                 var dynamicStates = stackalloc VkDynamicState[2] { VkDynamicState.Viewport, VkDynamicState.Scissor };
                 var dynamic = new VkPipelineDynamicStateCreateInfo
                 {
@@ -411,6 +442,7 @@ internal sealed unsafe class NodePipeline : IDisposable
                     pRasterizationState = &rasterization,
                     pMultisampleState = &multisample,
                     pColorBlendState = &blend,
+                    pDepthStencilState = _reversedZ ? &depthStencil : null,
                     pDynamicState = &dynamic,
                     layout = _layout,
                     renderPass = _renderPass,
