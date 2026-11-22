@@ -1,0 +1,26 @@
+// The whole gRPC surface of the wire (doc 90 section 9). Hand-written; the client module keeps an identical copy.
+// The csharp_namespace differs per module so both can be referenced together. A Frame holds exactly one codec frame, so any codec works. It does not use the Protobuf codec module's payload mapping.
+syntax = "proto3";
+
+package bazaar.wire.v1;
+
+option csharp_namespace = "Bazaar.Client.Transport.Grpc.Generated";
+
+service Session {
+  // Native gRPC: one bidirectional stream per wire connection.
+  rpc Connect(stream Frame) returns (stream Frame);
+
+  // gRPC-Web (no client streaming): Subscribe opens the connection and streams server frames,
+  // Send carries one client frame; both are mapped onto the same connection hand-off.
+  rpc Subscribe(SubscribeRequest) returns (stream Frame);
+  rpc Send(Frame) returns (Frame);
+}
+
+message Frame {
+  bytes data = 1;
+}
+
+message SubscribeRequest {
+  // Client-chosen random token (at least 16 URL-safe characters); Send names it in the bazaar-session metadata.
+  string session_id = 1;
+}

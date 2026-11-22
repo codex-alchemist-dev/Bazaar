@@ -91,6 +91,14 @@ public sealed class SetupCustodySection
     /// <summary>A bootstrap reference (env:, file:, dpapi: or systemd-creds:) that must match <see cref="KekProvider"/>. Required.</summary>
     public string KekRef { get; init; } = "";
 
+    /// <summary>
+    /// The identity KEK provider (doc 14 <c>identity.kek_provider</c>): file, dpapi, openbao or tpm. Optional; absent means the server
+    /// default (dpapi on Windows, file elsewhere). Separate from <see cref="KekProvider"/>, which is how the bootstrap secret is held.
+    /// Left out of the canonical form when absent, so a plan without it keeps its hash.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? IdentityKek { get; init; }
+
     /// <summary>Where the audit anchor is published, as an absolute https URL. Null means no external anchor.</summary>
     public string? AuditAnchorTarget { get; init; }
 
@@ -158,6 +166,13 @@ public sealed class SetupModelSource
 public sealed class SetupEmailSection
 {
     public bool Enabled { get; init; }
+
+    /// <summary>
+    /// The mail back end (doc 22): <c>bazaar_client</c>, <c>imap_smtp</c>, <c>cloudflare</c> or <c>builtin_server</c>. Required when
+    /// <see cref="Enabled"/> is true, and empty otherwise. Maps to the registry key <c>mail.backend</c>. The operator domain is not a
+    /// plan field: it is a <c>mail_domain</c> row set in the mail panel.
+    /// </summary>
+    public string Backend { get; init; } = "";
 }
 
 public sealed class SetupScamMailSection

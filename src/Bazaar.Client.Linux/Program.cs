@@ -9,9 +9,12 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
+using Bazaar.Ex.Head;
 using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Linux;
 
@@ -22,17 +25,25 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (DefaultAppCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultAppExit) { return defaultAppExit; }
+        if (DefaultTerminalCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultTerminalExit) { return defaultTerminalExit; }
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
         try
         {
-            settings = ChatConnectionSettings.FromEnvironment(Environment.GetEnvironmentVariable);
+            settings = ChatConnectionSettings.FromEnvironment(LinuxClientSessions.EnvWithStoredToken(Environment.GetEnvironmentVariable));
         }
         catch (ArgumentException ex)
         {
             Console.Error.WriteLine(ex.Message);
             return 2;
+        }
+
+        // Headless modes (doc 37 section 4d) run before the single-instance forward and any window.
+        if (SupportBundleCommands.TryRun(args, ClientDataPaths.DataDir(Environment.GetEnvironmentVariable)) is { } headlessExit)
+        {
+            return headlessExit;
         }
 
         var paths = LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
@@ -49,8 +60,11 @@ internal static class Program
         }
 
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
+        args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -93,22 +107,56 @@ internal static class Program
     }
 
     /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
-    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths)
+    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates)
     {
         if (settings is null)
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
+            ShowTerminalWhenAsked(plain, args);
+            ShowFirstRun(plain, args);
             InstallShell(plain);
             return plain;
         }
 
         Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
+        ShowTerminalWhenAsked(window, args);
+        ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
         InstallShell(window);
+        AttachMnemonics(window, paths);
         return window;
+    }
+
+    // --sign-in, --create-company and --first-run replace the window content with the first-run screens (doc 45 section 2.6).
+    private static void ShowFirstRun(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (FirstRunScreens.TryBuild(args) is { } firstRun)
+        {
+            window.Content = firstRun;
+        }
+    }
+
+    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
+    private static void AttachMnemonics(MainWindow window, LinuxPaths paths)
+    {
+        Directory.CreateDirectory(paths.StateDirectory);
+        window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
+    }
+
+    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
+    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (!args.Contains("--terminal", StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var sessions = CalcinatoTerminalPanes.CreateSessions();
+        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
+        window.Closed += async (_, _) => await sessions.DisposeAsync();
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
