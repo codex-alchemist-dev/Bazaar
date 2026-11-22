@@ -38,7 +38,7 @@ public static class TemplateLoader
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
-        registry ??= SettingRegistry.Known;
+        registry ??= BuiltInSettingRegistries.Known;
 
         var issues = new List<SetupValidationIssue>();
         var manifest = await ReadFileAsync(source, SetupTemplateConstants.ManifestFileName, SetupTemplateConstants.MaxManifestBytes, SetupTemplateConstants.ManifestFileName, issues, cancellationToken);

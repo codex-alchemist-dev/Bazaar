@@ -56,7 +56,7 @@ public sealed class TemplateResolverTests
         await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         var issues = new List<SetupValidationIssue>();
-        SetupPlanValidator.Validate(plan, SettingRegistry.Known, issues);
+        SetupPlanValidator.Validate(plan, BuiltInSettingRegistries.Known, issues);
 
         Assert.DoesNotContain(issues, issue => issue.Severity == SetupIssueSeverity.Error);
     }

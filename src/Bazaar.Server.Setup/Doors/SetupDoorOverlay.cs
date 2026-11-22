@@ -123,7 +123,7 @@ public static class SetupDoorOverlay
     /// <summary>Resolves one key and writes its value. <paramref name="seen"/> catches two environment names for one key.</summary>
     private static void ApplyOne(JsonObject root, IReadOnlyList<string> segments, string text, List<SetupValidationIssue> issues, HashSet<string>? seen)
     {
-        var (target, issue) = SetupKeyResolver.Resolve(segments, SettingRegistry.Known);
+        var (target, issue) = SetupKeyResolver.Resolve(segments, BuiltInSettingRegistries.Known);
         if (issue is not null || target is null)
         {
             issues.Add(issue ?? new SetupValidationIssue(SetupIssueSeverity.Error, string.Join('.', segments), "is not a known setup key."));

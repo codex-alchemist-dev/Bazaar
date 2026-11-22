@@ -51,7 +51,7 @@ public sealed class TemplateResolver
     {
         ArgumentNullException.ThrowIfNull(catalog);
         _catalog = catalog;
-        _registry = registry ?? SettingRegistry.Known;
+        _registry = registry ?? BuiltInSettingRegistries.Known;
     }
 
     /// <summary>
