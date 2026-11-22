@@ -1,3 +1,5 @@
+using Bazaar.Server.Setup;
+
 namespace Bazaar.Admin;
 
 /// <summary>
@@ -6,14 +8,14 @@ namespace Bazaar.Admin;
 /// </summary>
 internal static class AdminTextRenderer
 {
-    public static void Write(AdminReport report, TextWriter writer)
+    public static void Write(SetupReport report, TextWriter writer)
     {
         ArgumentNullException.ThrowIfNull(report);
         ArgumentNullException.ThrowIfNull(writer);
 
         writer.WriteLine($"Command: {CommandText(report.Command)}");
         writer.WriteLine($"Result: {ResultText(report.Result)} (exit {report.ExitCode})");
-        if (report.CurrentState == SetupCommands.EmptyState)
+        if (report.CurrentState == SetupOrchestrator.EmptyState)
         {
             writer.WriteLine("Current state: empty install. No state reader is built yet, so every planned value is compared with nothing.");
         }
@@ -22,17 +24,17 @@ internal static class AdminTextRenderer
             ? "Plan hash: not computed, because the file has errors."
             : $"Plan hash: {report.PlanHash}");
 
-        if (report.Outcome == SetupCommands.ApplyUnavailableOutcome)
+        if (report.Outcome == SetupOrchestrator.ApplyUnavailableOutcome)
         {
             // The gate's reason is one plain line, not a key-and-rule issue.
-            writer.WriteLine(SetupCommands.ApplyUnavailableMessage);
+            writer.WriteLine(SetupOrchestrator.ApplyUnavailableMessage);
         }
         else if (report.Issues.Count == 0)
         {
             writer.WriteLine("Issues: none.");
         }
 
-        if (report.Outcome != SetupCommands.ApplyUnavailableOutcome)
+        if (report.Outcome != SetupOrchestrator.ApplyUnavailableOutcome)
         {
             foreach (var issue in report.Issues)
             {
@@ -52,7 +54,7 @@ internal static class AdminTextRenderer
             writer.WriteLine("Writes: none.");
         }
 
-        if (report.Command == "apply" && report.Outcome != SetupCommands.ApplyUnavailableOutcome)
+        if (report.Command == "apply" && report.Outcome != SetupOrchestrator.ApplyUnavailableOutcome)
         {
             writer.WriteLine(report.AppliedSteps.Count == 0
                 ? "Applied steps: none."
@@ -131,7 +133,7 @@ internal static class AdminTextRenderer
         _ => "invalid input",
     };
 
-    private static string ChangeLine(AdminChange change) => change.Kind switch
+    private static string ChangeLine(SetupReportChange change) => change.Kind switch
     {
         "create" => $"Create {change.Path} = {change.Planned}",
         "update" => $"Update {change.Path}: from {change.Current} to {change.Planned}",
