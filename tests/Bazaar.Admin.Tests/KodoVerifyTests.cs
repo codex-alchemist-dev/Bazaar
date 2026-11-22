@@ -11,7 +11,7 @@ public sealed class KodoVerifyTests
 
     private static readonly string[] _pureCheckIds =
     [
-        "network.statusBind", "backups.target", "owner.secondFactor", "secrets.syntax", "audit.anchorTarget",
+        "network.statusBind", "backups.target", "owner.secondFactor", "secrets.syntax", "audit.anchorTarget", "identity.kekCustody",
     ];
 
     [Fact]

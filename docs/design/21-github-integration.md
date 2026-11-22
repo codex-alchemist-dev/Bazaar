@@ -74,6 +74,8 @@ A non-member's text reaches an agent only as a reader-session summary (15). A wo
 
 **Git operations [DECIDED 2026-10-25, round 3].** Worktrees sit on the host under the agent's mount (16). Every git operation goes through `IGitProvider` behind a per-repo lock. The engine is LibGit2Sharp unless S23 fails, in which case the git CLI is the implementation (18 defines the full interface). Pushes run host-side with a one-shot credential, so the token never reaches the VM. Commit author: the App's bot identity. Committer: the host service. Trailers: `Co-Authored-By` (model), `Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`. Agents never add `Signed-off-by`.
 
+**Agent tools [PROPOSED].** An agent woken by a GitHub event (PR GC mention, review request, failed check) gets two tools from `Bazaar.GitHub`, both `IContextualTool`s that take the agent from the dispatcher's `ToolCallContext`, never from arguments. `github.pr_read` (read tier, Autonomous) takes `owner`, `repo`, `number` and returns the changed files with patches, the head sha and the checks state. `github.pr_review` (Post class, AutonomousWithNotice, actor sessions) takes `owner`, `repo`, `number`, `headSha`, `event` and `body`, and posts a review under the calling agent's own App. `event` is `COMMENT` or `REQUEST_CHANGES` only; `APPROVE` is refused, matching `pr.review` above (reviewer approval is data for the owner, not merge authority; an agent approval stays unavailable until a doc 21 reviewer rule allows it). A head sha that has moved is reported as stale and nothing is posted. The installation comes from the `github_app` row for the calling agent (status `active`); no row, or a repository the installation cannot see, is refused. No merge tool exists: merge stays owner-signed. Opening a draft PR is not offered here: it is the coding harness's `git_push_draft_pr` (doc 17), so there is one draft-PR path. Review bodies are agent text (soft taint). Each call counts against the tool's per-agent rate rule; counting against `github.writes_per_hour` per installation is not implemented yet and stays PROPOSED. Without a configured token provider every call returns a clear refusal and sends nothing.
+
 **Branch protection [PROPOSED].** On owner-controlled repos: the default branch requires a PR, one human approval and passing checks; no force-push or direct push. Agent Apps are on no bypass list. `agent/*` branches accept pushes; force-push only with lease.
 
 **Rate limits [PROPOSED].**
@@ -168,8 +170,11 @@ Registry owned by doc 03. Changes are audited. Surfaced in the setup wizard and 
 | `github.reviewer_family_rule` | enum: `require_different`, `flag_only` | `require_different` | install | operator (owner) | Yes, owner |
 | `github.pr_gc_archive_days` | int | 7 | install | operator (owner) | Yes, owner |
 | `github.signoff_event` | bool | true | install | operator (owner) | Yes, owner |
+| `github.api_base_address` (config `Bazaar:GitHub:Adapter:BaseAddress`) | https URI | `https://api.github.com/` [PROPOSED] | install | operator (owner) | Yes, owner |
 | `github.uninstalled_repo_issues` | enum: `off`, `per_issue_approval` | `off` (needs counsel) | install | operator (owner) | Yes, owner |
 | `github.community_repo_allowlist` | list of repo node ids | empty (needs counsel) | install | operator (owner) | Yes, owner |
+
+`github.api_base_address` points the adapter at GitHub Enterprise Server (its own `/api/v3` root) or at a test double. It must be https, because the installation token travels in every request; the adapter refuses anything else, so the setting cannot loosen that floor. The branch push origin check (doc 52: https and an allowed GitHub host) has no setting; a test harness that needs another origin does so in code, never through configuration.
 
 `github.uninstalled_repo_issues` has no effect unless live test T1 passes. Its options are documented for counsel: `off` posts nothing to uninstalled repos; `per_issue_approval` lets an owner approve each issue.
 
