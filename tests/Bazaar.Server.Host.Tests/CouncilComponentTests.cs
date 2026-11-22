@@ -10,9 +10,12 @@ using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.CouncilAdapters;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
+using System.Text.Json;
 
 namespace Bazaar.Server.Host.Tests;
 
@@ -53,7 +56,7 @@ public sealed class CouncilComponentTests
 
         var source = HostMigrations.Source();
         Assert.Contains("council", source.Namespaces());
-        Assert.Equal([1, 2, 3], source.Load("council").Select(f => f.Version).ToList());
+        Assert.Equal([1, 2, 3, 4], source.Load("council").Select(f => f.Version).ToList());
     }
 
     [Fact]
@@ -74,6 +77,8 @@ public sealed class CouncilComponentTests
                 ["Bazaar:DevAuth:TokenSecret"] = "env:" + tokenEnv,
             });
             builder.Services.AddBazaarHostApplication(builder.Configuration);
+            // The options provider reads council.* when the service is first resolved; the graph test has no database, so it reads defaults.
+            builder.Services.Replace(ServiceDescriptor.Singleton<ISettingStore>(new DefaultsSettingStore()));
             using var host = builder.Build();
 
             Assert.IsType<CouncilService>(host.Services.GetRequiredService<ICouncilService>());
@@ -164,5 +169,16 @@ public sealed class CouncilComponentTests
             await cipher.OpenAsync(voter, new ReasoningCiphertext(Guid.NewGuid(), new byte[4], new byte[12]), CancellationToken.None));
         await Assert.ThrowsAsync<CryptographicException>(async () =>
             await cipher.OpenAsync(voter, new ReasoningCiphertext(Guid.NewGuid(), new byte[32], new byte[3]), CancellationToken.None));
+    }
+
+    private sealed class DefaultsSettingStore : ISettingStore
+    {
+        public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) => Task.FromResult(key.Default);
+
+        public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<SettingWriteResult> SetJsonAsync(string key, JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 }

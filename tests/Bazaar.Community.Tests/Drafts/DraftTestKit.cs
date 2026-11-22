@@ -37,6 +37,24 @@ internal sealed class FakeDraftStore : ICommunityDraftStore
         return Task.FromResult(true);
     }
 
+    public Task<bool> TryAddAsync(CommunityDraft draft, CancellationToken ct = default)
+    {
+        if (_drafts.ContainsKey(draft.DraftId)) return Task.FromResult(false);
+        _drafts[draft.DraftId] = draft;
+        return Task.FromResult(true);
+    }
+
+    public Task<IReadOnlyList<CommunityDraft>> ListPendingAsync(DateTimeOffset openAt, int limit, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<CommunityDraft>>(
+            [.. _drafts.Values.Where(d => d.Status == CommunityDraftStatus.Pending && d.ApprovalExpiresAt > openAt).Reverse().Take(limit)]);
+
+    public Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default)
+    {
+        var due = _drafts.Values.Where(d => d.Status == CommunityDraftStatus.Pending && d.ApprovalExpiresAt <= now).ToList();
+        foreach (var d in due) _drafts[d.DraftId] = d with { Status = CommunityDraftStatus.Expired };
+        return Task.FromResult<IReadOnlyList<Guid>>([.. due.Select(d => d.DraftId)]);
+    }
+
     public Task<bool> TrySupersedeAsync(Guid originalId, CommunityDraft replacement, CancellationToken ct = default)
     {
         if (!_drafts.TryGetValue(originalId, out var current) || current.Status != CommunityDraftStatus.Pending) return Task.FromResult(false);

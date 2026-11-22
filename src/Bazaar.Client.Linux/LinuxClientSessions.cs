@@ -78,15 +78,21 @@ internal static class LinuxClientSessions
             if (name != ChatConnectionSettings.TokenVariable || !string.IsNullOrWhiteSpace(value)) return value;
             if (string.IsNullOrWhiteSpace(env(ChatConnectionSettings.ServerVariable)) || string.IsNullOrWhiteSpace(env(ChatConnectionSettings.GcVariable))) return value;
 
-            return Task.Run(async () =>
-            {
-                var sessions = store();
-                var session = await sessions.LoadAsync().ConfigureAwait(false);
-                if (session is null) return value;
-                if (session.AccessTokenExpiresAt > time.GetUtcNow().AddSeconds(30)) return session.AccessToken;
-                return await refresh(sessions).ConfigureAwait(false) ? (await sessions.LoadAsync().ConfigureAwait(false))?.AccessToken : value;
-            }).GetAwaiter().GetResult();
+            return LoadStoredToken(store(), time, refresh) ?? value;
         };
+
+    /// <summary>The saved access token, refreshed first when it has expired. Null when there is no session or the refresh failed.</summary>
+    internal static string? LoadStoredToken(ISessionStore sessions, TimeProvider time, Func<ISessionStore, Task<bool>> refresh) =>
+        Task.Run(async () =>
+        {
+            var session = await sessions.LoadAsync().ConfigureAwait(false);
+            if (session is null) return null;
+            if (session.AccessTokenExpiresAt > time.GetUtcNow().AddSeconds(30)) return session.AccessToken;
+            return await refresh(sessions).ConfigureAwait(false) ? (await sessions.LoadAsync().ConfigureAwait(false))?.AccessToken : null;
+        }).GetAwaiter().GetResult();
+
+    /// <summary>Refreshes the saved session against the current server. False when it could not be refreshed.</summary>
+    internal static Task<bool> RefreshStore(ISessionStore store) => RefreshAsync(store);
 
     private static async Task<bool> RefreshAsync(ISessionStore store)
     {

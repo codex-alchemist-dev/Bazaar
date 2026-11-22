@@ -33,4 +33,42 @@ public sealed class CouncilGcEventsAdapter(IGcLogWriter writer) : ICouncilGcEven
         };
         await writer.AppendAsync(request, ct).ConfigureAwait(false);
     }
+
+    /// <inheritdoc />
+    public async Task AppendSealedAsync(
+        Guid gcId,
+        string kind,
+        string payloadJson,
+        ReadOnlyMemory<byte> sealedBlob,
+        Guid keyId,
+        string idempotencyKey,
+        CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(kind);
+        ArgumentException.ThrowIfNullOrWhiteSpace(payloadJson);
+        ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
+        if (sealedBlob.IsEmpty)
+        {
+            throw new ArgumentException("The sealed payload is empty.", nameof(sealedBlob));
+        }
+
+        if (keyId == Guid.Empty)
+        {
+            throw new ArgumentException("A sealed payload needs a key id.", nameof(keyId));
+        }
+
+        if (idempotencyKey.Length > AppendRequest.MaxClientMsgIdLength)
+        {
+            throw new ArgumentException(
+                $"The idempotency key is longer than the {AppendRequest.MaxClientMsgIdLength} characters a GC client message id allows.",
+                nameof(idempotencyKey));
+        }
+
+        var request = new AppendRequest(gcId, kind, AuthorKind.System, SystemAuthorId, SourceTrust.System, idempotencyKey)
+        {
+            PayloadJson = payloadJson,
+            Sealed = new SealedPayload(sealedBlob, keyId),
+        };
+        await writer.AppendAsync(request, ct).ConfigureAwait(false);
+    }
 }

@@ -1,7 +1,7 @@
 Golden frame: WireGcMessage
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:6c269329e3289cbd843f72d8e6e130d00f299654e7c93ea4a4c9d36c1f9d3e0e
+Schema hash: sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740
 Payload record: Bazaar.Contracts.Wire.WireGcMessage
 Envelope: v=1 t=gc.message k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 546 bytes

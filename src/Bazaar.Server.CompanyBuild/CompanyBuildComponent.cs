@@ -1,9 +1,9 @@
 using Bazaar.Core;
-using Microsoft.Extensions.Configuration;
 using Bazaar.Server.CompanyBuild.Abstractions;
 using Bazaar.Server.CompanyBuild.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

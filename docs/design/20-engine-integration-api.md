@@ -80,7 +80,7 @@ Bazaar never generates or ships engine-side code in v1. GDScript, C# and Luau ap
 - `engine_projects(id, adapter_id, root_path, engine_version, build_variant, gui_host_id)`
 - `engine_grants(agent_id, adapter_id, tool_name, risk_class, granted_by, granted_at)`; default deny for `write` and `exec`. Each grant is issued as an approval row in doc 15's `approval` table (one approval table, C16). Studio relay requests carry the grant reference (GrantId) and the server checks it before relaying.
 - **Relay request channel [PROPOSED, 2026-11-18, coordinator brief].** The server reaches the Studio bridge over the wire without a new envelope kind (doc 02, stream registry row `engine.relay`): it publishes a `engine.relay.request` event to the owner's Windows desktop device and the client answers with an `engine.relay.result` request. `EngineRelayBroker` (`Bazaar.Server.EngineDispatch`) runs `EngineToolDispatcher.AuthorizeAsync` first, publishes only an allowed call, and awaits the answer; a result counts only from the target device and only once, and no connected target fails the call `Unavailable` immediately. The client loop is `StudioRelayWireClient` in `Bazaar.Client.Studio`. `engine.relay.timeout_seconds` (below) bounds the wait.
-- **Audit:** every `write` and `exec` call is written to doc 15's `audit_log` and recorded as a message in the requesting agent's GC (doc 01). Events are not a substitute for the GC record.
+- **Audit:** every `write` and `exec` call is written to doc 15's `audit_log` and recorded as a message in the requesting agent's GC (doc 01). Events are not a substitute for the GC record. **Which GC [PROPOSED, 2026-11-22]:** the group chat the agent is working in. The dispatch request and the call record carry an optional `GcId`; the recorder (`GcEngineCallRecorder`, module `Bazaar.Server.EngineGcRecorder`) appends one `system` event there with ids, names, the risk class, the decision and the argument hash, never arguments or results. A call with no `GcId` cannot be recorded, so the dispatcher denies it (`RecorderFailure`). **Agent tool [PROPOSED, 2026-11-22]:** agents reach the relay through one tool, `engine.call` (module `Bazaar.Server.EngineTool`), whose caller and GC come from the turn, not from the model's arguments.
 - **Adapter messages:** JSON-RPC envelopes with `{project_id, command_id, seq}`. `seq` numbers the adapter's own stream per project; GC sequence numbers belong to doc 04 and are not used here.
 
 ### Settings [PROPOSED]
@@ -97,6 +97,9 @@ Registered in doc 03's settings registry (typed key, default, scope, who may cha
 | `engine.command.timeout_minutes` | int, 1 to 120 | `15` | project | owner | no; 120 is doc 16's hard maximum |
 | `engine.exec.http_allowlist` | list of host names | empty (deny all) | project | owner | yes |
 | `engine.relay.timeout_seconds` [PROPOSED, 2026-11-18] | int, 1 to 600 | `60` | install | owner | no |
+| `engine.studio.mcp_path` [PROPOSED, 2026-11-22] | file path or `auto` | `auto` | device (owner's Windows desktop) | owner | no |
+
+`engine.studio.mcp_path` names the Studio MCP server executable the Windows head starts. `auto` looks for a verified install location; none is verified yet, so with `auto` and nothing found the bridge stays off and the head says so. A set path that does not exist also leaves the bridge off. Until the settings registry reaches the client, the head reads it from `BAZAAR_STUDIO_MCP_PATH`.
 
 ## Behaviour and edge cases
 - **Adapter crash or hang:** the server kills the child after `engine.command.timeout_minutes`, marks the session `failed`, and reports the last output. Commands are idempotent or carry a `command_id` so retries are safe. Timeout values follow doc 15's quota table and doc 16's exec limits.

@@ -1,15 +1,17 @@
+using System.Globalization;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Server.Twin.Prose;
 
 namespace Bazaar.Server.Twin;
 
 /// <summary>
-/// Renders a validated page as Vault Markdown (doc 25 Digital Twin). Pure and deterministic: the same page gives the same
+/// Renders a validated draft (the Twin.Prose validator's output) as Vault Markdown (doc 25 Digital Twin). Pure and deterministic: the same page gives the same
 /// bytes, with no clock and no random id. Front matter lists the cited source refs (sorted) and the dropped-sentence count;
 /// each sentence is one paragraph followed by an HTML comment naming its source.
 /// </summary>
-public static class TwinPageRenderer
+public sealed class TwinPageRenderer : ITwinPageRenderer
 {
     public const string TwinType = "twin";
 
@@ -23,28 +25,53 @@ public static class TwinPageRenderer
         return new Guid(hash.AsSpan(0, 16));
     }
 
-    public static string Render(ValidatedTwinPage page)
+    /// <summary>Renders the accepted sentences of a validated draft as one page. The same input gives the same bytes.</summary>
+    public static string Render(string project, string page, string title, ValidatedProse prose) =>
+        RenderPage(project, page, title, prose, null);
+
+    /// <summary>
+    /// Renders the page for the prose step (<see cref="TwinProseOptions.Renderer"/>): the same page, with the version, trust, generation
+    /// time and predecessor in the front matter. The generation time is the step's clock, so the same input still gives the same bytes.
+    /// </summary>
+    string ITwinPageRenderer.Render(TwinPageRenderInput input)
     {
-        ArgumentNullException.ThrowIfNull(page);
-        TwinPaths.ValidateTitle(page.Title);
+        ArgumentNullException.ThrowIfNull(input);
+        return RenderPage(input.Project, input.Page, input.Title, input.Prose, input);
+    }
+
+    private static string RenderPage(string project, string page, string title, ValidatedProse prose, TwinPageRenderInput? run)
+    {
+        ArgumentNullException.ThrowIfNull(prose);
+        TwinPaths.ValidateTitle(title);
 
         var builder = new StringBuilder();
         builder.Append("---\n");
-        builder.Append("id: ").Append(ToUlid(DocId(page.Project, page.Page))).Append('\n');
+        builder.Append("id: ").Append(ToUlid(DocId(project, page))).Append('\n');
         builder.Append("type: ").Append(TwinType).Append('\n');
-        builder.Append("title: ").Append(page.Title).Append('\n');
-        builder.Append("project: ").Append(page.Project).Append('\n');
-        builder.Append("page: ").Append(page.Page).Append('\n');
-        builder.Append("dropped_sentences: ").Append(page.DroppedCount).Append('\n');
+        builder.Append("title: ").Append(title).Append('\n');
+        builder.Append("project: ").Append(project).Append('\n');
+        builder.Append("page: ").Append(page).Append('\n');
+        if (run is not null)
+        {
+            builder.Append("version: ").Append(run.Version.ToString(CultureInfo.InvariantCulture)).Append('\n');
+            builder.Append("trust: ").Append(prose.Trust).Append('\n');
+            builder.Append("generated_at: ").Append(run.GeneratedAt.ToString("O", CultureInfo.InvariantCulture)).Append('\n');
+            if (run.Previous is not null)
+            {
+                builder.Append("predecessor: ").Append(run.Previous.Path).Append('@').Append(run.Previous.Version.ToString(CultureInfo.InvariantCulture)).Append('\n');
+            }
+        }
+
+        builder.Append("dropped_sentences: ").Append(prose.Dropped).Append('\n');
         builder.Append("source_refs:\n");
-        foreach (var reference in page.Sentences.Select(s => s.SourceRef!).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
+        foreach (var reference in prose.Sentences.Select(s => s.SourceRef).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal))
         {
             builder.Append("  - ").Append(reference).Append('\n');
         }
 
         builder.Append("---\n\n");
-        builder.Append("# ").Append(page.Title).Append("\n\n");
-        foreach (var sentence in page.Sentences)
+        builder.Append("# ").Append(title).Append("\n\n");
+        foreach (var sentence in prose.Sentences)
         {
             builder.Append(sentence.Text).Append(" <!-- source: ").Append(sentence.SourceRef).Append(" -->\n\n");
         }

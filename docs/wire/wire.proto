@@ -107,6 +107,12 @@ enum PrincipalKind {
   PRINCIPAL_KIND_AGENT = 2; // agent
 }
 
+enum RiskClass {
+  RISK_CLASS_READ = 0; // read
+  RISK_CLASS_WRITE = 1; // write
+  RISK_CLASS_EXEC = 2; // exec
+}
+
 enum ZoomTier {
   ZOOM_TIER_FAR = 0; // far
   ZOOM_TIER_MID = 1; // mid
@@ -119,6 +125,16 @@ message ClusterGlyph {
   float x = 3;
   float y = 4;
   float z = 5;
+}
+
+message EngineGrantVerifyReply {
+  bool covers = 1;
+}
+
+message EngineGrantVerifyRequest {
+  string grant_id = 1;
+  string tool = 2;
+  RiskClass risk_class = 3;
 }
 
 message EngineRelayCallFrame {
@@ -160,6 +176,26 @@ message GcHistory {
   bytes gc_id = 1;
   int64 before = 2;
   int32 limit = 3;
+}
+
+message GcListItem {
+  bytes gc_id = 1;
+  string title = 2;
+  string kind = 3;
+  int32 member_count = 4;
+  int64 head_seq = 5;
+  Instant last_activity_ts = 6;
+}
+
+message GcListReply {
+  repeated GcListItem items = 1;
+  bool has_more = 2;
+  optional bytes default_gc_id = 3;
+}
+
+message GcListRequest {
+  int32 limit = 1;
+  bool include_thinking = 2;
 }
 
 message GcMemberAdd {
