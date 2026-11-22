@@ -27,6 +27,8 @@ public sealed class CompanyBuildComponent : IBazaarComponent
         // The composer and runner are stateless statics. Only the operator settings are registered.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, CompanyBuildSettingContribution>());
 
+        CompanyBuildHostOptions.Register(services, configuration);
+
         // The setup verifier collects ISetupVerificationCheck services as replacements for its placeholders. This is the server.identity
         // check. It needs the company's output folder and the server's identity, which the host supplies; without them it reports
         // not evaluated, never green.
