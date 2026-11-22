@@ -1,5 +1,6 @@
 using System.Net.WebSockets;
 using Bazaar.Contracts.Wire.Codec;
+using Bazaar.Server.SchemaIdentity;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,7 @@ public sealed class WireConnectionManager
     private readonly TimeProvider _time;
     private readonly ILoggerFactory _logs;
     private readonly SubscriptionEngine? _subscriptions;
+    private readonly ISchemaIdentityProvider? _schemaIdentity;
 
     /// <summary>
     /// Creates the manager. Handlers are keyed by type; two handlers for one type are a startup error. With a
@@ -32,8 +34,10 @@ public sealed class WireConnectionManager
         IEnumerable<IWireRequestHandler> handlers,
         TimeProvider time,
         ILoggerFactory logs,
-        SubscriptionEngine? subscriptions = null)
+        SubscriptionEngine? subscriptions = null,
+        ISchemaIdentityProvider? schemaIdentity = null)
     {
+        _schemaIdentity = schemaIdentity;
         _subscriptions = subscriptions;
         _options = options;
         _codecs = codecs.ToArray();
@@ -60,7 +64,7 @@ public sealed class WireConnectionManager
     {
         using var connection = new WireConnection(
             socket, headerCredential, _options.Value, _codecs, _authenticator, _registry, _idempotency, _handlers,
-            _time, _logs.CreateLogger<WireConnection>(), _subscriptions);
+            _time, _logs.CreateLogger<WireConnection>(), _subscriptions, _schemaIdentity);
         await connection.RunAsync(cancellationToken).ConfigureAwait(false);
     }
 }
