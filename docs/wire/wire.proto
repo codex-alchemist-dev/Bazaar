@@ -188,6 +188,18 @@ message Hello {
   StreamCursorList cursors = 9;
 }
 
+message HiveGrantChangeReply {
+  bool accepted = 1;
+  optional string reason = 2;
+  bool approval_required = 3;
+}
+
+message HiveGrantChangeRequest {
+  string from_project = 1;
+  string to_project = 2;
+  string kind = 3;
+}
+
 message KanbanBoardCard {
   bytes id = 1;
   string title = 2;

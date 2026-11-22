@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12.
+; Schema hash sha256:16bb01b112bd90c59dad18ada3f9f0a66fc9ef3c519b0df77bfcdc6bcfd23e53.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -30,6 +30,8 @@ float32-array = #6.85(bstr)
 ; gc.send = gc-send
 ; graph.lod = graph-lod-frame
 ; hello = hello
+; hive.grant.revoke = hive-grant-change-request
+; hive.grant.set = hive-grant-change-request
 ; lagged = lagged
 ; pane.frame = pane-frame
 ; ping = ping
@@ -43,7 +45,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
@@ -145,6 +147,18 @@ viewport-request = {
   * tstr => any
 }
 zoom-tier = "far" / "mid" / "near"
+hive-grant-change-reply = {
+  accepted: bool,  ; 1
+  ? reason: tstr,  ; 2
+  approvalRequired: bool,  ; 3
+  * tstr => any
+}
+hive-grant-change-request = {
+  fromProject: tstr,  ; 1
+  toProject: tstr,  ; 2
+  kind: tstr,  ; 3
+  * tstr => any
+}
 kanban-board-card = {
   id: uuid-text,  ; 1
   title: tstr,  ; 2

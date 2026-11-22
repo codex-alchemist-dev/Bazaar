@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Wire;
 using Bazaar.Core;
 using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.Hive.Settings;
@@ -6,6 +7,7 @@ using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -83,6 +85,8 @@ public sealed class HiveComponent : IBazaarComponent
             sp.GetRequiredService<IHiveKindSource>()));
         services.TryAddSingleton<IHiveGrantApprovals, DenyAllHiveGrantApprovals>();
         services.TryAddSingleton<IHiveGrantWireHandler>(sp => new HiveGrantWireHandler(sp.GetRequiredService<IHiveGrantApprovals>()));
+        services.AddSingleton<IWireRequestHandler>(sp => new HiveGrantWireRequestHandler(WireTypes.HiveGrantSet, sp.GetRequiredService<IHiveGrantWireHandler>()));
+        services.AddSingleton<IWireRequestHandler>(sp => new HiveGrantWireRequestHandler(WireTypes.HiveGrantRevoke, sp.GetRequiredService<IHiveGrantWireHandler>()));
         services.TryAddSingleton(sp => new HiveGrantApplier(
             sp.GetRequiredService<IHiveGrantStore>(),
             sp.GetRequiredService<HiveCopyService>()));
