@@ -1,3 +1,4 @@
+using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -38,7 +39,10 @@ public static class EgressEnforcersModule
         services.TryAddSingleton<IRootCommandRunner>(sp => new NftRootCommandRunner(sp.GetRequiredService<IHostCommandRunner>()));
         services.Replace(ServiceDescriptor.Singleton<IEgressEnforcer>(sp =>
         {
-            var resolver = sp.GetService<IEgressTargetResolver>();
+            // An explicit resolver wins. Otherwise the VM store port, when the host composed one (the transport module's default knows no VMs,
+            // so it fails closed), gives the resolver. Neither: the enforcer stays unavailable.
+            var resolver = sp.GetService<IEgressTargetResolver>()
+                ?? (sp.GetService<IAgentVmLookup>() is { } lookup ? new LookupEgressTargetResolver(lookup) : null);
             if (resolver is null)
             {
                 return new UnavailableEgressEnforcer();
