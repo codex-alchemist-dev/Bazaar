@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:appr="using:Bazaar.Client.Approvals.Avalonia"
              xmlns:ph="using:Bazaar.Client.Approvals.Phone"
+             xmlns:tp="using:Bazaar.Client.TalentPool.Avalonia"
              x:Class="Bazaar.Client.Approvals.Phone.ApprovalsPaneView"
              x:DataType="ph:ApprovalsPaneViewModel">
   <Grid RowDefinitions="Auto,*">
@@ -10,6 +11,16 @@
       <TextBlock Name="PaneNotice" Text="{Binding Notice}" IsVisible="{Binding HasNotice}" TextWrapping="Wrap" />
     </StackPanel>
     <ScrollViewer Grid.Row="1" IsVisible="{Binding ShowList}">
+      <StackPanel>
+      <ItemsControl Name="ToolGrantList" ItemsSource="{Binding ToolGrants}" Margin="16,0">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="tp:ToolGrantCardViewModel">
+            <Border BorderThickness="1" BorderBrush="Orange" CornerRadius="12" Margin="0,6">
+              <tp:ToolGrantCardView />
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
       <ItemsControl Name="ApprovalList" ItemsSource="{Binding Items}" Margin="16,0">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="ph:ApprovalListItemViewModel">
@@ -32,6 +43,7 @@
           </DataTemplate>
         </ItemsControl.ItemTemplate>
       </ItemsControl>
+      </StackPanel>
     </ScrollViewer>
     <Panel Grid.Row="1" IsVisible="{Binding HasDetail}">
       <appr:ApprovalCardView Name="DetailCard" DataContext="{Binding Detail}" />
