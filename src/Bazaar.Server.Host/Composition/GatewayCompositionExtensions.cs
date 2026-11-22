@@ -79,6 +79,8 @@ public static class GatewayCompositionExtensions
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
+        services.TryAddSingleton<ICatalogueSchedule>(sp =>
+            sp.GetService<ISettingStore>() is { } store ? new SettingCatalogueSchedule(store) : new NoCatalogueSchedule());
         services.TryAddSingleton<HealthTracker>(sp =>
             new HealthTracker(sp.GetRequiredService<BreakerOptions>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<UsageRecorder>();
