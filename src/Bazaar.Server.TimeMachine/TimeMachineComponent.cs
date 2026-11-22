@@ -52,6 +52,7 @@ public static class TimeMachineRegistration
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
             sp.GetService<IReplayMarkerSource>()));
+        services.TryAddSingleton<IReplayMarkerSource, PostgresReplayMarkerSource>();
         services.TryAddSingleton<IForkService>(sp => new ForkService(
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),
