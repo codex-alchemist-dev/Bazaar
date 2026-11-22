@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Schema hash sha256:e68c27b75f4dd8542c8ecf454f35c5973c0a212158cbb561be9b80988a556dcf.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -21,6 +21,8 @@ float32-array = #6.85(bstr)
 
 ; Message types and the payload rule each carries.
 ; board.snapshot = kanban-board-request
+; engine.relay.request = engine-relay-request-frame
+; engine.relay.result = engine-relay-result-frame
 ; gc.edit = gc-edit
 ; gc.history = gc-history
 ; gc.member.add = gc-member-add
@@ -42,8 +44,32 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = engine-relay-request-frame / engine-relay-result-frame / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
+engine-relay-call-frame = {
+  grantId: tstr,  ; 1
+  studioId: tstr,  ; 2
+  tool: tstr,  ; 3
+  argsJson: tstr,  ; 4
+  * tstr => any
+}
+engine-relay-call-result-frame = {
+  grantId: tstr,  ; 1
+  ok: bool,  ; 2
+  payloadJson: tstr,  ; 3
+  * tstr => any
+}
+engine-relay-request-frame = {
+  relayId: uuid-text,  ; 1
+  deadline: #6.0(tstr),  ; 2
+  call: engine-relay-call-frame,  ; 3
+  * tstr => any
+}
+engine-relay-result-frame = {
+  relayId: uuid-text,  ; 1
+  result: engine-relay-call-result-frame,  ; 2
+  * tstr => any
+}
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
   clusterId: tstr,  ; 1

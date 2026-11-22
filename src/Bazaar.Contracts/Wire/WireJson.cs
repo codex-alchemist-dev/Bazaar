@@ -50,6 +50,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GitSolarFeed))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayRequestFrame))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayResultFrame))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
 [JsonSerializable(typeof(KanbanMoveReply))]
 [JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
