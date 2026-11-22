@@ -22,6 +22,9 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.SealedGit;
+using Bazaar.Server.SealedStorage;
+using Bazaar.Server.SealedVault;
 using Bazaar.Server.Vault;
 
 namespace Bazaar.Server.Host.Composition;
@@ -49,6 +52,11 @@ public static class HostComponents
         new BackupComponent(),
         new VaultComponent(),
         new MemoryComponent(),
+        // Sealed storage (doc 61). The kernel orders them: sealed-storage, then sealed-git, then sealed-vault (after memory). sealed-vault
+        // changes nothing unless Bazaar:SealedVault:Enabled is true.
+        new SealedStorageComponent(),
+        new SealedGitComponent(),
+        new SealedVaultComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
