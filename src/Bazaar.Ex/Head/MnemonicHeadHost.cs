@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Bazaar.Client.Input;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Ex.Head;
 
@@ -18,10 +19,12 @@ public sealed class MnemonicHeadHost : IDisposable
     private readonly Action<Control> _show;
     private readonly Action<Control> _hide;
     private readonly bool _actorIsOwner;
+    private readonly IReadOnlyList<MnemonicAssignment> _assignments;
     private MnemonicRemapScreen? _remap;
 
-    private MnemonicHeadHost(MnemonicRuntime runtime, MnemonicShell shell, Action<Control> show, Action<Control> hide, bool actorIsOwner)
+    private MnemonicHeadHost(MnemonicRuntime runtime, MnemonicShell shell, Action<Control> show, Action<Control> hide, bool actorIsOwner, IReadOnlyList<MnemonicAssignment> assignments)
     {
+        _assignments = assignments;
         _runtime = runtime;
         _shell = shell;
         _show = show;
@@ -47,6 +50,7 @@ public sealed class MnemonicHeadHost : IDisposable
         Action<Control> show,
         Action<Control> hide,
         bool actorIsOwner = false,
+        IEnumerable<ClientCommandContribution>? moduleCommands = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(top);
@@ -55,28 +59,29 @@ public sealed class MnemonicHeadHost : IDisposable
         ArgumentNullException.ThrowIfNull(show);
         ArgumentNullException.ThrowIfNull(hide);
 
+        var assignments = MnemonicHeadSetup.Combine(moduleCommands ?? []);
         var runtime = await MnemonicRuntime.CreateAsync(
-            NavigationDefaults.Assignments,
+            assignments,
             store,
             _paletteKeys,
             new MnemonicNoticeLog(_ => { }),
             actorIsOwner,
             ct: ct).ConfigureAwait(true);
         var shell = new MnemonicShell(top, runtime, announcer, view => show(view), view => hide(view));
-        return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner);
+        return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner, assignments);
     }
 
     /// <summary>
     /// Starts mnemonics on a head window. The person's overrides live in <paramref name="overridesPath"/>, and overlays open as
     /// child windows of <paramref name="window"/>. Heads call this once the window is opened.
     /// </summary>
-    public static Task<MnemonicHeadHost> AttachAsync(Window window, string overridesPath, CancellationToken ct = default)
+    public static Task<MnemonicHeadHost> AttachAsync(Window window, string overridesPath, IEnumerable<ClientCommandContribution>? moduleCommands = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
 
         var overlay = new MnemonicOverlay(window);
-        return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, ct: ct);
+        return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, moduleCommands: moduleCommands, ct: ct);
     }
 
     /// <summary>Opens the remap screen. Does nothing when it is already open.</summary>
@@ -87,7 +92,7 @@ public sealed class MnemonicHeadHost : IDisposable
             return;
         }
 
-        var screen = new MnemonicRemapScreen(NavigationDefaults.Assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
+        var screen = new MnemonicRemapScreen(_assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
         screen.DocumentChanged += (_, next) => _ = ApplyAsync(_runtime.Document, next, CancellationToken.None);
         screen.Closed += (_, _) => CloseRemap();
         _remap = screen;

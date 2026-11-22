@@ -146,6 +146,19 @@ public interface IGitProvider {   // C12: LibGit2Sharp decided unless S23 fails
 ```
 Search endpoint, on the authenticated surface of 02: `GET /vault/search?q=&project=&type=&limit=`.
 
+### Time travel and fork support [PROPOSED, requested by the Time Machine work, doc 26 WP5]
+Doc 26 section 4 needs two Vault calls: replay shows "the nearest Vault commit (18), which holds the memory then in effect", and `fork(gc, seq)` links a new project GC to a Vault branch (`fork_link.vault_commit`). The Vault only knows commit times; mapping a GC `seq` to a time stays on the GC side.
+
+```csharp
+public interface IVaultTimeTravel {
+    Task<string?> NearestCommitAtOrBeforeAsync(string repoPath, DateTimeOffset at, CancellationToken ct);
+    Task CreateBranchFromCommitAsync(string repoPath, string branch, string commitSha, CancellationToken ct);
+}
+```
+- `NearestCommitAtOrBeforeAsync` returns the SHA of the newest commit on the main line whose commit time is at or before `at`, or null when there is none (empty repository, or `at` precedes the first commit). The commit time is the committer time.
+- `CreateBranchFromCommitAsync` creates a branch ref at `commitSha`. It makes no worktree and no checkout, so the main checkout is untouched. It fails when the branch already exists, when the commit is not in the repository, or when the branch name is not a valid git branch name.
+- **Open point:** commits and history are personal-data candidates (doc 26, "Vault material" under erasure, and Q8 above). Replay and fork expose history as it was, so this stays open with the erasure answer.
+
 ### Settings [PROPOSED, doc 03 registry; DECISIONS-LOG round 13]
 Keys are typed and shown in the setup wizard and advanced settings (27, 32). Every change is written to `audit_log` (15). Settings may tighten security floors, never loosen them.
 

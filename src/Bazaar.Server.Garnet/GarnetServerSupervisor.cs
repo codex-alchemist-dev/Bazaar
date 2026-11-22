@@ -76,6 +76,24 @@ public sealed partial class GarnetServerSupervisor : BackgroundService, IValkeyC
     /// <inheritdoc />
     public int Restarts => _restarts;
 
+    /// <summary>
+    /// True when the data directory holds anything besides the pid file, so a new host run on the same directory recovers the append-only
+    /// file instead of starting empty. A missing or empty directory is a first start.
+    /// </summary>
+    private bool HasRecoverableData()
+    {
+        try
+        {
+            return Directory.Exists(_cache.DataDirectory)
+                && Directory.EnumerateFileSystemEntries(_cache.DataDirectory)
+                    .Any(entry => !string.Equals(Path.GetFileName(entry), GarnetPidFile.FileName, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
     /// <summary>The pid file path inside the runtime directory.</summary>
     internal string PidFilePath => Path.Combine(_cache.DataDirectory, GarnetPidFile.FileName);
 
@@ -183,7 +201,7 @@ public sealed partial class GarnetServerSupervisor : BackgroundService, IValkeyC
         {
             var port = _cache.ManagedPort == 0 ? FreeLoopbackPort() : _cache.ManagedPort;
             _connection.Prepare(port);
-            var spec = GarnetLaunchSpec.Build(_cache, port, _connection.PasswordForChild(), recover: _starts > 1);
+            var spec = GarnetLaunchSpec.Build(_cache, port, _connection.PasswordForChild(), recover: _starts > 1 || HasRecoverableData());
             child = await _launcher.StartAsync(spec, stoppingToken);
             WritePidFile(child.ProcessId);
 

@@ -32,6 +32,17 @@ public sealed class AgentRepository(
         return agentId;
     }
 
+    /// <summary>Returns the id of every agent. Used by the default policy grant repair (doc 45, section 1.15).</summary>
+    public async Task<IReadOnlyList<Guid>> ListIdsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT agent_id FROM agent");
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var ids = new List<Guid>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            ids.Add(reader.GetGuid(0));
+        return ids;
+    }
+
     public async Task<AgentRecord?> GetAsync(Guid agentId, CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand(
