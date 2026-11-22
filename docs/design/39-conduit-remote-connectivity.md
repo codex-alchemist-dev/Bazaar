@@ -185,7 +185,7 @@ Each module has unit tests against fakes; a shared contract suite runs against e
 ## Conflicts
 - 32 section 1 lists five options; this doc adds the catalogue. 32 remains the source for trust, pairing and sign-in. Wording in 32 that calls Cloudflare Tunnel "operator option only" is kept and repeated here.
 - 02 says "the socket is the only channel"; offer delivery (`conduit.offers`) is a frame on that socket, so the statement holds.
-- `p2p` and `relay` need a QUIC or WebSocket framing choice that 02 does not yet fix. The P2P data path stays unimplemented until 02 settles it.
+- `p2p` and `relay` need a QUIC or WebSocket framing choice that 02 does not yet fix. Doc 90 section 9 settles it (`quic` transport, length-prefixed frames on one bidirectional stream); the P2P data path follows the `quic` module.
 
 ## Questions for the owner
 1. DECIDED 2026-11-09 (owner via coordinator): `relay` is the default fallback for a device that is neither on the LAN nor on an overlay. It is open source and self-hostable, and it is enabled by the operator.
