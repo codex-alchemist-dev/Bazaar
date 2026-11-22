@@ -74,6 +74,17 @@ public interface IAgentPostSink
     Task PostAsync(Guid agentId, Guid turnId, string gcId, string text, CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// Names the GC a turn's final message goes to when the wake itself has no trigger GC (doc 06 "Turn loop" step 5). A wake that is
+/// not backed by a GC line, such as a card assignment, asks the components that own it. The first target that answers wins; a turn
+/// with a trigger GC never asks.
+/// </summary>
+public interface ITurnReplyTarget
+{
+    /// <summary>The GC to post the turn's final message in, or null when this target does not know the wake.</summary>
+    Task<Guid?> ResolveGcAsync(TurnRunRequest request, CancellationToken cancellationToken);
+}
+
 /// <summary>How a turn ended. Set once per turn.</summary>
 public enum TurnEndReason
 {

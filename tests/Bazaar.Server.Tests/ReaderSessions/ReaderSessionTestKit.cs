@@ -15,6 +15,9 @@ internal sealed class ScriptedGateway : IModelGateway
 
     public ConcurrentQueue<ModelRequest> Requests { get; } = new();
 
+    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException("Reader sessions never embed.");
+
     public static ScriptedGateway Replying(string text) => Events(
         new ModelEvent.TextDelta(text), new ModelEvent.Done(StopReason.EndTurn, "fake-model"));
 

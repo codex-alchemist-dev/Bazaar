@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Hand-over, taint and trust types still live in Bazaar.Server (Security.*); this reference moves with them. -->
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
   </ItemGroup>
 </Project>

@@ -3,7 +3,6 @@ using Bazaar.Contracts.Gateway;
 using Bazaar.Server.ReaderSessions;
 using Bazaar.Server.Security.Readers;
 using Bazaar.Server.Security.Taint;
-using Bazaar.Server.Tests.Security.Readers;
 
 namespace Bazaar.Server.Tests.ReaderSessions;
 

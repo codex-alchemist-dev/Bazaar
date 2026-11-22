@@ -4,6 +4,7 @@ using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Graph;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation.Tiles;
+using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
@@ -45,7 +46,28 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
+    /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
+    /// </summary>
+    public static async ValueTask<IResult?> GuardAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var passed = false;
+        var refused = await Guarded(http, (_, _) =>
+        {
+            passed = true;
+            return Task.FromResult(Results.Empty);
+        });
+        return passed ? null : refused;
+    }
+
+    /// <summary>
+    /// Guards one route of the authenticated HTTP surface: plaintext refusal, bearer authentication (401), the HTTP rate bucket
+    /// (429), then <paramref name="run"/> with the caller. Public so a module can map its own route with the same guard
+    /// (for example <c>POST /github/merge</c>, doc 21).
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
@@ -208,7 +230,7 @@ public static class HttpSurfaceEndpoints
         foreach (var hit in hits)
         {
             if (!long.TryParse(hit.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) continue;
-            if (grant.ThroughSeq is { } through && seq > through) continue;
+            if (!grant.Covers(seq)) continue;
             results.Add(new { gc = gcId, seq, score = hit.Score });
             if (results.Count == limit) break;
         }
@@ -218,8 +240,8 @@ public static class HttpSurfaceEndpoints
 
     /// <summary>
     /// <c>GET /vault/search?vault=&amp;q=&amp;project=&amp;type=&amp;limit=</c> returns one card per matching document. Access is
-    /// decided in SQL before ranking (doc 18, "Access"): the owner reads everything, an agent reads shared documents and its own
-    /// private memory, and anyone else reads shared documents only.
+    /// decided in SQL before ranking (doc 18, "Access"): the owner reads everything, an agent reads <c>company/</c>, <c>shared/</c>,
+    /// its own area and private memory, and the project areas of its projects, and anyone else reads nothing.
     /// </summary>
     private static async Task<IResult> SearchVaultAsync(HttpContext http, PrincipalRef principal)
     {
@@ -239,7 +261,7 @@ public static class HttpSurfaceEndpoints
         var search = services.GetService<Vault.Search.VaultSearchService>();
         if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
-        var caller = VaultCallerFor(principal);
+        var caller = VaultCallerFor(principal, services);
         var result = await search.SearchAsync(
             new Vault.Search.VaultSearchQuery(
                 vaultId,
@@ -282,19 +304,21 @@ public static class HttpSurfaceEndpoints
         var search = http.RequestServices.GetService<Vault.Search.VaultSearchService>();
         if (search is null) return Error(StatusCodes.Status503ServiceUnavailable, "unavailable");
 
-        var body = await search.FetchBodyAsync(vaultId, docId, ordinal, VaultCallerFor(principal), http.RequestAborted);
+        var body = await search.FetchBodyAsync(vaultId, docId, ordinal, VaultCallerFor(principal, http.RequestServices), http.RequestAborted);
         if (body is null) return Error(StatusCodes.Status404NotFound, "not_found");
         return Results.Json(new { body });
     }
 
     /// <summary>
-    /// Owner reads everything; an agent reads <c>company/</c>, <c>shared/</c>, its own area and its own private memory; anyone
-    /// else reads nothing (<see cref="Vault.Search.VaultAccess"/>).
+    /// Owner reads everything; an agent reads <c>company/</c>, <c>shared/</c>, its own area, its own private memory and the
+    /// project areas of the projects it is a member of, resolved now from the registered <see cref="IProjectMembership"/>.
+    /// With no membership source an agent carries no projects and reads no project area. Anyone else reads nothing
+    /// (<see cref="Vault.Search.VaultAccess"/>).
     /// </summary>
-    private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal) => principal.Kind switch
+    private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal, IServiceProvider services) => principal.Kind switch
     {
         "owner" => Vault.Search.VaultCaller.Owner,
-        "agent" => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: "agent:" + principal.Id.ToString("D")),
+        "agent" => Vault.Search.VaultAccess.ForAgent(principal.Id, services.GetService<IProjectMembership>()),
         _ => new Vault.Search.VaultCaller(IsOwner: false, AgentOwner: null),
     };
 

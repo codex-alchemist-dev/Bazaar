@@ -131,6 +131,14 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         _pipeline.UploadStyles(styleBytes);
     }
 
+    /// <summary>Replaces the section rectangles (<see cref="SectionPacking.Pack"/>) drawn behind the nodes. Waits for the device to go idle.</summary>
+    public void SetSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _deviceApi.vkDeviceWaitIdle();
+        _pipeline.UploadSections(sectionBytes);
+    }
+
     /// <summary>
     /// Clears to <paramref name="clear"/>, draws the instances, and copies the image to host memory.
     /// Read the result with <see cref="ReadPixels"/> after the call returns.
