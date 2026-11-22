@@ -394,6 +394,29 @@ Still in `Bazaar.Server/Agents` (14 files), with the reason each one stays:
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
 
+### Agents module, wave 2a
+
+Docs section this implements: this section (wave 2a of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
+
+Wave 2a runs after the Gateway, Jobs and Security abstraction merges, so `IModelGateway`, `IJobHandler` and the taint and policy contracts now sit in their own projects. Seven files moved from `Bazaar.Server/Agents` into the implementation project `Bazaar.Server.Agents` (not the Abstractions project, because no code outside the Agents folder uses them): `Turns/TurnRunner.cs`, `Turns/Runner/TurnRunner.cs`, `Turns/TurnRunAdapter.cs`, `Turns/Tools/ToolDispatcher.cs`, `Turns/Tools/ISessionTaintStore.cs`, `Turns/Tools/Db/PostgresSessionTaintStore.cs` and `Turns/Tools/Db/SessionTaintMapping.cs`. They moved with their current content (the dispatcher's result-taint save and `ISessionTaintStore : ISessionTaintReader` are unchanged). The Agents project already referenced the Gateway, Jobs and Security abstractions; it still does not reference `Bazaar.Server`. Namespaces did not change. One pure test, `SessionTaintMappingTests`, moved to `tests/Bazaar.Server.Agents.Tests`; the other tests that drive these types need Postgres, the Server test helpers or the gateway fakes, so they stay in `tests/Bazaar.Server.Tests/Agents`.
+
+`TurnRunnerJson` and `TurnJsonContext` stay public because `tests/Bazaar.Server.Tests/Agents` (`TurnRunnerTests`, `TurnRunnerUnitTests`) uses them from outside the assembly.
+
+### Agents module, wave 2b
+
+Docs section this implements: this section (wave 2b of the agent runtime extraction; the owner's direction to accelerate modularity transfer).
+
+Wave 2b runs after the GC abstractions, Mentions and Wire abstraction merges. Five files moved from `Bazaar.Server/Agents` into `Bazaar.Server.Agents`, namespaces unchanged: `Responder/PgResponderGcStore.cs`, `Responder/AgentResponderServiceCollectionExtensions.cs`, `Turns/Context/GcContextSource.cs`, `Turns/Posting/AgentMentionParser.cs` and `Turns/Posting/GcAgentPostSink.cs`. `GcAgentPostSink` needs `Bazaar.LoopGuard.Abstractions` (for `ILoopTripHandler`), which is now an abstractions-only reference of `Bazaar.Server.Agents`; its unused `using Bazaar.Server.Gc.Wire;` was removed. The other GC types the files use (`IGcLogWriter`, `IInboxRowWriter`, `MentionSpan`, `AcceptedMention`, `GcEnumText`, `IGcStreamSource`) come from `Bazaar.GC.Abstractions`. The architecture baseline lost the entries for every moved file.
+
+`AgentResponderServiceCollectionExtensions` binds `AgentResponderOptions` through `OptionsBuilder.Bind(configuration)`, which the project's `IsAotCompatible` setting reports as IL2026 and IL3050. `Bazaar.Server.Agents.csproj` sets `EnableConfigurationBindingGenerator`, so the .NET configuration binding source generator intercepts the `Bind` calls and the warnings are gone with no suppression.
+
+Still in `Bazaar.Server/Agents` (2 files besides the moved ones). These are composition-root registrations, not Agents code: each one registers something owned by another module's implementation, so it stays in `Bazaar.Server` with the composition root:
+
+- `Turns/AgentTurnsComponent.cs`: the Server component that wires the turn runner. It registers `ToolPolicyEngine` (`Bazaar.Server.Security.Policy`, a concrete class in the Security implementation project; only `IToolPolicyEngine` is in the Security abstractions), `AddAgentSessionTaint` and `PrincipalHandleRepository` (`Bazaar.Server.Mentions`, implementation project, no Mentions abstractions project exists). Unblock: an abstraction or factory for the policy engine and for the principal-handle lookup.
+- `Turns/Posting/AgentPostServiceCollectionExtensions.cs`: registers `PrincipalHandleRepository` (as above) and the concrete `InboxRowWriter` (`Bazaar.Server.Gc.Mentions`) as the `IInboxRowWriter`. Unblock: a Mentions abstraction for the handle repository, and moving the `InboxRowWriter` registration into the GC module's own DI (audit section 5a step 2).
+
+`ITaskSessionHook` (`Bazaar.Server.Agents.Turns.Start`, in the Abstractions project) is the seam the coding harness (doc 17) uses to hook a task session without `Bazaar.Server.Agents` referencing the host (#719). `TurnStarter` takes an optional `IEnumerable<ITaskSessionHook>`; for an `InboxKind.Assignment` wake whose source ref is a card id (a `Guid`), it calls every hook's `StartAsync` once before `runner.RunAsync`, tolerates `InvalidOperationException` from a hook (a held worktree) and lets other exceptions propagate. `TaskSessionEnder` (`Bazaar.Server.Agents`, a singleton registered by `AgentTurnsComponent`) calls every hook's `EndAsync` when a card leaves In progress; `TurnStarter` never calls it. With no hook registered, both are no-ops.
+
 ## Souls module (extraction from `Bazaar.Server/Souls`)
 
 Docs section this implements: this section (Souls extraction; the owner's direction to accelerate modularity transfer).
