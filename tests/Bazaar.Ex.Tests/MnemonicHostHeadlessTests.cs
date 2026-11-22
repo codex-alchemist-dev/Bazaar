@@ -3,7 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Layout;
-using Bazaar.Client.Core.Input;
+using Bazaar.Client.Input;
 using Bazaar.Ex;
 using Bazaar.Ex.Head;
 
@@ -116,5 +116,22 @@ public class MnemonicHostHeadlessTests
 
         Assert.Equal("Unread.", region.Control.Text);
         Assert.Equal(Avalonia.Automation.AutomationLiveSetting.Assertive, Avalonia.Automation.AutomationProperties.GetLiveSetting(region.Control));
+    }
+
+    [AvaloniaFact]
+    public void Shift_Enter_raises_the_suggest_request_and_does_not_run_the_command()
+    {
+        var harness = Build();
+        var requested = new List<string>();
+        harness.Host.AiSuggestRequested += (_, typed) => requested.Add(typed);
+
+        Press(harness.Window, Key.N, "n");
+        Press(harness.Window, Key.G, "g");
+        Press(harness.Window, Key.C, "c");
+        harness.Window.KeyPress(Key.Enter, RawInputModifiers.Shift, PhysicalKey.None, null);
+
+        Assert.Equal(["ngc"], requested);
+        Assert.Empty(harness.Commands);
+        harness.Host.Dispose();
     }
 }
