@@ -500,3 +500,11 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
 | Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
 | Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
+
+## Round 35 (2026-11-19): server TUI
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 58, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 58 |
+| Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 58 |
