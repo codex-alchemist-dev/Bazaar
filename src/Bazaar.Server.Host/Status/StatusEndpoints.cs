@@ -48,6 +48,18 @@ public static class StatusEndpoints
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
     /// <summary>
+    /// The provisioning write routes (doc 45 section 1.9): <c>POST /setup/plans</c> and <c>POST /setup/plans/{hash}/apply</c>. They take POST
+    /// only. The routes themselves exist only while the setup component is enabled and every call passes the setup access gate
+    /// (loopback plus the bootstrap code, then the owner role), so allowing the method here opens nothing by itself.
+    /// </summary>
+    private static bool IsSetupWriteRoute(PathString path) =>
+        path.Equals("/setup/plans", StringComparison.OrdinalIgnoreCase)
+        || (path.StartsWithSegments("/setup/plans", StringComparison.OrdinalIgnoreCase)
+            && path.Value is { } value
+            && value.EndsWith("/apply", StringComparison.OrdinalIgnoreCase)
+            && value.Count(c => c == '/') == 4);
+
+    /// <summary>
     /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
@@ -57,7 +69,7 @@ public static class StatusEndpoints
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
-    /// Constellation API routes also take POST and PATCH. The refresh route takes POST only. No other write route is allowed here.
+    /// Constellation API routes also take POST and PATCH. The refresh route and the two setup write routes take POST only. No other write route is allowed here.
     /// </summary>
     public static IApplicationBuilder UseBazaarGetOnly(this IApplicationBuilder app) => app.Use(async (context, next) =>
     {
@@ -65,7 +77,7 @@ public static class StatusEndpoints
         var method = context.Request.Method;
         bool allowed;
         string allow;
-        if (IsPostOnlyRoute(path))
+        if (IsPostOnlyRoute(path) || IsSetupWriteRoute(path))
         {
             allowed = HttpMethods.IsPost(method);
             allow = "POST";

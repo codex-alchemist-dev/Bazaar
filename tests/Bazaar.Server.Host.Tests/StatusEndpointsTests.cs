@@ -56,6 +56,24 @@ public sealed class StatusEndpointsTests
     }
 
     [Fact]
+    public async Task The_setup_write_routes_take_post_only_and_the_rest_of_setup_stays_get_only()
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            var ct = TestContext.Current.CancellationToken;
+            var hash = new string('a', 64);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/plans", new StringContent(string.Empty), ct)).StatusCode);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, (await client.PostAsync($"/setup/plans/{hash}/apply", new StringContent(string.Empty), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.DeleteAsync("/setup/plans", ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PutAsync($"/setup/plans/{hash}/apply", new StringContent(string.Empty), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/status", new StringContent(string.Empty), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/plans/x/y/apply", new StringContent(string.Empty), ct)).StatusCode);
+            Assert.Equal(HttpStatusCode.MethodNotAllowed, (await client.PostAsync("/setup/other", new StringContent(string.Empty), ct)).StatusCode);
+        }
+    }
+
+    [Fact]
     public async Task Live_is_ok_even_before_startup_finishes()
     {
         var (app, client, _) = await StartAsync();
