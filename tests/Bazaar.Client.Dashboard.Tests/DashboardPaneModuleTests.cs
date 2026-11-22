@@ -43,7 +43,8 @@ public class DashboardPaneModuleTests
 
         var texts = DashboardPaneView.Create(pane).GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text ?? string.Empty).ToArray();
 
-        Assert.Equal(["While you were away", "Unread GCs: 3", "Awaiting you", "Approvals: 2"], texts);
+        // Whole-number figures are count badges: the label, then the count as badge text.
+        Assert.Equal(["While you were away", "Unread GCs", "3", "Awaiting you", "Approvals", "2"], texts);
     }
 
     [AvaloniaFact]
@@ -56,7 +57,8 @@ public class DashboardPaneModuleTests
 
         var texts = view.GetLogicalDescendants().OfType<TextBlock>().Select(text => text.Text).ToArray();
         Assert.Equal("Start", texts[0]);
-        Assert.Contains("Unread GCs: 3", texts);
+        Assert.Contains("Unread GCs", texts);
+        Assert.Contains("3", texts);
     }
 
     private static PaneDescriptor Descriptor(string json) =>

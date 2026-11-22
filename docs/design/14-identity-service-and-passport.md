@@ -23,6 +23,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Passport store** [PROPOSED]: ciphertext rows in host Postgres, in a schema that agent-facing database roles cannot reach.
 - **Identity Service** [PROPOSED]: a low-privilege host process. It is the only holder of decryption keys (through the KEK provider). It exposes `RequestAccess`, brokered calls, a credential-lease broker and a token minter.
 - **`ISecretStore`** (C05): the one server-side store for every secret that is not a bootstrap value. It holds provider API keys (Anthropic, FreeLLMAPI, other gateway upstreams), GitHub App private keys, OAuth refresh tokens and owner-class credentials. Only the KEK reference and the database credential are bootstrap values, resolved by 03. Consumers are host-side: the gateway (05) and the git provider (`IGitProvider`, C12). No VM, agent tool or browser reads the store. [PROPOSED] Each read names a purpose that policy must allow.
+- **`secret://bazaar/` resolution** [PROPOSED]: `SecretStoreResolver` (in `Bazaar.Secrets`) implements `ISecretResolver` over `ISecretStore`, so setup, gateway and backup references resolve one way. `secret://bazaar/<a>/<b>/...` maps to the installation scope, and the secret name is the segments joined with `.` and lowercased (`secret://bazaar/providers/anthropic/key` reads `providers.anthropic.key`). A path whose name fails `SecretName` is refused. The read is made by host component `secret-reference-resolver` with purpose `secret-reference.resolve`, so policy must hold `SecretGrant("secret-reference-resolver", "installation", null, "secret-reference.resolve")` (narrow it with a name per secret where the operator wants). A missing secret, a denial, an empty value or a store fault all throw `SecretResolutionException` with a fixed reason; no value or inner message is surfaced. Host wiring waits for a durable record repository, audit sink and agent registry.
 - **Owner-class credentials:** the owner merge credential, in either form from C25. No agent lease can name an owner-class credential. The server performs merges only on signed owner approval (21, 28).
 - **Owner approval signing key:** the device-held key that signs a merge approval is not defined here. Doc 32 owns that key class (28 flagged the gap). Until 32 defines it, this doc makes no claim about it.
 - **Approvals and audit** are owned by 15 (`approval`, `audit_log`). This doc calls them and defines no tables for either.
@@ -58,6 +59,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - One data key (DEK) per Soul, with an installation-scope DEK for provider and App keys. Each secret is AEAD-encrypted with a unique nonce.
 - DEKs are wrapped by a host key-encryption key (KEK) behind a provider interface. This doc owns the `soul_dek` table. The GC per-person key table is in 04.
 - Rotation re-wraps DEKs; it does not re-encrypt every row. Soul deletion destroys that Soul's DEK (crypto-shred).
+- **Access-token signing key** [PROPOSED] (doc 32 section 5): an install-scope key with scope `access-token`, one live row in `soul_dek`. It signs HMAC-SHA256 access tokens. It is wrapped by the same KEK, rotated on `auth.signing_key_rotation_days`, and crypto-shredded once its retired window and the token lifetime have passed. Only the Identity Service holds it. Never exported, never logged, never in the Soul export.
 
 | KEK option | Fit | Research finding |
 |---|---|---|
@@ -120,7 +122,7 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 ```
 -- Sketches only; not migrations. Migrations are applied by `migrate` (C44).
 soul_dek(scope, dek_id, wrapped_dek bytea, kek_id, created_at, retired_at)
-   -- scope = soul_id, or 'install' for provider and App keys
+   -- scope = soul_id, 'install' for provider and App keys, or 'access-token' for the token signing key (doc 32 section 5)
 credential(credential_id, soul_id null, service, kind, handle, ciphertext bytea,
            nonce bytea, dek_id, tier, status, created_at, rotated_at, expires_at)
    -- kind: provider_key | app_key | owner | oauth | cookie | ssh | totp | recovery
