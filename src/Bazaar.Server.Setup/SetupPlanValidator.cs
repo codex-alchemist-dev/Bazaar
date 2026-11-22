@@ -86,6 +86,11 @@ public static partial class SetupPlanValidator
             issues.Add(Error("firstRun.defaultAgentPurpose", "must be at most 500 characters."));
         }
 
+        if (firstRun.DefaultAgentProfile is null || !SlugRegex().IsMatch(firstRun.DefaultAgentProfile))
+        {
+            issues.Add(Error("firstRun.defaultAgentProfile", "must be a lower-case profile name, for example balanced."));
+        }
+
         var seen = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < firstRun.DefaultAgentSources.Count; i++)
         {

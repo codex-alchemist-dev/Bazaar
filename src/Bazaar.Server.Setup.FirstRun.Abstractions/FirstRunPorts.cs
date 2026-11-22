@@ -54,9 +54,9 @@ public interface IDefaultAgentRoutes
 {
     /// <summary>
     /// The whitelist for the default agent. <paramref name="requestedSources"/> narrows it to those source ids; empty means every
-    /// Claude source the gateway has. Empty result when the gateway has none. Never a source the gateway does not list.
+    /// Claude source the gateway has. Empty result when the gateway has none. The adapter also creates the agent's route and binds <paramref name="profile"/> to it (doc 92). Never a source the gateway does not list.
     /// </summary>
-    Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, string profile, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Writes the one audit row of the seed. The row holds ids and flags, never a name or a secret.</summary>

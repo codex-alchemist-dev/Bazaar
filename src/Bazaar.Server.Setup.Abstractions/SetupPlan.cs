@@ -198,6 +198,9 @@ public sealed class SetupFirstRunSection
     /// <summary>What the default agent is for, in the operator's words. Shown on its profile. May be empty.</summary>
     public string DefaultAgentPurpose { get; init; } = "";
 
+    /// <summary>Selection profile for the default agent's route (doc 92, PROPOSED): balanced, latency, reliability, cost or quality.</summary>
+    public string DefaultAgentProfile { get; init; } = "balanced";
+
     /// <summary>
     /// Model source ids the default agent may route through (for example the Claude Code CLI, the owner's Anthropic API key, FreeLLMAPI).
     /// Empty means every Claude source the gateway has, chosen by availability at run time. Never a source the gateway does not list.

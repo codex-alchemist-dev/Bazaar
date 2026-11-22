@@ -44,7 +44,7 @@ public static class SetupPlanLoader
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
-        ["firstRun"] = ["seedGeneralGc", "generalGcTitle", "seedDefaultAgent", "defaultAgentName", "defaultAgentPurpose", "defaultAgentSources", "acceptConstitution"],
+        ["firstRun"] = ["seedGeneralGc", "generalGcTitle", "seedDefaultAgent", "defaultAgentName", "defaultAgentPurpose", "defaultAgentSources", "defaultAgentProfile", "acceptConstitution"],
     };
 
     /// <summary>Paths whose value may be JSON null (the typed plan's nullable properties). Every other null is an error.</summary>

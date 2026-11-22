@@ -55,7 +55,7 @@ public sealed class FirstRunSeedStep(
         string? note = null;
         if (section.SeedDefaultAgent)
         {
-            var whitelist = await routes.GetWhitelistAsync(section.DefaultAgentSources, cancellationToken);
+            var whitelist = await routes.GetWhitelistAsync(section.DefaultAgentSources, section.DefaultAgentProfile, cancellationToken);
             agent = await store.EnsureDefaultAgentAsync(section.DefaultAgentName, section.DefaultAgentPurpose, gc?.GcId, whitelist, cancellationToken);
             if (agent.Created) made.AgentId = agent.AgentId;
             if (whitelist.Count == 0) note = "No Claude model source is available, so the default agent has no route and cannot answer yet.";

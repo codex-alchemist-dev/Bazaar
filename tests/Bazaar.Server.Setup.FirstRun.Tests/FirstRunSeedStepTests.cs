@@ -63,12 +63,14 @@ internal sealed class FakeWorld : IFirstRunOwner, IFirstRunStore, IConstitutionA
         return Task.FromResult(true);
     }
 
-    public Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, string profile, CancellationToken cancellationToken = default)
     {
         RequestedSources = requestedSources;
+        Profile = profile;
         return Task.FromResult(Whitelist);
     }
 
+    public string Profile { get; private set; } = "";
     public IReadOnlyList<string> RequestedSources { get; private set; } = [];
 
     public Task WriteSeededAsync(Guid? gcId, Guid? agentId, bool constitutionAccepted, string operatorIdentity, CancellationToken cancellationToken = default)
@@ -169,6 +171,7 @@ public class FirstRunSeedStepTests
 
         Assert.Equal(["anthropic-api", "freellmapi"], world.RequestedSources);
         Assert.Equal("Claude", new SetupFirstRunSection().DefaultAgentName);
+        Assert.Equal("balanced", world.Profile);
     }
 
     [Fact]
