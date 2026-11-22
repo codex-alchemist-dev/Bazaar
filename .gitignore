@@ -232,7 +232,7 @@ PublishScripts/
 !**/[Pp]ackages/build/
 # Bazaar's own Security/Packages source (NuGet package policy), not a NuGet packages folder.
 !src/Bazaar.Server/Security/Packages/*.cs
-!tests/Bazaar.Server.Tests/Security/Packages/*.cs
+!tests/Bazaar.Server.Security.Tests/Packages/*.cs
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files
@@ -462,3 +462,9 @@ test-results/
 
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
+
+# Android signing material (packaging/android): never commit keystores or passwords
+*.keystore
+*.jks
+*.p12
+keystore.properties

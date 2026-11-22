@@ -47,6 +47,7 @@ public static class GcWireServiceCollectionExtensions
 
         services.TryAddSingleton<PgGcStreamSource>();
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
+        services.TryAddSingleton<IGcHistorySource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
 
@@ -55,6 +56,7 @@ public static class GcWireServiceCollectionExtensions
         services.AddSingleton<IWireRequestHandler, GcSendHandler>();
         services.AddSingleton<IWireRequestHandler, GcEditHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Members.PgGcMembershipSource>();
+        services.TryAddSingleton<Bazaar.Server.Gc.Members.IGcMembershipSource>(sp => sp.GetRequiredService<Bazaar.Server.Gc.Members.PgGcMembershipSource>());
         services.AddSingleton<IWireRequestHandler, GcMemberAddHandler>();
         services.AddSingleton<IWireRequestHandler, GcMemberRemoveHandler>();
         services.AddSingleton<IWireRequestHandler, GcHistoryHandler>();

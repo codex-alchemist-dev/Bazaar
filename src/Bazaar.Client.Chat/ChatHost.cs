@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Chat;
 
@@ -40,14 +41,16 @@ public sealed class ChatHost : IAsyncDisposable
     /// <param name="clientBuild">Build label sent in <c>hello</c>.</param>
     /// <param name="dispatch">Runs an action on the UI thread. Null runs it on the calling thread.</param>
     /// <param name="log">Receives one line when the session fails to start.</param>
+    /// <param name="onWelcome">Optional; called with each server <c>welcome</c>.</param>
     public static ChatHost Start(
         ChatConnectionSettings settings,
         ICursorStore cursors,
         string deviceClass,
         string clientBuild,
         Action<Action>? dispatch,
-        Action<string> log) =>
-        Start(ChatConnection.Create(settings, cursors, deviceClass, clientBuild), dispatch, log);
+        Action<string> log,
+        Action<Welcome>? onWelcome = null) =>
+        Start(ChatConnection.Create(settings, cursors, deviceClass, clientBuild, onWelcome), dispatch, log);
 
     /// <summary>Starts a host on a session the caller built.</summary>
     public static ChatHost Start(GcChatSession session, Action<Action>? dispatch, Action<string> log)
