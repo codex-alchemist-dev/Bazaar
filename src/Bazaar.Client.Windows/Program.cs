@@ -11,6 +11,9 @@ using Bazaar.Client.Athanor.Drafts;
 using Bazaar.Client.Athanor.Hosting;
 using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Athanor.Sources;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -21,6 +24,9 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Panes.Abstractions;
@@ -68,9 +74,8 @@ internal static class Program
         ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda (pager order).
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
@@ -81,6 +86,7 @@ internal static class Program
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
             new AthanorPaneModule(),
+            .. GitSolarSystemPanes.Modules,
         ];
         var loadResult = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loadResult.Only(modules);
@@ -158,6 +164,8 @@ internal static class Program
                 .With<IEditorHost>(athanor.Host)
                 .With<IEditorFileSource>(athanor.Source)
                 .With<IEditorDraftStore>(athanor.Drafts);
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        context = context.With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         return tiles is null ? context : context.With(tiles);
     }
 
