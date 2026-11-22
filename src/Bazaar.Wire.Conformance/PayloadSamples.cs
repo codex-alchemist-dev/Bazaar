@@ -89,6 +89,7 @@ public static class PayloadSamples
         Of("minimal", new Welcome(1, 0, "json", _author, _local, 25, 60, new WireLimits(1, 2, 3), [], 0, null, null), WireTypes.Welcome),
         Of(null, new Subscribe([new StreamCursor("gc:" + _gc, long.MaxValue, 0), new StreamCursor("ui", 0, long.MinValue + 1)]), WireTypes.Subscribe),
         Of(null, new Unsubscribe(["gc:" + _gc, "presence"]), WireTypes.Unsubscribe),
+        Of(null, new PaneFrame("{\"t\":\"output\",\"terminalId\":\"t1\",\"seq\":1,\"bytes\":\"aGk=\"}"), WireTypes.PaneFrame),
         Of(null, new SubscribeResult([new StreamResult("gc:" + _gc, "ok"), new StreamResult("ui", "denied")])),
         Of(null, new Resync("gc:" + _gc, 99, 120, 3, [_message, _message with { Edited = false, ReplyToN = null, Mentions = [] }]), WireTypes.Resync),
         Of(null, new Lagged("gc:" + _gc, 41), WireTypes.Lagged),
