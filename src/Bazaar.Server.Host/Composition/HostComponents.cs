@@ -8,6 +8,8 @@ using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
@@ -59,6 +61,7 @@ using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.Audit;
+using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Bazaar.Server.WebAdmin;
@@ -108,6 +111,8 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new AccountApprovalComponent(),
+        new OwnerQueueComponent(),
         new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),
@@ -136,6 +141,7 @@ public static class HostComponents
         // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
         // "not supported" off Windows; the KVM adapter is limited to Linux here.
         new VmDisplayComponent(),
+        new VmDisplayGateComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
         new HyperVComponent(),
