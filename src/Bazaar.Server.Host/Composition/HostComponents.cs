@@ -149,6 +149,8 @@ public static class HostComponents
         new GarnetComponent(),
         new KodoServerComponent(),
         new PresenceComponent(),
+        new Bazaar.Server.Engines.EnginesComponent(),
+        new Bazaar.Server.EngineGcRecorder.EngineGcRecorderComponent(),
         new Bazaar.Server.EngineRelay.EngineRelayComponent(),
         new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host

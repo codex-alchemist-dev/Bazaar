@@ -45,6 +45,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
         new EmbeddedMigrationSource(typeof(PgPresenceStore).Assembly),
+        new EmbeddedMigrationSource(typeof(Bazaar.Server.Engines.EnginesComponent).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly));
 }
