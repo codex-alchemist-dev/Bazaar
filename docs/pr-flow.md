@@ -23,6 +23,11 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
     full work.
   - "Code" means anything outside `docs/**`, `**/*.md` and `.github/ISSUE_TEMPLATE/**`. A change to
     `.github/workflows/**` counts as code.
+- CodeQL scans only ready pull requests (owner, 2026-11-22). A branch push is scanned when its branch has an open,
+  non-draft PR. A draft, or a branch with no PR yet, reports no Analyze check at all, so it can never show a green
+  one. When a PR is opened ready or marked ready for review, `codeql-on-ready.yml` dispatches `codeql.yml` on the
+  branch; that run is the scan the required Analyze checks come from. If the dispatch fails the checks stay missing
+  and the PR cannot merge. Main, the weekly run, manual runs and fork PRs always scan.
 - Runner choice (2026-11-22): the repository is public, so GitHub-hosted runners are free. The `changes` job,
   Secret scan, CodeQL, PR sign-off and the Android and Linux start-up gates always run hosted, so the cheap
   required checks never queue behind the owner's PC. Build and test (and the PostgreSQL 19 leg) use the PC only for
