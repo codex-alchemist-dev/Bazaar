@@ -107,6 +107,7 @@ internal static class HelperHost
         if (process.ExitCode == 128 + 31)
         {
             err += await KernelSeccompLogAsync();
+            err += await StraceTailAsync(args, workingDirectory, extraEnvironment);
         }
 
         return new Result(process.ExitCode, await stdout, err);
@@ -149,6 +150,81 @@ internal static class HelperHost
         }
 
         return string.Empty;
+    }
+
+    /// <summary>
+    /// Best-effort diagnostics for a SIGSYS kill on hosts that hide the kernel log: runs the same command again under strace (installed with sudo when
+    /// missing) and returns the last trace lines, whose final syscall is the one the filter killed. It only adds text to a failure message.
+    /// </summary>
+    private static async Task<string> StraceTailAsync(IReadOnlyList<string> args, string? workingDirectory, IReadOnlyDictionary<string, string>? extraEnvironment)
+    {
+        try
+        {
+            if (!File.Exists("/usr/bin/strace") && File.Exists("/usr/bin/sudo"))
+            {
+                using var install = Process.Start(new ProcessStartInfo("/usr/bin/sudo", "-n apt-get install -y strace") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true });
+                if (install is not null)
+                {
+                    _ = install.StandardOutput.ReadToEndAsync();
+                    _ = install.StandardError.ReadToEndAsync();
+                    await install.WaitForExitAsync();
+                }
+            }
+
+            if (!File.Exists("/usr/bin/strace"))
+            {
+                return "\n[strace unavailable]";
+            }
+
+            var trace = Path.Combine(Path.GetTempPath(), "bazaar-strace-" + Guid.NewGuid().ToString("N"));
+            var psi = new ProcessStartInfo("/usr/bin/strace") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true, RedirectStandardInput = true, WorkingDirectory = workingDirectory ?? "/" };
+            psi.ArgumentList.Add("-f");
+            psi.ArgumentList.Add("-o");
+            psi.ArgumentList.Add(trace);
+            psi.ArgumentList.Add(HelperPath);
+            foreach (var a in args)
+            {
+                psi.ArgumentList.Add(a);
+            }
+
+            psi.Environment.Clear();
+            psi.Environment["PATH"] = "/usr/bin:/bin";
+            foreach (var (k, v) in StartupEnvironment)
+            {
+                psi.Environment[k] = v;
+            }
+
+            if (extraEnvironment is not null)
+            {
+                foreach (var (k, v) in extraEnvironment)
+                {
+                    psi.Environment[k] = v;
+                }
+            }
+
+            using var p = Process.Start(psi);
+            if (p is null)
+            {
+                return string.Empty;
+            }
+
+            p.StandardInput.Close();
+            _ = p.StandardOutput.ReadToEndAsync();
+            _ = p.StandardError.ReadToEndAsync();
+            await p.WaitForExitAsync();
+            if (!File.Exists(trace))
+            {
+                return "\n[strace produced no trace]";
+            }
+
+            var tail = File.ReadLines(trace).TakeLast(14);
+            File.Delete(trace);
+            return "\n[strace tail]\n" + string.Join('\n', tail);
+        }
+        catch (Exception e) when (e is System.ComponentModel.Win32Exception or IOException or InvalidOperationException)
+        {
+            return string.Empty;
+        }
     }
 
     /// <summary>A temp directory pair: a work directory (read and write) and an unrelated directory the policy never allows.</summary>
