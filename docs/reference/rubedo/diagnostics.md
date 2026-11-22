@@ -43,6 +43,7 @@ Codes are stable. The golden corpus asserts them, and tools key on them.
 | <a id="code-view-list-key"></a>`view.list_key` | A list's `key` does not name a field of its source. |
 | <a id="code-view-list-source"></a>`view.list_source` | A list's `over` does not name a declared list source. |
 | <a id="code-view-list-template"></a>`view.list_template` | A list does not have exactly one item template. |
+| <a id="code-view-literal-style-value"></a>`view.literal_style_value` | A style prop holds a raw colour, duration or motion name instead of a token. |
 | <a id="code-view-missing-icon-name"></a>`view.missing_icon_name` | An `icon` has no `name` from the icon set. |
 | <a id="code-view-missing-label"></a>`view.missing_label` | A `button`, `icon` or `input` has no label. |
 | <a id="code-view-shape"></a>`view.shape` | The document's JSON has the wrong shape: a missing or mistyped field. |
@@ -51,7 +52,9 @@ Codes are stable. The golden corpus asserts them, and tools key on them.
 | <a id="code-view-tab-placement"></a>`view.tab_placement` | A tab appears anywhere other than directly under `tabs`. |
 | <a id="code-view-tab-title"></a>`view.tab_title` | A tab has no title. |
 | <a id="code-view-tabs-empty"></a>`view.tabs_empty` | A `tabs` node has no tabs. |
+| <a id="code-view-token-kind-mismatch"></a>`view.token_kind_mismatch` | A token's kind does not fit the prop it is used in. |
 | <a id="code-view-unexpected-children"></a>`view.unexpected_children` | A leaf widget has children. |
 | <a id="code-view-unknown-action"></a>`view.unknown_action` | A button refers to an action that is not declared. |
 | <a id="code-view-unknown-action-kind"></a>`view.unknown_action_kind` | An action has a kind outside the closed set. |
+| <a id="code-view-unknown-token"></a>`view.unknown_token` | A token reference names a token that is not in the catalog. |
 | <a id="code-view-unknown-widget"></a>`view.unknown_widget` | A node names a widget outside the closed set. |

@@ -25,6 +25,16 @@ public sealed class DelegateBundleSource(string id, Func<IExportFileSink, Cancel
     public Task ExportAsync(IExportFileSink sink, CancellationToken ct) => export(sink, ct);
 }
 
+/// <summary>
+/// An <see cref="IBundleSource"/> that can write files holding decrypted personal data (doc 44 section 4.6). The assembler reads
+/// <see cref="PlaintextPersonalPaths"/> after the source has run and flags those files in <c>manifest.json</c> and in README.txt.
+/// </summary>
+public interface IPlaintextBundleSource : IBundleSource
+{
+    /// <summary>Bundle paths this source wrote that hold plaintext personal data, valid after <c>ExportAsync</c>. Empty when none.</summary>
+    IReadOnlyList<string> PlaintextPersonalPaths { get; }
+}
+
 /// <summary>What the assembler is asked to produce. Doc 44 is silent on several of these, so each is a parameter.</summary>
 public sealed record BundleAssemblyOptions
 {
@@ -76,8 +86,11 @@ public sealed record BundleAssemblyResult(
 /// has the same shape as <see cref="ExportBundleWriter"/> builds, so <see cref="ExportBundleWriter.Verify"/> and
 /// <see cref="BundleSigner.Verify"/> accept it. Encryption goes through <see cref="ExportBundleCipher"/>, which is not streaming:
 /// the archive step holds the whole bundle in memory.
-/// NOT IMPLEMENTED (doc 44 is silent or the slice is later): README.txt, parts of at most 4 GiB, resumable chunks, the self-check of
-/// doc 44 section 6.2, and scope or plaintext flags in the manifest.
+/// README.txt is generated after the sources have run (<see cref="BundleReadme"/>) and listed in the manifest like any file, since the
+/// verifier fails a file the manifest does not list. A file from an <see cref="IPlaintextBundleSource"/> that holds decrypted
+/// personal data gets <c>plaintextPersonal: true</c> in its manifest entry.
+/// NOT IMPLEMENTED (doc 44 is silent or the slice is later): parts of at most 4 GiB, resumable chunks, the self-check of
+/// doc 44 section 6.2, and a scope field in the manifest.
 /// </remarks>
 public static class ExportBundleAssembler
 {
@@ -138,19 +151,42 @@ public static class ExportBundleAssembler
         {
             Directory.CreateDirectory(work);
             var sink = new HashingDirectorySink(work, options.BufferSize);
+            var plaintext = new SortedSet<string>(StringComparer.Ordinal);
             foreach (var source in ordered)
             {
                 ct.ThrowIfCancellationRequested();
                 await source.ExportAsync(sink, ct);
+                if (source is IPlaintextBundleSource flagging)
+                {
+                    plaintext.UnionWith(flagging.PlaintextPersonalPaths);
+                }
             }
 
+            var contentFiles = sink.Complete();
+            var listed = contentFiles.Select(f => f.Path).ToHashSet(StringComparer.Ordinal);
+            foreach (var path in plaintext.Where(p => !listed.Contains(p)))
+            {
+                throw new InvalidOperationException("A source flagged a plaintext file it did not write: " + path);
+            }
+
+            await sink.WriteGeneratedAsync(
+                BundleReadme.FileName,
+                BundleReadme.Build(options.InstanceId, options.CreatedAt, [.. listed], plaintext),
+                ct);
             var files = sink.Complete();
-            var manifest = BuildManifest(options, files);
+            var manifest = BuildManifest(options, files, plaintext);
             var manifestBytes = Encoding.UTF8.GetBytes(manifest);
             await File.WriteAllBytesAsync(Path.Combine(work, ExportBundleWriter.ManifestFileName), manifestBytes, ct);
             var (signature, publicKey) = BundleSigner.SignManifest(manifestBytes, options.SigningKey);
             await File.WriteAllBytesAsync(Path.Combine(work, BundleSigner.SignatureFileName), signature, ct);
             await File.WriteAllBytesAsync(Path.Combine(work, BundleSigner.PublicKeyFileName), publicKey, ct);
+
+            // Doc 44 section 6.2: re-read what was written before the bundle is offered. A failure leaves no bundle.
+            var selfCheck = await SelfCheckAsync(work, manifestBytes, files, signature, publicKey, ct);
+            if (selfCheck.Count > 0)
+            {
+                throw new InvalidOperationException("The bundle failed its self-check and is incomplete: " + string.Join(" ", selfCheck));
+            }
 
             string? archive = null;
             if (options.EncryptedArchivePath is not null)
@@ -188,6 +224,62 @@ public static class ExportBundleAssembler
         }
     }
 
+    /// <summary>
+    /// The section 6.2 self-check at the file level, streaming from disk: the manifest is the bytes that were signed and its
+    /// signature verifies, every listed file hashes to its entry, and no file on disk is unlisted. Chain checks (GC, audit) belong to
+    /// <c>Bazaar.Server.Portability.Verifier</c>, which references this project, so the sources run their own chain self-checks
+    /// (<see cref="GcExportSelfCheck"/>, the audit replay) and the assembler checks the bytes. Returns the problems, empty when sound.
+    /// </summary>
+    private static async Task<List<string>> SelfCheckAsync(
+        string work, byte[] manifestBytes, IReadOnlyList<ExportedFile> files, byte[] signature, byte[] publicKey, CancellationToken ct)
+    {
+        var problems = new List<string>();
+        var manifestOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, ExportBundleWriter.ManifestFileName), ct);
+        if (!manifestOnDisk.AsSpan().SequenceEqual(manifestBytes))
+        {
+            problems.Add("manifest.json on disk is not the manifest that was signed.");
+        }
+
+        var signatureOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, BundleSigner.SignatureFileName), ct);
+        var keyOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, BundleSigner.PublicKeyFileName), ct);
+        if (!signatureOnDisk.AsSpan().SequenceEqual(signature) || !keyOnDisk.AsSpan().SequenceEqual(publicKey)
+            || !BundleSigner.VerifyManifest(manifestOnDisk, signatureOnDisk, keyOnDisk))
+        {
+            problems.Add("the manifest signature does not verify.");
+        }
+
+        var listed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+            listed.Add(file.Path);
+            var full = Path.Combine(work, file.Path.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(full))
+            {
+                problems.Add("missing from the bundle: " + file.Path);
+                continue;
+            }
+
+            await using var stream = File.OpenRead(full);
+            var actual = await GcJsonlFormat.HashAsync(file.Path, stream, ct);
+            if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256)
+            {
+                problems.Add("changed after it was hashed: " + file.Path);
+            }
+        }
+
+        foreach (var full in Directory.EnumerateFiles(work, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(work, full).Replace(Path.DirectorySeparatorChar, '/');
+            if (relative != ExportBundleWriter.ManifestFileName && !BundleSigner.IsSignatureFile(relative) && !listed.Contains(relative))
+            {
+                problems.Add("not listed in the manifest: " + relative);
+            }
+        }
+
+        return problems;
+    }
+
     /// <summary>Reads a bundle directory (as <see cref="AssembleAsync"/> wrote it) into memory, for verification or encryption.</summary>
     public static async Task<ExportBundle> ReadDirectoryAsync(string directory, CancellationToken ct = default)
     {
@@ -206,9 +298,11 @@ public static class ExportBundleAssembler
         return new ExportBundle(Encoding.UTF8.GetString(manifest.Content), files);
     }
 
-    private static string BuildManifest(BundleAssemblyOptions options, IReadOnlyList<ExportedFile> files)
+    private static string BuildManifest(BundleAssemblyOptions options, IReadOnlyList<ExportedFile> files, SortedSet<string> plaintext)
     {
-        var entries = files.Select(f => new ExportBundleWriter.ManifestEntry(f.Path, f.Sha256, f.Bytes)).ToList();
+        var entries = files
+            .Select(f => new ExportBundleWriter.ManifestEntry(f.Path, f.Sha256, f.Bytes, plaintext.Contains(f.Path) ? true : null))
+            .ToList();
         var document = new ExportBundleWriter.ManifestDocument(
             ExportBundleWriter.SchemaVersion,
             options.InstanceId,
@@ -240,9 +334,14 @@ public static class ExportBundleAssembler
         private readonly Dictionary<string, ExportedFile?> _files = new(StringComparer.OrdinalIgnoreCase);
         private readonly string _prefix = root + Path.DirectorySeparatorChar;
 
-        public Task<Stream> OpenAsync(string path, CancellationToken ct)
+        public async Task<Stream> OpenAsync(string path, CancellationToken ct)
         {
             ValidatePath(path);
+            return await OpenCoreAsync(path, ct);
+        }
+
+        private Task<Stream> OpenCoreAsync(string path, CancellationToken ct)
+        {
             if (!_files.TryAdd(path, null))
             {
                 throw new InvalidOperationException("Path written twice (case-insensitive): " + path);
@@ -257,6 +356,13 @@ public static class ExportBundleAssembler
             Directory.CreateDirectory(Path.GetDirectoryName(full)!);
             var file = new FileStream(full, FileMode.CreateNew, FileAccess.Write, FileShare.None, bufferSize, useAsync: true);
             return Task.FromResult<Stream>(new HashingStream(file, (sha, bytes) => _files[path] = new ExportedFile(path, sha, bytes)));
+        }
+
+        /// <summary>Writes a file the assembler generated. Sources cannot use these names (see <see cref="ValidatePath"/>).</summary>
+        public async Task WriteGeneratedAsync(string path, byte[] content, CancellationToken ct)
+        {
+            await using var stream = await OpenCoreAsync(path, ct);
+            await stream.WriteAsync(content, ct);
         }
 
         public List<ExportedFile> Complete()
@@ -278,6 +384,11 @@ public static class ExportBundleAssembler
             if (path.Contains(':', StringComparison.Ordinal)) throw new ArgumentException("Bundle path has a drive or scheme: " + path);
             if (path == ExportBundleWriter.ManifestFileName) throw new ArgumentException("Bundle path is reserved for the manifest: " + path);
             if (BundleSigner.IsSignatureFile(path)) throw new ArgumentException("Bundle path is reserved for a signature file: " + path);
+            if (string.Equals(path, BundleReadme.FileName, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException("Bundle path is reserved for the generated README: " + path);
+            }
+
             foreach (var segment in path.Split('/'))
             {
                 if (segment.Length == 0) throw new ArgumentException("Bundle path has an empty segment: " + path);
