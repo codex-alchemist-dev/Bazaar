@@ -1,13 +1,15 @@
 using System.Text.Json;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup;
 
 /// <summary>The company source: exact lookup through the catalog, the overlay into the plan, and the refusals.</summary>
 public sealed class TemplateResolverTests
 {
-    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+    private static SetupPlan ValidPlan() => SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
     /// <summary>A plan whose only meaningful field for the resolver is its company source. Used for refusals, which never reach the overlay.</summary>
     private static SetupPlan PlanWithSource(string source) => new() { Company = new SetupCompanySection { Source = source } };
@@ -23,7 +25,7 @@ public sealed class TemplateResolverTests
     {
         var plan = ValidPlan();
 
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.Ok, result.ExitCode);
         Assert.Equal("starter", result.TemplateId);
@@ -38,7 +40,7 @@ public sealed class TemplateResolverTests
     {
         var plan = ValidPlan();
 
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.Ok, result.ExitCode);
         // The fixture plan names Constellation, GC and KODO; the template adds Calendar. The module set is the union, sorted.
@@ -53,10 +55,10 @@ public sealed class TemplateResolverTests
     public async Task The_merged_plan_still_passes_plan_validation()
     {
         var plan = ValidPlan();
-        await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         var issues = new List<SetupValidationIssue>();
-        SetupPlanValidator.Validate(plan, BuiltInSettingRegistries.Known, issues);
+        SetupPlanValidator.Validate(plan, RegistrySetupSettingCatalog.Known, issues);
 
         Assert.DoesNotContain(issues, issue => issue.Severity == SetupIssueSeverity.Error);
     }
@@ -67,7 +69,7 @@ public sealed class TemplateResolverTests
         var plan = ValidPlan();
         var before = SetupPlanCanonicalizer.Hash(plan);
 
-        await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.NotEqual(before, SetupPlanCanonicalizer.Hash(plan));
     }
@@ -78,7 +80,7 @@ public sealed class TemplateResolverTests
         var plan = PlanWithSource("template:starter@1.0.1");
         plan.Modules.Add("Bazaar.GC");
 
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
         Assert.Null(result.Template);
@@ -96,7 +98,7 @@ public sealed class TemplateResolverTests
     [InlineData("template:starter@*")]
     public async Task Version_ranges_are_refused(string source)
     {
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(PlanWithSource(source), TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(PlanWithSource(source), TestContext.Current.CancellationToken);
 
         Assert.Null(result.Template);
         Assert.True(HasError(result, "company.source"));
@@ -110,7 +112,7 @@ public sealed class TemplateResolverTests
     [InlineData("template:starter@")]
     public async Task Malformed_template_sources_are_refused(string source)
     {
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(PlanWithSource(source), TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(PlanWithSource(source), TestContext.Current.CancellationToken);
 
         Assert.Null(result.Template);
         Assert.True(HasError(result, "company.source"));
@@ -123,7 +125,7 @@ public sealed class TemplateResolverTests
     {
         var plan = PlanWithSource(source);
 
-        var result = await new TemplateResolver(StarterCatalog()).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.Ok, result.ExitCode);
         Assert.Null(result.TemplateId);
@@ -142,7 +144,7 @@ public sealed class TemplateResolverTests
         var plan = ValidPlan();
         var before = plan.Settings.Count;
 
-        var result = await new TemplateResolver(catalog).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(catalog, RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Null(result.Template);
         Assert.True(HasError(result, "company.source"));
@@ -159,7 +161,7 @@ public sealed class TemplateResolverTests
         var moduleCount = plan.Modules.Count;
         var settingCount = plan.Settings.Count;
 
-        var result = await new TemplateResolver(catalog).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(catalog, RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
         Assert.Null(result.Template);
@@ -175,7 +177,7 @@ public sealed class TemplateResolverTests
         var catalog = new InMemoryTemplateCatalog().Add("starter", "1.0.0", held);
         var plan = ValidPlan();
 
-        var result = await new TemplateResolver(catalog).ResolveAsync(plan, TestContext.Current.CancellationToken);
+        var result = await new TemplateResolver(catalog, RegistrySetupSettingCatalog.Known).ResolveAsync(plan, TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupExitCode.Held, result.ExitCode);
         Assert.NotNull(result.Template);
@@ -186,7 +188,7 @@ public sealed class TemplateResolverTests
     public async Task Resolving_the_same_plan_twice_merges_once()
     {
         var plan = ValidPlan();
-        var resolver = new TemplateResolver(StarterCatalog());
+        var resolver = new TemplateResolver(StarterCatalog(), RegistrySetupSettingCatalog.Known);
 
         await resolver.ResolveAsync(plan, TestContext.Current.CancellationToken);
         var afterFirst = SetupPlanCanonicalizer.Hash(plan);

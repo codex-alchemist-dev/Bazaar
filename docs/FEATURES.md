@@ -154,12 +154,12 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server/Gateway` |
+| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server.Gateway` |
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
 | Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
-| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
+| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server.Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 

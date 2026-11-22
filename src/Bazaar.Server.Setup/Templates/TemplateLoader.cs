@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.Json;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -31,14 +30,13 @@ public sealed record TemplateLoadResult(
 /// </summary>
 public static class TemplateLoader
 {
-    /// <summary>Loads the template in <paramref name="source"/>. <paramref name="registry"/> defaults to the registry this build ships.</summary>
+    /// <summary>Loads the template in <paramref name="source"/>.</summary>
     public static async Task<TemplateLoadResult> LoadAsync(
         ITemplateSource source,
-        SettingRegistry? registry = null,
+        ISetupSettingCatalog registry,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(source);
-        registry ??= BuiltInSettingRegistries.Known;
 
         var issues = new List<SetupValidationIssue>();
         var manifest = await ReadFileAsync(source, SetupTemplateConstants.ManifestFileName, SetupTemplateConstants.MaxManifestBytes, SetupTemplateConstants.ManifestFileName, issues, cancellationToken);

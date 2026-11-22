@@ -175,9 +175,8 @@ public static class HostSettings
 }
 
 /// <summary>
-/// The built-in setting registries. They stay in Bazaar.Server because they name the Server settings classes; the
-/// registry type itself lives in Bazaar.Server.Settings.Abstractions. Module keys arrive through
-/// <see cref="WithContributions"/>, so the host composes them.
+/// The built-in setting registries for this build. <see cref="SettingRegistry"/> itself lives in
+/// <c>Bazaar.Server.Settings.Abstractions</c> so modules can use it without referencing Bazaar.Server.
 /// </summary>
 public static class BuiltInSettingRegistries
 {
@@ -186,8 +185,8 @@ public static class BuiltInSettingRegistries
 
     /// <summary>
     /// Every built-in setting: the host keys, the calendar keys (doc 24), the knowledge keys (doc 25), the
-    /// constellation keys (doc 19), the gateway keys (doc 05) and the doc 15 security keys. Module keys (the module manager's,
-    /// doc 42 and doc 49) arrive as contributions through <see cref="WithContributions"/>, so the host composes them.
+    /// constellation keys (doc 19) and the doc 15 security keys. Module keys (the module manager's, doc 42 and doc 49, and the
+    /// gateway's, doc 05) arrive as contributions through <see cref="WithContributions"/>, so the host composes them.
     /// </summary>
     public static SettingRegistry Known { get; } = new(BuiltInSettings);
 
@@ -197,7 +196,6 @@ public static class BuiltInSettingRegistries
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(Gateway.GatewaySettings.All)
             .Concat(SecuritySettings.All);
 
     /// <summary>
