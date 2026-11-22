@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -28,6 +29,7 @@ using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Contracts.Panes;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
@@ -83,8 +85,10 @@ internal static class Program
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var router = new CommandRouter();
+        var navigator = new LatePaneNavigator();
         var features = new PaneModuleContext()
             .With<ICommandRouter>(router)
+            .With<IPaneNavigator>(navigator)
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
@@ -120,6 +124,12 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+            // A mnemonic command that opens a pane shows that pane in this window (the same view --panes builds).
+            navigator.Bind(kind =>
+            {
+                window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry);
+                return true;
+            });
             // Keyboard mnemonics and the command palette (doc 41 section 4.12) take the loaded modules' commands plus the shell's own.
             _ = InstallMnemonicsAsync(window, loaded.Commands, router);
             return window;

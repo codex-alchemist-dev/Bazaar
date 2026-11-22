@@ -56,6 +56,7 @@ public sealed class App : Avalonia.Application
 
     private MnemonicShell? _mnemonics;
     private readonly CommandRouter _router = new();
+    private readonly LatePaneNavigator _navigator = new();
 
     private async Task InstallMnemonicsAsync(ContentControl host)
     {
@@ -107,6 +108,7 @@ public sealed class App : Avalonia.Application
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<ICommandRouter>(_router)
+            .With<IPaneNavigator>(_navigator)
             .With<IConstellationTileSource>(tiles)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
@@ -115,6 +117,7 @@ public sealed class App : Avalonia.Application
         var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var shell = new PhoneShell(registry, FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry)));
+        _navigator.Bind(shell.ShowPane);
         var source = MainActivity.Current?.Posture;
         if (source is not null)
         {

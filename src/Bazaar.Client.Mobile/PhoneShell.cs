@@ -49,6 +49,20 @@ public sealed class PhoneShell : UserControl
     /// <summary>Index of the page on screen, or -1 when there are no pages.</summary>
     public int SelectedPage => _pages.Count == 0 ? -1 : _pager.SelectedIndex;
 
+    /// <summary>Shows the page that holds the pane of <paramref name="paneKind"/>. Returns false when no page holds it.</summary>
+    public bool ShowPane(string paneKind)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(paneKind);
+        var index = _pages.ToList().FindIndex(page => page.Contains(paneKind, StringComparer.Ordinal));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        GoToPage(index);
+        return true;
+    }
+
     /// <summary>Shows a page by index. Out-of-range indexes are ignored.</summary>
     public void GoToPage(int index)
     {

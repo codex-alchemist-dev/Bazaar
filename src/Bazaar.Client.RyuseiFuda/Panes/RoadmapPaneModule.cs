@@ -39,6 +39,7 @@ public sealed class RoadmapPaneModule : IPaneModule, IClientModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
+        PaneCommandBindings.Open(context, OpenCommandId, PaneKinds.Roadmap);
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
         registry.RegisterView<RoadmapPaneViewModel>(RyuseiFudaPaneViews.Roadmap);
     }

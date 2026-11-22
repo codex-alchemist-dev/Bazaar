@@ -79,7 +79,7 @@ public class FirstPartyManifestsTests
         var result = ClientModuleHost.Load(FirstParty(), _host);
 
         Assert.Equal(
-            ["nav.constellation", "nav.gc.first", "nav.gc.top", "nav.ryusei.board", "nav.ryusei.roadmap"],
+            ["nav.constellation", "nav.dashboard", "nav.gc.first", "nav.gc.top", "nav.ryusei.board", "nav.ryusei.roadmap"],
             result.Commands.Select(c => c.Id).Order(StringComparer.Ordinal));
         Assert.All(result.Commands, c => Assert.Contains(c.Id, result.CommandOwners.Keys));
     }
