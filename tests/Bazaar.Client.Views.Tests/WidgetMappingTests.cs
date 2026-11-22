@@ -59,7 +59,7 @@ public class WidgetMappingTests
     [InlineData("placeholder")]
     public void Minimal_document_passes_the_real_validator(string widget)
     {
-        Assert.Empty(ViewValidator.Validate(ViewFixtures.Minimal(widget)));
+        Assert.Empty(ViewValidator.Validate(ViewFixtures.Minimal(widget)).Select(d => d.Code + ": " + d.Message));
     }
 
     /// <summary>A list's item fields are in scope in its template: the template binds "title" and the list shows each row's title.</summary>
@@ -103,7 +103,7 @@ public class WidgetMappingTests
     public void Text_style_small_uses_the_secondary_colour_and_small_size()
     {
         var harness = new Harness();
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Lit("note")), ("style", ViewFixtures.Lit("small")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Lit("note")), ("style", ViewFixtures.Lit("small")));
 
         var text = Assert.IsType<TextBlock>(harness.Build(ViewFixtures.Document(node)));
 
@@ -121,5 +121,20 @@ public class WidgetMappingTests
         Assert.Equal("Done", Avalonia.Automation.AutomationProperties.GetName(icon));
         var bad = ViewFixtures.Node("icon", [], ("name", ViewFixtures.Lit("skull")), ("label", ViewFixtures.Lit("x")));
         Assert.Contains("not in the icon set", ViewFixtures.PlaceholderText(harness.Build(ViewFixtures.Document(bad))));
+    }
+
+    /// <summary>A button label is a localisation key or a literal: a known key shows its translation, a literal shows as written.</summary>
+    [AvaloniaFact]
+    public void Button_label_goes_through_the_localiser()
+    {
+        var harness = new Harness();
+        var actions = ("go", new ViewAction(ViewActionKind.Navigate, "gc.feed"));
+        ViewNode Button(string label) => ViewFixtures.Node("button", [], ("label", ViewFixtures.Lit(label)), ("action", ViewFixtures.Lit("go")));
+
+        var key = Assert.IsType<Button>(harness.Build(ViewFixtures.Document(Button("greeting"), actions)));
+        var literal = Assert.IsType<Button>(harness.Build(ViewFixtures.Document(Button("Open"), actions)));
+
+        Assert.Equal("Hello from the catalogue", key.Content);
+        Assert.Equal("Open", literal.Content);
     }
 }

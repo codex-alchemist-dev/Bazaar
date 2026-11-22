@@ -38,7 +38,7 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
     /// <param name="secretResolver">Resolves <see cref="ValkeyCacheOptions.SecretReference"/>. Null when no secret scheme is available.</param>
     /// <param name="clientFactory">Creates the client; tests pass a fake.</param>
     /// <param name="managed">
-    /// The managed child's connection (doc 40 section 4b.1). When set, the cache takes no endpoint or secret, and every call asks for the
+    /// The managed child's connection (doc 40 section 4c.1). When set, the cache takes no endpoint or secret, and every call asks for the
     /// current connection, so a child on a new port or a restarted child is reached without a host restart.
     /// </param>
     public ValkeyCacheProvider(
@@ -70,7 +70,7 @@ public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
             return Unusable(configurationError);
         }
 
-        // Only the first probe waits for a managed child to start (doc 40 section 4b.4 item 8). Later probes answer at once, so a status
+        // Only the first probe waits for a managed child to start (doc 40 section 4c.4 item 8). Later probes answer at once, so a status
         // request is never held for the window.
         if (_managed is not null && Interlocked.Exchange(ref _startWindowPending, 0) == 1
             && !WaitForManagedChild().GetAwaiter().GetResult())

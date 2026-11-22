@@ -1,6 +1,6 @@
 namespace Bazaar.Server.Valkey.Tests;
 
-/// <summary>The four probes (doc 42 section 11, doc 40 section 4b.2). They report results and never throw on a failed server call.</summary>
+/// <summary>The four probes (doc 42 section 11, doc 40 section 4c.2). They report results and never throw on a failed server call.</summary>
 public class ValkeyHealthProbesTests
 {
     private const string _endpoint = "cache.internal:6379";

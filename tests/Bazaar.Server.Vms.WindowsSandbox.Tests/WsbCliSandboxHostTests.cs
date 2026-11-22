@@ -5,7 +5,10 @@ namespace Bazaar.Server.Vms.WindowsSandbox.Tests;
 /// <summary>Tests the <c>wsb.exe</c> adapter against a fake runner. No sandbox is started, so cloud CI stays clean.</summary>
 public sealed class WsbCliSandboxHostTests : IDisposable
 {
-    private const string _configXml = "<Configuration><Networking>Disable</Networking><MemoryInMB>4096</MemoryInMB></Configuration>";
+    // Every switch is stated, as the config policy requires (an omitted switch would default to the permissive value).
+    private const string _configXml = "<Configuration><VGpu>Disable</VGpu><Networking>Disable</Networking><MemoryInMB>4096</MemoryInMB>"
+        + "<ClipboardRedirection>Disable</ClipboardRedirection><AudioInput>Disable</AudioInput><VideoInput>Disable</VideoInput>"
+        + "<PrinterRedirection>Disable</PrinterRedirection><ProtectedClient>Enable</ProtectedClient></Configuration>";
 
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "bazaar-wsb-tests-" + Guid.NewGuid().ToString("N"));
     private readonly FakeWsbCommandRunner _runner = new();
@@ -172,6 +175,38 @@ public sealed class WsbCliSandboxHostTests : IDisposable
         }
 
         Assert.False(await live.IsRunningAsync(id, TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task Exec_runs_as_system_and_quotes_each_part_for_the_guest()
+    {
+        _runner.Enqueue(new WsbCommandResult(0, "ok", ""));
+
+        var result = await _host.ExecAsync("abc-123", [@"C:\Program Files\agent.exe", "--name", "a \"b\"", @"C:\dir\"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal("ok", result.StandardOutput);
+        var call = Assert.Single(_runner.Calls);
+        Assert.Equal<string>(
+            ["exec", "--id", "abc-123", "-r", "System", "-c", "\"C:\\Program Files\\agent.exe\" --name \"a \\\"b\\\"\" C:\\dir\\", "--raw"],
+            call);
+    }
+
+    [Fact]
+    public async Task Exec_returns_a_non_zero_exit_as_data()
+    {
+        _runner.Enqueue(new WsbCommandResult(3, "", "boom"));
+
+        var result = await _host.ExecAsync("abc-123", ["tool.exe"], TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, result.ExitCode);
+        Assert.Equal("boom", result.StandardError);
+    }
+
+    [Fact]
+    public async Task Exec_refuses_an_empty_command()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _host.ExecAsync("abc-123", [], TestContext.Current.CancellationToken));
     }
 }
 

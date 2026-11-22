@@ -7,12 +7,14 @@ using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.LoopGuard;
 using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Souls;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -103,7 +105,7 @@ public static class HostCompositionExtensions
         {
             var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
-            // The cache is not probed here. CacheSelectionStep selects it after the instance lock and the managed child (doc 40 section 4b.4 item 8).
+            // The cache is not probed here. CacheSelectionStep selects it after the instance lock and the managed child (doc 40 section 4c.4 item 8).
             // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
             IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
                 ? []
@@ -175,6 +177,8 @@ public static class HostCompositionExtensions
             sp.GetRequiredService<IOptions<LoopGuardOptions>>().Value));
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
+        services.AddBazaarSoulBindings();
+        services.AddBazaarLoopTripHandling();
         return services;
     }
 }

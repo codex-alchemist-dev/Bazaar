@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace Bazaar.Server.Host.Startup;
 
 /// <summary>
-/// Resolves the pending cache role (doc 40 section 4b.4 item 8). Registered after <see cref="StartupSequence"/> (instance lock) and after the
+/// Resolves the pending cache role (doc 40 section 4c.4 item 8). Registered after <see cref="StartupSequence"/> (instance lock) and after the
 /// Valkey supervisor, so the managed child is already starting when the probe runs, and the stale-child sweep ran only under the lock.
 /// It never fails the start: any error leaves the cache out, and the reason goes into the report.
 /// </summary>

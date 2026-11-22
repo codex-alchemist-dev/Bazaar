@@ -3,13 +3,13 @@ using System.Text;
 namespace Bazaar.Server.Valkey;
 
 /// <summary>
-/// The four health probes for Valkey (docs/design/42-deps-as-modules.md section 11, docs/design/40 section 4b.2). Each probe opens a client
+/// The four health probes for Valkey (docs/design/42-deps-as-modules.md section 11, docs/design/40 section 4c.2). Each probe opens a client
 /// for its own use and closes it, so a child that changed its port is picked up at the next probe. Probes report results and never throw
 /// on a failed server call; caller cancellation is not swallowed. Reasons never carry the endpoint, the port or a secret. All probes are
-/// non-critical (section 4b.3).
+/// non-critical (section 4c.3).
 /// <para>
 /// The self-test eviction check runs for a managed server only. It reads the server's configuration and confirms the eviction policy
-/// (<see cref="ValkeyCacheOptions.EvictionPolicy"/>) and the memory cap are in effect. A behavioural fill test (section 4b.2) is not run here.
+/// (<see cref="ValkeyCacheOptions.EvictionPolicy"/>) and the memory cap are in effect. A behavioural fill test (section 4c.2) is not run here.
 /// </para>
 /// </summary>
 public sealed class ValkeyHealthProbes : IValkeyHealthProbes

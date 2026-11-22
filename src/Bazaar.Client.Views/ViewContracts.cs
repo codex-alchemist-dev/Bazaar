@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Theme;
+using Bazaar.Client.Theme;
 
 namespace Bazaar.Client.Views;
 
@@ -16,7 +16,7 @@ public interface IViewActions
 
 /// <summary>
 /// Resolves localisation keys (doc 41c, section 7). An unknown key should return the key itself so the gap stays visible.
-/// The mapper does not call this yet: the Rubedo view schema has no marker for a localisation key, so every prop string is a literal.
+/// The mapper looks up every <c>label</c> and tab <c>title</c> (key or literal, doc 41c section 7); it never looks up a bound <c>value</c>.
 /// </summary>
 public interface IViewLocalizer
 {

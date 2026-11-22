@@ -1,9 +1,9 @@
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
-using Bazaar.Server.Kanban;
-using Bazaar.Server.Kanban.Data;
-using Bazaar.Server.Kanban.Wire;
+using Bazaar.RyuseiFuda.Kanban;
+using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
 
@@ -27,7 +27,7 @@ public sealed class BoardSnapshotHandlerTests(KanbanDb db) : IClassFixture<Kanba
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;

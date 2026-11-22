@@ -1,3 +1,5 @@
+using Bazaar.Approvals;
+using Bazaar.GitHub.Adapter;
 using Bazaar.Sanitization;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
@@ -27,7 +29,7 @@ public sealed class HostApplicationTests
             var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
             builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
+                ["Bazaar:Host:DataRoot"] = Path.Combine(Path.GetTempPath(), "bazaar-host-test-" + Guid.NewGuid().ToString("N")),
                 ["Bazaar:Host:DatabaseConnectionReference"] = "env:" + dbEnv,
                 ["Bazaar:DevAuth:Enabled"] = "true",
                 ["Bazaar:DevAuth:TokenSecret"] = "env:" + tokenEnv,
@@ -38,6 +40,9 @@ public sealed class HostApplicationTests
 
             Assert.NotNull(sp.GetRequiredService<IGcNotificationSource>());
             Assert.NotNull(sp.GetRequiredService<AgentResponder>());
+            // The owner-signed merge gate and the one verifier it shares with the kill switch are live in the host graph (doc 21, C25).
+            Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
+            Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
         }
         finally

@@ -29,7 +29,7 @@ The owner's headline milestone: Bazaar packages and manages its own PostgreSQL. 
 | P4 version probe and bundle layout | `pg/<major>/` layout, refusal on major mismatch, `db status` | Done in code | `Bundle/` (`BundleLayout`, `MajorVersionPolicy`, `ServerVersionProbe`) |
 | P5 host wiring | Start managed Postgres before migrate and readiness; stop with the host | Done | PR #338 |
 | P6 Linux Compose | Compose with PG 18 default and a PG 19 override on its own volume | Done for PG 18 and PG 19 files; CI job for the schema tests is tracked under CI | PR #204; `deploy/compose/compose.yaml`, `compose.pg19.yaml` |
-| P7 Windows bundle | PG and pgvector binaries fetched, hashes verified, pgvector built with MSVC, layout `pg/<major>/` | Done for PG 18.7 and pgvector 0.8.2 (PRs #322, #440, #480, #494). PG 19 bundle is not on `main` yet | PR #322; `packaging/postgres/versions.txt`, `build-pgvector-windows.ps1` |
+| P7 Windows bundle | PG and pgvector binaries fetched, hashes verified, pgvector built with MSVC, layout `pg/<major>/` | Done for PG 18.7 and pgvector 0.8.7 (PRs #322, #440, #480, #494, #656). Pins are per major (`PG<major>_*`); the PG 19 bundle is not on `main` yet because EDB has not published a Windows 19 zip | PR #322; `packaging/postgres/versions.txt`, `build-pgvector-windows.ps1` |
 | P8 Windows smoke run | First-run initdb and migrate, host restart, crash (kill postgres), reboot, upgrade refusal, backup and restore, on the owner's PC | In progress. Needs the owner's PC run and the 4 skipped integration tests (`BAZAAR_TEST_PG_BIN`) | Project memory; `packaging/postgres` |
 | P9 backup, restore and upgrade | `pg_dump` backup job, restore runner, `pg_upgrade` runner, scheduled dumps, `bazaar db backup` and `bazaar db upgrade` CLI | Done (PRs #372, #394, #460, #482). Restore drill on a real cluster is tracked under T10 | `src/Bazaar.Components.ManagedPostgres/Maintenance`; `docs/runbooks/backup-restore-drill.md` |
 | P10 licence and notices | Bundle licence file and counsel question list | Planned | `packaging/postgres` |
@@ -160,7 +160,7 @@ The target is one module contract for all modules, first-party and third-party a
 | Keystore-sealed credentials on Android | Done | PR #324 |
 | CodeQL advanced workflow on every PR | Done | PR #287; `.github/workflows/codeql.yml` |
 | Secret scanning path allowlist for test fixtures only | Done | Project memory |
-| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server/Gateway` |
+| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server.Gateway` |
 | Gateway: floors enforced by settings (tighten only) | Planned (`ST1`) | `docs/design/03`, `docs/design/15` |
 
 **Exit check (T8):** the security review closes with no open blocking finding in the design set, and the taint rules are covered by a rule-table test.

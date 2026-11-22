@@ -54,7 +54,7 @@ public sealed class ValkeyCacheOptions
     /// <summary>Memory cap of a managed server, in megabytes. Written to the child's configuration as <c>maxmemory</c>.</summary>
     public int MaxMemoryMegabytes { get; set; } = 256;
 
-    /// <summary>Memory use, as a percentage of the server limit, at which the dependencies probe turns amber (doc 40 section 4b.2).</summary>
+    /// <summary>Memory use, as a percentage of the server limit, at which the dependencies probe turns amber (doc 40 section 4c.2).</summary>
     public int MemoryWarnPercent { get; set; } = 80;
 
     /// <summary>

@@ -1,0 +1,83 @@
+# Publish smoke for the GUI heads (docs/design/40, "A publish smoke job for both OSes").
+#
+# CI builds with build.sh and build.ps1, which never publish. So a ReadyToRun or publish break would
+# only show at tag time. This job publishes each GUI head with the same RID and self-contained setting
+# the release uses, and fails if the output is missing its entry assembly. It runs on pull requests and
+# on push, like the main CI, so a publish break is seen in the PR.
+#
+# Every third-party action is pinned to a full commit SHA, the same as ci.yml. Permissions are read-only.
+
+name: Publish smoke
+
+on:
+  # Not a required check, so it does not need the push-on-every-branch trick: pull requests and main only,
+  # and only when something that can break a publish changed.
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - 'src/Bazaar.Client*/**'
+      - 'Directory.*'
+      - 'global.json'
+      - 'NuGet.config'
+      - '.github/workflows/publish-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-smoke:
+    name: Publish ${{ matrix.head }} (${{ matrix.rid }})
+    if: github.event.pull_request.draft != true
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            rid: linux-x64
+            head: Bazaar.Client.Linux
+            entry: Bazaar.Client.Linux
+          - runner: windows-latest
+            rid: win-x64
+            head: Bazaar.Client.Windows
+            entry: Bazaar.Client.Windows.exe
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The SDK version comes from global.json at the repo root (.NET 11, pinned).
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      # Release publish, the same flags as release.yml: a RID, self-contained, ReadyToRun from the project.
+      - name: Publish ${{ matrix.head }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/publish-${{ matrix.head }}"
+          dotnet publish "src/${{ matrix.head }}/${{ matrix.head }}.csproj" \
+            -c Release -r "${{ matrix.rid }}" --self-contained true -o "$out"
+          if [ ! -f "$out/${{ matrix.entry }}" ]; then
+            echo "::error::publish output is missing ${{ matrix.entry }}"
+            ls -la "$out" || true
+            exit 1
+          fi
+          echo "Published ${{ matrix.head }} to $out"

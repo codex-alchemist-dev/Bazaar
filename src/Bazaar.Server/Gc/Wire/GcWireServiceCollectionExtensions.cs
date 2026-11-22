@@ -33,7 +33,7 @@ public static class GcWireServiceCollectionExtensions
         // codec fails closed when it seals, so no body is stored in plaintext (see AesGcmGcBodyCodec).
         services.TryAddSingleton<IGcBodyCodec>(sp => new AesGcmGcBodyCodec(
             sp.GetRequiredService<Npgsql.NpgsqlDataSource>(),
-            sp.GetService<Bazaar.Server.Identity.Keys.IKekProvider>()));
+            sp.GetService<Bazaar.Server.Identity.Kek.IKekProvider>()));
 
         // The operator's settings store. The settings component registers the audited store first; this fallback keeps a GC-only
         // host working (reads need no audit sink; writes only come from the settings component).
@@ -48,7 +48,6 @@ public static class GcWireServiceCollectionExtensions
         services.TryAddSingleton<IGcStreamSource>(sp => sp.GetRequiredService<PgGcStreamSource>());
         services.TryAddSingleton<IGcAccessPolicy>(sp => new GcStreamAccessPolicy(sp.GetRequiredService<IGcReadAccess>()));
         services.TryAddSingleton<IGcNotificationSource>(sp => new GcNotificationSource(sp.GetRequiredService<GcNotifyListener>()));
-        services.AddSingleton<IHostedService, GcDispatcherService>();
 
         services.AddSingleton<IWireRequestHandler, SubscribeHandler>();
         services.TryAddSingleton<Bazaar.Server.Gc.Edit.PgGcEditSource>();
