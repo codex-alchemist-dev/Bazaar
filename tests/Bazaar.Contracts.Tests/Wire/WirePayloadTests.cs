@@ -27,6 +27,8 @@ public class WirePayloadTests
         { "gc-page", new GcPage([Message()], HasMore: true) },
         { "resync", new Resync(WireStreams.Gc(_gc), 5000, 5100, 3, [Message()]) },
         { "lagged", new Lagged(WireStreams.Gc(_gc), 12) },
+        { "hive-grant-request", new Bazaar.Contracts.Hive.HiveGrantChangeRequest("alpha", "beta", "procedural") },
+        { "hive-grant-reply", new Bazaar.Contracts.Hive.HiveGrantChangeReply(true, null, true) },
         { "error", new WireError(WireErrorCodes.RateLimited, null, 1500) },
     };
 

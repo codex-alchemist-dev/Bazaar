@@ -53,6 +53,9 @@ public static class PresenceKinds
 {
     /// <summary>A member is typing in a GC.</summary>
     public const string Typing = "typing";
+
+    /// <summary>An agent's presence row changed (docs/design/23, "Sequence numbers on deltas").</summary>
+    public const string Agent = "agent";
 }
 
 /// <summary>
@@ -64,4 +67,5 @@ public static class PresenceKinds
 /// <param name="PrincipalId">Who is typing.</param>
 /// <param name="Typing">True while typing, false once they stopped.</param>
 /// <param name="TtlMs">Milliseconds after which the receiver treats the signal as expired unless refreshed.</param>
+[WirePayload]
 public sealed record PresenceTyping(string Kind, Guid GcId, Guid PrincipalId, bool Typing, int TtlMs);
