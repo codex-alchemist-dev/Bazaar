@@ -4,4 +4,7 @@
     <RootNamespace>Bazaar.Client.Commands</RootNamespace>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+  </ItemGroup>
 </Project>

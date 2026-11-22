@@ -81,13 +81,17 @@ internal sealed class FakeWindowsSandboxHost : IWindowsSandboxHost
         }
     }
 
+    /// <summary>Plays the guest for <see cref="ExecAsync"/>. Without it an exec returns exit code 0 at once.</summary>
+    public Func<IReadOnlyList<string>, CancellationToken, Task<SandboxExecResult>>? ExecHandler { get; set; }
+
     public Task<SandboxExecResult> ExecAsync(string instanceId, IReadOnlyList<string> command, CancellationToken ct)
     {
         lock (_gate)
         {
             Calls.Add($"exec:{instanceId}:{string.Join(' ', command)}");
-            return Task.FromResult(new SandboxExecResult(0, string.Empty, string.Empty));
         }
+
+        return ExecHandler?.Invoke(command, ct) ?? Task.FromResult(new SandboxExecResult(0, string.Empty, string.Empty));
     }
 
     /// <summary>Simulates a sandbox closing on its own, as a user would close the window.</summary>

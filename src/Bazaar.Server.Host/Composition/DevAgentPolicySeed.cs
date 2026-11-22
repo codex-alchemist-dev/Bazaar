@@ -2,6 +2,7 @@ using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Providers.ClaudeCode;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
@@ -18,6 +19,7 @@ namespace Bazaar.Server.Host.Composition;
 public sealed class DevAgentPolicySeed(
     IOptions<FreeLlmApiOptions> freeLlmApi,
     IOptions<AnthropicDirectOptions> anthropicDirect,
+    IOptions<ClaudeCodeOptions> claudeCode,
     IOptions<AgentResponderOptions> responder,
     AgentModelPolicyRepository policies,
     ILogger<DevAgentPolicySeed> logger) : IHostedService
@@ -42,29 +44,60 @@ public sealed class DevAgentPolicySeed(
     }
 
     /// <summary>
-    /// The whole seeded policy for one agent, or null when neither source grants anything. The default route is the
-    /// FreeLLMAPI route when that source is on, otherwise the Anthropic Haiku route.
+    /// Policy entries for the Claude Code CLI provider: the <c>claude</c> route, the default model's route and every configured CLI
+    /// model, provider-qualified, or nothing when the provider is off. The operator listed those models, so they are all granted;
+    /// the Anthropic key's other models stay an explicit owner edit (doc 05, doc 91).
     /// </summary>
-    public static (IReadOnlyList<string> Entries, string DefaultRoute)? PolicyFor(FreeLlmApiOptions freeLlmApi, AnthropicDirectOptions anthropicDirect)
+    public static IReadOnlyList<string> EntriesFor(ClaudeCodeOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!options.Enabled)
+        {
+            return [];
+        }
+
+        var models = options.EffectiveModels();
+        return
+        [
+            ClaudeCodeProvider.DefaultRoute,
+            ClaudeCodeProvider.RouteFor(models[0]),
+            .. models.Select(m => $"{ClaudeCodeProvider.ProviderId}:{m}"),
+        ];
+    }
+
+    /// <summary>
+    /// The whole seeded policy for one agent, or null when no source grants anything. The default route is <c>claude</c>
+    /// when the Claude Code provider is on (every Claude source the agent may use, CLI first, then the owner's Anthropic key), otherwise the FreeLLMAPI
+    /// route, otherwise the Anthropic Haiku route. FreeLLMAPI stays an allowed route beside it: the gateway never falls back
+    /// across model families (doc 05), so that switch is a route choice, not an automatic failover.
+    /// </summary>
+    public static (IReadOnlyList<string> Entries, string DefaultRoute)? PolicyFor(
+        FreeLlmApiOptions freeLlmApi,
+        AnthropicDirectOptions anthropicDirect,
+        ClaudeCodeOptions? claudeCode = null)
     {
         ArgumentNullException.ThrowIfNull(freeLlmApi);
         ArgumentNullException.ThrowIfNull(anthropicDirect);
 
         IReadOnlyList<string> pooled = freeLlmApi.Enabled ? EntriesFor(freeLlmApi) : [];
         var native = EntriesFor(anthropicDirect);
-        var entries = pooled.Concat(native).Distinct(StringComparer.Ordinal).ToList();
+        var cli = claudeCode is null ? [] : EntriesFor(claudeCode);
+        var entries = cli.Concat(pooled).Concat(native).Distinct(StringComparer.Ordinal).ToList();
         if (entries.Count == 0)
         {
             return null;
         }
 
-        return (entries, freeLlmApi.Enabled ? freeLlmApi.RouteName : AnthropicDirectOptions.DefaultModel);
+        var defaultRoute = cli.Count > 0
+            ? ClaudeCodeProvider.DefaultRoute
+            : freeLlmApi.Enabled ? freeLlmApi.RouteName : AnthropicDirectOptions.DefaultModel;
+        return (entries, defaultRoute);
     }
 
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        if (PolicyFor(freeLlmApi.Value, anthropicDirect.Value) is not { } policy)
+        if (PolicyFor(freeLlmApi.Value, anthropicDirect.Value, claudeCode.Value) is not { } policy)
         {
             return;
         }
