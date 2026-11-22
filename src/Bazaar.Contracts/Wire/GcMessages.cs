@@ -16,6 +16,7 @@ namespace Bazaar.Contracts.Wire;
 /// <param name="Edited">True when this is not the first version.</param>
 /// <param name="Mentions">Principals mentioned.</param>
 /// <param name="ReplyToN">Sequence number of the entry this replies to.</param>
+/// <param name="Withdrawn">True when the current version was withdrawn by an import; <paramref name="Text"/> is then a placeholder.</param>
 [WirePayload(WireTypes.GcMessage)]
 public sealed record WireGcMessage(
     Guid GcId,
@@ -27,7 +28,8 @@ public sealed record WireGcMessage(
     DateTimeOffset Ts,
     bool Edited,
     IReadOnlyList<Guid> Mentions,
-    long? ReplyToN);
+    long? ReplyToN,
+    bool Withdrawn = false);
 
 /// <summary>Request <c>gc.send</c>. The envelope <c>id</c> is the idempotency key.</summary>
 /// <param name="GcId">The group chat.</param>
