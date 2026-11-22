@@ -158,6 +158,7 @@ public static class HostComponents
         new Bazaar.Server.Engines.EnginesComponent(),
         new Bazaar.Server.EngineGcRecorder.EngineGcRecorderComponent(),
         new Bazaar.Server.EngineRelay.EngineRelayComponent(),
+        new Bazaar.Server.EngineTool.EngineToolComponent(),
         new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
         // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
