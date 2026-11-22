@@ -36,7 +36,7 @@ public static class AssignmentInbox
         await using var cmd = new NpgsqlCommand("SELECT state FROM agent WHERE agent_id = @id", tx.Connection, tx);
         cmd.Parameters.AddWithValue("id", agentId);
         var state = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) as string;
-        if (RyuseiFireWriter.TargetStatus(state) != RyuseiFireTargetStatus.Wakeable)
+        if (RyuseiFireWriter.TargetStatus(state) is RyuseiFireTargetStatus.Missing or RyuseiFireTargetStatus.Retired)
         {
             return false;
         }

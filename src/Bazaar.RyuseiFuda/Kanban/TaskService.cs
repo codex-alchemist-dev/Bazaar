@@ -188,7 +188,9 @@ public sealed class TaskService
     /// still matches. When the assignee changes to an agent other than the actor, one <c>assignment</c> inbox item is written in the
     /// same transaction so the wake loop wakes it (doc 12, "Assignment wake" [PROPOSED]). Assigning the current assignee again
     /// changes nothing and returns <see cref="TransitionStatus.Refused"/> with <see cref="TransitionOutcome.NotATransition"/>.
-    /// Who may assign is not decided in doc 12, so the caller (a tool or handler) gates authority.
+    /// Authority (doc 12, "Assign authority and command" [PROPOSED]): the owner and the system actor may assign any card; an agent
+    /// may assign only while it is a member of the card's origin GC, and not to itself (it claims instead). Anyone else is
+    /// <see cref="TransitionOutcome.NotAuthorised"/>, checked before the version.
     /// </summary>
     public async Task<TransitionResult> AssignAsync(
         Guid taskId, Guid? assigneeAgentId, TaskActor actor, long expectedVersion, CancellationToken ct = default)
@@ -199,6 +201,11 @@ public sealed class TaskService
         if (task is null)
         {
             return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (!await MayAssignAsync(tx, task, assigneeAgentId, actor, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotAuthorised, []);
         }
 
         if (task.Version != expectedVersion)
@@ -219,6 +226,27 @@ public sealed class TaskService
         await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, assigneeAgentId, actor, task.Version + 1, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return TransitionResult.Applied(task.Version + 1);
+    }
+
+    private static async Task<bool> MayAssignAsync(NpgsqlTransaction tx, TaskRecord task, Guid? assignee, TaskActor actor, CancellationToken ct)
+    {
+        switch (actor.Kind)
+        {
+            case TaskActorKind.Owner:
+            case TaskActorKind.System:
+                return true;
+            case TaskActorKind.Agent when assignee != actor.Id:
+                await using (var cmd = new NpgsqlCommand(
+                    "SELECT 1 FROM gc_member WHERE gc_id = @gc AND principal_id = @p AND left_seq IS NULL", tx.Connection, tx))
+                {
+                    cmd.Parameters.AddWithValue("gc", task.OriginGcId);
+                    cmd.Parameters.AddWithValue("p", actor.Id);
+                    return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
+                }
+
+            default:
+                return false;
+        }
     }
 
     /// <summary>

@@ -1,5 +1,6 @@
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Agents.Inbox;
 using Bazaar.Testing.Postgres;
 using Npgsql;
@@ -120,16 +121,19 @@ public sealed class TaskAssignmentInboxTests(KanbanDb db) : IClassFixture<Kanban
     }
 
     [Fact]
-    public async Task An_agent_assigning_the_card_to_itself_makes_no_row()
+    public async Task The_owner_assigning_an_agent_as_that_agent_actor_never_wakes_the_actor()
     {
         SkipWithoutDatabase();
-        var service = new TaskService(db.DataSource);
         var agent = await AddAgentAsync();
         var task = await AddTaskAsync();
 
-        var result = await service.AssignAsync(task, agent, new TaskActor(TaskActorKind.Agent, agent), 1, Ct);
+        // The loop guard in the writer, reached with an actor the authority rule would refuse: call the writer directly.
+        await using var conn = await db.DataSource.OpenConnectionAsync(Ct);
+        await using var tx = await conn.BeginTransactionAsync(Ct);
+        var wrote = await AssignmentInbox.EnqueueAsync(tx, task, null, agent, new TaskActor(TaskActorKind.Agent, agent), 2, Ct);
+        await tx.CommitAsync(Ct);
 
-        Assert.Equal(TransitionStatus.Applied, result.Status);
+        Assert.False(wrote);
         Assert.Empty(await InboxAsync(agent));
     }
 
@@ -161,19 +165,132 @@ public sealed class TaskAssignmentInboxTests(KanbanDb db) : IClassFixture<Kanban
         Assert.Empty(await InboxAsync(human));
     }
 
-    [Theory]
-    [InlineData("resting")]
-    [InlineData("retired")]
-    public async Task A_resting_or_retired_assignee_is_not_woken(string state)
+    [Fact]
+    public async Task A_resting_assignee_gets_an_item_that_accumulates_but_is_not_woken()
     {
         SkipWithoutDatabase();
         var service = new TaskService(db.DataSource);
-        var agent = await AddAgentAsync(state);
+        var agent = await AddAgentAsync("resting");
+        var task = await AddTaskAsync();
+
+        await service.AssignAsync(task, agent, _owner, 1, Ct);
+
+        Assert.Equal(InboxKind.Assignment, Assert.Single(await InboxAsync(agent)).Kind);
+        var due = await new InboxRepository(db.DataSource).PeekDueAgentsAsync(1000, Ct);
+        Assert.DoesNotContain(due, d => d.AgentId == agent);
+    }
+
+    [Fact]
+    public async Task An_active_assignee_is_listed_as_due_to_wake()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var agent = await AddAgentAsync();
+        var task = await AddTaskAsync();
+
+        await service.AssignAsync(task, agent, _owner, 1, Ct);
+
+        Assert.Contains(await new InboxRepository(db.DataSource).PeekDueAgentsAsync(1000, Ct), d => d.AgentId == agent);
+    }
+
+    [Fact]
+    public async Task A_retired_assignee_gets_no_row()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var agent = await AddAgentAsync("retired");
         var task = await AddTaskAsync();
 
         await service.AssignAsync(task, agent, _owner, 1, Ct);
 
         Assert.Empty(await InboxAsync(agent));
+    }
+
+    private async Task<(Guid Task, Guid Gc)> AddTaskWithGcAsync()
+    {
+        var (gcId, _) = await db.CreateGcWithMessageAsync();
+        var id = Guid.CreateVersion7();
+        await using var conn = await db.DataSource.OpenConnectionAsync(Ct);
+        await using var tx = await conn.BeginTransactionAsync(Ct);
+        await new TaskRepository(db.DataSource).InsertAsync(tx,
+            new NewTask(id, Guid.CreateVersion7(), "Task", TaskState.Backlog, null, TaskGate.None, gcId, null, null), Ct);
+        await tx.CommitAsync(Ct);
+        return (id, gcId);
+    }
+
+    private async Task JoinAsync(Guid gc, Guid principal, bool left = false)
+    {
+        await using var cmd = db.DataSource.CreateCommand(
+            "INSERT INTO gc_member (gc_id, principal_id, left_seq) VALUES ($1, $2, $3)");
+        cmd.Parameters.AddWithValue(gc);
+        cmd.Parameters.AddWithValue(principal);
+        cmd.Parameters.AddWithValue(left ? 5L : DBNull.Value);
+        await cmd.ExecuteNonQueryAsync(Ct);
+    }
+
+    [Fact]
+    public async Task A_gc_member_agent_may_assign_another_agent_and_the_assignee_is_woken()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var assigner = await AddAgentAsync();
+        var target = await AddAgentAsync();
+        var (task, gc) = await AddTaskWithGcAsync();
+        await JoinAsync(gc, assigner);
+
+        var result = await service.AssignAsync(task, target, new TaskActor(TaskActorKind.Agent, assigner), 1, Ct);
+
+        Assert.Equal(TransitionStatus.Applied, result.Status);
+        Assert.Single(await InboxAsync(target));
+    }
+
+    [Fact]
+    public async Task An_agent_outside_the_gc_or_who_left_it_is_refused_and_nothing_changes()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var outsider = await AddAgentAsync();
+        var leaver = await AddAgentAsync();
+        var target = await AddAgentAsync();
+        var (task, gc) = await AddTaskWithGcAsync();
+        await JoinAsync(gc, leaver, left: true);
+
+        var a = await service.AssignAsync(task, target, new TaskActor(TaskActorKind.Agent, outsider), 1, Ct);
+        var b = await service.AssignAsync(task, target, new TaskActor(TaskActorKind.Agent, leaver), 1, Ct);
+
+        Assert.Equal(TransitionOutcome.NotAuthorised, a.Outcome);
+        Assert.Equal(TransitionOutcome.NotAuthorised, b.Outcome);
+        Assert.Equal(TransitionStatus.Refused, a.Status);
+        Assert.Empty(await InboxAsync(target));
+        Assert.Equal(1, await VersionAsync(task));
+    }
+
+    [Fact]
+    public async Task An_agent_assigning_itself_must_claim_instead_even_as_a_gc_member()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var agent = await AddAgentAsync();
+        var (task, gc) = await AddTaskWithGcAsync();
+        await JoinAsync(gc, agent);
+
+        var result = await service.AssignAsync(task, agent, new TaskActor(TaskActorKind.Agent, agent), 1, Ct);
+
+        Assert.Equal(TransitionOutcome.NotAuthorised, result.Outcome);
+    }
+
+    [Fact]
+    public async Task The_system_actor_may_assign()
+    {
+        SkipWithoutDatabase();
+        var service = new TaskService(db.DataSource);
+        var agent = await AddAgentAsync();
+        var task = await AddTaskAsync();
+
+        var result = await service.AssignAsync(task, agent, TaskActor.SystemActor, 1, Ct);
+
+        Assert.Equal(TransitionStatus.Applied, result.Status);
+        Assert.Single(await InboxAsync(agent));
     }
 
     [Fact]
