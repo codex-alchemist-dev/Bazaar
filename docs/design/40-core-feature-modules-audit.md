@@ -377,11 +377,7 @@ Docs section this implements: this section (Souls extraction; the owner's direct
 
 `Bazaar.Server` references both projects. `tests/Bazaar.Server.Souls.Tests` holds the tests that need only moved code (162 tests, no database). The Postgres-backed tests (`SoulVersioningServiceTests`, the retirement ledger and soul-data tests), `GcLogJudgmentPosterTests` and the preset tests stay in `tests/Bazaar.Server.Tests/Souls`, which links `JudgmentFixtures.cs` and `RetirementFakes.cs` from the new test project.
 
-Still in `Bazaar.Server/Souls` (2 files), with the reason each one stays:
-
-- `Presets/PresetLoader.cs`, `Presets/DefaultPresetRoster.cs`, `Presets/PresetValidationException.cs` and `Presets/Data/default-roster.json` have moved into `Bazaar.Server.Souls` (it now references `Bazaar.Server.Gateway.Abstractions` for `ModelRef`); the roster JSON is embedded in that assembly under the same logical name. Their tests moved to `tests/Bazaar.Server.Souls.Tests/Presets`.
-- `Judgments/GcLogJudgmentPoster.cs`: uses `IGcLogWriter` and the GC body codec (`Bazaar.Server.Gc.Write`, `Gc.Body`). Moves with the GC abstractions.
-- `Judgments/JudgmentServiceCollectionExtensions.cs`: registers `GcLogJudgmentPoster`, so it stays with it.
+`Bazaar.Server/Souls` is now empty. `Presets/PresetLoader.cs`, `DefaultPresetRoster.cs`, `PresetValidationException.cs` and `Presets/Data/default-roster.json` moved into `Bazaar.Server.Souls` (it references `Bazaar.Server.Gateway.Abstractions` for `ModelRef`); the roster JSON is embedded under the same logical name and the preset tests live in `tests/Bazaar.Server.Souls.Tests/Presets`. `Judgments/GcLogJudgmentPoster.cs` and `JudgmentServiceCollectionExtensions.cs` also moved into `Bazaar.Server.Souls` once `IGcLogWriter` and `IGcBodyCodec` lived in `Bazaar.GC.Abstractions` (now referenced by `Bazaar.Server.Souls`; namespaces unchanged). `GcLogJudgmentPosterTests` stays in `tests/Bazaar.Server.Tests/Souls/Judgments` because it uses `PlaintextGcBodyCodec`, which is still in `Bazaar.Server`.
 
 One code change besides the move: `JudgmentDecisionFile.Quote` now uses `JavaScriptEncoder.UnsafeRelaxedJsonEscaping.Encode` instead of `JsonSerializer.Serialize`, because the new project is AOT-compatible and the reflection overload is not. Output is identical.
 
