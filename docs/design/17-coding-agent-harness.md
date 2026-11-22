@@ -252,8 +252,8 @@ Decisions for the gaps (the most robust option; the owner may overrule):
 - The channel comes from `IGuestChannelDirectory.TryGetAsync(agentId, Linux)` (doc 16, "Channel directory"): the Linux VM for the coding tools. No channel, no mount attached to that VM, or an ambiguous VM means a null target, so the call is refused (`no_worktree` or `guest_unavailable`), never a fallback path.
 - A guest-local worktree off the share (`/home/agent/work/<key>`, `C:\work\<key>`) is the alternative if the SMB throughput benchmark (doc 16) shows builds on the share are too slow. It would need its own sync story with the host's git engine and is not built; this is OPEN until that benchmark.
 - Open: the mapping from `CodingWorktree` to the path relative to the work share is a host fact held by `ICodingWorktreeDirectory`; whether it exposes that relative path or the source derives it is not decided.
-## Tool dispatch registration (host) [PROPOSED, 2026-11-22]
 
+## Tool dispatch registration (host) [PROPOSED, 2026-11-22]
 Implementation: `src/Bazaar.Server.Host/Coding/CodingToolDispatchExtensions.cs`, called once from `AddBazaarCodingHarness`. It makes the eight tools (`edit` and the seven above) runnable by an agent through the doc 06 dispatcher: per tool, a `ToolRegistration` (a `CodingToolBridge` that hands the call to `ICodingToolRunner`), a doc 15 `ToolCapability` and a `ModelToolDefinition`.
 
 Decisions (the most robust option; the owner may overrule):
