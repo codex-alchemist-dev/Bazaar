@@ -127,7 +127,8 @@
     <Project Path="src/Bazaar.Server.Settings.Abstractions/Bazaar.Server.Settings.Abstractions.csproj" />
     <Project Path="src/Bazaar.Guest.Agent/Bazaar.Guest.Agent.csproj" />
     <Project Path="src/Bazaar.Guest.PoolSpawn/Bazaar.Guest.PoolSpawn.csproj" />
-    <Project Path="src/Bazaar.Engines/Bazaar.Engines.csproj" />
+    <Project Path="src/Bazaar.Server.Engines.Abstractions/Bazaar.Server.Engines.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Engines/Bazaar.Server.Engines.csproj" />
     <Project Path="src/Bazaar.Sdk/Bazaar.Sdk.csproj" />
     <Project Path="src/Bazaar.Server.Setup/Bazaar.Server.Setup.csproj" />
     <Project Path="src/Bazaar.Server.Souls.Abstractions/Bazaar.Server.Souls.Abstractions.csproj" />
@@ -142,6 +143,9 @@
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
+    <Project Path="src/Bazaar.Server.Godot.Abstractions/Bazaar.Server.Godot.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Godot/Bazaar.Server.Godot.csproj" />
+    <Project Path="tests/Bazaar.Server.Godot.Tests/Bazaar.Server.Godot.Tests.csproj" />
     <Project Path="src/Bazaar.Server.EngineDispatch.Abstractions/Bazaar.Server.EngineDispatch.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.EngineDispatch/Bazaar.Server.EngineDispatch.csproj" />
     <Project Path="tests/Bazaar.Server.EngineDispatch.Tests/Bazaar.Server.EngineDispatch.Tests.csproj" />
@@ -397,7 +401,7 @@
     <Project Path="tests/Bazaar.Wire.Codec.Protobuf.Tests/Bazaar.Wire.Codec.Protobuf.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
-    <Project Path="tests/Bazaar.Engines.Tests/Bazaar.Engines.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Engines.Tests/Bazaar.Server.Engines.Tests.csproj" />
     <Project Path="tests/Bazaar.ExitCheck.Tests/Bazaar.ExitCheck.Tests.csproj" />
     <Project Path="tests/Bazaar.Community.Tests/Bazaar.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Community.Abstractions.Tests/Bazaar.Server.Community.Abstractions.Tests.csproj" />
