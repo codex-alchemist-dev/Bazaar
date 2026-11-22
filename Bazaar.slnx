@@ -164,6 +164,7 @@
     <Project Path="src/Bazaar.Client.GitGui.Gitlab/Bazaar.Client.GitGui.Gitlab.csproj" />
     <Project Path="tests/Bazaar.Client.GitGui.Gitlab.Tests/Bazaar.Client.GitGui.Gitlab.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Portability/Bazaar.Server.Portability.csproj" />
+    <Project Path="src/Bazaar.Server.Portability.Postgres/Bazaar.Server.Portability.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Portability.Verifier/Bazaar.Server.Portability.Verifier.csproj" />
     <Project Path="src/Bazaar.Verify/Bazaar.Verify.csproj" />
     <Project Path="src/Bazaar.Server.Portability.Sandbox.Abstractions/Bazaar.Server.Portability.Sandbox.Abstractions.csproj" />
@@ -365,6 +366,7 @@
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Portability.Postgres.Tests/Bazaar.Server.Portability.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Verifier.Tests/Bazaar.Server.Portability.Verifier.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Sandbox.Tests/Bazaar.Server.Portability.Sandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Tests/Bazaar.Client.Portability.Tests.csproj" />
