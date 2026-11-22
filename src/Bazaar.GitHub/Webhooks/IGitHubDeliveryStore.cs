@@ -8,4 +8,13 @@ public interface IGitHubDeliveryStore
     /// so a replay is acknowledged without being queued again.
     /// </summary>
     Task<bool> TryRecordAsync(string source, string deliveryId, string eventName, DateTimeOffset receivedAt, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Records one delivery with its raw JSON body and event type (doc 21, Data and interfaces), for the PR service and
+    /// the event mapper. Dedupe is unchanged: a replay returns false and keeps the first stored payload. The default
+    /// implementation drops the payload and calls the original overload, so existing stores keep working.
+    /// </summary>
+    /// <param name="payloadJson">The raw body when it is valid JSON, otherwise null.</param>
+    Task<bool> TryRecordAsync(string source, string deliveryId, string eventName, DateTimeOffset receivedAt, string? payloadJson, CancellationToken cancellationToken) =>
+        TryRecordAsync(source, deliveryId, eventName, receivedAt, cancellationToken);
 }

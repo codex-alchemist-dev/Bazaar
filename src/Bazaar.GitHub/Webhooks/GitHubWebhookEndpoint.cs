@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Bazaar.Server.Secrets;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -69,7 +70,7 @@ public static partial class GitHubWebhookEndpoint
         try
         {
             var time = services.GetService<TimeProvider>() ?? TimeProvider.System;
-            var isNew = await store.TryRecordAsync(Source, deliveryId, eventName, time.GetUtcNow(), http.RequestAborted);
+            var isNew = await store.TryRecordAsync(Source, deliveryId, eventName, time.GetUtcNow(), AsJson(body), http.RequestAborted);
             return Status(isNew ? StatusCodes.Status202Accepted : StatusCodes.Status200OK);
         }
         catch (Exception ex) when (ex is NpgsqlException or InvalidOperationException)
@@ -77,6 +78,20 @@ public static partial class GitHubWebhookEndpoint
             // Not recorded, so do not acknowledge: a non-2xx lets GitHub redeliver.
             LogPersistFailed(log, ex, deliveryId);
             return Status(StatusCodes.Status503ServiceUnavailable);
+        }
+    }
+
+    /// <summary>The body as text when it is valid JSON (GitHub can also send form-encoded bodies), otherwise null.</summary>
+    private static string? AsJson(byte[] body)
+    {
+        try
+        {
+            using var _ = JsonDocument.Parse(body);
+            return Encoding.UTF8.GetString(body);
+        }
+        catch (JsonException)
+        {
+            return null;
         }
     }
 
