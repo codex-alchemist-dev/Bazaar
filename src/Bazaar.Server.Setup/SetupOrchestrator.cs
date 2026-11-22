@@ -16,6 +16,9 @@ public static class SetupOrchestrator
     /// <summary>The outcome for an apply that the gate stopped. Scripts read it from the JSON document.</summary>
     public const string ApplyUnavailableOutcome = "apply_unavailable";
 
+    /// <summary>The outcome for an apply held because the plan asks for sections no registered step applies.</summary>
+    public const string UnappliedSectionsOutcome = SetupPlanSections.HoldReason;
+
     /// <summary>The one plain line an unavailable apply prints. It names the missing store and the adapter that provides it.</summary>
     public const string ApplyUnavailableMessage =
         "apply is unavailable: no durable audit store is reachable (doc 15 audit_log); set BAZAAR__HOST__DATABASECONNECTIONREFERENCE to an env: or file: reference for a migrated database";
@@ -37,9 +40,15 @@ public static class SetupOrchestrator
 
     /// <summary>
     /// Validates, then lists each change against an empty snapshot. Writes nothing. Held plans still list their changes, with
-    /// exit 2, so the operator sees what a hold is blocking.
+    /// exit 2, so the operator sees what a hold is blocking. It also lists the plan sections that no registered step covers
+    /// (<paramref name="coveredSections"/> is what the steps declare), which an apply would hold for.
     /// </summary>
-    public static SetupReport DryRun(string? configPath, IReadOnlyList<string> setArguments, IReadOnlyDictionary<string, string?> environment, ISetupSettingCatalog settings)
+    public static SetupReport DryRun(
+        string? configPath,
+        IReadOnlyList<string> setArguments,
+        IReadOnlyDictionary<string, string?> environment,
+        ISetupSettingCatalog settings,
+        IEnumerable<string>? coveredSections = null)
     {
         var merged = Merge("dry-run", configPath, setArguments, environment, settings);
         if (merged.Refusal is not null)
@@ -56,6 +65,7 @@ public static class SetupOrchestrator
 
         var changes = SetupChangePlanner.Compute(load.Plan, SetupStateSnapshot.Empty).Changes;
         report.Changes.AddRange(changes.Select(SetupChangeView.ToChange));
+        report.UnappliedSections.AddRange(SetupPlanSections.Unapplied(load.Plan, coveredSections ?? []).Select(section => section.Id));
         return report;
     }
 
@@ -120,21 +130,24 @@ public static class SetupOrchestrator
         var services = new ServiceCollection();
         services.AddSingleton(settings);
         gate.RegisterApplyServices(services);
-        services.AddSetupApply([]);
+        services.AddSetupApply();
 
         using var provider = services.BuildServiceProvider();
         var applier = provider.GetRequiredService<SetupApplier>();
         var request = new SetupApplyRequest(load.Plan, planHash, entryPath ?? merged.EntryPath, OperatorIdentity(), null, null, null);
         var result = await applier.ApplyAsync(request, cancellationToken);
+        var unapplied = result.UnappliedSections.ToList();
 
         return new SetupReport
         {
             Command = "apply",
             ExitCode = (int)result.ExitCode,
             Result = ResultFor("apply", result.ExitCode),
+            Outcome = unapplied.Count > 0 ? UnappliedSectionsOutcome : null,
             PlanHash = result.PlanHash,
             CurrentState = EmptyState,
             Issues = result.Issues.Select(SetupChangeView.ToIssue).ToList(),
+            UnappliedSections = unapplied,
             AppliedSteps = result.AppliedStepIds.ToList(),
         };
     }
