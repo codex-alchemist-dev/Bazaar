@@ -97,7 +97,7 @@ public sealed class GitHubMergeEndpointTests
                 human ?? _owner,
                 _deviceId,
                 DateTimeOffset.UtcNow.AddMinutes(-1).ToUnixTimeMilliseconds(),
-                DateTimeOffset.UtcNow.AddMinutes(10).ToUnixTimeMilliseconds(),
+                DateTimeOffset.UtcNow.AddMinutes(3).ToUnixTimeMilliseconds(),
                 Enumerable.Repeat((byte)3, OwnerSignedPayload.NonceLength).ToArray(),
                 new byte[64]));
 
