@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Community\Bazaar.Client.Community.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals\Bazaar.Client.Approvals.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
