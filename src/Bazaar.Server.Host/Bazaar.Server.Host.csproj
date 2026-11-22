@@ -55,6 +55,7 @@
     <ProjectReference Include="..\Bazaar.Server.CodingStore\Bazaar.Server.CodingStore.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Subagents\Bazaar.Server.Subagents.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingWorkspace\Bazaar.Server.CodingWorkspace.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingRunner\Bazaar.Server.CodingRunner.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Git.Abstractions\Bazaar.Server.Git.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />

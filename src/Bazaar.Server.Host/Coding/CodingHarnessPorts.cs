@@ -1,4 +1,5 @@
 using Bazaar.Server.CodingGit;
+using Bazaar.Server.CodingRunner.Handlers;
 using Bazaar.Server.Identity;
 using Bazaar.Server.Subagents;
 using Microsoft.Extensions.DependencyInjection;
@@ -23,6 +24,8 @@ public static class CodingHarnessPorts
         typeof(IRuntimeSubagentParentDirectory),
         typeof(IAgentStateReader),
         typeof(IPushSessionRecords),
+        typeof(IWorktreeFilesSource),
+        typeof(ICodingToolHostContext),
     ];
 
     /// <summary>Throws, naming the first port with no registration. Fails closed: the harness never starts half-bound.</summary>

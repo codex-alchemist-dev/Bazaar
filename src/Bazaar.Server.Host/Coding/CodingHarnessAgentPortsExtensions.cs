@@ -13,14 +13,14 @@ using Npgsql;
 
 namespace Bazaar.Server.Host.Coding;
 
-/// <summary>Registers the host sources for <see cref="IAgentGitIdentity"/>, <see cref="IAgentStateReader"/> and <see cref="IPushSessionRecords"/>.</summary>
+/// <summary>Registers the host sources for <see cref="IAgentGitIdentity"/>, <see cref="IAgentStateReader"/>, <see cref="IPushSessionRecords"/>, the worktree files source and the tool host context.</summary>
 public static class CodingHarnessAgentPortsExtensions
 {
     /// <summary>Configuration key of the store-read timeout in seconds.</summary>
     public const string ReadTimeoutKey = "Coding:Harness:StateReadTimeoutSeconds";
 
     /// <summary>
-    /// Registers the three sources when <c>Coding:Harness:Enabled</c> is true; registers nothing otherwise. Throws at registration,
+    /// Registers the sources when <c>Coding:Harness:Enabled</c> is true; registers nothing otherwise. Throws at registration,
     /// naming the key, when <c>Coding:Harness:Git:AppNoreplyEmail</c> or the timeout is bad. A registration the host made first wins
     /// (TryAdd). Call it with the same configuration as <c>AddBazaarCodingHarness</c>; the startup check then finds the ports bound.
     /// </summary>
@@ -58,6 +58,7 @@ public static class CodingHarnessAgentPortsExtensions
             timeout,
             sp.GetRequiredService<IPushApprovalGrants>()));
         services.TryAddSingleton<IPushApprovalGrants>(sp => BuildGrants(sp, timeout));
+        services.AddBazaarCodingToolHostContext(configuration);
         return services;
     }
 
