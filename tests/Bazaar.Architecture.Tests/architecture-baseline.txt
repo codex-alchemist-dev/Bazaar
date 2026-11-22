@@ -406,9 +406,6 @@ src/Bazaar.Server/Skimmer/Scoring/ScorerOutputParser.cs
 src/Bazaar.Server/Skimmer/Scoring/ScorerParseResult.cs
 src/Bazaar.Server/Souls/Judgments/GcLogJudgmentPoster.cs
 src/Bazaar.Server/Souls/Judgments/JudgmentServiceCollectionExtensions.cs
-src/Bazaar.Server/Souls/Presets/DefaultPresetRoster.cs
-src/Bazaar.Server/Souls/Presets/PresetLoader.cs
-src/Bazaar.Server/Souls/Presets/PresetValidationException.cs
 src/Bazaar.Server/Verification/GateModel.cs
 src/Bazaar.Server/Verification/GitRepo.cs
 src/Bazaar.Server/Verification/PathRules.cs
