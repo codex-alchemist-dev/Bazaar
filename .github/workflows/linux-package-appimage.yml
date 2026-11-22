@@ -1,8 +1,6 @@
 # Real AppImage build of the Bazaar Linux client (doc 30 section 3, doc 37; owner card 2026-11-19).
 #
-# Runs ONLY on the owner's self-hosted Linux runner (label bazaar-linux), and only for runs started by
-# the owner account (and, for pull requests, from a branch in this repository). There is no hosted
-# fallback: when the guard is false the job is skipped, never moved to a GitHub-hosted runner.
+# Runs on a GitHub-hosted runner (the repository is public, so it is free; owner 2026-11-22, no PC runner needed).
 #
 # Every third-party action is pinned to a full commit SHA (same pins as ci.yml); the version tag is
 # kept in a trailing comment. The workflow token is read-only and no secret is used.
@@ -28,8 +26,7 @@ concurrency:
 jobs:
   appimage:
     name: Build AppImage
-    if: github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    runs-on: [self-hosted, bazaar-linux]
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: '1'
