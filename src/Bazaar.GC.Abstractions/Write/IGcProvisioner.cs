@@ -39,4 +39,12 @@ public interface IGcProvisioner
     /// </summary>
     /// <returns>True when this call added the member.</returns>
     Task<bool> AddMemberAsync(Guid gcId, Bazaar.Contracts.Gc.GcPrincipal member, CancellationToken ct);
+
+    /// <summary>
+    /// Finds or creates the direct-message GC between two principals (doc 01: DMs are two-member GCs of type <c>dm</c>; the owner's
+    /// read-all access is a read rule, not a membership). The id is derived from the unordered pair, so asking in either order, or
+    /// twice, lands on the same GC. The title is blank-safe: the display names joined, trimmed to the title limit.
+    /// </summary>
+    /// <returns>The DM GC id.</returns>
+    Task<Guid> EnsureDmAsync(Bazaar.Contracts.Gc.GcPrincipal first, Bazaar.Contracts.Gc.GcPrincipal second, CancellationToken ct);
 }
