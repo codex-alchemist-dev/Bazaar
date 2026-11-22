@@ -72,8 +72,11 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            .. CommunityPanes.Modules(),
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .WithCommunity(ClientServer.Current);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
