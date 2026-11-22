@@ -45,7 +45,7 @@ project_member (project_id, principal_kind text CHECK (principal_kind IN ('agent
 |---|---|---|
 | `projects.creators` | `owner` | Who may create a project; widening is audited. |
 | `projects.member_adders` | `lead_and_owner` | Who may add members. Adding an agent follows the Council rule of doc 10 where that doc requires a vote. |
-| `projects.loans_grant_read` | `true` | Recommended answer 4. A false value restricts project areas to `project_member` rows only. May tighten, never loosen below the owner-only floor. |
+| `projects.loans_grant_read` | `true` | Recommended answer: true. A false value restricts project areas to `project_member` rows only. May tighten, never loosen below the owner-only floor. |
 
 ## 7. Open questions
 
