@@ -10,7 +10,7 @@ namespace Bazaar.Server.Wire.Discovery.Tests;
 
 public class DiscoveryRouteTests
 {
-    private const string Route = "/.well-known/bazaar/wire";
+    private const string _route = "/.well-known/bazaar/wire";
     private static readonly string[] _transports = ["ws", "quic"];
     private static readonly string[] _codecs = ["json", "cbor"];
 
@@ -23,7 +23,7 @@ public class DiscoveryRouteTests
         await using var host = await Start();
         var source = new EmbeddedWireSchemaSource();
 
-        var response = await host.Client.GetAsync(Route, TestContext.Current.CancellationToken);
+        var response = await host.Client.GetAsync(_route, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
@@ -41,7 +41,7 @@ public class DiscoveryRouteTests
         Assert.True(source.TryGet("wire.cddl", out var artifact));
         Assert.Equal("sha256:" + Convert.ToHexStringLower(SHA256.HashData(artifact.Content.Span)), cddl.GetProperty("sha256").GetString());
         Assert.Equal(artifact.Content.Length, cddl.GetProperty("size").GetInt32());
-        Assert.Equal(Route + "/schema/wire.cddl", cddl.GetProperty("url").GetString());
+        Assert.Equal(_route + "/schema/wire.cddl", cddl.GetProperty("url").GetString());
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class DiscoveryRouteTests
     {
         // The default budget is enough to mirror every artifact once.
         await using var host = await Start();
-        using var doc = JsonDocument.Parse(await host.Client.GetStringAsync(Route, TestContext.Current.CancellationToken));
+        using var doc = JsonDocument.Parse(await host.Client.GetStringAsync(_route, TestContext.Current.CancellationToken));
 
         foreach (var schema in doc.RootElement.GetProperty("schemas").EnumerateArray())
         {
@@ -64,14 +64,14 @@ public class DiscoveryRouteTests
         await using var host = await Start();
         var source = new EmbeddedWireSchemaSource();
 
-        var response = await host.Client.GetAsync(Route + "/schema/schema.json", TestContext.Current.CancellationToken);
+        var response = await host.Client.GetAsync(_route + "/schema/schema.json", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType?.MediaType);
         Assert.True(source.TryGet("schema.json", out var expected));
         Assert.Equal(expected.Content.ToArray(), await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
 
         var nested = source.Names.First(n => n.StartsWith("vectors/", StringComparison.Ordinal));
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route + "/schema/" + nested, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route + "/schema/" + nested, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Theory]
@@ -84,7 +84,7 @@ public class DiscoveryRouteTests
     {
         await using var host = await Start();
 
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route + suffix, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route + suffix, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -92,21 +92,21 @@ public class DiscoveryRouteTests
     {
         await using var host = await Start();
 
-        var first = await host.Client.GetAsync(Route, TestContext.Current.CancellationToken);
+        var first = await host.Client.GetAsync(_route, TestContext.Current.CancellationToken);
         var etag = first.Headers.ETag;
         Assert.NotNull(etag);
         Assert.False(etag.IsWeak);
         Assert.Contains("max-age=300", first.Headers.CacheControl?.ToString());
         Assert.Contains("public", first.Headers.CacheControl?.ToString());
 
-        using var conditional = new HttpRequestMessage(HttpMethod.Get, Route);
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, _route);
         conditional.Headers.IfNoneMatch.Add(etag);
         var second = await host.Client.SendAsync(conditional, TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.NotModified, second.StatusCode);
         Assert.Equal(etag, second.Headers.ETag);
         Assert.Empty(await second.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
 
-        using var stale = new HttpRequestMessage(HttpMethod.Get, Route);
+        using var stale = new HttpRequestMessage(HttpMethod.Get, _route);
         stale.Headers.TryAddWithoutValidation("If-None-Match", "\"other\", W/\"also-other\"");
         Assert.Equal(HttpStatusCode.OK, (await host.Client.SendAsync(stale, TestContext.Current.CancellationToken)).StatusCode);
     }
@@ -118,10 +118,10 @@ public class DiscoveryRouteTests
         var source = new EmbeddedWireSchemaSource();
         Assert.True(source.TryGet("wire.cddl", out var artifact));
 
-        var response = await host.Client.GetAsync(Route + "/schema/wire.cddl", TestContext.Current.CancellationToken);
+        var response = await host.Client.GetAsync(_route + "/schema/wire.cddl", TestContext.Current.CancellationToken);
         Assert.Equal("\"sha256:" + Convert.ToHexStringLower(SHA256.HashData(artifact.Content.Span)) + "\"", response.Headers.ETag?.ToString());
 
-        using var conditional = new HttpRequestMessage(HttpMethod.Get, Route + "/schema/wire.cddl");
+        using var conditional = new HttpRequestMessage(HttpMethod.Get, _route + "/schema/wire.cddl");
         conditional.Headers.TryAddWithoutValidation("If-None-Match", "*");
         Assert.Equal(HttpStatusCode.NotModified, (await host.Client.SendAsync(conditional, TestContext.Current.CancellationToken)).StatusCode);
     }
@@ -132,9 +132,9 @@ public class DiscoveryRouteTests
         var contribution = new FakeContribution(_transports, _codecs);
         await using var host = await DiscoveryHost.StartAsync(services: s => s.AddSingleton<IWireDiscoveryContribution>(contribution));
 
-        var before = (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).Headers.ETag;
+        var before = (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).Headers.ETag;
         contribution.Transports = ["ws"];
-        var afterResponse = await host.Client.GetAsync(Route, TestContext.Current.CancellationToken);
+        var afterResponse = await host.Client.GetAsync(_route, TestContext.Current.CancellationToken);
 
         Assert.NotEqual(before, afterResponse.Headers.ETag);
         using var doc = JsonDocument.Parse(await afterResponse.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
@@ -146,8 +146,8 @@ public class DiscoveryRouteTests
     {
         await using var host = await Start(o => o.Enabled = false);
 
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route + "/schema/schema.json", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route + "/schema/schema.json", TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -155,12 +155,12 @@ public class DiscoveryRouteTests
     {
         WireDiscoveryOptions? live = null;
         await using var host = await DiscoveryHost.StartAsync(services: s => s.PostConfigure<WireDiscoveryOptions>(o => live = o));
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
 
         // IOptionsMonitor caches the instance; changing it in place models a settings reload.
         Assert.NotNull(live);
         live.Enabled = false;
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -175,15 +175,15 @@ public class DiscoveryRouteTests
 
         for (var i = 0; i < 3; i++)
         {
-            Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
         }
 
-        var refused = await host.Client.GetAsync(Route + "/schema/schema.json", TestContext.Current.CancellationToken);
+        var refused = await host.Client.GetAsync(_route + "/schema/schema.json", TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
         Assert.Equal(30, refused.Headers.RetryAfter?.Delta?.TotalSeconds);
 
         time.Advance(TimeSpan.FromSeconds(31));
-        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -197,7 +197,7 @@ public class DiscoveryRouteTests
 
         Task<HttpResponseMessage> Get(string ip)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, Route);
+            var request = new HttpRequestMessage(HttpMethod.Get, _route);
             request.Headers.Add("X-Test-Client", ip);
             return host.Client.SendAsync(request, TestContext.Current.CancellationToken);
         }
@@ -219,7 +219,7 @@ public class DiscoveryRouteTests
 
         Task<HttpResponseMessage> Get(string ip)
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, Route);
+            var request = new HttpRequestMessage(HttpMethod.Get, _route);
             request.Headers.Add("X-Test-Client", ip);
             return host.Client.SendAsync(request, TestContext.Current.CancellationToken);
         }
@@ -231,7 +231,7 @@ public class DiscoveryRouteTests
         var contribution = new FakeContribution(["ws", "http://internal.example:5000", "ws", "Quic"], ["json", "", "cbor"]);
         await using var host = await DiscoveryHost.StartAsync(services: s => s.AddSingleton<IWireDiscoveryContribution>(contribution));
 
-        var text = await host.Client.GetStringAsync(Route, TestContext.Current.CancellationToken);
+        var text = await host.Client.GetStringAsync(_route, TestContext.Current.CancellationToken);
         using var doc = JsonDocument.Parse(text);
 
         Assert.Equal(["ws"], doc.RootElement.GetProperty("transports").EnumerateArray().Select(e => e.GetString()));
@@ -244,7 +244,7 @@ public class DiscoveryRouteTests
     {
         await using var host = await Start();
 
-        var response = await host.Client.GetAsync(Route, TestContext.Current.CancellationToken);
+        var response = await host.Client.GetAsync(_route, TestContext.Current.CancellationToken);
 
         Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.False(response.Headers.Contains("X-Powered-By"));
@@ -258,7 +258,7 @@ public class DiscoveryRouteTests
 
         using var doc = JsonDocument.Parse(await host.Client.GetStringAsync("/status/wire", TestContext.Current.CancellationToken));
         Assert.StartsWith("/status/wire/schema/", doc.RootElement.GetProperty("schemas")[0].GetProperty("url").GetString(), StringComparison.Ordinal);
-        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(Route, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await host.Client.GetAsync(_route, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]
@@ -266,7 +266,7 @@ public class DiscoveryRouteTests
     {
         await using var host = await Start();
 
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await host.Client.PostAsync(Route, null, TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await host.Client.PostAsync(_route, null, TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Theory]
