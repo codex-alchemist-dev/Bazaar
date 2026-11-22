@@ -16,8 +16,9 @@ namespace Bazaar.Server.OpsPorts;
 /// the audit view; a port whose dependency is missing is not registered, and its screen shows "unavailable".
 /// <para>The TUI is a separate process from the server, so the status and Kodo ports read the files the server writes
 /// (<c>AdminStatusFile</c> from the host, <c>KodoSnapshotFile</c> from the Kodo module); the owning modules implement the same ports
-/// in-process for the web panel. Not here: <c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>, <c>IAdminApprovalSource</c> and
-/// <c>IAdminModuleSelection</c>, whose owning modules have no read model yet.</para>
+/// in-process for the web panel. The identity ports (<c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>, <c>IOpsDeviceRevoker</c>)
+/// are implemented by <c>Bazaar.Server.Remote</c> and <c>IAdminApprovalSource</c> by <c>Bazaar.Server.Security</c>; the TUI host and the
+/// server host register them (doc 58 section 4a). Not here: <c>IAdminModuleSelection</c>, whose owning module has no read model yet.</para>
 /// </summary>
 public sealed class OpsPortsComponent : IBazaarComponent
 {

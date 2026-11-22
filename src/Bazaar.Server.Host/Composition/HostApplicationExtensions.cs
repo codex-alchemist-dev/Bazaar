@@ -62,6 +62,8 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
+        // The owner queue as the web admin approvals section (doc 51 section 5).
+        services.AddBazaarAdminApprovalSource();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarSecretStore(configuration);
