@@ -86,6 +86,7 @@
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.Retention\Bazaar.Server.Gateway.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Catalogue\Bazaar.Server.Gateway.Catalogue.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.Host.Tests" />
