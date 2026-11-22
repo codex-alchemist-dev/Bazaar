@@ -7,24 +7,26 @@ namespace Bazaar.Server.Analytics;
 
 /// <summary>
 /// <c>GET /analytics?days=N</c> returns the analytics pane descriptor for the caller (default 28 days, 1 to 365). The host passes
-/// <c>viewerOf</c>, which resolves the authenticated principal (null means 401), so this module never references Bazaar.Server.
+/// <c>resolve</c>, which authenticates the request and returns the viewer or the failure result (401, 403, 429), so this module
+/// never references Bazaar.Server.
 /// </summary>
 public static class AnalyticsRoutes
 {
     private const int _defaultDays = 28;
     private const int _maxDays = 365;
 
-    public static IEndpointRouteBuilder MapBazaarAnalytics(this IEndpointRouteBuilder app, Func<HttpContext, AnalyticsViewer?> viewerOf, TimeProvider? clock = null)
+    public static IEndpointRouteBuilder MapBazaarAnalytics(this IEndpointRouteBuilder app, Func<HttpContext, Task<AnalyticsResolution>> resolve, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(app);
-        ArgumentNullException.ThrowIfNull(viewerOf);
+        ArgumentNullException.ThrowIfNull(resolve);
 
         var time = clock ?? TimeProvider.System;
         app.MapGet("/analytics", async (HttpContext http, int? days, IAgentAnalytics analytics, CancellationToken ct) =>
         {
-            if (viewerOf(http) is not { } viewer)
+            var resolution = await resolve(http).ConfigureAwait(false);
+            if (resolution.Viewer is not { } viewer)
             {
-                return Results.Unauthorized();
+                return resolution.Failure ?? Results.Unauthorized();
             }
 
             if (days is < 1 or > _maxDays)
@@ -41,3 +43,6 @@ public static class AnalyticsRoutes
         return app;
     }
 }
+
+/// <summary>The outcome of authenticating one request: a viewer, or the result to send instead.</summary>
+public sealed record AnalyticsResolution(AnalyticsViewer? Viewer, IResult? Failure = null);

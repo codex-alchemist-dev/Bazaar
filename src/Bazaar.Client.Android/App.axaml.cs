@@ -8,6 +8,7 @@ using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Analytics;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
@@ -71,6 +72,7 @@ public sealed class App : Avalonia.Application
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
+            new AnalyticsPaneModule(),
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()

@@ -13,6 +13,7 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Analytics;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
@@ -80,6 +81,7 @@ internal static class Program
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
             .. GitGuiPanes.Modules,
+            new AnalyticsPaneModule(),
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
