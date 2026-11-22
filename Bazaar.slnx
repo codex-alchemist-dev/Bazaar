@@ -182,6 +182,9 @@
     <Project Path="src/Bazaar.Client.Approvals/Bazaar.Client.Approvals.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Abstractions/Bazaar.Client.Approvals.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Avalonia/Bazaar.Client.Approvals.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Materials/Bazaar.Client.Materials.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Abstractions/Bazaar.Client.Materials.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Avalonia/Bazaar.Client.Materials.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.Push/Bazaar.Client.Push.csproj" />
     <Project Path="src/Bazaar.Client.Push.Abstractions/Bazaar.Client.Push.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
@@ -228,6 +231,7 @@
     <Project Path="tests/Bazaar.Client.Input.Tests/Bazaar.Client.Input.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Commands.Tests/Bazaar.Client.Commands.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Theme.Tests/Bazaar.Client.Theme.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Materials.Tests/Bazaar.Client.Materials.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />
