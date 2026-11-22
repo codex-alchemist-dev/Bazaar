@@ -287,3 +287,9 @@ Still in `Bazaar.Server/Company` (2 files, plus Org which PR #749 extracts), wit
 
 - `CompanyComponent.cs`: registers `CalendarRepository`, `CalendarService`, `OrgRelationRepository` and `OrgLoanService`, which are still in `Bazaar.Server` on main. Moves or is replaced once PR #749 lands.
 - `Availability/CalendarAvailabilityFeed.cs`: reads `CalendarEventRecord` and `CalendarKind` (`Bazaar.Server.Calendar`) and `CalendarEvent` and `EvaluationOptions` (`Bazaar.Server.WorkLife`). Moves with the Calendar abstractions and the WorkLife extraction.
+
+## Bazaar Archive cold storage module (doc 25, [PROPOSED])
+
+Docs section this implements: doc 25 "Archive cold storage".
+
+`Bazaar.Archive.Abstractions` holds `IArchiveSource`, `IArchiveStore`, `IArchiveRestoreTarget`, `IArchiveSearchIndex` and the manifest types. `Bazaar.Archive` holds the archiver, verifier, restorer, the directory store, an in-memory search index and `ArchiveComponent` (id `archive`). It references only Bazaar.Core and its own Abstractions. Source and restore adapters for GCs and projects come from the modules that own that data.
