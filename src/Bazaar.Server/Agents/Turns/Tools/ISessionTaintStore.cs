@@ -9,4 +9,9 @@ namespace Bazaar.Server.Agents.Turns.Tools;
 /// </summary>
 public interface ISessionTaintStore : ISessionTaintReader
 {
+    /// <summary>
+    /// Saves the session's taint as it stands, so the next load returns it. A store refuses (throws) a level below the one it
+    /// last saved for the session.
+    /// </summary>
+    Task SaveAsync(Guid sessionId, SessionTaint taint, CancellationToken cancellationToken);
 }
