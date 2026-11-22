@@ -51,8 +51,17 @@ public sealed record EditorSaveReply(string NewRevision);
 /// <summary>Extra detail carried by an <c>editor.conflict</c> error.</summary>
 public sealed record EditorConflictDetail(string ServerRevision, string ServerContent);
 
-/// <summary>The signed-in human making the call.</summary>
-public sealed record EditorCaller(string UserId);
+/// <summary>The signed-in human making the call. <paramref name="IsOwner"/> is true for the owner principal, false for a member.</summary>
+public sealed record EditorCaller(string UserId, bool IsOwner = false);
+
+/// <summary>
+/// Per-path read and write rules on top of the workspace scope (<see cref="IEditorAuthorizer"/>), for example the Vault's area and owner
+/// rules (doc 18, "Access"). A refusal answers <c>editor.forbidden</c> before the file is read, so a refused path reveals nothing.
+/// </summary>
+public interface IEditorPathPolicy
+{
+    ValueTask<bool> IsAllowedAsync(EditorCaller caller, EditorWorkspaceInfo workspace, string path, EditorAccess access, CancellationToken cancellationToken);
+}
 
 /// <summary>Outcome of a handler call: a value, or an error code with a message. Maps to a <c>res</c> or <c>err</c> envelope.</summary>
 public sealed record EditorResult<T>

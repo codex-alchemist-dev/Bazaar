@@ -21,8 +21,9 @@ internal static class AthanorWire
     public static EditorCaller? CallerOf(IWireConnection connection)
     {
         var kind = connection.Principal.Kind;
-        return string.Equals(kind, "owner", StringComparison.OrdinalIgnoreCase) || string.Equals(kind, "human", StringComparison.OrdinalIgnoreCase)
-            ? new EditorCaller(connection.Principal.Id.ToString("D"))
+        var owner = string.Equals(kind, "owner", StringComparison.OrdinalIgnoreCase);
+        return owner || string.Equals(kind, "human", StringComparison.OrdinalIgnoreCase)
+            ? new EditorCaller(connection.Principal.Id.ToString("D"), owner)
             : null;
     }
 

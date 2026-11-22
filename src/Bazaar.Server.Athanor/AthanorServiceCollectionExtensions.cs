@@ -34,6 +34,7 @@ public static class AthanorServiceCollectionExtensions
         });
         services.TryAddSingleton<IEditorWorkspaceStore, DirectoryEditorWorkspaceStore>();
         services.TryAddSingleton<IEditorAuthorizer, RolesEditorAuthorizer>();
+        services.TryAddSingleton<IEditorPathPolicy>(AllowAllEditorPathPolicy.Instance);
         services.TryAddSingleton<EditorOpenHandler>();
         services.TryAddSingleton<EditorSaveHandler>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, AthanorSettingContribution>());

@@ -96,6 +96,7 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
     private async Task<EditorWriteResult> CommitAsync(string workspaceId, string path, byte[] content, string newRevision, CancellationToken cancellationToken)
     {
         var branch = "athanor/edit-" + Guid.NewGuid().ToString("N");
+        var merged = false;
         var worktree = Path.Combine(_options.WorktreeRoot, branch.Replace('/', '-'));
         try
         {
@@ -120,6 +121,7 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
             {
                 case VaultEditOutcome.Merged:
                 case VaultEditOutcome.UpToDate:
+                    merged = true;
                     return new EditorWriteResult(EditorWriteStatus.Written, NewRevision: newRevision);
                 case VaultEditOutcome.Conflicted:
                     // Someone else landed a change to this file between the check and the merge: hand back the server copy.
@@ -145,6 +147,19 @@ public sealed class VaultEditorWorkspaceStore : IEditorWorkspaceStore
             catch (Exception e) when (e is IOException or LibGit2Sharp.LibGit2SharpException)
             {
                 // A stale worktree is pruned by the next save or at startup recovery.
+            }
+
+            if (merged)
+            {
+                try
+                {
+                    // The edit is in the Vault's history now; its branch has done its job. An unmerged branch (a conflict) is kept.
+                    await _git.DeleteMergedBranchAsync(_options.RepoPath, branch, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception e) when (e is IOException or LibGit2Sharp.LibGit2SharpException)
+                {
+                    // A leftover merged branch is harmless.
+                }
             }
         }
     }

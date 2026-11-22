@@ -76,6 +76,7 @@ public sealed class VaultEditorWorkspaceStoreTests : IDisposable
         Assert.Contains("Bazaar-Agent: athanor", repo.Head.Tip.Message);
         Assert.False(repo.RetrieveStatus(new StatusOptions()).IsDirty);
         Assert.Empty(Directory.EnumerateDirectories(Path.Combine(_base, "worktrees")));
+        Assert.DoesNotContain(repo.Branches, b => b.FriendlyName.StartsWith("athanor/", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -145,6 +146,27 @@ public sealed class VaultEditorWorkspaceStoreTests : IDisposable
         Assert.Equal(EditorWriteStatus.Written, result.Status);
         Assert.Equal("via di\n", Disk());
         Assert.Null(await store.GetWorkspaceAsync("other", Ct));
+    }
+
+    [Fact]
+    public async Task Deleting_a_branch_keeps_one_that_is_not_merged_and_the_checked_out_one()
+    {
+        using (var repo = new Repository(_repoPath))
+        {
+            var unmerged = repo.CreateBranch("athanor/unmerged");
+            Commands.Checkout(repo, unmerged);
+            File.WriteAllText(Path.Combine(_repoPath, "notes", "b.md"), "b\n");
+            Commit("unmerged work");
+            Commands.Checkout(repo, repo.Branches["master"] ?? repo.Branches["main"]);
+            repo.CreateBranch("athanor/merged");
+        }
+
+        Assert.False(await _git.DeleteMergedBranchAsync(_repoPath, "athanor/unmerged", Ct));
+        Assert.True(await _git.DeleteMergedBranchAsync(_repoPath, "athanor/merged", Ct));
+        Assert.False(await _git.DeleteMergedBranchAsync(_repoPath, "athanor/missing", Ct));
+        using var after = new Repository(_repoPath);
+        Assert.NotNull(after.Branches["athanor/unmerged"]);
+        Assert.Null(after.Branches["athanor/merged"]);
     }
 
     private sealed class TestLimits : IAthanorLimits

@@ -1,4 +1,5 @@
 using Bazaar.Server.Athanor;
+using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.DependencyInjection;
@@ -35,6 +36,12 @@ public static class VaultAthanorServiceCollectionExtensions
             sp.GetRequiredService<IVaultWriter>(),
             sp.GetRequiredService<IAthanorLimits>(),
             options)));
+        var existingPolicy = services.LastOrDefault(d => d.ServiceType == typeof(IEditorPathPolicy));
+        services.Replace(ServiceDescriptor.Singleton<IEditorPathPolicy>(sp => new VaultEditorPathPolicy(
+            options,
+            sp.GetRequiredService<IEditorWorkspaceStore>(),
+            sp.GetService<IProjectMembership>(),
+            existingPolicy is null ? AllowAllEditorPathPolicy.Instance : (IEditorPathPolicy)Build(sp, existingPolicy))));
         return services;
     }
 
