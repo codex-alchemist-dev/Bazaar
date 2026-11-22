@@ -77,6 +77,8 @@ Resolution: path first, then title or alias. If several match, prefer the same p
 7. Batching: memory writes from one agent coalesce into one commit per batch, per `vault.memory_commit_batching`. A commit carries one batch only.
 8. Decisions: `VaultWriter` assigns the next free `NNNN` under the queue and returns it in `EditResult`, so the Council (10) can cite `decisions/NNNN-<slug>.md`.
 
+The writer contract (`IVaultWriter`, the edit request and result types, `DecisionDraft`) lives in `Bazaar.Vault.Abstractions`, so other modules can write to a Vault without referencing `Bazaar.Server.Vault`. The implementation stays in `Bazaar.Server.Vault`.
+
 **Commit attribution [PROPOSED].** Author = the agent's GitHub App identity (bot name and email as GitHub issues them; format unverified). Committer = `VaultWriter`. Trailers: `Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, `Bazaar-Edit-Base`.
 
 **Indexing [PROPOSED].** After each commit the writer emits `(oldSha, newSha)`. The indexer runs `git diff --name-status -M old new` and, per changed file in one transaction, re-parses it and replaces its rows. Renames keep the document id. Links into deleted files become unresolved and re-resolve later. Embeddings are recomputed only for changed block hashes, per profile. `vault_state.indexed_commit` lets startup catch up, or triggers a full rebuild. The same pass writes `vault_commit` rows (the Git DAG index for the Vault repo; code repos are owned by doc 17). Owner of the DAG index: this doc for the Vault repo, doc 17 for code repos [PROPOSED].
