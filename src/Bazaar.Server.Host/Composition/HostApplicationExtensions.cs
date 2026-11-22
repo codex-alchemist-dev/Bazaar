@@ -100,6 +100,7 @@ public static class HostApplicationExtensions
         services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
         services.AddBazaarCompanyReadOptions();
+        services.AddBazaarArchive();
         return services;
     }
 }
