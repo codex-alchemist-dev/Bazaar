@@ -279,7 +279,6 @@
     <Project Path="tests/Bazaar.Client.Community.Tests/Bazaar.Client.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Approvals.Tests/Bazaar.Client.Community.Approvals.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
-    <Project Path="tests/Bazaar.Client.Community.Avalonia.Tests/Bazaar.Client.Community.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Studio.Tests/Bazaar.Client.Studio.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Layout.Tests/Bazaar.Client.Layout.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Windows.Tests/Bazaar.Client.Windows.Tests.csproj" />
