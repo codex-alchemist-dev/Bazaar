@@ -326,7 +326,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
     // Defaults only: the registry's own defaults (any member may invite; edits are unlimited), as an operator who set nothing sees.
     private static Bazaar.Server.Tests.Settings.InMemorySettingStore SettingsFor() =>
         new Bazaar.Server.Tests.Settings.InMemorySettingStore(
-            Bazaar.Server.Settings.SettingRegistry.Known, new Bazaar.Server.Settings.InMemorySettingAuditSink());
+            Bazaar.Server.Settings.BuiltInSettingRegistries.Known, new Bazaar.Server.Settings.InMemorySettingAuditSink());
 
     private static async Task<WireReply> AddMemberAsync(FakeWireConnection connection, Guid gc, Guid newMember, string requestId)
     {
@@ -415,7 +415,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
 
         public IReadOnlyList<StreamCursor> HelloCursors => [];
 
-        public SubscriptionSession? Subscriptions => null;
+        public ISubscriptionSession? Subscriptions => null;
 
         public CancellationToken Closed => CancellationToken.None;
 

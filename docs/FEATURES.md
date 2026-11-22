@@ -54,7 +54,6 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Skimmer Bouncer | A cheap gatekeeper model that skims GC messages and wakes the full agent only when relevant. Starts defer-only, so it never drops a message. | Partial (`src/Bazaar.Server/Skimmer`: rules, scoring, digest, labels) | `docs/design/13` |
 | Nigerian Prince Protocol | An optional scam-baiting protocol behind a setup wizard. Without it, scam emails are quarantined. | Partial (`MailBackends/ScamBait`); optional, not yet behind the wizard | `Bazaar.md` §2 |
 | Agent email | Each agent's external email address, on a domain the operator configures. External only. | Partial (`src/Bazaar.Server.MailBackends`: Cloudflare, generic, scam-bait; built-in SMTP/IMAP server blocked on doc 22 Q2) | `docs/design/22` |
-| Nervous System | An internal event bus whose events drive software reactions. It never replaces GCs. | Planned | `Bazaar.md` §2 |
 | Inbox | Per-agent inbox with priority. | Shipped (`src/Bazaar.Server/Agents/Inbox`) | `docs/design/06` |
 
 ## 3. Agents, identity and governance
@@ -64,7 +63,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Soul System | An agent's complete identity: VM, personality, memory, reputation and accounts. | Partial (`src/Bazaar.Server/Souls`: contracts, versions, versioning service) | `docs/design/07`, `docs/deep-dives/Bazaar.Soul.md` |
 | Soul Passport | The credential registry inside a Soul. Mountable per agent, scoped to that agent only. | Partial (`src/Bazaar.Server/Identity`) | `docs/design/14` |
 | Identity Service | The single chokepoint for every credential and access request. Holds all provider and GitHub App keys. | Partial (`src/Bazaar.Server/Identity`, `Secrets`) | `docs/design/14` |
-| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; v1 scope OPEN. | `docs/design/07` |
+| Soul Marketplace | An optional marketplace for sharing preset Souls. Behavioural presets only, never personal data. | Planned. Nature decided; ships during beta (owner, 2026-11-16). | `docs/design/54`, `07` |
 | Talent Pool | A library of reusable subagent templates. Hiring runs as a Council vote. | Planned. Blocked on a Council motion-class follow-up (C32). | `docs/design/25`, `docs/design/10` |
 | Genetic Memory Transfer | Temporary subagents pass candidate lessons back before they end. Candidates need review before entering a Soul. | Planned | `docs/design/07`, `docs/design/25` |
 | Council | Whole-team voting and debate. Votes are independent first, then revealed together. Ties go to the owner. | Partial (`src/Bazaar.Server/Council`: lifecycle, tally, eligibility, pilot) | `docs/design/10` |
@@ -94,7 +93,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | RyuseiFuda: Workday (company board) | The macro board and schedule, previously Kanban. | Partial (Kanban tables, transitions, blocker graph shipped) | `docs/design/12`, `src/Bazaar.RyuseiFuda/Kanban`, `src/Bazaar.Client.RyuseiFuda/Workday` |
 | RyuseiFuda: Orrery (per-agent scheduling) | Per-agent timers, intervals, watchers and events that re-invoke an agent. Earlier wording called it "Micro". | Partial (trigger repository, scheduler tick, fire recording, per-agent wake cap, audit, chain depth carried into tool calls and fire-woken turns, #359, #370) | `docs/design/38` |
 | RyuseiFuda: Roadmap | Objectives and phases in the Vault, shown in the Constellation. Earlier wording called it "Objective". | Partial (layer 3 views and front-matter contract, pure objective roadmap read model #364, `src/Bazaar.RyuseiFuda/Roadmap`) | `docs/design/38` WP-R12 |
-| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Folded into RyuseiFuda (Workday layer) by owner decision 2026-11-16; the `kanban` component id stays. | Shipped (columns, transitions, blocker graph) | `docs/design/12` |
+| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Folded into RyuseiFuda (Workday layer) by owner decision, 2026-11-16; the old name is kept only for stored keys and compatibility reads; the `kanban` component ID stays stable. | Shipped (columns, transitions, blocker graph); code fold in progress | `docs/design/12`, `docs/design/38` R4 |
 | Macro and Micro (old names) | Earlier names for RyuseiFuda's Workday and Orrery layers. | Superseded. Do not use in new code or docs. | project memory, `docs/design/38` |
 | GC metadata | Typed GCs with structured metadata. Types live in a registry table. | Planned (types decided; concept proposed) | `docs/design/01` |
 | Bazaar Archive | An auto-generated project history book. | Planned (v1 scope). No design doc found; Unclear. | `Bazaar.md` §4 |
@@ -145,7 +144,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Remote access and auth | Remote access, authentication, authorization and privacy settings. | Partial (`src/Bazaar.Server/Remote`, `Tls`, `RateLimits`) | `docs/design/32` |
 | Pairing | Device authorization and pairing for clients (`/pair/*` routes). Linux keeps the refresh credential in the Secret Service keyring (#509, #518). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
 | Privacy audit | Audit of privacy-relevant events. | Partial (`src/Bazaar.Server/Components/PrivacyAudit`) | `docs/design/32` |
-| Erasure | Per-person erasure mechanics. | Partial (`Components/Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
+| Erasure | Per-person erasure mechanics. | Partial (`Bazaar.Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
 | Tls | TLS termination and key pinning. | Partial (`Components/Tls`) | project memory, `docs/design/32` |
 | Rate limits | Server rate limiting. Conduit auth lockout uses exponential backoff with shipped floors (#545). | Partial (`Components/RateLimits`) | `docs/design/32` |
 | Status listener | Read-only server status page and listener. | Partial (`Bazaar.Server.Host`) | `docs/design/03` |
@@ -154,12 +153,12 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server/Gateway` |
+| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server.Gateway` |
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
 | Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
-| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
+| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server.Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 
@@ -174,6 +173,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
 | Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |
+| Git Solar System client | Bazaar.Client.GitSolarSystem (+ .Abstractions): branch orbits, commit bodies and merge comets, from the server's git DAG and orbit layout. | Planned (in progress, 2026-11-18) | `docs/design/19` (Git Solar System client module) |
 | GitLab integration | GitLab as a second git provider on the GitHub contract. | Planned (v1 scope, owner 2026-11-16) | `docs/design/21`, `41` section 4.14 |
 
 ## 10. Storage, backup and platform packaging
@@ -266,7 +266,7 @@ These items are named in the sources but their meaning, status or home is not se
 - **Valthyrzmthl**: meaning and an alchemy or star link are still missing.
 - **"Codex"**: no clearance search has been done. Keep it out of public names and package IDs.
 - **Mood Board** and **Macro / Micro / Objective**: earlier names, superseded by Constellation and RyuseiFuda layers.
-- **Soul Marketplace** and **Talent Pool** v1 scope: OPEN or blocked on a Council motion-class follow-up.
+- **Talent Pool** v1 scope: blocked on a Council motion-class follow-up.
 - **Company Constitution**: v1 scope, no text drafted yet.
 - **Bazaar.Core** versus today's `Bazaar.Server/Components` kernel folder: the target split is set; the migration order is wave 3.
 
