@@ -170,6 +170,23 @@ public class MemoryToolServiceTests
         Assert.Empty(h.Log.Entries);
     }
 
+    // Regression: hive/** used to be retrievable by every agent. Without Hive grant data, agents get no hive hits.
+    [Fact]
+    public async Task Hive_notes_are_not_retrieved_by_agents_without_a_grant_and_stay_visible_to_the_owner()
+    {
+        using var h = new Harness();
+        h.Vault.Seed("hive/procedure/retry-backoff.md", NoteFixtures.Text(NoteFixtures.Note(kind: MemoryKind.Hive)));
+
+        var agent = await h.Service.RetrieveAsync(
+            VaultPrincipal.Agent(_alpha), new MemoryRetrieveRequest(_alpha, "exponentially", "hive", null, 500, 5), Ct);
+        var owner = await h.Service.RetrieveAsync(
+            VaultPrincipal.Owner(), new MemoryRetrieveRequest(_alpha, "exponentially", "hive", null, 500, 5), Ct);
+
+        Assert.True(agent.IsSuccess);
+        Assert.Empty(agent.Value!.Hits);
+        Assert.Equal(NoteFixtures.NoteId, Assert.Single(owner.Value!.Hits).NoteId);
+    }
+
     [Fact]
     public async Task Owner_read_of_another_agents_private_note_is_logged()
     {
