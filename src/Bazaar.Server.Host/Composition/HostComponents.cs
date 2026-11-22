@@ -3,8 +3,8 @@ using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
-using Bazaar.GitHub;
 using Bazaar.Roles;
+using Bazaar.GitHub;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
@@ -29,6 +29,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Mirror;
@@ -71,6 +72,7 @@ public static class HostComponents
         new RoadmapComponent(),
         new CommunityComponent(),
         new RolesComponent(),
+        new SignInComponent(),
         new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
