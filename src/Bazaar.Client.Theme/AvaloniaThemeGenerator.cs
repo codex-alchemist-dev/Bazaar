@@ -36,7 +36,12 @@ public static class AvaloniaThemeGenerator
                     sb.Append("  <FontFamily x:Key=\"").Append(key).Append("\">").Append(value).Append("</FontFamily>\n");
                     break;
                 case TokenKind.Length:
+                case TokenKind.Number:
+                case TokenKind.Duration: // milliseconds
                     sb.Append("  <x:Double x:Key=\"").Append(key).Append("\">").Append(value).Append("</x:Double>\n");
+                    break;
+                case TokenKind.Choice:
+                    sb.Append("  <x:String x:Key=\"").Append(key).Append("\">").Append(value).Append("</x:String>\n");
                     break;
                 case TokenKind.Flag:
                     string flag = value == "true" ? "True" : "False";
