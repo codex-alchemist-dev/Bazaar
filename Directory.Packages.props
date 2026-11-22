@@ -18,6 +18,8 @@
     <!-- Host options (doc 03 WP1) and bootstrap secrets (WP3): library-side Options, DI, logging and hosted-service abstractions. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <!-- Repo map C# symbol extraction (doc 17 WP7): syntax trees only, no semantic model. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />

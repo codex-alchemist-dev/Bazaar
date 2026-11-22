@@ -1,4 +1,3 @@
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -43,15 +42,15 @@ public sealed record TemplateResolution(
 public sealed class TemplateResolver
 {
     private readonly ITemplateCatalog _catalog;
-    private readonly SettingRegistry _registry;
+    private readonly ISetupSettingCatalog _registry;
 
     /// <param name="catalog">Where exact template versions come from.</param>
-    /// <param name="registry">The settings registry the template's presets are checked against. Defaults to the registry this build ships.</param>
-    public TemplateResolver(ITemplateCatalog catalog, SettingRegistry? registry = null)
+    /// <param name="registry">The settings registry the template's presets are checked against.</param>
+    public TemplateResolver(ITemplateCatalog catalog, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         _catalog = catalog;
-        _registry = registry ?? SettingRegistry.Known;
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     }
 
     /// <summary>
