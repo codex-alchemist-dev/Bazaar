@@ -369,6 +369,8 @@ Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, 
 
 **Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
 
+**Postgres staging store: not built.** Staging is files on disk with a quota (section 8.7), and the doc gives no staging table. `import_job` knows when a job verified, but not whether its staged files still exist, so a Postgres `IImportStagingStore` would invent a staging record. It needs the staging file layout decided first (a docs change); the file deletion is not a Postgres concern.
+
 ### 8.7 Large dumps
 
 - **Streaming everywhere.** Parsers yield records; nothing holds a whole dump in memory. Staging is on disk with a quota.
@@ -391,6 +393,8 @@ Undo never deletes history:
 - The withdrawal is itself an audit entry, linked to the job.
 
 **Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` (Blocked with reason `withdrawn by import`, or archive) through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates.
+
+**Postgres withdrawal writers: not built (2026-11-22).** `IImportWithdrawalWriter` and `IKanbanWithdrawalWriter` have no table shape in this doc, and a Postgres writer would break other modules' invariants. (1) GC: the `withdrawn_by_import` version must go through the GC log writer (per-GC seq, hash chain, body sealing); inserting `gc_message_version` rows directly would bypass it, so it belongs behind `IGcAppender`/`IGcMessageEditor`, not in this project. There is also no marker column, and no table records which source keys were withdrawn. (2) Vault: the revert is a git commit, not a Postgres write. (3) Kanban: `tasks` has no import-job link and no Blocked state; the transition must run through the doc 12 gates in the Kanban service. Needed first, as docs changes: a withdrawal record (job id, source key, target kind, withdrawn at) and the marker shape on the GC version. `IImportItemStore` is not a port; `import_item` is already written and read by `PostgresImportJobStore`.
 
 ### 8.9 Import audit trail
 
