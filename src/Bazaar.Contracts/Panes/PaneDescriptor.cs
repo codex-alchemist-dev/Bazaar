@@ -82,4 +82,7 @@ public static class PaneKinds
 
     /// <summary>Agent analytics: per-agent throughput, review pass rate and revert rate, framed as what would help the company, never a ranking (doc 25).</summary>
     public const string AgentAnalytics = "bazaar.agent-analytics";
+
+    /// <summary>Settings: the registry-driven settings pane every head loads (doc 03 settings registry, doc 28).</summary>
+    public const string Settings = "bazaar.settings";
 }
