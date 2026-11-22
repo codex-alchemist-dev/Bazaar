@@ -38,6 +38,8 @@
     <Project Path="src/Bazaar.Server.GcReactions.Abstractions/Bazaar.Server.GcReactions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CompanyKnowledge/Bazaar.Server.CompanyKnowledge.csproj" />
+    <Project Path="src/Bazaar.Server.CompanyKnowledge.Abstractions/Bazaar.Server.CompanyKnowledge.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Constitution/Bazaar.Server.Constitution.csproj" />
     <Project Path="src/Bazaar.Server.Constitution.Abstractions/Bazaar.Server.Constitution.Abstractions.csproj" />
     <Project Path="src/Bazaar.Rubedo/Bazaar.Rubedo.csproj" />
@@ -368,6 +370,7 @@
     <Project Path="tests/Bazaar.Server.ReadAudit.Npgsql.Tests/Bazaar.Server.ReadAudit.Npgsql.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Calendar.Tests/Bazaar.Server.Calendar.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CompanyKnowledge.Tests/Bazaar.Server.CompanyKnowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Org.Tests/Bazaar.Server.Org.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.PsychWard.Tests/Bazaar.Server.PsychWard.Tests.csproj" />

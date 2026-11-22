@@ -9,6 +9,7 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyKnowledge;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
@@ -30,8 +31,8 @@ using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Retention;
-using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
@@ -69,6 +70,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CompanyKnowledgeComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),

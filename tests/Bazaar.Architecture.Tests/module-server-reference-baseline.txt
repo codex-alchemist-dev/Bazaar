@@ -3,6 +3,7 @@ Bazaar.Community
 Bazaar.RyuseiFuda
 Bazaar.Server.AgentSafety
 Bazaar.Server.Components.Backup
+Bazaar.Server.CompanyKnowledge
 Bazaar.Server.Constellation
 Bazaar.Server.Hive
 Bazaar.Server.Identity.Postgres
