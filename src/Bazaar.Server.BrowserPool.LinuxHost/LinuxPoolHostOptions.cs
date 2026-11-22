@@ -1,11 +1,16 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Microsoft.Extensions.Configuration;
 
 namespace Bazaar.Server.BrowserPool.LinuxHost;
 
 /// <summary>Settings for <see cref="LinuxPoolVmHost"/>. The defaults suit a pool VM whose Bazaar process runs as root.</summary>
 public sealed partial class LinuxPoolHostOptions
 {
+    /// <summary>The configuration section name, under the browser pool's own <c>Bazaar:BrowserPool</c> section.</summary>
+    public const string SectionName = "Bazaar:BrowserPool:LinuxHost";
+
     /// <summary>The nftables <c>inet</c> table the rendered ruleset declares. Must match the renderer's table name.</summary>
     public string TableName { get; set; } = "bazaar_pool";
 
@@ -45,6 +50,34 @@ public sealed partial class LinuxPoolHostOptions
     /// </summary>
     public string PipeDirectory { get; set; } = "/run/bazaar-pool/pipes";
 
+    /// <summary>
+    /// Whether <see cref="LinuxPoolVmHost.StartAsync"/> runs the active firewall probe (<see cref="FirewallProbe"/>) before each launch:
+    /// as the slot's uid, in the slot's namespace, one connection that must be blocked and one to the slot's own proxy that must work
+    /// (docs/design/59-desktop-density-and-guest-display.md, section 7). On by default; a launch whose probe fails or cannot run is refused.
+    /// </summary>
+    public bool ProbeEnabled { get; set; } = true;
+
+    /// <summary>
+    /// The binary that makes the probe connection: <c>bazaar-pool-spawn</c> (its <c>--probe-connect</c> mode), at an absolute path the
+    /// slot uids may execute. Null uses <see cref="PoolSpawnHelperPath"/>. With neither set and the probe on, every launch is refused.
+    /// </summary>
+    public string? ProbeToolPath { get; set; }
+
+    /// <summary>How long one probe connection waits before it counts as blocked. A blocked connection always waits this long, so it is the time the probe adds to a launch. 100 ms to 30 s.</summary>
+    public TimeSpan ProbeTimeout { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// The shortest gap between two passing probes for the same slot uid; a launch inside the gap relies on the textual check alone.
+    /// Zero (the default) probes before every launch.
+    /// </summary>
+    public TimeSpan ProbeMinInterval { get; set; } = TimeSpan.Zero;
+
+    /// <summary>The <c>setpriv</c> program the probe runs under, with the same privilege drop as the launch.</summary>
+    public string SetprivPath { get; set; } = "setpriv";
+
+    /// <summary>The <c>nsenter</c> program the probe uses to enter a slot's namespace.</summary>
+    public string NsenterPath { get; set; } = "nsenter";
+
     /// <summary>Returns the reasons these options are unusable; empty when they are fine.</summary>
     public IReadOnlyList<string> Validate()
     {
@@ -74,6 +107,26 @@ public sealed partial class LinuxPoolHostOptions
             errors.Add("MaxCapturedChars must be 256 to 1048576.");
         }
 
+        if (ProbeTimeout < TimeSpan.FromMilliseconds(100) || ProbeTimeout > TimeSpan.FromSeconds(30))
+        {
+            errors.Add("ProbeTimeout must be 100 ms to 30 s.");
+        }
+
+        if (ProbeMinInterval < TimeSpan.Zero || ProbeMinInterval > TimeSpan.FromHours(1))
+        {
+            errors.Add("ProbeMinInterval must be zero to one hour.");
+        }
+
+        if (ProbeToolPath is not null && !PoolPipePlan.IsSafeAbsolutePath(ProbeToolPath))
+        {
+            errors.Add("ProbeToolPath must be an absolute path (letters, digits and . _ + - only, no '..'), or null.");
+        }
+
+        if (!IsProgram(SetprivPath) || !IsProgram(NsenterPath))
+        {
+            errors.Add("SetprivPath and NsenterPath must be a program name or an absolute path (letters, digits and . _ + - only).");
+        }
+
         if (PoolSpawnHelperPath is not null)
         {
             if (!PoolPipePlan.IsSafeAbsolutePath(PoolSpawnHelperPath))
@@ -94,8 +147,75 @@ public sealed partial class LinuxPoolHostOptions
         return errors;
     }
 
+    /// <summary>
+    /// Reads the options from <paramref name="configuration"/> (the <see cref="SectionName"/> section) and validates them. Time spans
+    /// are written <c>hh:mm:ss</c>. An empty <see cref="SlotInterfacePrefix"/> or <see cref="PoolSpawnHelperPath"/> means null.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">A value cannot be read or is out of range. The message names the key, never the value.</exception>
+    public static LinuxPoolHostOptions Bind(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        IConfigurationSection s = configuration.GetSection(SectionName);
+        var o = new LinuxPoolHostOptions();
+        o.TableName = s[nameof(TableName)] ?? o.TableName;
+        if (s[nameof(SlotInterfacePrefix)] is { } prefix)
+        {
+            o.SlotInterfacePrefix = prefix.Length == 0 ? null : prefix;
+        }
+
+        o.NftPath = s[nameof(NftPath)] ?? o.NftPath;
+        o.CommandTimeout = ReadSpan(s, nameof(CommandTimeout), o.CommandTimeout);
+        o.FirewallTimeout = ReadSpan(s, nameof(FirewallTimeout), o.FirewallTimeout);
+        o.StopTimeout = ReadSpan(s, nameof(StopTimeout), o.StopTimeout);
+        o.MaxCapturedChars = ReadInt(s, nameof(MaxCapturedChars), o.MaxCapturedChars);
+        if (s[nameof(PoolSpawnHelperPath)] is { } helper)
+        {
+            o.PoolSpawnHelperPath = helper.Length == 0 ? null : helper;
+        }
+
+        o.PipeDirectory = s[nameof(PipeDirectory)] ?? o.PipeDirectory;
+        o.ProbeEnabled = ReadBool(s, nameof(ProbeEnabled), o.ProbeEnabled);
+        if (s[nameof(ProbeToolPath)] is { } tool)
+        {
+            o.ProbeToolPath = tool.Length == 0 ? null : tool;
+        }
+
+        o.ProbeTimeout = ReadSpan(s, nameof(ProbeTimeout), o.ProbeTimeout);
+        o.ProbeMinInterval = ReadSpan(s, nameof(ProbeMinInterval), o.ProbeMinInterval);
+        o.SetprivPath = s[nameof(SetprivPath)] ?? o.SetprivPath;
+        o.NsenterPath = s[nameof(NsenterPath)] ?? o.NsenterPath;
+        IReadOnlyList<string> errors = o.Validate();
+        if (errors.Count != 0)
+        {
+            throw new InvalidOperationException($"Invalid {SectionName} configuration: " + string.Join(' ', errors));
+        }
+
+        return o;
+    }
+
+    private static int ReadInt(IConfigurationSection section, string key, int fallback) =>
+        section[key] is not { } text ? fallback
+        : int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not a whole number.");
+
+    private static bool IsProgram(string? value) =>
+        value is not null && ProgramPattern().IsMatch(value) && !value.Split('/').Any(s => s is "." or "..");
+
+    private static bool ReadBool(IConfigurationSection section, string key, bool fallback) =>
+        section[key] is not { } text ? fallback
+        : bool.TryParse(text, out bool v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not true or false.");
+
+    private static TimeSpan ReadSpan(IConfigurationSection section, string key, TimeSpan fallback) =>
+        section[key] is not { } text ? fallback
+        : TimeSpan.TryParse(text, CultureInfo.InvariantCulture, out TimeSpan v) ? v
+        : throw new InvalidOperationException($"{SectionName}:{key} is not a time span (hh:mm:ss).");
+
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]{0,63}$")]
     private static partial Regex TableNamePattern();
+
+    [GeneratedRegex(@"^/?[A-Za-z0-9._+\-]+(/[A-Za-z0-9._+\-]+)*\z", RegexOptions.CultureInvariant)]
+    private static partial Regex ProgramPattern();
 
     [GeneratedRegex("^[A-Za-z0-9]{1,8}$")]
     private static partial Regex InterfacePrefixPattern();

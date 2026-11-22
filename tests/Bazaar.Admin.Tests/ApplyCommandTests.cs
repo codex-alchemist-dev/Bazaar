@@ -1,8 +1,10 @@
 using System.Text.Json;
 using Bazaar.Admin;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Admin.Tests;
@@ -27,6 +29,7 @@ internal sealed class CountingApplyGate(bool open) : ICliApplyGate
         services.AddSingleton<ISetupInstanceLock>(Lock);
         services.AddSingleton<IAuditLog>(new NoopAuditLog());
         services.AddSingleton<ISettingAuditSink>(new InMemorySettingAuditSink());
+        services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(new InMemorySettingAuditSink()));
     }
 
     public sealed class CountingLock : ISetupInstanceLock
