@@ -46,7 +46,7 @@ public class HealthBadgeTests
     {
         var harness = new Harness();
         (_, string background, string text) = _states.Single(s => s.State == state);
-        var document = ViewFixtures.Document(ViewFixtures.Node("badge", [], ("text", state), ("variant", state)));
+        var document = ViewFixtures.Document(ViewFixtures.Node("badge", [], ("value", state), ("variant", state)));
 
         Control control = harness.Build(document, ThemeWithDistinctStates());
 
@@ -62,7 +62,7 @@ public class HealthBadgeTests
     public void An_unknown_variant_still_fails_closed()
     {
         var harness = new Harness();
-        var document = ViewFixtures.Document(ViewFixtures.Node("badge", [], ("text", "x"), ("variant", "exploding")));
+        var document = ViewFixtures.Document(ViewFixtures.Node("badge", [], ("value", "x"), ("variant", "exploding")));
 
         Control control = harness.Build(document);
 

@@ -97,9 +97,9 @@ The graph is derived from the Vault index, GC references, Kanban and PR data. It
 
 - `graph/nodes.jsonl` and `graph/edges.jsonl`: node kind, source reference, label and edge kind.
 - `graph/graph.graphml`: the same graph in GraphML for external tools.
-- `graph/layout.jsonl`: node positions. Excluded by default (`portability.export.include_derived`, false), because positions are derived and change with every layout run.
+- `graph/layout.jsonl`: the layout position of each node, one JSON line per node in the same index order as `graph/nodes.jsonl` (`index`, `ref`, then `x`, `y`, `z`; 2D layouts keep `z` at 0). Positions are derived and change with every layout run, so the file is written only when `portability.export.include_derived` is true (default false). It sits under `graph/`, which `graph/derived.json` marks as derived and not authoritative. Owner decision (2026-11-18): layout positions are exported, as derived data. Section 7 has the matching rule.
 
-Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access).
+Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access). Positions come from the same viewer-filtered snapshot, so a position is never written for a node the viewer cannot read. A layout computed for another graph version is not exported.
 
 ### 4.6 Personal fields and the audit log
 
@@ -159,6 +159,12 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
+**Built status (2026-11-18, built to the proposal; owner approved building before the section is DECIDED, so it is easy to adjust).**
+- Roadmap: nothing new. The Vault exporter covers it; no separate format.
+- Workday: `WorkdayExporter` (`Bazaar.Server.Portability`) adds `workday/events.jsonl` (the full `task_events` log, every kind, canonical JSON payloads), `workday/gate-decisions.jsonl` and `workday/manifest.json`. Tasks, edges, links and applied transitions stay in the Kanban export (section 4.4).
+- Orrery: `OrreryExporter` writes `orrery/triggers.jsonl` (every `ryusei_trigger` column, each row marked `restoreAs: "paused"`), `orrery/fires.jsonl` (the `ryusei_fire` journal, for exported triggers only) and `orrery/manifest.json`. The `ryusei.trigger.*` audit rows travel with the audit-log export (section 4.6), not here.
+- Both read through narrow source interfaces (`IWorkdayExportSource`, `IOrreryExportSource`) that the host implements; the import side (restoring triggers paused) is not built yet.
 
 ### 4.z Whole-company export (added 2026-11-13, DECIDED)
 
@@ -223,6 +229,16 @@ Before a bundle is marked complete, the server runs the verification above on th
 - The public half is published in the bundle so a reader can check the signature without the instance.
 - A key rotation keeps the old public key in the bundle's history, so old exports still verify.
 
+### 6.4 Built status of the verifier (work package 3)
+
+Built: `Bazaar.Server.Portability.Verifier` (library) and `Bazaar.Verify` (exe `bazaar-verify`; publish with `dotnet publish src/Bazaar.Verify -c Release -r <rid>` for a self-contained single file). It reads a bundle directory with streaming reads and no instance, database or network, and prints a deterministic JSON report (`bazaar.verify.report.v1`). Exit codes: 0 verified, 1 failed, 2 usage.
+
+Checks: every file's SHA-256 and size against the manifest; manifest shape, totals and ordinal file order; files in the bundle that the manifest does not list; the manifest signature (`BundleSigner`; `--signing-key` pins a key the reader already trusts, otherwise the bundle's `manifest.pub` is used and the report says `signing_key_source: bundle`); per-GC `events.jsonl` links, `head.json` and row counts; the audit chain, checkpoints and archive marker (`AuditChainReplay`); and each inclusion proof (`AuditInclusionProofVerifier`). A bundle with audit data needs `--audit-key` (the audit key is not the export key and is not in the bundle); without it the check fails closed.
+
+Decisions where this doc was silent (owner may overrule): an unsigned bundle fails; `head.json` uses the fields `last_seq`, `head_hash` and `counts` (`events`, `messages`, `versions`, `mentions`); a GC's first event has a null or empty `prev_event_hash` and hashes are compared as opaque strings; the audit key is ECDSA P-256 with SHA-256 and fixed-size signatures, the same as the export key; any file the manifest does not list fails, `README.txt` included.
+
+Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -237,7 +253,7 @@ Each row below is a hard exclusion or a route to the data. None of these is a se
 | Erased subjects' content | Destroyed by design (section 10) | Tombstones only |
 | Other principals' private Vault areas | Access rule (doc 18) | Owner export only, as section 4.3 |
 | Logs, presence, cache, search indexes, embeddings | Rebuildable or transient. Logs rotate (doc 33) | Rebuilt from the log and the Vault. Embeddings can be included as derived data with their embedding profile id (`portability.export.include_derived`, false) |
-| Layout positions and other derived views | Change on every run | Recomputed from sources |
+| Other derived views (render tiles, caches) | Change on every run | Recomputed from sources. Graph layout positions are not excluded: they are exported as derived data with `include_derived` (section 4.5) |
 | The live audit chain as a writable object | Import would forge history | Audit is exported as evidence (section 4.6) and imported only as an archive (section 8.2) |
 | Work in flight (open turns, locks, leases) | Not data at rest | Drain before export (doc 03 shutdown). Export of a running instance is a snapshot at a consistent point, with the point recorded |
 
@@ -321,6 +337,8 @@ Re-importing the same source must not create duplicates.
 - Imported text is external content. It carries trust `external` (doc 15). Agents that read imported notes do so in reader sessions, and high-impact actions after reading them need owner approval (doc 15, taint).
 - The import job record stores hashes and locations, never the plaintext of imported personal content.
 
+Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, common API key shapes, JWTs, connection strings and high-entropy credential assignments; a timed-out pattern counts as a finding), `ImportSecretGate` (policy `quarantine`, `warn` or `off`, where `off` is refused for external text; `Scan` and `Resolve` over a preview, with the three owner choices) and `ImportSecretAudit` (one `portability.import.secret_decision` entry per decision, holding the choice and rule ids only). A resolved preview is a new preview, so it needs a new dry-run. Not built: the wizard step that shows findings and takes the decisions (client), reading the setting from the registry, and a shared rule set with the Soul bundle scanner (`BundleSecretScanner` in Bazaar.Server has the same rules, kept separate because this project must not reference Bazaar.Server).
+
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
@@ -394,6 +412,8 @@ Rules for every importer and exporter:
 - **Health.** Each module exposes liveness, readiness, dependencies (the sandbox runner, for example) and a self-test that parses a built-in fixture. Health is enforced by contract tests (doc 46).
 - **Trust tiers.** Verified tag and unverified modules are shown as in doc 42. An unverified importer installs with a warning and runs under the same sandbox.
 - **Licence.** The AGPL module exception applies: an importer that uses only the public module API may be under any licence, including a closed commercial one. Its licence is shown at install (doc 42).
+
+**Built status:** `IMappingImporter` (in `Bazaar.Server.Portability`) adds `FormatId`, a declaration of targets, pure `Map` with versioned and hashed `MappingRules`, and a self-test, on top of `IPortabilityImporter`. `ImporterContractChecks` is the contract test every importer module runs. Verify is the shared `ImportVerifier`. Parse is not yet run in a separate process, and the doc 42 module and doc 46 health interfaces are not written, so the existing importers are not yet moved onto `IMappingImporter`.
 
 Exporters follow the same rules, and their output is streamed as `ExportFile` items with a SHA-256 added by the bundle writer, not by the exporter.
 

@@ -129,6 +129,13 @@ public sealed class BrowserLauncher(
             return [.. _live.Values.Where(l => l.Session.AgentId == agentId).Select(l => l.Session)];
     }
 
+    /// <inheritdoc />
+    public IReadOnlyList<BrowserSession> AllActiveSessions()
+    {
+        lock (_gate)
+            return [.. _live.Values.Select(l => l.Session)];
+    }
+
     private async Task StopAsync(Live live, CancellationToken ct)
     {
         try
