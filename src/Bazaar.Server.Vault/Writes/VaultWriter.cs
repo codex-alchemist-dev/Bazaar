@@ -138,15 +138,38 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         var fullPath = Path.Combine(_repoPath, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
-        await File.WriteAllTextAsync(fullPath, RenderDecision(draft), new UTF8Encoding(false), ct);
+        string newCommit;
+        try
+        {
+            await File.WriteAllTextAsync(fullPath, RenderDecision(draft), new UTF8Encoding(false), ct);
 
-        var message = new StringBuilder($"Decision {number:D4}: {draft.Title}");
-        message.Append("\n\n");
-        AppendTrailers(message, draft.AgentId, gcId: null, taskId: null, baseCommit: oldCommit);
-        var newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+            var message = new StringBuilder($"Decision {number:D4}: {draft.Title}");
+            message.Append("\n\n");
+            AppendTrailers(message, draft.AgentId, gcId: null, taskId: null, baseCommit: oldCommit);
+            newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+        }
+        catch
+        {
+            // A write or commit that failed (full disk, stale index lock) must not leave the file for the next commit to sweep up.
+            TryDelete(fullPath);
+            throw;
+        }
+
         await NotifyAsync(oldCommit, newCommit, ct);
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], number);
+    }
+
+    private static void TryDelete(string path)
+    {
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: the original failure is the one to report.
+        }
     }
 
     private async Task NotifyAsync(string oldCommit, string newCommit, CancellationToken ct)
@@ -304,10 +327,10 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         return new Lease(gate);
     }
 
-    [GeneratedRegex("^(?<number>\\d{4})-", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^(?<number>[0-9]{4})-", RegexOptions.CultureInvariant)]
     private static partial Regex DecisionPrefix();
 
-    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();
 
     private sealed class Lease(SemaphoreSlim gate) : IDisposable

@@ -84,21 +84,64 @@ public sealed partial class VaultWriter
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(toFull)!);
-        File.Move(fromFull, toFull);
-        foreach (var (path, text) in rewrites)
+        // Original texts of every file about to change, so a failure part-way restores the tree instead of leaving a half-applied move.
+        var originals = new List<(string Path, string Text)>();
+        var moved = false;
+        string newCommit;
+        try
         {
-            // The moved document's own links are rewritten at its new location.
-            var target = string.Equals(path, request.FromPath, StringComparison.Ordinal) ? toFull : ResolveInside(_repoPath, path);
-            await File.WriteAllTextAsync(target, text, new UTF8Encoding(false), ct);
-        }
+            foreach (var (path, _) in rewrites)
+            {
+                if (!string.Equals(path, request.FromPath, StringComparison.Ordinal))
+                {
+                    var full = ResolveInside(_repoPath, path);
+                    originals.Add((full, await File.ReadAllTextAsync(full, ct)));
+                }
+            }
 
-        var message = new StringBuilder($"Move {request.FromPath} to {request.ToPath}");
-        message.Append("\n\n");
-        AppendTrailers(message, request.AgentId, request.GcId, request.TaskId, oldCommit);
-        var newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+            File.Move(fromFull, toFull);
+            moved = true;
+            foreach (var (path, text) in rewrites)
+            {
+                // The moved document's own links are rewritten at its new location.
+                var target = string.Equals(path, request.FromPath, StringComparison.Ordinal) ? toFull : ResolveInside(_repoPath, path);
+                await File.WriteAllTextAsync(target, text, new UTF8Encoding(false), ct);
+            }
+
+            var message = new StringBuilder($"Move {request.FromPath} to {request.ToPath}");
+            message.Append("\n\n");
+            AppendTrailers(message, request.AgentId, request.GcId, request.TaskId, oldCommit);
+            newCommit = await _git.CommitAsync(_repoPath, message.ToString(), _writer, ct);
+        }
+        catch
+        {
+            RestoreAfterFailedMove(fromFull, toFull, fromText, moved, originals);
+            throw;
+        }
         await NotifyAsync(oldCommit, newCommit, ct);
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], null);
+    }
+
+    private static void RestoreAfterFailedMove(string fromFull, string toFull, string fromText, bool moved, List<(string Path, string Text)> originals)
+    {
+        try
+        {
+            foreach (var (path, text) in originals)
+            {
+                File.WriteAllText(path, text, new UTF8Encoding(false));
+            }
+
+            if (moved)
+            {
+                File.Move(toFull, fromFull, overwrite: true);
+                File.WriteAllText(fromFull, fromText, new UTF8Encoding(false));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // Best effort: the original failure is the one to report.
+        }
     }
 
     /// <summary>

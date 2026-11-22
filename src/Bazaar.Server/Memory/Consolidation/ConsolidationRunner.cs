@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Memory.Notes;
 using Bazaar.Server.Memory.Trust;
@@ -70,7 +71,7 @@ public sealed class ConsolidationRunner
         using var lease = await _locks.TryAcquireAsync(agentId, ct);
         if (lease is null)
         {
-            return Ended(ConsolidationStatus.SkippedLocked, 0, 0, [], "Another consolidation run is already running for this agent.", 0, false);
+            return Ended(ConsolidationStatus.SkippedLocked, 0, 0, [], "Another consolidation run is already running for this agent.", TokenAmount.Zero, false);
         }
 
         var start = _time.GetUtcNow();
@@ -80,13 +81,13 @@ public sealed class ConsolidationRunner
 
         if (inputs.Length == 0)
         {
-            return Ended(ConsolidationStatus.Completed, 0, quarantined, [], "No episodes to consolidate.", 0, false);
+            return Ended(ConsolidationStatus.Completed, 0, quarantined, [], "No episodes to consolidate.", TokenAmount.Zero, false);
         }
 
         var inputIds = inputs.Select(e => e.Id).ToArray();
         var request = ConsolidationPrompt.Build(agentId, inputs, options);
         var promptTokens = EstimateTokens(request.Messages.Sum(m => (long)m.Text.Length));
-        if (promptTokens > options.MaxTokens)
+        if (promptTokens > TokenAmount.FromInt64(options.MaxTokens))
         {
             return Ended(ConsolidationStatus.CapExceeded, inputs.Length, quarantined, [], "The prompt alone exceeds the token cap.", promptTokens, true);
         }
@@ -152,7 +153,7 @@ public sealed class ConsolidationRunner
         var streamedChars = 0L;
         var reply = new StringBuilder();
         var sawUsage = false;
-        var usageTokens = 0L;
+        var usageTokens = TokenAmount.Zero;
         var sawDone = false;
         var limit = TimeSpan.FromMinutes(options.MaxMinutes);
 
@@ -189,7 +190,7 @@ public sealed class ConsolidationRunner
             }
 
             var tokens = sawUsage ? usageTokens : EstimateTokens(promptChars + streamedChars);
-            if (tokens > options.MaxTokens)
+            if (tokens > TokenAmount.FromInt64(options.MaxTokens))
             {
                 return CallResult.Stopped(ConsolidationStatus.CapExceeded, "The token cap was reached.", tokens, !sawUsage);
             }
@@ -209,10 +210,10 @@ public sealed class ConsolidationRunner
         return new CallResult(ConsolidationStatus.Completed, reply.ToString(), null, finalTokens, !sawUsage);
     }
 
-    private static long Total(GatewayTokenUsage usage) =>
+    private static TokenAmount Total(GatewayTokenUsage usage) =>
         usage.Input + usage.CacheWrite5m + usage.CacheWrite1h + usage.CacheRead + usage.Output;
 
-    private static long EstimateTokens(long characters) => characters / 4;
+    private static TokenAmount EstimateTokens(long characters) => TokenAmount.FromInt64(characters / 4);
 
     /// <summary>
     /// Output provenance: the least trusted source among the inputs (enum order is trust order, most trusted
@@ -355,7 +356,7 @@ public sealed class ConsolidationRunner
         int quarantined,
         IReadOnlyList<RejectedOperation> rejected,
         string? detail,
-        long tokens,
+        TokenAmount tokens,
         bool estimated) =>
         new(status, episodes, quarantined, 0, rejected, string.Empty, null, null, tokens, estimated, detail);
 
@@ -363,10 +364,10 @@ public sealed class ConsolidationRunner
         ConsolidationStatus Status,
         string Text,
         string? Detail,
-        long Tokens,
+        TokenAmount Tokens,
         bool Estimated)
     {
-        public static CallResult Stopped(ConsolidationStatus status, string detail, long tokens = 0, bool estimated = false) =>
+        public static CallResult Stopped(ConsolidationStatus status, string detail, TokenAmount tokens = default, bool estimated = false) =>
             new(status, string.Empty, detail, tokens, estimated);
     }
 }

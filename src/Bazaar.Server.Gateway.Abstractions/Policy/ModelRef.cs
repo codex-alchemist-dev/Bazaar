@@ -9,7 +9,7 @@ namespace Bazaar.Server.Gateway.Policy;
 /// </summary>
 public readonly partial record struct ModelRef(string ProviderId, string ModelId)
 {
-    [GeneratedRegex("^[a-z0-9][a-z0-9._-]*$")]
+    [GeneratedRegex("^[a-z0-9][a-z0-9._-]*\\z")]
     private static partial Regex ProviderIdPattern();
 
     public override string ToString() => $"{ProviderId}:{ModelId}";
@@ -52,7 +52,7 @@ public static partial class RouteNames
     /// <summary>Routes that resolve to an upstream profile that picks the model itself (docs/design/05, delegated routes).</summary>
     public const string DelegatedPrefix = "custom/";
 
-    [GeneratedRegex("^[a-z0-9][a-z0-9._/-]*$")]
+    [GeneratedRegex("^[a-z0-9][a-z0-9._/-]*\\z")]
     private static partial Regex NamePattern();
 
     /// <summary>True for <c>auto</c> and anything under <c>auto/</c>: no global auto routing exists, so these never resolve.</summary>

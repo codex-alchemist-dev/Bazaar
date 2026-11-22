@@ -40,6 +40,13 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         RETURNING j.id, j.kind, j.dedupe_key, j.attempts, j.payload::text
         """;
 
+    private const string _releaseSql = """
+        UPDATE job
+        SET state = 'queued', lease_owner = NULL, lease_until = NULL,
+            attempts = GREATEST(attempts - 1, 0), updated_at = now()
+        WHERE id = ANY(@ids) AND state = 'running' AND lease_owner = @owner
+        """;
+
     private const string _completeSql = """
         UPDATE job
         SET state = 'succeeded', lease_owner = NULL, lease_until = NULL, last_error = NULL, updated_at = now()
@@ -54,6 +61,13 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
             last_error = @last_error, updated_at = now()
         WHERE id = @id AND state = 'running' AND lease_owner = @owner
         """;
+
+    /// <summary>The database clock. Recurring-job buckets use it, so a host clock that is ahead, behind or stepped cannot postpone or replay them.</summary>
+    public async Task<DateTimeOffset> DatabaseNowAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT now()");
+        return new DateTimeOffset((DateTime)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!, TimeSpan.Zero);
+    }
 
     /// <summary>Adds a job. Returns its id, or null when <paramref name="dedupeKey"/> was used before (the earlier job wins).</summary>
     public async Task<long?> EnqueueAsync(
@@ -107,6 +121,20 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         return claimed;
     }
 
+    /// <summary>
+    /// Gives back jobs this owner claimed but never started (the host is stopping): they are queued again at once and the
+    /// claim does not count as an attempt. Jobs the owner no longer holds are left alone. Returns how many were released.
+    /// </summary>
+    public async Task<int> ReleaseUnstartedAsync(string owner, IReadOnlyCollection<long> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0)
+            return 0;
+        await using var cmd = dataSource.CreateCommand(_releaseSql);
+        cmd.Parameters.AddWithValue("owner", owner);
+        cmd.Parameters.AddWithValue("ids", ids.ToArray());
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+    }
+
     /// <summary>Marks a claimed job succeeded. Returns false when the lease is no longer held by <paramref name="owner"/>.</summary>
     public async Task<bool> CompleteAsync(long id, string owner, CancellationToken ct = default)
     {
@@ -123,7 +151,7 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
     public async Task<bool> FailAsync(
         long id, string owner, int maxAttempts, TimeSpan retryDelay, string error, CancellationToken ct = default)
     {
-        var message = error.Length > _maxErrorLength ? error[.._maxErrorLength] : error;
+        var message = StoredError(error);
         await using var cmd = dataSource.CreateCommand(_failSql);
         cmd.Parameters.AddWithValue("id", id);
         cmd.Parameters.AddWithValue("owner", owner);
@@ -131,6 +159,31 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         cmd.Parameters.AddWithValue("delay_seconds", retryDelay.TotalSeconds);
         cmd.Parameters.AddWithValue("last_error", message);
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
+    }
+
+    /// <summary>
+    /// The error text as stored: cut to the limit without splitting a surrogate pair, with NUL and unpaired surrogates (neither
+    /// fits Postgres text) shown as U+FFFD. It is diagnostic text, so a lossy copy beats a failure report that itself fails.
+    /// </summary>
+    private static string StoredError(string error)
+    {
+        var length = Math.Min(error.Length, _maxErrorLength);
+        var builder = new System.Text.StringBuilder(length);
+        for (var i = 0; i < length; i++)
+        {
+            var c = error[i];
+            if (char.IsHighSurrogate(c) && i + 1 < length && char.IsLowSurrogate(error[i + 1]))
+            {
+                builder.Append(c).Append(error[i + 1]);
+                i++;
+            }
+            else
+            {
+                builder.Append(c == '\0' || char.IsSurrogate(c) ? '\uFFFD' : c);
+            }
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Reads one job. Used by tests and by the status page later.</summary>

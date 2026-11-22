@@ -85,6 +85,6 @@ public sealed partial class DirectoryLiveDataPreserver : ILiveDataPreserver
     private static bool IsInside(string path, string parent) =>
         path.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.Ordinal);
 
-    [GeneratedRegex("^[A-Za-z0-9_-]+$")]
+    [GeneratedRegex(@"^[A-Za-z0-9_-]+\z")]
     private static partial Regex SafeId();
 }

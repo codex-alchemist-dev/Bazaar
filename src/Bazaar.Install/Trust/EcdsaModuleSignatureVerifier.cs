@@ -29,7 +29,7 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             return ModuleSignatureStatus.Malformed;
         }
 
-        if (package.Signature.Length == 0)
+        if (package.Signature is null || package.Signature.Length == 0)
         {
             return ModuleSignatureStatus.MissingSignature;
         }
@@ -81,6 +81,7 @@ public sealed class EcdsaModuleSignatureVerifier : IModuleSignatureVerifier
             || !ModuleText.IsToken(package.PublisherId)
             || !ModuleText.IsToken(package.SignerKeyId)
             || !ModuleText.IsSha256Hex(package.ContentDigestSha256Hex)
+            || package.DeclaredPermissions is null
             || package.DeclaredPermissions.Count > ModuleText.MaxPermissions)
         {
             return false;

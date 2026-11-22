@@ -40,6 +40,28 @@ public sealed class PgGcEditSource(NpgsqlDataSource dataSource)
         WHERE m.gc_id = $1 AND m.message_id = $2
         """;
 
+    private const string _priorEditSql = """
+        SELECT seq, version FROM gc_event
+        WHERE gc_id = $1 AND author_id = $2 AND client_msg_id = $3 AND kind = 'message_edit' AND message_id = $4
+        """;
+
+    /// <summary>
+    /// The edit already written under this idempotency key (author and request id), or null. A retry after a lost answer (a crash
+    /// between commit and reply) must get the original result; planning it again would compare the text with itself and refuse it.
+    /// </summary>
+    public async Task<(long Seq, int Version)?> FindPriorEditAsync(Guid gcId, Guid messageId, Guid authorId, string clientMsgId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_priorEditSql);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = authorId });
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = clientMsgId });
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = messageId });
+        await using var row = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await row.ReadAsync(ct).ConfigureAwait(false))
+            return null;
+        return (row.GetInt64(0), row.GetInt32(1));
+    }
+
     /// <summary>Loads the snapshot, or null when the GC or the message does not exist.</summary>
     public async Task<GcEditSnapshot?> LoadAsync(Guid gcId, Guid messageId, CancellationToken ct)
     {

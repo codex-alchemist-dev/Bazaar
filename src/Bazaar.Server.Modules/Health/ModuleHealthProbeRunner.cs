@@ -41,7 +41,8 @@ public static class ModuleHealthProbeRunner
         using var timer = timeProvider.CreateTimer(_ => timedOut.TrySetResult(), null, limit, Timeout.InfiniteTimeSpan);
 
         // ExecuteAsync never throws, so the work task never faults unobserved after a timeout.
-        var work = ExecuteAsync(probe, timeProvider, probeCancellation.Token).AsTask();
+        // Task.Run: a probe that blocks its thread before its first await must not block the caller, or the timer could never win.
+        var work = Task.Run(() => ExecuteAsync(probe, timeProvider, probeCancellation.Token).AsTask(), CancellationToken.None);
         var winner = await Task.WhenAny(work, timedOut.Task).ConfigureAwait(false);
 
         if (winner == work)
@@ -64,7 +65,8 @@ public static class ModuleHealthProbeRunner
     {
         try
         {
-            return await probe(probeToken).ConfigureAwait(false);
+            return await probe(probeToken).ConfigureAwait(false)
+                ?? Failing("probe returned no result", timeProvider);
         }
         catch (Exception exception)
         {

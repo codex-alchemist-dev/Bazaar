@@ -50,8 +50,8 @@ public sealed class VaultApi(HttpClient http, Func<string?> credential)
         if (!string.IsNullOrEmpty(type)) url += "&type=" + Uri.EscapeDataString(type);
 
         var json = await GetAsync(url, cancellationToken);
-        return JsonSerializer.Deserialize(json, VaultJsonContext.Default.VaultSearchResponseDto)
-            ?? throw new VaultApiException(HttpStatusCode.BadGateway);
+        var response = Decode(json, VaultJsonContext.Default.VaultSearchResponseDto);
+        return response?.Cards is { } cards && !cards.Contains(null!) ? response : throw new VaultApiException(HttpStatusCode.BadGateway);
     }
 
     /// <summary>Fetches one block's body. A document the caller cannot read answers <see cref="HttpStatusCode.NotFound"/>.</summary>
@@ -59,8 +59,21 @@ public sealed class VaultApi(HttpClient http, Func<string?> credential)
     {
         var url = $"vault/doc?vault={vaultId:D}&doc={docId:D}&ordinal={ordinal.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
         var json = await GetAsync(url, cancellationToken);
-        var body = JsonSerializer.Deserialize(json, VaultJsonContext.Default.VaultBodyDto);
+        var body = Decode(json, VaultJsonContext.Default.VaultBodyDto);
         return body?.Body ?? throw new VaultApiException(HttpStatusCode.BadGateway);
+    }
+
+    /// <summary>Decodes an answer. A body the server garbled (not JSON, wrong shape) is a bad gateway, not a crash.</summary>
+    private static T? Decode<T>(string json, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info) where T : class
+    {
+        try
+        {
+            return JsonSerializer.Deserialize(json, info);
+        }
+        catch (JsonException)
+        {
+            throw new VaultApiException(HttpStatusCode.BadGateway);
+        }
     }
 
     private async Task<string> GetAsync(string url, CancellationToken cancellationToken)

@@ -1,6 +1,7 @@
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Wire.Sync;
 
@@ -15,17 +16,18 @@ public sealed class SubscriptionEngine(
     GcDispatcher dispatcher,
     SyncOptions options,
     TimeProvider? time = null,
-    IGraphLodSource? graphLod = null)
+    IGraphLodSource? graphLod = null,
+    ILogger<SubscriptionEngine>? logger = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
     public SubscriptionSession CreateSession(Guid principalId, PrincipalKind principalKind, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
+        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod, logger);
 }
 
 /// <summary>One connection's subscriptions. Thread-safe: <c>subscribe</c> requests may overlap.</summary>
-public sealed class SubscriptionSession : ISubscriptionSession
+public sealed partial class SubscriptionSession : ISubscriptionSession
 {
     private readonly Guid _principalId;
     private readonly PrincipalKind _principalKind;
@@ -36,13 +38,14 @@ public sealed class SubscriptionSession : ISubscriptionSession
     private readonly SyncFrames _frames;
     private readonly IConnectionOutbound _outbound;
     private readonly IGraphLodSource? _graphLod;
+    private readonly ILogger? _logger;
     private readonly CancellationTokenSource _cts = new();
     private readonly object _gate = new();
     private readonly Dictionary<string, GcSubscription> _subs = [];
 
     internal SubscriptionSession(
         Guid principalId, PrincipalKind principalKind, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
-        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod)
+        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod, ILogger? logger = null)
     {
         _principalId = principalId;
         _principalKind = principalKind;
@@ -53,6 +56,7 @@ public sealed class SubscriptionSession : ISubscriptionSession
         _frames = frames;
         _outbound = outbound;
         _graphLod = graphLod;
+        _logger = logger;
     }
 
     /// <summary>Streams this connection is subscribed to.</summary>
@@ -143,6 +147,12 @@ public sealed class SubscriptionSession : ISubscriptionSession
     {
         if (WireStreams.TryParseGraph(cursor.S, out var graphId))
         {
+            // Canonical spelling only, as for a GC: every upper-case variant would cost one more snapshot.
+            if (cursor.S != WireStreams.Graph(graphId))
+            {
+                return (SubscribeStatuses.Denied, null);
+            }
+
             return await SubscribeGraphAsync(cursor.S, graphId, ct).ConfigureAwait(false);
         }
 
@@ -151,7 +161,9 @@ public sealed class SubscriptionSession : ISubscriptionSession
             return (SubscribeStatuses.Denied, null);
         }
 
-        if (!await _access.CanReadAsync(_principalId, _principalKind, gcId, ct).ConfigureAwait(false))
+        // Only the canonical spelling names a stream. Guid parsing accepts upper-case hex, so without this check one GC has
+        // thousands of names, each its own subscription and replay.
+        if (cursor.S != WireStreams.Gc(gcId) || !await _access.CanReadAsync(_principalId, _principalKind, gcId, ct).ConfigureAwait(false))
         {
             return (SubscribeStatuses.Denied, null);
         }
@@ -215,9 +227,15 @@ public sealed class SubscriptionSession : ISubscriptionSession
         {
             // Unsubscribed, replaced, revoked or the connection closed.
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            // The log could not be read: tell the client to resubscribe from its cursor.
+            // The log could not be read: tell the client to resubscribe from its cursor. Log it, or a permanent fault (a corrupt page)
+            // looks like a slow client: `lagged` forever and nothing in the server log.
+            if (_logger is not null)
+            {
+                LogReadFailed(_logger, ex, sub.Stream);
+            }
+
             sub.Fail();
         }
     }
@@ -247,4 +265,10 @@ public sealed class SubscriptionSession : ISubscriptionSession
 
         sub.Dispose();
     }
+}
+
+public sealed partial class SubscriptionSession
+{
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reading the log for {Stream} failed; the client was sent lagged and must resubscribe.")]
+    private static partial void LogReadFailed(ILogger logger, Exception ex, string stream);
 }

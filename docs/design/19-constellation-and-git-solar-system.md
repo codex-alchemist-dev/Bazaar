@@ -98,6 +98,11 @@ Every row is a plain value or view choice, so it is a setting rather than a ques
 - **Stale data.** When disconnected, the last snapshot is shown and marked stale.
 - **Concurrency.** One layout engine per view. Concurrent layouts are capped.
 
+## Built status: tile endpoint visibility (2026-11-19)
+`POST /constellation/tiles` serves a per-viewer projection. The viewer is the authenticated principal (owner, agent, or any other member), mapped to the same reader as Vault search (`GET /vault/search`, doc 18 "Access"). `VaultGraphSource` picks the viewer's documents with the Vault's own SQL access clause and keeps an edge only when both ends are readable, so the snapshot, its version and its counts never include a hidden note. The layout runs over the visible subgraph only; positions therefore differ between viewers, and one viewer's layout is cached under that viewer's scope and never served to another. A viewer with no readable notes gets an empty tile (200), not an error. A graph source that does not implement the per-viewer overload fails closed: the owner gets the graph and everyone else an empty one.
+
+Not covered yet: the `graph:<id>` level-of-detail feed (`ConstellationGraphLodSource`) still reads the whole snapshot behind an unregistered access policy. It must take the same viewer before it is registered, so that its graph version agrees with the tile's.
+
 ## Scale and level of detail (owner, 2026-10-30; [PROPOSED] numbers)
 Full design, budgets and benchmark plan: `constellation-scale-and-lod.md`.
 - **Target scale.** Millions of nodes company-wide, with billions as the design ceiling. Only the visible, aggregated set reaches the GPU per frame.

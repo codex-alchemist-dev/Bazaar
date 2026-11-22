@@ -1,10 +1,10 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Fakes;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
-
 namespace Bazaar.Server.Tests.Gateway.Pipeline;
 
 public class ModelGatewayTests
@@ -156,7 +156,7 @@ public class ModelGatewayTests
         var events = await GatewayHarness.CollectAsync(h.Gateway().CallAsync(GatewayHarness.Request(), _ct), _ct);
 
         Assert.Equal(["Warning", "TextDelta", "UsageReported", "Done"], events.Select(e => e.GetType().Name));
-        Assert.Equal(2, ((ModelEvent.UsageReported)events[2]).Usage.Input);
+        Assert.Equal(TokenAmount.FromInt64(2), ((ModelEvent.UsageReported)events[2]).Usage.Input);
     }
 
     [Fact]

@@ -15,9 +15,9 @@ public static class MigrateCommand
     /// </summary>
     public static async Task<int> RunAsync(string connectionString, IMigrationSource source, string provider, TextWriter output, MigrationOptions? options = null, IEnumerable<ComponentManifest>? components = null, CancellationToken ct = default)
     {
-        await using var dataSource = NpgsqlDataSource.Create(connectionString);
         try
         {
+            await using var dataSource = NpgsqlDataSource.Create(connectionString);
             var result = await new MigrationRunner(dataSource, options, components).MigrateAsync(source, provider, ct).ConfigureAwait(false);
             foreach (var m in result.Applied)
                 await output.WriteLineAsync($"applied {m.Namespace}/{m.Version:D4}_{m.Name}", ct).ConfigureAwait(false);
@@ -29,5 +29,39 @@ public static class MigrateCommand
             await output.WriteLineAsync($"migrate refused: {ex.Message}", ct).ConfigureAwait(false);
             return 1;
         }
+        catch (Exception ex) when (TryDescribeDatabaseFailure(ex, out var line))
+        {
+            await output.WriteLineAsync($"migrate refused: {line}", ct).ConfigureAwait(false);
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// One safe line for a failure to reach or use the database (refused connection, bad credentials, malformed connection string,
+    /// missing privilege, read-only session). Never echoes the connection string, and never a stack trace.
+    /// </summary>
+    public static bool TryDescribeDatabaseFailure(Exception ex, out string line)
+    {
+        switch (ex)
+        {
+            case PostgresException pg:
+                line = $"the database refused the request: {pg.SqlState}: {FirstLine(pg.MessageText)}";
+                return true;
+            case NpgsqlException npg:
+                line = $"cannot reach the database: {FirstLine(npg.InnerException?.Message ?? npg.Message)}";
+                return true;
+            case ArgumentException or FormatException:
+                line = "the database connection string is not valid.";
+                return true;
+            default:
+                line = string.Empty;
+                return false;
+        }
+    }
+
+    private static string FirstLine(string text)
+    {
+        var end = text.IndexOfAny(['\r', '\n']);
+        return end < 0 ? text : text[..end];
     }
 }

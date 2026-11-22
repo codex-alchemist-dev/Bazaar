@@ -55,6 +55,7 @@ public class ThemeValidatorTests
     [InlineData("#GGGGGG")]
     [InlineData("#1E1E2E80x")]
     [InlineData("1E1E2E")]
+    [InlineData("#1E1E2E\n")]
     public void Malformed_colour_is_rejected(string colour)
     {
         string json = Mutate(root => Tokens(root)["color.text.primary"] = colour);

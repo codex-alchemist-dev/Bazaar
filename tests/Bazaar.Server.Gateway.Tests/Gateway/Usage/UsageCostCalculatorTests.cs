@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Usage;
 
 namespace Bazaar.Server.Tests.Gateway.Usage;
@@ -75,5 +76,33 @@ public class UsageCostCalculatorTests
         var price = new PriceEntry("anthropic-direct", "claude-haiku-5-5", _day, 3.00m, 15.00m);
 
         Assert.Equal(0m, UsageCostCalculator.Compute(new GatewayTokenUsage(0, 0, 0, 0, 0, 0), price));
+    }
+
+    [Fact]
+    public void A_count_past_the_long_range_but_inside_decimal_is_costed_exactly()
+    {
+        var price = new PriceEntry("anthropic-direct", "claude-haiku-5-5", _day, 1.00m, 5.00m);
+        var tokens = new GatewayTokenUsage(TokenAmount.Parse("10000000000000000000000"), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero);
+
+        // 1e22 tokens at 1.00 USD per million tokens is 1e16 USD.
+        Assert.Equal(10_000_000_000_000_000m, UsageCostCalculator.Compute(tokens, price));
+    }
+
+    [Fact]
+    public void A_count_too_large_for_decimal_has_no_cost_instead_of_throwing()
+    {
+        var price = new PriceEntry("anthropic-direct", "claude-haiku-5-5", _day, 1.00m, 5.00m);
+        var tokens = new GatewayTokenUsage(TokenAmount.Parse(new string('9', 40)), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero);
+
+        Assert.Null(UsageCostCalculator.Compute(tokens, price));
+    }
+
+    [Fact]
+    public void A_product_that_overflows_decimal_has_no_cost_instead_of_throwing()
+    {
+        var price = new PriceEntry("anthropic-direct", "claude-haiku-5-5", _day, 1_000_000m, 5.00m);
+        var tokens = new GatewayTokenUsage(TokenAmount.Parse(new string('9', 28)), TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero, TokenAmount.Zero);
+
+        Assert.Null(UsageCostCalculator.Compute(tokens, price));
     }
 }

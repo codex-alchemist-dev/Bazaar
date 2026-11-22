@@ -1,4 +1,5 @@
 using Bazaar.Approvals;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Audit;
@@ -77,7 +78,7 @@ public class AgentSafetyServiceCollectionExtensionsTests
         services.AddAgentSafety(Configuration(("Bazaar:Safety:Budgets:HourlyTokens", "5")));
         using var provider = services.BuildServiceProvider();
 
-        Assert.Equal(5, provider.GetRequiredService<TokenBudgetOptions>().HourlyTokens);
+        Assert.Equal(TokenAmount.FromInt64(5), provider.GetRequiredService<TokenBudgetOptions>().HourlyTokens);
     }
 
     [Fact]
@@ -87,7 +88,7 @@ public class AgentSafetyServiceCollectionExtensionsTests
         services.AddAgentSafety(Configuration(("HourlyTokens", "5")));
         using var provider = services.BuildServiceProvider();
 
-        Assert.Equal(200_000, provider.GetRequiredService<TokenBudgetOptions>().HourlyTokens);
+        Assert.Equal(TokenAmount.FromInt64(200_000), provider.GetRequiredService<TokenBudgetOptions>().HourlyTokens);
     }
 
     [Fact]

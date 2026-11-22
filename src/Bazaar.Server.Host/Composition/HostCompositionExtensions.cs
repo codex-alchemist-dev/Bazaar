@@ -52,6 +52,7 @@ public static class HostCompositionExtensions
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();
         services.AddHostedService<StartupSequence>();
+        services.AddHostedService<InstanceLockWatchdog>();
         return services;
     }
 

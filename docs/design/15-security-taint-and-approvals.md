@@ -114,6 +114,8 @@ This table holds shared defaults; each subsystem owns its specific limits. Every
 
 Runtime counters for side-effecting capabilities are `rate_bucket`, owned here. Breach: deny; freeze and notify on repeat. These are quotas, not money budgets (Resource Economy is rejected).
 
+Agent token budgets are not `rate_bucket` counts. They live in `agent_token_spend`, and their amounts are exact `numeric` values of any size, never `bigint` (doc 48, DECIDED 11.3).
+
 ### Settings [PROPOSED] (DECISIONS-LOG round 13)
 Registry owned by doc 03. Changes are audited; surfaced in the setup wizard and advanced settings (docs 27, 32).
 

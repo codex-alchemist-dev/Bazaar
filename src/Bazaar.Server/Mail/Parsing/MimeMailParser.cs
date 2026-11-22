@@ -33,7 +33,7 @@ public sealed class MimeMailParser(MailLimits limits)
         string? html = null;
         foreach (var part in message.BodyParts.OfType<MimePart>())
         {
-            if (part.IsAttachment)
+            if (IsAttachmentLike(part))
             {
                 attachments.Add(new MailAttachment(part.FileName, part.ContentType.MimeType, SizeOf(part)));
             }
@@ -76,6 +76,11 @@ public sealed class MimeMailParser(MailLimits limits)
         var value = message.Headers["Auto-Submitted"];
         return value is not null && !value.Equals("no", StringComparison.OrdinalIgnoreCase);
     }
+
+    // The sender chooses the Content-Disposition, so an executable can arrive with no disposition or an inline one.
+    // Anything that is not a plain-text or HTML body part is listed, so the screens and the count see it.
+    private static bool IsAttachmentLike(MimePart part) =>
+        part.IsAttachment || !(IsType(part, "plain") || IsType(part, "html"));
 
     private static bool IsType(MimePart part, string subtype) =>
         part.ContentType.MediaType.Equals("text", StringComparison.OrdinalIgnoreCase)

@@ -99,10 +99,20 @@ public static class RyuseiSchedule
             _wallDays = every.Ticks % TimeSpan.TicksPerDay == 0 ? (int)(every.Ticks / TimeSpan.TicksPerDay) : 0;
         }
 
-        public DateTimeOffset Occurrence(long k) =>
-            _wallDays > 0
-                ? ToInstant(_anchorLocal.AddDays((double)k * _wallDays))
-                : _anchor.AddTicks(checked(k * _every.Ticks));
+        public DateTimeOffset Occurrence(long k)
+        {
+            try
+            {
+                return _wallDays > 0
+                    ? ToInstant(_anchorLocal.AddDays((double)k * _wallDays))
+                    : _anchor.AddTicks(checked(k * _every.Ticks));
+            }
+            catch (Exception ex) when (ex is ArgumentOutOfRangeException or OverflowException)
+            {
+                // Past the last representable instant: the occurrence never comes, so it is the end of time, not a fault.
+                return DateTimeOffset.MaxValue;
+            }
+        }
 
         /// <summary>The largest k with Occurrence(k) at or before <paramref name="instant"/>, or -1 when none has happened yet.</summary>
         public long LatestIndexAtOrBefore(DateTimeOffset instant)

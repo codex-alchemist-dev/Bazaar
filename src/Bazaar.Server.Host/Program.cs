@@ -1,4 +1,5 @@
 using Bazaar.Community.Observatory;
+using Bazaar.Server.AgentSafety.Http;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -37,12 +38,9 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapBazaarTokenAmountIntake();
 app.MapCommunityLog();
 app.MapBazaarSetup();
 app.UseBazaarWire();
 
-// Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
-var exitCode = app.Services.GetRequiredService<HostExitCode>();
-
-await app.RunAsync();
-return exitCode.Value;
+return await HostRun.RunAsync(app);

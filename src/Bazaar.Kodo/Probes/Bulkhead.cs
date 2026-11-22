@@ -56,7 +56,9 @@ public sealed class Bulkhead : IDisposable
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         try
         {
-            Task<ProbeResult> work = RunProbeAsync(probe, budget.Token);
+            // Task.Run puts the probe on the pool: a probe that blocks its thread before its first await
+            // must not block this caller, or the timeout below could never fire.
+            Task<ProbeResult> work = Task.Run(() => RunProbeAsync(probe, budget.Token), CancellationToken.None);
             Task deadline = Task.Delay(timeout, _timeProvider, budget.Token);
             Task finished = await Task.WhenAny(work, deadline).ConfigureAwait(false);
             if (finished == work)
@@ -81,7 +83,12 @@ public sealed class Bulkhead : IDisposable
     {
         try
         {
-            return await probe(token).ConfigureAwait(false);
+            ProbeResult? result = await probe(token).ConfigureAwait(false);
+
+            // Garbage from a probe is never green: a missing result or an unknown status is unreadable.
+            return result is null || !Enum.IsDefined(result.Status)
+                ? ProbeResult.Unknown(ProbeCauses.Unreadable)
+                : result;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {

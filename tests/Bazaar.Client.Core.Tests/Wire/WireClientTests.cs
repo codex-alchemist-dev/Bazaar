@@ -322,4 +322,92 @@ public class WireClientTests : IAsyncLifetime
         Assert.Null(_client.Stopped);
         Assert.NotEmpty(_transport.Connections[0].SentOfType(WireTypes.Ping));
     }
+
+    [Fact]
+    public async Task A_terminal_stop_completes_the_readers_and_fails_waiting_requests()
+    {
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Hello).Any());
+        var request = _client.RequestAsync<Ping, Pong>(WireTypes.Ping, new Ping(null), TestContext.Current.CancellationToken);
+
+        _transport.Latest.Close(WireCloseCodes.AuthFailed);
+        await _run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+        Assert.Equal(WireClientStopReason.AuthFailed, _client.Stopped);
+        await _client.Messages.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await _client.Resyncs.Completion.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await Assert.ThrowsAnyAsync<Exception>(() => request.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            _client.RequestAsync<Ping, Pong>(WireTypes.Ping, new Ping(null), TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_connect_that_is_cancelled_by_the_transport_itself_is_retried_not_treated_as_stop()
+    {
+        _transport.NextConnectThrows = new OperationCanceledException("connect timeout");
+        Start();
+
+        await AdvanceUntil(() => _transport.Count == 1);
+
+        Assert.Null(_client.Stopped);
+        Assert.False(_run.IsCompleted);
+    }
+
+    [Fact]
+    public async Task A_server_that_never_sends_welcome_is_dropped_and_retried()
+    {
+        _transport.SuppressWelcome = true;
+        Start();
+        await Until(() => _transport.Count == 1);
+
+        await AdvanceUntil(() => _transport.Count == 2);
+
+        Assert.Null(_client.Stopped);
+    }
+
+    [Fact]
+    public async Task A_server_that_stops_reading_is_dropped_by_the_heartbeat()
+    {
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Hello).Any());
+        await Settle();
+        _transport.Latest.BlockSends = true;
+
+        await AdvanceUntil(() => _transport.Count == 2);
+
+        Assert.Null(_client.Stopped);
+    }
+
+    [Fact]
+    public async Task Messages_for_streams_that_were_never_subscribed_are_dropped_and_leave_no_cursor()
+    {
+        await _client.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Subscribe).Any());
+        var other = Guid.Parse("0196a6f0-0000-7000-8000-0000000000ff");
+        var stranger = new WireGcMessage(other, 7, 7, Guid.NewGuid(), _author, "x", DateTimeOffset.UnixEpoch, false, [], null);
+
+        _transport.Latest.PushEvent(WireTypes.GcMessage, stranger, WireStreams.Gc(other), 7);
+        _transport.Latest.PushEvent(WireTypes.GcMessage, Msg(1, 1), _stream, 1);
+
+        Assert.Equal(_gc, (await Next()).GcId);
+        Assert.Equal(new StreamCursor(WireStreams.Gc(other), 0, 0), _cursors.Load(WireStreams.Gc(other)));
+        Assert.False(_client.Messages.TryRead(out _));
+    }
+
+    [Fact]
+    public async Task Messages_after_a_stream_was_revoked_are_dropped()
+    {
+        await _client.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
+        Start();
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Subscribe).Any());
+        var c = _transport.Latest;
+
+        c.PushEvent(WireTypes.StreamRevoked, new StreamRevoked(_stream), _stream);
+        c.PushEvent(WireTypes.GcMessage, Msg(1, 1), _stream, 1);
+        await Settle();
+
+        Assert.False(_client.Messages.TryRead(out _));
+        Assert.Equal(0, _cursors.Load(_stream).After);
+    }
 }

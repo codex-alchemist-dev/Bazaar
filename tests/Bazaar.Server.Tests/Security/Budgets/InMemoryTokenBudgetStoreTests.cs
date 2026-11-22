@@ -1,4 +1,6 @@
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Security.Budgets;
+using static Bazaar.Server.Tests.Security.Budgets.BudgetTestAmounts;
 
 namespace Bazaar.Server.Tests.Security.Budgets;
 
@@ -16,7 +18,7 @@ public class InMemoryTokenBudgetStoreTests
 
         var loaded = await store.LoadSince("agent-a", _start, TestContext.Current.CancellationToken);
 
-        Assert.Equal([new TokenBudgetSpend(_start.AddHours(1), 20), new TokenBudgetSpend(_start.AddHours(2), 30)], loaded);
+        Assert.Equal([new TokenBudgetSpend(_start.AddHours(1), T(20)), new TokenBudgetSpend(_start.AddHours(2), T(30))], loaded);
     }
 
     [Fact]
@@ -39,7 +41,7 @@ public class InMemoryTokenBudgetStoreTests
 
         var loaded = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
 
-        Assert.Equal(new TokenBudgetSpend(_start, 10), Assert.Single(loaded));
+        Assert.Equal(new TokenBudgetSpend(_start, T(10)), Assert.Single(loaded));
     }
 
     [Fact]
@@ -55,7 +57,7 @@ public class InMemoryTokenBudgetStoreTests
 
         var agentA = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
         var agentB = await store.LoadSince("agent-b", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
-        Assert.Equal(new TokenBudgetSpend(_start.AddDays(2), 40), Assert.Single(agentA));
+        Assert.Equal(new TokenBudgetSpend(_start.AddDays(2), T(40)), Assert.Single(agentA));
         Assert.Empty(agentB);
     }
 
@@ -69,7 +71,7 @@ public class InMemoryTokenBudgetStoreTests
 
         var loaded = await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken);
         Assert.Equal(1000, loaded.Count);
-        Assert.Equal(1000, loaded.Sum(spend => spend.Tokens));
+        Assert.Equal(T(1000), loaded.Sum(spend => spend.Tokens));
     }
 
     [Fact]
@@ -94,9 +96,6 @@ public class InMemoryTokenBudgetStoreTests
             store.LoadSince(agentId, _start, TestContext.Current.CancellationToken));
     }
 
-    private static TokenBudgetOptions Limits(long hour, long day, long week) =>
-        new() { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
-
     [Fact]
     public async Task Try_consume_records_a_spend_that_fits_and_reports_the_remaining_room()
     {
@@ -105,8 +104,8 @@ public class InMemoryTokenBudgetStoreTests
         var decision = await store.TryConsume("agent-a", _start, 40, Limits(100, 1000, 5000), TestContext.Current.CancellationToken);
 
         Assert.True(decision.Allowed);
-        Assert.Equal(60, decision.Remaining);
-        Assert.Equal(40, Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken)).Tokens);
+        Assert.Equal(T(60), decision.Remaining);
+        Assert.Equal(T(40), Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken)).Tokens);
     }
 
     [Fact]
@@ -120,9 +119,9 @@ public class InMemoryTokenBudgetStoreTests
 
         Assert.False(denied.Allowed);
         Assert.Equal(TokenBudgetWindow.Hour, denied.Window);
-        Assert.Equal(10, denied.Remaining);
+        Assert.Equal(T(10), denied.Remaining);
         Assert.Equal(TimeSpan.FromMinutes(50), denied.RetryAfter);
-        Assert.Equal(90, Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken)).Tokens);
+        Assert.Equal(T(90), Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, TestContext.Current.CancellationToken)).Tokens);
     }
 
     [Fact]
@@ -172,7 +171,7 @@ public class InMemoryTokenBudgetStoreTests
         var admitted = decisions.Count(decision => decision.Allowed) * 7L;
         var recorded = (await store.LoadSince("agent-a", DateTimeOffset.MinValue, ct)).Sum(spend => spend.Tokens);
         Assert.True(admitted <= 1_000, $"Admitted {admitted} tokens against a limit of 1000.");
-        Assert.Equal(admitted, recorded);
+        Assert.Equal(T(admitted), recorded);
         Assert.Equal(142 * 7L, admitted);
     }
 

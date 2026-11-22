@@ -77,7 +77,8 @@ public sealed class MigrationNamespaceTests
     [Fact]
     public void Two_components_mapping_to_one_namespace_are_refused()
     {
-        var ex = Assert.Throws<MigrationException>(() => MigrationNamespaces.Order(["common"], [Component("work-life"), Component("work_life")]));
+        // BAZAAR-COMPONENTS.md: ids are lowercase kebab-case, so the underscore spelling that would collide is refused by the graph itself.
+        var ex = Assert.Throws<ComponentGraphException>(() => MigrationNamespaces.Order(["common"], [Component("work-life"), Component("work_life")]));
         Assert.Contains("work_life", ex.Message, StringComparison.Ordinal);
     }
 

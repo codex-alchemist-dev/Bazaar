@@ -51,7 +51,8 @@ public sealed class PgFtsSearchProvider(NpgsqlDataSource dataSource) : ISearchPr
     public async Task<IReadOnlyList<SearchHit>> QueryAsync(SearchQuery query, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.Limit <= 0 || string.IsNullOrWhiteSpace(query.Text))
+        // NUL is not valid in Postgres text and can match no document.
+        if (query.Limit <= 0 || string.IsNullOrWhiteSpace(query.Text) || query.Text.Contains('\0'))
             return [];
 
         await using var cmd = dataSource.CreateCommand(_querySql);

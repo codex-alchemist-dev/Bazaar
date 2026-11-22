@@ -5,7 +5,9 @@ using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Body;
+using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -22,6 +24,14 @@ namespace Bazaar.Server.Agents.Responder;
 /// from the trigger's message id, and a trigger the agent already answered is skipped before the model is called, so a restart
 /// does not pay for or post the same reply twice. A failed model call posts nothing and logs a warning; the trigger is not retried.
 /// Work for one GC runs one pass at a time (a per-GC gate), so at most one reply per GC is in flight.
+/// <para>
+/// Kill switch (doc 15, doc 48 section 11): when a <see cref="KillSwitchEngine"/> is registered, a stopped agent makes no model
+/// call (egress) and posts nothing (write). Both are checked, the post again after the model call, so a stop engaged while the
+/// call was in flight still keeps the reply out of the GC. A refused trigger is skipped, not queued.
+/// </para>
+/// <para>
+/// A reply longer than <see cref="GcSendHandler.MaxTextLength"/>, the limit on a person's send, is not posted.
+/// </para>
 /// </remarks>
 public sealed partial class AgentResponder(
     IResponderGcStore store,
@@ -29,7 +39,8 @@ public sealed partial class AgentResponder(
     IModelGateway gateway,
     IGcBodyCodec bodies,
     IOptions<AgentResponderOptions> options,
-    ILogger<AgentResponder> logger)
+    ILogger<AgentResponder> logger,
+    KillSwitchEngine? killSwitch = null)
 {
     private readonly AgentResponderOptions _options = options.Value;
     private readonly Dictionary<Guid, AgentResponderPersona> _personas = options.Value.Agents.ToDictionary(p => p.AgentId);
@@ -126,11 +137,26 @@ public sealed partial class AgentResponder(
         if (await store.HasEventAsync(gcId, persona.AgentId, key, ct).ConfigureAwait(false))
             return;
 
+        if (IsStopped(gcId, persona.AgentId, ToolEffect.Egress))
+            return;
+
         var history = await store.ReadHistoryAsync(gcId, trigger.Seq, _options.HistoryLimit, ct).ConfigureAwait(false);
         var chat = ResponderPrompt.Build(persona, history, _names);
 
         var text = await CompleteAsync(gcId, persona, chat, ct).ConfigureAwait(false);
         if (text is null)
+            return;
+
+        // The same cap as a person's send (and the agent post sink): the GC log is append-only and never purged, so a model
+        // that answers with megabytes must not land there.
+        if (text.Length > GcSendHandler.MaxTextLength)
+        {
+            LogReplyTooLong(gcId, persona.AgentId, text.Length, GcSendHandler.MaxTextLength);
+            return;
+        }
+
+        // Checked again: a stop engaged during the model call must keep this reply out of the GC.
+        if (IsStopped(gcId, persona.AgentId, ToolEffect.Write))
             return;
 
         var body = await bodies.SealAsync(persona.AgentId, text, ct).ConfigureAwait(false);
@@ -182,6 +208,16 @@ public sealed partial class AgentResponder(
         }
     }
 
+    /// <summary>True when the kill switch denies <paramref name="effect"/> for the agent. Logs the refusal.</summary>
+    private bool IsStopped(Guid gcId, Guid agentId, ToolEffect effect)
+    {
+        if (killSwitch?.Evaluate(agentId.ToString("D"), effect) is not { Allowed: false } decision)
+            return false;
+
+        LogKillSwitchRefused(gcId, agentId, effect, decision.Scope);
+        return true;
+    }
+
     /// <summary>The idempotency key of the reply to one trigger. Unique per agent within the GC.</summary>
     public static string ReplyKey(Guid triggerMessageId) => $"responder:{triggerMessageId:N}";
 
@@ -199,6 +235,12 @@ public sealed partial class AgentResponder(
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: GC {GcId} was archived before the reply was written.")]
     private partial void LogArchivedDuringReply(Guid gcId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: the kill switch ({Scope}) denies {Effect} for agent {AgentId} in GC {GcId}. No reply was posted.")]
+    private partial void LogKillSwitchRefused(Guid gcId, Guid agentId, ToolEffect effect, KillSwitchScope? scope);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: reply by agent {AgentId} in GC {GcId} is {Length} characters, over the {Limit} limit. No reply was posted.")]
+    private partial void LogReplyTooLong(Guid gcId, Guid agentId, int length, int limit);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Agent responder: GC {GcId} does not exist.")]
     private partial void LogUnknownGc(Guid gcId);

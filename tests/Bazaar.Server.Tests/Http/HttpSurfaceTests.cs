@@ -24,6 +24,8 @@ namespace Bazaar.Server.Tests.Http;
 public sealed class HttpSurfaceTests : IAsyncLifetime
 {
     private static readonly Guid _alice = Guid.Parse("00000000-0000-7000-8000-0000000000a1");
+    private static readonly Guid _owner = Guid.Parse("00000000-0000-7000-8000-0000000000f0");
+    private static readonly Guid _agent = Guid.Parse("00000000-0000-7000-8000-0000000000c3");
     private static readonly Guid _bob = Guid.Parse("00000000-0000-7000-8000-0000000000b2");
     private static readonly Guid _readableGc = Guid.Parse("00000000-0000-7000-8000-00000000c001");
     private static readonly Guid _secretGc = Guid.Parse("00000000-0000-7000-8000-00000000c002");
@@ -56,7 +58,7 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
             gcId == _readableGc && viewer.Id == _alice ? GcReadGrant.Through(5) : GcReadGrant.Denied);
     }
 
-    private async Task<(WebApplication App, HttpClient Client)> StartAsync(Action<Dictionary<string, string?>>? settings = null, Action<WireOptions>? wire = null)
+    private async Task<(WebApplication App, HttpClient Client)> StartAsync(Action<Dictionary<string, string?>>? settings = null, Action<WireOptions>? wire = null, Action<IServiceCollection>? services = null)
     {
         var values = new Dictionary<string, string?> { ["Bazaar:Http:BlobRoot"] = _root, ["Bazaar:Http:MaxBlobBytes"] = "1000", ["Bazaar:Http:MaxChunkBytes"] = "100" };
         settings?.Invoke(values);
@@ -66,11 +68,13 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         builder.Services.AddBazaarWire(builder.Configuration);
         if (wire is not null) builder.Services.Configure(wire);
         builder.Services.AddSingleton<IConnectionAuthenticator>(new FakeAuthenticator()
-            .Allow("alice", new PrincipalRef(_alice, "human")).Allow("bob", new PrincipalRef(_bob, "human")));
+            .Allow("alice", new PrincipalRef(_alice, "human")).Allow("bob", new PrincipalRef(_bob, "human"))
+            .Allow("owner", new PrincipalRef(_owner, "owner")).Allow("agent", new PrincipalRef(_agent, "agent")));
         builder.Services.AddSingleton<IGcReadAccess, GrantTable>();
         builder.Services.AddSingleton<ISearchProvider, FixedSearch>();
         builder.Services.AddBazaarBlobs(builder.Configuration);
         builder.Services.AddBazaarHttpSurface(builder.Configuration);
+        services?.Invoke(builder.Services);
         new ConstellationComponent().AddServices(builder.Services, builder.Configuration);
         var app = builder.Build();
         app.MapBazaarHttpSurface();
@@ -92,13 +96,67 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         }
     }
 
+    /// <summary>A graph whose projection depends on the viewer, to prove the endpoint passes the authenticated principal through.</summary>
+    private sealed class ViewerGraph : Bazaar.Server.Constellation.Tiles.IConstellationGraphSource
+    {
+        public Task<Bazaar.Contracts.Graph.GraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
+            GetSnapshotAsync(Bazaar.Server.Constellation.Tiles.GraphViewer.Owner, cancellationToken);
+
+        public Task<Bazaar.Contracts.Graph.GraphSnapshot> GetSnapshotAsync(Bazaar.Server.Constellation.Tiles.GraphViewer viewer, CancellationToken cancellationToken = default)
+        {
+            var (version, ids) = viewer.IsOwner
+                ? (11L, new[] { "shared", "agent-private", "other-private" })
+                : viewer.AgentOwner == "agent:" + _agent.ToString("D") ? (12L, new[] { "shared", "agent-private" })
+                : viewer.AgentOwner is null ? (13L, new[] { "shared" })
+                : (0L, Array.Empty<string>());
+            return Task.FromResult(new Bazaar.Contracts.Graph.GraphSnapshot(version, ids.Select(id => new Bazaar.Contracts.Graph.GraphNode(id)).ToArray(), []));
+        }
+    }
+
+    private static string TileBodyFor(long version) => _tileBody
+        .Replace("\"graph_version\":0", "\"graph_version\":" + version, StringComparison.Ordinal)
+        .Replace("-1,", "-1000000,", StringComparison.Ordinal)
+        .Replace("\"max_x\":1,\"max_y\":1,\"max_z\":1", "\"max_x\":1000000,\"max_y\":1000000,\"max_z\":1000000", StringComparison.Ordinal);
+
+    [Theory]
+    [InlineData("owner", 11, 3)]
+    [InlineData("agent", 12, 2)]
+    [InlineData("alice", 13, 1)]
+    public async Task Tile_endpoint_serves_each_principal_only_its_own_projection(string token, long version, int nodes)
+    {
+        var (app, client) = await StartAsync(services: s => s.AddSingleton<Bazaar.Server.Constellation.Tiles.IConstellationGraphSource, ViewerGraph>());
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", token, Encoding.UTF8.GetBytes(TileBodyFor(version))), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var frame = Bazaar.Server.Constellation.Tiles.TileFrameBinaryCodec.Decode(await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+            Assert.Equal(version, frame.GraphVersion);
+            Assert.Equal(nodes, frame.NodeIds.Count);
+        }
+    }
+
+    [Theory]
+    [InlineData("alice")]
+    [InlineData("agent")]
+    public async Task Tile_endpoint_gives_a_principal_with_no_readable_notes_an_empty_tile_not_an_error(string token)
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", token, Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var frame = Bazaar.Server.Constellation.Tiles.TileFrameBinaryCodec.Decode(await response.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+            Assert.Empty(frame.NodeIds);
+        }
+    }
+
     [Fact]
     public async Task Tile_endpoint_returns_a_binary_frame_for_an_empty_graph()
     {
         var (app, client) = await StartAsync();
         await using (app)
         {
-            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes(_tileBody)), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             Assert.Equal("application/x-bazaar-tile", response.Content.Headers.ContentType?.MediaType);
         }
@@ -110,11 +168,11 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         var (app, client) = await StartAsync();
         await using (app)
         {
-            var bad = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes("{not json")), TestContext.Current.CancellationToken);
+            var bad = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes("{not json")), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
 
             var inverted = _tileBody.Replace("\"min_x\":-1", "\"min_x\":5", StringComparison.Ordinal);
-            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "alice", Encoding.UTF8.GetBytes(inverted)), TestContext.Current.CancellationToken);
+            var response = await client.SendAsync(Req(HttpMethod.Post, "/constellation/tiles", "owner", Encoding.UTF8.GetBytes(inverted)), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
     }
@@ -141,6 +199,60 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
 
     private static Task<HttpResponseMessage> ChunkAsync(HttpClient client, string id, long offset, byte[] data, string token = "alice") =>
         client.SendAsync(Req(HttpMethod.Patch, $"/blobs/uploads/{id}", token, data, ("Upload-Offset", offset.ToString(System.Globalization.CultureInfo.InvariantCulture))), TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task A_blob_volume_that_is_wiped_while_running_heals_on_the_next_upload()
+    {
+        // Chaos campaign disk-clock-resources: the store created its directories once, in the constructor, so a volume that was
+        // unmounted or wiped while the host ran made every later POST /blobs a 500 until restart.
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var first = new byte[10];
+            Random.Shared.NextBytes(first);
+            Assert.Equal(HttpStatusCode.OK, (await ChunkAsync(client, await OpenAsync(client, first.Length, Sha(first)), 0, first)).StatusCode);
+            Assert.True(Directory.Exists(_root));
+            Directory.Delete(_root, recursive: true);
+
+            var data = new byte[50];
+            Random.Shared.NextBytes(data);
+            var id = await OpenAsync(client, data.Length, Sha(data));
+            var done = await ChunkAsync(client, id, 0, data);
+            Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task A_storage_failure_during_commit_answers_507_and_the_last_chunk_can_be_resent()
+    {
+        // A file where the blob's fan-out directory must go makes the commit fail the way a full or read-only volume does.
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var data = new byte[150];
+            Random.Shared.NextBytes(data);
+            var sha = Sha(data);
+            var id = await OpenAsync(client, data.Length, sha);
+            Assert.Equal(HttpStatusCode.NoContent, (await ChunkAsync(client, id, 0, data[..100])).StatusCode);
+
+            var blocker = Path.Combine(_root, "blobs", sha[..2]);
+            await File.WriteAllTextAsync(blocker, "in the way", TestContext.Current.CancellationToken);
+
+            var failed = await ChunkAsync(client, id, 100, data[100..]);
+            Assert.Equal(HttpStatusCode.InsufficientStorage, failed.StatusCode);
+            Assert.Contains("storage_unavailable", await failed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+            Assert.Equal("100", failed.Headers.GetValues("Upload-Offset").Single());
+            Assert.Equal(100, new FileInfo(Path.Combine(_root, "uploads", id + ".part")).Length);
+
+            File.Delete(blocker);
+            var retried = await ChunkAsync(client, id, 100, data[100..]);
+            Assert.Equal(HttpStatusCode.OK, retried.StatusCode);
+
+            var get = await client.SendAsync(Req(HttpMethod.Get, "/blobs/" + sha, "alice"), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.OK, get.StatusCode);
+            Assert.Equal(data, await get.Content.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+        }
+    }
 
     [Theory]
     [InlineData("POST", "/blobs")]
@@ -366,6 +478,28 @@ public sealed class HttpSurfaceTests : IAsyncLifetime
         Assert.True(b.TryAcquire(_alice, out _));
         clock.Advance(TimeSpan.FromSeconds(2));
         Assert.True(a.TryAcquire(_alice, out _));
+    }
+
+    // Regression (chaos wire-fuzz): POST /auth/refresh with a body but no (or a non-JSON) content type threw
+    // InvalidOperationException from ReadFromJsonAsync, which escaped as an unhandled 500. A malformed request must
+    // answer 400, not 500 (and never log an unhandled Kestrel exception).
+    [Theory]
+    [InlineData(null)]
+    [InlineData("application/x-www-form-urlencoded")]
+    [InlineData("text/plain")]
+    public async Task Auth_refresh_with_non_json_content_type_is_400_not_500(string? contentType)
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/auth/refresh")
+            {
+                Content = new ByteArrayContent(Encoding.UTF8.GetBytes("refresh_token=x")),
+            };
+            request.Content.Headers.ContentType = contentType is null ? null : new MediaTypeHeaderValue(contentType);
+            var response = await client.SendAsync(request, TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        }
     }
 
     [Fact]

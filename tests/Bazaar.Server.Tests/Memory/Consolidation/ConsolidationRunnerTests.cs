@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Fakes;
 using Bazaar.Server.Memory.Consolidation;
 using Bazaar.Server.Memory.Consolidation.Fakes;
@@ -7,7 +8,6 @@ using Bazaar.Server.Security.Taint;
 using Bazaar.Testing.Secrets;
 using Microsoft.Extensions.Time.Testing;
 using static Bazaar.Server.Tests.Memory.Consolidation.ConsolidationTestSupport;
-
 namespace Bazaar.Server.Tests.Memory.Consolidation;
 
 public class ConsolidationRunnerTests
@@ -137,7 +137,7 @@ public class ConsolidationRunnerTests
             .RunAsync(Agent, new ConsolidationOptions(MaxTokens: 1000), Ct);
 
         Assert.Equal(ConsolidationStatus.CapExceeded, report.Status);
-        Assert.Equal(1100, report.TokensUsed);
+        Assert.Equal(TokenAmount.FromInt64(1100), report.TokensUsed);
         Assert.False(report.TokensEstimated);
         Assert.Empty(sink.Commits);
     }
@@ -155,7 +155,7 @@ public class ConsolidationRunnerTests
             .RunAsync(Agent, new ConsolidationOptions(), Ct);
 
         Assert.True(report.TokensEstimated);
-        Assert.True(report.TokensUsed > 0);
+        Assert.True(report.TokensUsed > TokenAmount.Zero);
         Assert.Equal(ConsolidationStatus.Completed, report.Status);
     }
 

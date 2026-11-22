@@ -34,12 +34,14 @@ public static class SyncCompositionExtensions
             sp.GetRequiredService<IGcStreamSource>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
             sp.GetService<TimeProvider>()));
+        services.TryAddSingleton<IGcStreamRevoker>(sp => sp.GetRequiredService<GcDispatcher>());
         services.TryAddSingleton(sp => new SubscriptionEngine(
             sp.GetRequiredService<IGcStreamSource>(),
             sp.GetRequiredService<IGcAccessPolicy>(),
             sp.GetRequiredService<GcDispatcher>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
-            sp.GetService<TimeProvider>()));
+            sp.GetService<TimeProvider>(),
+            logger: sp.GetService<ILogger<SubscriptionEngine>>()));
         // The GC component is optional (modules must load without each other): without its sources there is nothing to dispatch.
         services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
             sp.GetService<IGcNotificationSource>() is { } notifications && sp.GetService<IGcStreamSource>() is not null

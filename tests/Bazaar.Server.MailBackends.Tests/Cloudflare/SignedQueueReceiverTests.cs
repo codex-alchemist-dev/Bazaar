@@ -83,4 +83,64 @@ public sealed class SignedQueueReceiverTests
     }
 
     private static byte[] Batch() => Encoding.UTF8.GetBytes("{\"items\":[]}");
+
+    private static string Ts() => _now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
+
+    [Fact]
+    public void Mailbox_filter_ignores_case_so_mail_for_a_differently_cased_address_is_not_dropped()
+    {
+        var receiver = new SignedQueueReceiver(_key, new FixedClock(_now));
+        var body = Batch(("e1", "Support@Example.ORG", B64("hi")));
+
+        var mail = receiver.Receive(Ts(), receiver.Sign(Ts(), body), body, new MailboxRef("example.org", "support"));
+
+        Assert.Single(mail);
+    }
+
+    [Fact]
+    public void A_quoted_local_part_containing_an_at_sign_does_not_poison_the_batch()
+    {
+        var receiver = new SignedQueueReceiver(_key, new FixedClock(_now));
+        var body = Batch(("e1", "\"a@b\"@example.org", B64("hi")), ("e2", "ada@example.org", B64("ok")));
+
+        var mail = receiver.Receive(Ts(), receiver.Sign(Ts(), body), body);
+
+        Assert.Equal(2, mail.Count);
+        Assert.Equal("example.org", mail[0].Mailbox.Domain);
+    }
+
+    [Theory]
+    [InlineData("{\"items\":null}")]
+    [InlineData("{}")]
+    [InlineData("{\"items\":[{\"id\":\"1\",\"mailbox\":null,\"raw\":\"QQ==\",\"received_at\":\"2026-10-30T12:00:00Z\"}]}")]
+    [InlineData("{\"items\":[{\"id\":\"1\",\"mailbox\":\"a@b.org\",\"raw\":null,\"received_at\":\"2026-10-30T12:00:00Z\"}]}")]
+    [InlineData("{\"items\":[{\"id\":\"1\",\"mailbox\":\"a@b.org\",\"raw\":\"!!!\",\"received_at\":\"2026-10-30T12:00:00Z\"}]}")]
+    [InlineData("{\"items\":[{\"id\":null,\"mailbox\":\"a@b.org\",\"raw\":\"QQ==\",\"received_at\":\"2026-10-30T12:00:00Z\"}]}")]
+    [InlineData("{nope")]
+    public void A_signed_but_malformed_batch_fails_with_invalid_data_only(string json)
+    {
+        var receiver = new SignedQueueReceiver(_key, new FixedClock(_now));
+        var body = Encoding.UTF8.GetBytes(json);
+
+        Assert.Throws<InvalidDataException>(() => receiver.Receive(Ts(), receiver.Sign(Ts(), body), body));
+    }
+
+    [Theory]
+    [InlineData("99999999999999")]
+    [InlineData("-99999999999999")]
+    public void An_out_of_range_timestamp_is_refused_as_unauthorised(string timestamp)
+    {
+        var receiver = new SignedQueueReceiver(_key, new FixedClock(_now));
+        var body = Batch(("e1", "ada@example.org", B64("hi")));
+
+        Assert.Throws<UnauthorizedAccessException>(() => receiver.Receive(timestamp, receiver.Sign(timestamp, body), body));
+    }
+
+    [Fact]
+    public void A_missing_signature_is_refused_as_unauthorised()
+    {
+        var receiver = new SignedQueueReceiver(_key, new FixedClock(_now));
+
+        Assert.Throws<UnauthorizedAccessException>(() => receiver.Receive(Ts(), null!, Batch(("e1", "ada@example.org", B64("hi")))));
+    }
 }

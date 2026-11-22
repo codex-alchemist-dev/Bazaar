@@ -6,6 +6,7 @@ using Bazaar.Server.Gc.Read;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
+using Bazaar.Server.Wire.Sync;
 
 namespace Bazaar.Server.Gc.Wire;
 
@@ -21,7 +22,9 @@ public sealed class GcMemberAddHandler(
     IGcLogWriter writer,
     GcReadAccess access,
     PgGcMembershipSource source,
-    Bazaar.Server.Settings.ISettingStore settings) : IWireRequestHandler
+    Bazaar.Server.Settings.ISettingStore settings,
+    IGcStreamRevoker? dispatcher = null,
+    IGcAccessPolicy? streamAccess = null) : IWireRequestHandler
 {
     /// <inheritdoc />
     public string Type => WireTypes.GcMemberAdd;
@@ -41,7 +44,7 @@ public sealed class GcMemberAddHandler(
             context, writer, access, source, request.GcId,
             (snapshot, viewer) => GcMembershipPlanner.PlanAddMember(
                 snapshot.Gc, snapshot.Members, viewer, request.PrincipalId, request.Kind, role, snapshot.HeadSeq, invitePolicy),
-            cancellationToken).ConfigureAwait(false);
+            dispatcher, streamAccess, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -49,7 +52,12 @@ public sealed class GcMemberAddHandler(
 /// <c>gc.member.remove</c>: removes a principal. The owner may remove anyone; a member may remove only themselves. The
 /// planner makes that decision.
 /// </summary>
-public sealed class GcMemberRemoveHandler(IGcLogWriter writer, GcReadAccess access, PgGcMembershipSource source) : IWireRequestHandler
+public sealed class GcMemberRemoveHandler(
+    IGcLogWriter writer,
+    GcReadAccess access,
+    PgGcMembershipSource source,
+    IGcStreamRevoker? dispatcher = null,
+    IGcAccessPolicy? streamAccess = null) : IWireRequestHandler
 {
     /// <inheritdoc />
     public string Type => WireTypes.GcMemberRemove;
@@ -62,7 +70,7 @@ public sealed class GcMemberRemoveHandler(IGcLogWriter writer, GcReadAccess acce
             context, writer, access, source, request.GcId,
             (snapshot, viewer) => GcMembershipPlanner.PlanRemoveMember(
                 snapshot.Gc, snapshot.Members, viewer, request.PrincipalId, snapshot.HeadSeq),
-            cancellationToken).ConfigureAwait(false);
+            dispatcher, streamAccess, cancellationToken).ConfigureAwait(false);
     }
 }
 
@@ -79,6 +87,8 @@ internal static class GcMembershipWire
         PgGcMembershipSource source,
         Guid gcId,
         Func<GcMembershipSnapshot, GcViewer, GcPlanResult> plan,
+        IGcStreamRevoker? dispatcher,
+        IGcAccessPolicy? streamAccess,
         CancellationToken ct)
     {
         var principal = context.Connection.Principal;
@@ -114,6 +124,11 @@ internal static class GcMembershipWire
             try
             {
                 var result = await writer.AppendAsync(append, ct).ConfigureAwait(false);
+                // Open streams were admitted under the old membership: re-check them now (doc 02, subscriptions), so a removed
+                // member stops receiving this GC's events at once. A failure here is an internal error; the retry commits nothing
+                // new (same request id) and checks again.
+                if (dispatcher is not null && streamAccess is not null)
+                    await dispatcher.RecheckAccessAsync(gcId, streamAccess, ct).ConfigureAwait(false);
                 return WireReply.Ok(context.Connection.Codec, new GcSendResult(result.Seq, result.Seq));
             }
             catch (GcStaleHeadException)

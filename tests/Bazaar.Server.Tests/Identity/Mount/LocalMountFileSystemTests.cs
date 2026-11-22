@@ -29,6 +29,31 @@ public sealed class LocalMountFileSystemTests : IDisposable
         Assert.Equal(["codex/services.json"], fs.ListFiles("codex"));
     }
 
+    [Fact]
+    public void Overwriting_replaces_the_content_and_leaves_no_temporary_file()
+    {
+        var root = Path.Combine(_base, "mount");
+        var fs = new LocalMountFileSystem(root, []);
+        fs.WriteFile("codex/services.json", "{\"old\":true}"u8.ToArray());
+
+        fs.WriteFile("codex/services.json", "{}"u8.ToArray());
+
+        Assert.Equal("{}", File.ReadAllText(Path.Combine(root, "codex", "services.json")));
+        Assert.Single(Directory.EnumerateFileSystemEntries(Path.Combine(root, "codex")));
+    }
+
+    [Fact]
+    public void A_write_onto_a_directory_fails_and_leaves_no_temporary_file()
+    {
+        var root = Path.Combine(_base, "mount");
+        var fs = new LocalMountFileSystem(root, []);
+        Directory.CreateDirectory(Path.Combine(root, "codex", "services.json"));
+
+        Assert.ThrowsAny<Exception>(() => fs.WriteFile("codex/services.json", "{}"u8.ToArray()));
+
+        Assert.Single(Directory.EnumerateFileSystemEntries(Path.Combine(root, "codex")));
+    }
+
     [Theory]
     [InlineData("../escape.json")]
     [InlineData("codex/../../escape.json")]

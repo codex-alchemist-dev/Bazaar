@@ -39,7 +39,7 @@ public sealed class CircuitBreaker
 
     private BreakerState _state = BreakerState.Closed;
     private int _consecutiveFailures;
-    private DateTimeOffset _openedAt;
+    private long _openedAt;
     private bool _trialInFlight;
     private int _generation;
 
@@ -150,7 +150,7 @@ public sealed class CircuitBreaker
     // Open becomes half-open once the cooldown has passed. This is the only time-driven change.
     private void RefreshLocked()
     {
-        if (_state == BreakerState.Open && _timeProvider.GetUtcNow() - _openedAt >= _cooldown)
+        if (_state == BreakerState.Open && _timeProvider.GetElapsedTime(_openedAt) >= _cooldown)
         {
             _state = BreakerState.HalfOpen;
             _trialInFlight = false;
@@ -161,7 +161,7 @@ public sealed class CircuitBreaker
     private void OpenLocked()
     {
         _state = BreakerState.Open;
-        _openedAt = _timeProvider.GetUtcNow();
+        _openedAt = _timeProvider.GetTimestamp();
         _consecutiveFailures = 0;
         _trialInFlight = false;
         _generation++;

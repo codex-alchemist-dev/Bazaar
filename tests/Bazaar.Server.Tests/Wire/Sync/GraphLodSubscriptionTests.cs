@@ -53,6 +53,19 @@ public class GraphLodSubscriptionTests
     }
 
     [Fact]
+    public async Task A_graph_stream_spelled_in_another_case_is_denied_without_a_frame()
+    {
+        using var h = new SyncHarness();
+        var source = new FakeGraphLodSource(_graph, SyncHarness.Alice, SampleFrame());
+        using var c = new SyncHarness.Connection(EngineWith(h, source), SyncHarness.Alice, 50, paused: false);
+
+        var result = await SubscribeGraphAsync(c, "graph:" + _graph.ToString("D").ToUpperInvariant());
+
+        Assert.Equal(SubscribeStatuses.Denied, Assert.Single(result.Results).Status);
+        Assert.Empty(c.Of(WireTypes.GraphLod));
+    }
+
+    [Fact]
     public async Task A_graph_the_principal_cannot_read_is_denied_without_a_frame()
     {
         using var h = new SyncHarness();

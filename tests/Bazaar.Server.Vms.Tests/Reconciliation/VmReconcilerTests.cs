@@ -174,6 +174,21 @@ public sealed class VmReconcilerTests : ReconcileDb
     }
 
     [Fact]
+    public async Task A_vm_left_provisioning_with_no_backend_ref_by_a_crash_goes_back_to_absent()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        // A crash between the insert and the backend handle being recorded leaves this row. Nothing else ever moves it,
+        // and a retire cannot run without a backend ref, so the row would stay Provisioning for good.
+        var vm = await InsertVmAsync(VmState.Provisioning, backendRef: null);
+
+        var report = await NewReconciler().ReconcileAsync(TestContext.Current.CancellationToken);
+
+        AssertReport(report, 1, 0, 1, 0, 0, _stateMismatchOnly);
+        Assert.Equal(VmState.Absent, await StateOfAsync(vm.Id));
+        Assert.Empty(_backend.StateQueries);
+    }
+
+    [Fact]
     public async Task Reconcile_waits_for_the_vm_lock_and_does_not_touch_the_backend_while_it_is_held()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

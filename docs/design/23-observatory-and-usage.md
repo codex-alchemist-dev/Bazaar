@@ -90,6 +90,7 @@ Code in `src/Bazaar.Server.Gateway/Usage/`, tests in `tests/Bazaar.Server.Tests/
 - Done (pure, tested with fakes): `PriceTableLoader` (dated JSON price table, unknown fields rejected), `UsageRollup` (hourly `usage_hour` rows with identity split, error and estimate counts, 2-hour rebuild window via `WindowStart`), `UsageTotalsBuilder` (cost known or unknown, identity split, long-prompt count).
 - Not yet: the `price_table` and `usage_hour` migration, the rollup job's Postgres upsert, and the status and client views. These need a Postgres run.
 - `usage_hour` carries an `estimated_calls` count beyond the columns above, so estimates stay labelled in rollups.
+- Token counts are exact (doc 48, DECIDED 11.3): the rollup and the totals sum `TokenAmount`s, which cannot wrap, and the `usage_hour` token columns are `numeric` when its migration is written. Cost is computed in `decimal` from the counts; a count too large for that arithmetic makes the row's cost unknown (counted as unpriced), never a wrong figure.
 - The long-prompt check counts uncached input plus both cache-write buckets plus cache reads, against a 100K default.
 
 ## Settings
@@ -112,14 +113,14 @@ Registry rules are in 03. Settings may tighten floors, never loosen them.
 
 ## Data and interfaces
 ```
--- owned by 05, read here
+-- owned by 05, read here (the six token-count columns are exact `numeric`, doc 48 DECIDED 11.3)
 gw_usage(id, ts, agent_id, turn_id, provider_id, key_ref, model_id, served_model, identity,
          input, cache_write_5m, cache_write_1h, cache_read, output, thinking,
          latency_ms, status, error_code, retry_after_s, estimated, price_version)
 -- owned here
 price_table(version, provider_id, model_id, valid_from, valid_to, usd_per_mtok jsonb)
 usage_hour(hour, agent_id, provider_id, model_id, identity, calls, input, cache_write_5m,
-           cache_write_1h, cache_read, output, thinking, errors)
+           cache_write_1h, cache_read, output, thinking, errors)   -- token columns: numeric, never bigint (doc 48 DECIDED 11.3)
            PK (hour, agent_id, provider_id, model_id, identity)
 agent_activity(agent_id PK, revision bigint, availability, overlay, presence, activity_kind,
                gc_id NULL, turn_id NULL, label varchar(80), since, updated_at)

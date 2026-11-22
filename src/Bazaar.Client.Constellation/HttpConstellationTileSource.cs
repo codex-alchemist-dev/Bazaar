@@ -66,6 +66,11 @@ public sealed class HttpConstellationTileSource(HttpClient http, Func<string?> c
             var payload = await response.Content.ReadAsByteArrayAsync(cancellationToken);
             return TileFrameDecoder.Decode(payload);
         }
+        catch (InvalidOperationException)
+        {
+            // A refused endpoint (no pin, or plain http off loopback) fails before any connection; the pane shows no data.
+            return null;
+        }
         catch (HttpRequestException)
         {
             return null;

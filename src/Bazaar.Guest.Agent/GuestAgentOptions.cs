@@ -120,6 +120,11 @@ public sealed record GuestAgentOptions
                     break;
                 case "--heartbeat-seconds":
                     heartbeatSeconds = ParsePositive(name, value);
+                    if (heartbeatSeconds > _maxHeartbeatSeconds)
+                    {
+                        throw new ArgumentException($"{name} must be at most {_maxHeartbeatSeconds}, the longest gap a timer can run.");
+                    }
+
                     break;
                 case "--transport":
                     transport = value switch
@@ -184,6 +189,9 @@ public sealed record GuestAgentOptions
             ConnectTimeout = TimeSpan.FromSeconds(connectSeconds),
         };
     }
+
+    /// <summary>A periodic timer runs at most 4294967294 ms (about 49 days); a longer gap would fail at the first tick.</summary>
+    private const int _maxHeartbeatSeconds = 4_294_967;
 
     /// <summary>
     /// Picks the one nonce source. The environment variable is removed whenever it is present, even when another source was also given (which is then

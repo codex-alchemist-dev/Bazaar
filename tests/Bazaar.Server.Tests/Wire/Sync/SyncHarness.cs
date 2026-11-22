@@ -17,14 +17,14 @@ internal sealed class SyncHarness : IDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly Task _run;
 
-    public SyncHarness(SyncOptions? options = null, TimeSpan? sweep = null)
+    public SyncHarness(SyncOptions? options = null, TimeSpan? sweep = null, Microsoft.Extensions.Logging.ILogger<SubscriptionEngine>? logger = null)
     {
         Options = options ?? new SyncOptions { ReplayPageSize = 10, LiveBufferMax = 50 };
         Log = new FakeGcLog();
         Log.CreateGc(Gc);
         Log.AddMember(Alice, Gc);
         Dispatcher = new GcDispatcher(Log, Options);
-        Engine = new SubscriptionEngine(Log, Log, Dispatcher, Options);
+        Engine = new SubscriptionEngine(Log, Log, Dispatcher, Options, logger: logger);
         _run = Dispatcher.RunAsync(Log, sweep, _stop.Token);
     }
 

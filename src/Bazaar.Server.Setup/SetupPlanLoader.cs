@@ -136,6 +136,13 @@ public static class SetupPlanLoader
         {
             foreach (var item in element.EnumerateArray())
             {
+                // No array in the file holds nulls; one would reach the typed plan as a null element.
+                if (item.ValueKind == JsonValueKind.Null)
+                {
+                    issues.Add(Error(path + "[]", "must not hold a null item."));
+                    continue;
+                }
+
                 Walk(item, path + "[]", issues);
             }
 

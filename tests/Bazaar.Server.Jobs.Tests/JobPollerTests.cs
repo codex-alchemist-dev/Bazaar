@@ -66,6 +66,29 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         Assert.Equal("succeeded", (await Store.GetAsync(id, Ct))!.State);
     }
 
+    [Theory]
+    [InlineData(3650)]
+    [InlineData(-3650)]
+    public async Task Recurring_jobs_follow_database_time_not_a_skewed_host_clock(int skewDays)
+    {
+        // Chaos campaign disk-clock-resources: with the host clock ten years ahead the buckets were host-dated, so run_at sat in 2036
+        // and no recurring job ran until the database caught up. Doc 03: leases and due times use database now().
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var kind = "skew-" + Guid.NewGuid().ToString("N");
+        var handler = new Handler(kind, (_, _) => Task.CompletedTask);
+        var scheduler = new RecurringJobScheduler(Store, [new RecurringJob(kind, TimeSpan.FromMinutes(1))]);
+        var hostClock = new FakeClock(DateTimeOffset.UtcNow.AddDays(skewDays));
+        var poller = new JobPoller(Store, [handler], hostClock, recurring: scheduler);
+
+        var claimed = await poller.PollOnceAsync(Ct);
+
+        Assert.True(claimed >= 1);
+        Assert.Single(handler.Seen);
+        Assert.True(Math.Abs((DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeSeconds(
+            long.Parse(handler.Seen[0].DedupeKey!.Split(':')[^1], System.Globalization.CultureInfo.InvariantCulture))).TotalMinutes) < 5);
+    }
+
     [Fact]
     public async Task A_throwing_handler_is_retried_then_failed_on_the_last_attempt()
     {
@@ -165,5 +188,42 @@ public sealed class JobPollerTests(JobDb db) : IClassFixture<JobDb>
         await cts.CancelAsync();
         await loop.WaitAsync(TimeSpan.FromSeconds(30), Ct);
         Assert.Null(poller.LastPollError);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_stop_during_a_batch_gives_back_the_jobs_it_never_started_without_spending_their_attempts(bool handlerThrows)
+    {
+        // Chaos race round 2: the host claimed a batch, then stopped. The unstarted jobs kept their lease (five minutes) and
+        // lost one attempt each, so a few restarts could fail jobs that had never run.
+        SkipWithoutDatabase();
+        await DrainAsync();
+        var kind = "stop-" + Guid.NewGuid().ToString("N");
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+        var handler = new Handler(kind, async (_, ct) =>
+        {
+            await cts.CancelAsync();
+            if (handlerThrows)
+                ct.ThrowIfCancellationRequested();
+        });
+        var poller = new JobPoller(Store, [handler], new FakeClock());
+        var ids = new List<long>();
+        for (var i = 0; i < 3; i++)
+            ids.Add((await Store.EnqueueAsync(kind, "{}", ct: Ct))!.Value);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => poller.PollOnceAsync(cts.Token));
+
+        Assert.Single(handler.Seen);
+        foreach (var id in ids.Skip(1))
+        {
+            var state = (await Store.GetAsync(id, Ct))!;
+            Assert.Equal("queued", state.State);
+            Assert.Equal(0, state.Attempts);
+            Assert.Null(state.LeaseOwner);
+        }
+
+        var next = await Store.ClaimDueAsync("next-host", TimeSpan.FromMinutes(1), 10, Ct);
+        Assert.Equal(ids.Skip(1).Order(), next.Where(j => j.Kind == kind).Select(j => j.Id).Order());
     }
 }

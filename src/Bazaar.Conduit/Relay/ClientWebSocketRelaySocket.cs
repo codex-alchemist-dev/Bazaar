@@ -10,6 +10,9 @@ public sealed class ClientWebSocketRelaySocket : IRelaySocket
 {
     private const int _bufferSize = 8 * 1024;
 
+    /// <summary>The largest message accepted. Relay frames are tiny control messages; a longer one is a misbehaving relay.</summary>
+    private const int _maxMessageBytes = 64 * 1024;
+
     private readonly ClientWebSocket _socket = new();
 
     /// <summary>Creates an unconnected socket with a 30 second keep-alive.</summary>
@@ -27,6 +30,7 @@ public sealed class ClientWebSocketRelaySocket : IRelaySocket
         _socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, endOfMessage: true, cancellationToken);
 
     /// <inheritdoc />
+    /// <exception cref="InvalidDataException">The message is larger than the limit; the caller drops the connection.</exception>
     public async Task<byte[]?> ReceiveAsync(CancellationToken cancellationToken)
     {
         var buffer = new byte[_bufferSize];
@@ -37,6 +41,11 @@ public sealed class ClientWebSocketRelaySocket : IRelaySocket
             if (result.MessageType == WebSocketMessageType.Close)
             {
                 return null;
+            }
+
+            if (message.Length + result.Count > _maxMessageBytes)
+            {
+                throw new InvalidDataException("The relay sent a message larger than the limit.");
             }
 
             message.Write(buffer, 0, result.Count);

@@ -52,6 +52,41 @@ public sealed class KekProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Concurrent_first_starts_agree_on_one_key_and_never_see_a_torn_file()
+    {
+        // Chaos campaign disk-clock-resources: the key file used to be created empty and then written, so a concurrent start (or a
+        // full disk) could leave or read a zero-byte file, which then failed every later start with "does not hold a 32-byte key".
+        var ct = TestContext.Current.CancellationToken;
+        var aad = Guid.CreateVersion7().ToByteArray();
+        var dek = System.Security.Cryptography.RandomNumberGenerator.GetBytes(32);
+        using var barrier = new Barrier(16);
+
+        var wraps = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => Task.Run(async () =>
+        {
+            barrier.SignalAndWait(ct);
+            using var kek = FileKekProvider.Open(KeyPath);
+            return (kek.KekId, Wrapped: await kek.WrapAsync(dek, aad, ct));
+        }, ct)));
+
+        using var reopened = FileKekProvider.Open(KeyPath);
+        foreach (var wrap in wraps)
+            Assert.Equal(dek, await reopened.UnwrapAsync(wrap.Wrapped, aad, ct));
+        Assert.Equal(32, new FileInfo(KeyPath).Length);
+        Assert.Empty(Directory.EnumerateFiles(Path.GetDirectoryName(KeyPath)!, "*.tmp"));
+    }
+
+    [Fact]
+    public void A_failed_create_leaves_no_key_file_behind()
+    {
+        // The directory exists but the key path is occupied by a directory, so the move fails: nothing may be left as kek.bin.
+        var dir = Path.GetDirectoryName(KeyPath)!;
+        Directory.CreateDirectory(Path.Combine(dir, "kek.bin"));
+
+        Assert.ThrowsAny<IOException>(() => FileKekProvider.Open(KeyPath));
+        Assert.Empty(Directory.EnumerateFiles(dir, "*.tmp"));
+    }
+
+    [Fact]
     public void Key_paths_must_be_absolute()
     {
         Assert.Throws<ArgumentException>(() => FileKekProvider.Open("relative/kek.bin"));

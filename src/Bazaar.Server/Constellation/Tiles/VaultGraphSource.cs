@@ -1,6 +1,7 @@
 using System.Text;
 using Bazaar.Contracts.Graph;
 using Bazaar.Server.Vault.Data;
+using Bazaar.Server.Vault.Search;
 
 namespace Bazaar.Server.Constellation.Tiles;
 
@@ -10,17 +11,27 @@ namespace Bazaar.Server.Constellation.Tiles;
 /// Postgres only indexes the Vault, so this reads the index and never the Markdown files.
 /// </summary>
 /// <remarks>
-/// This source is global to the Vault. It does not filter by viewer: per-viewer access belongs to the caller that wraps it, so the
-/// snapshot stays the same for every reader and the layout stays deterministic.
+/// The projection is per viewer (doc 19, "Visibility"). The viewer's documents are chosen in SQL by the Vault's own access clause
+/// (<see cref="VaultSearchRepository.AccessClause"/>, the one search uses), so there is no second rule. Edges are kept only when both
+/// ends are readable: <see cref="VaultGraphProjection.Build"/> drops a link whose target is not among the nodes. The parameterless
+/// overload is the owner's view and must not be served to anyone else.
 /// </remarks>
 public sealed class VaultGraphSource(VaultIndexRepository index, Guid vaultId) : IConstellationGraphSource
 {
-    /// <summary>Reads the Vault index and builds the graph. Reads all documents on each call; the layout cache keys on the version.</summary>
-    public async Task<GraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+    /// <summary>The owner's view: every document. The layout cache keys on the version.</summary>
+    public Task<GraphSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default) =>
+        GetSnapshotAsync(GraphViewer.Owner, cancellationToken);
+
+    /// <summary>Reads the Vault index and builds the graph this viewer may read. The version hashes only the visible nodes and edges.</summary>
+    public async Task<GraphSnapshot> GetSnapshotAsync(GraphViewer viewer, CancellationToken cancellationToken = default)
     {
-        var entries = await index.ListEntriesAsync(vaultId, cancellationToken).ConfigureAwait(false);
+        ArgumentNullException.ThrowIfNull(viewer);
+        var caller = viewer.IsOwner
+            ? VaultCaller.Owner
+            : new VaultCaller(IsOwner: false, viewer.AgentOwner) { Projects = viewer.Projects.ToHashSet(StringComparer.Ordinal) };
+        var docIds = await index.ListReadableDocIdsAsync(vaultId, caller, cancellationToken).ConfigureAwait(false);
         var links = await index.ListResolvedLinksAsync(vaultId, cancellationToken).ConfigureAwait(false);
-        return VaultGraphProjection.Build(entries.Select(entry => entry.DocId), links);
+        return VaultGraphProjection.Build(docIds, links);
     }
 }
 

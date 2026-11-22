@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Ai;
@@ -135,7 +136,7 @@ public sealed class TurnRunner
         if (messages.Count == 0)
             return await FailAsync(progress, "the message builder returned no messages").ConfigureAwait(false);
         var text = new StringBuilder();
-        long spent = 0;
+        var spent = TokenAmount.Zero;
         while (true)
         {
             ct.ThrowIfCancellationRequested();
@@ -150,7 +151,7 @@ public sealed class TurnRunner
             // A reused response was paid for by the abandoned turn, so only a new call counts against the ceiling.
             if (!reused)
                 spent += response.Tokens;
-            if (spent > _options.TokenCeiling)
+            if (_options.TokenCeiling < 0 || spent > TokenAmount.FromInt64(_options.TokenCeiling))
                 return await FailAsync(progress, $"token ceiling of {_options.TokenCeiling} exceeded", TurnEndReason.TokenCeiling).ConfigureAwait(false);
 
             if (response.ToolCalls.Count > 0)
@@ -293,7 +294,7 @@ public sealed class TurnRunner
         var calls = new List<PendingToolCall>();
         StopReason? stop = null;
         var served = "";
-        long tokens = 0;
+        var tokens = TokenAmount.Zero;
 
         await foreach (var modelEvent in _gateway.CallAsync(request, ct).ConfigureAwait(false))
         {

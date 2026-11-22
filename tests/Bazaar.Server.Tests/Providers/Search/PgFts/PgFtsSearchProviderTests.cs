@@ -39,6 +39,17 @@ public sealed class PgFtsSearchProviderTests(SearchDb db) : IClassFixture<Search
         Assert.Equal(["d1"], await IdsAsync(Provider, scope, "budget"));
     }
 
+    // Chaos round 3: NUL is not valid in Postgres text; a query holding one matches nothing instead of failing the call.
+    [Fact]
+    public async Task A_query_with_a_nul_character_matches_nothing()
+    {
+        SkipWithoutDatabase();
+        var scope = NewScope();
+        await Provider.IndexAsync(new SearchDocument("d1", scope, "budget"), Ct);
+
+        Assert.Empty(await IdsAsync(Provider, scope, "bud\0get"));
+    }
+
     [Fact]
     public async Task Scopes_do_not_see_each_others_documents()
     {

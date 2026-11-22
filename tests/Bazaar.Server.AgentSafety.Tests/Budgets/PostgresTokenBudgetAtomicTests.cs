@@ -1,9 +1,11 @@
+using Bazaar.Contracts.Numerics;
+using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.Security.Budgets;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Testing.Postgres;
 using Npgsql;
+using static Bazaar.Server.AgentSafety.Tests.Budgets.BudgetTestAmounts;
 
-namespace Bazaar.Server.Tests.Security.Budgets.Postgres;
+namespace Bazaar.Server.AgentSafety.Tests.Budgets;
 
 /// <summary>
 /// PostgresTokenBudgetStore.TryConsume against a real PostgreSQL: the advisory-locked check-and-insert must never admit
@@ -17,9 +19,6 @@ public sealed class PostgresTokenBudgetAtomicTests
     private static readonly DateTimeOffset _t0 = new(2026, 11, 15, 9, 0, 0, TimeSpan.Zero);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
-
-    private static TokenBudgetOptions Limits(long hour, long day, long week) =>
-        new() { HourlyTokens = hour, DailyTokens = day, WeeklyTokens = week };
 
     /// <summary>Most TryConsume calls in flight at once: each holds a connection while it waits on the agent's advisory lock.</summary>
     private const int _maxInFlight = 8;
@@ -38,8 +37,8 @@ public sealed class PostgresTokenBudgetAtomicTests
         var decision = await store.TryConsume("agent-a", _t0, 40, Limits(100, 1000, 5000), Ct);
 
         Assert.True(decision.Allowed);
-        Assert.Equal(60, decision.Remaining);
-        Assert.Equal(40, Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Tokens);
+        Assert.Equal(T(60), decision.Remaining);
+        Assert.Equal(T(40), Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Tokens);
     }
 
     [Fact]
@@ -55,9 +54,9 @@ public sealed class PostgresTokenBudgetAtomicTests
 
         Assert.False(denied.Allowed);
         Assert.Equal(TokenBudgetWindow.Hour, denied.Window);
-        Assert.Equal(10, denied.Remaining);
+        Assert.Equal(T(10), denied.Remaining);
         Assert.Equal(TimeSpan.FromMinutes(50), denied.RetryAfter);
-        Assert.Equal(90, Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Tokens);
+        Assert.Equal(T(90), Assert.Single(await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Tokens);
     }
 
     [Fact]
@@ -173,5 +172,5 @@ public sealed class PostgresTokenBudgetAtomicTests
     }
 
     private static async Task<long> RecordedAsync(PostgresTokenBudgetStore store) =>
-        (await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Sum(spend => spend.Tokens);
+        long.Parse((await store.LoadSince("agent-a", DateTimeOffset.MinValue, Ct)).Sum(spend => spend.Tokens).ToString(), System.Globalization.CultureInfo.InvariantCulture);
 }

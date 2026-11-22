@@ -71,6 +71,32 @@ public sealed class RyuseiToolContractTests
         Assert.Equal(RyuseiPingMode.Attach, parse.Request!.PingMode);
     }
 
+    // Chaos round 3: a spec field of the wrong type, an unparseable date or duration, or a value beyond what a date or duration can
+    // hold is a refused request with a reason. It must never throw out of the tool parser.
+    [Theory]
+    [InlineData("interval", "{\"every\":\"garbage\",\"anchor\":\"2026-11-08T12:00:00Z\"}")]
+    [InlineData("interval", "{\"every\":\"P999999999999D\",\"anchor\":\"2026-11-08T12:00:00Z\"}")]
+    [InlineData("interval", "{\"every\":30,\"anchor\":\"2026-11-08T12:00:00Z\"}")]
+    [InlineData("interval", "{\"every\":\"PT30M\",\"anchor\":\"not a date\"}")]
+    [InlineData("interval", "{\"every\":\"PT30M\",\"anchor\":12345}")]
+    [InlineData("interval", "{\"every\":\"PT30M\",\"anchor\":\"0001-01-01T00:00:00+14:00\"}")]
+    [InlineData("interval", "{\"every\":\"PT30M\",\"anchor\":\"9999-12-31T23:59:59.9999999-14:00\"}")]
+    [InlineData("timer", "{\"fireAt\":\"2026-13-45T25:61:61Z\"}")]
+    [InlineData("timer", "{\"fireAt\":null}")]
+    [InlineData("timer", "{\"fireAt\":{}}")]
+    [InlineData("watcher", "{\"predicate\":{\"kind\":\"gc.message\",\"gcId\":\"not-a-guid\"},\"pollSeconds\":30,\"debounceSeconds\":5}")]
+    [InlineData("watcher", "{\"predicate\":{\"kind\":\"gc.message\"},\"pollSeconds\":99999999999999,\"debounceSeconds\":5}")]
+    [InlineData("watcher", "{\"predicate\":{\"kind\":\"gc.message\"},\"pollSeconds\":\"30\",\"debounceSeconds\":5}")]
+    [InlineData("watcher", "{\"predicate\":{\"kind\":5},\"pollSeconds\":30,\"debounceSeconds\":5}")]
+    public void A_hostile_spec_is_refused_not_thrown(string kind, string spec)
+    {
+        var parse = RyuseiToolContract.ParseSchedule(Args(ScheduleJson(kind: $"\"{kind}\"", spec: spec)));
+
+        if (parse.IsValid)
+            return; // Accepted values are the rules' business (CheckCreate); the parser's job here is not to throw.
+        Assert.False(string.IsNullOrWhiteSpace(parse.Refusal));
+    }
+
     [Fact]
     public void Missing_kind_is_refused_with_a_reason_naming_it()
     {

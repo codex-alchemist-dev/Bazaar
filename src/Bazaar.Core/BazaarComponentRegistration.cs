@@ -36,13 +36,36 @@ public static class BazaarComponentRegistration
         }
 
         var byId = all.ToDictionary(c => c.Manifest.Id, StringComparer.Ordinal);
+
+        // All or nothing: a component that throws part way through its registrations must not leave half of them behind
+        // (or half of its predecessors'), so the collection is put back as it was before the failure is rethrown.
+        var snapshot = services.ToList();
         foreach (var manifest in ordered.Where(m => enabled.Contains(m.Id)))
         {
-            byId[manifest.Id].AddServices(services, configuration);
+            try
+            {
+                byId[manifest.Id].AddServices(services, configuration);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                services.Clear();
+                foreach (var descriptor in snapshot)
+                {
+                    services.Add(descriptor);
+                }
+
+                // Rethrown as is: callers and composition tests rely on the component's own exception type. The failing
+                // component is named in the exception's data, so the host can say which one refused to register.
+                error.Data[FailedComponentIdKey] = manifest.Id;
+                throw;
+            }
         }
 
         return services;
     }
+
+    /// <summary>Key in <see cref="Exception.Data"/> that holds the id of the component whose registration threw.</summary>
+    public const string FailedComponentIdKey = "Bazaar.FailedComponentId";
 
     /// <summary>
     /// Renamed component ids, mapped to the id they had. An operator who set the old key keeps their setting: the old key is read

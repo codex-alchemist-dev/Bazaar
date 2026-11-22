@@ -23,6 +23,20 @@ public class ModuleManifestTests
         Assert.True(result.IsValid, string.Join("; ", result.Issues.Select(i => i.Code)));
     }
 
+    // Chaos round 3: .NET's \d matches every Unicode decimal digit, so a version such as "1.\u0662.3" looked like SemVer and
+    // then could not be parsed as numbers. Only ASCII digits are SemVer.
+    [Theory]
+    [InlineData("1.2\u0663.3")]
+    [InlineData("1\u0661.0.0")]
+    [InlineData("1.0.0-\u0662")]
+    [InlineData("1.0.1\uff13")]
+    public void A_version_with_non_ascii_digits_is_rejected(string version)
+    {
+        ModuleManifestResult result = ModuleManifestValidator.Validate(Valid() with { Version = version });
+
+        Assert.Contains(result.Issues, i => i.Code == "bad-version");
+    }
+
     [Fact]
     public void Null_manifest_is_rejected()
     {

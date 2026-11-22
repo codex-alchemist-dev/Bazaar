@@ -8,7 +8,7 @@ namespace Bazaar.Server.Wire.Sync;
 /// notification is only a prompt: each GC has one <see cref="GcFeed"/> that reads the log after its own high-water
 /// mark, so a burst of notifications coalesces into one read and a lost or late notification costs latency, never data.
 /// </summary>
-public sealed class GcDispatcher : IDisposable
+public sealed class GcDispatcher : IGcStreamRevoker, IDisposable
 {
     private readonly ConcurrentDictionary<Guid, GcFeed> _feeds = new();
     private readonly IGcStreamSource _source;

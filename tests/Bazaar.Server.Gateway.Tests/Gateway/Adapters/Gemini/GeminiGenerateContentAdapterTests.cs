@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Contracts.Numerics;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 
@@ -538,5 +539,36 @@ public class GeminiGenerateContentAdapterTests
         public override void SetLength(long value) => throw new NotSupportedException();
 
         public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private static async Task<List<ModelEvent>> UsageEventsAsync(string usageMetadata)
+    {
+        var sse = "data: {\"candidates\": [{\"content\": {\"parts\": [{\"text\": \"Hi\"}], \"role\": \"model\"}, \"finishReason\": \"STOP\", \"index\": 0}], "
+            + "\"usageMetadata\": " + usageMetadata + ", \"modelVersion\": \"gemini-2.5-flash-001\"}\n\n";
+        return await RunAsync(new StubHandler((_, _) => Task.FromResult(Text(sse))));
+    }
+
+    [Fact]
+    public async Task A_count_past_the_long_range_is_read_exactly_from_a_string_or_a_number()
+    {
+        var events = await UsageEventsAsync("""{"promptTokenCount": "92233720368547758070", "candidatesTokenCount": 4}""");
+
+        var usage = Assert.Single(events.OfType<ModelEvent.UsageReported>()).Usage;
+        Assert.Equal(TokenAmount.Parse("92233720368547758070"), usage.Input);
+        Assert.Equal(TokenAmount.FromInt64(4), usage.Output);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
+    }
+
+    [Theory]
+    [InlineData("""{"promptTokenCount": -5, "candidatesTokenCount": 4}""")]
+    [InlineData("""{"promptTokenCount": "-92233720368547758070", "candidatesTokenCount": 4}""")]
+    [InlineData("""{"promptTokenCount": 5, "candidatesTokenCount": "many"}""")]
+    [InlineData("""{"promptTokenCount": 1e999999999, "candidatesTokenCount": 4}""")]
+    public async Task A_negative_or_malformed_count_drops_the_report_and_the_call_still_completes(string usageMetadata)
+    {
+        var events = await UsageEventsAsync(usageMetadata);
+
+        Assert.DoesNotContain(events, e => e is ModelEvent.UsageReported);
+        Assert.IsType<ModelEvent.Done>(events[^1]);
     }
 }

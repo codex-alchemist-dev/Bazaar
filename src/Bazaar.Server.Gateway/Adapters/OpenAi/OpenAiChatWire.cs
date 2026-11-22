@@ -128,11 +128,15 @@ internal sealed class OpenAiChunkFunction
     public string? Arguments { get; set; }
 }
 
+/// <summary>
+/// The usage object of a chunk. Counts stay raw JSON here so a number of any size, a negative one or a malformed one never fails
+/// the whole chunk; the adapter reads each as an exact <c>TokenAmount</c> and drops a report it cannot trust (doc 05).
+/// </summary>
 internal sealed class OpenAiChunkUsage
 {
-    public long? PromptTokens { get; set; }
+    public JsonElement? PromptTokens { get; set; }
 
-    public long? CompletionTokens { get; set; }
+    public JsonElement? CompletionTokens { get; set; }
 
     public OpenAiPromptDetails? PromptTokensDetails { get; set; }
 
@@ -141,12 +145,12 @@ internal sealed class OpenAiChunkUsage
 
 internal sealed class OpenAiPromptDetails
 {
-    public long? CachedTokens { get; set; }
+    public JsonElement? CachedTokens { get; set; }
 }
 
 internal sealed class OpenAiCompletionDetails
 {
-    public long? ReasoningTokens { get; set; }
+    public JsonElement? ReasoningTokens { get; set; }
 }
 
 /// <summary>Maps <see cref="ModelRequest"/> to the chat completions request body.</summary>

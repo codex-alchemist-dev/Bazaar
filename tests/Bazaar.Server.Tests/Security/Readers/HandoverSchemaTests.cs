@@ -19,6 +19,7 @@ public class HandoverSchemaTests
     [InlineData("Bad-Id")]
     [InlineData("1starts_with_digit")]
     [InlineData("has space")]
+    [InlineData("valid.id\n")]
     public void Create_rejects_malformed_schema_ids(string id) =>
         Assert.Throws<ArgumentException>(() => HandoverSchema.Create(id, new BoolField("flag")));
 
@@ -26,6 +27,7 @@ public class HandoverSchemaTests
     [InlineData("Subject")]
     [InlineData("has-dash")]
     [InlineData("9lives")]
+    [InlineData("flag\n")]
     public void Create_rejects_malformed_field_names(string name) =>
         Assert.Throws<ArgumentException>(() => HandoverSchema.Create("test.names", new BoolField(name)));
 

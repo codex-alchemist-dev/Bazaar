@@ -36,8 +36,12 @@ public sealed class InstanceLockReadinessCheck(IInstanceLock instanceLock) : IRe
 {
     public string Name => "instance_lock";
 
-    public Task<ReadinessResult> CheckAsync(CancellationToken ct) =>
-        Task.FromResult(new ReadinessResult(Name, instanceLock.IsHeld, instanceLock.IsHeld ? null : "not held"));
+    public async Task<ReadinessResult> CheckAsync(CancellationToken ct)
+    {
+        // Verifies the session, not the connection object: a Postgres restart leaves the object "open" with the lock gone.
+        var status = await instanceLock.VerifyAsync(ct);
+        return status == InstanceLockStatus.Held ? new ReadinessResult(Name, true) : new ReadinessResult(Name, false, "not held");
+    }
 }
 
 /// <summary>Ready only when every required provider role has a usable provider. The role list is empty until the settings registry (ST1) supplies <c>host.readiness.required_roles</c>.</summary>
@@ -59,4 +63,7 @@ public sealed class BazaarReadinessOptions
     public const string SectionName = "Bazaar:Readiness";
 
     public List<ProviderRole> RequiredRoles { get; set; } = [];
+
+    /// <summary>Longest one readiness check may take before <c>/health/ready</c> reports it not ready.</summary>
+    public TimeSpan CheckTimeout { get; set; } = TimeSpan.FromSeconds(3);
 }

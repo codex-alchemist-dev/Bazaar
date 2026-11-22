@@ -6,7 +6,9 @@ namespace Bazaar.Server.Constellation.Tiles;
 /// <summary>
 /// The real tile source: it lays out the graph on demand (doc 19). The graph comes from <see cref="IConstellationGraphSource"/>.
 /// The layout is deterministic (fixed seed), so the same graph version always gives the same positions. The settled layout is
-/// cached for one graph version; a new version replaces it. A frame holds the nodes inside the request box, in layout order, up
+/// cached for one graph version per viewer scope (<see cref="GraphViewer.Scope"/>); a new version replaces it, and one scope's layout
+/// is never served to another. The layout runs over the viewer's visible subgraph only, so neither positions nor counts depend on
+/// a document the viewer cannot read; the cost is that two scopes see different coordinates. A frame holds the nodes inside the request box, in layout order, up
 /// to <see cref="ViewportRequest.MaxNodes"/>.
 /// </summary>
 public sealed class LayoutTileSource(IConstellationGraphSource graphs) : IConstellationTileSource
@@ -19,17 +21,25 @@ public sealed class LayoutTileSource(IConstellationGraphSource graphs) : IConste
 
     private readonly IConstellationGraphSource _graphs = graphs ?? throw new ArgumentNullException(nameof(graphs));
     private readonly object _gate = new();
-    private CachedLayout? _cached;
+    private readonly Dictionary<string, CachedLayout> _cached = new(StringComparer.Ordinal);
+
+    /// <summary>Scopes kept at once: the owner, shared readers and one per agent. Past this the cache is dropped, not grown.</summary>
+    private const int _maxScopes = 256;
 
     private sealed record CachedLayout(long GraphVersion, IReadOnlyList<string> NodeIds, float[] Xyz);
 
-    public async Task<TileFrame?> GetFrameAsync(ViewportRequest request, CancellationToken cancellationToken = default)
+    /// <summary>The owner's tile: the whole graph.</summary>
+    public Task<TileFrame?> GetFrameAsync(ViewportRequest request, CancellationToken cancellationToken = default) =>
+        GetFrameAsync(request, GraphViewer.Owner, cancellationToken);
+
+    public async Task<TileFrame?> GetFrameAsync(ViewportRequest request, GraphViewer viewer, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(viewer);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var snapshot = await _graphs.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
-        var layout = LayoutFor(snapshot);
+        var snapshot = await _graphs.GetSnapshotAsync(viewer, cancellationToken).ConfigureAwait(false);
+        var layout = LayoutFor(viewer.Scope, snapshot);
 
         var ids = new List<string>();
         var picked = new List<float>();
@@ -59,11 +69,11 @@ public sealed class LayoutTileSource(IConstellationGraphSource graphs) : IConste
             Array.Empty<ClusterGlyph>());
     }
 
-    private CachedLayout LayoutFor(GraphSnapshot snapshot)
+    private CachedLayout LayoutFor(string scope, GraphSnapshot snapshot)
     {
         lock (_gate)
         {
-            if (_cached is { } cached && cached.GraphVersion == snapshot.GraphVersion)
+            if (_cached.TryGetValue(scope, out var cached) && cached.GraphVersion == snapshot.GraphVersion)
                 return cached;
 
             var graph = LayoutGraph.FromSnapshot(snapshot);
@@ -75,8 +85,12 @@ public sealed class LayoutTileSource(IConstellationGraphSource graphs) : IConste
                 positions = layout.GetPositions();
             }
 
-            _cached = new CachedLayout(snapshot.GraphVersion, graph.NodeIds, positions);
-            return _cached;
+            if (_cached.Count >= _maxScopes && !_cached.ContainsKey(scope))
+                _cached.Clear();
+
+            var fresh = new CachedLayout(snapshot.GraphVersion, graph.NodeIds, positions);
+            _cached[scope] = fresh;
+            return fresh;
         }
     }
 }

@@ -124,6 +124,57 @@ public class VaultSearchClientTests
         Assert.Equal("The login flow.", pane.OpenedBody);
     }
 
+    [Theory]
+    [InlineData("not json at all")]
+    [InlineData("""{"cards":null,"lexical_only":false}""")]
+    [InlineData("""{"cards":[null],"lexical_only":false}""")]
+    [InlineData("""{"cards":[{"doc_id":"not-a-guid"}]}""")]
+    public async Task A_malformed_search_answer_becomes_a_status_not_an_exception(string body)
+    {
+        var (api, _) = Client(_ => Json(body));
+        var pane = new VaultSearchPaneViewModel(Descriptor(), api) { Query = "auth" };
+        int changed = 0;
+        pane.Changed += (_, _) => changed++;
+
+        await pane.SearchAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(pane.Results);
+        Assert.NotNull(pane.StatusMessage);
+        Assert.Equal(1, changed);
+    }
+
+    [Fact]
+    public async Task A_malformed_body_answer_becomes_a_message_not_an_exception()
+    {
+        var (api, _) = Client(_ => Json("<html>"));
+        var pane = new VaultSearchPaneViewModel(Descriptor(), api);
+        var card = new VaultCardDto(_doc, 0, "p.md", "P", "note", null, [], "Inferred", 0.1, "gist", 1);
+
+        await pane.OpenAsync(card, TestContext.Current.CancellationToken);
+
+        Assert.StartsWith("Could not open the document", pane.OpenedBody);
+    }
+
+    [Fact]
+    public async Task A_client_timeout_or_refused_endpoint_becomes_a_status_not_an_exception()
+    {
+        foreach (Exception failure in new Exception[] { new TaskCanceledException("timed out"), new InvalidOperationException("refused") })
+        {
+            var http = new HttpClient(new ThrowingHandler(failure)) { BaseAddress = new Uri("http://localhost:8080/") };
+            var pane = new VaultSearchPaneViewModel(Descriptor(), new VaultApi(http, () => null)) { Query = "auth" };
+
+            await pane.SearchAsync(TestContext.Current.CancellationToken);
+
+            Assert.Equal("Could not reach the server.", pane.StatusMessage);
+        }
+    }
+
+    private sealed class ThrowingHandler(Exception failure) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromException<HttpResponseMessage>(failure);
+    }
+
     [Fact]
     public async Task A_document_the_caller_cannot_read_says_so()
     {

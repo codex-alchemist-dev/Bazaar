@@ -300,6 +300,59 @@ public sealed class ConnectionTests
     }
 
     [Fact]
+    public async Task Queued_events_are_bounded_by_size_as_well_as_by_count()
+    {
+        // 1000 queued events was the only bound, so a stalled reader of 100 KB messages pinned 100 MB per connection.
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = await WireTestClient.ConnectedAsync(server);
+        var connection = Assert.Single(server.Manager.Registry.Connections);
+        var payload = System.Text.Encoding.UTF8.GetBytes("\"" + new string('b', 1_000_000) + "\"");
+        var accepted = 0;
+
+        // The client never reads, so nothing leaves the queue once the socket buffers are full.
+        for (var i = 0; i < 100; i++)
+        {
+            var envelope = new Envelope(1, WireTypes.GcMessage, EnvelopeKind.Event, null, null, "gc:test", i, null, payload);
+            if (connection.TryEnqueueEvent(envelope)) accepted++;
+        }
+
+        Assert.InRange(accepted, 1, 40);
+    }
+
+    [Fact]
+    public async Task A_graceful_stop_closes_connected_sockets_with_1001_instead_of_waiting_out_the_stop_timeout()
+    {
+        // Seen in the chaos run: one connected client made SIGTERM take the whole 30 s host stop timeout, after which the host aborted.
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = await WireTestClient.ConnectedAsync(server);
+
+        var stopping = server.StopAsync();
+
+        Assert.Equal(1001, await client.WaitForCloseAsync());
+        Assert.Same(stopping, await Task.WhenAny(stopping, Task.Delay(TimeSpan.FromSeconds(15), TestContext.Current.CancellationToken)));
+    }
+
+    [Fact]
+    public async Task A_client_that_asks_but_never_reads_is_closed_instead_of_growing_the_reply_queue()
+    {
+        // Replies are not events, so wire.outbound_queue_max never bounded them: a peer that kept sending requests (which also
+        // keeps the heartbeat quiet) and never read grew the queue until the host ran out of memory.
+        var big = System.Text.Encoding.UTF8.GetBytes("\"" + new string('a', 200_000) + "\"");
+        var bulk = new DelegateHandler("bulk", (_, _) => ValueTask.FromResult(WireReply.Ok(big)));
+        await using var server = await WireTestServer.StartAsync(o => o.OutboundQueueMax = 5, handlers: [bulk]);
+        await using var client = await WireTestClient.ConnectedAsync(server);
+
+        // Far more than the socket buffers hold, sent without reading a single reply.
+        for (var i = 0; i < 90; i++)
+        {
+            await client.SendAsync(client.RequestOf("bulk", new Ping(null)));
+            if (i % 30 == 29) await Task.Delay(100);
+        }
+
+        Assert.Equal(1013, await client.WaitForCloseAsync());
+    }
+
+    [Fact]
     public async Task Server_pings_every_interval_and_any_frame_keeps_the_socket_alive()
     {
         await using var server = await WireTestServer.StartAsync();
@@ -444,6 +497,26 @@ public sealed class ConnectionTests
         Assert.Equal(7, lagged?.LastSent);
     }
 
+    // Chaos finding (crash-only campaign): with one idle client connected, SIGTERM took the full 30 s host shutdown timeout, the
+    // client saw 1006 (no close frame), and the overrun crashed the process. A stop now closes every socket with 1001 at once.
+    [Fact]
+    public async Task A_graceful_stop_closes_live_sockets_with_1001_without_waiting_for_the_shutdown_timeout()
+    {
+        var server = await WireTestServer.StartAsync();
+        await using var first = await WireTestClient.ConnectedAsync(server, "device-1");
+        await using var second = await WireTestClient.ConnectedAsync(server, "device-2");
+        var closedFirst = first.WaitForCloseAsync();
+        var closedSecond = second.WaitForCloseAsync();
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        await server.StopAsync();
+
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"stop took {watch.Elapsed}");
+        Assert.Equal(1001, await closedFirst);
+        Assert.Equal(1001, await closedSecond);
+        await server.DisposeAsync();
+    }
+
     [Fact]
     public async Task Hello_cursors_reach_the_connection()
     {
@@ -456,5 +529,22 @@ public sealed class ConnectionTests
 
         var connection = server.Manager.Registry.ForDevice("device-1").Single();
         Assert.Equal(new StreamCursor("gc:x", 4, 2), connection.HelloCursors.Single());
+    }
+
+    // Regression (chaos wire-fuzz): a hello whose codec list is null decoded to a null IReadOnlyList, which the codec
+    // negotiation passed to Enumerable.Contains and crashed with ArgumentNullException, closing the socket 1011 (server
+    // fault). A malformed hello must close with 4400 bad frame instead.
+    [Theory]
+    [InlineData("""{"v":1,"t":"hello","k":"req","id":"h","p":{"versionMin":1,"versionMax":1,"minor":0,"codecs":null,"deviceId":"d","deviceClass":"c","clientBuild":"b","credential":"good"}}""")]
+    [InlineData("""{"v":1,"t":"hello","k":"req","id":"h","p":{"versionMin":1,"versionMax":1,"minor":0,"codecs":[],"deviceId":"d","deviceClass":"c","clientBuild":"b","credential":"good"}}""")]
+    public async Task Hello_without_codecs_closes_with_4400(string helloJson)
+    {
+        await using var server = await WireTestServer.StartAsync();
+        await using var client = new WireTestClient();
+        await client.ConnectAsync(server.SocketUri, "good");
+
+        await client.SendRawAsync(System.Text.Encoding.UTF8.GetBytes(helloJson), WebSocketMessageType.Text);
+
+        Assert.Equal(WireCloseCodes.BadFrame, await client.WaitForCloseAsync());
     }
 }
