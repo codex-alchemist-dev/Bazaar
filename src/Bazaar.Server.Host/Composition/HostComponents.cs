@@ -1,4 +1,6 @@
 using Bazaar.Archive;
+using Bazaar.Server.Gc.Skimmer;
+using Bazaar.Server.Skimmer;
 using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
@@ -19,6 +21,7 @@ using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.Council;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -29,6 +32,7 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -46,6 +50,7 @@ using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Analytics.Git;
 using Bazaar.Server.Analytics.Postgres;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
@@ -76,11 +81,15 @@ public static class HostComponents
         new SetupComponent(),
         new RetentionComponent(),
         new ArchiveComponent(),
+        new SkimmerComponent(),
+        new GcSkimmerComponent(),
         new MirrorComponent(),
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcMetadataComponent(),
+        new ThinkingGcComponent(),
         new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
@@ -101,6 +110,7 @@ public static class HostComponents
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
         new AnalyticsGitComponent(),
+        new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),

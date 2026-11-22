@@ -53,7 +53,7 @@ The chapter book above is the Archive's reading layer. The Archive also keeps th
 - **Digital Twin and Constellation.** The Twin emits project nodes and edges; 19 owns the layout and drawing.
 
 ### Trust and crossing rules [PROPOSED]
-- Every fact, chapter, metric note and copy carries `trust` (the 08 tier, T0 to T3) and `origin_kind` (the 15 provenance enum). It also carries `source_refs` (08 §5). Derived output takes the highest trust of its inputs (08 §4).
+- Every fact, chapter, metric note and copy carries `trust` (the 08 tier, T0 to T3) and `origin_kind` (the 15 provenance enum). It also carries `source_refs` (08 §5). Derived output takes the lowest trust (the highest taint) of its inputs (08 §4); one low-trust fact never rides up to an owner-promoted page.
 - Anything crossing agents or projects (Hive copy, Talent template, GMT candidate, Twin fact, Archive chapter) is data labelled by origin, never instruction. Only an owner promotion raises trust.
 - Talent templates hold prompts and tool grants, which is executable intent. Importing one is quarantined until a Council `hire` motion passes (C32). Instantiating one with any tool grant is Tier 2 (07, 15).
 - Prose (Twin summaries, chapter text, GMT candidates) is written in a reader session with no tools. Reader sessions are the reader/actor split's primitive (15; DECISIONS-LOG round 6, C18, Claude's reading, to confirm). A sentence without a valid `source_ref` is dropped by the validator.
@@ -122,6 +122,48 @@ No real model or display. Real Postgres (Testcontainers) for rollups, rebuilds, 
 - A GMT candidate from a tainted child is T1 and not retrievable before acceptance.
 - Archive excludes human text by default; an opted-in GC appears. Council reasons are absent before the reveal.
 - Avalonia.Headless: decision chain and archive views render an unresolved reference as an explicit "missing source" link.
+
+## Modules and client panels (WP4, WP7, WP10) [PROPOSED]
+
+Added 2026-11-18 (coordinator brief). Every new piece is its own module pair, never a folder in `Bazaar.Server` or `Bazaar.Client.Core`, and no module references `Bazaar.Server.csproj`. The existing Health, Metrics, Twin fact, Archive and decision-chain code stays where it is until the Knowledge extraction moves it. The panes below do not wait for that: the server sends a `PaneDescriptor` whose model is data, and the client module only formats it (the RyuseiFuda precedent, doc 38).
+
+| Module | Holds | Doc 25 package |
+|---|---|---|
+| `Bazaar.Client.Health` | Panes `bazaar.health` (project health block) and `bazaar.analytics` (rollup trends, project morale signals, per-agent view) | 10 |
+| `Bazaar.Client.Twin` | Pane `bazaar.twin` (project card: facts, prose pages, stale marks) | 10 |
+| `Bazaar.Client.Archive` | Pane `bazaar.archive` (read-only book, every sentence linked to its source) | 10 |
+| `Bazaar.Client.CompanyMemory` | Pane `bazaar.company-memory` (decision chain) | 10 |
+| `Bazaar.Client.Hive` | Pane `bazaar.hive` (owner grant matrix, copies labelled by origin) | 10 |
+| `Bazaar.Server.Twin.Prose` + `.Abstractions` | The prose step: a reader-session port, the ref validator that drops a sentence without a valid `source_ref`, writing the page through the Vault writer port | 4 |
+
+Twin prose and Hive depend on ports (reader session, Vault writer, sanitizer, Soul manifest, whitelist) that are owned by other docs. Each module defines the narrow port it needs in its `.Abstractions` project, tests against fakes, and the owning module adapts it later. The Genetic Memory Transfer and Soul Marketplace stay out of scope.
+
+### Pane models (the wire contract the panes read)
+All field names are camelCase. A missing required field raises `PaneModelException`, so the registry falls back to the generic view. Unknown extra fields are ignored. Every pane shows `trust` and `originKind` where the model carries them, and never turns a missing or unresolvable reference into a blank: it renders an explicit "missing source" row.
+
+- `bazaar.health`: `{ "projects": [ { "projectId", "asOf" (yyyy-MM-dd), "status": "healthy" | "alert" | "noData", "reasons": [ { "kind", "message" } ] } ] }`. `noData` renders as "no data", never as healthy and never as zero.
+- `bazaar.analytics`: `{ "projectId", "windowDays", "series": [ { "metric", "unit", "points": [ { "day", "value" } ] } ], "moraleSignals": [ { "signal", "value" } ], "agentView": { "visibility": "owner" | "owner+self" | "peers", "framing", "agents": [ { "agentId", "displayName", "metrics": [ { "metric", "value" } ] } ] } }`. A series point missing for a day is a gap in the line, not a zero. The per-agent view is optional, is display only, is listed in a fixed order (by name, never by value), and has no rank or score column.
+- `bazaar.twin`: `{ "projects": [ { "projectId", "title", "facts": [ { "factId", "kind", "subject", "value", "confidence", "status": "active" | "stale" | "superseded", "trust", "originKind", "sourceRefs": [ { "kind", "ref", "commit" } ] } ], "pages": [ { "page", "sentences": [ { "text", "sourceRef" } ] } ] } ] }`. A `stale` fact is labelled stale.
+- `bazaar.archive`: `{ "chapters": [ { "id", "title", "version", "predecessorId", "sentences": [ { "text", "sourceRef" } ] } ] }`. A sentence with a null or unresolvable `sourceRef` renders as "missing source".
+- `bazaar.company-memory`: `{ "decisions": [ { "path", "title", "status": "proposed" | "accepted" | "superseded", "decidedIn" } ], "links": [ { "fromDoc", "toDoc", "relation", "status", "fromMissing", "toMissing" } ] }`. A missing end renders as "missing source".
+- `bazaar.hive`: `{ "reviewDays", "grants": [ { "fromProject", "toProject", "kind", "grantedBy" } ], "copies": [ { "path", "originProject", "originKind", "trust", "state": "inReview" | "active" | "deprecated", "reviewUntil" } ] }`. The UI states "copies only". Grant changes leave the client as an owner action through `IHiveGrantActions`; the pane never writes a grant itself.
+
+### Hive grant wire request [PROPOSED]
+Gives `IHiveGrantActions` a wire implementation (`WireHiveGrantActions` in `Bazaar.Client.Hive`). Two owner-only request kinds with the same body:
+- `hive.grant.set` and `hive.grant.revoke`, body `{ "fromProject", "toProject", "kind" }`.
+- Reply `{ "accepted": bool, "reason": string|null, "approvalRequired": bool }`. `reason` is null when accepted.
+
+Owner approval stays server-side: `hive.grants` changes need owner approval (doc 08 settings, doc 15). The server may therefore answer `accepted: true, approvalRequired: true`, meaning the change is queued and not in force. The pane then shows "waiting for owner approval" and never "granted"; the matrix changes only when a later `bazaar.hive` model shows it. A refusal carries `reason`. A lost connection throws and leaves the matrix unchanged. The contract types are `Bazaar.Contracts.Hive.HiveGrantChangeRequest` and `HiveGrantChangeReply`, registered in `WireJson`.
+
+The server side lives in `Bazaar.Server.Hive` and `.Abstractions` (the module that landed with #812), as a delta on its grant store and copy service. Defaults chosen by the main session (PROPOSED, replaceable; the owner may change any of them):
+1. **Approval.** The port is `IHiveGrantApprovals.RequestAsync(HiveGrantChange, requestedBy)`. The wire handler never applies a change: it queues through the port and replies `accepted: true, approvalRequired: true`. When the approvals module records the owner's approval, it calls `HiveGrantApplier.ApplyApprovedAsync(change, approvedBy)`, which adds the grant through the store or revokes through `HiveCopyService.RevokeAsync`, so held copies are dropped and written copies deprecated. The default registration is `DenyAllHiveGrantApprovals`, which refuses with reason "approvals not configured" (fail closed).
+2. **Dispatch.** `IHiveGrantWireHandler.HandleAsync(wireType, request, caller, ct)`, implemented by `HiveGrantWireHandler`. The host adapter that maps a wire frame to this call and supplies the caller is a later change and sits in `Bazaar.Server`, not in this module.
+3. **Caller.** `HiveCaller(Principal, IsOwner)` comes from the authenticated session. A non-owner is refused with reason "owner only". `Principal` is recorded as the grantor.
+4. **Refusals.** An unknown kind, equal or empty projects, a blank principal and an unknown wire type come back as `accepted: false` with the reason set. Only cancellation and infrastructure failures throw.
+
+Not in this slice: today the grant is checked when a copy is made and again at release, and revoking deprecates the copies. Two additions are PROPOSED, not built:
+- **Offer and request exchange.** An agent offers a lesson to the Hive, and an agent in another project requests it; the request becomes a normal copy submission, so every existing check (kind, taint, sanitizer, review window) still applies. The owner's grant matrix stays the only thing that lets a copy through.
+- **Grant re-check at read time.** A reader of a Hive copy re-checks the grant for each hop (origin project, target project, kind) when the note is read, so a revoked grant stops access even before the deprecation commit lands.
 
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.

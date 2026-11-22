@@ -39,6 +39,23 @@ public static class PaneKinds
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
 
+    /// <summary>Health: per-project health block from the metric rollups (doc 25, Health and Analytics).</summary>
+    public const string Health = "bazaar.health";
+
+    /// <summary>Analytics: rollup trends, project morale signals and the optional per-agent view (doc 25).</summary>
+    public const string Analytics = "bazaar.analytics";
+
+    /// <summary>Digital Twin project card: facts and prose pages (doc 25).</summary>
+    public const string Twin = "bazaar.twin";
+
+    /// <summary>Bazaar Archive: read-only book with chapter navigation (doc 25).</summary>
+    public const string Archive = "bazaar.archive";
+
+    /// <summary>Company Memory decision chain (doc 25).</summary>
+    public const string CompanyMemory = "bazaar.company-memory";
+
+    /// <summary>Hive Mind owner grant matrix and labelled copies (doc 25).</summary>
+    public const string Hive = "bazaar.hive";
     /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
     public const string CommunityDrafts = "bazaar.community-drafts";
 
