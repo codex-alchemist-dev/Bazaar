@@ -17,7 +17,7 @@ public static class CodingHarnessTestFakes
     /// <summary>Configuration with <c>Coding:Harness:Enabled</c> set.</summary>
     public static IConfiguration Config(bool enabled) =>
         new ConfigurationBuilder()
-            .AddInMemoryCollection([new KeyValuePair<string, string?>("Coding:Harness:Enabled", enabled ? "true" : "false"), new KeyValuePair<string, string?>("Coding:Harness:Git:AppNoreplyEmail", "bot@noreply.example.test")])
+            .AddInMemoryCollection([new KeyValuePair<string, string?>("Coding:Harness:Enabled", enabled ? "true" : "false"), new KeyValuePair<string, string?>("Coding:Harness:Git:AppNoreplyEmail", "bot@noreply.example.test"), new KeyValuePair<string, string?>("Coding:Harness:Repo", "bazaar")])
             .Build();
 
     /// <summary>

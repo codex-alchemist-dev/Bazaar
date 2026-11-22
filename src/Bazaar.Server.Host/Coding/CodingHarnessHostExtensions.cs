@@ -69,6 +69,7 @@ public static class CodingHarnessHostExtensions
         services.AddRunningTurnParentDirectory();
         services.AddBazaarCodingHarnessAgentPorts(configuration!);
         services.AddBazaarCodingWorkspaceSources(configuration);
+        services.AddBazaarCodingTaskWorkspace(configuration);
         services.AddBazaarCodingPermissions();
         services.AddBazaarCodingEdit();
         services.AddBazaarRepoMap();

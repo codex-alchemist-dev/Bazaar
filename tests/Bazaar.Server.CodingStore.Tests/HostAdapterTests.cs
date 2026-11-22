@@ -137,6 +137,7 @@ public sealed class HostAdapterTests
             {
                 ["Coding:Harness:Enabled"] = "true",
                 ["Coding:Harness:Git:AppNoreplyEmail"] = "bot@noreply.example.test",
+                ["Coding:Harness:Repo"] = "bazaar",
             })
             .Build();
 }
