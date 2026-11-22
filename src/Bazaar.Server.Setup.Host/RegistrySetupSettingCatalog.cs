@@ -19,7 +19,7 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     /// The catalog of the keys this build ships: the built-in registry plus the module manager's contribution (<c>update.channel</c>),
     /// the same composition the host's settings component builds, for roots that run without the host's service graph.
     /// </summary>
-    public static RegistrySetupSettingCatalog Known { get; } = new(SettingRegistry.WithContributions([new ModuleManagerSettingContribution()]));
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]));
 
     public RegistrySetupSettingCatalog(SettingRegistry registry)
     {

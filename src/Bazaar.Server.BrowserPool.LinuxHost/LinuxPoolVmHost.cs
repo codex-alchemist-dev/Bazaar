@@ -9,7 +9,8 @@ namespace Bazaar.Server.BrowserPool.LinuxHost;
 /// <see cref="IPoolVmHost"/> for a Linux pool VM in which the Bazaar process itself runs as root. Every command is a
 /// <see cref="System.Diagnostics.Process"/> started from an argument vector, with no shell. The firewall is applied with
 /// <c>nft -f -</c> and then read back; anything short of the expected state throws <see cref="PoolFirewallException"/>, and
-/// <see cref="StartAsync"/> refuses to launch unless the table, its drop rule and the session's own accept rule are in force.
+/// <see cref="StartAsync"/> refuses to launch unless the table, its drop rule and the session's own accept rule are in force, and then
+/// unless the active probe (<see cref="FirewallProbe"/>) shows the slot really is blocked from the host and can still reach its proxy.
 /// <para>
 /// DevTools pipe (optional): when <see cref="LinuxPoolHostOptions.PoolSpawnHelperPath"/> is set, <see cref="StartAsync"/> makes two
 /// FIFOs in a root-only directory, opens the host's ends, and puts <c>bazaar-pool-spawn</c> at the front of the launch argv. The tool
@@ -25,6 +26,7 @@ public sealed class LinuxPoolVmHost : IPoolVmHost, IPoolDevToolsPipes
     private readonly Func<IReadOnlyList<PoolFirewallRule>, string> _renderRuleset;
     private readonly LinuxPoolHostOptions _options;
     private readonly IFifoFactory _fifos;
+    private readonly FirewallProbe _probe;
     private readonly ConcurrentDictionary<string, IRunningProcess> _running = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, DevToolsPipeSet> _pipes = new(StringComparer.Ordinal);
 
@@ -37,7 +39,7 @@ public sealed class LinuxPoolVmHost : IPoolVmHost, IPoolDevToolsPipes
     {
     }
 
-    internal LinuxPoolVmHost(IProcessRunner runner, Func<IReadOnlyList<PoolFirewallRule>, string> renderRuleset, LinuxPoolHostOptions? options, bool requireLinux, IFifoFactory? fifos = null)
+    internal LinuxPoolVmHost(IProcessRunner runner, Func<IReadOnlyList<PoolFirewallRule>, string> renderRuleset, LinuxPoolHostOptions? options, bool requireLinux, IFifoFactory? fifos = null, IProbeListenerFactory? probeListeners = null)
     {
         if (requireLinux && !OperatingSystem.IsLinux())
         {
@@ -56,6 +58,7 @@ public sealed class LinuxPoolVmHost : IPoolVmHost, IPoolDevToolsPipes
         _runner = runner;
         _renderRuleset = renderRuleset;
         _fifos = fifos ?? new LibcFifoFactory();
+        _probe = new FirewallProbe(runner, probeListeners ?? new TcpProbeListenerFactory(), _options);
     }
 
     /// <inheritdoc />
@@ -145,6 +148,10 @@ public sealed class LinuxPoolVmHost : IPoolVmHost, IPoolDevToolsPipes
 
         // Fail closed: no table, no drop rule, or no accept for this session's own proxy means no browser.
         await VerifyAsync([spec.Firewall], "before launch", ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+
+        // The listing only proves the rules are listed. Try it: the slot's uid, in its namespace, must be blocked from the host and reach its proxy.
+        await _probe.RunAsync(spec, ct).ConfigureAwait(false);
         ct.ThrowIfCancellationRequested();
 
         var argv = spec.Launch;
