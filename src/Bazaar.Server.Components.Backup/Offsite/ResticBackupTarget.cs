@@ -7,16 +7,25 @@ namespace Bazaar.Server.Components.Backup.Offsite;
 /// <summary>
 /// Offsite store through the restic CLI (doc 33, <c>backup.offsite_target = restic-s3</c>). Outbound only. The repository
 /// and password reach restic through the environment (for example <c>RESTIC_PASSWORD_FILE</c>), never as arguments.
+/// Cookie profiles stay out of every upload unless <paramref name="includeCookieProfiles"/> is true (doc 33, "Cookie profile
+/// exclusion [PROPOSED]"); the backup component has no settings access yet, so the operator value is passed in here.
 /// </summary>
-public sealed class ResticBackupTarget(IProcessRunner runner, string resticPath, string repository, IReadOnlyDictionary<string, string> environment, string name = "restic") : IBackupTarget
+public sealed class ResticBackupTarget(IProcessRunner runner, string resticPath, string repository, IReadOnlyDictionary<string, string> environment, string name = "restic", bool includeCookieProfiles = false) : IBackupTarget
 {
+    /// <summary>The file rules applied to every upload; exposed so other snapshot paths can select files the same way.</summary>
+    public BackupFileFilter FileFilter { get; } = new(includeCookieProfiles);
+
     public string Name => name;
 
     public async Task<OffsiteSnapshot> PutDirectoryAsync(string localDirectory, IReadOnlyList<string> tags, CancellationToken ct)
     {
         if (!Directory.Exists(localDirectory))
             throw new DirectoryNotFoundException("Offsite source directory is missing.");
-        var args = new List<string> { "-r", repository, "backup", localDirectory, "--json" };
+        var args = new List<string> { "-r", repository, "backup" };
+        foreach (var pattern in FileFilter.ResticExcludePatterns)
+            args.Add("--exclude=" + pattern);
+        args.Add(localDirectory);
+        args.Add("--json");
         foreach (var tag in tags)
             args.Add("--tag=" + tag);
         var result = await runner.RunAsync(resticPath, args, environment, ct).ConfigureAwait(false);

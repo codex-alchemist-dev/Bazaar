@@ -78,6 +78,8 @@ Losing the KEK means rotating every credential and losing unwrap for encrypted p
 4. Soul folders and database come from one backup run. If the consistency marker does not match, the agent starts quarantined.
 5. A restored instance runs `migrate` only deliberately. Startup checks the schema version and refuses to run on a mismatch (`04`).
 
+**Encrypted data volume (doc 63).** The data root is an encrypted volume. Its container file is not a backup unit. Base backups, WAL archive and dumps are staged inside the volume and leave it only as encrypted bundles; the volume descriptor (ciphertext) is added to the recovery bundle.
+
 **Erasure and backups.** Each subject's data key (DEK) is wrapped by the KEK and kept in a separate key table (`14`, `04`). Erasure destroys the wrapped DEK, purges embeddings and writes a tombstone (`08` §9, `14`). Backup retention equals the erasure window (DECIDED, round 2, C01). The window is `erasure.backup_window_days` (doc 04; placeholder 35 days; needs counsel; a shorter window is the more protective choice). Erasure is complete when the last backup set holding that DEK has expired; until then the gap is documented. Per-person encryption covers database personal fields only. Vault files and git history are not yet covered (Q6). Offsite retention settings below are capped so that the newest offsite snapshot stays inside the window (Conflict 8).
 
 **Offsite store.** `backup.offsite_target` (default `none`): nothing leaves the install until the operator configures a target, and setup warns that RPO is local-only until then. Documented options: restic to any S3-compatible bucket (the example), restic to Backblaze B2 (2024-dated price, unverified for 2026), or a custom `IBackupTarget`. Restic's encryption is secondary-sourced.
@@ -136,6 +138,20 @@ Keys are install-scoped; the operator changes them in the setup wizard or advanc
 | `backup.volume_red_pct` | int | 95 | install | operator | No |
 
 Referenced, owned elsewhere: `erasure.backup_window_days` (35, needs counsel, doc 04); `security.backup.include_cookie_profiles` (false, doc 15); `vault.push_cadence` (15 min, doc 18).
+
+### Cookie profile exclusion [PROPOSED]
+
+Status: [PROPOSED] (agent decision, 2026-11-18, implementation detail under the configurability rule; owner may reverse it). Governing setting: `security.backup.include_cookie_profiles` (default `false`, doc 15; needs counsel). The rules below apply when it is `false`. When it is `true`, cookie material follows the same path as the Passport ciphertext and the snapshot includes cookie files.
+
+1. **Database level.** Cookie blobs in `IBrowserProfileStore` are already encrypted (doc 14, "Mounted folder"). [PROPOSED] They are sealed under a dedicated cookie key, separate from the DEK table and the KEK. When the setting is `false`, that cookie key is never included in a base backup, WAL archive, `pg_dump`, offsite upload, Vault bundle, or instance bundle. A restored database therefore holds cookie rows that cannot be opened. Account profiles are re-logged in by the owner or the broker after restore. Backups cannot skip rows, so exclusion is by key, not by row. This section documents the rule only; the key plumbing is a later work package and is not built by the change that adds this section.
+2. **File level.** The predicate lives in the backup component (`BackupFileFilter`, `src/Bazaar.Server.Components.Backup`). When the setting is `false`, it excludes:
+   - mounted cookie-profile files (`MountedFileKind.CookieProfile`) and canary decoys, which the mount names `canary-<id>.session.json` (doc 14, "Mounted folder"); the rule is any file whose name ends in `.session.json`. The mount writer must give every cookie-profile file that suffix; this naming rule is [PROPOSED] and not yet enforced in `MountedFolderWriter`;
+   - any browser profile directory, identified by a directory name from a fixed list (`browser-profile`, `browser-profiles`, `chromium-profile`, `cookie-profiles`).
+   The predicate applies to offsite directory uploads (`ResticBackupTarget.PutDirectoryAsync`, as restic `--exclude` patterns of the same rules) and to the Soul-folder snapshot (WP6, same run as the database), which calls the same filter to select files. Matching is case-insensitive. Only the owner may set the flag to `true`, because it is an owner-approved relaxation that needs counsel (doc 15).
+3. **Setting wiring.** The backup component has no settings access yet. It takes `includeCookieProfiles` as a constructor parameter with default `false`. Wiring it to the settings registry (doc 15 settings table) is a follow-up, and until then an operator change has no effect on backups.
+4. **Restore.** Restores are owner-only (see above). With the setting `false`, the restored host has no cookie or browser profile files, and agents that need an account profile request a new login.
+
+Tests: both values of the flag are covered in `tests/Bazaar.Server.Components.Backup.Tests` (predicate, file selection and restic arguments).
 
 ## Testing
 - Real PostgreSQL 18: base backup, write rows, archive, point-in-time restore to a timestamp; GC row counts and max seq per GC match.
