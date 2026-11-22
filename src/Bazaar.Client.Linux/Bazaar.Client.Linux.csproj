@@ -30,9 +30,13 @@
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.DefaultApp.Linux\Bazaar.Client.DefaultApp.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Updater.Linux\Bazaar.Client.Updater.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Avalonia\Bazaar.Client.Calcinato.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Calcinato.Pty\Bazaar.Client.Calcinato.Pty.csproj" />
   </ItemGroup>
 </Project>

@@ -22,6 +22,8 @@
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0" />
+    <!-- Windows client updater (doc 28, Client updater): Velopack, newest stable on nuget.org (2026-11-22). Behind IVelopackAdapter. -->
+    <PackageVersion Include="Velopack" Version="1.2.161" />
     <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
     <PackageVersion Include="Markdig" Version="1.6.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
@@ -69,5 +71,8 @@
     <PackageVersion Include="Google.Protobuf" Version="3.36.2" />
     <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="11.0.0" />
     <!-- Protobuf codec (doc 90 WP2): Google.Protobuf runtime and the Grpc.Tools protoc build step. Only Bazaar.Wire.Codec.Protobuf (and later the gRPC module) may reference them; newest stable on 2026-11-20. -->
+    <!-- MemoryPack codec (doc 90 WP3): the runtime for the module, the full package (with its source generator) for the layout cross-check in the tests. 1.22.0 published 2026-11-11, MIT. -->
+    <PackageVersion Include="MemoryPack.Core" Version="1.22.0" />
+    <PackageVersion Include="MemoryPack" Version="1.22.0" />
   </ItemGroup>
 </Project>
