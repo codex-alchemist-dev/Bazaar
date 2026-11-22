@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Sanitization;
+namespace Bazaar.Sanitization;
 
 /// <summary>How many spans of one kind a sanitizer removed. The removed text itself is never kept.</summary>
 /// <param name="Kind">The kind of span removed.</param>

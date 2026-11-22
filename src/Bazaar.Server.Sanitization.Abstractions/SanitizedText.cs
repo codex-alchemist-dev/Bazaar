@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 
-namespace Bazaar.Server.Sanitization;
+namespace Bazaar.Sanitization;
 
 /// <summary>Sanitized text and a per-kind count of what was removed.</summary>
 /// <param name="Text">The text with placeholders in place of removed spans.</param>
