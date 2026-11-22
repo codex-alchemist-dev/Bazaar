@@ -19,6 +19,7 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="RevealSeed">Seed for the stored, randomised reason order (council.reason_order).</param>
 /// <param name="VaultDecisionNo">NNNN of the decision file, once written; null before.</param>
 /// <param name="CreatedAt">When the vote opened.</param>
+/// <param name="HighImpact">The proposer's high-impact flag, fixed at open (doc 10, Follow-up on dissent).</param>
 public sealed record CouncilVoteRecord(
     Guid VoteId,
     Guid GcId,
@@ -35,7 +36,8 @@ public sealed record CouncilVoteRecord(
     string? SubjectAuthorId,
     long RevealSeed,
     int? VaultDecisionNo,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool HighImpact = false);
 
 /// <summary>
 /// One stored ballot (council_ballot, one row per voter and phase). Reasoning is plaintext here; the store encrypts it
@@ -139,4 +141,15 @@ public interface ICouncilDecisionWriter
 {
     /// <summary>Writes the decision file for a decided or owner-resolved vote and returns its number.</summary>
     Task<int> WriteDecisionAsync(Guid voteId, string slug, string markdownBody, CancellationToken ct);
+}
+
+/// <summary>
+/// Port to the live follow-up dissent share (doc 10, Follow-up on dissent). The host adapter reads the operator setting
+/// <c>council.followup_dissent_share</c>; the module cannot reference the settings store, so it asks through this port at
+/// each tally and an operator change applies without a restart. Without an adapter <see cref="CouncilOptions.FollowupDissentShare"/> stands.
+/// </summary>
+public interface ICouncilDissentShareSource
+{
+    /// <summary>Reads the current dissent share, a fraction in (0, 1].</summary>
+    Task<decimal> GetFollowupDissentShareAsync(CancellationToken ct);
 }
