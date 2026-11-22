@@ -16,8 +16,8 @@ public sealed class RegistrySetupSettingCatalogTests
     {
         var catalog = RegistrySetupSettingCatalog.Known;
 
-        Assert.Equal(SettingRegistry.Known.Definitions.Count, catalog.Definitions.Count);
-        Assert.All(SettingRegistry.Known.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
+        Assert.Equal(BuiltInSettingRegistries.Known.Definitions.Count, catalog.Definitions.Count);
+        Assert.All(BuiltInSettingRegistries.Known.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
         Assert.False(catalog.TryGet("no.such.key", out _));
     }
 

@@ -1,6 +1,6 @@
 using Bazaar.Erasure.Abstractions;
 
-namespace Bazaar.Server.Components.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// Runs one person's erasure: key destruction first, then each participant in registration order. A failing step is recorded
