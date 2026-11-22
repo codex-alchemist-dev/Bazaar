@@ -174,7 +174,7 @@ The target is one module contract for all modules, first-party and third-party a
 | FreeLLMAPI provider: usage, health and expected-set auditor | Partial. Live key check (spike S17) pending | `docs/design/05b`; spike S17 |
 | `custom/*` routing methods | Planned (rules OPEN) | `CLAUDE.md` |
 | Turn runner in production; model tool calls dispatched through `IToolDispatcher` | Done | PRs #447, #457, #461 |
-| Wake loop behind `IAgentScheduler`, off by default | Done | PR #442 |
+| Wake loop behind `IAgentScheduler`; on by default behind the kill switch and loop guard (was off by default) | Done | PR #442; overnight plan item 41 |
 | Loop guard limits from configuration; loop guard mention parsing on the post path | Done | PRs #404, #438 |
 | Psych Ward state machine; loop-guard trips into it | Done | PRs #406, #467, #469 |
 | RyuseiFuda agent tools through the dispatcher; per-agent wake cap; chain depth | Done | PRs #349, #353, #359, #463, #370 |
