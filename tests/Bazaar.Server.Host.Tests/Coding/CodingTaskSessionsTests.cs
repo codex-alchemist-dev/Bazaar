@@ -1,6 +1,7 @@
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingGit.Fakes;
 using Bazaar.Server.Host.Coding;
+using Microsoft.Extensions.Configuration;
 
 namespace Bazaar.Server.Host.Tests.Coding;
 
@@ -99,5 +100,28 @@ public sealed class CodingTaskSessionsTests : IDisposable
         await _sessions.EndAsync(session);
         Assert.Null(await _sessions.FindAsync(session.ToString("D"), _ct));
         Assert.Null(await _sessions.FindAsync("unknown", _ct));
+    }
+
+    private static IConfiguration Config(params (string Key, string? Value)[] values) =>
+        new ConfigurationBuilder().AddInMemoryCollection(values.Select(v => new KeyValuePair<string, string?>(v.Key, v.Value))).Build();
+
+    [Fact]
+    public void The_repo_setting_is_null_when_unset_and_a_repo_when_both_values_are_set()
+    {
+        Assert.Null(CodingHarnessRepoOptions.From(Config()).Repo);
+        Assert.Null(CodingHarnessRepoOptions.From(null).Repo);
+
+        var set = CodingHarnessRepoOptions.From(Config(("Coding:Harness:Repo:Id", " bazaar "), ("Coding:Harness:Repo:DefaultBranch", "main")));
+        Assert.Equal(new RepoRef("bazaar", "main"), set.Repo);
+    }
+
+    [Theory]
+    [InlineData("bazaar", null)]
+    [InlineData(null, "main")]
+    [InlineData("bazaar", " ")]
+    [InlineData("", "main")]
+    public void A_half_set_or_blank_repo_setting_stops_the_host(string? id, string? branch)
+    {
+        Assert.Throws<InvalidOperationException>(() => CodingHarnessRepoOptions.From(Config(("Coding:Harness:Repo:Id", id), ("Coding:Harness:Repo:DefaultBranch", branch))));
     }
 }
