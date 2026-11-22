@@ -7,6 +7,5 @@ Bazaar.Server.Constellation
 Bazaar.Server.Gateway
 Bazaar.Server.Hive
 Bazaar.Server.Identity.Postgres
-Bazaar.Server.Memory
 Bazaar.Server.ReadAudit
 Bazaar.Server.Setup.Host
