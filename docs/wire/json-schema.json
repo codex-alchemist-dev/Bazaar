@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:838ab9d3311a4fef4bbd757ed645a00e7bd5b6da2ae51608cbf29baaaf918809. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692",
+  "x-schemaHash": "sha256:838ab9d3311a4fef4bbd757ed645a00e7bd5b6da2ae51608cbf29baaaf918809",
   "x-messages": {
     "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -20,6 +20,11 @@
     "pane.frame": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PaneFrame" },
     "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
     "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
+    "pr.hunks": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrHunksRequest" },
+    "pr.list": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrListRequest" },
+    "pr.merge": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrMergeRequest" },
+    "pr.review": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrReviewRequest" },
+    "pr.summary": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrSummaryRequest" },
     "presence.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
     "presence.update": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceUpdate" },
     "resync": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Resync" },
@@ -33,6 +38,185 @@
   },
   "$defs": {
     "Bazaar.Contracts.Gc.PrincipalKind": { "anyOf": [ { "type": "string", "enum": ["owner", "human", "agent"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.GitHub.PrAuthorKind": { "anyOf": [ { "type": "string", "enum": ["agent", "human"] }, { "type": "integer", "enum": [0, 1] } ] },
+    "Bazaar.Contracts.GitHub.PrChangedFile": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "status": { "type": "string" },
+        "additions": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "deletions": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["path", "status", "additions", "deletions"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrChecksRollup": { "anyOf": [ { "type": "string", "enum": ["none", "pending", "passing", "failing"] }, { "type": "integer", "enum": [0, 1, 2, 3] } ] },
+    "Bazaar.Contracts.GitHub.PrHunk": {
+      "type": "object",
+      "properties": {
+        "header": { "type": "string" },
+        "oldStart": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "oldCount": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "newStart": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "newCount": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "lines": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["header", "oldStart", "oldCount", "newStart", "newCount", "lines"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrHunksReply": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrHunksStatus" },
+        "headSha": { "type": "string" },
+        "path": { "type": "string" },
+        "hunks": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrHunk" } },
+        "nextCursor": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status", "headSha", "path", "hunks"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrHunksRequest": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" },
+        "headSha": { "type": "string" },
+        "path": { "type": "string" },
+        "cursor": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["prId", "headSha", "path"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrHunksStatus": { "anyOf": [ { "type": "string", "enum": ["ok", "stale"] }, { "type": "integer", "enum": [0, 1] } ] },
+    "Bazaar.Contracts.GitHub.PrListReply": {
+      "type": "object",
+      "properties": {
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrListRow" } },
+        "nextCursor": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["rows"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrListRequest": {
+      "type": "object",
+      "properties": {
+        "repo": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "state": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrListState" },
+        "cursor": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "limit": { "anyOf": [ { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, { "type": "null" } ] }
+      },
+      "required": ["state"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrListRow": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" },
+        "repo": { "type": "string" },
+        "number": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "authorKind": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrAuthorKind" },
+        "draft": { "type": "boolean" },
+        "headSha": { "type": "string" },
+        "checks": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrChecksRollup" },
+        "revision": { "type": "integer" },
+        "installationId": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "owner": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "repoName": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["prId", "repo", "number", "title", "author", "authorKind", "draft", "headSha", "checks", "revision"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrListState": { "anyOf": [ { "type": "string", "enum": ["open", "closed", "merged", "all"] }, { "type": "integer", "enum": [0, 1, 2, 3] } ] },
+    "Bazaar.Contracts.GitHub.PrMergeReply": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrMergeStatus" },
+        "headSha": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "message": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrMergeRequest": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" },
+        "headSha": { "type": "string" },
+        "commitTitle": { "type": "string" },
+        "commitMessage": { "type": "string" },
+        "owner": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrOwnerPayload" },
+        "signature": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+      },
+      "required": ["prId", "headSha", "commitTitle", "commitMessage", "owner", "signature"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrMergeStatus": { "anyOf": [ { "type": "string", "enum": ["merged", "stale", "checks_failed", "bad_signature", "not_mergeable", "conflict", "refused"] }, { "type": "integer", "enum": [0, 1, 2, 3, 4, 5, 6] } ] },
+    "Bazaar.Contracts.GitHub.PrOwnerPayload": {
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "approvalId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "argsHash": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } },
+        "headSha": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "humanId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "deviceId": { "type": "string" },
+        "issuedAt": { "type": "string", "format": "date-time" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "nonce": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 } }
+      },
+      "required": ["action", "approvalId", "argsHash", "humanId", "deviceId", "issuedAt", "expiresAt", "nonce"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrReviewReply": {
+      "type": "object",
+      "properties": {
+        "status": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrReviewStatus" },
+        "headSha": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "message": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrReviewRequest": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" },
+        "headSha": { "type": "string" },
+        "event": { "type": "string" },
+        "body": { "type": "string" }
+      },
+      "required": ["prId", "headSha", "event", "body"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrReviewStatus": { "anyOf": [ { "type": "string", "enum": ["applied", "stale", "refused"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.GitHub.PrSummaryReply": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" },
+        "headSha": { "type": "string" },
+        "summary": { "type": "string" },
+        "files": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrChangedFile" } },
+        "checks": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrChecksRollup" },
+        "reviewerApproved": { "type": "boolean" },
+        "linkedCardId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "installationId": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "owner": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "repoName": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "number": { "anyOf": [ { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, { "type": "null" } ] }
+      },
+      "required": ["prId", "headSha", "summary", "files", "checks", "reviewerApproved"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.GitHub.PrSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "prId": { "type": "string" }
+      },
+      "required": ["prId"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Graph.ClusterGlyph": {
       "type": "object",
       "properties": {

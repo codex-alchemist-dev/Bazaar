@@ -1,0 +1,17 @@
+Golden frame: PrListRequest
+Codec: cbor (binary)
+Protocol: 1.0
+Schema hash: sha256:838ab9d3311a4fef4bbd757ed645a00e7bd5b6da2ae51608cbf29baaaf918809
+Payload record: Bazaar.Contracts.GitHub.PrListRequest
+Envelope: v=1 t=pr.list k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
+Frame length: 163 bytes
+Payload as JSON: {"repo":"codex-alchemist-dev/Bazaar","state":"open","limit":25}
+Frame hex:
+  A861760161746770722E6C697374616B6365767462696468766563746F722D31
+  6173782767633A30313936613666302D303030302D373030302D383030302D30
+  3030303030303030303031616E07627473C07818323032362D31312D31395430
+  353A33363A31322E3334355A6170A3647265706F781A636F6465782D616C6368
+  656D6973742D6465762F42617A616172657374617465646F70656E656C696D69
+  741819
+
+A foreign client passes when it decodes the .bin file to this envelope and payload, and encodes them back to the same bytes.

@@ -61,6 +61,46 @@ enum GraphNodeKind {
   GRAPH_NODE_KIND_VAULT = 3; // vault
 }
 
+enum PrAuthorKind {
+  PR_AUTHOR_KIND_AGENT = 0; // agent
+  PR_AUTHOR_KIND_HUMAN = 1; // human
+}
+
+enum PrChecksRollup {
+  PR_CHECKS_ROLLUP_NONE = 0; // none
+  PR_CHECKS_ROLLUP_PENDING = 1; // pending
+  PR_CHECKS_ROLLUP_PASSING = 2; // passing
+  PR_CHECKS_ROLLUP_FAILING = 3; // failing
+}
+
+enum PrHunksStatus {
+  PR_HUNKS_STATUS_OK = 0; // ok
+  PR_HUNKS_STATUS_STALE = 1; // stale
+}
+
+enum PrListState {
+  PR_LIST_STATE_OPEN = 0; // open
+  PR_LIST_STATE_CLOSED = 1; // closed
+  PR_LIST_STATE_MERGED = 2; // merged
+  PR_LIST_STATE_ALL = 3; // all
+}
+
+enum PrMergeStatus {
+  PR_MERGE_STATUS_MERGED = 0; // merged
+  PR_MERGE_STATUS_STALE = 1; // stale
+  PR_MERGE_STATUS_CHECKS_FAILED = 2; // checks_failed
+  PR_MERGE_STATUS_BAD_SIGNATURE = 3; // bad_signature
+  PR_MERGE_STATUS_NOT_MERGEABLE = 4; // not_mergeable
+  PR_MERGE_STATUS_CONFLICT = 5; // conflict
+  PR_MERGE_STATUS_REFUSED = 6; // refused
+}
+
+enum PrReviewStatus {
+  PR_REVIEW_STATUS_APPLIED = 0; // applied
+  PR_REVIEW_STATUS_STALE = 1; // stale
+  PR_REVIEW_STATUS_REFUSED = 2; // refused
+}
+
 enum PrincipalKind {
   PRINCIPAL_KIND_OWNER = 0; // owner
   PRINCIPAL_KIND_HUMAN = 1; // human
@@ -242,6 +282,123 @@ message Ping {
 
 message Pong {
   optional string nonce = 1;
+}
+
+message PrChangedFile {
+  string path = 1;
+  string status = 2;
+  int32 additions = 3;
+  int32 deletions = 4;
+}
+
+message PrHunk {
+  string header = 1;
+  int32 old_start = 2;
+  int32 old_count = 3;
+  int32 new_start = 4;
+  int32 new_count = 5;
+  repeated string lines = 6;
+}
+
+message PrHunksReply {
+  PrHunksStatus status = 1;
+  string head_sha = 2;
+  string path = 3;
+  repeated PrHunk hunks = 4;
+  optional string next_cursor = 5;
+}
+
+message PrHunksRequest {
+  string pr_id = 1;
+  string head_sha = 2;
+  string path = 3;
+  optional string cursor = 4;
+}
+
+message PrListReply {
+  repeated PrListRow rows = 1;
+  optional string next_cursor = 2;
+}
+
+message PrListRequest {
+  optional string repo = 1;
+  PrListState state = 2;
+  optional string cursor = 3;
+  optional int32 limit = 4;
+}
+
+message PrListRow {
+  string pr_id = 1;
+  string repo = 2;
+  int32 number = 3;
+  string title = 4;
+  string author = 5;
+  PrAuthorKind author_kind = 6;
+  bool draft = 7;
+  string head_sha = 8;
+  PrChecksRollup checks = 9;
+  int64 revision = 10;
+  optional int64 installation_id = 11;
+  optional string owner = 12;
+  optional string repo_name = 13;
+}
+
+message PrMergeReply {
+  PrMergeStatus status = 1;
+  optional string head_sha = 2;
+  optional string message = 3;
+}
+
+message PrMergeRequest {
+  string pr_id = 1;
+  string head_sha = 2;
+  string commit_title = 3;
+  string commit_message = 4;
+  PrOwnerPayload owner = 5;
+  repeated uint32 signature = 6;
+}
+
+message PrOwnerPayload {
+  string action = 1;
+  bytes approval_id = 2;
+  repeated uint32 args_hash = 3;
+  optional string head_sha = 4;
+  bytes human_id = 5;
+  string device_id = 6;
+  Instant issued_at = 7;
+  Instant expires_at = 8;
+  repeated uint32 nonce = 9;
+}
+
+message PrReviewReply {
+  PrReviewStatus status = 1;
+  optional string head_sha = 2;
+  optional string message = 3;
+}
+
+message PrReviewRequest {
+  string pr_id = 1;
+  string head_sha = 2;
+  string event = 3;
+  string body = 4;
+}
+
+message PrSummaryReply {
+  string pr_id = 1;
+  string head_sha = 2;
+  string summary = 3;
+  repeated PrChangedFile files = 4;
+  PrChecksRollup checks = 5;
+  bool reviewer_approved = 6;
+  optional bytes linked_card_id = 7;
+  optional int64 installation_id = 8;
+  optional string owner = 9;
+  optional string repo_name = 10;
+  optional int32 number = 11;
+}
+
+message PrSummaryRequest {
+  string pr_id = 1;
 }
 
 message PresenceSnapshot {
