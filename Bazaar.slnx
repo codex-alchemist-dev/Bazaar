@@ -168,6 +168,9 @@
     <Project Path="src/Bazaar.Server.VmTransport/Bazaar.Server.VmTransport.csproj" />
     <Project Path="src/Bazaar.Server.VmTransport.Abstractions/Bazaar.Server.VmTransport.Abstractions.csproj" />
     <Project Path="src/Bazaar.Audit.Abstractions/Bazaar.Audit.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Providers.Abstractions/Bazaar.Server.Providers.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Sanitization.Abstractions/Bazaar.Server.Sanitization.Abstractions.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
