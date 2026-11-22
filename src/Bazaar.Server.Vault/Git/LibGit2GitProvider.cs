@@ -64,6 +64,26 @@ public sealed class LibGit2GitProvider : IGitProvider
         }, ct).ConfigureAwait(false);
     }
 
+    public async Task<bool> CreateBranchAsync(string repoPath, string branch, string commitSha, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(commitSha);
+
+        using var _ = await CheckoutLocks.AcquireAsync(repoPath, ct).ConfigureAwait(false);
+        return await Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            if (repo.Branches[branch] is not null)
+            {
+                return false;
+            }
+
+            var commit = repo.Lookup<Commit>(commitSha) ?? throw new InvalidOperationException($"Commit {commitSha} does not exist.");
+            repo.CreateBranch(branch, commit);
+            return true;
+        }, ct).ConfigureAwait(false);
+    }
+
     public Task<IReadOnlyList<WorktreeInfo>> ListWorktreesAsync(string repoPath, CancellationToken ct) =>
         Task.Run(() => (IReadOnlyList<WorktreeInfo>)ReadWorktrees(repoPath), ct);
 
