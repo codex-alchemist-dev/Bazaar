@@ -50,12 +50,17 @@ jobs:
       actions: read
     outputs:
       code: ${{ steps.diff.outputs.code }}
+      all: ${{ steps.affected.outputs.all }}
+      android: ${{ steps.affected.outputs.android }}
+      linux_client: ${{ steps.affected.outputs.linux_client }}
+      projects: ${{ steps.affected.outputs.projects }}
+      tests: ${{ steps.affected.outputs.tests }}
       linuxpg: ${{ steps.runners.outputs.linuxpg }}
       win: ${{ steps.runners.outputs.win }}
     steps:
       # Picks where the heavy jobs run. The repository is public, so GitHub-hosted runners are free; the owner's PC
       # (self-hosted labels) is used only for the owner's own same-repo runs, and only while it is not backed up.
-      # Repository variable CI_RUNNER_MODE: auto (default), self (always the PC), hosted (never the PC).
+      # Repository variable CI_RUNNER_MODE: hosted (default, never the PC), auto (PC while not backed up), self (always the PC).
       # Repository variable CI_OVERFLOW_QUEUE (default 8): in auto mode, more queued runs than this sends the run to hosted.
       # Any error here falls back to hosted. This job and Secret scan always run hosted, so the cheap checks never queue
       # behind the PC. The job names of the required checks do not change.
@@ -63,7 +68,7 @@ jobs:
         id: runners
         env:
           GH_TOKEN: ${{ github.token }}
-          MODE: ${{ vars.CI_RUNNER_MODE || 'auto' }}
+          MODE: ${{ vars.CI_RUNNER_MODE || 'hosted' }}
           LIMIT: ${{ vars.CI_OVERFLOW_QUEUE || '8' }}
           OWNER_RUN: ${{ github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) }}
         run: |
@@ -112,6 +117,32 @@ jobs:
             echo "code=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Works out, from the project reference graph, which projects a pull request can affect (scripts/ci/affected.py).
+      # Build and test then covers only those, and the Android and Linux start-up jobs skip when their head cannot be
+      # affected. Anything unclear (a shared file, a file outside every project, an API error) means "all". Pushes to
+      # main, manual and scheduled runs always run everything.
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Find affected projects
+        id: affected
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          everything() { printf 'all=true\nandroid=true\nlinux_client=true\nprojects=\ntests=\n' >> "$GITHUB_OUTPUT"; exit 0; }
+          [ "$EVENT" = "pull_request" ] || everything
+          gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[] | .filename, (.previous_filename // empty)' > "$RUNNER_TEMP/files.txt" || everything
+          [ -s "$RUNNER_TEMP/files.txt" ] || everything
+          [ "$(wc -l < "$RUNNER_TEMP/files.txt")" -lt 3000 ] || everything
+          python3 scripts/ci/affected.py "$RUNNER_TEMP/files.txt" > "$RUNNER_TEMP/affected.txt" || everything
+          cat "$RUNNER_TEMP/affected.txt"
+          cat "$RUNNER_TEMP/affected.txt" >> "$GITHUB_OUTPUT"
+
   # No paths filter on purpose, here or on the workflow trigger: the required checks always report.
   # Docs-only PRs skip the work step by step (`changes` job); do not add a paths-ignore. See docs/pr-flow.md.
   build-test:
@@ -146,7 +177,7 @@ jobs:
       # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
       # files that matter, listed by git.
       - name: Compute NuGet cache key (Linux)
-        if: runner.os != 'Windows'
+        if: needs.changes.outputs.code == 'true' && runner.os != 'Windows'
         id: nugetkey
         shell: bash
         run: |
@@ -156,7 +187,7 @@ jobs:
 
       # The Windows self-hosted runners have no bash on PATH, so this leg uses PowerShell 7 (pwsh; Windows PowerShell is blocked by the execution policy).
       - name: Compute NuGet cache key (Windows)
-        if: runner.os == 'Windows'
+        if: needs.changes.outputs.code == 'true' && runner.os == 'Windows'
         id: nugetkey-win
         shell: pwsh
         run: |
@@ -198,12 +229,24 @@ jobs:
 
       - name: Build and test (Linux)
         if: needs.changes.outputs.code == 'true' && (runner.os == 'Linux')
-        run: ./build.sh
+        env:
+          ALL: ${{ needs.changes.outputs.all }}
+          PROJECTS: ${{ needs.changes.outputs.projects }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: |
+          # Pull requests build and test only the affected projects; main and unclear cases run everything.
+          if [ "$ALL" = "false" ]; then scripts/ci/build-affected.sh "$PROJECTS" "$TESTS"; else ./build.sh; fi
 
       - name: Build and test (Windows)
         if: needs.changes.outputs.code == 'true' && (runner.os == 'Windows')
         shell: pwsh
-        run: ./build.ps1
+        env:
+          ALL: ${{ needs.changes.outputs.all }}
+          PROJECTS: ${{ needs.changes.outputs.projects }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: |
+          if ($env:ALL -eq 'false') { ./scripts/ci/build-affected.ps1 -Projects $env:PROJECTS -Tests $env:TESTS } else { ./build.ps1 }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       # Test output is only kept when the run fails, to keep artifact storage small.
       - name: Remove the PostgreSQL container
@@ -228,6 +271,8 @@ jobs:
     name: Build Android head
     runs-on: ubuntu-latest
     needs: changes
+    # Skipped when no project the Android head or its gate depends on changed (scripts/ci/affected.py).
+    if: needs.changes.outputs.android == 'true'
     timeout-minutes: 45
     permissions:
       contents: read
@@ -320,6 +365,8 @@ jobs:
     name: Linux client start-up (Xvfb)
     runs-on: ubuntu-latest
     needs: changes
+    # Skipped when no project the Linux head depends on changed (scripts/ci/affected.py).
+    if: needs.changes.outputs.linux_client == 'true'
     timeout-minutes: 30
     permissions:
       contents: read
@@ -343,6 +390,7 @@ jobs:
       # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
       # files that matter, listed by git.
       - name: Compute NuGet cache key
+        if: needs.changes.outputs.code == 'true'
         id: nugetkey
         shell: bash
         run: |
@@ -458,6 +506,7 @@ jobs:
       # hashFiles() walks the whole workspace and timed out (120 s) on the loaded PC runners. Hash only the tracked
       # files that matter, listed by git.
       - name: Compute NuGet cache key
+        if: needs.changes.outputs.code == 'true'
         id: nugetkey
         shell: bash
         run: |
