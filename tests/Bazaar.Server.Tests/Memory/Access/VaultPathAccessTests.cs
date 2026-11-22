@@ -180,6 +180,9 @@ public class VaultPathAccessTests
     [InlineData("projects/alpha")]
     [InlineData("agents/bob")]
     [InlineData("hive")]
+    [InlineData("twin/alpha")]
+    [InlineData("decisions/0001-x.md")]
+    [InlineData("Index.md")]
     public void Unknown_paths_are_denied_by_default(string path)
     {
         Assert.False(_access.CanRead(_owner, P(path)));
@@ -202,6 +205,38 @@ public class VaultPathAccessTests
         Assert.False(_access.CanRead(_carol, P("projects/beta/Index.md")));
         Assert.False(_access.CanRead(_alice, P("projects/gamma/Index.md")));
         Assert.True(_access.CanRead(_dave, P("projects/beta/Index.md")));
+    }
+
+    // Twin pages (twin/<project>/<page>.md, doc 25) are a project area, routed through VaultAccess.ProjectAreaOf like search.
+    [Fact]
+    public void Twin_pages_follow_project_membership_like_project_areas()
+    {
+        Assert.True(_access.CanRead(_owner, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_maintenance, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_alice, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_aliceCover, P("twin/alpha/overview.md")));
+        Assert.True(_access.CanRead(_carol, P("twin/alpha/overview.md")));
+        Assert.False(_access.CanRead(_dave, P("twin/alpha/overview.md")));
+        Assert.False(_access.CanRead(_alice, P("twin/beta/overview.md")));
+        Assert.False(_access.CanResolveLink(_alice, P("projects/alpha/Index.md"), P("twin/beta/overview.md")));
+    }
+
+    [Fact]
+    public void Static_membership_lists_projects_by_the_same_rules_as_is_member()
+    {
+        var membership = new StaticProjectMembership(new Dictionary<string, ProjectMembers>
+        {
+            ["alpha"] = new(new HashSet<string> { "alice", "bob" }, new HashSet<string> { "carol" }),
+            ["beta"] = new(new HashSet<string> { "dave", "alice" }, new HashSet<string>()),
+        });
+
+        Assert.Equal(["alpha", "beta"], membership.ProjectsOf(_alice).Order(StringComparer.Ordinal));
+        Assert.Equal(["alpha", "beta"], membership.ProjectsOf(_aliceCover).Order(StringComparer.Ordinal));
+        Assert.Equal(["alpha"], membership.ProjectsOf(_carol));
+        Assert.Equal(["beta"], membership.ProjectsOf(_dave));
+        Assert.Empty(membership.ProjectsOf(VaultPrincipal.Agent("zed")));
+        Assert.Empty(membership.ProjectsOf(_owner));
+        Assert.Empty(membership.ProjectsOf(_maintenance));
     }
 
     [Fact]
