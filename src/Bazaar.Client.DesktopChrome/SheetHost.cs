@@ -1,4 +1,5 @@
 using Avalonia;
+using System.Globalization;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Controls;
@@ -43,6 +44,8 @@ public sealed class SheetHost
     private readonly TextBlock _titleText;
     private readonly Button _close;
     private readonly Border _contentHost;
+    private readonly List<(Control Target, bool Enabled, AccessibilityView View)> _inert = [];
+    private string _title = string.Empty;
     private SheetKind _kind;
     private IInputElement? _returnFocus;
     private bool _dragging;
@@ -159,6 +162,15 @@ public sealed class SheetHost
     /// <summary>How far a drag has taken the sheet toward dismissal, 0 to 1.</summary>
     public double DragProgress => _drag.Value;
 
+    /// <summary>Says when a sheet opens and closes. Optional; the shell sets it once its live region exists.</summary>
+    public ISheetAnnouncer? Announcer { get; set; }
+
+    /// <summary>
+    /// The controls behind the sheet. While a sheet is on screen they are disabled (no focus, no Tab, no pointer input) and hidden
+    /// from the accessibility tree; their earlier state is restored when it closes.
+    /// </summary>
+    public IList<Control> Background { get; } = [];
+
     /// <summary>Raised after a sheet has closed and focus has gone back.</summary>
     public event EventHandler? Closed;
 
@@ -175,6 +187,7 @@ public sealed class SheetHost
         }
 
         _kind = kind;
+        _title = title;
         _contentHost.Child = content;
         _titleText.Text = title;
         AutomationProperties.SetName(_panel, title);
@@ -182,6 +195,12 @@ public sealed class SheetHost
 
         IsOpen = true;
         _root.IsVisible = true;
+        if (!wasVisible)
+        {
+            MakeBackgroundInert();
+            Announcer?.Announce(string.Format(CultureInfo.CurrentCulture, _labels.SheetOpenedFormat, title));
+        }
+
         _drag.Snap(0);
         if (!wasVisible)
         {
@@ -211,10 +230,34 @@ public sealed class SheetHost
         IsOpen = false;
         _root.IsVisible = false;
         _contentHost.Child = null;
+        RestoreBackground();
+        Announcer?.Announce(string.Format(CultureInfo.CurrentCulture, _labels.SheetClosedFormat, _title));
         IInputElement? target = _returnFocus;
         _returnFocus = null;
         target?.Focus();
         Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void MakeBackgroundInert()
+    {
+        _inert.Clear();
+        foreach (Control target in Background)
+        {
+            _inert.Add((target, target.IsEnabled, AutomationProperties.GetAccessibilityView(target)));
+            target.IsEnabled = false;
+            AutomationProperties.SetAccessibilityView(target, AccessibilityView.Raw);
+        }
+    }
+
+    private void RestoreBackground()
+    {
+        foreach ((Control target, bool enabled, AccessibilityView view) in _inert)
+        {
+            target.IsEnabled = enabled;
+            AutomationProperties.SetAccessibilityView(target, view);
+        }
+
+        _inert.Clear();
     }
 
     private void OnKeyDown(object? sender, KeyEventArgs e)

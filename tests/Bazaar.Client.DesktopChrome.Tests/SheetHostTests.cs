@@ -256,4 +256,66 @@ public class SheetHostTests
         Assert.IsType<SolidColorBrush>(s.Shell.Sheets.Scrim.Background);
         Assert.NotNull(s.Shell.Sheets.Panel.BorderBrush);
     }
+
+    private sealed class RecordingAnnouncer : ISheetAnnouncer
+    {
+        public List<string> Spoken { get; } = [];
+
+        public void Announce(string text) => Spoken.Add(text);
+    }
+
+    [AvaloniaFact]
+    public void Open_and_close_are_announced_once_each()
+    {
+        Setup s = Build();
+        var announcer = new RecordingAnnouncer();
+        s.Shell.Sheets.Announcer = announcer;
+
+        s.Shell.Sheets.Show(s.Inside, "Details");
+        s.Rig.Frames.Settle();
+        s.Shell.Sheets.Show(new Button(), "Details 2");
+        s.Rig.Frames.Settle();
+        s.Shell.Sheets.Dismiss();
+        s.Rig.Frames.Settle();
+
+        Assert.Equal(["Details, dialog opened", "Details 2 closed"], announcer.Spoken);
+    }
+
+    [AvaloniaFact]
+    public void The_background_is_inert_and_hidden_from_the_accessibility_tree_while_a_sheet_is_open()
+    {
+        Setup s = Build();
+        Control[] background = [s.Shell.Sidebar.View, s.Shell.Strip.View, s.Shell.ContentSlot];
+
+        s.Shell.Sheets.Show(s.Inside, "Details", SheetKind.Modal);
+
+        foreach (Control c in background)
+        {
+            Assert.False(c.IsEffectivelyEnabled);
+            Assert.Equal(Avalonia.Automation.AccessibilityView.Raw, Avalonia.Automation.AutomationProperties.GetAccessibilityView(c));
+        }
+
+        Assert.False(s.Before.IsEffectivelyEnabled);
+        Assert.False(s.Before.Focusable && s.Before.IsEffectivelyEnabled);
+        Assert.True(s.Inside.IsEffectivelyEnabled);
+    }
+
+    [AvaloniaFact]
+    public void The_background_state_comes_back_on_close_including_what_it_was_before()
+    {
+        Setup s = Build();
+        s.Shell.Strip.View.IsEnabled = false;
+        Avalonia.Automation.AutomationProperties.SetAccessibilityView(s.Shell.ContentSlot, Avalonia.Automation.AccessibilityView.Content);
+
+        s.Shell.Sheets.Show(s.Inside, "Details");
+        s.Rig.Frames.Settle();
+        s.Shell.Sheets.Dismiss();
+        s.Rig.Frames.Settle();
+
+        Assert.True(s.Shell.Sidebar.View.IsEnabled);
+        Assert.True(s.Shell.ContentSlot.IsEnabled);
+        Assert.False(s.Shell.Strip.View.IsEnabled);
+        Assert.Equal(Avalonia.Automation.AccessibilityView.Content, Avalonia.Automation.AutomationProperties.GetAccessibilityView(s.Shell.ContentSlot));
+        Assert.Same(s.Before, s.Window.FocusManager!.GetFocusedElement());
+    }
 }

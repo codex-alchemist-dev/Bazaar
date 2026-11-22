@@ -7,7 +7,7 @@ namespace Bazaar.Client.DesktopChrome;
 /// <summary>
 /// The desktop window layout (doc 93, Desktop and phone split): the sidebar on the leading side, the top strip above the content, and
 /// the sheet host over everything. The content slot holds the posture layout (chat and pane) and is never wrapped in a material.
-/// Children are added in reading order, so Tab runs sidebar, strip, content, then the sheet when one is open.
+/// Children are added in reading order, so Tab runs sidebar, strip, content, then the sheet when one is open; while a sheet is open the first three are inert and hidden from the accessibility tree.
 /// </summary>
 public sealed class DesktopChromeShell
 {
@@ -61,6 +61,10 @@ public sealed class DesktopChromeShell
         Grid.SetRow(contentSlot, 1);
         main.Children.Add(strip.View);
         main.Children.Add(contentSlot);
+
+        sheets.Background.Add(sidebar.View);
+        sheets.Background.Add(strip.View);
+        sheets.Background.Add(contentSlot);
 
         var root = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
         Grid.SetColumn(sidebar.View, 0);

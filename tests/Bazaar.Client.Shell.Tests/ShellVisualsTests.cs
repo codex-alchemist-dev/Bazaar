@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
 using Avalonia.Media;
+using Bazaar.Accessibility;
 using Bazaar.Client.DesktopChrome;
 using Bazaar.Client.Materials;
 using Bazaar.Client.Motion;
@@ -213,6 +214,51 @@ public class ShellVisualsTests
         frames.Settle();
 
         Assert.False(chrome.Sheets.View.IsVisible);
+    }
+
+    private sealed class RecordingAnnouncer : IShellAnnouncer
+    {
+        public List<(AnnouncementCategory Category, string Text)> Spoken { get; } = [];
+
+        public bool Announce(AnnouncementCategory category, string text)
+        {
+            Spoken.Add((category, text));
+            return true;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Sheet_open_and_close_go_through_the_shell_announcer_whichever_is_set_first(bool announcerFirst)
+    {
+        var frames = new ManualFrames();
+        var (window, visuals, _, _) = Build(_mica, 1000, frames: frames);
+        var announcer = new RecordingAnnouncer();
+        if (announcerFirst)
+        {
+            visuals.AnnounceThrough(announcer);
+        }
+
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, frames);
+        if (!announcerFirst)
+        {
+            visuals.AnnounceThrough(announcer);
+        }
+
+        chrome.Sheets.Show(new Button(), "Details");
+        frames.Settle();
+        chrome.Sheets.Dismiss();
+        frames.Settle();
+
+        Assert.Equal(2, announcer.Spoken.Count);
+        Assert.All(announcer.Spoken, a => Assert.Equal(AnnouncementCategory.Dialog, a.Category));
+    }
+
+    [Fact]
+    public void The_dialog_category_is_not_rate_limited()
+    {
+        Assert.Equal(TimeSpan.Zero, AnnouncementCategorySettings.Default(AnnouncementCategory.Dialog).MinimumInterval);
     }
 
     [AvaloniaFact]

@@ -17,6 +17,12 @@ public sealed record ChromeLabels
 
     public string CloseSheet { get; init; } = "Close";
 
+    /// <summary>Spoken when a sheet opens; {0} is its title.</summary>
+    public string SheetOpenedFormat { get; init; } = "{0}, dialog opened";
+
+    /// <summary>Spoken when a sheet closes; {0} is its title.</summary>
+    public string SheetClosedFormat { get; init; } = "{0} closed";
+
     public string SheetGrip { get; init; } = "Drag to dismiss";
 
     public static ChromeLabels Default { get; } = new();

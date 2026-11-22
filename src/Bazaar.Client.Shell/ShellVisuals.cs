@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Bazaar.Accessibility;
 using Bazaar.Client.DesktopChrome;
 using Bazaar.Client.Materials;
 using Bazaar.Client.Motion.Avalonia;
@@ -17,6 +18,7 @@ public sealed class ShellVisuals : IDisposable
 {
     private readonly MotionSettings _motion;
     private DesktopChromeShell? _chrome;
+    private IShellAnnouncer? _announcer;
 
     private ShellVisuals(ShellMaterials materials, ShellPosture posture, MotionSettings motion)
     {
@@ -79,8 +81,20 @@ public sealed class ShellVisuals : IDisposable
         var placeholder = new Border();
         DesktopChromeShell chrome = DesktopChromeShell.Create(Materials.Surface, theme, _motion, frames ?? new TopLevelFrameDriver(placeholder), content, labels);
         _chrome = chrome;
+        chrome.Sheets.Announcer = _announcer is null ? null : new SheetAnnouncer(_announcer);
         window.Content = chrome.View;
         return chrome;
+    }
+
+    /// <summary>
+    /// Sends sheet open and close announcements through the window's live region (the announcer <see cref="ShellHost.Install"/> returns).
+    /// Works before or after <see cref="MountDesktopChrome"/>.
+    /// </summary>
+    public void AnnounceThrough(IShellAnnouncer announcer)
+    {
+        ArgumentNullException.ThrowIfNull(announcer);
+        _announcer = announcer;
+        _chrome?.Sheets.Announcer = new SheetAnnouncer(announcer);
     }
 
     /// <summary>Switches the window material, the chrome and (through them) every surface to another theme.</summary>
@@ -92,4 +106,9 @@ public sealed class ShellVisuals : IDisposable
     }
 
     public void Dispose() => Posture.Dispose();
+
+    private sealed class SheetAnnouncer(IShellAnnouncer inner) : ISheetAnnouncer
+    {
+        public void Announce(string text) => inner.Announce(AnnouncementCategory.Dialog, text);
+    }
 }
