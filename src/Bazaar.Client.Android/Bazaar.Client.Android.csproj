@@ -46,6 +46,7 @@
     <ProjectReference Include="..\Bazaar.Client.Org\Bazaar.Client.Org.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.GitSolarSystem\Bazaar.Client.GitSolarSystem.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
   </ItemGroup>
 </Project>

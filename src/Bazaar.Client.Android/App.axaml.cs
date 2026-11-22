@@ -12,6 +12,9 @@ using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Interrupts;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Org;
@@ -54,7 +57,7 @@ public sealed class App : Avalonia.Application
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
-        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes (pager order).
+        // The Dashboard comes first, then Constellation, then the rest of the Client.Core panes, then Git Solar System (pager order).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
@@ -67,8 +70,12 @@ public sealed class App : Avalonia.Application
             .. CalendarPanes.Modules,
             .. InterruptPanes.Modules,
             new EnginePaneModule(),
+            .. GitSolarSystemPanes.Modules,
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(tiles);
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(tiles)
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
