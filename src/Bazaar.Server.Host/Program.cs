@@ -1,5 +1,6 @@
 using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
@@ -37,6 +38,7 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapBazaarGeneticMemoryHost();
 app.MapCommunityLog();
 app.MapBazaarSetup();
 app.UseBazaarWire();

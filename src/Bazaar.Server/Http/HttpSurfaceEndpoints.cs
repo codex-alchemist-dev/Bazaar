@@ -46,32 +46,44 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// The authentication step every route of this surface runs first (doc 02 WP10): transport check (403), bearer token (401),
+    /// expiry (401) and the HTTP rate limit (429). Returns the principal, or the answer to send. Public so a module's routes can
+    /// be guarded the same way as the routes here (an endpoint filter calls this); it changes nothing for the routes in this class.
+    /// </summary>
+    public static async Task<(PrincipalRef? Principal, IResult? Failure)> AuthenticateAsync(HttpContext http)
     {
+        ArgumentNullException.ThrowIfNull(http);
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
 
         // Credentials never travel in clear text off the machine unless the operator allowed an overlay network.
         var remote = http.Connection.RemoteIpAddress;
         if (!http.Request.IsHttps && !wire.AllowPlaintextOverlay && remote is not null && !System.Net.IPAddress.IsLoopback(remote))
-            return Error(StatusCodes.Status403Forbidden, "forbidden");
+            return (null, Error(StatusCodes.Status403Forbidden, "forbidden"));
 
         var header = http.Request.Headers.Authorization.ToString();
         var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
-        if (string.IsNullOrEmpty(token)) return Unauthorized(http);
+        if (string.IsNullOrEmpty(token)) return (null, Unauthorized(http));
 
         var auth = await services.GetRequiredService<IConnectionAuthenticator>()
             .AuthenticateAsync(new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), http.RequestAborted);
         if (!auth.Ok || auth.Principal is null || (auth.ExpiresAt is { } expiry && expiry <= services.GetRequiredService<TimeProvider>().GetUtcNow()))
-            return Unauthorized(http);
+            return (null, Unauthorized(http));
 
         if (!services.GetRequiredService<HttpRateLimiter>().TryAcquire(auth.Principal.Id, out var retryAfter))
         {
             http.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
-            return Error(StatusCodes.Status429TooManyRequests, "rate_limited");
+            return (null, Error(StatusCodes.Status429TooManyRequests, "rate_limited"));
         }
 
-        return await run(http, auth.Principal);
+        return (auth.Principal, null);
+    }
+
+    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    {
+        var (principal, failure) = await AuthenticateAsync(http);
+        return failure ?? await run(http, principal!);
     }
 
     private const int _maxTileBodyBytes = 4096;
