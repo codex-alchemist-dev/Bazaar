@@ -40,6 +40,7 @@ public sealed class TalentPoolComponent : IBazaarComponent
         services.TryAddSingleton<ITalentToolGrantApproval>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
         services.TryAddSingleton<ITalentModelWhitelist, GatewayTalentModelWhitelist>();
         services.TryAddSingleton<IAgentCreator>(sp => new AgentRepositoryCreator(sp.GetRequiredService<AgentRepository>()));
+        services.TryAddSingleton(sp => new SoulVersioningService(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ISoulVersionAppender>(sp => new SoulVersionAppender(sp.GetRequiredService<SoulVersioningService>()));
         services.TryAddSingleton<IAgentModelPolicyWriter>(sp => new GatewayModelPolicyWriter(sp.GetRequiredService<AgentModelPolicyRepository>()));
         services.TryAddSingleton<ITalentInstantiator, SoulTalentInstantiator>();
