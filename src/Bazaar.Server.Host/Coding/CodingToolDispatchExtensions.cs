@@ -3,6 +3,7 @@ using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.CodingEdit;
 using Bazaar.Server.CodingRunner;
 using Bazaar.Server.CodingRunner.Handlers;
+using Bazaar.Server.CodingWorkspace;
 using Bazaar.Server.Security.Policy;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -160,6 +161,8 @@ public static class CodingToolDispatchExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<CodingWorktreeRegistry>();
+        services.TryAddSingleton<CodingTaskSessions>();
+        services.TryAddSingleton<ISubagentParentWorkSource>(sp => sp.GetRequiredService<CodingTaskSessions>());
         services.TryAddSingleton<ICodingToolHostContext>(sp => new CodingToolHostContext(
             sp.GetRequiredService<CodingWorktreeRegistry>(),
             sp.GetRequiredService<ICodingAgentFacts>(),
