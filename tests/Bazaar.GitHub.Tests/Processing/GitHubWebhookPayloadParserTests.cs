@@ -215,6 +215,30 @@ public sealed class GitHubWebhookPayloadParserTests
     }
 
     [Fact]
+    public void HeadRef_is_the_head_branch_only_for_a_same_repository_PR()
+    {
+        static string Pull(string headRepo) => $$$$"""
+            {"action": "synchronize", "sender": {"login": "boss"}, "repository": {"node_id": "R_1", "full_name": "o/r"},
+             "pull_request": {"node_id": "PR_1", "number": 12, "title": "t", "state": "open", "updated_at": "2026-11-22T08:00:00Z",
+               "head": {"sha": "abc", "ref": "agent/wake", "repo": {"full_name": "{{{{headRepo}}}}"}}, "base": {"ref": "main", "repo": {"full_name": "O/R"}}, "user": {"login": "carol"}}}
+            """;
+
+        Assert.Equal("agent/wake", ParseOk("pull_request", Pull("o/r")).HeadRef);
+        Assert.Null(ParseOk("pull_request", Pull("fork-owner/r")).HeadRef);
+    }
+
+    [Theory]
+    [InlineData("refs/heads/agent/wake", "1111111111111111111111111111111111111111", "agent/wake")]
+    [InlineData("refs/tags/v1", "1111111111111111111111111111111111111111", null)]
+    [InlineData("refs/heads/agent/wake", "0000000000000000000000000000000000000000", null)]
+    public void A_push_carries_its_branch_name_except_for_tags_and_deletions(string gitRef, string after, string? expected)
+    {
+        var e = ParseOk("push", $$$$"""{"ref": "{{{{gitRef}}}}", "after": "{{{{after}}}}", "sender": {"login": "boss"}, "repository": {"node_id": "R_1"}}""");
+
+        Assert.Equal(expected, e.HeadRef);
+    }
+
+    [Fact]
     public void A_PR_comment_takes_number_title_and_state_from_the_issue()
     {
         var e = ParseOk("issue_comment", """

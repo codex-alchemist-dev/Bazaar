@@ -73,6 +73,12 @@ public sealed record GitHubEvent
 
     public string? BaseRef { get; init; }
 
+    /// <summary>
+    /// The head branch name (PROPOSED, doc 21 PR lookup). On a pull request object: <c>head.ref</c>, only for a same-repository PR (null for a fork).
+    /// On <c>push</c>: the branch from <c>refs/heads/&lt;name&gt;</c> (null for tags and branch deletions). Used to match a push to its PR before the head SHA is stored.
+    /// </summary>
+    public string? HeadRef { get; init; }
+
     /// <summary><c>owner/name</c> of the repository, used for the GC title only. Keys are node ids.</summary>
     public string? RepoFullName { get; init; }
 

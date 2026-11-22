@@ -162,6 +162,7 @@ public static class GitHubEventsApiParser
             PrState = prNodeId is null ? null : PrStateOf(pull) ?? Str(issue, "state"),
             Draft = Bool(pull, "draft"),
             BaseRef = Str(Obj(pull, "base"), "ref"),
+            HeadRef = eventName == "push" ? GitHubBranchRefs.FromPush(Str(payload, "ref"), Str(payload, "head")) : GitHubBranchRefs.SameRepoHeadRef(pull),
             RepoFullName = Str(Obj(e, "repo"), "name"),
             AssigneeLogins = Logins(pull, "assignees").Concat(Logins(pull, "requested_reviewers")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
             IssueNumber = issueNodeId is null ? null : Int(issue, "number"),

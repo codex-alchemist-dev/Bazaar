@@ -160,6 +160,7 @@ public static class GitHubWebhookPayloadParser
                 PrState = prNodeId is null ? null : PrStateOf(pull) ?? Str(issue, "state"),
                 Draft = Bool(pull, "draft"),
                 BaseRef = Str(Obj(pull, "base"), "ref"),
+                HeadRef = eventType == "push" ? GitHubBranchRefs.FromPush(Str(root, "ref"), Str(root, "after")) : GitHubBranchRefs.SameRepoHeadRef(pull),
                 RepoFullName = Str(Obj(root, "repository"), "full_name"),
                 PullRequestNumbers = eventType switch
                 {

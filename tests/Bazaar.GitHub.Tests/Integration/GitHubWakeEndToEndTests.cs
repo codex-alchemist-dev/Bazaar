@@ -56,13 +56,13 @@ public sealed class GitHubWakeEndToEndTests
         await seed.ExecuteNonQueryAsync(ct);
     }
 
-    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = false)
+    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = false, string? extraAgentLogin = null)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Bazaar:GitHub:Ingress:AgentLogins:0"] = _agentLogin,
             ["Bazaar:GitHub:Ingress:MemberLogins:0"] = "boss",
-        }.Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : []))
+        }.Concat(extraAgentLogin is null ? [] : [new KeyValuePair<string, string?>("Bazaar:GitHub:Ingress:AgentLogins:1", extraAgentLogin)]).Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : []))
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
@@ -260,5 +260,67 @@ public sealed class GitHubWakeEndToEndTests
         var gc = GitHubPrService.GcIdFor(_node);
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND created_by = '{_owner}'", ct));
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+    }
+
+    private static string Synchronize(string sha) => $$$"""
+        {"action": "synchronize", "sender": {"login": "{{{_agentLogin}}}"}, "repository": {"node_id": "R_1", "full_name": "codex-alchemist-dev/Bazaar"},
+         "pull_request": {"node_id": "{{{_node}}}", "number": 7, "title": "Wake the agent", "state": "open", "draft": false, "merged": false,
+           "updated_at": "2026-11-22T08:10:00Z", "head": {"sha": "{{{sha}}}", "ref": "agent/wake", "repo": {"full_name": "codex-alchemist-dev/Bazaar"}},
+           "base": {"ref": "main", "repo": {"full_name": "codex-alchemist-dev/Bazaar"}}, "user": {"login": "{{{_agentLogin}}}"}, "assignees": [], "requested_reviewers": []}}
+        """;
+
+    [Fact]
+    public async Task A_push_to_the_PR_branch_lands_in_its_GC_before_the_stored_head_sha_is_updated()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake8", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Synchronize(new string('a', 40)), ct);
+        // The push carries a sha the read model has not seen (the synchronize event is still in flight), but names the PR's branch.
+        await StoreAsync(db.DataSource, "d2", "push", $$$"""{"ref": "refs/heads/agent/wake", "after": "{{{new string('b', 40)}}}", "sender": {"login": "{{{_agentLogin}}}"}, "repository": {"node_id": "R_1"}}""", ct);
+        // A same-named branch push on another repository and a tag push match nothing.
+        await StoreAsync(db.DataSource, "d3", "push", $$$"""{"ref": "refs/heads/agent/wake", "after": "{{{new string('c', 40)}}}", "sender": {"login": "boss"}, "repository": {"node_id": "R_other"}}""", ct);
+        await StoreAsync(db.DataSource, "d4", "push", $$$"""{"ref": "refs/tags/agent/wake", "after": "{{{new string('d', 40)}}}", "sender": {"login": "boss"}, "repository": {"node_id": "R_1"}}""", ct);
+
+        Assert.Equal(4, await processor.ProcessBatchAsync(ct));
+
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_event WHERE gc_id = '{GitHubPrService.GcIdFor(_node)}'", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, "SELECT count(*) FROM github_delivery WHERE processed_at IS NULL", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM github_pr WHERE pr_node_id = '{_node}' AND head_ref = 'agent/wake'", ct));
+    }
+
+    [Fact]
+    public async Task A_mention_of_an_agent_that_is_not_a_member_adds_it_once_and_wakes_it()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        var ada = Guid.Parse("00000000-0000-0000-0000-00000000ada0");
+        const string adaLogin = "ada-bazaar[bot]";
+        await using var db = await PgTestDatabase.CreateAsync("ghwake9", async (ds, token) =>
+        {
+            await MigrateAsync(ds, token);
+            await using var seed = ds.CreateCommand("""
+                INSERT INTO agent (agent_id, name, state) VALUES (@ada, 'Ada', 'active');
+                INSERT INTO github_app (agent_id, app_id, installation_id, account_login, status, key_ref) VALUES (@ada, 2, 2, @login, 'active', 'ref2');
+                """);
+            seed.Parameters.AddWithValue("ada", ada);
+            seed.Parameters.AddWithValue("login", adaLogin);
+            await seed.ExecuteNonQueryAsync(token);
+        }, ct);
+        var processor = Compose(db.DataSource, extraAgentLogin: adaLogin);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "issue_comment", Comment("boss", "MEMBER", $"@{adaLogin} take a look"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{ada}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM inbox_item WHERE agent_id = '{ada}' AND kind = 'mention' AND gc_id = '{gc}'", ct));
+
+        // A second mention adds no second membership row.
+        await StoreAsync(db.DataSource, "d3", "issue_comment", Comment("boss", "MEMBER", $"@{adaLogin} again").Replace("IC_1", "IC_2", StringComparison.Ordinal), ct);
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{ada}'", ct));
     }
 }

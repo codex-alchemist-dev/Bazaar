@@ -267,4 +267,102 @@ public sealed class GitHubPrServiceTests
         Assert.Equal((7, "T", "open", true, "main", "acme/app"), (e.Number, e.Title, e.PrState, e.Draft, e.BaseRef, e.RepoFullName));
         Assert.Equal(["a-bazaar[bot]", "b-bazaar[bot]"], e.AssigneeLogins);
     }
+
+    [Fact]
+    public void The_Events_API_parser_fills_HeadRef_for_same_repo_PRs_and_pushes()
+    {
+        var result = GitHubEventsApiParser.Parse(
+            """
+            [{"id": "9", "type": "PullRequestEvent", "actor": {"login": "alice"}, "created_at": "2026-11-22T10:00:00Z", "repo": {"name": "acme/app"},
+              "payload": {"action": "synchronize", "pull_request": {"node_id": "PR_9", "number": 7, "state": "open",
+                "updated_at": "2026-11-22T10:00:01Z", "head": {"sha": "abc", "ref": "agent/wake", "repo": {"full_name": "acme/app"}}, "base": {"ref": "main", "repo": {"full_name": "acme/app"}}, "user": {"login": "alice"}}}},
+             {"id": "10", "type": "PullRequestEvent", "actor": {"login": "alice"}, "created_at": "2026-11-22T10:00:00Z", "repo": {"name": "acme/app"},
+              "payload": {"action": "synchronize", "pull_request": {"node_id": "PR_10", "number": 8, "state": "open",
+                "updated_at": "2026-11-22T10:00:01Z", "head": {"sha": "abc", "ref": "agent/fork", "repo": {"full_name": "fork/app"}}, "base": {"ref": "main", "repo": {"full_name": "acme/app"}}, "user": {"login": "alice"}}}},
+             {"id": "11", "type": "PushEvent", "actor": {"login": "alice"}, "created_at": "2026-11-22T10:00:00Z", "repo": {"name": "acme/app"},
+              "payload": {"ref": "refs/heads/agent/wake", "head": "dddddddddddddddddddddddddddddddddddddddd"}}]
+            """, "R_node", new HashSet<string>());
+
+        Assert.Equal(["agent/wake", null, "agent/wake"], result.Events.Select(e => e.HeadRef));
+    }
+
+    [Fact]
+    public async Task The_head_branch_is_stored_with_the_PR_and_kept_when_a_later_event_has_none()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprref", MigrateAsync, ct);
+        var service = Service(db.DataSource, new FakeFactory());
+
+        await service.ApplyAsync(Opened(_t0) with { HeadRef = "agent/wake" }, ct);
+        await service.ApplyAsync(Opened(_t0.AddMinutes(1), action: "edited"), ct); // no branch (for example a fork-shaped payload): the stored one stays
+
+        await using var cmd = db.DataSource.CreateCommand("SELECT head_ref FROM github_pr WHERE pr_node_id = @n");
+        cmd.Parameters.AddWithValue("n", _node);
+        Assert.Equal("agent/wake", await cmd.ExecuteScalarAsync(ct));
+    }
+
+    [Fact]
+    public async Task Agents_beyond_the_create_cap_are_added_right_after_the_GC_is_created()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprcap", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var service = new GitHubPrService(db.DataSource, factory, new FakeDirectory(), new GitHubPrGcOptions { MaxAgentMembersAtCreate = 1 }, _owner, _bridge, NullLogger<GitHubPrService>.Instance);
+
+        var result = await service.ApplyAsync(Opened(_t0, reviewer: _reviewerLogin), ct);
+
+        // Charles (the author) fills the one create slot; Ada does not fit and joins at once instead of waiting for her own event.
+        Assert.Equal([_owner, _bridge, _charles, _ada], factory.Members[result!.GcId]);
+        Assert.Equal(1, factory.Creates);
+    }
+
+    [Fact]
+    public async Task A_stale_pull_request_event_does_not_add_the_agents_it_names()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprstale", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var service = Service(db.DataSource, factory);
+
+        var first = await service.ApplyAsync(Opened(_t0), ct);
+        await service.ApplyAsync(Opened(_t0.AddMinutes(-5), action: "review_requested", reviewer: _reviewerLogin), ct);
+
+        Assert.DoesNotContain(_ada, factory.Members[first!.GcId]);
+    }
+
+    [Fact]
+    public async Task The_sink_adds_an_agent_that_a_PR_effect_wakes_once_and_ignores_owner_notices_and_external_effects()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprwoke", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var sink = new GitHubPrGcEventSink(new CallbackSink(() => Task.CompletedTask), Service(db.DataSource, factory));
+        var target = new GcTarget(GcTargetKind.PullRequest, _node);
+        var entry = new GcEntryDraft(target, "pr_event", "Comment mentions ada", null);
+        var mention = new InboxItemDraft(InboxRecipientRole.Mentioned, _reviewerLogin, InboxKind.Mention, Wakes: true);
+        var comment = Opened(_t0.AddMinutes(1)) with { EventName = "issue_comment", Action = "created" };
+        await sink.DeliverAsync(new GitHubEventDelivery(Opened(_t0), "github:poll:1", true, []), ct);
+
+        // An external effect and an owner notice add nobody.
+        await sink.DeliverAsync(new GitHubEventDelivery(comment, "github:poll:2", true,
+            [new MappedGitHubEffect(entry, [mention], GitHubProvenance.External),
+             new MappedGitHubEffect(entry, [new InboxItemDraft(InboxRecipientRole.Owner, null, InboxKind.OwnerNotice, Wakes: true)], GitHubProvenance.Member)]), ct);
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.DoesNotContain(_ada, factory.Members[gc]);
+
+        // A member effect that wakes Ada adds her, and doing it again adds no second row.
+        var woken = new GitHubEventDelivery(comment, "github:poll:3", true, [new MappedGitHubEffect(entry, [mention], GitHubProvenance.Member)]);
+        await sink.DeliverAsync(woken, ct);
+        await sink.DeliverAsync(woken, ct);
+        Assert.Equal([_owner, _bridge, _charles, _ada], factory.Members[gc]);
+
+        // An older event (Apply false) changes no membership.
+        var other = factory.Members[gc].ToList();
+        await sink.DeliverAsync(woken with { Apply = false }, ct);
+        Assert.Equal(other, factory.Members[gc]);
+    }
 }

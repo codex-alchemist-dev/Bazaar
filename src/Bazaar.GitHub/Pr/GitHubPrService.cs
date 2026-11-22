@@ -47,6 +47,7 @@ public sealed partial class GitHubPrService(
         var node = ev.PrNodeId;
         var gcId = GcIdFor(node);
         var created = false;
+        IReadOnlyList<Guid> atCreate = [];
 
         var known = await ReadAsync(node, cancellationToken).ConfigureAwait(false);
         if (known is null)
@@ -57,8 +58,9 @@ public sealed partial class GitHubPrService(
                 return null;
             }
 
+            atCreate = await MembersAtCreateAsync(ev, cancellationToken).ConfigureAwait(false);
             created = await factory.EnsureAsync(
-                gcId, TitleFor(ev, number), creator, await MembersAtCreateAsync(ev, cancellationToken).ConfigureAwait(false),
+                gcId, TitleFor(ev, number), creator, atCreate,
                 new Dictionary<string, string> { ["provider"] = "github", ["pr_node_id"] = node, ["repo_node_id"] = ev.RepoNodeId, ["number"] = number.ToString(System.Globalization.CultureInfo.InvariantCulture) },
                 cancellationToken).ConfigureAwait(false);
         }
@@ -67,13 +69,24 @@ public sealed partial class GitHubPrService(
         if (rowGc is null)
             return null;
 
-        // Agents named by this event join an existing GC. A GC created above already holds them.
-        if (!created && applied)
-            foreach (var login in NamedLogins(ev))
-                if (await directory.ResolveAgentAsync(login, cancellationToken).ConfigureAwait(false) is { } agent)
-                    await factory.AddAgentAsync(rowGc.Value, agent, login, cancellationToken).ConfigureAwait(false);
+        // Agents named by this event join the GC (PROPOSED, doc 21): those that joined at create are skipped, the rest (agents beyond the
+        // create cap included) are added now. A stale pull_request event is not trusted to name current members.
+        if (!(ev.EventName == "pull_request" && !applied))
+            await EnsureAgentsAsync(rowGc.Value, NamedLogins(ev), atCreate, cancellationToken).ConfigureAwait(false);
 
         return new GitHubPrApplyResult(rowGc.Value, created, applied);
+    }
+
+    /// <summary>
+    /// Makes each agent login that resolves to a registered agent a member of the PR GC. Idempotent: an agent that is already a
+    /// member changes nothing (the factory's add is a no-op for a current member), so a replay or a repeated event adds no second row.
+    /// Logins that are not agents are ignored. Used for the PR event's own named logins and for the agents an event wakes.
+    /// </summary>
+    internal async Task EnsureAgentsAsync(Guid gcId, IEnumerable<string> logins, IReadOnlyCollection<Guid> alreadyMembers, CancellationToken cancellationToken)
+    {
+        foreach (var login in logins.Where(static l => !string.IsNullOrWhiteSpace(l)).Distinct(StringComparer.OrdinalIgnoreCase))
+            if (await directory.ResolveAgentAsync(login, cancellationToken).ConfigureAwait(false) is { } agent && !alreadyMembers.Contains(agent))
+                await factory.AddAgentAsync(gcId, agent, login, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<(Guid? GcId, bool Applied)> UpsertAsync(GitHubEvent ev, Guid gcId, CancellationToken ct)
@@ -88,8 +101,8 @@ public sealed partial class GitHubPrService(
             // No conflict target: gc_id is unique too, and a concurrent insert of the same PR can otherwise trip that index instead of the key.
             // A row first made by a comment-type event holds the epoch, so the first pull_request event is never "older".
             const string insert = """
-                INSERT INTO github_pr (pr_node_id, repo_node_id, number, gc_id, head_sha, base_ref, state, draft, updated_at, title, author_login)
-                VALUES (@node, @repo, @number, @gc, @head, @base, COALESCE(@state, 'open'), COALESCE(@draft, false), @updated, @title, @author)
+                INSERT INTO github_pr (pr_node_id, repo_node_id, number, gc_id, head_sha, head_ref, base_ref, state, draft, updated_at, title, author_login)
+                VALUES (@node, @repo, @number, @gc, @head, @headref, @base, COALESCE(@state, 'open'), COALESCE(@draft, false), @updated, @title, @author)
                 ON CONFLICT DO NOTHING
                 """;
             await using var cmd = new NpgsqlCommand(insert, conn, tx);
@@ -124,6 +137,7 @@ public sealed partial class GitHubPrService(
                         state = COALESCE(@state, state),
                         draft = COALESCE(@draft, draft),
                         head_sha = COALESCE(@head, head_sha),
+                        head_ref = COALESCE(@headref, head_ref),
                         base_ref = COALESCE(@base, base_ref),
                         author_login = COALESCE(author_login, @author),
                         updated_at = @updated
@@ -147,6 +161,7 @@ public sealed partial class GitHubPrService(
         cmd.Parameters.AddWithValue("number", number);
         cmd.Parameters.AddWithValue("gc", gcId);
         cmd.Parameters.AddWithValue("head", (object?)ValidSha(ev.HeadSha) ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("headref", (object?)Truncate(NonBlank(ev.HeadRef), 1024) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("base", (object?)NonBlank(ev.BaseRef) ?? DBNull.Value);
         cmd.Parameters.AddWithValue("state", (object?)state ?? DBNull.Value);
         cmd.Parameters.AddWithValue("draft", (object?)DraftOf(ev) ?? DBNull.Value);
@@ -168,7 +183,7 @@ public sealed partial class GitHubPrService(
     private static bool? DraftOf(GitHubEvent ev) =>
         ev.Draft ?? ev.Action switch { "converted_to_draft" => true, "ready_for_review" => false, _ => null };
 
-    private async Task<Guid[]> MembersAtCreateAsync(GitHubEvent ev, CancellationToken ct)
+    private async Task<IReadOnlyList<Guid>> MembersAtCreateAsync(GitHubEvent ev, CancellationToken ct)
     {
         var members = new List<Guid> { creator };
         if (bridge is { } b)
@@ -232,7 +247,20 @@ public sealed class GitHubPrGcEventSink(IGitHubEventSink inner, GitHubPrService 
     public async Task DeliverAsync(GitHubEventDelivery delivery, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(delivery);
-        await prService.ApplyAsync(delivery.Event, cancellationToken).ConfigureAwait(false);
+        var result = await prService.ApplyAsync(delivery.Event, cancellationToken).ConfigureAwait(false);
+
+        // An agent that an effect on this PR wakes (review requested, assigned, mentioned, author of failed checks) must be a member to
+        // read what woke it. External content targets the Inbox GC and never reaches here (PROPOSED, doc 21).
+        if (result is { } applied && delivery.Apply)
+        {
+            var woken = delivery.Effects
+                .Where(static e => !e.HardTaint && e.Entry is { Target.Kind: GcTargetKind.PullRequest })
+                .SelectMany(static e => e.InboxItems)
+                .Where(static i => i.Wakes && i.RecipientRole != InboxRecipientRole.Owner && !string.IsNullOrWhiteSpace(i.RecipientLogin))
+                .Select(static i => i.RecipientLogin!);
+            await prService.EnsureAgentsAsync(applied.GcId, woken, [], cancellationToken).ConfigureAwait(false);
+        }
+
         await inner.DeliverAsync(delivery, cancellationToken).ConfigureAwait(false);
     }
 }

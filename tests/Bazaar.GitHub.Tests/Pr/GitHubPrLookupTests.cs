@@ -15,7 +15,7 @@ public sealed class GitHubPrLookupTests
     {
         public int Calls { get; private set; }
 
-        public Task<GitHubPrMatch?> FindOpenAsync(string repoNodeId, IReadOnlyList<int> numbers, string? headSha, CancellationToken cancellationToken)
+        public Task<GitHubPrMatch?> FindOpenAsync(string repoNodeId, IReadOnlyList<int> numbers, string? headSha, string? headRef, CancellationToken cancellationToken)
         {
             Calls++;
             return Task.FromResult(match);
@@ -39,7 +39,7 @@ public sealed class GitHubPrLookupTests
     private static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
         var assembly = typeof(GitHubComponent).Assembly;
-        foreach (var suffix in new[] { "0001_github_tables.sql", "0004_github_pr_read_model.sql" })
+        foreach (var suffix in new[] { "0001_github_tables.sql", "0004_github_pr_read_model.sql", "0008_github_pr_head_ref.sql" })
         {
             var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith(suffix, StringComparison.Ordinal));
             using var reader = new StreamReader(assembly.GetManifestResourceStream(name)!);
@@ -94,12 +94,67 @@ public sealed class GitHubPrLookupTests
         await AddPrAsync(db.DataSource, "PR_X", "R_2", 7, _shaB, "open", null, ct);
         var lookup = new PgGitHubPrLookup(db.DataSource);
 
-        Assert.Equal("PR_7", (await lookup.FindOpenAsync("R_1", [7], null, ct))!.PrNodeId);
-        Assert.Equal("bob-bazaar[bot]", (await lookup.FindOpenAsync("R_1", [], _shaA, ct))!.AuthorLogin);
-        Assert.Equal(7, (await lookup.FindOpenAsync("R_1", [99], _shaA, ct))!.Number);
-        Assert.Null(await lookup.FindOpenAsync("R_1", [8], _shaB, ct));
-        Assert.Equal("PR_X", (await lookup.FindOpenAsync("R_2", [], _shaB, ct))!.PrNodeId);
-        Assert.Null(await lookup.FindOpenAsync("R_1", [], new string('c', 40), ct));
-        Assert.Null(await lookup.FindOpenAsync("R_1", [], null, ct));
+        Assert.Equal("PR_7", (await lookup.FindOpenAsync("R_1", [7], null, null, ct))!.PrNodeId);
+        Assert.Equal("bob-bazaar[bot]", (await lookup.FindOpenAsync("R_1", [], _shaA, null, ct))!.AuthorLogin);
+        Assert.Equal(7, (await lookup.FindOpenAsync("R_1", [99], _shaA, null, ct))!.Number);
+        Assert.Null(await lookup.FindOpenAsync("R_1", [8], _shaB, null, ct));
+        Assert.Equal("PR_X", (await lookup.FindOpenAsync("R_2", [], _shaB, null, ct))!.PrNodeId);
+        Assert.Null(await lookup.FindOpenAsync("R_1", [], new string('c', 40), null, ct));
+        Assert.Null(await lookup.FindOpenAsync("R_1", [], null, null, ct));
+    }
+
+    [Fact]
+    public async Task Lookup_falls_back_to_the_same_repo_head_branch_after_number_and_sha_and_only_for_open_PRs()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghlookupref", MigrateAsync, ct);
+        await AddPrAsync(db.DataSource, "PR_7", "R_1", 7, _shaA, "open", "bob-bazaar[bot]", ct);
+        await AddPrAsync(db.DataSource, "PR_8", "R_1", 8, _shaB, "closed", null, ct);
+        await AddPrAsync(db.DataSource, "PR_9", "R_1", 9, new string('d', 40), "open", null, ct);
+        await SetHeadRefAsync(db.DataSource, "PR_7", "agent/wake", ct);
+        await SetHeadRefAsync(db.DataSource, "PR_8", "agent/closed", ct);
+        var lookup = new PgGitHubPrLookup(db.DataSource);
+
+        // A new head sha that is not stored yet still finds the PR by its branch.
+        Assert.Equal("PR_7", (await lookup.FindOpenAsync("R_1", [], new string('c', 40), "agent/wake", ct))!.PrNodeId);
+        Assert.Equal("PR_7", (await lookup.FindOpenAsync("R_1", [], null, "agent/wake", ct))!.PrNodeId);
+        // The head sha wins over the branch; the number wins over both.
+        Assert.Equal("PR_9", (await lookup.FindOpenAsync("R_1", [], new string('d', 40), "agent/wake", ct))!.PrNodeId);
+        Assert.Equal("PR_9", (await lookup.FindOpenAsync("R_1", [9], null, "agent/wake", ct))!.PrNodeId);
+        // Closed PRs, other repositories, unknown branches and PRs with no stored branch (fork PRs) do not match.
+        Assert.Null(await lookup.FindOpenAsync("R_1", [], null, "agent/closed", ct));
+        Assert.Null(await lookup.FindOpenAsync("R_2", [], null, "agent/wake", ct));
+        Assert.Null(await lookup.FindOpenAsync("R_1", [], null, "agent/other", ct));
+    }
+
+    [Fact]
+    public async Task Resolve_passes_the_push_branch_to_the_lookup()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var lookup = new RecordingLookup();
+
+        await GitHubPrResolver.ResolveAsync(lookup, Check("push", sha: _shaA) with { HeadRef = "agent/wake" }, ct);
+
+        Assert.Equal("agent/wake", lookup.HeadRef);
+    }
+
+    private sealed class RecordingLookup : IGitHubPrLookup
+    {
+        public string? HeadRef { get; private set; }
+
+        public Task<GitHubPrMatch?> FindOpenAsync(string repoNodeId, IReadOnlyList<int> numbers, string? headSha, string? headRef, CancellationToken cancellationToken)
+        {
+            HeadRef = headRef;
+            return Task.FromResult<GitHubPrMatch?>(null);
+        }
+    }
+
+    private static async Task SetHeadRefAsync(NpgsqlDataSource ds, string node, string headRef, CancellationToken ct)
+    {
+        await using var cmd = ds.CreateCommand("UPDATE github_pr SET head_ref = @ref WHERE pr_node_id = @node");
+        cmd.Parameters.AddWithValue("ref", headRef);
+        cmd.Parameters.AddWithValue("node", node);
+        await cmd.ExecuteNonQueryAsync(ct);
     }
 }
