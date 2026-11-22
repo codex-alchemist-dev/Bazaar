@@ -267,7 +267,7 @@ The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinel
 
 ### 8.1 States
 
-Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal.
+Kodo's health state is one of five values. Each has a colour token from the theme (doc 27) and a text word for accessibility, so colour is never the only signal. The tokens are `color.health.<state>.background` and `color.health.<state>.text`, one pair for each of the five states and for the client-derived `unobserved` display value (section 8.3). A view paints a state with a `badge` whose `variant` is the state name (doc 41c, section 3).
 
 | State | Word | Meaning | Automatic actions allowed |
 |---|---|---|---|
@@ -599,6 +599,18 @@ Every client honours the same accessibility rules: keyboard reachable views, a s
 - Each control is a high-impact action under doc 15: approval tier, audit entry, idempotency key, and a dry-run preview where the action has one. Restart, isolate and roll back are step-up required by default. Owner decision (2026-11-19): approval stays the default, and a per-server admin setting, `kodo.recover.unattended` (section 20), may allow only the unattended host restart and slot switch. Isolate and rollback always need step-up; the setting cannot list them.
 - Viewing logs and traces is separately granted because logs can contain personal data. Defaults grant the owner all of these and grant no other role any of them.
 
+### 14.6 Monitor pane core choices (package 16, first slice, PROPOSED 2026-11-19)
+
+Built in `src/Bazaar.Client.Kodo`: the Status and Fleet views. Choices not settled elsewhere, all PROPOSED:
+
+- **One stream tracker (reducer removed).** The pane uses the shared `Live.KodoStreamTracker` and no other reducer. It applies a snapshot, then deltas by revision (the next revision only); a skipped revision is never applied and asks for a snapshot; `unobserved` is derived from the heartbeat (30 s) and snapshot-freshness (60 s) budgets. `KodoStreamSession` is a thin wrapper in `Bazaar.Client.Kodo` that adds what the panes need around the tracker: `NeedsSnapshot`, `SnapshotRequested` (raised once), `Changed`, `Reconnected()`, the last known score, and holding deltas back until a snapshot arrives after a gap or a reconnect. A snapshot older than the held revision is ignored. The wire snapshot carries no controls, so the Status view copies them from the read API status (`KodoStatusFeed.LastGood.Controls`) into `KodoStatusPaneViewModel.Controls`.
+- **Unobserved.** Derived with `KodoUnobserved.Derive` from the client's own receive time (any event counts). While a snapshot is needed the display is `unobserved` too, so a stale green is never shown. Offline age is the silence since the last event.
+- **Status view.** State word and a theme token per state (`Bazaar.brush.kodo.state.<state>`, falling back to the primary text colour; the theme file should define them). Score is clamped to 0 to 100 and shown as "last known" when unobserved. Open alerts and score caps are not in the stream snapshot, so they arrive through `KodoStatusExtras` from the read API `GET /status`; absent means "not reported", never zero. An open incident is `frozen` with the underlying state in the headline. Component counts come from the snapshot.
+- **Fleet view.** There is no fleet DTO in `Bazaar.Contracts` yet, so `KodoFleetDeviceInput` is a client-side seam that moves to Contracts with the server `GET /fleet`. Version standing ignores build metadata and ranks a release above a pre-release of the same core. Default order is "needs attention first" (stream state, crash rate, behind on version, oldest last seen), ending in device name then id so the order is stable.
+- **Controls.** Shown only when the injected `IKodoPermissions` grants the matching permission (14.5) and the server listed the control; the server's enabled flag and reason are copied. Clicking raises `ControlRequested`; nothing is sent from the client yet. Roles are not implemented here.
+- **Mnemonics.** `KodoMnemonics.Proposed` lists `kodo`, `kstat` and `kfleet` as rows; heads turn them into `Bazaar.Ex` assignments. This project does not reference the registry.
+- **Pane registry.** The views are plain controls built from view models; they are not yet registered with `PaneRegistry` (the pane model there is server-descriptor driven, and Monitor is stream driven). A head hosts them and calls `Refresh()` on `KodoStreamSession.Changed` and on a timer.
+
 ## 15. API
 
 ### 15.1 Read API
@@ -734,6 +746,24 @@ The brief's later addition 1 (2026-11-13, DECIDED): release channels are stable,
 
 - Daily, weekly and monthly reports: score, state history, SLO remaining, incidents, alerts per week and false-positive rate, forecasts with bands, changes in the fleet and the updates applied.
 - Delivered by the chosen channels (16.1). A report is a generated, dated, signed document, and its numbers come from the journal.
+
+### 16.8 Responder implementation choices (package 12, PROPOSED 2026-11-19)
+
+The pure core lives in `src/Bazaar.Kodo/Responder`. It does no I/O, reads time only from a `TimeProvider`, starts no threads and makes no network calls. Channels, step runners, the journal, the state store and the approval gate are interfaces (`IAlertChannel`, `IRunbookActionRunner`, `IRunbookJournal`, `IRunbookStateStore`, `IApprovalGate`). Doc 46 sections 13.4, 16.1 and 16.2 stay the target; these are the choices where the doc is silent or two parts disagree. Nothing here is DECIDED.
+
+- **Severity.** Taken from the state moved into: failing and frozen are critical, degraded is a warning, healthy and recovering are informational. Moving into healthy is a resolution. A flap raises one warning (8.2).
+- **Dedupe, grouping, rate limit.** Same fingerprint and same severity inside 30 minutes is a duplicate; a changed severity is news and is delivered. Alerts of one category inside 60 seconds of the first are grouped, with one summary alert when the window ends (the first alert and any higher-severity alert still go out at once). Each channel takes 6 deliveries per 10 minutes, and critical alerts count apart with a budget of 20. Every window end is exclusive: an event exactly at the boundary starts a new window.
+- **Quiet rule.** A daily UTC window, off by default. It keeps info and warning alerts in the client and the report only. Critical alerts are never quieted.
+- **Breakers.** One breaker per channel (7.4's `CircuitBreaker`, 5 failures, 60 seconds). An open breaker skips the channel and the skip is returned as a suppression, never silent.
+- **Content-free payloads.** A push wake-up carries only an alert id. Email carries the id, severity and rule. Webhook, GC post, in-client and report carry identifiers (category, fingerprint, up to 8 more, all matching the 15.3 identifier shape). A webhook body is built by the existing `KodoWebhookEnvelopeBuilder`; signing, allow list and retry stay in `Export`.
+- **Escalation.** Each category's first segment maps to an owning role (default `owner`). The chain is that role, then `owner`, then `owner-devices`. A critical alert not acknowledged within 15 minutes (setting `kodo.alert.escalation_min.critical`; floor 1 minute, ceiling 24 hours) moves one step up the chain. The caller journals each escalation.
+- **Tracking limit.** At most 1,024 fingerprints and groups are tracked. When the table is full the router delivers instead of suppressing.
+- **Runbooks.** A runbook enters the catalogue only with a valid signature over its canonical bytes (fixed key order, sorted parameters) and a valid definition. An id and version never holds two bodies. A start is refused for an unknown runbook, a digest the caller did not expect, a missing control name, a repeated run id, tainted or malformed input, or a frozen or recovering state (8.1). The step idempotency key is derived as `run id / step id`, not stored in the file.
+- **Approval rule.** A run is unattended only when it is low risk, accepts no approval, is named in `RunbookOptions.AutoRunbookIds` (empty by default), has untainted inputs and starts while the state is healthy. Every other run needs an explicit `Approved` result for each action step, including rollback steps. A pending result pauses the run, a denial ends it (after rolling back finished actions), and a timeout, an error, a mismatched request digest or a missing step-up stops it as needs-human. The executor never approves on timeout; it stops waiting after 4 hours.
+- **Fail-safe.** Journal first, then persist, then act. Any journal or state write failure stops the run as needs-human. An action that was started but has no recorded result is never run again after a restart. A timeout, an exception or a malformed answer from an action is an unknown outcome and stops the run; the same from a read-only step is retried within bounds (3 attempts at most, 5 second delay doubling to 5 minutes). Verify failure and action failure roll back when a rollback is defined; with none defined the run stops for a human. A failed notify step is recorded and does not undo a good fix.
+- **Conflict: restart.** 16.5 lists "restart host through the sentinel" and "switch slot" as auto with no step-up, and 14.5 makes restart, isolate and roll back step-up by default. The shipped fixes follow 14.5. The owner decides whether either may be unattended.
+- **One-click fixes.** The eight actions of 16.5 are runbook definitions in `OneClickFixes` with a single action, a verify step, a precheck and, where reversible, a rollback. They carry no signature, so none can run until the release pipeline signs it. The control is a name only (14.5); nothing here builds roles or approvals. The probe ids of the triggers follow the doc's names and some probes do not exist yet.
+- **State record.** `RunbookRunState` (version 1) is source-generated camelCase JSON with enums as words, unknown members rejected and a 256 KiB parse cap. On any parse or range failure the caller keeps the stored file and treats the run as needs-human.
 
 ## 17. Testing
 
@@ -928,8 +958,9 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Score and SLOs | PLANNED | Formula in 12 |
 | Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
-| Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
+| Monitor pane in each client | PARTIAL | Status and Fleet views built in `src/Bazaar.Client.Kodo` (package 16, first slice): the pane uses the shared `KodoStreamTracker` (one stream tracker; reducer removed) through a thin `KodoStreamSession`, view models, Avalonia views, headless tests. Choices PROPOSED in 14.6. No pane registry registration, palette wiring, stream transport, fleet DTO or endpoint, live metrics, logs, time-travel or map yet |
 | Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
+| Alerts, runbooks, incident mode, summaries | PARTIAL | Pure core in `src/Bazaar.Kodo/Responder` (package 12): alert model and router (severity, dedupe, grouping, rate limit, quiet window, breakers, escalation), runbook catalogue and engine (signed definitions, journalled steps, bounded retries, rollback, resume from saved state), approval gate interface, one-click fix catalogue. Choices PROPOSED in 16.8. No channel, runner, journal or store implementations, no doc 15 gate, no incident mode, post-incident summaries or alert-fatigue metrics yet. Depends on doc 15 approval gates and doc 48 roles |
 | Alerts, runbooks, incident mode, summaries | PLANNED | Depends on doc 15 approval gates |
 | Release ring cohort signals and auto-halt | PLANNED | Depends on doc 49 (rings, channels) and doc 37 (signed releases) |
 | Testing: fault harness, self-checks, chaos mode | PLANNED | Depends on doc 17 sandbox and doc 33 restore |

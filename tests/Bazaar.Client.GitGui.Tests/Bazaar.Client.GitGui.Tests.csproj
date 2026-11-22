@@ -15,5 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.GitGui\Bazaar.Client.GitGui.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
   </ItemGroup>
 </Project>
