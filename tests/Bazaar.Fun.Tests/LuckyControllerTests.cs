@@ -148,10 +148,10 @@ public class LuckyControllerTests
     }
 
     [Fact]
-    public void Wake_list_is_the_participants_in_order()
+    public void Wake_list_is_the_opted_in_participants_in_order()
     {
         var run = StartRun(Controller());
 
-        Assert.Equal(["agent-a", "agent-b"], LuckyController.WakeList(run));
+        Assert.Equal(["agent-b"], LuckyController.WakeList(run));
     }
 }
