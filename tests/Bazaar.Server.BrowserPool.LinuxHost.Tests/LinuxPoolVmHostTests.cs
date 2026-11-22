@@ -22,7 +22,7 @@ public sealed class LinuxPoolVmHostTests
     private static bool IsList(ProcessRequest r) => r.Argv.Count > 1 && r.Argv[1] == "list";
 
     private static LinuxPoolVmHost Host(FakeProcessRunner runner, Func<IReadOnlyList<PoolFirewallRule>, string>? render = null) =>
-        new(runner, render ?? (_ => _document), null, requireLinux: false);
+        new(runner, render ?? (_ => _document), new LinuxPoolHostOptions { ProbeEnabled = false }, requireLinux: false);
 
     private static PoolLaunchSpec Spec(PoolFirewallRule? rule = null) =>
         new("s1", "agent-a", 1, 10001, [], ["/usr/bin/chromium", "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 10.0.0.2"], [], rule ?? _rule);
