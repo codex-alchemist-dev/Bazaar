@@ -31,6 +31,10 @@ The owner's standing answer is to build everything the docs name, so the helper 
 - `Bazaar.Client.Shell` implements it over `WindowChrome` and adds `ShellHost.Attach(window, content, ...)`, the single call a head makes: it attaches the chrome, wraps the content and returns the announcer. It carries no logic of its own beyond composition, so the helper remains the one place that sets direction and mounts the region (no duplicate behaviour).
 - `ShellHost.Install(window, locale, gate)` is the form heads use once the window's content is already set: it moves that content under the chrome and returns the announcer. Windows and Linux call it today. Android has no window, so `WindowChrome.Attach` and `ShellHost.Install` accept any content host control (a `Window` is one); the Android head installs it on its main view. Until a persisted language setting exists, heads pass `SystemLocaleSource` (in `Bazaar.Localisation`), which starts from the operating system's UI language and can be switched at run time.
 
+### 2b. Text scale
+
+Doc 49 asks that text scales to at least 200 percent without loss of function. `WindowChrome.TextScale` (a `TextScaler`) hosts the wrapped content in a layout transform and scales it between 1.0 and 3.0 (values outside are clamped), so measured size follows the scale and a scrollable pane scrolls instead of clipping. The head sets it from the user's text-size setting; the setting itself is the operator-configurable default (configurability rule).
+
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.
