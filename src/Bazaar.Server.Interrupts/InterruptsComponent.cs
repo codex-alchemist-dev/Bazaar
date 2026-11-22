@@ -48,7 +48,7 @@ public sealed class InterruptsComponent : IBazaarComponent
         // System producer (doc 24 section 3): one listener for the Health and Security seams, off until interrupt.system_targets says otherwise.
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, InterruptSettingContribution>());
         services.TryAddSingleton<IInterruptGcResolver>(sp =>
-            sp.GetService<IPresenceStore>() is { } presence ? new PresenceInterruptGcResolver(presence) : new NoInterruptGcResolver());
+            new InterruptGcResolver(sp.GetService<IPresenceStore>(), sp.GetService<IGeneralGcReader>()));
         services.TryAddSingleton(sp => new InterruptSystemProducer(
             sp.GetRequiredService<IInterruptStackService>(),
             sp.GetService<IInterruptSystemTargetsReader>(),

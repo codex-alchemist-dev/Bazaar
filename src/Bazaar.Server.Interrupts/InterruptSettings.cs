@@ -1,5 +1,6 @@
 using Bazaar.Server.Presence.Abstractions;
 using Bazaar.Server.Settings;
+using Bazaar.Server.Setup.FirstRun;
 
 namespace Bazaar.Server.Interrupts;
 
@@ -43,23 +44,26 @@ public interface IInterruptSystemTargetsReader
 }
 
 /// <summary>
-/// The GC where a system frame for an agent is announced: the GC in the agent's presence row. Null when the agent is not working
-/// in one, and then no frame is pushed.
+/// The GC where a system frame for an agent is announced: the GC in the agent's presence row, else the company's general GC.
+/// Null only when neither exists, and then no frame is pushed.
 /// </summary>
 public interface IInterruptGcResolver
 {
     Task<Guid?> ResolveAsync(Guid agentId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>Resolves the working GC from the presence store (doc 23, <c>agent_activity.gc_id</c>).</summary>
-public sealed class PresenceInterruptGcResolver(IPresenceStore presence) : IInterruptGcResolver
+/// <summary>
+/// Resolves the working GC from the presence store (doc 23, <c>agent_activity.gc_id</c>) and falls back to the general GC the
+/// first-run seed made. Either source may be absent: with neither, nothing resolves.
+/// </summary>
+public sealed class InterruptGcResolver(IPresenceStore? presence = null, IGeneralGcReader? general = null) : IInterruptGcResolver
 {
-    public async Task<Guid?> ResolveAsync(Guid agentId, CancellationToken cancellationToken = default) =>
-        (await presence.GetAsync(agentId, cancellationToken).ConfigureAwait(false))?.GcId;
-}
+    public async Task<Guid?> ResolveAsync(Guid agentId, CancellationToken cancellationToken = default)
+    {
+        if (presence is not null
+            && (await presence.GetAsync(agentId, cancellationToken).ConfigureAwait(false))?.GcId is { } gcId)
+            return gcId;
 
-/// <summary>Used when no presence store is registered: no agent has a working GC, so no system frame is pushed.</summary>
-public sealed class NoInterruptGcResolver : IInterruptGcResolver
-{
-    public Task<Guid?> ResolveAsync(Guid agentId, CancellationToken cancellationToken = default) => Task.FromResult<Guid?>(null);
+        return general is null ? null : await general.GetGeneralGcIdAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

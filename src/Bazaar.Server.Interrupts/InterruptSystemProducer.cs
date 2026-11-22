@@ -27,7 +27,7 @@ public sealed partial class InterruptSystemProducer(
     [LoggerMessage(Level = LogLevel.Warning, Message = "interrupt.system_targets is project_members but no project membership source exists; no system frame was pushed.")]
     private static partial void LogNoMembershipSource(ILogger logger);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "No working GC for agent {AgentId}; the system frame was not pushed.")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "No presence GC and no general GC for agent {AgentId}; the system frame was not pushed.")]
     private static partial void LogNoGc(ILogger logger, Guid agentId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "A system interrupt push for agent {AgentId} failed.")]
