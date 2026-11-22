@@ -185,7 +185,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Backup | Backup engine and restore drill. | Partial (`src/Bazaar.Server/Backup`, `Bazaar.Server.Components.Backup`) | `docs/design/33` |
 | Export | Data export. | Planned (part of doc 33) | `docs/design/33` |
 | Search providers | Postgres full-text on Windows, `pg_search` on Linux (blocked on counsel review). | Partial (FTS merged; `pg_search` blocked) | `docs/design/03`, `src/Bazaar.Server.Providers/Search` |
-| Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Planned (Garnet blocked on spike S2) | `docs/design/03` |
+| Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Partial (Garnet module `src/Bazaar.Server.Garnet` built, host wiring pending; Valkey on its own branch) | `docs/design/03` |
 | Windows provider | Windows Service host and Windows providers. | Partial (`src/Bazaar.Server.Providers.Windows`) | `docs/design/03` |
 | Linux provider | systemd host and Linux providers. | Partial (`src/Bazaar.Server.Providers.Linux`, `src/Bazaar.Server/Providers/Linux`) | `docs/design/03` |
 | Bazaar.Server.MSI, Chocolatey, MSIX, AppImage, RPM, OCI image | Packaging artifacts for the server and clients. | Shipped (scripts and packaging merged; MSIX signed with the company server certificate, #510 and #551; CycloneDX SBOM for tagged releases, #538) | `docs/design/37`, `packaging/` |
