@@ -17,6 +17,14 @@ public interface IKekKeyring
     /// <exception cref="KekKeyringException">The keyring refused or could not answer.</exception>
     ValueTask<byte[]> SealAsync(string entryName, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Reports whether the keyring holds a key commitment (an HMAC of the KEK under the entry's wrapping key, stored by
+    /// <see cref="SealAsync"/>) that matches <paramref name="key"/>. False when there is no entry, no commitment or no match; a keyring
+    /// without named entries (DPAPI) always answers false. This is how an interrupted migration is told from a swapped plain file.
+    /// </summary>
+    /// <exception cref="KekKeyringException">The keyring cannot answer.</exception>
+    ValueTask<bool> VerifyCommitmentAsync(string entryName, ReadOnlyMemory<byte> key, CancellationToken cancellationToken);
+
     /// <summary>Opens bytes made by <see cref="SealAsync"/>. Never creates an entry.</summary>
     /// <exception cref="KekKeyringException">The entry is missing, the keyring cannot answer, or the bytes do not authenticate.</exception>
     ValueTask<byte[]> OpenAsync(string entryName, ReadOnlyMemory<byte> sealedKey, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken);
@@ -51,6 +59,29 @@ public enum KekKeyringMode
 {
     Auto,
     Required,
+}
+
+/// <summary>Outcome of <see cref="IKekWrapVerifier.CheckAsync"/>.</summary>
+public enum KekWrapCheck
+{
+    /// <summary>No wrapped DEK exists yet (a fresh install), so nothing proves or disproves the key.</summary>
+    NoWrapsFound,
+
+    /// <summary>At least one existing wrapped DEK header unwrapped under the candidate key.</summary>
+    Verified,
+
+    /// <summary>Wrapped DEKs exist and none unwrapped under the candidate key: it is not this install's KEK.</summary>
+    Failed,
+}
+
+/// <summary>
+/// Checks a candidate KEK against the wrapped DEK headers already on disk (for example the sealed scopes' key headers). The KEK module
+/// uses it before it migrates a plain key file into the keyring, and keeps the pre-migration copy until it reports
+/// <see cref="KekWrapCheck.Verified"/> or <see cref="KekWrapCheck.NoWrapsFound"/> for the sealed key. Optional: without one the copy is kept.
+/// </summary>
+public interface IKekWrapVerifier
+{
+    ValueTask<KekWrapCheck> CheckAsync(IKekProvider candidate, CancellationToken cancellationToken);
 }
 
 /// <summary>Receives KEK custody events (doc 48 section 5), for example <c>kek.keyring_fallback</c>. A failed record fails the open.</summary>

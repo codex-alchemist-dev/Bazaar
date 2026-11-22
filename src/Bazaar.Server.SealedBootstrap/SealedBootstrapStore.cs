@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Bazaar.Server.SealedStorage;
+using Microsoft.Win32.SafeHandles;
 
 namespace Bazaar.Server.SealedBootstrap;
 
@@ -10,6 +11,13 @@ namespace Bazaar.Server.SealedBootstrap;
 /// in scope <see cref="Scope"/>. Configured imports (<see cref="SealedBootstrapOptions.ImportFrom"/>) run before the first operation; a
 /// failed import fails that operation and is retried by the next one, so no value is read while its plaintext source should still be
 /// sealed. Audit entries name the value, never its content.
+/// <para>
+/// Import is best effort at removing plaintext: the source is read and zero-filled through one open handle (so the file read is the file
+/// wiped), refused when it has other hard links, is not a regular file, sits in a group- or other-writable directory, or is replaced
+/// during the import; then it is deleted. A copy-on-write or journaling file system, an SSD with wear levelling or a snapshot can keep
+/// the old blocks, and the managed strings and buffers made on the way are cleared where the runtime allows but are not guaranteed
+/// gone. Import from a file on the doc 63 encrypted volume.
+/// </para>
 /// </summary>
 public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDisposable
 {
@@ -109,18 +117,83 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
         if (!info.Exists)
             throw new FileNotFoundException("The bootstrap import source does not exist.", path);
         if (info.LinkTarget is not null || info.Attributes.HasFlag(FileAttributes.ReparsePoint))
+            throw await RefuseAsync(name, "Import source is a link; nothing was sealed or wiped.", $"Bootstrap import source for '{name}' is a link. Point the import at the real file.", cancellationToken).ConfigureAwait(false);
+
+        // Another account that can write the directory can swap the file between the checks and the delete.
+        if (!OperatingSystem.IsWindows()
+            && Path.GetDirectoryName(path) is { } parent
+            && (File.GetUnixFileMode(parent) & (UnixFileMode.GroupWrite | UnixFileMode.OtherWrite)) != 0)
+            throw await RefuseAsync(name, "The import source's directory is writable by group or others; nothing was sealed or wiped.", $"The directory of the bootstrap import source for '{name}' is writable by group or others. Tighten it (chmod go-w) or move the file.", cancellationToken).ConfigureAwait(false);
+
+        // One handle for the whole import: what is read, zero-filled and identity-checked is one file, whatever the path points to later.
+        SafeFileHandle handle;
+        try
         {
-            await RecordAsync("bootstrap.import.refused", name, "Import source is a link; nothing was sealed or wiped.", cancellationToken).ConfigureAwait(false);
-            throw new InvalidOperationException($"Bootstrap import source for '{name}' is a link. Point the import at the real file.");
+            handle = File.OpenHandle(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            throw await RefuseAsync(name, "The import source cannot be opened for read and write, so it could not be wiped; nothing was sealed.", $"Bootstrap import source for '{name}' cannot be opened for read and write (it must be wipeable). Make it writable by this account.", cancellationToken, ex).ConfigureAwait(false);
         }
 
-        if (info.Length > MaxValueBytes)
-            throw new InvalidOperationException($"Bootstrap import source for '{name}' is larger than {MaxValueBytes} bytes.");
+        SealedBootstrapImportResult result;
+        using (handle)
+        {
+            var identity = FileIdentityReader.FromHandle(handle);
+            if (identity is null)
+                throw await RefuseAsync(name, "The identity of the import source could not be confirmed on this platform; nothing was sealed or wiped.", $"Bootstrap import source for '{name}' could not be verified as a single regular file.", cancellationToken).ConfigureAwait(false);
+            if (!identity.Value.IsRegularFile || identity.Value.Links != 1)
+                throw await RefuseAsync(name, "The import source is not a regular file with exactly one link; nothing was sealed or wiped.", $"Bootstrap import source for '{name}' has other hard links or is not a regular file. Point the import at a file with one link.", cancellationToken).ConfigureAwait(false);
+            if (FileIdentityReader.FromPath(path) is not { IsRegularFile: true } named || !named.IsSameFile(identity.Value))
+                throw await RefuseAsync(name, "The import source's path no longer names the opened file; nothing was sealed or wiped.", $"Bootstrap import source for '{name}' was replaced while it was opened.", cancellationToken).ConfigureAwait(false);
 
-        var raw = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            var length = RandomAccess.GetLength(handle);
+            if (length > MaxValueBytes)
+                throw new InvalidOperationException($"Bootstrap import source for '{name}' is larger than {MaxValueBytes} bytes.");
+
+            result = await SealFromHandleAsync(name, handle, length, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                ZeroFill(handle, Math.Max(length, RandomAccess.GetLength(handle)));
+                if (FileIdentityReader.FromPath(path) is not { } after || !after.IsSameFile(identity.Value))
+                    throw await RefuseAsync(name, "The import source's path no longer names the file that was sealed; it was zero-filled but not deleted.", $"Bootstrap value '{name}' is sealed, but the source path now names another file; it was left alone.", cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                await RecordAsync("bootstrap.import.wipe_failed", name, "The value is sealed but its plaintext source could not be wiped.", CancellationToken.None).ConfigureAwait(false);
+                throw new IOException($"Bootstrap value '{name}' is sealed but its plaintext source could not be wiped; remove it by hand. The next start retries the wipe.", ex);
+            }
+        }
+
+        try
+        {
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            await RecordAsync("bootstrap.import.wipe_failed", name, "The value is sealed and zero-filled but its plaintext source could not be deleted.", CancellationToken.None).ConfigureAwait(false);
+            throw new IOException($"Bootstrap value '{name}' is sealed but its plaintext source could not be deleted; remove it by hand. The next start retries the wipe.", ex);
+        }
+
+        return result;
+    }
+
+    private async ValueTask<SealedBootstrapImportResult> SealFromHandleAsync(string name, SafeFileHandle handle, long length, CancellationToken cancellationToken)
+    {
+        var raw = new byte[length];
         byte[] value;
         try
         {
+            var read = 0;
+            while (read < raw.Length)
+            {
+                var n = RandomAccess.Read(handle, raw.AsSpan(read), read);
+                if (n == 0)
+                    throw new IOException($"Bootstrap import source for '{name}' changed size while it was read.");
+                read += n;
+            }
+
             // The same trimming as the file: resolver, so the sealed value equals what the reference used to resolve to.
             var text = _strictUtf8.GetString(raw).TrimEnd('\r', '\n');
             value = ValueBytes(text);
@@ -139,7 +212,6 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
             using var scope = await _store.OpenScopeAsync(Scope, cancellationToken).ConfigureAwait(false);
             var logical = PathOf(name);
             var existing = await scope.ReadAsync(logical, cancellationToken).ConfigureAwait(false);
-            SealedBootstrapImportResult result;
             if (existing is not null)
             {
                 var same = CryptographicOperations.FixedTimeEquals(existing.Content, value);
@@ -151,27 +223,22 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
                 }
 
                 await RecordAsync("bootstrap.import.already_done", name, "Value already sealed; wiping the plaintext source.", cancellationToken).ConfigureAwait(false);
-                result = SealedBootstrapImportResult.AlreadyImported;
+                return SealedBootstrapImportResult.AlreadyImported;
             }
-            else
+
+            await RecordAsync("bootstrap.import", name, "Sealing a plaintext bootstrap value.", cancellationToken).ConfigureAwait(false);
+            await scope.WriteAsync(logical, value, 0, cancellationToken).ConfigureAwait(false);
+            var back = await scope.ReadAsync(logical, cancellationToken).ConfigureAwait(false);
+            var verified = back is not null && CryptographicOperations.FixedTimeEquals(back.Content, value);
+            if (back is not null)
+                CryptographicOperations.ZeroMemory(back.Content);
+            if (!verified)
             {
-                await RecordAsync("bootstrap.import", name, "Sealing a plaintext bootstrap value.", cancellationToken).ConfigureAwait(false);
-                await scope.WriteAsync(logical, value, 0, cancellationToken).ConfigureAwait(false);
-                var back = await scope.ReadAsync(logical, cancellationToken).ConfigureAwait(false);
-                var verified = back is not null && CryptographicOperations.FixedTimeEquals(back.Content, value);
-                if (back is not null)
-                    CryptographicOperations.ZeroMemory(back.Content);
-                if (!verified)
-                {
-                    await scope.DeleteAsync(logical, cancellationToken).ConfigureAwait(false);
-                    throw new SealTamperedException(Scope, logical, "Imported bootstrap value did not read back identically; plaintext kept.");
-                }
-
-                result = SealedBootstrapImportResult.Imported;
+                await scope.DeleteAsync(logical, cancellationToken).ConfigureAwait(false);
+                throw new SealTamperedException(Scope, logical, "Imported bootstrap value did not read back identically; plaintext kept.");
             }
 
-            await WipeAsync(name, path, cancellationToken).ConfigureAwait(false);
-            return result;
+            return SealedBootstrapImportResult.Imported;
         }
         finally
         {
@@ -179,10 +246,27 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
         }
     }
 
+    private static void ZeroFill(SafeFileHandle handle, long length)
+    {
+        var zeros = new byte[(int)Math.Min(Math.Max(length, 1), 8192)];
+        for (long written = 0; written < length; written += zeros.Length)
+        {
+            RandomAccess.Write(handle, zeros.AsSpan(0, (int)Math.Min(zeros.Length, length - written)), written);
+        }
+
+        RandomAccess.FlushToDisk(handle);
+    }
+
+    private async ValueTask<InvalidOperationException> RefuseAsync(string name, string audit, string message, CancellationToken cancellationToken, Exception? inner = null)
+    {
+        await RecordAsync("bootstrap.import.refused", name, audit, cancellationToken).ConfigureAwait(false);
+        return new InvalidOperationException(message, inner);
+    }
+
     /// <summary>Releases the import gate.</summary>
     public void Dispose() => _importGate.Dispose();
 
-    /// <summary>The value name rule: lower-case letters, digits, '.', '_' and '-', 1 to 64 characters, starting with a letter or digit. KEK names are refused.</summary>
+    /// <summary>The value name rule: lower-case letters, digits, '.', '_' and '-', 1 to 64 characters, starting with a letter or digit. Names that contain <c>kek</c> as a token or start with it are refused.</summary>
     public static void ValidateName(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
@@ -190,7 +274,8 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
             throw new ArgumentException($"Bootstrap value name '{name}' must be 1 to 64 of a-z, 0-9, '.', '_', '-' and start with a letter or digit.", nameof(name));
 
         // Circularity guard (doc 61 "Trust chain"): this scope is wrapped by the KEK, so the KEK and its reference cannot live in it.
-        if (name.StartsWith("kek", StringComparison.Ordinal) || name.StartsWith("identity.kek", StringComparison.Ordinal))
+        // "kek" as any token (split at '.', '_' and '-') or as a prefix is refused, so db.kek or my-kek-path cannot stand in for it.
+        if (name.StartsWith("kek", StringComparison.Ordinal) || name.Split('.', '_', '-').Contains("kek", StringComparer.Ordinal))
             throw new ArgumentException($"'{name}' names the KEK, which cannot be stored in a scope the KEK wraps (doc 61).", nameof(name));
     }
 
@@ -217,31 +302,6 @@ public sealed partial class SealedBootstrapStore : ISealedBootstrapStore, IDispo
         finally
         {
             _importGate.Release();
-        }
-    }
-
-    private async ValueTask WipeAsync(string name, string path, CancellationToken cancellationToken)
-    {
-        try
-        {
-            var length = new FileInfo(path).Length;
-            await using (var stream = new FileStream(path, FileMode.Open, FileAccess.Write, FileShare.None))
-            {
-                var zeros = new byte[Math.Min(length, 8192)];
-                for (long written = 0; written < length; written += zeros.Length)
-                {
-                    await stream.WriteAsync(zeros.AsMemory(0, (int)Math.Min(zeros.Length, length - written)), cancellationToken).ConfigureAwait(false);
-                }
-
-                stream.Flush(flushToDisk: true);
-            }
-
-            File.Delete(path);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            await RecordAsync("bootstrap.import.wipe_failed", name, "The value is sealed but its plaintext source could not be wiped.", CancellationToken.None).ConfigureAwait(false);
-            throw new IOException($"Bootstrap value '{name}' is sealed but its plaintext source could not be wiped; remove it by hand. The next start retries the wipe.", ex);
         }
     }
 

@@ -45,5 +45,10 @@ public sealed class SealedBootstrapSecretResolver(ISealedBootstrapStore store) :
         {
             throw new SecretResolutionException(reference, "the sealed bootstrap scope failed verification (tamper, rollback or wrong KEK); restore from backup.", ex);
         }
+        catch (Exception ex) when (ex is not OperationCanceledException and not SecretResolutionException)
+        {
+            // Whatever else fails (a KEK that will not open, an IO or keyring error, an import that failed) reaches callers as one type that names the reference only.
+            throw new SecretResolutionException(reference, "the sealed bootstrap value could not be read; see the inner exception.", ex);
+        }
     }
 }

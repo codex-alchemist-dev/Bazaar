@@ -24,14 +24,20 @@ public sealed class KeyProtectorKekKeyring : IKekKeyring
     /// <summary>The kind written into a key file sealed by DPAPI.</summary>
     public const string DpapiKind = "dpapi";
 
-    /// <summary>The DPAPI keyring for the <c>file</c> provider, with its own entropy so a blob of the <c>dpapi</c> provider is not interchangeable.</summary>
+    /// <summary>
+    /// The DPAPI keyring for the <c>file</c> provider, with its own entropy so a blob of the <c>dpapi</c> provider is not interchangeable.
+    /// Current-user scope: another local account or another machine cannot open the file; the service account itself, and anyone who can act as it, can.
+    /// </summary>
     [SupportedOSPlatform("windows")]
-    public static KeyProtectorKekKeyring ForDpapi() => new(new DpapiKeyProtector("Bazaar.KEK.file.v1"u8), DpapiKind);
+    public static KeyProtectorKekKeyring ForDpapi() => new(new DpapiKeyProtector("Bazaar.KEK.file.v1"u8, DataProtectionScope.CurrentUser), DpapiKind);
 
     public string Kind { get; }
 
     public ValueTask<KekKeyringProbe> ProbeAsync(string entryName, CancellationToken cancellationToken) =>
         ValueTask.FromResult(new KekKeyringProbe(true, false, null));
+
+    public ValueTask<bool> VerifyCommitmentAsync(string entryName, ReadOnlyMemory<byte> key, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(false);
 
     public ValueTask<byte[]> SealAsync(string entryName, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken)
     {

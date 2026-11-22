@@ -37,7 +37,7 @@ public static class KekProviderFactory
         return Create(chosen, dataRoot);
     }
 
-    private static string Normalise(string? kind) =>
+    internal static string Normalise(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
 
     /// <summary>Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under <paramref name="dataRoot"/>.</summary>
@@ -74,14 +74,15 @@ public static class KekProviderFactory
         KekKeyringMode mode,
         IKekCustodyAuditSink audit,
         TimeProvider? time = null,
+        IKekWrapVerifier? wrapVerifier = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
-        var chosen = string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
+        var chosen = Normalise(kind);
         if (chosen != "file")
             return Create(kind, dataRoot);
 
-        return await FileKekProvider.OpenAsync(Path.Combine(dataRoot, "keys", "kek.bin"), keyring, mode, audit, time, cancellationToken).ConfigureAwait(false);
+        return await FileKekProvider.OpenAsync(Path.Combine(dataRoot, "keys", "kek.bin"), keyring, mode, audit, time, wrapVerifier, cancellationToken: cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Parses <c>Bazaar:Identity:KekKeyring</c>: blank or <c>auto</c> is <see cref="KekKeyringMode.Auto"/>, <c>required</c> tightens it. Anything else fails.</summary>
@@ -94,12 +95,13 @@ public static class KekProviderFactory
         };
 
     /// <summary>The OS keyring for the <c>file</c> provider: DPAPI on Windows, the Secret Service (libsecret) on Linux, none elsewhere.</summary>
-    public static IKekKeyring? DefaultKeyring()
+    /// <param name="secretToolPath">Absolute path of <c>secret-tool</c> on Linux; null uses the standard system locations (never <c>PATH</c>).</param>
+    public static IKekKeyring? DefaultKeyring(string? secretToolPath = null)
     {
         if (OperatingSystem.IsWindows())
             return KeyProtectorKekKeyring.ForDpapi();
         if (OperatingSystem.IsLinux())
-            return new Bazaar.Secrets.Keyring.SecretServiceKekKeyring(new Bazaar.Secrets.Keyring.ProcessSecretToolRunner());
+            return new Bazaar.Secrets.Keyring.SecretServiceKekKeyring(new Bazaar.Secrets.Keyring.ProcessSecretToolRunner(secretToolPath));
         return null;
     }
 

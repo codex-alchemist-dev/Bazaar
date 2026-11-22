@@ -16,7 +16,12 @@ public sealed class SealedBootstrapTests : IDisposable
     private readonly RecordingSink _audit = new();
     private readonly InMemorySealAnchor _anchor = new();
 
-    public SealedBootstrapTests() => Directory.CreateDirectory(_dir);
+    public SealedBootstrapTests()
+    {
+        Directory.CreateDirectory(_dir);
+        if (!OperatingSystem.IsWindows())
+            File.SetUnixFileMode(_dir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
@@ -28,7 +33,11 @@ public sealed class SealedBootstrapTests : IDisposable
     private string PlainFile(string name, string content)
     {
         var path = Path.Combine(_dir, "plain", name);
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        var directory = Path.GetDirectoryName(path)!;
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(directory);
+        else
+            Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         File.WriteAllText(path, content);
         return path;
     }
@@ -170,6 +179,94 @@ public sealed class SealedBootstrapTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_of_a_file_with_another_hard_link_is_refused()
+    {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Hard links are made with ln here.");
+        var path = PlainFile("db.txt", _canary);
+        var alias = Path.Combine(_dir, "plain", "alias.txt");
+        using (var ln = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ln", [path, alias]) { UseShellExecute = false }))
+        {
+            ln!.WaitForExit();
+            Assert.Equal(0, ln.ExitCode);
+        }
+
+        using var store = Bootstrap();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.ImportPlaintextFileAsync("database", path).AsTask());
+
+        Assert.Equal(_canary, File.ReadAllText(path));
+        Assert.Equal(_canary, File.ReadAllText(alias));
+        Assert.Empty(await store.ListNamesAsync());
+        Assert.Contains(_audit.Events, e => e.Kind == "bootstrap.import.refused");
+    }
+
+    [Fact]
+    public async Task Import_from_a_directory_that_group_or_others_can_write_is_refused()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // POSIX modes only.
+        var path = PlainFile("db.txt", _canary);
+        var directory = Path.GetDirectoryName(path)!;
+        File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupWrite);
+        using var store = Bootstrap();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.ImportPlaintextFileAsync("database", path).AsTask());
+
+        Assert.Equal(_canary, File.ReadAllText(path));
+        Assert.Empty(await store.ListNamesAsync());
+
+        File.SetUnixFileMode(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        Assert.Equal(SealedBootstrapImportResult.Imported, await store.ImportPlaintextFileAsync("database", path));
+    }
+
+    [Fact]
+    public async Task Import_reads_and_wipes_through_one_exclusive_handle()
+    {
+        var path = PlainFile("db.txt", _canary);
+        using var store = Bootstrap();
+
+        // While another handle holds the file open exclusively, the import cannot take its own handle, so nothing is sealed.
+        await using (var held = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            await Assert.ThrowsAsync<IOException>(() => store.ImportPlaintextFileAsync("database", path).AsTask());
+        }
+
+        Assert.Empty(await store.ListNamesAsync());
+        Assert.Equal(SealedBootstrapImportResult.Imported, await store.ImportPlaintextFileAsync("database", path));
+    }
+
+    [Fact]
+    public async Task A_file_that_cannot_be_zero_filled_is_refused_before_anything_is_sealed()
+    {
+        if (OperatingSystem.IsWindows())
+            return; // POSIX modes only.
+        var path = PlainFile("db.txt", _canary);
+        File.SetUnixFileMode(path, UnixFileMode.UserRead);
+        using var store = Bootstrap();
+
+        // Root can open anything for writing; the refusal is for ordinary accounts.
+        if (Environment.UserName == "root")
+            return;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.ImportPlaintextFileAsync("database", path).AsTask());
+        Assert.Empty(await store.ListNamesAsync());
+    }
+
+    [Fact]
+    public async Task Resolver_wraps_every_failure_but_cancellation()
+    {
+        var resolver = new SealedBootstrapSecretResolver(new ThrowingStore(new IOException("disk gone")));
+        var ex = await Assert.ThrowsAsync<SecretResolutionException>(() => resolver.ResolveAsync("sealed:database", CancellationToken.None).AsTask());
+        Assert.Equal("sealed:database", ex.Reference);
+        Assert.IsType<IOException>(ex.InnerException);
+        Assert.DoesNotContain("disk gone", ex.Message, StringComparison.Ordinal);
+
+        var other = new SealedBootstrapSecretResolver(new ThrowingStore(new KekKeyringException("keyring down")));
+        await Assert.ThrowsAsync<SecretResolutionException>(() => other.ResolveAsync("sealed:database", CancellationToken.None).AsTask());
+
+        var cancelled = new SealedBootstrapSecretResolver(new ThrowingStore(new OperationCanceledException()));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled.ResolveAsync("sealed:database", CancellationToken.None).AsTask());
+    }
+
+    [Fact]
     public async Task Configured_imports_run_before_the_first_read_and_are_ignored_once_done()
     {
         var path = PlainFile("db.txt", _canary);
@@ -188,6 +285,10 @@ public sealed class SealedBootstrapTests : IDisposable
     [Theory]
     [InlineData("kek")]
     [InlineData("kek.reference")]
+    [InlineData("db.kek")]
+    [InlineData("my-kek-path")]
+    [InlineData("a_kek_b")]
+    [InlineData("kekfile")]
     [InlineData("identity.kek_provider")]
     [InlineData("Database")]
     [InlineData("../x")]
@@ -248,6 +349,19 @@ public sealed class SealedBootstrapTests : IDisposable
         Assert.Throws<ArgumentException>(() => new SealedBootstrapComponent().AddServices(services, kek));
     }
 
+    private sealed class ThrowingStore(Exception failure) : ISealedBootstrapStore
+    {
+        public ValueTask<string> GetAsync(string name, CancellationToken cancellationToken = default) => throw failure;
+
+        public ValueTask SetAsync(string name, string value, CancellationToken cancellationToken = default) => throw failure;
+
+        public ValueTask<bool> RemoveAsync(string name, CancellationToken cancellationToken = default) => throw failure;
+
+        public ValueTask<IReadOnlyList<string>> ListNamesAsync(CancellationToken cancellationToken = default) => throw failure;
+
+        public ValueTask<SealedBootstrapImportResult> ImportPlaintextFileAsync(string name, string path, CancellationToken cancellationToken = default) => throw failure;
+    }
+
     private sealed class RecordingSink : ISealAuditSink
     {
         public List<SealAuditEvent> Events { get; } = [];
@@ -274,6 +388,9 @@ public sealed class SealedBootstrapTests : IDisposable
 
         public ValueTask<KekKeyringProbe> ProbeAsync(string entryName, CancellationToken cancellationToken) =>
             ValueTask.FromResult(KekKeyringProbe.Unavailable("test"));
+
+        public ValueTask<bool> VerifyCommitmentAsync(string entryName, ReadOnlyMemory<byte> key, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(false);
 
         public ValueTask<byte[]> SealAsync(string entryName, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken) =>
             throw new KekKeyringException("offline");

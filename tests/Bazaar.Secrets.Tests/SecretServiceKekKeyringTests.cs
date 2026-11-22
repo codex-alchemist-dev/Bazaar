@@ -19,7 +19,7 @@ public sealed class SecretServiceKekKeyringTests
         var opened = await new SecretServiceKekKeyring(tool).OpenAsync("e", sealedKey, _aad, CancellationToken.None);
 
         Assert.Equal(key, opened);
-        Assert.Equal(1, tool.StoreCount);
+        Assert.Equal(2, tool.StoreCount);
         Assert.False(sealedKey.AsSpan().IndexOf(key) >= 0);
         Assert.DoesNotContain(Convert.ToBase64String(key), tool.Items["e"], StringComparison.Ordinal);
     }
@@ -33,7 +33,7 @@ public sealed class SecretServiceKekKeyringTests
 
         await Assert.ThrowsAsync<KekKeyringException>(() => keyring.OpenAsync("other", sealedKey, _aad, CancellationToken.None).AsTask());
         await Assert.ThrowsAsync<KekKeyringException>(() => keyring.OpenAsync("e", sealedKey, "x"u8.ToArray(), CancellationToken.None).AsTask());
-        Assert.Equal(1, tool.StoreCount);
+        Assert.Equal(2, tool.StoreCount);
     }
 
     [Fact]
@@ -53,6 +53,24 @@ public sealed class SecretServiceKekKeyringTests
         var probe = await missing.ProbeAsync("e", CancellationToken.None);
         Assert.False(probe.Available);
         Assert.Contains("not installed", probe.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_commitment_matches_only_the_key_that_was_sealed()
+    {
+        var tool = new FakeSecretTool();
+        var keyring = new SecretServiceKekKeyring(tool);
+        var key = RandomNumberGenerator.GetBytes(32);
+        Assert.False(await keyring.VerifyCommitmentAsync("e", key, CancellationToken.None));
+
+        await keyring.SealAsync("e", key, _aad, CancellationToken.None);
+
+        Assert.True(await keyring.VerifyCommitmentAsync("e", key, CancellationToken.None));
+        Assert.False(await keyring.VerifyCommitmentAsync("e", RandomNumberGenerator.GetBytes(32), CancellationToken.None));
+        Assert.False(await keyring.VerifyCommitmentAsync("other", key, CancellationToken.None));
+        Assert.DoesNotContain(Convert.ToBase64String(key), tool.Items["bazaar-kek-file-commit/e"], StringComparison.Ordinal);
+        tool.Items.Remove("bazaar-kek-file-commit/e");
+        Assert.False(await keyring.VerifyCommitmentAsync("e", key, CancellationToken.None));
     }
 
     [Fact]
@@ -83,17 +101,19 @@ public sealed class SecretServiceKekKeyringTests
             if (Throw is not null)
                 throw Throw;
             var account = arguments[^1];
+            var service = arguments[arguments.ToList().IndexOf("service") + 1];
+            var itemKey = service == "bazaar-kek-file" ? account : service + "/" + account;
             if (arguments[0] == "lookup")
             {
                 if (LookupResult is not null)
                     return Task.FromResult(LookupResult);
-                return Task.FromResult(Items.TryGetValue(account, out var value) ? new SecretToolResult(0, value, "") : new SecretToolResult(1, "", ""));
+                return Task.FromResult(Items.TryGetValue(itemKey, out var value) ? new SecretToolResult(0, value, "") : new SecretToolResult(1, "", ""));
             }
 
             StoreCount++;
             if (StoreResult is not null)
                 return Task.FromResult(StoreResult);
-            Items[account] = standardInput!;
+            Items[itemKey] = standardInput!;
             return Task.FromResult(new SecretToolResult(0, "", ""));
         }
     }

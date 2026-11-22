@@ -16,6 +16,9 @@ public sealed class FileKekProvider : AesGcmKekProvider
     {
     }
 
+    /// <summary>A provider over an in-memory key (takes ownership), for checking a candidate key against existing wraps.</summary>
+    internal static FileKekProvider FromKey(byte[] key) => new(key);
+
     /// <summary>
     /// Opens the plain key file at <paramref name="keyPath"/>, creating it with a fresh random key when it does not exist. This is the
     /// protected-file path only; the host goes through <see cref="OpenAsync"/>, which seals the file with an OS keyring (doc 61 Q2).
@@ -33,15 +36,19 @@ public sealed class FileKekProvider : AesGcmKekProvider
     /// </summary>
     /// <exception cref="KekKeyringException">The file is sealed and the keyring is unusable or refuses it, a downgrade was found, or <paramref name="mode"/> is required and no keyring is usable.</exception>
     /// <exception cref="InvalidDataException">The file is plain but not a 32-byte key.</exception>
+    /// <param name="wrapVerifier">Optional check of a key against the existing wrapped data keys, used around the plain-to-sealed migration.</param>
+    /// <param name="lockTimeout">How long to wait for the key file lock (default 30 s); a timeout is audited and refused.</param>
     public static async ValueTask<FileKekProvider> OpenAsync(
         string keyPath,
         IKekKeyring? keyring,
         KekKeyringMode mode,
         IKekCustodyAuditSink audit,
         TimeProvider? time = null,
+        IKekWrapVerifier? wrapVerifier = null,
+        TimeSpan? lockTimeout = null,
         CancellationToken cancellationToken = default)
     {
-        var key = await KeyringKekKeyFile.OpenOrCreateAsync(keyPath, keyring, mode, audit, time ?? TimeProvider.System, cancellationToken).ConfigureAwait(false);
+        var key = await KeyringKekKeyFile.OpenOrCreateAsync(keyPath, keyring, mode, audit, time ?? TimeProvider.System, wrapVerifier, lockTimeout, cancellationToken).ConfigureAwait(false);
         return new FileKekProvider(key);
     }
 }

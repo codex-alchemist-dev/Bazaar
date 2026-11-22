@@ -7,6 +7,8 @@ namespace Bazaar.Secrets.Keyring;
 /// Seals the <c>file</c> KEK provider's key file with the Linux Secret Service (libsecret, through <c>secret-tool</c>; doc 61 Q2).
 /// The keyring holds a random 32-byte wrapping key under <c>service=bazaar-kek-file</c>, <c>account=&lt;entry&gt;</c>; the key file holds
 /// the KEK sealed under it with AES-256-GCM (<c>nonce | ciphertext | tag</c>). The wrapping key is never derived from the KEK.
+/// A second item (<c>service=bazaar-kek-file-commit</c>, same account) holds a key commitment, the HMAC-SHA256 of the KEK under the wrapping
+/// key, so a plain key file found next to an existing entry can be told from a swapped one.
 /// Only a clean "no such item" answer creates an entry; any other answer throws, so an unreadable entry is never replaced.
 /// </summary>
 public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyring
@@ -15,6 +17,8 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
     public const string KindName = "libsecret";
 
     private const string _service = "bazaar-kek-file";
+    private const string _commitService = "bazaar-kek-file-commit";
+    private const string _commitLabel = "bazaar.kek.commit.v1";
     private const int _keyBytes = 32;
     private const int _maxReasonLength = 200;
 
@@ -51,7 +55,7 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
 
     public async ValueTask<byte[]> SealAsync(string entryName, ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken)
     {
-        var wrappingKey = await LookupAsync(entryName, cancellationToken).ConfigureAwait(false)
+        var wrappingKey = await LookupAsync(_service, entryName, cancellationToken).ConfigureAwait(false)
             ?? await CreateAsync(entryName, cancellationToken).ConfigureAwait(false);
         try
         {
@@ -60,11 +64,40 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
             nonce.CopyTo(sealedKey, 0);
             using var aes = new AesGcm(wrappingKey, 16);
             aes.Encrypt(nonce, key.Span, sealedKey.AsSpan(12, key.Length), sealedKey.AsSpan(12 + key.Length), associatedData.Span);
+            await StoreCommitmentAsync(entryName, wrappingKey, key, cancellationToken).ConfigureAwait(false);
             return sealedKey;
         }
         finally
         {
             CryptographicOperations.ZeroMemory(wrappingKey);
+        }
+    }
+
+    public async ValueTask<bool> VerifyCommitmentAsync(string entryName, ReadOnlyMemory<byte> key, CancellationToken cancellationToken)
+    {
+        var wrappingKey = await LookupAsync(_service, entryName, cancellationToken).ConfigureAwait(false);
+        if (wrappingKey is null)
+        {
+            return false;
+        }
+
+        var stored = await LookupAsync(_commitService, entryName, cancellationToken).ConfigureAwait(false);
+        if (stored is null)
+        {
+            CryptographicOperations.ZeroMemory(wrappingKey);
+            return false;
+        }
+
+        var expected = Commitment(wrappingKey, key.Span);
+        try
+        {
+            return CryptographicOperations.FixedTimeEquals(stored, expected);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(wrappingKey);
+            CryptographicOperations.ZeroMemory(stored);
+            CryptographicOperations.ZeroMemory(expected);
         }
     }
 
@@ -75,7 +108,7 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
             throw new KekKeyringException("The sealed KEK is too short.");
         }
 
-        var wrappingKey = await LookupAsync(entryName, cancellationToken).ConfigureAwait(false)
+        var wrappingKey = await LookupAsync(_service, entryName, cancellationToken).ConfigureAwait(false)
             ?? throw new KekKeyringException($"The keyring has no entry '{entryName}' for the sealed KEK file. Restore the keyring or the KEK from the recovery bundle (doc 48 section 6).");
         var plain = new byte[sealedKey.Length - 28];
         try
@@ -96,6 +129,51 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
         }
     }
 
+    private static byte[] Commitment(byte[] wrappingKey, ReadOnlySpan<byte> key)
+    {
+        var label = System.Text.Encoding.ASCII.GetBytes(_commitLabel);
+        var data = new byte[label.Length + key.Length];
+        try
+        {
+            label.CopyTo(data, 0);
+            key.CopyTo(data.AsSpan(label.Length));
+            return HMACSHA256.HashData(wrappingKey, data);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(data);
+        }
+    }
+
+    private async Task StoreCommitmentAsync(string entryName, byte[] wrappingKey, ReadOnlyMemory<byte> key, CancellationToken cancellationToken)
+    {
+        var commitment = Commitment(wrappingKey, key.Span);
+        try
+        {
+            var stored = await Run(["store", $"--label=Bazaar KEK file commitment {entryName}", "service", _commitService, "account", entryName], Convert.ToBase64String(commitment), cancellationToken).ConfigureAwait(false);
+            if (stored.ExitCode != 0)
+            {
+                throw new KekKeyringException($"The keyring refused to store the commitment for entry '{entryName}': {Short(stored.StandardError.Trim())}");
+            }
+
+            var readBack = await LookupAsync(_commitService, entryName, cancellationToken).ConfigureAwait(false);
+            var ok = readBack is not null && CryptographicOperations.FixedTimeEquals(readBack, commitment);
+            if (readBack is not null)
+            {
+                CryptographicOperations.ZeroMemory(readBack);
+            }
+
+            if (!ok)
+            {
+                throw new KekKeyringException($"The key commitment for entry '{entryName}' could not be read back.");
+            }
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(commitment);
+        }
+    }
+
     private async Task<byte[]> CreateAsync(string entryName, CancellationToken cancellationToken)
     {
         var fresh = RandomNumberGenerator.GetBytes(_keyBytes);
@@ -108,7 +186,7 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
             }
 
             // Read back, so a silent store failure cannot leave a key file sealed under a key the keyring does not hold.
-            var readBack = await LookupAsync(entryName, cancellationToken).ConfigureAwait(false)
+            var readBack = await LookupAsync(_service, entryName, cancellationToken).ConfigureAwait(false)
                 ?? throw new KekKeyringException($"Keyring entry '{entryName}' was stored but could not be read back.");
             if (!CryptographicOperations.FixedTimeEquals(readBack, fresh))
             {
@@ -125,10 +203,10 @@ public sealed class SecretServiceKekKeyring(ISecretToolRunner runner) : IKekKeyr
     }
 
     /// <summary>Returns the entry's key, or null only for a clean "no such item" (exit 1, no output). Anything else throws.</summary>
-    private async Task<byte[]?> LookupAsync(string entryName, CancellationToken cancellationToken)
+    private async Task<byte[]?> LookupAsync(string service, string entryName, CancellationToken cancellationToken)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(entryName);
-        var result = await Run(["lookup", "service", _service, "account", entryName], null, cancellationToken).ConfigureAwait(false);
+        var result = await Run(["lookup", "service", service, "account", entryName], null, cancellationToken).ConfigureAwait(false);
         if (result.ExitCode == 1 && result.StandardOutput.Length == 0 && result.StandardError.Length == 0)
         {
             return null;
