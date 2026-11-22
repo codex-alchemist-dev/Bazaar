@@ -28,23 +28,22 @@ public sealed class SettingDefinitionTests
     {
         string[] expected =
         [
-            "host.provider.service_host", "host.provider.vm", "host.provider.cache", "host.provider.search",
             "host.readiness.required_roles", "host.shutdown_timeout_seconds", "host.service.restart_delays_minutes",
             "host.service.failure_reset_hours", "host.maintenance_window", "host.db.startup_give_up_minutes",
             "host.status.bind", "host.status.port", "host.service_account", "host.log.retention_days",
             "host.log.max_total_mb", "host.health.disk_used_warn_percent", "host.health.memory_growth_warn_percent",
         ];
 
-        var names = SettingRegistry.Host.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
+        var names = BuiltInSettingRegistries.Host.Definitions.Select(d => d.Name).OrderBy(n => n, StringComparer.Ordinal).ToList();
         Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal), names);
-        Assert.All(SettingRegistry.Host.Definitions, d => Assert.Equal(SettingScope.Install, d.Scope));
-        Assert.All(SettingRegistry.Host.Definitions, d => Assert.Equal(SettingRole.Operator, d.WhoMayChange));
+        Assert.All(BuiltInSettingRegistries.Host.Definitions, d => Assert.Equal(SettingScope.Install, d.Scope));
+        Assert.All(BuiltInSettingRegistries.Host.Definitions, d => Assert.Equal(SettingRole.Operator, d.WhoMayChange));
     }
 
     [Fact]
     public void Every_registered_default_passes_its_own_check()
     {
-        foreach (var definition in SettingRegistry.Host.Definitions)
+        foreach (var definition in BuiltInSettingRegistries.Host.Definitions)
             Assert.Null(Check(definition, definition.DefaultValueJson));
     }
 
@@ -101,15 +100,15 @@ public sealed class SettingDefinitionTests
     [Fact]
     public void Enum_uses_snake_case_names_and_rejects_unknown_names_and_integers()
     {
-        var accepted = Eval(HostSettings.ProviderServiceHost, "\"windows_service\"");
+        var accepted = Eval(HostSettings.StatusBindAddress, "\"loopback\"");
         Assert.Equal(SettingWriteOutcome.Accepted, accepted.Outcome);
-        Assert.Equal("\"windows_service\"", accepted.ValueJson);
+        Assert.Equal("\"loopback\"", accepted.ValueJson);
 
-        var unknown = Eval(HostSettings.ProviderServiceHost, "\"bogus\"");
+        var unknown = Eval(HostSettings.StatusBindAddress, "\"bogus\"");
         Assert.Equal(SettingWriteOutcome.Rejected, unknown.Outcome);
-        Assert.Contains("host.provider.service_host", unknown.Reason);
+        Assert.Contains("host.status.bind", unknown.Reason);
 
-        Assert.Equal(SettingWriteOutcome.Rejected, Eval(HostSettings.ProviderServiceHost, "0").Outcome);
+        Assert.Equal(SettingWriteOutcome.Rejected, Eval(HostSettings.StatusBindAddress, "0").Outcome);
     }
 
     [Fact]

@@ -18,11 +18,18 @@ namespace Bazaar.Server.Agents.Turns;
 /// <param name="runner">The consolidated runner that runs the loop.</param>
 /// <param name="assembler">Builds the context once the turn row exists.</param>
 /// <param name="toolCatalogue">The tool definitions a turn may be offered. Empty by default, so no tools are offered.</param>
+/// <param name="posts">Where a reply goes. Null posts nothing.</param>
+/// <param name="replyTargets">Name the GC for a wake that has no trigger GC, such as a card assignment. A wake with a trigger GC is not posted here: that reply path belongs to the consolidated runner.</param>
 public sealed class TurnRunAdapter(
     TurnRunner runner,
     ITurnContextAssembler assembler,
-    IReadOnlyList<ModelToolDefinition>? toolCatalogue = null) : ITurnRunner
+    IReadOnlyList<ModelToolDefinition>? toolCatalogue = null,
+    IAgentPostSink? posts = null,
+    IEnumerable<ITurnReplyTarget>? replyTargets = null) : ITurnRunner
 {
+    private readonly IAgentPostSink? _posts = posts;
+    private readonly List<ITurnReplyTarget> _replyTargets = replyTargets?.ToList() ?? [];
+
     private readonly TurnRunner _runner = runner ?? throw new ArgumentNullException(nameof(runner));
     private readonly ITurnContextAssembler _assembler = assembler ?? throw new ArgumentNullException(nameof(assembler));
     private readonly IReadOnlyList<ModelToolDefinition> _toolCatalogue = toolCatalogue ?? [];
@@ -46,14 +53,47 @@ public sealed class TurnRunAdapter(
                 Role: request.Role,
                 StepCapOverride: request.StepCapOverride,
                 InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null,
-                ChainDepth: request.ChainDepth),
+                ChainDepth: request.ChainDepth,
+                TriggerGcId: request.TriggerGcId),
             cancellationToken).ConfigureAwait(false);
+
+        var reason = MapReason(result);
+        if (reason == TurnEndReason.FinalMessage && result.TurnId is { } turnId)
+            reason = await PostReplyAsync(request, turnId, result.FinalText, cancellationToken).ConfigureAwait(false);
 
         return new TurnRunOutcome(
             result.TurnId ?? Guid.Empty,
-            MapReason(result),
+            reason,
             result.FinalText,
             result.ModelSteps);
+    }
+
+    /// <summary>
+    /// Posts the final text where a reply-target component says (doc 06 step 5). Only a wake with no trigger GC is posted here. A
+    /// guard refusal or a missing Soul binding leaves the turn completed and reports <see cref="TurnEndReason.PostRefused"/>.
+    /// </summary>
+    private async Task<TurnEndReason> PostReplyAsync(TurnRunRequest request, Guid turnId, string? text, CancellationToken ct)
+    {
+        if (_posts is null || string.IsNullOrWhiteSpace(text) || request.TriggerGcId is not null)
+            return TurnEndReason.FinalMessage;
+
+        foreach (var target in _replyTargets)
+        {
+            if (await target.ResolveGcAsync(request, ct).ConfigureAwait(false) is not { } gcId)
+                continue;
+            try
+            {
+                await _posts.PostAsync(request.AgentId, turnId, gcId.ToString("D"), text, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is Posting.AgentPostRefusedException or Posting.AgentPostUnboundException)
+            {
+                return TurnEndReason.PostRefused;
+            }
+
+            break;
+        }
+
+        return TurnEndReason.FinalMessage;
     }
 
     private async Task<IReadOnlyList<ModelMessage>> BuildMessagesAsync(

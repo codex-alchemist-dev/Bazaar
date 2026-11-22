@@ -115,6 +115,45 @@ public sealed class NpgsqlCommunityDraftStoreTests
     }
 
     [Fact]
+    public async Task ExpireDue_moves_only_due_pending_drafts_and_returns_their_ids()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await CreateDbAsync(ct);
+        using var f = new DraftFixture();
+        var store = new NpgsqlCommunityDraftStore(db.DataSource);
+        var due = NewDraft(f) with { ApprovalExpiresAt = DraftFixture.Start };
+        var late = NewDraft(f) with { ApprovalExpiresAt = DraftFixture.Start.AddSeconds(1) };
+        var decided = NewDraft(f) with { ApprovalExpiresAt = DraftFixture.Start.AddHours(-1) };
+        foreach (var d in new[] { due, late, decided }) await store.TryAddAsync(d, ct);
+        await store.TryReplaceAsync(decided.DraftId, CommunityDraftStatus.Pending, decided with { Status = CommunityDraftStatus.Denied }, ct);
+
+        var ids = await store.ExpireDueAsync(DraftFixture.Start, ct);
+
+        Assert.Equal([due.DraftId], ids);
+        Assert.Equal(CommunityDraftStatus.Expired, (await store.GetAsync(due.DraftId, ct))!.Status);
+        Assert.Equal(CommunityDraftStatus.Pending, (await store.GetAsync(late.DraftId, ct))!.Status);
+        Assert.Equal(CommunityDraftStatus.Denied, (await store.GetAsync(decided.DraftId, ct))!.Status);
+        Assert.Empty(await store.ExpireDueAsync(DraftFixture.Start, ct));
+        Assert.Equal(due.Post.Body, (await store.GetAsync(due.DraftId, ct))!.Post.Body);
+    }
+
+    [Fact]
+    public async Task ExpireDue_run_twice_at_once_returns_each_draft_to_one_caller()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await CreateDbAsync(ct);
+        using var f = new DraftFixture();
+        var store = new NpgsqlCommunityDraftStore(db.DataSource);
+        for (var i = 0; i < 5; i++) await store.TryAddAsync(NewDraft(f) with { ApprovalExpiresAt = DraftFixture.Start }, ct);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ => store.ExpireDueAsync(DraftFixture.Start, ct)));
+
+        var all = results.SelectMany(r => r).ToList();
+        Assert.Equal(5, all.Count);
+        Assert.Equal(5, all.Distinct().Count());
+    }
+
+    [Fact]
     public async Task A_transition_the_lifecycle_forbids_throws_and_changes_nothing()
     {
         var ct = TestContext.Current.CancellationToken;
