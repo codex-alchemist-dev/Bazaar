@@ -169,7 +169,7 @@ Code that leaves `src/Bazaar.Server/Providers/Linux/`: `ValkeyCacheProvider.cs`,
 
 Module identity (PROPOSED): id `valkey`; tags `Deps` and `3rd party`; kind `service` under doc 42 section 4 (hidden supervised child of the host, one per install); licence BSD-3-Clause (doc 42 section 13.2, to be confirmed by the licence scan). The tags are constants in `Bazaar.Server.Valkey.Abstractions` until `ComponentManifest` gains a Tags field (4c.4 item 7). StackExchange.Redis is a NuGet package under central package management and not a dep module (doc 42 section 4 boundary). Its licence is checked by the same scan.
 
-Settings: `host.provider.cache` (doc 03) is unchanged: `auto`, `garnet`, `valkey`, default `auto` (Garnet only after S2). The child-process values are the `deps.valkey.*` rows of doc 42 section 15 (PROPOSED names and defaults, owner to confirm): `deps.valkey.managed`, `deps.valkey.binaryPath`, `deps.valkey.runtimeDirectory`, `deps.valkey.managedPort`, `deps.valkey.maxMemoryMegabytes`, `deps.valkey.memoryWarnPercent`, `deps.valkey.parentDeathWrapper` and `deps.valkey.startWindowSeconds`.
+Settings: there is no provider selector setting (doc 03, Provider modules); the Valkey and Garnet cache modules are both installed and each consumer decides what to do with several. The child-process values are the `deps.valkey.*` rows of doc 42 section 15 (PROPOSED names and defaults, owner to confirm): `deps.valkey.managed`, `deps.valkey.binaryPath`, `deps.valkey.runtimeDirectory`, `deps.valkey.managedPort`, `deps.valkey.maxMemoryMegabytes`, `deps.valkey.memoryWarnPercent`, `deps.valkey.parentDeathWrapper` and `deps.valkey.startWindowSeconds`.
 
 ### 4c.1 Floors and the child process (PROPOSED)
 
