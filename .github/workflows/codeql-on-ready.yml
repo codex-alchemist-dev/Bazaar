@@ -1,0 +1,39 @@
+# Starts the real CodeQL scan when a pull request becomes ready (opened ready, or marked ready for review).
+#
+# codeql.yml scans a branch on push only while its pull request is ready; draft pushes are not scanned and report no
+# Analyze check. A draft that becomes ready has no push to trigger a scan, so this workflow dispatches codeql.yml on
+# the branch. A dispatched run on the branch ref is linked to the pull request the same way a push run is, and its
+# Analyze checks are the ones the required-check rule waits for. If this dispatch fails, the Analyze checks stay
+# missing and the pull request cannot merge. It never reports an Analyze check itself.
+#
+# A dispatch made with GITHUB_TOKEN is allowed to start a workflow (workflow_dispatch is exempt from the rule that
+# GITHUB_TOKEN events start no workflows). Fork pull requests are scanned by codeql.yml's own pull_request trigger.
+
+name: CodeQL on ready
+
+on:
+  pull_request:
+    types: [opened, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-on-ready-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    name: Start CodeQL scan
+    if: github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch codeql.yml on the pull request branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: gh workflow run codeql.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"

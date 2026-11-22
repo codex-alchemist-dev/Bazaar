@@ -35,12 +35,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether this push needs a scan. A branch push is scanned only when its branch has an open, non-draft
+  # pull request. Draft pushes are not scanned and report no Analyze check at all, so a draft can never show a green
+  # Analyze: when the PR is marked ready, or opened ready, codeql-on-ready.yml dispatches this workflow on the branch
+  # and that run is the real scan. If that dispatch ever fails the Analyze checks stay missing and the PR cannot merge
+  # (fail closed). Main, schedule, manual runs, fork pull requests and any API error always scan.
+  gate:
+    name: Decide whether to scan
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      scan: ${{ steps.pr.outputs.scan }}
+    steps:
+      - name: Look up the branch's pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -uo pipefail
+          scan() { echo "scan=$1" >> "$GITHUB_OUTPUT"; echo "scan: $1 ($2)"; exit 0; }
+          if [ "$EVENT" != "push" ] || [ "$REF" = "refs/heads/main" ]; then scan true "event $EVENT on $REF"; fi
+          owner="${GITHUB_REPOSITORY%%/*}"
+          prs="$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" -f state=open -f head="$owner:$REF_NAME" --jq '[.[] | .draft] | @json' 2>/dev/null)" || scan true "lookup failed"
+          case "$prs" in
+            '[]') scan false "no open pull request yet; the opened event dispatches the scan" ;;
+            *false*) scan true "ready pull request" ;;
+            *) scan false "draft pull request; scanned when marked ready" ;;
+          esac
+
   analyze:
+    needs: gate
     name: Analyze (${{ matrix.language }})
     # A pull request from this repository is analysed by the push-triggered run of its branch (see the `on:` comment:
     # the pull_request-only suite is not linked to the PR). Skipping it here stops every PR being scanned twice. Fork
     # pull requests still run here.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    if: needs.gate.outputs.scan == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
