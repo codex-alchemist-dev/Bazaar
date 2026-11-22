@@ -53,6 +53,7 @@ public static class HostApplicationExtensions
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
+        services.AddBazaarHostAthanor(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.
         services.AddBazaarRemoteAuth(configuration);
         services.AddBazaarBlobs(configuration);

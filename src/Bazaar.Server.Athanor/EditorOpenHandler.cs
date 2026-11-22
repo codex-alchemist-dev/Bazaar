@@ -55,6 +55,8 @@ public sealed class EditorOpenHandler
             {
                 case EditorReadStatus.NotFound:
                     return EditorResult.Fail<EditorOpenReply>(EditorErrorCodes.NotFound, "The file does not exist.");
+                case EditorReadStatus.Blocked:
+                    return EditorResult.Fail<EditorOpenReply>(EditorErrorCodes.Forbidden, "That path may not be opened.");
                 case EditorReadStatus.TooLarge:
                     return EditorResult.Fail<EditorOpenReply>(EditorErrorCodes.TooLarge, "The file is too large to open.");
             }

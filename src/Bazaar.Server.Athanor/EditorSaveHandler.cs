@@ -95,6 +95,10 @@ public sealed class EditorSaveHandler
             {
                 case EditorWriteStatus.NotFound:
                     return EditorResult.Fail<EditorSaveReply>(EditorErrorCodes.NotFound, "The file does not exist.");
+                case EditorWriteStatus.Blocked:
+                    return EditorResult.Fail<EditorSaveReply>(EditorErrorCodes.Forbidden, "That path may not be saved.");
+                case EditorWriteStatus.TooLarge:
+                    return EditorResult.Fail<EditorSaveReply>(EditorErrorCodes.TooLarge, "The file on the server is too large to compare.");
                 case EditorWriteStatus.Conflict:
                     return EditorResult.Fail<EditorSaveReply>(
                         EditorErrorCodes.Conflict,

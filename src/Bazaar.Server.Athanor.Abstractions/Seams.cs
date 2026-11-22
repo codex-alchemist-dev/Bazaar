@@ -32,6 +32,9 @@ public enum EditorReadStatus
     Ok,
     NotFound,
     TooLarge,
+
+    /// <summary>The path is refused by the store (a link, a <c>.git</c> segment, a device name, an escape). Maps to <c>editor.forbidden</c>.</summary>
+    Blocked,
 }
 
 /// <summary>A read result. <see cref="Content"/> is null unless <see cref="Status"/> is Ok.</summary>
@@ -43,6 +46,12 @@ public enum EditorWriteStatus
     Written,
     Conflict,
     NotFound,
+
+    /// <summary>The path is refused, or the workspace is read-only. Maps to <c>editor.forbidden</c>.</summary>
+    Blocked,
+
+    /// <summary>The file on the server is over the open limit, so it cannot be returned as a conflict copy. Maps to <c>editor.too_large</c>.</summary>
+    TooLarge,
 }
 
 /// <summary>A write result: <see cref="NewRevision"/> when Written; the current server copy when Conflict.</summary>
@@ -91,4 +100,18 @@ public interface IAthanorLimits
     long MaxSaveBytes { get; }
 
     int SaveRatePerMinute { get; }
+}
+
+/// <summary>A workspace root on disk: what a resolver hands the directory store.</summary>
+/// <param name="Id">The workspace id the client sends.</param>
+/// <param name="Kind">Vault or git worktree; decides the write scope.</param>
+/// <param name="RootPath">Absolute host-side directory.</param>
+/// <param name="ReadOnly">True when saves are refused.</param>
+public sealed record EditorWorkspaceRoot(string Id, EditorWorkspaceKind Kind, string RootPath, bool ReadOnly);
+
+/// <summary>Maps a workspace id to a directory on the server (the Vault repo, a clone or an agent worktree).</summary>
+public interface IEditorWorkspaceResolver
+{
+    /// <summary>The workspace root, or null when the id is unknown to this resolver.</summary>
+    ValueTask<EditorWorkspaceRoot?> ResolveAsync(string workspaceId, CancellationToken cancellationToken);
 }
