@@ -3,14 +3,26 @@ namespace Bazaar.Engines.Adapters;
 /// <summary>
 /// How to start one adapter child process. <see cref="CommandTimeout"/> applies to each <c>command</c> request
 /// (see <see cref="EngineCommandTimeout"/> for the setting's range). <see cref="OutputTailLines"/> sets how many recent
-/// output lines are kept for failure reports.
+/// output lines are kept for failure reports. <see cref="TimeProvider"/> drives the command timeout clock; null means the
+/// system clock, and tests pass a fake one so a timeout fires exactly when the test says.
 /// </summary>
 public sealed record AdapterProcessOptions(
     string FileName,
     IReadOnlyList<string> Arguments,
     TimeSpan CommandTimeout,
     string? WorkingDirectory = null,
-    int OutputTailLines = 20);
+    int OutputTailLines = 20,
+    TimeProvider? TimeProvider = null)
+{
+    /// <summary>The longest single stdout message, in chars. A longer line fails the session. Default 8 MiB.</summary>
+    public int MaxMessageChars { get; init; } = 8 * 1024 * 1024;
+
+    /// <summary>
+    /// Environment variables the server sets on purpose. The child otherwise gets only an allowlisted subset of the
+    /// server's environment (see <c>ChildProcessEnvironment</c>), never the whole of it.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? Environment { get; init; }
+}
 
 /// <summary>The lifecycle state of an <see cref="AdapterHost"/>.</summary>
 public enum AdapterHostState

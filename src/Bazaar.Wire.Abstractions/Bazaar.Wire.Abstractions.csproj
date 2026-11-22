@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Wire transport and codec negotiation contracts (doc 90). BCL only.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+</Project>
