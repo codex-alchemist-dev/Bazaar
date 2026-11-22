@@ -13,6 +13,8 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Host\Bazaar.Server.Host.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
