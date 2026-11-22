@@ -3,26 +3,32 @@ namespace Bazaar.Server.Agents.Data;
 /// <summary>
 /// In-memory <see cref="IAgentFirstRunSeeds"/> with the same rules as <see cref="PgAgentFirstRunSeeds"/>. Used by tests and by
 /// hosts that run without a database. Turns are not modelled, so <see cref="MarkTurnStarted"/> stands in for a turn start.
+/// <see cref="CreateHeldAsync"/> calls the default policy grant once for each agent it creates, as the Postgres seeds do.
 /// </summary>
-public sealed class InMemoryAgentFirstRunSeeds : IAgentFirstRunSeeds
+public sealed class InMemoryAgentFirstRunSeeds(IAgentDefaultPolicyGrant? defaultPolicyGrant = null) : IAgentFirstRunSeeds
 {
+    private readonly IAgentDefaultPolicyGrant _defaultPolicyGrant = defaultPolicyGrant ?? NoAgentDefaultPolicyGrant.Instance;
     private readonly Lock _gate = new();
     private readonly Dictionary<Guid, Row> _agents = [];
     private readonly HashSet<Guid> _started = [];
 
     /// <inheritdoc />
-    public Task<Guid> CreateHeldAsync(string name, string marker, Guid? soulVersionId = null, CancellationToken ct = default)
+    public async Task<Guid> CreateHeldAsync(string name, string marker, Guid? soulVersionId = null, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentException.ThrowIfNullOrEmpty(marker);
+        Guid id;
         lock (_gate)
         {
             if (_agents.Values.Any(row => row.Marker == marker))
                 throw new InvalidOperationException("An agent with this first-run marker already exists. Use FindByMarkerAsync.");
-            var id = Guid.CreateVersion7();
+            id = Guid.CreateVersion7();
             _agents[id] = new Row(id, name, soulVersionId, AgentState.Created, Held: true, marker);
-            return Task.FromResult(id);
         }
+
+        // Only a newly created agent gets the grant. A marker match is refused above, so no grant runs for an existing agent.
+        await _defaultPolicyGrant.GrantAsync(id, ct).ConfigureAwait(false);
+        return id;
     }
 
     /// <inheritdoc />

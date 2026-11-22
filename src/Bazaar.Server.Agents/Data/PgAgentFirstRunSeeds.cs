@@ -5,9 +5,12 @@ namespace Bazaar.Server.Agents.Data;
 /// <summary>
 /// Postgres implementation of <see cref="IAgentFirstRunSeeds"/> over the <c>agent</c> table (migration <c>agents/0001</c>).
 /// SQL-first, like <see cref="AgentRepository"/>. Only <see cref="RemoveUnstartedAsync"/> runs in a transaction.
+/// <see cref="CreateHeldAsync"/> calls <paramref name="defaultPolicyGrant"/> once for each agent it creates.
 /// </summary>
-public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource) : IAgentFirstRunSeeds
+public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource, IAgentDefaultPolicyGrant? defaultPolicyGrant = null) : IAgentFirstRunSeeds
 {
+    private readonly IAgentDefaultPolicyGrant _defaultPolicyGrant = defaultPolicyGrant ?? NoAgentDefaultPolicyGrant.Instance;
+
     private const string UniqueViolation = "23505";
 
     /// <inheritdoc />
@@ -16,6 +19,7 @@ public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource) : IAgentFi
         ArgumentException.ThrowIfNullOrEmpty(name);
         ArgumentException.ThrowIfNullOrEmpty(marker);
 
+        Guid agentId;
         await using var cmd = dataSource.CreateCommand("""
             INSERT INTO agent (name, soul_version_id, state, first_run_hold, first_run_marker)
             VALUES (@name, @soul_version_id, 'created', true, @marker)
@@ -26,12 +30,16 @@ public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource) : IAgentFi
         cmd.Parameters.AddWithValue("marker", marker);
         try
         {
-            return (Guid)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
+            agentId = (Guid)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
         }
         catch (PostgresException ex) when (ex.SqlState == UniqueViolation && ex.ConstraintName == "agent_first_run_marker_key")
         {
             throw new InvalidOperationException("An agent with this first-run marker already exists. Use FindByMarkerAsync.", ex);
         }
+
+        // Only a newly created agent gets the grant. A marker match is refused above, so no grant runs for an existing agent.
+        await _defaultPolicyGrant.GrantAsync(agentId, ct).ConfigureAwait(false);
+        return agentId;
     }
 
     /// <inheritdoc />
