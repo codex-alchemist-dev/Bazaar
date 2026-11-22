@@ -87,6 +87,7 @@
     <ProjectReference Include="..\Bazaar.Server.Engines\Bazaar.Server.Engines.csproj" />
     <ProjectReference Include="..\Bazaar.Server.EngineGcRecorder\Bazaar.Server.EngineGcRecorder.csproj" />
     <ProjectReference Include="..\Bazaar.Server.EngineRelay\Bazaar.Server.EngineRelay.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Kodo.Postgres\Bazaar.Server.Kodo.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Postgres\Bazaar.Server.Presence.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Sources\Bazaar.Server.Presence.Sources.csproj" />
