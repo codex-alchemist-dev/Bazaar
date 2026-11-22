@@ -1,3 +1,5 @@
+using Bazaar.Community.Drafts;
+using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -35,6 +37,9 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapCommunityLog();
+app.MapCommunityDraftDecision();
+app.MapCommunityDraftReads();
 app.UseBazaarWire();
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
