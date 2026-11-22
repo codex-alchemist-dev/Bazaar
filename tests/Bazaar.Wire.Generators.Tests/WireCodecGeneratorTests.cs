@@ -7,7 +7,7 @@ namespace Bazaar.Wire.Generators.Tests;
 
 public class WireCodecGeneratorTests
 {
-    private const string Marker = """
+    private const string _marker = """
         namespace Bazaar.Contracts.Wire
         {
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple = true)]
@@ -20,7 +20,7 @@ public class WireCodecGeneratorTests
         }
         """;
 
-    private const string OptIn = "[assembly: Bazaar.Wire.Generators.GenerateWireCodec(\"cbor\")]";
+    private const string _optIn = "[assembly: Bazaar.Wire.Generators.GenerateWireCodec(\"cbor\")]";
 
     private static (ImmutableArray<Diagnostic> Diagnostics, string[] Files, string Text) Run(string source)
     {
@@ -30,7 +30,7 @@ public class WireCodecGeneratorTests
             .ToArray();
         var compilation = CSharpCompilation.Create(
             "Bazaar.Test",
-            [CSharpSyntaxTree.ParseText(Marker, cancellationToken: TestContext.Current.CancellationToken), CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken)],
+            [CSharpSyntaxTree.ParseText(_marker, cancellationToken: TestContext.Current.CancellationToken), CSharpSyntaxTree.ParseText(source, cancellationToken: TestContext.Current.CancellationToken)],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
         var driver = CSharpGeneratorDriver.Create(new WireCodecGenerator()).RunGenerators(compilation, TestContext.Current.CancellationToken);
@@ -53,7 +53,7 @@ public class WireCodecGeneratorTests
     {
         var (diagnostics, files, text) = Run($$"""
             using Bazaar.Contracts.Wire;
-            {{OptIn}}
+            {{_optIn}}
             [WirePayload("a.one")] [WirePayload("a.two")] public sealed record A(int FirstValue, string? Name);
             [WirePayload] public sealed record B(System.Guid GcId, System.Collections.Generic.IReadOnlyList<A> Items);
             """);
@@ -70,7 +70,7 @@ public class WireCodecGeneratorTests
     [Fact]
     public void Output_is_stable_between_runs()
     {
-        const string Source = "using Bazaar.Contracts.Wire;\n" + OptIn + "\n[WirePayload] public sealed record A(int X); [WirePayload] public sealed record B(string Y);";
+        const string Source = "using Bazaar.Contracts.Wire;\n" + _optIn + "\n[WirePayload] public sealed record A(int X); [WirePayload] public sealed record B(string Y);";
 
         Assert.Equal(Run(Source).Text, Run(Source).Text);
     }
@@ -78,7 +78,7 @@ public class WireCodecGeneratorTests
     [Fact]
     public void An_unsupported_property_type_is_reported()
     {
-        var (diagnostics, _, _) = Run($"using Bazaar.Contracts.Wire;\n{OptIn}\n[WirePayload] public sealed record A(System.Collections.Generic.Dictionary<string, string> Bag);");
+        var (diagnostics, _, _) = Run($"using Bazaar.Contracts.Wire;\n{_optIn}\n[WirePayload] public sealed record A(System.Collections.Generic.Dictionary<string, string> Bag);");
 
         Assert.Contains(diagnostics, d => d.Id == "BWG003");
     }
@@ -86,7 +86,7 @@ public class WireCodecGeneratorTests
     [Fact]
     public void The_same_message_type_on_two_records_is_reported()
     {
-        var (diagnostics, _, _) = Run($"using Bazaar.Contracts.Wire;\n{OptIn}\n[WirePayload(\"x\")] public sealed record A(int X); [WirePayload(\"x\")] public sealed record B(int Y);");
+        var (diagnostics, _, _) = Run($"using Bazaar.Contracts.Wire;\n{_optIn}\n[WirePayload(\"x\")] public sealed record A(int X); [WirePayload(\"x\")] public sealed record B(int Y);");
 
         Assert.Contains(diagnostics, d => d.Id == "BWG006");
     }
@@ -106,7 +106,7 @@ public class WireCodecGeneratorTests
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
-        var compilation = CSharpCompilation.Create("NoContracts", [CSharpSyntaxTree.ParseText(OptIn, cancellationToken: TestContext.Current.CancellationToken)], references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        var compilation = CSharpCompilation.Create("NoContracts", [CSharpSyntaxTree.ParseText(_optIn, cancellationToken: TestContext.Current.CancellationToken)], references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         var result = CSharpGeneratorDriver.Create(new WireCodecGenerator()).RunGenerators(compilation, TestContext.Current.CancellationToken).GetRunResult();
 
