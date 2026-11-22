@@ -1,6 +1,6 @@
-using System.Text.Json;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json;
 using Bazaar.Wire.Abstractions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -60,8 +60,12 @@ internal sealed class WireDiscoveryService(
     IWireSchemaSource schemas,
     IWireDiscoveryCatalog catalog,
     FixedWindowClientLimiter limiter,
-    IOptionsMonitor<WireDiscoveryOptions> options)
+    IOptionsMonitor<WireDiscoveryOptions> options,
+    IEnumerable<WireDiscoveryLiveSettings> liveSettings)
 {
+    // Null when no host registered live settings (a bare AddBazaarWireDiscovery): options alone apply.
+    private readonly WireDiscoveryLiveSettings? _live = liveSettings.FirstOrDefault();
+
     private readonly Lazy<Dictionary<string, string>> _digests = new(() => schemas.Names.ToDictionary(
         n => n,
         n => schemas.TryGet(n, out var a) ? Digest(a.Content.Span) : string.Empty,
@@ -69,7 +73,7 @@ internal sealed class WireDiscoveryService(
 
     public IResult Document(HttpContext context)
     {
-        var settings = options.CurrentValue;
+        var settings = Effective();
         if (Gate(context, settings) is { } refused)
         {
             return refused;
@@ -94,7 +98,7 @@ internal sealed class WireDiscoveryService(
 
     public IResult Schema(HttpContext context, string name)
     {
-        var settings = options.CurrentValue;
+        var settings = Effective();
         if (Gate(context, settings) is { } refused)
         {
             return refused;
@@ -107,6 +111,8 @@ internal sealed class WireDiscoveryService(
 
         return Respond(context, settings, artifact.Content, artifact.ContentType, digest);
     }
+
+    private WireDiscoveryOptions Effective() => _live is null ? options.CurrentValue : _live.Overlay(options.CurrentValue);
 
     /// <summary>Disabled gives 404; over the limit gives 429. Null means the request may proceed.</summary>
     private IResult? Gate(HttpContext context, WireDiscoveryOptions settings)

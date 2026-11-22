@@ -21,6 +21,9 @@ public sealed class WireDiscoveryOptions
     /// <summary><c>Cache-Control</c> max-age in seconds. Default 300.</summary>
     public int CacheMaxAgeSeconds { get; set; } = 300;
 
+    /// <summary>How often the live operator settings are re-read from the settings store. Default 5 seconds, so an operator change applies within that time.</summary>
+    public TimeSpan SettingsRefreshInterval { get; set; } = TimeSpan.FromSeconds(5);
+
     internal bool IsValid(out string error)
     {
         if (PermitLimit < 1)
@@ -38,6 +41,10 @@ public sealed class WireDiscoveryOptions
         else if (CacheMaxAgeSeconds < 0)
         {
             error = "CacheMaxAgeSeconds must not be negative.";
+        }
+        else if (SettingsRefreshInterval <= TimeSpan.Zero)
+        {
+            error = "SettingsRefreshInterval must be positive.";
         }
         else if (string.IsNullOrEmpty(BasePath) || BasePath[0] != '/' || BasePath.Length > 1 && BasePath[^1] == '/')
         {
