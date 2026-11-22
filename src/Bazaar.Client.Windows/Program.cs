@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
+using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
@@ -23,8 +24,10 @@ using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
+using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
 
@@ -105,6 +108,8 @@ internal static class Program
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
+            // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
+            ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
             return window;
         }
 
