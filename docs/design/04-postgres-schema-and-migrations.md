@@ -114,6 +114,8 @@ Every data test runs against a real PostgreSQL 18 with pgvector.
 6. **Implementation plan.** `implementation-plan.md` still allows EF Core for CRUD; CLAUDE.md (no ORM in the core) governs and the plan must be corrected.
 7. **Requests to other docs.** Doc 06 adds its tables through `common/` migrations and FKs into `gc_member`. Doc 05 owns `gw_usage` with 5-minute and 1-hour cache-write columns. Docs 08 and 18 store embeddings keyed by `embedding_profile`. Doc 15 owns `audit_log`. Doc 01 owns the GC type registry. Doc 33 owns the restore policy and erasure flow. `Bazaar.Server.md` §3 still says "monthly partitioning" and must be corrected.
 
+**Council vote flag [PROPOSED].** `council_vote.high_impact boolean not null default false` is added by migration `council/0002` in the Council component's own namespace (`common/` is frozen). The column is plain data with no personal text and is written once at insert. Doc 10 (Follow-up on dissent) owns its meaning.
+
 Moved to owner docs (not decided here): raw usage retention (05), audit retention (15), backup targets (33), reputation weights (11), ballot secrecy (10), cost-chip estimates (05, 23).
 
 ## Questions for the owner
