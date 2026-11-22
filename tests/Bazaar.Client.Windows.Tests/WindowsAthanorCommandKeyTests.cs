@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
@@ -72,11 +73,38 @@ public sealed class WindowsAthanorCommandKeyTests
 
         Type(window, "eddiff");
         await Task.Delay(100, TestContext.Current.CancellationToken);
-        Type(window, "edopen");
-        await Task.Delay(100, TestContext.Current.CancellationToken);
 
         Assert.Contains(log, l => l.Contains(AthanorClientModule.DiffCommandId, StringComparison.Ordinal) && l.Contains("No document is open", StringComparison.Ordinal));
-        Assert.Contains(log, l => l.Contains(AthanorClientModule.OpenCommandId, StringComparison.Ordinal) && l.Contains("picker", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public async Task The_edopen_mnemonic_shows_a_prompt_and_opens_the_typed_path_and_a_cancelled_prompt_does_nothing()
+    {
+        var (module, source, pane) = Compose();
+        var id = new EditorDocumentId("w", "a.txt");
+        source.Seed(id, "one", "plaintext");
+        var window = new Window { Content = new Border() };
+        window.Show();
+        var options = new AthanorHeadOptions { DataDirectory = DataDir() };
+        using var commands = AthanorHeadComposition.StartCommands(window, AthanorClientModule.Commands, module, options, _ => { });
+        var layer = OverlayLayer.GetOverlayLayer(window);
+        Assert.NotNull(layer);
+
+        Type(window, "edopen");
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        layer.Children.OfType<EditorPromptView>().Single().Cancel();
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        Assert.Empty(pane.Tabs);
+        Assert.Empty(layer.Children.OfType<EditorPromptView>());
+
+        Type(window, "edopen");
+        await Task.Delay(100, TestContext.Current.CancellationToken);
+        var prompt = layer.Children.OfType<EditorPromptView>().Single();
+        prompt.Text = "w:a.txt";
+        prompt.Submit();
+        await Task.Delay(200, TestContext.Current.CancellationToken);
+
+        Assert.Equal(id, Assert.Single(pane.Tabs).Id);
     }
 
     [AvaloniaFact]

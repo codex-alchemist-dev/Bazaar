@@ -103,6 +103,12 @@ internal static class AthanorHeadComposition
         ArgumentNullException.ThrowIfNull(athanor);
         ArgumentNullException.ThrowIfNull(options);
         var dispatcher = new ClientCommandDispatcher();
+        // The open and new commands ask for a path in an overlay on this window; a cancelled prompt does nothing.
+        if (athanor.CommandHandler is { } handler)
+        {
+            handler.Prompts = new AvaloniaEditorCommandPrompts(top);
+        }
+
         dispatcher.Add(AthanorCommandHandler.Handles, athanor.RunCommandAsync);
         return MnemonicHeadHost.Start(top, commands, Path.Combine(options.DataDirectory, "mnemonics.json"), dispatcher, log);
     }
