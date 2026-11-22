@@ -20,6 +20,9 @@
     <ProjectReference Include="..\Bazaar.Server.Jobs\Bazaar.Server.Jobs.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DataVolume\Bazaar.Server.DataVolume.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DataVolume.Linux\Bazaar.Server.DataVolume.Linux.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DataVolume.Windows\Bazaar.Server.DataVolume.Windows.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
