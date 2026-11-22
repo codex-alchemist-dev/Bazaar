@@ -1,3 +1,4 @@
+using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -36,6 +37,7 @@ var app = builder.Build();
 app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
+app.MapCommunityLog();
 app.MapBazaarSetup();
 app.UseBazaarWire();
 
