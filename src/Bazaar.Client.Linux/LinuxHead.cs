@@ -16,6 +16,8 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.DefaultApp.Linux;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Navigation;
@@ -67,6 +69,8 @@ internal sealed class LinuxHead : IAsyncDisposable
     private readonly TerminalSessionManager _terminals = CalcinatoTerminalPanes.CreateSessions();
     private readonly ChatHost? _chat;
     private readonly LinuxHeadOptions _options;
+    private readonly UpdateNoticeBanner _banner;
+    private readonly UpdateRestart _restart;
     private int _disposed;
 
     private LinuxHead(LinuxHeadOptions options)
@@ -99,6 +103,8 @@ internal sealed class LinuxHead : IAsyncDisposable
         var context = new PaneModuleContext(Report: message => log($"Bazaar: {message}"))
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current)
             .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => log($"Bazaar: view action failed: {ex.Message}")));
         if (_chat is not null)
         {
@@ -117,7 +123,14 @@ internal sealed class LinuxHead : IAsyncDisposable
         RegisterCommands();
         _surface.Bind(Registry.Contains, ShowAsync);
 
-        Window = new MainWindow { Content = _slot };
+        // The update notice strip sits above the pane slot, inside the shell chrome (doc 30 section 7).
+        var restart = options.Updates.CreateRestart(options.Args, () => _ = QuitAfterDisposeAsync());
+        _banner = new UpdateNoticeBanner(() => RestartToApply(restart));
+        _restart = restart;
+        DockPanel.SetDock(_banner, Dock.Top);
+        Window = new MainWindow { Content = new DockPanel { Children = { _banner, _slot } } };
+        _banner.Show(options.Updates.Coordinator.Notice);
+        options.Updates.Coordinator.NoticeChanged += _banner.Show;
         Show(InitialKind(options));
         if (FirstRunScreens.TryBuild(options.Args) is { } firstRun)
         {
@@ -185,6 +198,7 @@ internal sealed class LinuxHead : IAsyncDisposable
             return;
         }
 
+        _options.Updates.Coordinator.NoticeChanged -= _banner.Show;
         if (_chat is not null)
         {
             await _chat.DisposeAsync().ConfigureAwait(false);
@@ -231,7 +245,13 @@ internal sealed class LinuxHead : IAsyncDisposable
             _commands.Register(paneCommand.Command.Id, ct => ShowAsync(paneCommand.PaneKind, ct));
         }
 
-        _commands.Register(UpdateCoordinator.CheckCommandId, ct => _options.Updates.CreateCheckCommand(() => Window).RunAsync(ct));
+        // The result of a check shows in the notice strip, so the palette command only starts the check.
+        _commands.Register(UpdateCoordinator.CheckCommandId, ct => _options.Updates.Coordinator.CheckNowAsync(ct));
+        _commands.Register(UpdateCoordinator.RestartCommandId, _ =>
+        {
+            RestartToApply(_restart);
+            return Task.CompletedTask;
+        });
         _commands.Register(LinuxHeadModule.QuitCommandId, _ =>
         {
             Quit();
@@ -267,6 +287,29 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         _options.Log($"Bazaar: {title}: {text}");
         await Dispatcher.UIThread.InvokeAsync(() => StatusNotice.Show(Window, title, text ?? "Done."));
+    }
+
+    // Only a press of the button or the palette command gets here; a refusal is told to the user, never swallowed.
+    private void RestartToApply(UpdateRestart restart)
+    {
+        if (restart.TryRestart() is { } refusal)
+        {
+            _options.Log($"Bazaar: restart refused: {refusal}");
+            StatusNotice.Show(Window, "Restart to apply", refusal);
+        }
+    }
+
+    // Closes the chat connection first, then shuts the lifetime down; the new process starts after Main has returned.
+    private async Task QuitAfterDisposeAsync()
+    {
+        try
+        {
+            await DisposeAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            Quit();
+        }
     }
 
     private void Quit()

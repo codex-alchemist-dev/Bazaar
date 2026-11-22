@@ -15,4 +15,7 @@
     <ProjectReference Include="..\Bazaar.Server.ReadAudit.Npgsql\Bazaar.Server.ReadAudit.Npgsql.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive.Abstractions\Bazaar.Server.Hive.Abstractions.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Hive.Approvals" />
+  </ItemGroup>
 </Project>

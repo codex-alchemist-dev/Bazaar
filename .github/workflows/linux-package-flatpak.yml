@@ -55,20 +55,22 @@ jobs:
 
       # The runner's distro is not documented in this repo (other jobs use apt-get, so it is probably
       # Debian or Ubuntu); detect apt or dnf rather than assume.
-      - name: Install flatpak and flatpak-builder
+      # flatpak-builder strips binaries with eu-strip, which the elfutils package provides.
+      - name: Install flatpak, flatpak-builder and elfutils
         run: |
           set -euo pipefail
-          if command -v flatpak >/dev/null 2>&1 && command -v flatpak-builder >/dev/null 2>&1; then
-            echo "flatpak and flatpak-builder already installed"
+          if command -v flatpak >/dev/null 2>&1 && command -v flatpak-builder >/dev/null 2>&1 && command -v eu-strip >/dev/null 2>&1; then
+            echo "flatpak, flatpak-builder and eu-strip already installed"
           elif command -v apt-get >/dev/null 2>&1; then
             sudo apt-get update
-            sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+            sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils
           elif command -v dnf >/dev/null 2>&1; then
-            sudo dnf install -y flatpak flatpak-builder
+            sudo dnf install -y flatpak flatpak-builder elfutils
           else
-            echo "Neither apt-get nor dnf found on this runner; install flatpak and flatpak-builder by hand." >&2
+            echo "Neither apt-get nor dnf found on this runner; install flatpak, flatpak-builder and elfutils by hand." >&2
             exit 1
           fi
+          command -v eu-strip
           flatpak --version
           flatpak-builder --version
 

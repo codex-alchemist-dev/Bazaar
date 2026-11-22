@@ -37,7 +37,7 @@ public sealed class OwnerQueueHiveGrantApprovals(IOwnerApprovalEnqueuer enqueuer
         {
             var id = await _enqueuer.EnqueueAsync(
                 new OwnerApprovalEnqueueRequest(requestedBy.Trim(), ToolName, ActionKey(change), Summary(change)), ct).ConfigureAwait(false);
-            _ledger.Add(id, change);
+            await _ledger.AddAsync(id, change, ct).ConfigureAwait(false);
             return HiveApprovalTicket.Queued(id);
         }
         catch (OwnerApprovalRateLimitedException)
