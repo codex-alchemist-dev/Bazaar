@@ -74,6 +74,7 @@ using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
+using Bazaar.Server.VmDisplay.GuestChannel;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Bazaar.Server.WebAdmin;
@@ -168,6 +169,8 @@ public static class HostComponents
         // "not supported" off Windows; the KVM adapter is limited to Linux here.
         new VmDisplayComponent(),
         new VmDisplayGateComponent(),
+        // The guest source's only adapter: IDisplayGuestExec over the channel directory. No channel is registered yet, so every guest call fails.
+        new VmDisplayGuestChannelComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
         // Off unless Bazaar:VmDisplayAgentTargets:Enabled is true; until then it registers nothing and no screen tool is offered. It starts before
