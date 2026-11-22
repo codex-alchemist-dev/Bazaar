@@ -15,5 +15,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Embeddings\Bazaar.Server.Embeddings.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Embeddings.Abstractions\Bazaar.Server.Embeddings.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>
