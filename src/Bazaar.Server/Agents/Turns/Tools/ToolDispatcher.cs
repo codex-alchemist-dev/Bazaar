@@ -5,6 +5,9 @@ using System.Text.Json.Nodes;
 using Bazaar.Contracts.Gateway;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Policy;
+using Bazaar.Server.Security.Taint;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Agents.Turns.Tools;
 
@@ -36,14 +39,16 @@ namespace Bazaar.Server.Agents.Turns.Tools;
 /// PendingApproval and never runs from this path.
 /// </para>
 /// </remarks>
-public sealed class ToolDispatcher(
+public sealed partial class ToolDispatcher(
     IToolRegistry tools,
     IToolPolicyEngine policy,
     ISessionTaintStore sessionTaint,
     IInFlightCallStore inFlight,
     IAuditLog auditLog,
     TimeProvider time,
-    ToolDispatcherOptions? options = null) : IToolDispatcher
+    ToolDispatcherOptions? options = null,
+    IEnumerable<ITaintRaisedListener>? taintListeners = null,
+    ILogger<ToolDispatcher>? logger = null) : IToolDispatcher
 {
     private const string _readerTurnReason = "reader turn";
     private const string _unknownToolReason = "unknown tool";
@@ -61,6 +66,10 @@ public sealed class ToolDispatcher(
     private readonly IAuditLog _auditLog = auditLog ?? throw new ArgumentNullException(nameof(auditLog));
     private readonly TimeProvider _time = time ?? throw new ArgumentNullException(nameof(time));
     private readonly ToolDispatcherOptions _options = options ?? ToolDispatcherOptions.Default;
+    private readonly ILogger _log = (ILogger?)logger ?? NullLogger.Instance;
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "A taint-raised listener failed for session {SessionId}.")]
+    private static partial void LogTaintListenerFailed(ILogger logger, Exception exception, Guid sessionId);
 
     /// <inheritdoc />
     public async Task<ToolDispatchResult> InvokeAsync(ToolDispatchRequest request, CancellationToken cancellationToken)
@@ -157,6 +166,10 @@ public sealed class ToolDispatcher(
                 try
                 {
                     await _sessionTaint.SaveAsync(request.SessionId, raised, cancellationToken);
+
+                    // Only a rise, and only once the new taint is saved. A new source at the same level says nothing new.
+                    if (raised.State > taint.State)
+                        await NotifyTaintRaisedAsync(request, raised.State, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
@@ -175,6 +188,25 @@ public sealed class ToolDispatcher(
 
         await WriteAuditAsync(request, argsHash, start, ToolDispatchOutcome.Executed, reason, cancellationToken);
         return new ToolDispatchResult(ToolDispatchOutcome.Executed, resultJson);
+    }
+
+    private async Task NotifyTaintRaisedAsync(ToolDispatchRequest request, TaintState level, CancellationToken cancellationToken)
+    {
+        if (taintListeners is null)
+            return;
+
+        var signal = new TaintRaised(request.AgentId.ToString("D"), request.SessionId, level, _time.GetUtcNow());
+        foreach (var listener in taintListeners)
+        {
+            try
+            {
+                await listener.OnTaintRaisedAsync(signal, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                LogTaintListenerFailed(_log, ex, request.SessionId);
+            }
+        }
     }
 
     /// <summary>Writes the audit record for a call that did not run, then returns its result.</summary>
