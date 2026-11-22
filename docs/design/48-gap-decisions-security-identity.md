@@ -57,6 +57,19 @@ Cross-links: `03` (module host, providers), `15` (`ToolDispatcher`, capability c
 
 OPEN: none for the decision. Implementation choice of signature algorithm and certificate chain format is for the spike in `35`.
 
+### 1.1 Host-service shapes for the remaining permission classes [PROPOSED]
+
+**Status: PROPOSED.** Implementation detail of the DECIDED rule "the module host enforces the approved set"; it adds no permission and no owner choice. The docs name the classes `data.read`, `data.write`, `gc.post`, `ui.pane`, `job` and `device` but not the services behind them, so these shapes are proposed here and live in `Bazaar.Server.ModuleHost.Abstractions`. Doc 41 section 8 and the client manifests are silent on them and stay so.
+
+- **One shape per service.** A module is handed an `IModuleHostServices` made for its id by `IModuleHostServicesFactory`, which the module host calls after it puts the module's set in force. Each service interface carries no module id. A permission guard is a decorator over the same interface: it holds the module id, asks `IModulePermissionGate.Demand` for one exact access, then calls the real service. The guard fails closed once the module is deactivated.
+- **Access each guard demands.** `IModuleData.ReadAsync` needs `data.read` with the component as the target; `WriteAsync` needs `data.write` with the component as the target. `IModuleGcPoster.PostAsync` needs `gc.post` with no target, because an unscoped `gc.post` grant covers only an access with no target (`ModuleGrant`); a GC-scoped `gc.post` is not part of this proposal. `IModulePaneRegistry` needs `ui.pane` with the pane id. `IModuleJobScheduler` needs `job` with the job name. `IModuleDeviceAccess` needs `device` with the capability name (`notify` for `device:notify`).
+- **Data.** Components that offer data implement `IModuleDataSource` (component name, read, optional write); `IModuleData` routes by component. The records are JSON in the component's own shape. The component validates a write; the guard only checks the permission. Doc 48 names four components (GC history, Kanban, Vault, Constellation); each owner decides whether to offer a source.
+- **GC post.** The author is the module's own system identity and the source trust is fixed by the host; a module cannot name either. Idempotent by client message id per module within the GC (doc 01 `AppendAsync`).
+- **UI pane.** The server records the declaration and tells clients which pane kinds exist. The client decides whether to load one (doc 41b); the module never draws.
+- **Job.** A queued run on the host's `job` table (doc 03). The handler runs inside the host under the module's own approved set. Idempotent by key. The host clamps the due time.
+- **Device.** A relay to a connected client. Delivery can fail when no device takes it; that is a result, not an error.
+- **OPEN:** the author identity a module posts as; whether `gc.post` should ever be scoped to a GC; and the job handler registration seam (the scheduler shape here queues runs only).
+
 ## 2. Developer sandboxes (full tier)
 
 **Status: DECIDED.** The developer sandbox is the full tier: process isolation, operating system confinement, a fake-data test company, WebAssembly or a virtual machine by module type, and every sandbox action audited.
@@ -169,7 +182,7 @@ OPEN: the default external target set and the public transparency log choice. Th
 - Every containment has an undo. The undo window is a setting with a floor. Undo restores the prior state and is itself audited. Undo of a containment that is still in force needs the owner's biometric check (section 8).
 - Alerts go to the owner's devices and to security reviewers, through the notice channels in `15`.
 
-Built status: PLANNED. The audit paragraph of `15` is updated to point here.
+Built status: BUILT-IN-PART. `Bazaar.Server.AuditAnomaly` has the rules, evaluator, containment and undo behind ports (`40`); the host adapters (kill switch, notice channels, event source, biometric) are not wired. The undo window is the time after a containment in which an undo is allowed; the owner may set it longer than the one-minute floor. The audit paragraph of `15` is updated to point here.
 
 OPEN: the default threshold values, which are settings and start from safe drafts in the spike. Retention of raw read records is in section 9.
 

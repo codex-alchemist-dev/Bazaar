@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Graph;
 
 /// <summary>
@@ -16,6 +18,7 @@ public enum ZoomTier
 /// The address of one spatial tile. <c>Level</c> is the subdivision depth (quadtree in 2D, octree-ready for 3D), and
 /// <c>X</c>, <c>Y</c>, <c>Z</c> are the cell index at that level. A 2D view uses <c>Z = 0</c>.
 /// </summary>
+[WirePayload]
 public readonly record struct TileKey
 {
     /// <summary>Rejects a negative level. Cell indices may be any value, because the grid is unbounded.</summary>
@@ -41,6 +44,7 @@ public readonly record struct TileKey
 /// A client's request for the nodes inside a box, at one zoom tier (doc 19). Bounds are in layout space; a 2D view leaves
 /// the Z bounds at 0. <c>MaxNodes</c> caps the frame, so a box over a huge graph returns clusters instead of every node.
 /// </summary>
+[WirePayload]
 public sealed record ViewportRequest
 {
     /// <summary>Rejects an inverted box and a non-positive node cap.</summary>
@@ -96,6 +100,7 @@ public sealed record ViewportRequest
 /// <summary>
 /// A stand-in for a cluster in the far tier: one glyph at the cluster's centroid, with how many nodes it holds.
 /// </summary>
+[WirePayload]
 public sealed record ClusterGlyph
 {
     /// <summary>Rejects a negative member count.</summary>
@@ -125,6 +130,7 @@ public sealed record ClusterGlyph
 /// stride 3, the same as <see cref="LayoutFrame"/>. <c>Dimensions</c> is 2 or 3: a 2D view ignores z, which the server sets to
 /// 0. Clients drop any tile older than the newest one applied for the same key.
 /// </summary>
+[WirePayload]
 public sealed record TileFrame
 {
     /// <summary>Rejects a dimension other than 2 or 3, and a position buffer that does not hold three floats per node.</summary>
