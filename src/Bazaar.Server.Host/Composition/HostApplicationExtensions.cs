@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Erasure;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -43,12 +44,15 @@ public static class HostApplicationExtensions
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarJobs();
+        services.AddBazaarLegalHoldReader();
 
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
         services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
+        services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
