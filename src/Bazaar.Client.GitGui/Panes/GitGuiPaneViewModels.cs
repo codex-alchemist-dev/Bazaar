@@ -1,8 +1,8 @@
-using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.GitGui.Diff;
 using Bazaar.Client.GitGui.Merge;
 using Bazaar.Client.GitGui.ViewModels;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Contracts.Git;
 using Bazaar.Contracts.Panes;
 
