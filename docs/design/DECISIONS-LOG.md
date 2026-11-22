@@ -482,3 +482,12 @@ The round number is set at merge; other open PRs also add rounds.
 | Typing is ephemeral presence: `gc.typing` request and a `presence.update` typing delta to subscribers of that GC; not persisted, expires after `wire.typing_ttl_s` (5 s) without refresh, rate-limited | PROPOSED | 02 "Typing signal" |
 | New settings: `gc.reactions_enabled`, `gc.reaction_emoji_max_bytes`, `gc.reaction_max_distinct_per_message`, `gc.reaction_max_per_person_per_message`, `gc.reaction_rate_per_minute`, `wire.typing_enabled`, `wire.typing_ttl_s`, `wire.typing_min_interval_s` (configurability rule, round 13) | PROPOSED | 01, 02 |
 | Module `Bazaar.Server.GcReactions` (+ `.Abstractions`) carries the feature; nothing new lands in Bazaar.Server | PROPOSED | 01 WP15, 40 |
+
+## Round 33 (2026-11-19): crash install binding
+
+Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
+
+| Item | Decision | Docs |
+|---|---|---|
+| Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
+

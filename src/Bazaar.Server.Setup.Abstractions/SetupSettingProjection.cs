@@ -12,7 +12,7 @@ public sealed record SetupProjectedSetting(string Key, string PlanPath, JsonElem
 /// The install-scope settings a plan sets (doc 45 section 1.2: "the settings values (registry keys from doc 03 and setup-only keys)").
 /// They are the <c>settings</c> map plus four plan fields that map to one registry key each: <c>network.statusBind</c> and
 /// <c>network.statusPort</c> (doc 03 <c>host.status.*</c>), <c>scamMailProtocol.enabled</c> (doc 15 <c>security.scam_mail.protocol_enabled</c>)
-/// (only when on) and <c>install.releaseChannel</c> (doc 30 <c>update.channel</c>, wire form snake_case). The apply step writes them and the applier audits them from
+/// (only when on) <c>install.releaseChannel</c> (doc 30 <c>update.channel</c>, wire form snake_case) and <c>install.updatePolicy.security</c> (doc 42 <c>deps.update.autoSecurityPatches</c>). The apply step writes them and the applier audits them from
 /// this one list, so both agree on what a plan changes. Pure: nothing is stored.
 /// </summary>
 public static class SetupSettingProjection
@@ -29,6 +29,9 @@ public static class SetupSettingProjection
     /// <summary>Registry key set by <c>install.releaseChannel</c>.</summary>
     public const string UpdateChannelKey = "update.channel";
 
+    /// <summary>Registry key set by <c>install.updatePolicy.security</c> (doc 42 section 10; <c>automatic</c> is true).</summary>
+    public const string AutoSecurityPatchesKey = "deps.update.autoSecurityPatches";
+
     /// <summary>The registry key a derived plan path maps to, or null when the path is not one of the four mapped plan fields.</summary>
     public static string? DerivedKeyForPath(string planPath) => planPath switch
     {
@@ -36,6 +39,7 @@ public static class SetupSettingProjection
         "network.statusPort" => StatusPortKey,
         "scamMailProtocol.enabled" => ScamMailKey,
         "install.releaseChannel" => UpdateChannelKey,
+        "install.updatePolicy.security" => AutoSecurityPatchesKey,
         _ => null,
     };
 
@@ -59,7 +63,20 @@ public static class SetupSettingProjection
         }
 
         Add(projected, UpdateChannelKey, "install.releaseChannel", Parse(JsonSerializer.Serialize(WireChannel(plan.Install.ReleaseChannel), SetupPlanJsonContext.Default.String)));
+        // Doc 45 step 2. Only the security half has a registry key. The "other" half has none (every non-security update is manual
+        // and nothing stores an automatic choice), so it is not projected and the apply step refuses "automatic" (see IsOtherUpdatePolicyBacked).
+        Add(projected, AutoSecurityPatchesKey, "install.updatePolicy.security", Parse(string.Equals(plan.Install.UpdatePolicy.Security, "automatic", StringComparison.Ordinal) ? "true" : "false"));
         return [.. projected.Values];
+    }
+
+    /// <summary>
+    /// True when the plan's <c>install.updatePolicy.other</c> can be honoured: only <c>manual</c> can, because no store holds an automatic
+    /// choice for non-security updates. A plan that asks for <c>automatic</c> there cannot be applied honestly.
+    /// </summary>
+    public static bool IsOtherUpdatePolicyBacked(SetupPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        return string.Equals(plan.Install.UpdatePolicy.Other, "manual", StringComparison.Ordinal);
     }
 
     private static void Add(SortedDictionary<string, SetupProjectedSetting> projected, string key, string path, JsonElement value) =>

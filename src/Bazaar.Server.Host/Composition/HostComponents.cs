@@ -21,6 +21,7 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -35,6 +36,7 @@ using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.WebAdmin;
+using Bazaar.Server.Wire.Discovery;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -53,6 +55,7 @@ public static class HostComponents
         new GatewayRetentionComponent(),
         new KekComponent(),
         new GcComponent(),
+        new GcReactionsComponent(),
         new CalendarComponent(),
         new OrgComponent(),
         new CompanyBuildComponent(),
@@ -73,6 +76,7 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new WireDiscoveryComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
@@ -80,6 +84,8 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.ClaudeCodeComponent(),
+        new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
     ];
