@@ -13,8 +13,8 @@ namespace Bazaar.Wire.Conformance;
 /// </summary>
 public abstract class WireCodecConformance
 {
-    private const int FuzzIterations = 2000;
-    private const int FuzzSeed = 90;
+    private const int _fuzzIterations = 2000;
+    private const int _fuzzSeed = 90;
 
     private static readonly DateTimeOffset _at = new(2026, 11, 19, 5, 36, 12, 345, TimeSpan.Zero);
     private static readonly Guid _gc = Guid.Parse("0196a6f0-0000-7000-8000-000000000001");
@@ -243,15 +243,15 @@ public abstract class WireCodecConformance
         var samples = PayloadSamples.All;
         var frames = samples.Select(s => Frame(codec, Envelope(s, s.Encode(codec)))).ToArray();
         var payloads = samples.Select(s => s.Encode(codec).ToArray()).ToArray();
-        var random = new Random(FuzzSeed);
+        var random = new Random(_fuzzSeed);
 
-        for (var i = 0; i < FuzzIterations; i++)
+        for (var i = 0; i < _fuzzIterations; i++)
         {
             var index = random.Next(samples.Count);
             var sample = samples[index];
             var onFrame = i % 2 == 0;
             var mutated = Mutate(random, onFrame ? frames[index] : payloads[index], frames[random.Next(frames.Length)]);
-            var label = $"iteration {i} seed {FuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
+            var label = $"iteration {i} seed {_fuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
 
             ExpectOnlyWireFormat(
                 () =>
