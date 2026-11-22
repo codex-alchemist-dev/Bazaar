@@ -29,6 +29,30 @@
   <SolidColorBrush x:Key="Bazaar.brush.color.badge.system.background" Color="{StaticResource Bazaar.color.badge.system.background}" />
   <Color x:Key="Bazaar.color.badge.system.text">#1A1A1F</Color>
   <SolidColorBrush x:Key="Bazaar.brush.color.badge.system.text" Color="{StaticResource Bazaar.color.badge.system.text}" />
+  <Color x:Key="Bazaar.color.health.healthy.background">#B7E4BD</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.healthy.background" Color="{StaticResource Bazaar.color.health.healthy.background}" />
+  <Color x:Key="Bazaar.color.health.healthy.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.healthy.text" Color="{StaticResource Bazaar.color.health.healthy.text}" />
+  <Color x:Key="Bazaar.color.health.degraded.background">#FFE08A</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.degraded.background" Color="{StaticResource Bazaar.color.health.degraded.background}" />
+  <Color x:Key="Bazaar.color.health.degraded.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.degraded.text" Color="{StaticResource Bazaar.color.health.degraded.text}" />
+  <Color x:Key="Bazaar.color.health.failing.background">#F5B5BC</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.failing.background" Color="{StaticResource Bazaar.color.health.failing.background}" />
+  <Color x:Key="Bazaar.color.health.failing.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.failing.text" Color="{StaticResource Bazaar.color.health.failing.text}" />
+  <Color x:Key="Bazaar.color.health.recovering.background">#FFCF9E</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.recovering.background" Color="{StaticResource Bazaar.color.health.recovering.background}" />
+  <Color x:Key="Bazaar.color.health.recovering.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.recovering.text" Color="{StaticResource Bazaar.color.health.recovering.text}" />
+  <Color x:Key="Bazaar.color.health.frozen.background">#BCD4F6</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.frozen.background" Color="{StaticResource Bazaar.color.health.frozen.background}" />
+  <Color x:Key="Bazaar.color.health.frozen.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.frozen.text" Color="{StaticResource Bazaar.color.health.frozen.text}" />
+  <Color x:Key="Bazaar.color.health.unobserved.background">#D5D7DE</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.unobserved.background" Color="{StaticResource Bazaar.color.health.unobserved.background}" />
+  <Color x:Key="Bazaar.color.health.unobserved.text">#1A1A1F</Color>
+  <SolidColorBrush x:Key="Bazaar.brush.color.health.unobserved.text" Color="{StaticResource Bazaar.color.health.unobserved.text}" />
   <Color x:Key="Bazaar.color.syntax.keyword">#7A3E9D</Color>
   <SolidColorBrush x:Key="Bazaar.brush.color.syntax.keyword" Color="{StaticResource Bazaar.color.syntax.keyword}" />
   <Color x:Key="Bazaar.color.syntax.string">#2B6B2B</Color>
