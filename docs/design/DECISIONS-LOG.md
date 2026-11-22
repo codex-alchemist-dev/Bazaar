@@ -519,3 +519,15 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | Setting audit | The host logs one line at start with the loop state and whether it came from the default or the operator. Changes go through host configuration, which follows the same change audit as other bootstrap options. | Yes. |
 
 See doc 06 "Wake loop default" and doc 38.
+
+## Round 37 (2026-11-22): shared cache-backed rate limiter
+
+| Item | Decision | Docs |
+|---|---|---|
+| One host `IRateLimiter`, backed by the cache provider so counts are shared and survive a restart | PROPOSED | 15, 03 |
+| `ICacheCounter` (atomic increment, TTL set on a new key) in `Bazaar.Server.Providers.Abstractions`; `ICacheProvider` unchanged; Garnet and Valkey implement it | PROPOSED | 03, 15 |
+| Module `Bazaar.RateLimits.Cache`, component `rate-limits-cache`; sliding-window counter over two fixed buckets, TTL 2x window, window length in the key | PROPOSED | 15 |
+| Increment first, undo on denial (never over-admits; a failed undo over-counts and fails closed) | PROPOSED | 15 |
+| `Bazaar:RateLimits:CacheTimeout` default 150 ms; on timeout, error or no counter fall back to the in-process limiter, warn once per outage, recover automatically; never fail open, never throw | PROPOSED | 15 |
+| The component replaces earlier `IRateLimiter` registrations, so it wins regardless of component order | PROPOSED | 15 |
+| Open: whether a cache flush should fall back to the durable Postgres `rate_bucket`; whether the strictest limits (for example new repositories) should fail closed during an outage instead of using the in-process fallback | OPEN | 15 |
