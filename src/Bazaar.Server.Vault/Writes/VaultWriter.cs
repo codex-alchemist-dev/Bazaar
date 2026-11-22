@@ -122,6 +122,15 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         ValidateSlug(draft.Slug);
         ValidateFrontMatterTitle(draft.Title);
         ArgumentException.ThrowIfNullOrWhiteSpace(draft.Body);
+        foreach (var reference in draft.Supersedes ?? [])
+        {
+            ValidateFrontMatterReference(reference, nameof(draft.Supersedes));
+        }
+
+        if (draft.DecidedIn is not null)
+        {
+            ValidateFrontMatterReference(draft.DecidedIn, nameof(draft.DecidedIn));
+        }
 
         using var documentLease = await AcquireAsync(_documentQueues.GetOrAdd(draft.DocId, _ => new SemaphoreSlim(1, 1)), ct);
         using var laneLease = await AcquireAsync(_vaultLane, ct);
@@ -257,9 +266,32 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         builder.Append("type: decision\n");
         builder.Append("title: ").Append(draft.Title).Append('\n');
         builder.Append("status: proposed\n");
+        if (draft.Supersedes is { Count: > 0 })
+        {
+            builder.Append("supersedes:\n");
+            foreach (var reference in draft.Supersedes)
+            {
+                builder.Append("  - ").Append(reference).Append('\n');
+            }
+        }
+
+        if (draft.DecidedIn is not null)
+        {
+            builder.Append("decidedIn: ").Append(draft.DecidedIn).Append('\n');
+        }
+
         builder.Append("---\n\n");
         builder.Append(draft.Body.TrimEnd()).Append('\n');
         return builder.ToString();
+    }
+
+    /// <summary>References are written unquoted into YAML, so only path-like characters are allowed.</summary>
+    private static void ValidateFrontMatterReference(string reference, string paramName)
+    {
+        if (string.IsNullOrWhiteSpace(reference) || !ReferencePattern().IsMatch(reference))
+        {
+            throw new ArgumentException("A reference may hold only letters, digits and - _ . / characters.", paramName);
+        }
     }
 
     private static void ValidateSlug(string slug)
@@ -306,6 +338,9 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
 
     [GeneratedRegex("^(?<number>\\d{4})-", RegexOptions.CultureInvariant)]
     private static partial Regex DecisionPrefix();
+
+    [GeneratedRegex("^[A-Za-z0-9._/-]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex ReferencePattern();
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();
@@ -358,7 +393,16 @@ public sealed record VaultEditRequest(
     string? TaskId);
 
 /// <summary>A new decision record. The writer assigns the number and the file path.</summary>
-public sealed record DecisionDraft(Guid DocId, string Slug, string Title, string Body, string AgentId);
+/// <param name="Supersedes">Decision references (<c>0001-slug</c>) this record replaces; written to the <c>supersedes</c> front matter list.</param>
+/// <param name="DecidedIn">The GC message reference that decided the record; written to the <c>decidedIn</c> front matter key.</param>
+public sealed record DecisionDraft(
+    Guid DocId,
+    string Slug,
+    string Title,
+    string Body,
+    string AgentId,
+    IReadOnlyList<string>? Supersedes = null,
+    string? DecidedIn = null);
 
 /// <summary>
 /// What a write did. <see cref="OldCommit"/> and <see cref="NewCommit"/> feed the indexer. <see cref="ConflictPaths"/> is

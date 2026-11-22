@@ -9,6 +9,7 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
@@ -58,6 +59,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CompanyMemoryComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
