@@ -1,4 +1,5 @@
 using Bazaar.Server.CodingWorkspace;
+using Bazaar.Server.Git;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -29,7 +30,8 @@ public static class CodingWorkspaceHostExtensions
     /// <summary>
     /// When <c>Coding:Harness:Enabled</c> is true, registers the work-share layout, the repository source, the
     /// <see cref="ICodingRepoDirectory"/> adapter and the subagent worktree allocator, all with TryAdd so a host registration made
-    /// first wins. Settings come from <c>Coding:Workspace:Root</c> and <c>Coding:Workspace:Repos</c>. The host must still bind
+    /// first wins. Settings come from <c>Coding:Workspace:Root</c>, <c>Coding:Workspace:Repos</c> (used only when no
+    /// <see cref="IGitRepositoryDirectory"/> is registered) and <c>Coding:Workspace:DefaultBranch</c> (for the Git directory's repos; default main). The host must still bind
     /// <see cref="ISubagentParentWorkSource"/>; until it does, the allocator fails when first resolved and no worktree is handed out.
     /// </summary>
     /// <param name="services">The service collection.</param>
@@ -42,6 +44,12 @@ public static class CodingWorkspaceHostExtensions
             return services;
         }
 
+        // Chosen at resolution time so module registration order does not matter: the Git module's directory when it is
+        // registered, else the operator's Coding:Workspace:Repos list. TryAdd, so a host registration made first still wins.
+        var defaultBranch = configuration!["Coding:Workspace:DefaultBranch"] ?? "main";
+        services.TryAddSingleton<ICodingRepoSource>(sp => sp.GetService<IGitRepositoryDirectory>() is { } directory
+            ? new GitDirectoryCodingRepoSource(directory, sp.GetRequiredService<CodingWorkspaceOptions>(), defaultBranch)
+            : new ConfiguredCodingRepoSource(sp.GetRequiredService<CodingWorkspaceOptions>()));
         services.AddBazaarCodingWorkspace(options =>
         {
             options.Root = configuration!["Coding:Workspace:Root"];
