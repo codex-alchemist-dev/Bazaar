@@ -30,6 +30,8 @@
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Portability.Postgres\Bazaar.Server.Portability.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health.Abstractions\Bazaar.Server.Health.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health\Bazaar.Server.Health.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules\Bazaar.Server.Modules.csproj" />

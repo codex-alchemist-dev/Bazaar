@@ -20,6 +20,7 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -67,6 +68,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new HealthServerComponent(),
         new TalentPoolComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),

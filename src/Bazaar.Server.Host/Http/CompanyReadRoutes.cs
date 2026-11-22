@@ -1,4 +1,5 @@
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Health;
 using Bazaar.Server.Http;
 using Bazaar.Server.Org;
 using Bazaar.Server.Settings;
@@ -21,6 +22,7 @@ internal static class CompanyReadRoutes
     {
         routes.MapCompanyOrg(HttpSurfaceEndpoints.GuardAsync);
         routes.MapCompanyCalendar(GuardCalendarAsync);
+        routes.MapBazaarProjectHealth(HttpSurfaceEndpoints.GuardAsync);
         return routes;
     }
 
