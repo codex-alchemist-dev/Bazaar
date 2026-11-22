@@ -105,6 +105,7 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - Token lifetime: one hour per GitHub's documentation. **Unverified until test T4 (doc 21).** No revocation claim relies on it.
 - Rate limits (verified): 5,000 requests per hour baseline; content-creating requests are limited to 80 per minute and 500 per hour.
 - Git pushes use a minted token inside the host-side git provider. The token never enters a VM.
+- **Commit author** [PROPOSED]: the Identity side implements `IAgentGitIdentity` (doc 17) from the agent's App. Author name is the agent's display name (read through a small name port the host binds). Author email is the App's bot noreply address `<bot user id>+<app slug>[bot]@users.noreply.github.com`, found by `GET /app` (App JWT) for the slug and `GET /users/<slug>[bot]` for the id, then cached per agent for the process lifetime. An agent with no registered App, a refused GitHub call or an unusable name throws, so the commit fails closed; nothing is defaulted. The operator-set `Coding:Harness:Git:AppNoreplyEmail` source stays as the single-App fallback. Messages carry the HTTP status only.
 - Fork-and-PR is built as decided (C13). If GitHub refuses the fork call, the feature degrades to installed repositories only (21).
 
 **Owner merge credential** (C25, round 12): both forms are supported. Either form is stored as owner-class in `ISecretStore`. The choice is `identity.merge_credential`.
