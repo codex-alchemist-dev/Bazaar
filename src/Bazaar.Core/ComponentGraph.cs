@@ -71,4 +71,42 @@ public static class ComponentGraph
 
         return ordered;
     }
+
+    /// <summary>
+    /// Works out what a failed component blocks and degrades. Only hard edges block, and they block transitively. A soft edge never
+    /// blocks: a component that only softly depends on the failed one, or on anything it blocked, is degraded.
+    /// </summary>
+    /// <exception cref="ComponentGraphException">The graph is invalid or <paramref name="failedId"/> is not in it.</exception>
+    public static ComponentImpact Impact(IEnumerable<ComponentManifest> manifests, string failedId)
+    {
+        ArgumentNullException.ThrowIfNull(manifests);
+        ArgumentException.ThrowIfNullOrEmpty(failedId);
+
+        var all = Order(manifests);
+        if (all.All(m => m.Id != failedId))
+        {
+            throw new ComponentGraphException($"Unknown component '{failedId}'.");
+        }
+
+        var blocked = new HashSet<string>(StringComparer.Ordinal);
+        var down = new HashSet<string>(StringComparer.Ordinal) { failedId };
+
+        // Order is dependency order, so one pass sees every hard target before its dependents.
+        foreach (var manifest in all)
+        {
+            if (manifest.DependsOn.Any(down.Contains))
+            {
+                blocked.Add(manifest.Id);
+                down.Add(manifest.Id);
+            }
+        }
+
+        var degraded = all
+            .Where(m => !down.Contains(m.Id) && m.Soft.Any(down.Contains))
+            .Select(m => m.Id)
+            .Order(StringComparer.Ordinal)
+            .ToList();
+
+        return new ComponentImpact(failedId, blocked.Order(StringComparer.Ordinal).ToList(), degraded);
+    }
 }

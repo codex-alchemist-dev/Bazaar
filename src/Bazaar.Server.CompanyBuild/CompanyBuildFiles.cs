@@ -94,7 +94,7 @@ public static class CompanyBuildFiles
     }
 
     /// <summary>Appends one JSON line to <c>build-history.jsonl</c>. The history is kept across rebuilds.</summary>
-    public static void AppendHistory(CompanyBuildOutputLayout layout, CompanyBuildSetReport report)
+    public static void AppendHistory(CompanyBuildOutputLayout layout, CompanyBuildSetReport report, string? address = null, string? keyHashPin = null)
     {
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(report);
@@ -104,7 +104,9 @@ public static class CompanyBuildFiles
             report.FinishedAt,
             report.Complete,
             report.IsSigned,
-            [.. report.Targets.Select(t => new CompanyBuildHistoryTarget(t.TargetId, t.Report.Succeeded, t.Report.Attempts, t.Report.Retries))]);
+            [.. report.Targets.Select(t => new CompanyBuildHistoryTarget(t.TargetId, t.Report.Succeeded, t.Report.Attempts, t.Report.Retries))],
+            address,
+            keyHashPin);
         File.AppendAllText(
             layout.HistoryPath,
             JsonSerializer.Serialize(entry, CompanyBuildJsonContext.Default.CompanyBuildHistoryEntry) + "\n",
@@ -129,7 +131,9 @@ public sealed record CompanyBuildHistoryEntry(
     DateTimeOffset FinishedAt,
     bool Complete,
     bool IsSigned,
-    IReadOnlyList<CompanyBuildHistoryTarget> Targets);
+    IReadOnlyList<CompanyBuildHistoryTarget> Targets,
+    string? Address = null,
+    string? KeyHashPin = null);
 
 /// <summary>One target within a history line.</summary>
 public sealed record CompanyBuildHistoryTarget(string TargetId, bool Succeeded, int Attempts, int Retries);

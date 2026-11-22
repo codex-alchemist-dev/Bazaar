@@ -27,6 +27,12 @@ public sealed record AndroidSettings
 
     public HalfOpenLayoutPolicy HalfOpenLayout { get; init; } = HalfOpenLayoutPolicy.UnfoldedIfWide;
 
+    /// <summary>Edge band in dp where touches belong to the system back gesture (doc 93, <c>android.gesture_edge_dp</c>). Values under the floor are raised to it.</summary>
+    public double GestureEdgeDp { get; init; } = 24;
+
+    /// <summary>The gesture thresholds this install uses.</summary>
+    public GestureOptions Gestures => new() { EdgeInsetDp = GestureEdgeDp };
+
     public bool FoldedFullDiff { get; init; }
 
     public bool MergeFromFolded { get; init; } = true;

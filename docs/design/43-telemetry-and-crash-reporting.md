@@ -414,7 +414,7 @@ Audit rows never contain report content. They carry ids, hashes and counts.
 
 ### 12.1 Ingestion, in order
 
-1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32).
+1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32). The first submission of an install id binds it to the authenticated device; a different device presenting a bound id is refused (doc 32, "Crash install binding" [DECIDED]).
 2. Check size caps and the schema version. Unknown versions are refused with an error the client can show.
 3. Re-run the redaction validator (section 6). Any canary or residual match refuses the report and audits the refusal.
 4. Check the attachment hash and image headers (magic bytes, dimension cap, no embedded metadata beyond size).
