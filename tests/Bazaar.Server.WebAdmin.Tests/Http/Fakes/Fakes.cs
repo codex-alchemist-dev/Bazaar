@@ -155,6 +155,27 @@ internal sealed class FakeAuditReader : IAdminAuditReader
     }
 }
 
+internal sealed class FakeMemberRoster : IAdminMemberRoster
+{
+    public string? LastKind { get; private set; }
+
+    public int LastLimit { get; private set; }
+
+    public int LastOffset { get; private set; }
+
+    public Task<AdminMemberPage> ListAsync(string? kind, int limit, int offset, CancellationToken ct = default)
+    {
+        (LastKind, LastLimit, LastOffset) = (kind, limit, offset);
+        return Task.FromResult(new AdminMemberPage(
+            [
+                new AdminMember(Guid.Empty, "Ada", "agent", "agent", "active", DateTimeOffset.UnixEpoch, "claude-code/sonnet", 1200),
+                new AdminMember(Guid.Empty, "Dom", "human", "owner", "active", null, null, 0),
+            ],
+            2,
+            null));
+    }
+}
+
 internal sealed class FakeApprovals : IAdminApprovalSource
 {
     public Task<IReadOnlyList<AdminApproval>> ListPendingAsync(CancellationToken ct = default) =>

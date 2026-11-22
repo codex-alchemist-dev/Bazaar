@@ -47,3 +47,22 @@ public interface IAdminAuditReader { Task<AdminAuditPage> ReadAsync(long? before
 
 public sealed record AdminApproval(string Id, string Action, string Requester, DateTimeOffset RequestedAt);
 public interface IAdminApprovalSource { Task<IReadOnlyList<AdminApproval>> ListPendingAsync(CancellationToken ct = default); }
+
+/// <summary>One row of the members list: a human member or an agent. Counts and times only; no secret, token or personal field.</summary>
+/// <param name="Kind"><c>human</c> or <c>agent</c>.</param>
+/// <param name="Role">A human's role (<c>owner</c>, <c>coworker</c>) or <c>agent</c>.</param>
+/// <param name="Status">A human's account status or an agent's lifecycle state.</param>
+/// <param name="LastSeen">A human's newest device activity or an agent's newest turn; null when never seen.</param>
+/// <param name="Model">An agent's default route or first allowed model; null for humans or when no policy exists.</param>
+/// <param name="Tokens24h">Input plus output tokens the member's calls used in the last 24 hours (agents; 0 for humans).</param>
+public sealed record AdminMember(Guid Id, string Name, string Kind, string Role, string Status, DateTimeOffset? LastSeen, string? Model, long Tokens24h);
+
+/// <summary>A page of members. <see cref="NextOffset"/> is null on the last page.</summary>
+public sealed record AdminMemberPage(IReadOnlyList<AdminMember> Rows, long Total, int? NextOffset);
+
+/// <summary>The members section's read port: agents and humans in one paged list, ordered by kind, then name.</summary>
+public interface IAdminMemberRoster
+{
+    /// <param name="kind"><c>human</c>, <c>agent</c> or null for both.</param>
+    Task<AdminMemberPage> ListAsync(string? kind, int limit, int offset, CancellationToken ct = default);
+}

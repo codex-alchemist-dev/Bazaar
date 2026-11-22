@@ -91,6 +91,7 @@
     <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.Server.AuditReader/Bazaar.Server.AuditReader.csproj" />
+    <Project Path="src/Bazaar.Server.MemberRoster/Bazaar.Server.MemberRoster.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
@@ -193,6 +194,7 @@
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AuditReader.Tests/Bazaar.Server.AuditReader.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MemberRoster.Tests/Bazaar.Server.MemberRoster.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />

@@ -84,6 +84,7 @@ Applied to the three features:
 
 - **Web admin panel (doc 51, PROPOSED mechanics):** `Bazaar.Server.WebAdmin.Abstractions` (the gate, session, audit and per-section ports) and `Bazaar.Server.WebAdmin` (endpoints under `/admin`, embedded assets, session store, audit recorder). Component id `web-admin`. It references neither `Bazaar.Server` nor any feature implementation; each section reads through a port that the owning module (Kodo, module manager, identity, audit, approvals, company build) implements, and a missing port shows "unavailable".
 - **Admin audit reader (doc 51 section 5):** `Bazaar.Server.AuditReader` implements `IAdminAuditReader` with its own read-only SQL over `audit_log` (newest first, seq cursor, limit 1 to 200, kind and sanitised action label only, never payloads). Component id `audit-reader`, depends on `audit`. `IAdminStatusSource` is a host adapter in `Bazaar.Server.Host/Composition`.
+- **Admin members list (doc 51 section 5):** `Bazaar.Server.MemberRoster` implements `IAdminMemberRoster` with its own read-only SQL over `agent`, `agent_model_policy`, `turn`, `gw_usage`, `human`, `device` and `refresh_credential`: agents and humans in one list (agents first, then by name), with role, last seen, model and 24-hour token use, paged by `limit` (1 to 200) and `offset`. No secret column is selected. Component id `member-roster`, depends on `remote`. Route `GET /admin/api/members`, same capability as the users section.
 
 ## 4a. Renames (planned, small PRs)
 
