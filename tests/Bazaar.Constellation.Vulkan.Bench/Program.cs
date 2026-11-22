@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Threading;
 using Bazaar.Constellation.Vulkan;
 using Bazaar.Constellation.Vulkan.Bench;
 
@@ -34,6 +35,218 @@ using var bench = new NodeBenchmark();
 bench.Initialize(shaders);
 Console.WriteLine($"gpu.name=\"{bench.DeviceName}\" driver={bench.DriverVersion} vulkan={bench.ApiVersion} device_local_gib={(bench.DeviceLocalBytes / (1024.0 * 1024 * 1024)).ToString("F2", CultureInfo.InvariantCulture)}");
 
+if (args.Length > 0 && args[0] == "density")
+{
+    // Before and after, same frame content: every resident node is drawn (before, per-node raster)
+    // or binned into the density grid (after). Node counts are the whole frame, with no 2M cap.
+    foreach ((long total, int warm, int frames) in new[] { (1_000_000L, 10, 60), (10_000_000L, 10, 60), (100_000_000L, 5, 10) })
+    {
+        bench.UploadNodes(total);
+        bench.DrawChunk = 0;
+        bench.QuadSize = 0.0015f;
+        bench.PointMode = false;
+        FrameStats before = bench.Measure((int)total, warm, frames);
+        FrameStats after = bench.MeasureDensity((int)total, warm * 2, frames * 3);
+        Console.WriteLine(string.Join(',', "density", total, "before_per_node_quads",
+            before.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), before.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), before.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+        Console.WriteLine(string.Join(',', "density", total, "after_density_grid",
+            after.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), after.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), after.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-edges")
+{
+    // Edge pass options at N = 1B, M = 1M points. a: fixed 100k edge cap. b: 100k cap plus screen-length LOD (drop below 2 px or
+    // above 400 px). b1m: the same LOD with 1M edges. c: edges baked into the aggregate grid at build (no lines drawn per frame).
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-edges.csv");
+    const long total = 1_000_000_000L;
+    const int points = 1_000_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    void Emit(string section, int edges, double buildMs, CellStats s)
+    {
+        csv.Add(NodeBenchmark.CsvLine(section, total, points, buildMs, NodeBenchmark.TopologyGpuBytes, edges, s));
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} edges={edges} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} [{breakdown}]"));
+    }
+
+    foreach (int dim in new[] { 2, 3 })
+    {
+        foreach (Topology topology in Enum.GetValues<Topology>())
+        {
+            double buildMs = bench.BuildAggregate(topology, dim, total, 4_000_000);
+            foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+            {
+                string tag = $"{topology}_{dim}d_{view}".ToLowerInvariant();
+                Emit($"edgea_{tag}", 100_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 100_000, WarmupFrames, MeasuredFrames));
+                Emit($"edgeb_{tag}", 100_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 100_000, WarmupFrames, MeasuredFrames, 2f, 400f));
+                Emit($"edgeb1m_{tag}", 1_000_000, 0, bench.MeasureDraw(topology, dim, total, view, points, 1_000_000, WarmupFrames, MeasuredFrames, 2f, 400f));
+                Emit($"edgec_{tag}", 0, buildMs, bench.MeasureAggregate(topology, dim, total, view, 0, WarmupFrames, MeasuredFrames));
+            }
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && (args[0] == "topology-draw" || args[0] == "topology-density"))
+{
+    // Procedural billion-node benchmark: topologies, 2D and 3D, three viewpoints. Usage: topology-draw|topology-density [csv] [quick]
+    bench.InitializeTopology(shaders);
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, args[0] + ".csv");
+    bool quick = args.Length > 2 && args[2] == "quick";
+    int warm = quick ? 5 : WarmupFrames;
+    int meas = quick ? 20 : MeasuredFrames;
+    const int edgeCap = 1_000_000;
+    var csv = new List<string> { NodeBenchmark.CsvHeader };
+    void Emit(string section, long total, long instances, double buildMs, int edges, CellStats s)
+    {
+        string line = NodeBenchmark.CsvLine(section, total, instances, buildMs, NodeBenchmark.TopologyGpuBytes, edges, s);
+        csv.Add(line);
+        File.WriteAllLines(csvPath, csv);
+        string breakdown = string.Join(' ', s.PassP50Ms.Select(p => $"{p.Key}={p.Value.ToString("F3", CultureInfo.InvariantCulture)}"));
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{section} N={total} M={instances}{PerMillion(s, instances, edges)} gpu p50/p95/p99={s.GpuP50:F3}/{s.GpuP95:F3}/{s.GpuP99:F3} wall p50/p99={s.WallP50:F3}/{s.WallP99:F3} fps(p50)={1000.0 / s.WallP50:F0} fps(p99)={1000.0 / s.WallP99:F0} frames={s.Frames} [{breakdown}]"));
+    }
+
+    static string PerMillion(CellStats stats, long instances, int edgeCount)
+    {
+        // ms per million reference instances, per pass, so the frame-budget controller can set its GPU tiers.
+        string pm(string pass, long count) => stats.PassP50Ms.TryGetValue(pass, out double ms) && count > 0
+            ? string.Create(CultureInfo.InvariantCulture, $" {pass}_ms_per_M={ms * 1_000_000.0 / count:F3}")
+            : string.Empty;
+        return pm("points", instances) + pm("edges", edgeCount);
+    }
+
+    Topology[] topologies = Enum.GetValues<Topology>();
+    Viewpoint[] views = Enum.GetValues<Viewpoint>();
+    if (args[0] == "topology-draw")
+    {
+        var cells = new List<(long N, int M)>();
+        foreach (int m in new[] { 500_000, 1_000_000, 2_000_000 })
+        {
+            cells.Add((1_000_000_000L, m));
+        }
+
+        cells.Add((100_000_000L, 1_000_000));
+        cells.Add((2_000_000_000L, 1_000_000));
+        foreach ((long n, int m) in cells)
+        {
+            foreach (int dim in new[] { 2, 3 })
+            {
+                foreach (Topology topology in topologies)
+                {
+                    foreach (Viewpoint view in views)
+                    {
+                        CellStats s = bench.MeasureDraw(topology, dim, n, view, m, edgeCap, warm, meas);
+                        Emit($"draw_{topology}_{dim}d_{view}".ToLowerInvariant(), n, m, 0, edgeCap, s);
+                    }
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    foreach (long n in new[] { 100_000_000L, 1_000_000_000L, 2_000_000_000L })
+    {
+        foreach (int dim in new[] { 2, 3 })
+        {
+            foreach (Topology topology in topologies)
+            {
+                int splatFrames = n <= 100_000_000L ? 10 : 3;
+                CellStats full = bench.MeasureFullSplat(topology, dim, n, Viewpoint.Whole, 1, quick ? 2 : splatFrames);
+                Emit($"splat_{topology}_{dim}d_whole".ToLowerInvariant(), n, 0, 0, 0, full);
+                double buildMs = bench.BuildAggregate(topology, dim, n);
+                Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"aggregate build {topology} {dim}d N={n}: {buildMs:F0} ms"));
+                foreach (Viewpoint view in views)
+                {
+                    CellStats agg = bench.MeasureAggregate(topology, dim, n, view, edgeCap, warm, meas);
+                    Emit($"agg_{topology}_{dim}d_{view}".ToLowerInvariant(), n, 0, buildMs, edgeCap, agg);
+                    CellStats cached = bench.MeasureCachedShade(topology, dim, n, view, edgeCap, warm, meas);
+                    Emit($"cached_{topology}_{dim}d_{view}".ToLowerInvariant(), n, 0, buildMs, edgeCap, cached);
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "spike")
+{
+    // Does the slow 1B frame follow the long build, and does it recover after the GPU idles?
+    const int chunk = 16_000_000;
+    double buildMs = bench.BuildAggregate(1_000_000_000L, chunk);
+    Console.WriteLine(string.Join(',', "spike_build", buildMs.ToString("F1", CultureInfo.InvariantCulture)));
+    for (int round = 1; round <= 3; round++)
+    {
+        FrameStats frame = bench.MeasureAggregateFrame(20, 200);
+        Console.WriteLine(string.Join(',', "spike_frame", "after_build_round" + round,
+            frame.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+            frame.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+        Thread.Sleep(60_000);
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "aggregate")
+{
+    // Per-tile aggregate path. The grid is built by streaming nodes in chunks, so the graph never has to fit on the GPU.
+    // Build cost is paid once per graph version. The per-frame cost is one shade of the finished grid.
+    const int chunk = 16_000_000;
+    foreach (long total in new[] { 100_000_000L, 1_000_000_000L })
+    {
+        for (int run = 1; run <= 3; run++)
+        {
+            double buildMs = bench.BuildAggregate(total, chunk);
+            Console.WriteLine(string.Join(',', "aggregate_build", total, run, buildMs.ToString("F1", CultureInfo.InvariantCulture)));
+            FrameStats frame = bench.MeasureAggregateFrame(20, 200);
+            Console.WriteLine(string.Join(',', "aggregate_frame", total, run,
+                frame.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+                frame.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), frame.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "passes")
+{
+    // Does splitting one frame into several render passes remove the cliff? 10M nodes, 10M instances.
+    bench.UploadNodes(10_000_000);
+    foreach (int chunk in new[] { 2_000_000, 1_000_000 })
+    {
+        bench.RenderPassPerChunk = true;
+        RunChunked(bench, $"tris_passes_{chunk}", chunk, false, 10_000_000);
+        RunChunked(bench, $"points_passes_{chunk}", chunk, true, 10_000_000);
+    }
+
+    bench.RenderPassPerChunk = false;
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "rootcause")
+{
+    // Root-cause controls at 10M resident nodes, 10M instances in one draw, quads unless noted.
+    // Each row changes one thing against the baseline so the cost can be attributed.
+    bench.UploadNodes(10_000_000);
+    RunControl(bench, "tris_baseline_run1", 10_000_000, false, false, 0f);
+    RunControl(bench, "tris_baseline_run2", 10_000_000, false, false, 0f);
+    RunControl(bench, "tris_baseline_run3", 10_000_000, false, false, 0f);
+    RunControl(bench, "tris_offscreen", 10_000_000, false, false, 5f);
+    RunControl(bench, "points_baseline", 10_000_000, true, false, 0f);
+    RunControl(bench, "points_offscreen", 10_000_000, true, false, 5f);
+    RunControl(bench, "points_no_colour_write", 10_000_000, true, true, 0f);
+    RunControl(bench, "points_no_colour_write_offscreen", 10_000_000, true, true, 5f);
+    return 0;
+}
+
 if (args.Length > 0 && args[0] == "experiments")
 {
     // Cliff investigation at 10M resident nodes. Each row varies one thing: draw-call splitting or quad size.
@@ -58,6 +271,10 @@ if (args.Length > 0 && args[0] == "experiments")
 
     return 0;
 }
+
+// Warm-up: run the first sweep row once and discard it, so the GPU is at a steady clock before anything is recorded.
+_ = bench.UploadNodes(1_000_000);
+_ = bench.Measure(1_000_000, 300, 600);
 
 // Sweep 1: total node count. The resident window is capped at the 1.5 GiB budget; draws are capped at 2M instances.
 foreach (long total in nodeCounts)
@@ -94,6 +311,37 @@ if (args.Length > 0)
 }
 
 return 0;
+
+static void RunChunked(NodeBenchmark bench, string label, int chunk, bool points, int instances)
+{
+    bench.DrawChunk = chunk;
+    bench.QuadSize = points ? 0f : 0.0015f;
+    bench.PointMode = points;
+    bench.ColorWritesOff = false;
+    bench.PositionOffset = 0f;
+    FrameStats s = bench.Measure(instances, 10, 60);
+    Console.WriteLine(string.Join(',', "passes", label, instances,
+        s.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+        s.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+    bench.PointMode = false;
+    bench.DrawChunk = 0;
+}
+
+static void RunControl(NodeBenchmark bench, string label, int instances, bool points, bool noWrite, float offset)
+{
+    bench.DrawChunk = 0;
+    bench.QuadSize = points ? 0f : 0.0015f;
+    bench.PointMode = points;
+    bench.ColorWritesOff = noWrite;
+    bench.PositionOffset = offset;
+    FrameStats s = bench.Measure(instances, 10, 60);
+    Console.WriteLine(string.Join(',', "control", label, instances,
+        s.WallP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.WallP95Ms.ToString("F3", CultureInfo.InvariantCulture),
+        s.GpuP50Ms.ToString("F3", CultureInfo.InvariantCulture), s.GpuP95Ms.ToString("F3", CultureInfo.InvariantCulture)));
+    bench.PointMode = false;
+    bench.ColorWritesOff = false;
+    bench.PositionOffset = 0f;
+}
 
 static void RunExperiment(NodeBenchmark bench, string label, int chunk, float quad, int instances)
 {

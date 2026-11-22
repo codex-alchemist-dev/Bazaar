@@ -13,6 +13,11 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The GC test fakes are internal to the Portability tests; link them so the verifier reads what the real exporter writes. -->
+    <Compile Include="..\Bazaar.Server.Portability.Tests\GcExportTestFakes.cs" Link="Linked\GcExportTestFakes.cs" />
+    <Compile Include="..\Bazaar.Server.Portability.Tests\GcBundleTestFakes.cs" Link="Linked\GcBundleTestFakes.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Portability.Verifier\Bazaar.Server.Portability.Verifier.csproj" />
   </ItemGroup>
 </Project>
