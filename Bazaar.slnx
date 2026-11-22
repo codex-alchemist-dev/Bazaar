@@ -331,6 +331,7 @@
     <Project Path="src/Bazaar.Server.Community.GitHub.Bridge/Bazaar.Server.Community.GitHub.Bridge.csproj" />
     <Project Path="src/Bazaar.Server.Coding.Abstractions/Bazaar.Server.Coding.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.Abstractions/Bazaar.Server.Vms.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
     <Project Path="src/Bazaar.Server.Vms.HyperV/Bazaar.Server.Vms.HyperV.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Kvm/Bazaar.Server.Vms.Kvm.csproj" />
