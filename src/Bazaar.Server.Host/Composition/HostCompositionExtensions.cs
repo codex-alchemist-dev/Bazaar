@@ -12,6 +12,7 @@ using Bazaar.Server.Providers;
 using Bazaar.Server.Providers.Linux;
 using Bazaar.Server.Providers.Windows;
 using Bazaar.Server.Providers.Windows.Postgres;
+using Bazaar.Server.PsychWard;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Souls;
@@ -92,52 +93,31 @@ public static class HostCompositionExtensions
     }
 
     /// <summary>
-    /// Picks one provider per role at start (doc 03). The service host and the cache have OS implementations so far; the other roles default to
-    /// <c>none</c> until their providers land. Explicit choices that are not usable fail the start with no silent fallback.
+    /// Registers the OS service host providers and the capability report (doc 03, "Provider modules"). Providers are plain modules: nothing
+    /// here chooses among them, and every provider registered in DI, from this method or from a module, is listed in the report with its own
+    /// status. A consuming module decides what to do with several.
     /// </summary>
-    public static IServiceCollection AddBazaarProviders(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddBazaarProviders(this IServiceCollection services)
     {
-        services.AddOptions<BazaarProviderOptions>().Bind(configuration.GetSection(BazaarProviderOptions.SectionName));
-        // Consumers of ICacheProvider get the deferred wrapper: misses and dropped writes until CacheSelectionStep resolves the cache.
-        services.TryAddSingleton<DeferredCacheProvider>();
-        services.AddSingleton<ICacheProvider>(sp => sp.GetRequiredService<DeferredCacheProvider>());
-        services.TryAddSingleton(sp =>
+        foreach (var serviceHost in WindowsProviders.ServiceHostCandidates().Concat(LinuxProviders.ServiceHostCandidates()))
         {
-            var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
-            IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
-            // The cache is not probed here. CacheSelectionStep selects it after the instance lock and the managed child (doc 40 section 4c.4 item 8).
-            // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
-            IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
-                ? []
-                : WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot);
-            return new ProviderCapabilityReport(
-            [
-                ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
-                ProviderSelector.Select(ProviderRole.Vm, options.Vm, vms, ProviderRequirements.AgentPairConcurrency),
-                CacheSelection(options.Cache),
-                ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
-            ]);
-        });
-        return services;
-    }
+            services.AddSingleton<IServiceHostProvider>(serviceHost);
+        }
 
-    /// <summary>
-    /// The cache role at startup. <c>none</c> is decided at once. Any other request is pending until <see cref="CacheSelectionStep"/> runs,
-    /// so the cache, which is optional and non-critical (C07), never delays or fails the instance lock or the other roles.
-    /// </summary>
-    private static ProviderSelection CacheSelection(string requested) =>
-        requested.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
-            ? ProviderSelector.Select(ProviderRole.Cache, requested, Array.Empty<ICacheProvider>())
-            : ProviderSelection.Pending(ProviderRole.Cache, requested);
+        if (OperatingSystem.IsWindows())
+        {
+            // Built when first resolved, so a host with no data root configured fails only when something asks for the VM provider.
+            services.AddSingleton<IVmProvider>(sp =>
+                WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot).Single());
+        }
 
-    /// <summary>
-    /// Registers the deferred cache selection. Call after <see cref="AddBazaarComponents"/>: hosted services start in registration order, and
-    /// the Valkey supervisor is registered by a component. The step then runs after the instance lock (<c>StartupSequence</c>) and after the
-    /// supervisor has started the managed child.
-    /// </summary>
-    public static IServiceCollection AddBazaarCacheSelection(this IServiceCollection services)
-    {
-        services.AddHostedService<CacheSelectionStep>();
+        services.TryAddSingleton(sp => new ProviderCapabilityReport(
+            sp.GetServices<IProvider>()
+                .Concat(sp.GetServices<IServiceHostProvider>())
+                .Concat(sp.GetServices<IVmProvider>())
+                .Concat(sp.GetServices<ICacheProvider>())
+                .Concat(sp.GetServices<ISearchProvider>())
+                .Distinct()));
         return services;
     }
 
@@ -178,6 +158,7 @@ public static class HostCompositionExtensions
         services.TryAddSingleton<IUsageStore, InMemoryUsageStore>();
         services.TryAddSingleton<UsageRecorder>();
         services.AddBazaarSoulBindings();
+        services.AddBazaarPsychWard();
         services.AddBazaarLoopTripHandling();
         return services;
     }

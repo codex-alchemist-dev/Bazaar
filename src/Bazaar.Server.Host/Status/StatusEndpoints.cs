@@ -51,12 +51,13 @@ public static class StatusEndpoints
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
 
     /// <summary>
-    /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
+    /// The refresh and sign-out routes (<c>/auth/refresh</c>, <c>/auth/signout</c>, doc 32 section 5). They take POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
-        && path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase);
+        && (path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// Rejects every method the listener does not serve with 405 before routing. The status page is GET and HEAD only. The blob and
@@ -66,6 +67,13 @@ public static class StatusEndpoints
     {
         var path = context.Request.Path;
         var method = context.Request.Method;
+        if (path.StartsWithSegments("/admin"))
+        {
+            // The admin panel (doc 51) enforces its own method table and answers 405 itself.
+            await next();
+            return;
+        }
+
         bool allowed;
         string allow;
         if (IsPostOnlyRoute(path))

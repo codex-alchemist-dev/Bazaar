@@ -196,6 +196,10 @@ public static class ViewValidator
             {
                 CheckExpression(expr, propName, path, scope, problems);
             }
+            else if (value is ViewArgs args)
+            {
+                CheckArgs(args, widget, path, scope, problems);
+            }
         }
 
         if (_leaves.Contains(widget) && node.Children.Count > 0)
@@ -301,6 +305,41 @@ public static class ViewValidator
         }
 
         return new RubedoSchema(itemIdentifiers);
+    }
+
+    /// <summary>Checks button arguments (doc 41c, section 6.1): buttons only, at most eight, identifier names, scalar values, expressions that compile in scope.</summary>
+    private static void CheckArgs(ViewArgs args, ViewWidget widget, string path, RubedoSchema scope, List<RubedoDiagnostic> problems)
+    {
+        if (widget != ViewWidget.Button)
+        {
+            problems.Add(new RubedoDiagnostic("view.args_widget", $"{path}: only a button takes args."));
+            return;
+        }
+
+        if (args.Values.Count > ViewArgs.MaxCount)
+        {
+            problems.Add(new RubedoDiagnostic("view.args_count", $"{path}: a button takes at most {ViewArgs.MaxCount} args."));
+        }
+
+        foreach (var (name, value) in args.Values)
+        {
+            if (!IsIdentifier(name))
+            {
+                problems.Add(new RubedoDiagnostic("view.args_name", $"{path}: argument '{name}' is not a valid identifier."));
+            }
+
+            switch (value)
+            {
+                case ViewExpr expr:
+                    CheckExpression(expr, $"args.{name}", path, scope, problems);
+                    break;
+                case string or bool or double:
+                    break;
+                default:
+                    problems.Add(new RubedoDiagnostic("view.args_value", $"{path}: argument '{name}' must be a text, number or bool literal, or an expression."));
+                    break;
+            }
+        }
     }
 
     private static void CheckExpression(ViewExpr expr, string propName, string path, RubedoSchema scope, List<RubedoDiagnostic> problems)
