@@ -27,10 +27,9 @@ public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
         """;
 
     private const string _approvedSql = """
-        SELECT 1
+        SELECT MIN(decided_seq)
         FROM gc_access_request
-        WHERE gc_id = $1 AND requester = $2 AND status = 'approved'
-        LIMIT 1
+        WHERE gc_id = $1 AND requester = $2 AND status = 'approved' AND decided_seq IS NOT NULL
         """;
 
     /// <inheritdoc />
@@ -46,12 +45,13 @@ public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
         var members = await LoadMembersAsync(gcId, viewer, ct).ConfigureAwait(false);
         var approved = await LoadApprovedAsync(gcId, viewer, ct).ConfigureAwait(false);
 
-        var readable = GcAccessPolicy.ReadableUpToSeq(gc, members, new GcViewer(viewer.Id, viewer.Kind), approved);
-        return readable switch
+        var window = GcAccessPolicy.ReadableWindow(gc, members, new GcViewer(viewer.Id, viewer.Kind), approved);
+        return window switch
         {
             null => GcReadGrant.Denied,
-            GcAccessPolicy.AllEvents => GcReadGrant.Full,
-            var seq => GcReadGrant.Through(seq.Value),
+            { From: null, Through: GcAccessPolicy.AllEvents } => GcReadGrant.Full,
+            { From: { } from, Through: GcAccessPolicy.AllEvents } => GcReadGrant.From(from),
+            { } w => GcReadGrant.Through(w.Through),
         };
     }
 
@@ -69,7 +69,7 @@ public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
         var members = await LoadMembersAsync(gcId, writer, ct).ConfigureAwait(false);
         var approved = await LoadApprovedAsync(gcId, writer, ct).ConfigureAwait(false);
         var viewer = new GcViewer(writer.Id, writer.Kind);
-        return GcAccessPolicy.ReadableUpToSeq(gc, members, viewer, approved) is not null
+        return GcAccessPolicy.ReadableWindow(gc, members, viewer, approved) is not null
             && GcAccessPolicy.CanWrite(gc, members, viewer);
     }
 
@@ -120,13 +120,15 @@ public sealed class GcReadAccess(NpgsqlDataSource dataSource) : IGcReadAccess
         return members;
     }
 
-    private async Task<IReadOnlySet<Guid>> LoadApprovedAsync(Guid gcId, GcPrincipal viewer, CancellationToken ct)
+    private async Task<IReadOnlyDictionary<Guid, long>> LoadApprovedAsync(Guid gcId, GcPrincipal viewer, CancellationToken ct)
     {
         // Only the viewer's own approval matters to the policy, so the query asks for that one principal.
         await using var cmd = dataSource.CreateCommand(_approvedSql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = viewer.Id });
-        var found = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
-        return found ? new HashSet<Guid> { viewer.Id } : new HashSet<Guid>();
+        // An approved request with no decided_seq grants nothing: the read window is unknown, so the read fails closed.
+        return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is long seq
+            ? new Dictionary<Guid, long> { [viewer.Id] = seq }
+            : new Dictionary<Guid, long>();
     }
 }
