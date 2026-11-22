@@ -3,6 +3,7 @@ using Avalonia.Media;
 using Bazaar.Client.Theme;
 using Bazaar.Rubedo;
 using Bazaar.Rubedo.Views;
+using TokenKind = Bazaar.Client.Theme.TokenKind;
 
 namespace Bazaar.Client.Views.Tests.Fixtures;
 

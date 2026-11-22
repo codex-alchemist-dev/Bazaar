@@ -13,7 +13,7 @@ internal sealed class CouncilTestCipher : ICouncilReasoningCipher
     private readonly Dictionary<string, Guid> _keyIdByVoter = new(StringComparer.Ordinal);
     private readonly Dictionary<Guid, byte[]> _keyById = [];
 
-    public ReasoningCiphertext Encrypt(string voterId, string plaintext)
+    public ValueTask<ReasoningCiphertext> SealAsync(string voterId, string plaintext, CancellationToken ct)
     {
         if (!_keyIdByVoter.TryGetValue(voterId, out var keyId))
         {
@@ -24,11 +24,11 @@ internal sealed class CouncilTestCipher : ICouncilReasoningCipher
 
         var nonce = RandomNumberGenerator.GetBytes(12);
         var ciphertext = Xor(Encoding.UTF8.GetBytes(plaintext), _keyById[keyId], nonce);
-        return new ReasoningCiphertext(keyId, ciphertext, nonce);
+        return ValueTask.FromResult(new ReasoningCiphertext(keyId, ciphertext, nonce));
     }
 
-    public string Decrypt(string voterId, ReasoningCiphertext sealedText) =>
-        Encoding.UTF8.GetString(Xor(sealedText.Ciphertext, _keyById[sealedText.KeyId], sealedText.Nonce));
+    public ValueTask<string> OpenAsync(string voterId, ReasoningCiphertext sealedText, CancellationToken ct) =>
+        ValueTask.FromResult(Encoding.UTF8.GetString(Xor(sealedText.Ciphertext, _keyById[sealedText.KeyId], sealedText.Nonce)));
 
     private static byte[] Xor(byte[] data, byte[] key, byte[] nonce)
     {

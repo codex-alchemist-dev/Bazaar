@@ -31,7 +31,7 @@ public sealed class GcLogReader(NpgsqlDataSource dataSource, IGcReadAccess acces
 
         await using var cmd = dataSource.CreateCommand(_readSql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gcId });
-        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = afterSeq });
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = Math.Max(afterSeq, (grant.FromSeq ?? 0) - 1) });
         cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = grant.ThroughSeq ?? long.MaxValue });
         cmd.Parameters.Add(new NpgsqlParameter<int> { TypedValue = limit });
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);

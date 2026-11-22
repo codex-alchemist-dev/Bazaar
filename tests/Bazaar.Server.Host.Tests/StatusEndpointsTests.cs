@@ -52,9 +52,26 @@ public sealed class StatusEndpointsTests
 
             var decision = await client.PostAsync("/community/drafts/11111111-1111-1111-1111-111111111111/decision", new StringContent(string.Empty), TestContext.Current.CancellationToken);
             Assert.NotEqual(HttpStatusCode.MethodNotAllowed, decision.StatusCode);
+            var memory = await client.PostAsync("/company-memory/decisions", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, memory.StatusCode);
+
+            var pages = await client.PostAsync("/company-memory/pages", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, pages.StatusCode);
 
             var delete = await client.DeleteAsync("/blobs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, delete.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Admin_panel_paths_skip_the_get_only_gate_and_keep_their_own_method_table()
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // No admin route is mapped in this host, so the request reaches routing (404), not the 405 of the status gate.
+            var post = await client.PostAsync("/admin/api/signout", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.Equal(HttpStatusCode.NotFound, post.StatusCode);
         }
     }
 
@@ -133,6 +150,7 @@ public sealed class StatusEndpointsTests
 
     [Theory]
     [InlineData("/auth/refresh")]
+    [InlineData("/auth/signout")]
     public async Task Refresh_path_accepts_post(string path)
     {
         var (app, client, _) = await StartAsync();
@@ -147,6 +165,8 @@ public sealed class StatusEndpointsTests
     [Theory]
     [InlineData("PATCH", "/auth/refresh")]
     [InlineData("GET", "/auth/refresh")]
+    [InlineData("PATCH", "/auth/signout")]
+    [InlineData("GET", "/auth/signout")]
     [InlineData("POST", "/status")]
     [InlineData("PUT", "/status")]
     public async Task Other_methods_on_refresh_and_status_paths_are_405(string method, string path)
@@ -156,6 +176,20 @@ public sealed class StatusEndpointsTests
         {
             var response = await client.SendAsync(new HttpRequestMessage(new HttpMethod(method), path), TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
+        }
+    }
+
+    [Theory]
+    [InlineData("/setup/plans")]
+    [InlineData("/setup/plans/abc/apply")]
+    public async Task Setup_provisioning_paths_accept_post(string path)
+    {
+        var (app, client, _) = await StartAsync();
+        await using (app)
+        {
+            // The setup component is not mapped in this test app, so the guard lets POST through and routing answers 404.
+            var response = await client.PostAsync(path, new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, response.StatusCode);
         }
     }
 

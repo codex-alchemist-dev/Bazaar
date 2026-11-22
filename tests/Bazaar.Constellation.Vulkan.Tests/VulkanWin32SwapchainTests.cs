@@ -40,7 +40,7 @@ public class VulkanWin32SwapchainTests
         RenderAttachResult attach = renderer.Attach(Surface(window, 320, 200));
         Assert.True(attach.Attached, attach.Reason);
 
-        renderer.SetScene(new ConstellationScene(3, default, default));
+        renderer.SetScene(new RenderScene(3, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(1, 1, 2, new float[] { -0.5f, -0.5f, 0f, 0f, 0.5f, 0.5f }), 0));
         for (int tick = 0; tick < 10; tick++)
         {
@@ -56,7 +56,7 @@ public class VulkanWin32SwapchainTests
         using var renderer = new VulkanConstellationRenderer();
         Assert.True(renderer.Attach(Surface(window, 320, 200)).Attached);
 
-        renderer.SetScene(new ConstellationScene(2, default, default));
+        renderer.SetScene(new RenderScene(2, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(1, 1, 2, new float[] { -1f, 0f, 1f, 0f }), 0));
         renderer.Resize(640, 480);
         renderer.Draw(0);
@@ -84,7 +84,7 @@ public class VulkanWin32SwapchainTests
         using var renderer = new VulkanConstellationRenderer();
         Assert.True(renderer.Attach(Surface(window, width, height)).Attached);
 
-        renderer.SetScene(new ConstellationScene(nodeCount, default, default));
+        renderer.SetScene(new RenderScene(nodeCount, default));
         var random = new Random(20261116);
         var positions = new float[nodeCount * 2];
         for (int index = 0; index < positions.Length; index++)
