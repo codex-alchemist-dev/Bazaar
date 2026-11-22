@@ -232,6 +232,21 @@ if (args.Length > 0 && args[0] == "topology-cull")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "tiledecimate-check")
+{
+    // Parity of TileCullPass followed by TileDecimationPass against the CPU reference (instance sets must match exactly).
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount is not supported on this device");
+        return 3;
+    }
+
+    int bad = bench.CheckTileDecimationPass(100);
+    Console.WriteLine($"tiledecimate-check: {bad} of 100 trials differ from the CPU reference");
+    return bad == 0 ? 0 : 1;
+}
+
 if (args.Length > 0 && args[0] == "tilecull-check")
 {
     // Parity of the reusable TileCullPass (src/Bazaar.Constellation.Vulkan) against its CPU reference on random boxes and cameras.

@@ -161,6 +161,115 @@ public sealed unsafe partial class NodeBenchmark
         return bad;
     }
 
+    /// <summary>
+    /// Runs the library <see cref="TileCullPass"/> followed by <see cref="TileDecimationPass"/> on random instances and cameras and compares the
+    /// surviving instance set with the CPU reference. Returns the number of mismatching trials out of <paramref name="trials"/>.
+    /// </summary>
+    public int CheckTileDecimationPass(int trials)
+    {
+        const int tiles = 2000;
+        const int perTile = 150;
+        const int instances = tiles * perTile;
+        var random = new Random(11);
+        var positions = new Vector3[instances];
+        var entries = new TileCullEntry[tiles];
+        for (int t = 0; t < tiles; t++)
+        {
+            var centre = new Vector3((float)(random.NextDouble() * 4 - 2), (float)(random.NextDouble() * 4 - 2), (float)(random.NextDouble() * 4 - 2));
+            Vector3 min = centre, max = centre;
+            for (int i = 0; i < perTile; i++)
+            {
+                var p = centre + new Vector3((float)(random.NextDouble() - 0.5) * 0.3f, (float)(random.NextDouble() - 0.5) * 0.3f, (float)(random.NextDouble() - 0.5) * 0.3f);
+                positions[(t * perTile) + i] = p;
+                min = Vector3.Min(min, p);
+                max = Vector3.Max(max, p);
+            }
+
+            entries[t] = new TileCullEntry(min, max, (uint)(t * perTile), t % 13 == 0 ? 0u : perTile);
+        }
+
+        ulong positionBytes = (ulong)instances * 16;
+        var positionInfo = new VkBufferCreateInfo { sType = VkStructureType.BufferCreateInfo, size = positionBytes, usage = VkBufferUsageFlags.StorageBuffer, sharingMode = VkSharingMode.Exclusive };
+        Check(_deviceApi.vkCreateBuffer(&positionInfo, null, out VkBuffer positionBuffer), "vkCreateBuffer(positions)");
+        AllocateAndBind(positionBuffer, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent, out VkDeviceMemory positionMemory);
+        void* positionMapped;
+        Check(_deviceApi.vkMapMemory(positionMemory, 0, positionBytes, 0, &positionMapped), "vkMapMemory(positions)");
+        var gpuPositions = new Span<Vector4>(positionMapped, instances);
+        for (int i = 0; i < instances; i++)
+        {
+            gpuPositions[i] = new Vector4(positions[i], 0f);
+        }
+
+        ulong survivorBytes = (8UL + (640 * 360)) * 4;
+        var readbackInfo = new VkBufferCreateInfo { sType = VkStructureType.BufferCreateInfo, size = survivorBytes, usage = VkBufferUsageFlags.TransferDst, sharingMode = VkSharingMode.Exclusive };
+        Check(_deviceApi.vkCreateBuffer(&readbackInfo, null, out VkBuffer readback), "vkCreateBuffer(survivor readback)");
+        AllocateAndBind(readback, VkMemoryPropertyFlags.HostVisible | VkMemoryPropertyFlags.HostCoherent, out VkDeviceMemory readbackMemory);
+        void* readbackMapped;
+        Check(_deviceApi.vkMapMemory(readbackMemory, 0, survivorBytes, 0, &readbackMapped), "vkMapMemory(survivor readback)");
+
+        using var cull = new TileCullPass(_deviceApi, in _memory, 4096);
+        cull.UploadTiles(entries);
+        using var decimation = new TileDecimationPass(_deviceApi, in _memory, (cull.CommandBuffer, TileCullPass.CommandOffset + (4096UL * 16)), (positionBuffer, positionBytes), 640, 360, 4096);
+        int bad = 0;
+        int worst = 0;
+        for (int trial = 0; trial < trials; trial++)
+        {
+            Matrix4x4 viewProjection;
+            if (trial % 2 == 0)
+            {
+                float zoom = 0.6f + (float)random.NextDouble() * 3f;
+                viewProjection = new Matrix4x4(zoom, 0, 0, 0, 0, zoom, 0, 0, 0, 0, 0, 0, 0, 0, 0.5f, 1);
+            }
+            else
+            {
+                Matrix4x4 view = Matrix4x4.CreateLookAt(new Vector3((float)(random.NextDouble() * 2 - 1), (float)(random.NextDouble() * 2 - 1), 2f + (float)random.NextDouble()), Vector3.Zero, Vector3.UnitY);
+                viewProjection = view * Matrix4x4.CreatePerspectiveFieldOfView(0.5f + (float)random.NextDouble(), 16f / 9f, 0.05f, 20f);
+            }
+
+            var kept = new List<(int First, int Count)>();
+            foreach (TileCullEntry e in entries)
+            {
+                if (e.InstanceCount > 0 && TileCullPass.IsVisible(e.Min, e.Max, viewProjection))
+                {
+                    kept.Add(((int)e.FirstInstance, (int)e.InstanceCount));
+                }
+            }
+
+            int[] expected = TileDecimationPass.Decimate(positions, [.. kept], viewProjection, 640, 360);
+            RunSegment((cb, stamp) =>
+            {
+                cull.RecordCull(cb, in viewProjection, 1);
+                decimation.Record(cb, in viewProjection);
+                GlobalBarrier(cb, VkPipelineStageFlags.ComputeShader, VkPipelineStageFlags.Transfer, VkAccessFlags.ShaderWrite, VkAccessFlags.TransferRead);
+                var region = new VkBufferCopy { srcOffset = 0, dstOffset = 0, size = survivorBytes };
+                _deviceApi.vkCmdCopyBuffer(cb, decimation.SurvivorBuffer, readback, 1, &region);
+                GlobalBarrier(cb, VkPipelineStageFlags.Transfer, VkPipelineStageFlags.Host, VkAccessFlags.TransferWrite, VkAccessFlags.HostRead);
+                stamp();
+            });
+            uint* words = (uint*)readbackMapped;
+            int count = (int)words[1];
+            int[] actual = new int[count];
+            for (int i = 0; i < count; i++)
+            {
+                actual[i] = (int)words[TileDecimationPass.SurvivorHeaderWords + i];
+            }
+
+            Array.Sort(actual);
+            // The GPU and the CPU round the projected position differently, so an instance exactly on a cell or view border can fall on the other side.
+            // The sets must agree up to a handful of border instances (at most 8 plus 0.1 percent of the survivors).
+            int difference = actual.Except(expected).Count() + expected.Except(actual).Count();
+            worst = Math.Max(worst, difference);
+            if (difference > 8 + (expected.Length / 1000))
+            {
+                bad++;
+                Console.WriteLine($"tiledecimate-check trial {trial}: gpu {count} survivors, cpu {expected.Length}, {difference} differ");
+            }
+        }
+
+        Console.WriteLine($"tiledecimate-check: largest difference over {trials} trials: {worst} instances");
+        return bad;
+    }
+
     public const string CombinedCsvHeader = CullCsvHeader + ",candidates,survivors,points_per_cell";
 
     public static string CombinedCsvLine(string section, long totalNodes, long instances, double buildMs, int edges, CellStats s, CullCounters c, CombinedCounters d)
