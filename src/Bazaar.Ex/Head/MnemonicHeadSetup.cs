@@ -37,8 +37,13 @@ public static class MnemonicHeadSetup
         ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
         ArgumentNullException.ThrowIfNull(log);
 
+        // A module that contributes one of the shell's own navigation commands (the Constellation opens itself, for one) owns it:
+        // the shell default for that id is dropped, so the same command is not assigned twice in one tier.
+        var contributed = MnemonicAssignment.FromContributions(moduleCommands);
+        var owned = contributed.Select(a => a.CommandId).ToHashSet(StringComparer.Ordinal);
         var defaults = NavigationDefaults.Assignments
-            .Concat(MnemonicAssignment.FromContributions(moduleCommands))
+            .Where(a => !owned.Contains(a.CommandId))
+            .Concat(contributed)
             .ToList();
         var runtime = await MnemonicRuntime.CreateAsync(
             defaults,

@@ -44,4 +44,24 @@ public class MnemonicHeadSetupHeadlessTests
         Assert.Contains(content, grid.Children);
         Assert.Empty(logged);
     }
+
+    [AvaloniaFact]
+    public async Task A_module_that_contributes_a_shell_command_replaces_the_shell_default_instead_of_clashing()
+    {
+        var window = new Window { Content = new TextBox() };
+        window.Show();
+        var path = Path.Combine(Path.GetTempPath(), $"bazaar-mnemonics-{Guid.NewGuid():N}.json");
+        var logged = new List<string>();
+
+        using var shell = await MnemonicHeadSetup.InstallAsync(
+            window,
+            window,
+            [new ClientCommandContribution(NavigationDefaults.ConstellationCommandId, "Constellation", "constellation")],
+            path,
+            logged.Add,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(shell.IsActive);
+        Assert.Empty(logged);
+    }
 }
