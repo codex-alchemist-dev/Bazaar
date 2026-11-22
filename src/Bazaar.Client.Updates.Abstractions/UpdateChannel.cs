@@ -1,8 +1,8 @@
 namespace Bazaar.Client.Updates;
 
 /// <summary>
-/// The release channel an install follows (doc 49 section 6). An install is on one channel at a time. LTSC, Alpha and
-/// Latest-Commit from older docs are not channels of their own here: <c>alpha</c> parses as <see cref="Nightly"/> (deprecated alias).
+/// The release channel an install follows (doc 49 section 6). An install is on one channel at a time. The channel set is
+/// stable, beta, nightly and lts. Alpha and Latest-Commit from older docs are not accepted (owner decision #981 on main).
 /// </summary>
 public enum UpdateChannel
 {
@@ -28,7 +28,7 @@ public static class UpdateChannels
         _ => throw new ArgumentOutOfRangeException(nameof(channel), channel, "Unknown update channel."),
     };
 
-    /// <summary>Parses a setting value, ignoring case and surrounding space. <c>alpha</c> is a deprecated alias for nightly. Unknown values fail.</summary>
+    /// <summary>Parses a setting value, ignoring case and surrounding space. Unknown values (including <c>alpha</c>) fail.</summary>
     public static bool TryParse(string? value, out UpdateChannel channel)
     {
         switch (value?.Trim().ToLowerInvariant())
@@ -40,7 +40,6 @@ public static class UpdateChannels
                 channel = UpdateChannel.Beta;
                 return true;
             case "nightly":
-            case "alpha":
                 channel = UpdateChannel.Nightly;
                 return true;
             case "lts":

@@ -7,10 +7,9 @@
 #
 # Inputs
 #   -Version     SemVer 2 without a leading "v" (0.1.0, 0.2.0-beta.1, 0.1.0+a1b2c3d).
-#   -Channel     stable | beta | alpha | nightly | lts. stable/beta/alpha come from
-#                packaging/channels/resolve-channel.sh; nightly and lts are the owner's 2026-11-13 names (doc 49
-#                section 6). How Alpha/Latest-Commit/LTSC map to nightly/lts is OPEN there, so all five are
-#                accepted and each gets its own feed. Anything else fails closed.
+#   -Channel     stable | beta | nightly | lts (doc 49 section 6). resolve-channel.sh
+#                maps the deprecated -alpha.N tag alias to nightly before this script runs, so alpha is not
+#                accepted here. Each channel gets its own feed. Anything else fails closed.
 #   -Ring        staged ring label (default all), same rule as resolve-channel.sh. A ring is a rollout stage of
 #                one build within one channel, so it does NOT change the vpk channel. It is recorded in the manifest.
 #   -PublishDir  output of dotnet publish for Bazaar.Client.Windows (must exist and not be empty).
@@ -51,7 +50,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $semverRe = '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
-$channels = @('stable', 'beta', 'alpha', 'nightly', 'lts')
+$channels = @('stable', 'beta', 'nightly', 'lts')
 
 if ($Version -cnotmatch $semverRe) { throw "Version '$Version' is not SemVer (expected MAJOR.MINOR.PATCH[-pre][+build], no leading v)." }
 if ($Channel -cnotin $channels)    { throw "Channel '$Channel' is not one of: $($channels -join ', ')." }

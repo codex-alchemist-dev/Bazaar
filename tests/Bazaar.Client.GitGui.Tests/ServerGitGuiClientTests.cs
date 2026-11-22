@@ -14,6 +14,15 @@ public sealed class ServerGitGuiClientTests
     {
         public List<string> Paths { get; } = [];
 
+        public List<(string Path, byte[] Body)> Posts { get; } = [];
+
+        public Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Posts.Add((path, jsonBody));
+            return Task.FromResult(answer(path));
+        }
+
         public Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -28,6 +37,38 @@ public sealed class ServerGitGuiClientTests
     {
         var t = new FakeTransport(_ => response);
         return (new ServerGitGuiClient(t), t);
+    }
+
+    [Fact]
+    public async Task ServerRepoSource_maps_the_repos_route_to_rows()
+    {
+        var (client, transport) = Make(Json(200, """[{"provider":"github","fullName":"acme/widgets","defaultBranch":"main"},{"provider":"gitlab","fullName":"g/p"}]"""));
+        var source = new ServerRepoSource(client);
+
+        var rows = await source.ListReposAsync();
+
+        Assert.Equal(["git/repos"], transport.Paths);
+        Assert.Equal([new GitRepoRow("github", "acme/widgets", "main"), new GitRepoRow("gitlab", "g/p", "")], rows);
+        Assert.Empty(await source.ListBranchesAsync(rows[0]));
+        Assert.Empty(await source.ListCommitsAsync(rows[0], "main"));
+    }
+
+    [Fact]
+    public async Task ListRepos_maps_failures_like_the_other_reads()
+    {
+        var (unavailable, _) = Make(Json(502, """{"error":"forge_unavailable"}"""));
+        await Assert.ThrowsAsync<GitServerUnavailableException>(() => unavailable.ListReposAsync());
+        var (bad, _) = Make(Json(200, "not json"));
+        await Assert.ThrowsAsync<GitResponseException>(() => bad.ListReposAsync());
+    }
+
+    [Fact]
+    public async Task InMemory_client_lists_its_repos()
+    {
+        var fake = new InMemoryGitGuiClient();
+        fake.Repos.Add(new GitRepoDto("github", "a/b", null));
+
+        Assert.Single(await fake.ListReposAsync());
     }
 
     [Fact]
@@ -246,6 +287,8 @@ public sealed class ServerGitGuiClientTests
     private sealed class ThrowingTransport(Exception ex) : IGitHttpTransport
     {
         public Task<GitHttpResponse> GetAsync(string pathAndQuery, int maxBodyBytes, CancellationToken cancellationToken = default) => throw ex;
+
+        public Task<GitHttpResponse> PostJsonAsync(string path, byte[] jsonBody, int maxBodyBytes, CancellationToken cancellationToken = default) => throw ex;
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler

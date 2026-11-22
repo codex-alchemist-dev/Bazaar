@@ -10,8 +10,7 @@ public class ChannelTests
     [InlineData("Beta", UpdateChannel.Beta)]
     [InlineData(" NIGHTLY ", UpdateChannel.Nightly)]
     [InlineData("lts", UpdateChannel.Lts)]
-    [InlineData("alpha", UpdateChannel.Nightly)]
-    public void Parses_setting_values_and_maps_alpha_to_nightly(string text, UpdateChannel expected)
+    public void Parses_the_four_channel_setting_values(string text, UpdateChannel expected)
     {
         Assert.True(UpdateChannels.TryParse(text, out var channel));
         Assert.Equal(expected, channel);
@@ -22,6 +21,7 @@ public class ChannelTests
     [InlineData("")]
     [InlineData("ltsc")]
     [InlineData("latest-commit")]
+    [InlineData("alpha")]
     public void Unknown_values_fail_and_fall_back_to_the_default(string? text)
     {
         Assert.False(UpdateChannels.TryParse(text, out var channel));

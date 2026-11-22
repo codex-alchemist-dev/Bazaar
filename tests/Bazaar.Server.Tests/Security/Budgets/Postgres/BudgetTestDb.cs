@@ -1,5 +1,4 @@
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.Security.Budgets.Postgres;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
@@ -43,7 +42,7 @@ internal sealed class BudgetTestDb : IAsyncDisposable
         try
         {
             await new MigrationRunner(dataSource).MigrateAsync(
-                new EmbeddedMigrationSource(typeof(PostgresTokenBudgetStore).Assembly), MigrateCommand.CurrentProvider(), ct).ConfigureAwait(false);
+                new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), MigrateCommand.CurrentProvider(), ct).ConfigureAwait(false);
         }
         catch
         {
