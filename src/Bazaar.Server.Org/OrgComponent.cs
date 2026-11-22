@@ -32,7 +32,7 @@ public sealed class OrgComponent : IBazaarComponent
         services.TryAddSingleton<OrgRelationRepository>();
         services.TryAddSingleton<IOrgRelationReader>(sp => sp.GetRequiredService<OrgRelationRepository>());
         services.TryAddSingleton<OrgLoanService>();
-        services.TryAddSingleton<IOrgDirectory>(sp => 
+        services.TryAddSingleton<IOrgDirectory>(sp =>
             new AgentOrgDirectory(sp.GetRequiredService<IAgentDirectoryReader>(), sp.GetService<IBoardDirectoryReader>()));
     }
 }
