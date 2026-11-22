@@ -13,5 +13,6 @@ public static class HostMigrations
         new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly),
         new ComponentMigrationSource(typeof(EnvironmentRepository).Assembly),
-        new ComponentMigrationSource(typeof(CouncilStore).Assembly));
+        new ComponentMigrationSource(typeof(CouncilStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.SignIn.WebAuthn.Credentials.PostgresPasskeyCredentialStore).Assembly));
 }

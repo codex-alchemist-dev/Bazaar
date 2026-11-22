@@ -4,6 +4,7 @@ using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.SignIn;
+using Bazaar.Server.SignIn.WebAuthn.Registration;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 
@@ -38,6 +39,7 @@ app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
 app.MapBazaarSignIn();
+app.MapBazaarSignInWebAuthn();
 app.MapBazaarHttpSurface();
 app.UseBazaarWire();
 
