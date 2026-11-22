@@ -201,7 +201,7 @@ public sealed class RunbookRefusalTests
     {
         RunbookDefinition signed = ResponderTestKit.Demo();
         byte[] signature = ResponderTestKit.Sign(signed);
-        RunbookCatalogue catalogue = new(new Bazaar.Kodo.Runtime.RsaPkcs1Sha256Verifier(), ResponderTestKit.Key.ExportSubjectPublicKeyInfo());
+        RunbookCatalogue catalogue = new(new Bazaar.Kodo.Runtime.RsaPkcs1Sha256Verifier(), ResponderTestKit.PublicKey);
 
         RunbookDefinition tampered = signed with { Title = "Changed after signing" };
         Assert.Equal("bad_signature", catalogue.TryAdd(tampered, signature));
@@ -231,7 +231,7 @@ public sealed class RunbookRefusalTests
     [Fact]
     public void CatalogueRefusesInvalidDefinitionsEvenWhenSigned()
     {
-        RunbookCatalogue catalogue = new(new Bazaar.Kodo.Runtime.RsaPkcs1Sha256Verifier(), ResponderTestKit.Key.ExportSubjectPublicKeyInfo());
+        RunbookCatalogue catalogue = new(new Bazaar.Kodo.Runtime.RsaPkcs1Sha256Verifier(), ResponderTestKit.PublicKey);
         RunbookDefinition noVerify = ResponderTestKit.Demo() with
         {
             Steps = [ResponderTestKit.Step("do_a", RunbookStepKind.Action, "demo.do_a")],
