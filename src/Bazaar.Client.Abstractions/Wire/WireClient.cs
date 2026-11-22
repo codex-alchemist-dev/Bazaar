@@ -160,6 +160,15 @@ public sealed class WireClient(
         var welcomeEnv = codec.Decode(first.Frame.Span);
         if (welcomeEnv.T != WireTypes.Welcome) throw new WireFormatException("Expected welcome.");
         var welcome = codec.DecodePayload<Welcome>(welcomeEnv);
+        try
+        {
+            options.OnWelcome?.Invoke(welcome);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A faulty observer must not break the connection.
+        }
+
         if (welcome.UpgradeRequired == true) return WireCloseCodes.UpgradeRequired;
         connected();
 

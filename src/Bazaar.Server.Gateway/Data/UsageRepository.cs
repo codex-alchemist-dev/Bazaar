@@ -52,7 +52,7 @@ public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
     public async Task<IReadOnlyList<GatewayUsageRecord>> ListAsync(string agentId, DateTimeOffset from, DateTimeOffset to, CancellationToken ct = default)
     {
         await using var cmd = dataSource.CreateCommand(
-            $"SELECT {_columns} FROM gw_usage WHERE agent_id = $1 AND ts >= $2 AND ts < $3 ORDER BY ts, id");
+            $"SELECT {_columns} FROM gw_usage WHERE agent_id = $1 AND ts >= $2 AND ts < $3 AND soft_deleted_at IS NULL ORDER BY ts, id");
         cmd.Parameters.AddWithValue(agentId);
         cmd.Parameters.AddWithValue(from);
         cmd.Parameters.AddWithValue(to);
