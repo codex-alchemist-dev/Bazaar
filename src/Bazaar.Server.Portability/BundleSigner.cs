@@ -28,6 +28,16 @@ public static class BundleSigner
     public static bool IsSignatureFile(string path) => path is SignatureFileName or PublicKeyFileName;
 
     /// <summary>
+    /// Signs manifest bytes and returns the signature (P1363) and the public key (DER SubjectPublicKeyInfo). Used by
+    /// the streaming assembler, which has no in-memory bundle to hand to <see cref="Sign"/>.
+    /// </summary>
+    public static (byte[] Signature, byte[] PublicKey) SignManifest(ReadOnlySpan<byte> manifest, ECDsa privateKey)
+    {
+        ArgumentNullException.ThrowIfNull(privateKey);
+        return (privateKey.SignData(manifest, _hash, _format), privateKey.ExportSubjectPublicKeyInfo());
+    }
+
+    /// <summary>
     /// Returns a copy of the bundle with manifest.sig and manifest.pub added. Replaces any earlier signature files.
     /// The bundle must pass <see cref="ExportBundleWriter.Verify"/> first.
     /// </summary>
@@ -75,6 +85,15 @@ public static class BundleSigner
             return false;
         }
 
+        return VerifyManifest(manifestFile.Content, signatureFile.Content, publicKey);
+    }
+
+    /// <summary>
+    /// True when <paramref name="signature"/> is a valid signature over the manifest bytes with the ECDSA P-256 public key
+    /// (DER SubjectPublicKeyInfo). Takes bytes only, so an offline verifier can use it without building a bundle in memory.
+    /// </summary>
+    public static bool VerifyManifest(ReadOnlySpan<byte> manifest, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> publicKey)
+    {
         try
         {
             using var ecdsa = ECDsa.Create();
@@ -84,7 +103,7 @@ public static class BundleSigner
                 return false;
             }
 
-            return ecdsa.VerifyData(manifestFile.Content, signatureFile.Content, _hash, _format);
+            return ecdsa.VerifyData(manifest, signature, _hash, _format);
         }
         catch (CryptographicException)
         {
