@@ -63,6 +63,8 @@
     <ProjectReference Include="..\Bazaar.ModulePermissions.Audit\Bazaar.ModulePermissions.Audit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Postgres\Bazaar.Server.Setup.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.Host\Bazaar.Server.Setup.Host.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Storage\Bazaar.Server.Setup.Storage.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Storage.Abstractions\Bazaar.Server.Setup.Storage.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BackupPolicy\Bazaar.Server.BackupPolicy.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MailPolicy\Bazaar.Server.MailPolicy.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />

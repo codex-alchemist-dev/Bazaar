@@ -27,9 +27,10 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
             .AddInMemoryCollection(withBootRoot ? new Dictionary<string, string?> { [DataVolumeOptions.BootRootKey] = BootRoot } : [])
             .Build();
 
-    private SetupPlan Plan(string provider = "dev-plain", string instanceClass = "development", string? dataRoot = null) => new()
+    private SetupPlan Plan(string provider = "dev-plain", string instanceClass = "development", string? dataRoot = null, string? identityKek = "file") => new()
     {
         Database = new SetupDatabaseSection { DataRoot = dataRoot ?? DataRoot },
+        Custody = new SetupCustodySection { IdentityKek = identityKek },
         Storage = new SetupStorageSection { InstanceClass = instanceClass, Volume = new SetupStorageVolumeSection { Provider = provider } },
     };
 
@@ -45,7 +46,10 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
     private static Dictionary<string, string> ReadHostFile(string bootRoot)
     {
         using var document = JsonDocument.Parse(File.ReadAllText(VolumeHostConfigFile.PathFor(bootRoot)));
-        return document.RootElement.GetProperty("Bazaar").GetProperty("Host").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+        var bazaar = document.RootElement.GetProperty("Bazaar");
+        var values = bazaar.GetProperty("Host").EnumerateObject().ToDictionary(p => p.Name, p => p.Value.GetString()!);
+        if (bazaar.TryGetProperty("Identity", out var identity)) values["KekProvider"] = identity.GetProperty("KekProvider").GetString()!;
+        return values;
     }
 
     [Fact]
@@ -84,6 +88,17 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
         Assert.False(File.Exists(DescriptorPath));
     }
 
+    [Theory]
+    [InlineData("openbao")]
+    [InlineData("tpm")]
+    public async Task An_identity_kek_kind_that_cannot_be_created_on_disk_is_refused(string identityKek)
+    {
+        var result = await Real().EnsureAsync(Plan(identityKek: identityKek), Ct);
+
+        Assert.Equal(StorageBootstrapOutcome.Refused, result.Outcome);
+        Assert.False(Directory.Exists(BootRoot));
+    }
+
     [Fact]
     public async Task The_volume_is_created_and_the_host_config_file_names_it()
     {
@@ -101,6 +116,25 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
         Assert.Equal(descriptor.InstallId, host["InstallId"]);
         Assert.Equal(descriptor.VolumeId, host["VolumeId"]);
         Assert.Equal("Development", host["InstanceClass"]);
+        Assert.Equal("file", host["KekProvider"]);
+    }
+
+    [Fact]
+    public async Task A_plan_without_an_identity_kek_kind_leaves_the_server_default()
+    {
+        IConfiguration? seen = null;
+        var bootstrap = new StorageVolumeBootstrap(
+            Config(),
+            (_, config, _, _) =>
+            {
+                seen = config;
+                return Task.FromResult(1);
+            },
+            TextWriter.Null);
+
+        await bootstrap.EnsureAsync(Plan(identityKek: null), Ct);
+
+        Assert.Null(seen![StorageVolumeBootstrap.KekProviderKey]);
     }
 
     [Fact]
@@ -196,6 +230,7 @@ public sealed class StorageVolumeBootstrapTests : IDisposable
         Assert.Equal(DataRoot, seen![DataVolumeOptions.DataRootKey]);
         Assert.Equal("Development", seen[DataVolumeOptions.InstanceClassKey]);
         Assert.Equal(BootRoot, seen[DataVolumeOptions.BootRootKey]);
+        Assert.Equal("file", seen[StorageVolumeBootstrap.KekProviderKey]);
         Assert.Equal(["init", "--provider", "dev-plain"], seenArgs!);
     }
 
