@@ -32,6 +32,8 @@ public sealed class ConnectionTests
         Assert.Equal(256 * 1024, welcome.Limits.MaxFrameBytes);
         Assert.Equal(32, welcome.Limits.InflightRequestsMax);
         Assert.Null(welcome.UpgradeRequired);
+        Assert.True(welcome.PreviousMajorSupported);
+        Assert.Null(welcome.SchemaVersion);
     }
 
     [Fact]
@@ -127,7 +129,9 @@ public sealed class ConnectionTests
 
         var reply = await client.HelloAsync(WireTestClient.DefaultHello(min: 0, max: 0));
 
-        Assert.True(client.Codec.DecodePayload<Welcome>(reply).UpgradeRequired);
+        var welcome = client.Codec.DecodePayload<Welcome>(reply);
+        Assert.True(welcome.UpgradeRequired);
+        Assert.False(welcome.PreviousMajorSupported);
         Assert.Equal(WireCloseCodes.UpgradeRequired, await client.WaitForCloseAsync());
     }
 
