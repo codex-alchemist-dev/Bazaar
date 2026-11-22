@@ -116,3 +116,28 @@ public class ConstellationSectionAdapterTests
         public int GetHashCode(SectionDef obj) => obj.Id.GetHashCode(StringComparison.Ordinal);
     }
 }
+
+public class CommunitySectionMappingTests
+{
+    [Fact]
+    public void Community_sections_map_one_to_one_onto_section_defs()
+    {
+        var result = new Bazaar.Constellation.Communities.Abstractions.CommunityLayoutResult(
+            ["a", "b", "c"],
+            new float[6],
+            [
+                new Bazaar.Constellation.Communities.Abstractions.CommunitySection("community:0", "Hub (2)", ["a", "b"], 0xFF112233u, 0, 0, 10),
+                new Bazaar.Constellation.Communities.Abstractions.CommunitySection("community:other", "Other (1)", ["c"], 0xFF445566u, 50, 0, 5),
+            ],
+            0.5);
+
+        var defs = result.ToSectionDefs();
+
+        Assert.Equal(2, defs.Count);
+        Assert.Equal("community:0", defs[0].Id);
+        Assert.Equal("Hub (2)", defs[0].Label);
+        Assert.Equal(["a", "b"], defs[0].Members);
+        Assert.Null(defs[0].ParentId);
+        Assert.Equal(0xFF445566u, defs[1].Color);
+    }
+}
