@@ -93,7 +93,7 @@ public static class ImporterContractChecks
             {
                 var first = importer.Map(record, rules);
                 var second = importer.Map(record, rules);
-                if (first != second) problems.Add("Map is not deterministic for " + record.SourceKey);
+                if (!SameMapping(first, second)) problems.Add("Map is not deterministic for " + record.SourceKey);
                 if (first.Target is { } target && !importer.Declaration.Targets.Contains(target))
                 {
                     problems.Add("Map proposes an undeclared target for " + record.SourceKey);
@@ -108,5 +108,23 @@ public static class ImporterContractChecks
         var self = importer.SelfTest();
         if (!self.Ok) problems.Add("self-test failed: " + self.Problem);
         return problems;
+    }
+
+    /// <summary>
+    /// Compares two mapping results by content. Record equality would compare the attribute dictionaries by reference,
+    /// so two equal results built by separate calls would look different.
+    /// </summary>
+    public static bool SameMapping(MappingResult first, MappingResult second)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        if (first.Target != second.Target || first.SkipReason != second.SkipReason) return false;
+        if (first.Record is null || second.Record is null) return first.Record is null && second.Record is null;
+
+        var a = first.Record;
+        var b = second.Record;
+        return a.SourceKey == b.SourceKey && a.Kind == b.Kind && a.Title == b.Title && a.Body == b.Body
+            && a.Attributes.Count == b.Attributes.Count
+            && a.Attributes.All(kv => b.Attributes.TryGetValue(kv.Key, out var other) && other == kv.Value);
     }
 }

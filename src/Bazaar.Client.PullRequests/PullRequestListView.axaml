@@ -1,0 +1,28 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pr="using:Bazaar.Client.PullRequests"
+             xmlns:gh="using:Bazaar.Contracts.GitHub"
+             x:Class="Bazaar.Client.PullRequests.PullRequestListView"
+             x:DataType="pr:PullRequestListViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="16" Spacing="8">
+      <TextBlock Text="Pull requests" FontSize="18" FontWeight="Bold" />
+      <TextBlock Text="{Binding Notice}" Name="NoticeText" TextWrapping="Wrap" />
+      <ItemsControl ItemsSource="{Binding Rows}" Name="RowsList">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="gh:PrListRow">
+            <Border BorderThickness="0,0,0,1" BorderBrush="Gray" Padding="0,8">
+              <StackPanel>
+                <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding Repo, StringFormat='{}{0}'}" />
+                <TextBlock Text="{Binding Checks, StringFormat='Checks: {0}'}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button Name="RefreshButton" Content="Refresh" />
+      <Button Name="MoreButton" Content="Load more" IsEnabled="{Binding HasMore}" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
