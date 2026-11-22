@@ -18,6 +18,9 @@ using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.Interrupts;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
+using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Org;
@@ -66,9 +69,8 @@ internal static class Program
         ChatHost? chat = null;
 
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
-        // The RyuseiFuda board comes first, then the Client.Core panes, then the rest of RyuseiFuda (pager order, doc 29).
         ClientServer.ConnectToCompanyServer();
-        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda (pager order).
+        // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
         IPaneModule[] modules =
         [
             RyuseiFudaPanes.Board,
@@ -81,8 +83,12 @@ internal static class Program
             .. CalendarPanes.Modules,
             .. InterruptPanes.Modules,
             new EnginePaneModule(),
+            .. GitSolarSystemPanes.Modules,
         ];
-        var features = new PaneModuleContext().With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current));
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
