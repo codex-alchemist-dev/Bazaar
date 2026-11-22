@@ -57,6 +57,10 @@ public static class MailCompositionExtensions
         services.TryAddSingleton<IGcProvisioner>(sp => sp.GetRequiredService<GcCreateService>());
         services.TryAddSingleton<IMailOwnerDirectory>(sp => new PostgresMailOwnerDirectory(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IInboxGcPort>(sp => new GcInboxGcPort(sp.GetRequiredService<IGcProvisioner>(), sp.GetRequiredService<IMailOwnerDirectory>()));
+        // Approved recipients (doc 22, "Approved recipients source"): the operator's allow list in Postgres. Registered before the mail runtime so
+        // its fail-closed default steps aside; the table starts empty, so every send stays Tier 2 until the approval path adds a row.
+        services.TryAddSingleton<IApprovedRecipientStore>(sp => new PostgresApprovedRecipientStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IApprovedRecipients>(sp => new StoreApprovedRecipients(sp.GetRequiredService<IApprovedRecipientStore>()));
         services.AddBazaarMailOnboarding();
         services.AddBazaarRateLimits();
         services.AddBazaarMailScreening();
