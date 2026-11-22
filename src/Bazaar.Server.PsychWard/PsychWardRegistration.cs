@@ -40,6 +40,7 @@ public static class PsychWardRegistration
                 : new NoOpWardJournal());
         services.TryAddSingleton<IPsychWardService, PsychWardService>();
         services.TryAddSingleton<IVentService, VentService>();
+        services.TryAddSingleton<IWardTriggerIntake, WardTriggerIntake>();
         services.TryAddSingleton<IPsychWardGate, PsychWardGate>();
         return services;
     }
