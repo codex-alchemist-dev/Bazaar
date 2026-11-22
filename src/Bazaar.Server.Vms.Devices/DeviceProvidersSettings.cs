@@ -14,7 +14,7 @@ public enum MicroVmMonitorSetting
 /// The device-guest provider settings of doc 62 section 7: <c>vms.devices.*</c>, <c>vms.android.*</c> and <c>vms.microvm.*</c>.
 /// All are install scope and operator-changed, with safe shipped defaults (DECISIONS-LOG round 13). When a change takes effect (live,
 /// or after a restart) is <see cref="LiveKeys"/>. Paths default to empty, which
-/// means unset: the providers never fall back to a profile folder. The iOS, macOS and Mac node keys (doc 62 sections 6 and 7) are live in the iOS and macOS modules, which run only on a Mac node.
+/// means unset: the providers never fall back to a profile folder. The iOS, macOS and Mac node keys (doc 62 sections 6 and 7) are read by the iOS and macOS modules, which run only on a Mac node; the two pins (<c>vms.ios.runtime_pin</c>, <c>vms.macos.restore_image_pin</c>) are install keys read when the backend is built.
 /// </summary>
 public static class DeviceProvidersSettings
 {
@@ -61,10 +61,20 @@ public static class DeviceProvidersSettings
         "iOS Simulator guests that may run at once on the Mac node. Applies to new starts without a restart.",
         validate: Between(1, 16, "vms.ios.max_concurrent"));
 
+    public static readonly SettingKey<string> IosRuntimePin = new(
+        DeviceSetupValidator.IosRuntimePinKey, string.Empty, SettingScope.Install, SettingRole.Operator,
+        "Pinned iOS Simulator runtime id, for example com.apple.CoreSimulator.SimRuntime.iOS-18-0. Required to use the iOS provider; empty means unset and the provider reports not usable.",
+        validate: CheckIosRuntimePin);
+
     public static readonly SettingKey<int> MacOsMaxConcurrent = new(
         "vms.macos.max_concurrent", 2, SettingScope.Install, SettingRole.Operator,
         "macOS virtual machines that may run at once on the Mac node. May lower the Apple limit of 2, never raise it. Applies to new starts without a restart.",
         validate: Between(1, 2, "vms.macos.max_concurrent"));
+
+    public static readonly SettingKey<string> MacOsRestoreImagePin = new(
+        DeviceSetupValidator.MacOsRestoreImagePinKey, string.Empty, SettingScope.Install, SettingRole.Operator,
+        "Pinned macOS restore image as id:build:sha256, for example macos-15-1:24B83:<64 lower-case hex digits>. Required to use the macOS provider; empty means unset and the provider reports not usable.",
+        validate: CheckRestoreImagePin);
 
     public static readonly SettingKey<string> MacNodeEndpoint = new(
         DeviceSetupValidator.MacNodeEndpointKey, string.Empty, SettingScope.Install, SettingRole.Operator,
@@ -122,7 +132,9 @@ public static class DeviceProvidersSettings
         AndroidSystemImage,
         AndroidMaxConcurrent,
         IosMaxConcurrent,
+        IosRuntimePin,
         MacOsMaxConcurrent,
+        MacOsRestoreImagePin,
         MacNodeEndpoint,
         MacNodeKeyPin,
         MicroVmMonitor,
@@ -158,6 +170,29 @@ public static class DeviceProvidersSettings
         value.Length == 0 || (value.Length <= 256 && value.All(c => c is '+' or '/' or '=' or '-' or '_' or ':' || char.IsAsciiLetterOrDigit(c)))
             ? null
             : "vms.node.mac.key_pin must be a key fingerprint (letters, digits and + / = - _ :), or empty for unset.";
+
+    // The setting checks the shape so a typo is refused at write time; the iOS and macOS modules re-validate the parts with their own
+    // identifier validators when they build the backend, and report the reason instead of throwing.
+    private static string? CheckIosRuntimePin(string value) =>
+        value.Length == 0 || (value.Length <= 200 && value.StartsWith("com.apple.CoreSimulator.SimRuntime.", StringComparison.Ordinal) && value.All(IsIdentifierChar))
+            ? null
+            : "vms.ios.runtime_pin must be a simulator runtime id such as com.apple.CoreSimulator.SimRuntime.iOS-18-0, or empty for unset.";
+
+    private static string? CheckRestoreImagePin(string value)
+    {
+        if (value.Length == 0)
+        {
+            return null;
+        }
+
+        var parts = value.Split(':');
+        return parts.Length == 3 && parts[0].Length is > 0 and <= 64 && parts[1].Length is > 0 and <= 16 && parts[2].Length == 64
+            && parts[0].All(IsIdentifierChar) && parts[1].All(char.IsAsciiLetterOrDigit) && parts[2].All(char.IsAsciiHexDigitLower)
+            ? null
+            : "vms.macos.restore_image_pin must be id:build:sha256 (a 64 digit lower-case hex hash), or empty for unset.";
+    }
+
+    private static bool IsIdentifierChar(char c) => c is '.' or '-' or '_' || char.IsAsciiLetterOrDigit(c);
 
     private static string? CheckSystemImage(string value) =>
         value.Length == 0 || (value.Length <= 255 && value.All(c => c is ';' or '-' or '_' or '.' || char.IsAsciiLetterOrDigit(c)))

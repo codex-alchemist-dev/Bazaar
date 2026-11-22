@@ -94,7 +94,7 @@ public sealed class MacOsBackend : IVmBackend, IVmProvider, ICapacityLimitedProv
 
         if (!_options.IsPinned)
         {
-            return Unusable("no macOS restore image is pinned (Bazaar:Vms:MacOs:RestoreImageId, RestoreImageBuild, RestoreImageSha256)");
+            return Unusable("no macOS restore image is pinned (vms.macos.restore_image_pin)");
         }
 
         return new ProviderStatus(Kind, true, ["headless", "guest-agent", "remote-node"], null);
@@ -115,7 +115,7 @@ public sealed class MacOsBackend : IVmBackend, IVmProvider, ICapacityLimitedProv
 
         if (!_options.IsPinned)
         {
-            throw new InvalidOperationException("No macOS restore image is pinned (Bazaar:Vms:MacOs:RestoreImageId, RestoreImageBuild, RestoreImageSha256).");
+            throw new InvalidOperationException("No macOS restore image is pinned (vms.macos.restore_image_pin).");
         }
 
         ArgumentOutOfRangeException.ThrowIfLessThan(spec.Vcpu, 1);

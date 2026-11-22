@@ -3,12 +3,12 @@ using Bazaar.Server.Vms.Devices;
 namespace Bazaar.Server.Vms.Ios;
 
 /// <summary>
-/// Settings of the iOS Simulator provider (doc 62 section 7). The runtime pin and device type come from the
-/// <c>Bazaar:Vms:Ios</c> configuration section, not from settings: doc 62 names no setting for them.
+/// Settings of the iOS Simulator provider (doc 62 section 7). The runtime pin is the <c>vms.ios.runtime_pin</c> setting; the device
+/// type is the shipped default.
 /// </summary>
 public sealed record IosOptions
 {
-    /// <summary>The pinned simulator runtime id (the parent). Empty means not pinned, and the provider reports not usable.</summary>
+    /// <summary><c>vms.ios.runtime_pin</c>: the pinned simulator runtime id (the parent). Empty means not pinned, and the provider reports not usable.</summary>
     public string RuntimeId { get; init; } = string.Empty;
 
     /// <summary>The runtime build that was pinned with <see cref="RuntimeId"/>. Informational; part of the derived image version.</summary>

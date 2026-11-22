@@ -101,7 +101,7 @@ public sealed class IosBackend : IVmBackend, IVmProvider, ICapacityLimitedProvid
 
         if (_options.RuntimeId.Length == 0)
         {
-            return Unusable("no simulator runtime is pinned (Bazaar:Vms:Ios:RuntimeId)");
+            return Unusable("no simulator runtime is pinned (vms.ios.runtime_pin)");
         }
 
         return new ProviderStatus(Kind, true, ["headless", "host-process", "remote-node"], null);
@@ -122,7 +122,7 @@ public sealed class IosBackend : IVmBackend, IVmProvider, ICapacityLimitedProvid
 
         if (_options.RuntimeId.Length == 0)
         {
-            throw new InvalidOperationException("No simulator runtime is pinned (Bazaar:Vms:Ios:RuntimeId).");
+            throw new InvalidOperationException("No simulator runtime is pinned (vms.ios.runtime_pin).");
         }
 
         var profile = new IosDeviceProfile(_options.DeviceType, _options.RuntimeId).Validated();

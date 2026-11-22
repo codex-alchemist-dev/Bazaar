@@ -115,7 +115,7 @@ public sealed class IosBackendTests
     {
         var (b, _) = await Make(runtime: string.Empty);
 
-        Assert.Contains("RuntimeId", b.ProbeDevice().Reason, StringComparison.Ordinal);
+        Assert.Contains("vms.ios.runtime_pin", b.ProbeDevice().Reason, StringComparison.Ordinal);
         await Assert.ThrowsAsync<InvalidOperationException>(() => b.CreateChildAsync(new(_image), _spec, Ct));
     }
 

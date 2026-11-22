@@ -26,9 +26,6 @@ namespace Bazaar.Server.Vms.MacOs;
 /// </summary>
 public sealed class MacOsComponent : IBazaarComponent
 {
-    /// <summary>Configuration section for the values that are not settings: <c>RestoreImageId</c>, <c>RestoreImageBuild</c>, <c>RestoreImageSha256</c> and <c>RestoreImageVersion</c> (GUID, optional).</summary>
-    public const string SectionName = "Bazaar:Vms:MacOs";
-
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vms-macos",
         Version: "0.1.0",
@@ -51,7 +48,6 @@ public sealed class MacOsComponent : IBazaarComponent
         {
             services.AddSingleton(sp => new MacOsCatalogEntry(
                 sp.GetRequiredService<ISettingStore>(),
-                configuration,
                 sp.GetRequiredService<IMacNodeLink>(),
                 clock: sp.GetService<TimeProvider>(),
                 logger: sp.GetService<ILoggerFactory>()?.CreateLogger<MacOsCatalogEntry>()));
@@ -70,13 +66,11 @@ public sealed class MacOsComponent : IBazaarComponent
 public sealed class MacOsCatalogEntry : DeviceProviderEntry<MacOsBackend>
 {
     private readonly ISettingStore _settings;
-    private readonly IConfiguration _configuration;
     private readonly IMacNodeLink _link;
     private readonly Func<MacOsOptions, IMacNodeLink, MacOsBackend> _factory;
 
     public MacOsCatalogEntry(
         ISettingStore settings,
-        IConfiguration configuration,
         IMacNodeLink link,
         Func<MacOsOptions, IMacNodeLink, MacOsBackend>? factory = null,
         TimeProvider? clock = null,
@@ -85,7 +79,6 @@ public sealed class MacOsCatalogEntry : DeviceProviderEntry<MacOsBackend>
         : base(clock, refreshInterval, logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _link = link ?? throw new ArgumentNullException(nameof(link));
         _factory = factory ?? ((options, l) => new MacOsBackend(l, options));
     }
@@ -98,33 +91,28 @@ public sealed class MacOsCatalogEntry : DeviceProviderEntry<MacOsBackend>
 
     protected override string ReadFailureReason => "The macOS settings could not be read.";
 
-    /// <summary>The golden image id that stands for the pinned restore image: configured, or derived from its id, build and hash.</summary>
-    public static Guid RestoreImageVersion(IConfiguration configuration, string id, string build, string sha256)
+    /// <summary>The golden image id that stands for the pinned restore image, derived from its id, build and hash.</summary>
+    public static Guid RestoreImageVersion(string id, string build, string sha256)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-        if (Guid.TryParse(configuration.GetSection(MacOsComponent.SectionName)["RestoreImageVersion"], out var configured))
-        {
-            return configured;
-        }
-
+        ArgumentNullException.ThrowIfNull(id);
+        ArgumentNullException.ThrowIfNull(build);
+        ArgumentNullException.ThrowIfNull(sha256);
         return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"bazaar:macos:{id}:{build}:{sha256}")).AsSpan(0, 16));
     }
 
     protected override async Task<(MacOsBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
         var max = await _settings.GetAsync(DeviceProvidersSettings.MacOsMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
-        var section = _configuration.GetSection(MacOsComponent.SectionName);
-        var id = section["RestoreImageId"] ?? string.Empty;
-        var build = section["RestoreImageBuild"] ?? string.Empty;
-        var sha256 = section["RestoreImageSha256"] ?? string.Empty;
+        var pin = await _settings.GetAsync(DeviceProvidersSettings.MacOsRestoreImagePin, cancellationToken: ct).ConfigureAwait(false);
         try
         {
+            var (id, build, sha256) = SplitPin(pin);
             var options = new MacOsOptions
             {
                 RestoreImageId = id,
                 RestoreImageBuild = build,
                 RestoreImageSha256 = sha256,
-                RestoreImageVersion = RestoreImageVersion(_configuration, id, build, sha256),
+                RestoreImageVersion = RestoreImageVersion(id, build, sha256),
                 MaxConcurrent = max,
             };
             return (_factory(options, _link), null);
@@ -134,6 +122,23 @@ public sealed class MacOsCatalogEntry : DeviceProviderEntry<MacOsBackend>
             // The validators name the field and never a value.
             return (null, ex.Message);
         }
+    }
+
+    /// <summary>Splits the <c>vms.macos.restore_image_pin</c> value, <c>id:build:sha256</c>. Empty is an unset pin. Never echoes the value.</summary>
+    private static (string Id, string Build, string Sha256) SplitPin(string pin)
+    {
+        if (pin.Length == 0)
+        {
+            return (string.Empty, string.Empty, string.Empty);
+        }
+
+        var parts = pin.Split(':');
+        if (parts.Length != 3)
+        {
+            throw new ArgumentException("vms.macos.restore_image_pin must be id:build:sha256.");
+        }
+
+        return (parts[0], parts[1], parts[2]);
     }
 
     protected override async Task<bool> ApplyLiveAsync(MacOsBackend backend, CancellationToken ct)

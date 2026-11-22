@@ -28,18 +28,9 @@ public sealed class MacOsComponentTests
     private const string _sha = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static IConfiguration Config(bool pinned = true) => new ConfigurationBuilder()
-        .AddInMemoryCollection(pinned
-            ? new Dictionary<string, string?>
-            {
-                ["Bazaar:Vms:MacOs:RestoreImageId"] = "macos-15-1",
-                ["Bazaar:Vms:MacOs:RestoreImageBuild"] = "24B83",
-                ["Bazaar:Vms:MacOs:RestoreImageSha256"] = _sha,
-            }
-            : [])
-        .Build();
+    private static Dictionary<string, object> Pinned(string pin = "macos-15-1:24B83:" + _sha) => new() { [DeviceProvidersSettings.MacOsRestoreImagePin.Name] = pin };
 
-    private static ServiceProvider Build(Dictionary<string, object> settings, IConfiguration? config = null, IMacNodeLink? link = null)
+    private static ServiceProvider Build(Dictionary<string, object> settings, IMacNodeLink? link = null)
     {
         var services = new ServiceCollection();
         if (link is not null)
@@ -47,7 +38,7 @@ public sealed class MacOsComponentTests
             services.AddSingleton(link);
         }
 
-        new MacOsComponent().AddServices(services, config ?? Config());
+        new MacOsComponent().AddServices(services, new ConfigurationBuilder().Build());
         services.AddSingleton<ISettingStore>(new MapSettingStore(settings));
         return services.BuildServiceProvider();
     }
@@ -80,8 +71,8 @@ public sealed class MacOsComponentTests
     public void Adding_the_component_twice_keeps_one_entry_and_one_link()
     {
         var services = new ServiceCollection();
-        new MacOsComponent().AddServices(services, Config());
-        new MacOsComponent().AddServices(services, Config());
+        new MacOsComponent().AddServices(services, new ConfigurationBuilder().Build());
+        new MacOsComponent().AddServices(services, new ConfigurationBuilder().Build());
 
         Assert.Single(services, d => d.ServiceType == typeof(IDeviceProviderCatalogEntry));
         Assert.Single(services, d => d.ServiceType == typeof(IMacNodeLink));
@@ -92,7 +83,7 @@ public sealed class MacOsComponentTests
     {
         using var plain = Build([]);
         var link = new InMemoryMacNodeLink();
-        using var custom = Build([], link: link);
+        using var custom = Build(Pinned(), link);
 
         Assert.IsType<UnlinkedMacNodeLink>(plain.GetRequiredService<IMacNodeLink>());
         Assert.Same(link, custom.GetRequiredService<IMacNodeLink>());
@@ -129,9 +120,9 @@ public sealed class MacOsComponentTests
     {
         var link = new InMemoryMacNodeLink(InMemoryMacNodeLink.GoodNode);
         await link.ConnectAsync(Ct);
-        using var unset = Build([], Config(pinned: false), link);
-        var bad = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Vms:MacOs:RestoreImageSha256"] = "nope" }).Build();
-        using var malformed = Build([], bad, link);
+        using var unset = Build([], link);
+        using var malformed = Build(Pinned("macos-15-1:24B83:nope"), link);
+        using var wrongShape = Build(Pinned("macos-15-1"), link);
 
         var unsetEntry = unset.GetRequiredService<IDeviceProviderCatalogEntry>();
         var badEntry = malformed.GetRequiredService<IDeviceProviderCatalogEntry>();
@@ -141,13 +132,17 @@ public sealed class MacOsComponentTests
         Assert.Contains("restore image", unsetEntry.ProbeDevice().Reason, StringComparison.Ordinal);
         Assert.False(badEntry.ProbeDevice().Usable);
         Assert.Contains("Invalid", badEntry.ProbeDevice().Reason, StringComparison.Ordinal);
+        var shapeEntry = wrongShape.GetRequiredService<IDeviceProviderCatalogEntry>();
+        await shapeEntry.RefreshAsync(Ct);
+        Assert.False(shapeEntry.ProbeDevice().Usable);
+        Assert.Contains("restore_image_pin", shapeEntry.ProbeDevice().Reason, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_connected_node_makes_the_entry_usable_without_a_restart()
     {
         var link = new InMemoryMacNodeLink(InMemoryMacNodeLink.GoodNode);
-        using var provider = Build([], link: link);
+        using var provider = Build(Pinned(), link);
         var entry = provider.GetRequiredService<MacOsCatalogEntry>();
         await entry.RefreshAsync(Ct);
         Assert.False(entry.ProbeDevice().Usable);
@@ -161,9 +156,10 @@ public sealed class MacOsComponentTests
     [Fact]
     public async Task A_live_cap_change_reaches_the_same_backend()
     {
-        var values = new Dictionary<string, object> { [DeviceProvidersSettings.MacOsMaxConcurrent.Name] = 2 };
+        var values = Pinned();
+        values[DeviceProvidersSettings.MacOsMaxConcurrent.Name] = 2;
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
-        using var entry = new MacOsCatalogEntry(new MapSettingStore(values), Config(), new UnlinkedMacNodeLink(), clock: clock);
+        using var entry = new MacOsCatalogEntry(new MapSettingStore(values), new UnlinkedMacNodeLink(), clock: clock);
         await entry.RefreshAsync(Ct);
         var backend = entry.Backend!;
 
@@ -176,15 +172,25 @@ public sealed class MacOsComponentTests
     }
 
     [Fact]
-    public void The_restore_image_version_is_configured_or_derived_the_same_way_each_time()
+    public void The_restore_image_version_is_derived_the_same_way_each_time()
     {
-        var empty = new ConfigurationBuilder().Build();
-        var id = Guid.NewGuid();
-        var configured = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Vms:MacOs:RestoreImageVersion"] = id.ToString() }).Build();
+        Assert.Equal(MacOsCatalogEntry.RestoreImageVersion("a", "b", "c"), MacOsCatalogEntry.RestoreImageVersion("a", "b", "c"));
+        Assert.NotEqual(MacOsCatalogEntry.RestoreImageVersion("a", "b", "c"), MacOsCatalogEntry.RestoreImageVersion("a", "b", "d"));
+    }
 
-        Assert.Equal(id, MacOsCatalogEntry.RestoreImageVersion(configured, "a", "b", "c"));
-        Assert.Equal(MacOsCatalogEntry.RestoreImageVersion(empty, "a", "b", "c"), MacOsCatalogEntry.RestoreImageVersion(empty, "a", "b", "c"));
-        Assert.NotEqual(MacOsCatalogEntry.RestoreImageVersion(empty, "a", "b", "c"), MacOsCatalogEntry.RestoreImageVersion(empty, "a", "b", "d"));
+    [Fact]
+    public void The_restore_image_pin_setting_is_an_install_operator_key_that_checks_its_shape()
+    {
+        var key = DeviceProvidersSettings.MacOsRestoreImagePin;
+
+        Assert.Equal("vms.macos.restore_image_pin", key.Name);
+        Assert.Equal(string.Empty, key.Default);
+        Assert.Contains(key, DeviceProvidersSettings.All);
+        Assert.False(DeviceProvidersSettings.AppliesLive(key));
+        Assert.Null(key.CheckValue(JsonSerializer.SerializeToElement(string.Empty)));
+        Assert.Null(key.CheckValue(JsonSerializer.SerializeToElement("macos-15-1:24B83:" + _sha)));
+        Assert.NotNull(key.CheckValue(JsonSerializer.SerializeToElement("macos-15-1:24B83:nope")));
+        Assert.NotNull(key.CheckValue(JsonSerializer.SerializeToElement("macos-15-1")));
     }
 
     [Fact]

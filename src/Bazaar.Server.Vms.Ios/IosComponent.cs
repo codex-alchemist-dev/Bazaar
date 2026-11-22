@@ -25,9 +25,6 @@ namespace Bazaar.Server.Vms.Ios;
 /// </summary>
 public sealed class IosComponent : IBazaarComponent
 {
-    /// <summary>Configuration section for the values that are not settings: <c>RuntimeId</c>, <c>RuntimeBuild</c>, <c>RuntimeVersion</c> (GUID, optional) and <c>DeviceType</c>.</summary>
-    public const string SectionName = "Bazaar:Vms:Ios";
-
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vms-ios",
         Version: "0.1.0",
@@ -50,7 +47,6 @@ public sealed class IosComponent : IBazaarComponent
         {
             services.AddSingleton(sp => new IosCatalogEntry(
                 sp.GetRequiredService<ISettingStore>(),
-                configuration,
                 sp.GetRequiredService<IMacNodeLink>(),
                 clock: sp.GetService<TimeProvider>(),
                 logger: sp.GetService<ILoggerFactory>()?.CreateLogger<IosCatalogEntry>()));
@@ -68,13 +64,11 @@ public sealed class IosComponent : IBazaarComponent
 public sealed class IosCatalogEntry : DeviceProviderEntry<IosBackend>
 {
     private readonly ISettingStore _settings;
-    private readonly IConfiguration _configuration;
     private readonly IMacNodeLink _link;
     private readonly Func<IosOptions, IMacNodeLink, IosBackend> _factory;
 
     public IosCatalogEntry(
         ISettingStore settings,
-        IConfiguration configuration,
         IMacNodeLink link,
         Func<IosOptions, IMacNodeLink, IosBackend>? factory = null,
         TimeProvider? clock = null,
@@ -83,7 +77,6 @@ public sealed class IosCatalogEntry : DeviceProviderEntry<IosBackend>
         : base(clock, refreshInterval, logger)
     {
         _settings = settings ?? throw new ArgumentNullException(nameof(settings));
-        _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         _link = link ?? throw new ArgumentNullException(nameof(link));
         _factory = factory ?? ((options, l) => new IosBackend(l, options));
     }
@@ -96,32 +89,23 @@ public sealed class IosCatalogEntry : DeviceProviderEntry<IosBackend>
 
     protected override string ReadFailureReason => "The iOS settings could not be read.";
 
-    /// <summary>The golden image id that stands for the pinned runtime: configured, or derived from the runtime id and build.</summary>
-    public static Guid RuntimeVersion(IConfiguration configuration, string runtimeId, string runtimeBuild)
+    /// <summary>The golden image id that stands for the pinned runtime, derived from the runtime id (the <c>vms.ios.runtime_pin</c> value).</summary>
+    public static Guid RuntimeVersion(string runtimeId)
     {
-        ArgumentNullException.ThrowIfNull(configuration);
-        if (Guid.TryParse(configuration.GetSection(IosComponent.SectionName)["RuntimeVersion"], out var configured))
-        {
-            return configured;
-        }
-
-        return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"bazaar:ios:{runtimeId}:{runtimeBuild}")).AsSpan(0, 16));
+        ArgumentNullException.ThrowIfNull(runtimeId);
+        return new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"bazaar:ios:{runtimeId}")).AsSpan(0, 16));
     }
 
     protected override async Task<(IosBackend? Backend, string? Reason)> BuildAsync(CancellationToken ct)
     {
         var max = await _settings.GetAsync(DeviceProvidersSettings.IosMaxConcurrent, cancellationToken: ct).ConfigureAwait(false);
-        var section = _configuration.GetSection(IosComponent.SectionName);
-        var runtimeId = section["RuntimeId"] ?? string.Empty;
-        var runtimeBuild = section["RuntimeBuild"] ?? string.Empty;
+        var runtimeId = await _settings.GetAsync(DeviceProvidersSettings.IosRuntimePin, cancellationToken: ct).ConfigureAwait(false);
         try
         {
             var options = new IosOptions
             {
                 RuntimeId = runtimeId,
-                RuntimeBuild = runtimeBuild,
-                RuntimeVersion = RuntimeVersion(_configuration, runtimeId, runtimeBuild),
-                DeviceType = section["DeviceType"] is { Length: > 0 } deviceType ? deviceType : IosDeviceProfile.DefaultDeviceType,
+                RuntimeVersion = RuntimeVersion(runtimeId),
                 MaxConcurrent = max,
             };
             return (_factory(options, _link), null);

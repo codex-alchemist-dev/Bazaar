@@ -1,8 +1,8 @@
 namespace Bazaar.Server.Vms.MacOs;
 
 /// <summary>
-/// Settings of the macOS VM provider (doc 62 section 7). The restore image pin comes from the <c>Bazaar:Vms:MacOs</c> configuration
-/// section, not from settings: doc 62 names no setting for it.
+/// Settings of the macOS VM provider (doc 62 section 7). The restore image pin is the <c>vms.macos.restore_image_pin</c> setting
+/// (<c>id:build:sha256</c>), split into its parts by the catalogue entry.
 /// </summary>
 public sealed record MacOsOptions
 {

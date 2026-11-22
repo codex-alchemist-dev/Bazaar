@@ -28,11 +28,9 @@ public sealed class IosComponentTests
     private const string _runtime = "com.apple.CoreSimulator.SimRuntime.iOS-18-0";
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static IConfiguration Config(bool pinned = true) => new ConfigurationBuilder()
-        .AddInMemoryCollection(pinned ? new Dictionary<string, string?> { ["Bazaar:Vms:Ios:RuntimeId"] = _runtime, ["Bazaar:Vms:Ios:RuntimeBuild"] = "22A3351" } : [])
-        .Build();
+    private static Dictionary<string, object> Pinned(string runtime = _runtime) => new() { [DeviceProvidersSettings.IosRuntimePin.Name] = runtime };
 
-    private static ServiceProvider Build(Dictionary<string, object> settings, IConfiguration? config = null, IMacNodeLink? link = null)
+    private static ServiceProvider Build(Dictionary<string, object> settings, IMacNodeLink? link = null)
     {
         var services = new ServiceCollection();
         if (link is not null)
@@ -40,7 +38,7 @@ public sealed class IosComponentTests
             services.AddSingleton(link);
         }
 
-        new IosComponent().AddServices(services, config ?? Config());
+        new IosComponent().AddServices(services, new ConfigurationBuilder().Build());
         services.AddSingleton<ISettingStore>(new MapSettingStore(settings));
         return services.BuildServiceProvider();
     }
@@ -73,8 +71,8 @@ public sealed class IosComponentTests
     public void Adding_the_component_twice_keeps_one_entry()
     {
         var services = new ServiceCollection();
-        new IosComponent().AddServices(services, Config());
-        new IosComponent().AddServices(services, Config());
+        new IosComponent().AddServices(services, new ConfigurationBuilder().Build());
+        new IosComponent().AddServices(services, new ConfigurationBuilder().Build());
 
         Assert.Single(services, d => d.ServiceType == typeof(IDeviceProviderCatalogEntry));
         Assert.Single(services, d => d.ServiceType == typeof(IMacNodeLink));
@@ -92,7 +90,7 @@ public sealed class IosComponentTests
     public void A_link_registered_first_wins_over_the_default()
     {
         var link = new InMemoryMacNodeLink();
-        using var provider = Build([], link: link);
+        using var provider = Build(Pinned(), link);
 
         Assert.Same(link, provider.GetRequiredService<IMacNodeLink>());
     }
@@ -131,21 +129,20 @@ public sealed class IosComponentTests
     {
         var link = new InMemoryMacNodeLink(InMemoryMacNodeLink.GoodNode);
         await link.ConnectAsync(Ct);
-        using var provider = Build([], Config(pinned: false), link);
+        using var provider = Build([], link);
         var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
         await entry.RefreshAsync(Ct);
 
         var probe = entry.ProbeDevice();
 
         Assert.False(probe.Usable);
-        Assert.Contains("RuntimeId", probe.Reason, StringComparison.Ordinal);
+        Assert.Contains("vms.ios.runtime_pin", probe.Reason, StringComparison.Ordinal);
     }
 
     [Fact]
     public async Task A_bad_runtime_id_is_reported_not_thrown()
     {
-        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Vms:Ios:RuntimeId"] = "nope" }).Build();
-        using var provider = Build([], config);
+        using var provider = Build(Pinned("nope"));
         var entry = provider.GetRequiredService<IDeviceProviderCatalogEntry>();
         await entry.RefreshAsync(Ct);
 
@@ -159,7 +156,7 @@ public sealed class IosComponentTests
     public async Task A_connected_node_makes_the_entry_usable_without_a_restart()
     {
         var link = new InMemoryMacNodeLink(InMemoryMacNodeLink.GoodNode);
-        using var provider = Build([], link: link);
+        using var provider = Build(Pinned(), link);
         var entry = provider.GetRequiredService<IosCatalogEntry>();
         await entry.RefreshAsync(Ct);
         Assert.False(entry.ProbeDevice().Usable);
@@ -175,9 +172,10 @@ public sealed class IosComponentTests
     [Fact]
     public async Task The_configured_cap_is_applied_and_a_live_change_reaches_the_same_backend()
     {
-        var values = new Dictionary<string, object> { [DeviceProvidersSettings.IosMaxConcurrent.Name] = 3 };
+        var values = Pinned();
+        values[DeviceProvidersSettings.IosMaxConcurrent.Name] = 3;
         var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 20, 9, 0, 0, TimeSpan.Zero));
-        using var entry = new IosCatalogEntry(new MapSettingStore(values), Config(), new UnlinkedMacNodeLink(), clock: clock);
+        using var entry = new IosCatalogEntry(new MapSettingStore(values), new UnlinkedMacNodeLink(), clock: clock);
         await entry.RefreshAsync(Ct);
         var backend = entry.Backend!;
         Assert.Equal(3, entry.Capabilities.MaxConcurrentInstances);
@@ -191,15 +189,25 @@ public sealed class IosComponentTests
     }
 
     [Fact]
-    public void The_runtime_version_is_configured_or_derived_the_same_way_each_time()
+    public void The_runtime_version_is_derived_the_same_way_each_time()
     {
-        var empty = new ConfigurationBuilder().Build();
-        var id = Guid.NewGuid();
-        var configured = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Vms:Ios:RuntimeVersion"] = id.ToString() }).Build();
+        Assert.Equal(IosCatalogEntry.RuntimeVersion("a"), IosCatalogEntry.RuntimeVersion("a"));
+        Assert.NotEqual(IosCatalogEntry.RuntimeVersion("a"), IosCatalogEntry.RuntimeVersion("b"));
+    }
 
-        Assert.Equal(id, IosCatalogEntry.RuntimeVersion(configured, "a", "b"));
-        Assert.Equal(IosCatalogEntry.RuntimeVersion(empty, "a", "b"), IosCatalogEntry.RuntimeVersion(empty, "a", "b"));
-        Assert.NotEqual(IosCatalogEntry.RuntimeVersion(empty, "a", "b"), IosCatalogEntry.RuntimeVersion(empty, "a", "c"));
+    [Fact]
+    public void The_runtime_pin_setting_is_an_install_operator_key_that_checks_its_shape()
+    {
+        var key = DeviceProvidersSettings.IosRuntimePin;
+
+        Assert.Equal("vms.ios.runtime_pin", key.Name);
+        Assert.Equal(string.Empty, key.Default);
+        Assert.Contains(key, DeviceProvidersSettings.All);
+        Assert.False(DeviceProvidersSettings.AppliesLive(key));
+        Assert.Null(key.CheckValue(JsonSerializer.SerializeToElement(string.Empty)));
+        Assert.Null(key.CheckValue(JsonSerializer.SerializeToElement(_runtime)));
+        Assert.NotNull(key.CheckValue(JsonSerializer.SerializeToElement("nope")));
+        Assert.NotNull(key.CheckValue(JsonSerializer.SerializeToElement(_runtime + " x")));
     }
 
     [Fact]

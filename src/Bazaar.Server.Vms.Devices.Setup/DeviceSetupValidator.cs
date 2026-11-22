@@ -14,6 +14,8 @@ public static class DeviceSetupValidator
     public const string AndroidAvdHomeKey = "vms.android.avd_home";
     public const string AndroidSystemImageKey = "vms.android.system_image";
     public const string MicroVmStateDirKey = "vms.microvm.state_dir";
+    public const string IosRuntimePinKey = "vms.ios.runtime_pin";
+    public const string MacOsRestoreImagePinKey = "vms.macos.restore_image_pin";
     public const string MacNodeEndpointKey = "vms.node.mac.endpoint";
     public const string MacNodeKeyPinKey = "vms.node.mac.key_pin";
 
@@ -32,7 +34,9 @@ public static class DeviceSetupValidator
         AndroidSystemImageKey,
         "vms.android.max_concurrent",
         "vms.ios.max_concurrent",
+        IosRuntimePinKey,
         "vms.macos.max_concurrent",
+        MacOsRestoreImagePinKey,
         MacNodeEndpointKey,
         MacNodeKeyPinKey,
         "vms.microvm.monitor",
