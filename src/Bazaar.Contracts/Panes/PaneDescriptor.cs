@@ -50,4 +50,13 @@ public static class PaneKinds
 
     /// <summary>Mail DNS: the operator's domain checks as rows with a status and a fix hint (doc 22, WP10 and WP12).</summary>
     public const string MailDns = "bazaar.mail.dns";
+
+    /// <summary>Org chart: reports-to and loan edges, by company or project lens (doc 24 section 5).</summary>
+    public const string Org = "bazaar.org";
+
+    /// <summary>Company calendar: a month grid of plans, releases and vacations (doc 24 section 5).</summary>
+    public const string Calendar = "bazaar.calendar";
+
+    /// <summary>Interrupt stacks: agents with a pushed frame, depth 0 to 2 (doc 24 section 5).</summary>
+    public const string InterruptStack = "bazaar.interrupt-stack";
 }
