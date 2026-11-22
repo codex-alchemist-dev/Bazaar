@@ -27,8 +27,8 @@ namespace Bazaar.Server.Host.Composition;
 /// <item><description><b>Egress allowlist store</b>: only the in-memory store exists; allowlist growth is lost on restart. A durable store is unbuilt.</description></item>
 /// <item><description><b>Egress allowlist settings</b>: <c>security.egress.default_allowlist</c> and <c>vm.egress.allowlist_change_approval</c> have no
 /// setting contribution yet, so the options keep their shipped values (empty allowlist, approval tier floor).</description></item>
-/// <item><description><b>Taint lookup</b>: no <see cref="IAgentSessionTaintLookup"/> exists (the agent to session map lives in Bazaar.Server, which modules may not
-/// reference), so the egress taint reader cannot read a session and the gate denies growth requests.</description></item>
+/// <item><description><b>Taint</b>: the egress taint reader uses Security's <c>IAgentSessionTaintReader</c>, which the agent-turns component registers; if
+/// that reader is absent the gate denies growth requests.</description></item>
 /// <item><description><b>Scoped mounts</b>: no <see cref="IMountProvider"/>, <see cref="IMountGuestChannel"/> or <see cref="ICanarySink"/> implementation
 /// exists. The mount module is composed only when all three are already registered, <c>Bazaar:Components:vm-mounts</c> is not off and
 /// <c>VmMounts:AgentsRoot</c> is set; otherwise <see cref="IMountManager"/> is absent and the kill switch's mount leg fails loudly. Registering the manager

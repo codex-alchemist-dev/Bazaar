@@ -263,6 +263,21 @@ The pure parts live in `src/Bazaar.Kodo/Sentinel`, with the OS behind `ISentinel
 - **Cause codes.** Stable strings in `SentinelCauses`. The verifier's status name goes in `detail`.
 - **Not in this slice.** Crash-loop detection (7.1), the OS launcher and file store, the loopback server, the audit event.
 
+### 7.9 Standby core choices (PROPOSED 2026-11-22)
+
+The pure parts of 7.6 live in `src/Bazaar.Kodo/Standby`. Witnesses, journal and state store are interfaces (`IStandbyWitness`, `IStandbyJournal`, `IStandbyStateStore`) and time comes from `TimeProvider`. No concrete witness, no replication and no database fencing are built. Every choice below is PROPOSED because 7.6 leaves it open. Owner to ratify.
+
+- **Roles.** `Primary`, `Standby`, `Fenced`. A split brain is a fenced node with cause `split_brain` (7.6 calls it sealed). Cause codes are stable strings in `StandbyCauses`.
+- **Fencing token.** A non-negative epoch that only goes up. Epoch 0 means no token. A token below the current epoch, or epoch 0, is always stale. A token above the node's own epoch means this node is the stale one, so it fences itself (cause `superseded`). A node that is not primary admits nothing, and a primary whose lease has run out fences itself rather than admit a write.
+- **Lease.** Holder, epoch, granted and expiry times (UTC). Version 1. A new epoch is one above the highest epoch ever seen, never above only the lease the node knows.
+- **Quorum floor.** The witness set has at least 2 witnesses and the required count is at least a strict majority (n/2 + 1), at most all of them. The default is the strict majority: 2 of 3, or 2 of 2 when only paired devices exist. A setting may raise it, never lower it below the floor. Each witness counts once, unknown ids are ignored, and a witness that contradicts itself counts as no answer.
+- **Failover rule.** The standby promotes only when all hold: it is a standby, a lease is known, that lease is expired past the clock skew margin, no witness reports the primary reachable (conservative: one witness that still sees it blocks the failover), and a quorum reports it unreachable. With no lease ever seen it never promotes; the first lease comes from an explicit bootstrap that needs a grant quorum and refuses when any witness knows a lease. Promotion also needs a grant quorum for the new epoch, then journal first, state saved second. If either fails the standby stays and the attempt is refused (a failed save writes `standby.promotion_aborted`).
+- **Demotion.** The primary stops at its lease expiry with no margin, and the standby waits for expiry plus the margin (default 3 s), so they do not overlap while clocks differ by less than the margin. Fencing is never blocked: the in-memory role changes first, and journal and save are best effort. A restart that cannot read its saved state, or finds a state for another node or an expired primary lease, fences the node.
+- **Timings (settings to be named, defaults PROPOSED).** Lease 15 s, renew when 5 s or less is left, skew margin 3 s, witness call timeout 3 s. A witness that throws or hangs counts as no answer.
+- **Failback.** Manual only in this slice. A person returns a fenced node to standby (`RejoinAsStandbyAsync`), which needs a journal write. After a split brain it also needs the caller to state that a human resolved it. The `kodo.failover.approve` role and step-up check belong to the caller.
+- **Records and journal.** Lease and state records are pure, signed-nothing, and have a canonical compact camelCase JSON codec with a SHA-256 digest. Every standby journal entry (`standby.promoted`, `standby.promotion_aborted`, `standby.fenced`, `standby.rejoined`, `standby.stale_rejected`) carries the canonical state, so the epoch is in every record, and the entry is the kind and payload that the journal chains into a `JournalRecord`.
+- **Not in this slice.** Concrete witnesses, journal and store implementations, journal replication, database-side rejection of stale epochs, incident entry on `split_brain` (the tick result only exposes `SplitBrain`), automatic failback, settings wiring, and the fencing spike on the chosen database setup.
+
 ## 8. State model
 
 ### 8.1 States
@@ -503,6 +518,20 @@ Green, amber and red are derived from the state (section 8), never from the scor
 - A read-only page with component statuses, the uptime figures for the public SLOs, the open incident list and the post-incident summaries (approved ones only).
 - It is off by default. Its contents are a setting: a list of public components, and a switch that shows incident titles or hides them. No agent names, GC or Vault content, customer data, key ids, host names or internal probe ids are ever shown.
 - It is served by the status listener of doc 02 and doc 03, and it follows the bind floor in section 15.5.
+
+### 12.5 SLO core choices (PROPOSED)
+
+The pure core lives in `src/Bazaar.Kodo/Slo` (namespace `Bazaar.Kodo.Slo`). It reads no clock (every call takes `now`), does no I/O and has no concrete store beyond an in-memory one. It builds on 12.3 and 8.3; the choices below are where those sections are silent. Nothing here is DECIDED.
+
+- **Definition.** An SLO has an identifier (lowercase letters, digits and underscores, up to 64), a target in parts per million (no floating point), a rolling window and an indicator kind. The target has a floor of 90 percent and a ceiling of 99.9999 percent (100 percent has no budget). The window runs from 1 hour to 31 days (default 30 days). Settings may raise the floor but never lower it. The defaults of 12.3 that fit the two kinds are built (server availability, group chat append latency, stream freshness, model lane per provider). "Group chat append success 99.9 percent" is a count of events, not state samples, and is not built.
+- **Indicators.** `Availability` is time based: a store slot (default 1 minute) gets one verdict, bad if any sample in it was bad, else unobserved if any was, else good. `LatencyThreshold` is count based: the ratio of samples at or under a threshold (up to 1 minute). Raw readings are classified by `SloSamples` (readiness, health state, duration against a limit); any doubtful input becomes `unobserved`.
+- **Store.** `ISloSampleStore` keeps counts per series and slot, never raw samples, so size does not grow with the sample rate. The in-memory store is bounded (256 series, 44640 slots per series, oldest dropped), refuses a bad identifier or an undefined outcome, and saturates its counts. A durable store is not built.
+- **Unobserved.** `unobserved` is never good. It consumes budget like bad time and is counted apart. For availability, a slot with no sample after the first one ever recorded is unobserved (a sampler that dies burns budget); time before the first sample is not counted. For the latency kind an empty slot adds nothing (no traffic is not an outage), so a blind meter must record `unobserved` samples. A series with no sample in the window is `NoData`, which is never healthy and reports no budget left.
+- **Window end.** The window ends at the last complete slot; the slot in progress counts for nothing until it closes.
+- **Budget.** Consumed share is not-good units over `(1 - target)` times the units of the window: for availability the full window in slots (so a young series has used only what it has seen), for latency the samples it has. Remaining is `1 - consumed`, never below zero. All integer maths (128-bit intermediates).
+- **Burn rate and alerts.** The burn rate over a window is its not-good share divided by the allowed share, in thousandths (1000 is exactly on budget). A rule fires only when the burn is at or above its threshold over both its short and its long window (a window with no sample never fires). Defaults, both over 1 hour and 6 hours: `slow_burn` warning at 2 times, `fast_burn` critical at 6 times. Settings may only tighten: the same two rule names and severities, a threshold no higher than the default and not below 1 times, a short window no longer than the default and at least a minute, a long window above the short one and no longer than the default.
+- **Status.** `SloStatus` (identifiers and numbers only) has health `NoData`, `Ok`, `Warning` (a rule is firing) or `Breached` (budget used up, or a critical rule firing). `SloSnapshot` sorts by id, refuses duplicate ids and raises the evaluator's `SloWarningBurn` and `SloBreach` flags without ever lowering one. `SloReportAdapter` fills the existing `ReportSlo` input of 16.10, rounding down to permille so a report never overstates.
+- **Not built.** Uptime figures recomputed from the journal (12.3, last point), a durable store, settings wiring (the `kodo.slo.*` keys exist, nothing reads them), alert routing of burn rules through the Responder, per-service SLOs from module manifests, and the public status page figures.
 
 ## 13. Prediction
 
@@ -979,11 +1008,11 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
 | Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
-| Warm standby and fencing | PLANNED, optional | Needs a fencing spike on the chosen database setup |
+| Warm standby and fencing | PARTIAL, optional | Pure core built in `src/Bazaar.Kodo/Standby`: role model, fencing epoch, lease record and codec with digest, witness quorum evaluator with a strict-majority floor, failover decision, self-fence, and a journalled fail-safe controller over witness, journal and store interfaces. Choices are PROPOSED in 7.9. No concrete witnesses, stores or replication, no database-side rejection, no incident wiring and no settings yet. Still needs a fencing spike on the chosen database setup |
 | State model (5 states plus `unobserved` display) | PLANNED | Table design in 8 |
 | Built-in probes | PLANNED | Catalogue in 9.1; most depend on modules that are not built |
 | Module health contract | PLANNED | Depends on doc 42 |
-| Score and SLOs | PLANNED | Formula in 12 |
+| Score and SLOs | PARTIAL | Pure SLO core built in `src/Bazaar.Kodo/Slo`: definitions, bounded sample store with an in-memory implementation, error budget, multi-window burn rules (tighten-only), deterministic status, adapter to the report builder's `ReportSlo`. Choices PROPOSED in 12.5. The health score (12.2) is not built. No journal replay of uptime, durable store, settings wiring or Responder routing yet |
 | Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PARTIAL | Status and Fleet views built in `src/Bazaar.Client.Kodo` (package 16, first slice): the pane uses the shared `KodoStreamTracker` (one stream tracker; reducer removed) through a thin `KodoStreamSession`, view models, Avalonia views, headless tests. Choices PROPOSED in 14.6. No pane registry registration, palette wiring, stream transport, fleet DTO or endpoint, live metrics, logs, time-travel or map yet |
@@ -999,7 +1028,7 @@ Nothing in this document is built. This table is the single list of what is not 
 
 ## 23. Questions for the owner
 
-1. **Witness set for standby.** Default: the owner's paired devices plus one optional third node, 2 of 3. Is a paired-device-only quorum acceptable when no third node exists?
+1. **Witness set for standby.** Default: the owner's paired devices plus one optional third node, 2 of 3. Is a paired-device-only quorum acceptable when no third node exists? (The core already accepts 2 of 2 as a strict majority, so the question is only whether to allow it by default: it is safe but a single device being offline blocks failover. See 7.9.)
 2. **Android controls.** Default: step-up controls on Android, read-only otherwise. Confirm the exception to the doc 23 Android rule.
 3. **Status page split (C40).** Default: doc 23 keeps the agent and usage sections; Kodo adds a `health` section to the same `/status` endpoint. Ratify or reject.
 4. **Audit log ownership.** Default: doc 15 keeps the `audit_log` table until doc 48 is written, and Kodo's journal stays separate and cross-referenced. Confirm.

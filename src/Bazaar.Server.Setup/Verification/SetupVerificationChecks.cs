@@ -33,6 +33,7 @@ public static class SetupVerificationChecks
         new NotEvaluatedCheck("host.disk", "Disk headroom"),
         new NotEvaluatedCheck("models.reachable", "Model sources reachable"),
         new NotEvaluatedCheck("pairing.offer", "Pairing offer"),
+        new NotEvaluatedCheck("remote.reachable", "Remote access reachable"),
         new NotEvaluatedCheck("server.identity", "Server identity matches the company build"),
     ];
 
