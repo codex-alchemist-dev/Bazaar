@@ -16,8 +16,8 @@
   "root": {
     "widget": "stack",
     "children": [
-      { "widget": "badge", "props": { "text": { "expr": "cycleText" }, "variant": "system", "visibleWhen": { "expr": "cycleVisible" } } },
-      { "widget": "text", "props": { "text": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
+      { "widget": "badge", "props": { "value": { "expr": "cycleText" }, "variant": "system", "visibleWhen": { "expr": "cycleVisible" } } },
+      { "widget": "text", "props": { "value": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
       {
         "widget": "list",
         "props": { "over": "lines", "key": "id" },
@@ -25,8 +25,8 @@
           {
             "widget": "stack",
             "children": [
-              { "widget": "text", "props": { "text": { "expr": "text" }, "visibleWhen": { "expr": "heading" } } },
-              { "widget": "text", "props": { "text": { "expr": "text" }, "style": "small", "visibleWhen": { "expr": "!heading" } } }
+              { "widget": "text", "props": { "value": { "expr": "text" }, "visibleWhen": { "expr": "heading" } } },
+              { "widget": "text", "props": { "value": { "expr": "text" }, "style": "small", "visibleWhen": { "expr": "!heading" } } }
             ]
           }
         ]

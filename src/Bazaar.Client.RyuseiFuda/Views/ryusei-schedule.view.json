@@ -26,8 +26,8 @@
   "root": {
     "widget": "stack",
     "children": [
-      { "widget": "text", "props": { "text": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
-      { "widget": "text", "props": { "text": { "expr": "errorText" }, "style": "small", "visibleWhen": { "expr": "errorVisible" } } },
+      { "widget": "text", "props": { "value": { "expr": "emptyText" }, "style": "small", "visibleWhen": { "expr": "emptyVisible" } } },
+      { "widget": "text", "props": { "value": { "expr": "errorText" }, "style": "small", "visibleWhen": { "expr": "errorVisible" } } },
       {
         "widget": "list",
         "props": { "over": "triggers", "key": "id" },
@@ -35,9 +35,9 @@
           {
             "widget": "stack",
             "children": [
-              { "widget": "text", "props": { "text": { "expr": "summary" } } },
-              { "widget": "text", "props": { "text": { "expr": "purpose" } } },
-              { "widget": "text", "props": { "text": { "expr": "detail" }, "style": "small" } },
+              { "widget": "text", "props": { "value": { "expr": "summary" } } },
+              { "widget": "text", "props": { "value": { "expr": "purpose" } } },
+              { "widget": "text", "props": { "value": { "expr": "detail" }, "style": "small" } },
               {
                 "widget": "button",
                 "props": {

@@ -17,6 +17,7 @@ public sealed partial class ViewMapper
         "check" => "M3,8 L6.5,11.5 L13,4.5",
         "close" => "M4,4 L12,12 M12,4 L4,12",
         "warning" => "M8,2.5 L14,13.5 L2,13.5 Z M8,6.5 L8,9.5 M8,11.5 L8,11.6",
+        "mention" => "M8,2.5 A5.5,5.5 0 1 0 8,13.5 M8,5.5 A2.5,2.5 0 1 0 8,10.5 A2.5,2.5 0 1 0 8,5.5 M10.5,5.5 L10.5,9 A1.75,1.75 0 0 0 14,9 A6,6 0 0 0 8,2.5",
         "search" => "M7,2 A5,5 0 1 0 7,12 A5,5 0 1 0 7,2 M11,11 L14,14",
         _ => throw new ViewDeclarationException($"icon '{name}' is not in the icon set."),
     };
@@ -33,7 +34,7 @@ public sealed partial class ViewMapper
 
         return new TextBlock
         {
-            Text = Text(node, "text", scope),
+            Text = Content(node, scope),
             TextWrapping = TextWrapping.Wrap,
             FontFamily = _theme.Family("font.family.ui"),
             FontSize = _theme.Length(small ? "font.size.small" : "font.size.body"),
@@ -109,22 +110,30 @@ public sealed partial class ViewMapper
             "owner" => ("color.badge.owner.background", "color.badge.owner.text"),
             "agent" => ("color.badge.agent.background", "color.badge.agent.text"),
             "system" => ("color.badge.system.background", "color.badge.system.text"),
+            "healthy" or "degraded" or "failing" or "recovering" or "frozen" or "unobserved" =>
+                ($"color.health.{variant}.background", $"color.health.{variant}.text"),
             _ => throw new ViewDeclarationException($"badge variant '{variant}' is not a variant token."),
         };
 
-        return new Border
+        var badge = new Border
         {
             Background = _theme.Brush(background),
             CornerRadius = new CornerRadius(_theme.Length("radius.sm")),
             Padding = new Thickness(_theme.Length("space.xs"), 0),
             Child = new TextBlock
             {
-                Text = Text(node, "text", scope),
+                Text = Content(node, scope),
                 FontFamily = _theme.Family("font.family.ui"),
                 FontSize = _theme.Length("font.size.small"),
                 Foreground = _theme.Brush(foreground),
             },
         };
+        if (node.Props.ContainsKey("value") && node.Props.ContainsKey("label"))
+        {
+            AutomationProperties.SetName(badge, Label(node, "label", scope));
+        }
+
+        return badge;
     }
 
     /// <summary>
