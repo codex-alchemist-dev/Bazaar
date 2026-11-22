@@ -17,6 +17,7 @@ using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
@@ -48,6 +49,8 @@ public static class HostApplicationExtensions
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarPostgresCredentialLeases();
+        services.AddSecretStoreLeasedCredentialValues();
+        services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
