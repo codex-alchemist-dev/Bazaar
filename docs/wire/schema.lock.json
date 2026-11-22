@@ -1,6 +1,6 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:988f57eef746d4bf15a86c7bca749f8d4de68202b6eeadd7862b4100b9049c57",
+  "hash": "sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -94,7 +94,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrChangedFile",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "path", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "status", "type": "string", "nullable": false, "default": false },
@@ -115,7 +114,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrHunk",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "header", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "oldStart", "type": "int32", "nullable": false, "default": false },
@@ -179,7 +177,6 @@
     {
       "name": "Bazaar.Contracts.GitHub.PrListRow",
       "kind": "record",
-      "payload": true,
       "fields": [
         { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
         { "n": 2, "name": "repo", "type": "string", "nullable": false, "default": false },
