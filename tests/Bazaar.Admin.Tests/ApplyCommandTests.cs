@@ -13,9 +13,12 @@ namespace Bazaar.Admin.Tests;
 /// A gate that counts what it registers and whether the applier's instance lock is touched. The lock throws if it is ever
 /// acquired while <c>open</c> is false, so a closed gate that let the applier run would fail the test.
 /// </summary>
-internal sealed class CountingApplyGate(bool open) : ICliApplyGate
+internal sealed class CountingApplyGate(bool open, bool coverEverything = false) : ICliApplyGate
 {
     public bool DurableAuditStoreAvailable => open;
+
+    /// <summary>With <c>coverEverything</c> the gate registers a no-op step that declares every plan section.</summary>
+    public IReadOnlyCollection<string> CoveredSections => coverEverything ? [.. SetupPlanSections.All.Select(section => section.Id)] : [];
 
     /// <summary>How many times the gate registered apply services. A closed gate must leave this at zero.</summary>
     public int RegistrationCount { get; private set; }
@@ -30,6 +33,22 @@ internal sealed class CountingApplyGate(bool open) : ICliApplyGate
         services.AddSingleton<IAuditLog>(new NoopAuditLog());
         services.AddSingleton<ISettingAuditSink>(new InMemorySettingAuditSink());
         services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(new InMemorySettingAuditSink()));
+        if (coverEverything)
+        {
+            services.AddSingleton<ISetupStep>(new CoverAllStep());
+        }
+    }
+
+    private sealed class CoverAllStep : ISetupStep
+    {
+        public string Id => "test.cover_all";
+
+        public int Order => 1;
+
+        public IReadOnlyCollection<string> Covers => [.. SetupPlanSections.All.Select(section => section.Id)];
+
+        public Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(SetupStepResult.Ok);
     }
 
     public sealed class CountingLock : ISetupInstanceLock
@@ -118,11 +137,67 @@ public sealed class ApplyCommandTests
 
         var run = await AdminRun.WithGate(gate, "setup", "apply", "--config", config, "--plan-hash", hash);
 
-        // The applier takes the lock, then fails the changes with no steps (exit 3), and the probe counts the call.
-        Assert.Equal((int)SetupExitCode.ApplyFailedRolledBack, run.ExitCode);
+        // The applier is built and asked, then holds the plan before the lock because no step covers its sections (exit 2).
+        Assert.Equal((int)SetupExitCode.Held, run.ExitCode);
         Assert.Equal(1, gate.RegistrationCount);
+        Assert.Equal(0, gate.Lock.Acquisitions);
+        Assert.Contains("unapplied_sections", run.Stdout);
+        Assert.Contains("owner (doc 45 step 6)", run.Stdout);
+        Assert.Contains("Applied steps: none.", run.Stdout);
+    }
+
+    [Fact]
+    public async Task Open_gate_with_a_step_that_covers_the_plan_applies_it()
+    {
+        using var folder = new TempSetupFolder();
+        var config = folder.Write(AdminFixtures.Valid);
+        var hash = AdminFixtures.HashFrom((await AdminRun.Async("setup", "validate", "--config", config)).Stdout);
+        var gate = new CountingApplyGate(open: true, coverEverything: true);
+
+        var run = await AdminRun.WithGate(gate, "setup", "apply", "--config", config, "--plan-hash", hash, "--json");
+
+        Assert.Equal((int)SetupExitCode.Ok, run.ExitCode);
         Assert.Equal(1, gate.Lock.Acquisitions);
-        Assert.Contains("no step implementation for ", run.Stdout);
+        using var document = JsonDocument.Parse(run.Stdout);
+        Assert.Empty(document.RootElement.GetProperty("unappliedSections").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Held_apply_json_lists_the_unapplied_sections_and_the_outcome()
+    {
+        using var folder = new TempSetupFolder();
+        var config = folder.Write(AdminFixtures.Valid);
+        var hash = AdminFixtures.HashFrom((await AdminRun.Async("setup", "validate", "--config", config)).Stdout);
+        var gate = new CountingApplyGate(open: true);
+
+        var run = await AdminRun.WithGate(gate, "setup", "apply", "--config", config, "--plan-hash", hash, "--json");
+
+        Assert.Equal((int)SetupExitCode.Held, run.ExitCode);
+        using var document = JsonDocument.Parse(run.Stdout);
+        Assert.Equal("unapplied_sections", document.RootElement.GetProperty("outcome").GetString());
+        var sections = document.RootElement.GetProperty("unappliedSections").EnumerateArray().Select(item => item.GetString()).ToList();
+        Assert.Contains("owner", sections);
+        Assert.Contains("company", sections);
+    }
+
+    [Fact]
+    public async Task Dry_run_lists_the_sections_an_apply_would_hold_for()
+    {
+        using var folder = new TempSetupFolder();
+        var config = folder.Write(AdminFixtures.Valid);
+
+        var text = await AdminRun.WithGate(new CountingApplyGate(open: false), "setup", "--dry-run", "--config", config);
+        var covered = await AdminRun.WithGate(new CountingApplyGate(open: false, coverEverything: true), "setup", "--dry-run", "--config", config, "--json");
+        var json = await AdminRun.WithGate(new CountingApplyGate(open: false), "setup", "--dry-run", "--config", config, "--json");
+
+        Assert.Equal((int)SetupExitCode.Ok, text.ExitCode);
+        Assert.Contains("An apply would be held: no registered step applies these plan sections (unapplied_sections): ", text.Stdout);
+        Assert.Contains("owner (doc 45 step 6)", text.Stdout);
+        Assert.Contains("Writes: none.", text.Stdout);
+        using var coveredDoc = JsonDocument.Parse(covered.Stdout);
+        Assert.Empty(coveredDoc.RootElement.GetProperty("unappliedSections").EnumerateArray());
+        using var jsonDoc = JsonDocument.Parse(json.Stdout);
+        Assert.Contains("owner", jsonDoc.RootElement.GetProperty("unappliedSections").EnumerateArray().Select(item => item.GetString()));
     }
 
     [Fact]
