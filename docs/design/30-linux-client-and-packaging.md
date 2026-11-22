@@ -34,10 +34,12 @@ Defines the Linux desktop client (`Bazaar.Client.Linux`), built last on the shar
 | GC chat, Kanban, Constellation, Vault, palette, theme | Yes | Yes, shared `Bazaar.Client.Core` |
 | Local terminal | ConPTY, embedded and detached | Native PTY (section 2), local shell only |
 | Monaco IDE | WebView2 | Gated on the Monaco spike (C26), free route only. No paid WebView (C23) |
-| Default-app registration | Windows default-app APIs | `.desktop` entries and `xdg-mime`; default-terminal mechanism unverified |
+| Default-app registration | Windows default-app APIs | `.desktop` entries and `xdg-mime`, in module `Bazaar.Client.DefaultApp.Linux` (see the note below the table); default-terminal mechanism unverified |
 | Updates | Velopack | Per packaging format (section 3) |
 | Accessibility | UI Automation (unverified) | AT-SPI2 backend in Avalonia 12.0 (vendor claim) |
 | In-app PR review and merge | Yes (C25) | [PROPOSED] Yes, same flow (setting `linux.pr_merge`) |
+
+**Default-app registration, implemented (module `Bazaar.Client.DefaultApp.Linux`, with `.Abstractions`).** Same rule as Windows (CLAUDE.md, doc 37): register a handler and guide the user, never claim a silent default. `IDefaultAppRegistrar` has `RegisterAsync`, `QueryAsync` and `UnregisterAsync`. Register writes a per-user entry at `$XDG_DATA_HOME/applications/bazaar.desktop` (default `~/.local/share`), written to a temporary name and renamed, and left untouched when the text is already right. It runs `xdg-mime default <id> <type>` and `update-desktop-database <dir>` through an injectable `IProcessRunner` (argument list, no shell), then reads the result back with `xdg-mime query default <type>`. The result is `Registered` only when every type reports Bazaar's entry, `NotDefault` otherwise (with guidance text naming the GNOME or KDE settings page, or a generic one, plus the `xdg-mime` command), and `Unavailable` when `xdg-mime` is missing, fails or times out. A missing `update-desktop-database` is ignored. Unregister deletes the entry only if it carries the `X-Bazaar-Managed=true` key, so a user's own file is never removed; `xdg-mime` has no unset command, so a stale `mimeapps.list` line may remain and is ignored by desktops once the entry is gone. Fail closed: `ExecPath` must be absolute with no quotes, newlines or control characters; it is quoted per the Desktop Entry spec when it holds reserved characters, `%` is doubled, then backslashes are escaped at the string level. The desktop file ID and MIME types are validated. **[PROPOSED]** The registered types are a setting (`MimeTypes`, default `x-scheme-handler/bazaar`, the sign-in hand-off of doc 45); no doc names a file type, so none is registered by default. The default-terminal mechanism stays unverified and is not built. **The head wires it:** `Bazaar.Client.Linux` takes `--register-default-app`, `--default-app-status` and `--unregister-default-app` (`DefaultAppCommandLine`), composes `XdgDefaultAppRegistrar` with `Environment.ProcessPath`, prints the status text (`Registered`, `Not the default` with the guidance, or `Unavailable`) and exits without starting the UI: 0 when the desktop reports Bazaar as the default (for removal, when the entry is gone), 1 otherwise. A process path that is not absolute, or is the `dotnet` host, is refused with guidance and exit 1. `DefaultAppCommands.All` lists the matching local palette commands (`defaultapp.register`, `defaultapp.status`, `defaultapp.unregister`) for the palette to load. Tests: `tests/Bazaar.Client.Linux.Tests` (fake registrar) and `tests/Bazaar.Client.DefaultApp.Linux.Tests` (fake runner and a temp data directory; the real `xdg-mime` test skips off Linux or without the tool).
 
 Avalonia supports X11 by default, Wayland as opt-in from 12.1.0, and lists Ubuntu 25.x, Fedora 43 and Debian 13 as Tier 1 (vendor docs). **[PROPOSED]** v1 supports Tier 1 only (setting `linux.supported_distros`).
 
@@ -64,7 +66,9 @@ public interface ITerminalBackend {
 
 **[PROPOSED]** Ship self-contained builds (no Native AOT in v1, per Bazaar.Server.md) as a tarball and an AppImage. Spike Flatpak. Defer deb and rpm. Whether Velopack covers Linux is unverified.
 
-**Implemented:** `packaging/linux/build-tarball.sh` publishes the self-contained client (`linux-x64` or `linux-arm64`) and writes a reproducible `Bazaar-<version>-linux-<arch>.tar.gz` with a `.sha256` file (sorted names, fixed owner and times, `gzip -n`; two builds of one commit give the same bytes). `--verify` extracts the archive and starts the client on Xvfb. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies.
+**[DECIDED (owner card, 2026-11-19)]** Build all four Linux packaging items, each as its own unit (doc 37 lists them as company-build outputs, built by the company server, one click): AppImage (`packaging/linux-appimage/`), Flatpak (`packaging/linux-flatpak/`), deb and rpm (`packaging/linux-deb/`, `packaging/linux-rpm/`), and in-place updates (client module `Bazaar.Client.Updater.Linux` with `Bazaar.Client.Updater.Linux.Abstractions`, per the server and client module split). The packaging outputs are build scripts and manifests, not .NET modules; only the updater is code. Each ships with tests and a CI smoke step, and builds only from a tool the operator supplies (the scripts never download `appimagetool`, `flatpak-builder` or `dpkg-deb`). This supersedes the earlier "defer deb and rpm" line for this release train; Snap and store pushes stay parked (doc 37).
+
+**Implemented:** `packaging/linux/build-tarball.sh` publishes the self-contained client (`linux-x64` or `linux-arm64`) and writes a reproducible `Bazaar-<version>-linux-<arch>.tar.gz` with a `.sha256` file (sorted names, fixed owner and times, `gzip -n`; two builds of one commit give the same bytes). `--verify` extracts the archive and starts the client on Xvfb. The Flatpak (`packaging/linux-flatpak/`) packages that same self-contained tarball: its manifest compiles nothing and installs the prebuilt archive (by `sha256`) into `/app/lib/bazaar-client`, so no .NET SDK extension is needed (none exists for .NET 11) and only `org.freedesktop.Platform` and `org.freedesktop.Sdk` at the pinned branch are required. `build-flatpak.sh` builds the tarball for `x86_64` or `aarch64`, renders the manifest template with its path and checksum into a scratch directory, and runs `flatpak-builder` only if the operator has installed it. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies. The AppImage script is `packaging/linux-appimage/build-appimage.sh`; it needs an `appimagetool` the operator supplies.
 
 ### 4. Installers and update paths [PROPOSED]
 - **Windows client:** Velopack, approved as the client updater and packaging tool (DECISIONS-LOG round 10, C37). Per-user install under `%LocalAppData%`, delta updates from GitHub Releases (verified in Velopack docs). Velopack does not sign, does not cover Windows Services and does not document machine-wide installs. `VelopackApp.Build().Run()` must be the first call in the entry point.
@@ -99,6 +103,8 @@ Rollback switches `current` back. An old binary refuses to start if the schema i
 
 Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus a detached signature (GPG or Sigstore, unverified). Android: Play App Signing. SignPath holds its own key, so no certificate sits in the repository. Timing is setting `packaging.signing_mode`.
 
+**Implemented (Linux):** `packaging/linux/sign-tarball.sh` writes a detached ASCII-armoured OpenPGP signature (`<tarball>.asc`) with the key the operator names in `BAZAAR_SIGNING_GPG_KEY`; it refuses to run without one and the key never sits in the repository. `packaging/linux/verify-tarball.sh` checks the SHA-256 file and then the signature against a public key the verifier already trusts; the release gate calls it. Sigstore is not built; OpenPGP is the verified-available route.
+
 ### 8. Release pipeline [PROPOSED]
 - Exists: `ci.yml` (build and test on `ubuntu-latest` and `windows-latest`, gitleaks) and `pr-sponsor.yml`. No release workflow yet.
 - New `release.yml`, started only by the owner (`workflow_dispatch` with a version input). Its publish job runs in a GitHub environment with the owner as required reviewer, and is the only job with `contents: write`. Actions stay pinned to commit SHAs.
@@ -107,12 +113,35 @@ Scope: Windows executables, MSI and Velopack packages. Linux: SHA-256 sums plus 
 ## Data and interfaces (sketches)
 
 ```csharp
+// Bazaar.Contracts.Releases. Immutable; validated on construction (ArgumentException); decoded through IWireCodec.
 public sealed record ReleaseManifest(
-    string AppVersion, string MinProtocol, string MaxProtocol,
-    string SchemaVersion, IReadOnlyList<ReleaseArtifact> Artifacts);
+    string Channel, string AppVersion, string MinProtocol, string MaxProtocol,
+    string SchemaVersion, string SigningKeyFingerprint, IReadOnlyList<ReleaseArtifact> Artifacts);
 
-public sealed record ReleaseArtifact(string Os, string Format, string Sha256, string SignatureRef);
+public sealed record ReleaseArtifact(
+    string Os, string Architecture, string Format, string Url, long SizeBytes,
+    string Sha256, string? Sha256Url, string? SignatureUrl, string? Signature);
 ```
+
+Final field set. `ReleaseManifest` is the one shared release contract: the Linux updater (module `Bazaar.Client.Updater.Linux`) and the Windows update feed client (doc 37 section 4b) both read it. The Linux artifacts are described here; the Windows ones and the `UpdateManifest` field mapping are in doc 37 section 4b.
+
+- `Channel` is one of the exact `update.channel` values (`LTSC`, `Stable`, `Beta`, `Alpha`, `Latest-Commit`); the version's pre-release suffix must match it (Stable and LTSC none, Beta `-beta.N` or `-rc.N`, Alpha `-alpha.N`, Latest-Commit `-dev.N`), so a feed cannot mislabel a build.
+- `AppVersion` is a SemVer string with no leading `v`, optionally with `+commit` build metadata.
+- `MinProtocol` and `MaxProtocol` are doc 02 `major.minor` strings, min not above max.
+- `SchemaVersion` is the database schema the build needs (doc 04), either the schema digest of doc 04 (`sha256:` plus 64 lowercase hex characters, from `SchemaDigest.Compute`) or a legacy short token of 1 to 32 letters, digits, `.`, `_` and `-`; it is compared for equality only; the updater uses it with the downgrade refusal of section 6.
+- `SigningKeyFingerprint` is the lowercase hex identity (40 or 64 characters) of the key behind every signature in the manifest: the OpenPGP fingerprint for Linux (the updater accepts a `.asc` only from a key it already trusts with that fingerprint, section 7), the pinned certificate thumbprint for Windows (doc 37 section 4b).
+- `Artifacts` holds 1 to 64 builds, all for one `Os` (one signing scheme and key per manifest, so a feed serves one manifest per OS), at most one per architecture and format.
+- `Os` is `linux` or `windows`.
+- `Architecture` is the .NET runtime identifier: `linux-x64`, `linux-arm64`, `windows-x64` or `windows-arm64`; it must belong to `Os`.
+- `Format` is `tar.gz` or `appimage` for Linux (section 3; deb and rpm stay deferred) and `msix` or `velopack` for Windows; it must belong to `Os`.
+- `Url` is where the package downloads from: absolute `https`, or relative to the manifest's own address; no credentials, query or fragment. Plain `http` is refused.
+- `SizeBytes` is the package size (1 byte to 4 GiB); the updater aborts a download that exceeds it.
+- `Sha256` is the lowercase 64-character hex SHA-256 of the package bytes.
+- `Sha256Url` points at the `.sha256` file that `build-tarball.sh` writes; the updater checks it against the inline `Sha256` and refuses on any difference. Required for Linux, optional for Windows.
+- `SignatureUrl` points at the detached OpenPGP `.asc` over the package bytes. It replaces the earlier `SignatureRef` placeholder. Required for Linux, optional for Windows (where it is not the trust path).
+- `Signature` is the base64 in-band signature of the Windows path (doc 37 section 4b). Required for Windows, forbidden for Linux, so each OS has exactly one trust path.
+
+The records are registered in `WireJsonContext`; a payload that breaks these rules decodes as a bad frame (`WireFormatException`). The manifest is untrusted until both the hash and the signature verify.
 
 Handshake (format per doc 02): `{ "component": "client-linux", "appVersion": "0.0.0", "protocolVersion": "<major.minor per doc 02>" }`.
 
@@ -130,6 +159,25 @@ Registry owned by doc 03 (round 13). Each change is audited (doc 15 `audit_log`)
 | `packaging.winget_publish` | enum: after-first-stable, manual | after-first-stable | install | owner | No |
 | `linux.supported_distros` | list | Ubuntu 25.x, Fedora 43, Debian 13 | install | operator | No; other distros are unsupported |
 | `linux.pr_merge` | bool | true | install | owner | No (server still requires the owner's signed approval) |
+| `update.skip_versions` | list of SemVer | empty | install | operator | No |
+| `update.max_package_bytes` | bytes | 4 GiB (the contract maximum) | install | operator | No; may tighten, never exceeds the manifest's own bound |
+| `update.max_extracted_bytes` | bytes | 4 GiB | install | operator | No |
+| `update.max_archive_entries` | int | 100000 | install | operator | No |
+| `update.gpg_path` | path | `gpg` on the PATH | install | operator | No |
+| `update.gpg_timeout_seconds` | int | 60 | install | operator | No |
+
+### Linux client updater (module `Bazaar.Client.Updater.Linux`)
+
+Implements sections 4, 5 and 7 for the tarball (owner card 2026-11-19; the company server serves the build, doc 37 sections 4a and 4b). Velopack is not used on Linux. The module is `Bazaar.Client.Updater.Linux.Abstractions` (`ILinuxUpdater`, `IReleaseSource`, `IUpdateFileSystem`, `IProcessRunner`, `IClientCompatibility`, `LinuxUpdaterSettings`, `UpdateResult`) plus `Bazaar.Client.Updater.Linux`. It references `Bazaar.Contracts` only. The head runs it.
+
+- **Decision order.** Channel (the configured `update.channel` must be a known name; Latest-Commit is refused unless the install is the owner's), the rollback record (an unreadable `rolled-back.json` refuses everything, `SkipRecordInvalid`), manifest (`Channel` must equal the configured channel), SemVer precedence against the running build (build metadata ignored; older is refused as a downgrade, equal is up to date), the skip rule, compatibility, a `tar.gz` for this architecture, the size against `update.max_package_bytes`, and `SigningKeyFingerprint` against the key pinned in the build. Only then does it download.
+- **Skip rule.** A version listed in `update.skip_versions` is never offered or installed (`VersionSkipped`). `Rollback` first writes the version it rolls back from to `rolled-back.json` under the install root (owner-only file, written to a temporary name and renamed, so it is never torn; the highest version rolled back from is kept). Any version at or below the recorded one is refused until a newer release appears. The record survives restarts. A damaged record fails closed with a message naming the file; a later `Rollback` replaces it.
+- **Compatibility.** The caller supplies an `IClientCompatibility`: the protocol the running build speaks, the server's current protocol, whether the server accepts the previous major (`wire.previous_major_supported`, doc 02) and the server's schema version. Values are read on every check. If one is missing or malformed the check fails closed (`CompatibilityUnknown`). Rules, all from the decided text: doc 02 versions are `major.minor`, minors only add, and the server accepts its current major and, if the setting allows, the previous one; doc 04 has the server refuse to run on a schema older or newer than its binary expects. So a build is refused when its highest protocol is below the running build's (`ProtocolDowngradeRefused`), when every major it speaks is below what the server accepts and the server would answer `upgrade_required` with 4426 (`ProtocolBuildTooOld`), when its lowest major is above the server's, so the operator must upgrade the server first (`ProtocolBuildTooNew`), and when its `SchemaVersion` is not exactly the server's (`SchemaMismatch`). Within an accepted major a lower or higher minor is accepted. Doc 06 adds no client rule. The schema comparison is exact string equality because doc 02 and the manifest both treat the schema as an opaque token.
+- **Verification.** The download is cut off at the declared size. The inline `Sha256`, the `.sha256` file and the bytes must all agree. Then `gpg` verifies the detached `.asc` in a fresh, empty, owner-only `GNUPGHOME` under the temp directory (short path, because the agent socket path is limited), after importing only the key file baked into the build. The check needs a `GOODSIG` and a `VALIDSIG` whose primary-key fingerprint is the pinned one, and no `BADSIG`, `ERRSIG`, `EXPSIG`, `EXPKEYSIG`, `REVKEYSIG` or `NO_PUBKEY`. The user's own keyring is never read. The key file and fingerprint are part of the company identity of the build (doc 37 section 4a), not settings.
+- **Source.** `HttpReleaseSource` fetches `GET /updates/latest` over the head's pinned `HttpClient`. A relative URL resolves against the manifest address. An absolute URL, or a redirect, to another scheme, host or port is refused: the client never fetches code from anywhere except its own server.
+- **Extraction.** Into `releases/.partial-<id>`, then one directory rename to `releases/<version>`. Directories, regular files and relative symbolic links only. The extractor refuses absolute names, `..`, backslash and NUL in names, hard links, devices, duplicates, a link that climbs above the release or climbs after a name, any entry written through a link the archive created, and archives above `update.max_archive_entries` or `update.max_extracted_bytes`. Modes keep the read and execute bits and the owner write bit; setuid, setgid, sticky and group or other write are dropped.
+- **Switch and rollback.** Layout under the install root: `releases/<version>`, symlinks `current` and `previous` (relative targets `releases/<version>`), and a `staging` directory emptied after each run. Each link is replaced by creating a temporary link and renaming it over the old one with `rename(2)`, so `current` never disappears. A new install sets `previous` to the old `current` first, then `current`. Only the releases `current` and `previous` name are kept. `Rollback` swaps the two links and accepts only a `previous` of the form `releases/<semver>` whose directory exists; rolling back twice rolls forward. A failed check leaves both links alone.
+- **Not decided here.** One updater runs per install root at a time; the head guarantees that.
 
 ## Behaviour and edge cases
 - Client updates never touch the server, which must accept the previous protocol major during that window.
@@ -152,7 +200,7 @@ Registry owned by doc 03 (round 13). Each change is audited (doc 15 `audit_log`)
 3. `ITerminalBackend` and the Linux local PTY (no blocking conflict now).
 4. Linux server package and smoke test (needs 2).
 5. Windows server MSI spike, then build (needs 2).
-6. Velopack pack spike for the Windows client (needs doc 28's head).
+6. Velopack pack spike for the Windows client (needs doc 28's head). **Status (2026-11-20): script written, spike still OPEN.** `packaging/velopack/pack-client.ps1` runs `vpk pack` once per channel (`--channel win-x64-<channel>`, so each channel has its own `releases.<channel>.json` feed), signs the produced `*.exe` afterwards through `packaging/signing/signer.ps1`, and writes `FEED-MANIFEST.txt` (channel, ring, version, SHA-256 per file). It never uploads. Verified against Velopack docs: the flag names used and the per-channel `releases.{channel}.json` feed. Not verified: Setup.exe and `.nupkg` naming per channel, legacy `RELEASES-<channel>` output, vpk exit codes, signing of the app binaries inside the package (only the installer is signed today). No real `vpk` run has happened. The dry-run test (`test-pack-client.ps1`) had not been run when this note was written, because `pwsh` was not available in the authoring environment.
 7. `release.yml` draft: environment gate, checksums, draft release, no signing yet.
 8. SignPath integration (route chosen; timing per setting `packaging.signing_mode`).
 9. Linux client head on the shared UI (needs docs 27 and 28); `.desktop` and `xdg-mime`; Monaco only after the WebKitGTK spike; Flatpak spike.

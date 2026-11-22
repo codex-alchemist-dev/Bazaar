@@ -49,12 +49,12 @@ public class LayoutValidatorTests
     [Fact]
     public void Unknown_top_level_and_node_fields_are_rejected()
     {
-        string json = _valid.Replace("\"locks\"", "\"script\": 1, \"locks\"").Replace("\"paneId\": \"gc-list\"", "\"paneId\": \"gc-list\", \"visibleWhen\": \"x\"");
+        string json = _valid.Replace("\"locks\"", "\"script\": 1, \"locks\"").Replace("\"paneId\": \"gc-list\"", "\"paneId\": \"gc-list\", \"onClick\": \"x\"");
 
         LayoutLoadResult result = LayoutValidator.Validate(json);
 
         Assert.Contains(result.Issues, i => i.Path == "/script" && i.Code == "unknown-field");
-        Assert.Contains(result.Issues, i => i.Code == "unknown-field" && i.Path.EndsWith("/visibleWhen", StringComparison.Ordinal));
+        Assert.Contains(result.Issues, i => i.Code == "unknown-field" && i.Path.EndsWith("/onClick", StringComparison.Ordinal));
     }
 
     [Theory]

@@ -216,6 +216,8 @@ public sealed class PrDetailViewModelTests
     {
         private bool _moved;
 
+        public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default) => inner.ListReposAsync(cancellationToken);
+
         public int FileCalls { get; private set; }
 
         public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default) =>
@@ -239,6 +241,9 @@ public sealed class PrDetailViewModelTests
 
         public Task<IReadOnlyList<GitCheckDto>> GetChecksAsync(string provider, string repo, long number, CancellationToken cancellationToken = default) =>
             inner.GetChecksAsync(provider, repo, number, cancellationToken);
+
+        public Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default) =>
+            inner.MergeAsync(provider, repo, number, request, cancellationToken);
     }
 }
 
