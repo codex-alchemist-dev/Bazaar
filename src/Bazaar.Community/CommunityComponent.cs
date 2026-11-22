@@ -9,6 +9,7 @@ using Bazaar.Server.Community;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace Bazaar.Community;
@@ -69,5 +70,19 @@ public sealed class CommunityComponent : IBazaarComponent
             sp.GetRequiredService<DisclosureOptions>(),
             sp.GetService<TimeProvider>(),
             sp.GetRequiredService<CommunityDraftOptions>()));
+
+        // [PROPOSED] Expiry sweeper (doc 36 WP8): marks pending drafts past their approval expiry as Expired on a timer. Lazy like the
+        // handler: the hosted service resolves its sweeper when the host starts, so a host that has not bound the draft store's data
+        // source or the action store fails there, as it would on first use of the handler.
+        services.TryAddSingleton<ICommunityDraftExpirySweeper>(sp => new CommunityDraftExpirySweeper(
+            sp.GetRequiredService<ICommunityDraftStore>(),
+            sp.GetRequiredService<CommunityActionStore>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<CommunityDraftExpirySweeper>>()));
+        services.AddHostedService(sp => new CommunityDraftExpiryService(
+            () => sp.GetRequiredService<ICommunityDraftExpirySweeper>(),
+            sp.GetRequiredService<CommunityDraftOptions>(),
+            sp.GetService<TimeProvider>(),
+            sp.GetService<ILogger<CommunityDraftExpiryService>>()));
     }
 }

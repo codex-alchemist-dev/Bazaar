@@ -128,7 +128,7 @@ internal static class Lexer
             throw new RubedoException("bad-character", $"The character '{c}' is not allowed.", i);
         }
 
-        if (tokens.Count >= options.MaxTokens)
+        if (tokens.Count > options.MaxTokens)
         {
             throw new RubedoException("too-many-tokens", $"An expression may have at most {options.MaxTokens} tokens.", source.Length);
         }

@@ -14,8 +14,15 @@ namespace Bazaar.Community.Drafts;
 /// <summary>Operator settings for draft decisions. Safe defaults; an operator may tighten them.</summary>
 /// <param name="ApprovalLifetime">How long the approval of an edited draft stays open (doc 15 default: 24 hours).</param>
 /// <param name="MaxEditedBodyChars">Longest edited body accepted, before the footer is added.</param>
-public sealed record CommunityDraftOptions(TimeSpan? ApprovalLifetime = null, int MaxEditedBodyChars = 60_000)
+/// <param name="ExpirySweepInterval">[PROPOSED] How often the expiry sweeper runs (default 5 minutes, floor 1 minute).</param>
+public sealed record CommunityDraftOptions(TimeSpan? ApprovalLifetime = null, int MaxEditedBodyChars = 60_000, TimeSpan? ExpirySweepInterval = null)
 {
+    /// <summary>Shortest sweep interval an operator may set.</summary>
+    public static readonly TimeSpan MinSweepInterval = TimeSpan.FromMinutes(1);
+
+    /// <summary>The sweep interval: 5 minutes when unset, never below <see cref="MinSweepInterval"/>.</summary>
+    public TimeSpan SweepInterval => ExpirySweepInterval is { } v ? (v < MinSweepInterval ? MinSweepInterval : v) : TimeSpan.FromMinutes(5);
+
     /// <summary>The approval lifetime, 24 hours when unset.</summary>
     public TimeSpan Lifetime => ApprovalLifetime ?? TimeSpan.FromHours(24);
 }

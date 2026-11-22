@@ -49,6 +49,11 @@ public static class CommunityDraftSqlText
         WHERE draft_id = @draft_id AND status = @expected
         """;
 
+    /// <summary>[PROPOSED] Expires every due Pending draft in one statement and returns the ids. The status test makes it a compare-and-set.</summary>
+    public const string ExpireDue =
+        "UPDATE community_draft SET status = 'Expired', updated_at = now() " +
+        "WHERE status = 'Pending' AND approval_expires_at <= @now RETURNING draft_id";
+
     /// <summary>First half of a supersede: Pending to Edited, pointing at the replacement.</summary>
     public const string MarkEdited =
         "UPDATE community_draft SET status = 'Edited', superseded_by = @superseded_by, updated_at = now() " +
@@ -147,6 +152,17 @@ public sealed class NpgsqlCommunityDraftStore(NpgsqlDataSource dataSource) : ICo
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         while (await reader.ReadAsync(ct).ConfigureAwait(false)) rows.Add(Map(reader));
         return rows;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ExpireDueAsync(DateTimeOffset now, CancellationToken ct = default)
+    {
+        var ids = new List<Guid>();
+        await using var cmd = dataSource.CreateCommand(CommunityDraftSqlText.ExpireDue);
+        cmd.Parameters.AddWithValue("now", now.ToUniversalTime());
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false)) ids.Add(reader.GetGuid(0));
+        return ids;
     }
 
     private static void Bind(NpgsqlCommand cmd, CommunityDraft d)
