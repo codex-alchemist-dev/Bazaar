@@ -7,7 +7,7 @@ namespace Bazaar.Server.Security.Approvals;
 /// <see cref="IAdminApprovalSource"/> over the owner approval queue (doc 51 section 5, doc 15). It lists what is waiting; it never
 /// decides anything, and it shows no payload, hash or taint detail: the tool, its target and the asking agent only.
 /// </summary>
-public sealed class SecurityAdminApprovalSource(IPendingApprovalReader reader, TimeProvider time) : IAdminApprovalSource
+public sealed class SecurityAdminApprovalSource(IPendingApprovalLister reader, TimeProvider time) : IAdminApprovalSource
 {
     /// <summary>The most rows one read returns.</summary>
     public const int MaxRows = 200;
@@ -17,7 +17,7 @@ public sealed class SecurityAdminApprovalSource(IPendingApprovalReader reader, T
     public async Task<IReadOnlyList<AdminApproval>> ListPendingAsync(CancellationToken ct = default)
     {
         var rows = await reader.ListPendingAsync(time.GetUtcNow(), MaxRows, ct).ConfigureAwait(false);
-        return [.. rows.Select(r => new AdminApproval(
+        return [.. rows.OrderBy(r => r.RequestedAt).ThenBy(r => r.Id).Select(r => new AdminApproval(
             r.Id.ToString("D"),
             Clean(r.Target is { Length: > 0 } ? r.Tool + " " + r.Target : r.Tool),
             Clean(r.AgentId),

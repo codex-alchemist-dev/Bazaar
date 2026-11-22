@@ -1,5 +1,6 @@
 using Bazaar.Server.Vms.Abstractions;
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Vms.Ports;
 
 namespace Bazaar.Server.Vms.Tests.Ports;
@@ -66,6 +67,56 @@ public sealed class EnvironmentAgentVmDirectoryTests
         await cts.CancelAsync();
         var directory = new EnvironmentAgentVmDirectory(new FakeReader());
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => directory.ListRunningAsync(cts.Token));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_backends_save_capability_and_the_rows_memory_are_reported_for_both_lists(bool supportsSave)
+    {
+        var agent = Guid.CreateVersion7();
+        var row = Record(agent, VmState.Running, "r1");
+        var directory = new EnvironmentAgentVmDirectory(new FakeReader(row), new CapabilityBackend(supportsSave));
+
+        var running = Assert.Single(await directory.ListRunningAsync(TestContext.Current.CancellationToken));
+        var forAgent = Assert.Single(await directory.ListForAgentAsync(agent, TestContext.Current.CancellationToken));
+
+        Assert.All(new[] { running, forAgent }, v =>
+        {
+            Assert.Equal(supportsSave, v.CanSaveState);
+            Assert.Equal(2048, v.MemoryMb);
+        });
+    }
+
+    [Fact]
+    public async Task Without_a_backend_the_save_capability_is_unknown_not_false_or_true()
+    {
+        var directory = new EnvironmentAgentVmDirectory(new FakeReader(Record(Guid.CreateVersion7(), VmState.Running)));
+
+        var running = Assert.Single(await directory.ListRunningAsync(TestContext.Current.CancellationToken));
+
+        Assert.Null(running.CanSaveState);
+    }
+
+    private sealed class CapabilityBackend(bool supportsSave) : IVmBackend
+    {
+        public bool SupportsSaveState { get; } = supportsSave;
+
+        public Task<VmHandle> CreateChildAsync(ImageVersionId parent, VmSpec spec, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task StartAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task StopAsync(VmHandle vm, StopMode mode, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task SaveStateAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<CheckpointId> CheckpointAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task RestoreAsync(VmHandle vm, CheckpointId id, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task RetireAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<VmState> GetStateAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
     }
 
     private sealed class FakeReader(params EnvironmentVmRecord[] rows) : IEnvironmentVmReader

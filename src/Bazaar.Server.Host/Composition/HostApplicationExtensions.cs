@@ -1,28 +1,29 @@
-using Bazaar.Server.Security;
 using Bazaar.Core;
 using Bazaar.Erasure;
 using Bazaar.Fun;
 using Bazaar.Sanitization;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
-using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
+using Bazaar.Server.Host.Display;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
-using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.SignIn.Postgres;
+using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.VmDensity;
@@ -79,6 +80,7 @@ public static class HostApplicationExtensions
         // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
         // records) must be bound, or the host fails at start naming the port.
         services.AddBazaarCodingHarness(configuration);
+        services.AddBazaarScreenToolPolicy();
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.

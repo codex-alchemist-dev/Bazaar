@@ -1,6 +1,7 @@
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Health;
+using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Http;
 using Bazaar.Server.Interrupts;
 using Bazaar.Server.Org;
@@ -29,6 +30,8 @@ internal static class CompanyReadRoutes
         routes.MapCompanyOrg(HttpSurfaceEndpoints.GuardAsync);
         routes.MapCompanyCalendar(GuardCalendarAsync);
         routes.MapBazaarProjectHealth(HttpSurfaceEndpoints.GuardAsync);
+        // Pushing raw reports changes the numbers the panel shows, so only the company owner's token may do it.
+        routes.MapBazaarProjectHealthReports(GuardOwnerAsync);
         routes.MapCompanyInterrupts(GuardInterruptsAsync);
         // Owner producer: the guard registers the viewer, and the module refuses anyone who is not the company owner with 403.
         routes.MapCompanyInterruptsWrite(GuardInterruptsAsync);
@@ -39,6 +42,10 @@ internal static class CompanyReadRoutes
     public static IServiceCollection AddBazaarCompanyReadOptions(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
+        // The retention sweep reads metrics.raw_retention_days; the last registration wins over the module's configuration default.
+        services.AddSingleton<IRawRetentionSource>(sp => sp.GetService<ISettingStore>() is { } store
+            ? new SettingRawRetentionSource(store)
+            : new FixedRawRetentionSource(RawRetention.DefaultDays));
         services.TryAddSingleton<IAgentDirectoryReader>(sp => sp.GetRequiredService<AgentRepository>());
         services.AddScoped(sp =>
             sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Items[_timezoneItem] as CalendarReadOptions ?? new CalendarReadOptions());
@@ -47,6 +54,19 @@ internal static class CompanyReadRoutes
         services.AddScoped(sp =>
             sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Items[_interruptViewerItem] as InterruptViewer ?? InterruptViewer.Anonymous);
         return services;
+    }
+
+    private static async ValueTask<IResult?> GuardOwnerAsync(HttpContext http)
+    {
+        var refused = await HttpSurfaceEndpoints.GuardAsync(http);
+        if (refused is not null)
+        {
+            return refused;
+        }
+
+        return await PrincipalAsync(http) is { Kind: "owner" }
+            ? null
+            : Results.Json(new { error = "owner_only" }, statusCode: StatusCodes.Status403Forbidden);
     }
 
     private static async ValueTask<IResult?> GuardInterruptsAsync(HttpContext http)

@@ -4,7 +4,7 @@ namespace Bazaar.Server.Security.Approvals;
 /// Process-local <see cref="IApprovalStore"/> for tests and single-process use. The Postgres store (migration 0011)
 /// is the durable one. Thread-safe.
 /// </summary>
-public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalReader
+public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalLister
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ApprovalRequest> _rows = [];
@@ -37,22 +37,6 @@ public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalRead
     }
 
     /// <inheritdoc />
-    public Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default)
-    {
-        lock (_gate)
-        {
-            IReadOnlyList<ApprovalRequest> rows =
-            [
-                .. _rows.Values
-                    .Where(r => r.Status == ApprovalStatus.Pending && r.ExpiresAt > now)
-                    .OrderBy(r => r.RequestedAt).ThenBy(r => r.Id)
-                    .Take(Math.Max(0, limit)),
-            ];
-            return Task.FromResult(rows);
-        }
-    }
-
-    /// <inheritdoc />
     public Task<ApprovalRequest?> GetAsync(Guid id, CancellationToken ct = default)
     {
         lock (_gate)
@@ -74,6 +58,19 @@ public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalRead
 
             _rows[id] = updated;
             return Task.FromResult(true);
+        }
+    }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            IReadOnlyList<ApprovalRequest> rows = [.. _rows.Values
+                .Where(r => r.Status == ApprovalStatus.Pending && r.ExpiresAt > now)
+                .OrderByDescending(r => r.RequestedAt)
+                .Take(Math.Max(limit, 0))];
+            return Task.FromResult(rows);
         }
     }
 }

@@ -6,10 +6,10 @@ using Bazaar.Server.Host.CouncilAdapters;
 using Bazaar.Server.Host.CouncilVault;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Settings;
-using Npgsql;
 using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Composition;
 

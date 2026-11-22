@@ -84,6 +84,16 @@ public interface IApprovalStore
     Task<bool> TryReplaceAsync(Guid id, ApprovalStatus expected, ApprovalRequest updated, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Lists the approvals still waiting for the owner, for the phone's pending list (doc 29 Approvals). Kept apart from
+/// <see cref="IApprovalStore"/> so a store that cannot list does not have to.
+/// </summary>
+public interface IPendingApprovalLister
+{
+    /// <summary>Pending approvals whose expiry is after <paramref name="now"/>, newest first, at most <paramref name="limit"/>.</summary>
+    Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default);
+}
+
 /// <summary>Operator settings for approvals (doc 15 settings table). Values outside the stated range fail at startup.</summary>
 /// <param name="ExpiryHours">security.approval.expiry_hours. Between 1 and 168; default 24.</param>
 /// <param name="RequestCapPerAgentHour">security.approval.request_cap_per_agent_hour. Between 1 and 100; default 10.</param>
