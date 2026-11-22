@@ -533,6 +533,34 @@ Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar
 
 The client's sign-in ends at `bazaar://signin?code=...` (doc 32 section 4). The client redeems the code with `POST /auth/handoff` `{ "code", "device_class", "client_build" }` and receives `{ "access_token", "token_type", "expires_in", "refresh_token" }`, the same body as `/auth/refresh`; the refresh secret goes in the platform keystore and the access token stays in memory. Every failure is one generic 401 `invalid_grant`, so the client shows one "sign in again" message and starts the page flow again. The request and reply shape is now built in `Bazaar.Server.SignIn` (doc 32 section 4, status DECIDED-in-code); the client screens that drive it are still PLANNED, and the second factor stays a separate step (section 2.1).
 
+## 2.9 First-run walkthrough after sign-in [PROPOSED]
+
+One client module, `Bazaar.Client.Walkthrough` with `.Abstractions` and `.Avalonia`, adds no code to Client.Core. It is a short card shown once after sign-in. It guides the person through the first three real actions and uses their own company (section 2.4: no sample data). It is separate from the keyboard-first tour (section 2.3), which teaches navigation; this one teaches what to do first.
+
+- **Steps.** Welcome, create the company, meet the first agent, give a first task, done. Every step is skippable. Nothing advances by itself and nothing depends on animation or a timer (section 2.2); the card has no motion, so reduced motion needs no substitute.
+- **Real actions, not copies.** A step's button opens the real screen (create-company, the agent's profile, the task composer) through the `IWalkthroughActions` port. The head wires those to the shell.
+- **Done is a server fact.** A step shows as done when the server reports it (`IWalkthroughFactsSource`: company exists, first agent name, a first task given). A returning person whose company already exists starts at the first step not yet done. If the server cannot be asked, the walkthrough still works and says so.
+- **Progress.** A human preference saved with `prefs.set` through `IWalkthroughProgressStore` (section 2.3 rule: follows the account, an empty cache never stops the app). Skip hides it until it is replayed. Replay is a palette command and never resets settings.
+- **Routes [PROPOSED, doc 2 HTTP surface must list them].** Both need the person's bearer token and answer for that person only. JSON, snake_case keys, one generic error body like the other routes.
+  - `GET /onboarding/walkthrough/facts` answers 200 `{ "company_created": bool, "first_agent_name": string|null, "first_task_given": bool }`. The server computes the three facts from its own state (a company exists; the first agent's display name; the person has created a task or sent an agent request). It never returns agent or task content.
+  - `GET /prefs/walkthrough` answers 200 `{ "dismissed": bool, "finished": bool, "current": string, "completed": [string] }` or 404 when none is saved. `PUT /prefs/walkthrough` takes the same body and answers 204. These are the HTTP form of `prefs.set` for the key `onboarding.walkthrough` (doc 2), so one rule applies: the server validates the body (unknown step names are refused with 400) and stores it per person. An unreachable server falls back to the local cache.
+  - The walkthrough never reads or writes anything else about a person.
+- **Storage and sign-in.** Preferences are stored per person in `walkthrough_prefs` (walkthrough migration 0001); the person id is the human id from the sign-in token, resolved the same way as `GET /auth/whoami` (doc 32 section 5).
+- **Facts add two ids [PROPOSED].** The facts body may also carry `first_agent_id` and `first_chat_id` (GUIDs, null when none), so the first-task composer knows whom to mention and where to post. They identify the first agent and the group chat the company seeded with that agent (section 1.15). Nothing else about the agent travels.
+- **Look.** Colours come from the theme resources (doc 93), so Void, Graphite, Paper and Rubedo overrides restyle the card. The phone swipe prompts of doc 93 ("First-run coach", package 8) are a separate head concern and are not part of this module.
+- **Testing.** Unit tests for the step flow, skip, replay, facts and failure paths; an Avalonia.Headless test drives the card by its `walkthrough-*` automation ids.
+
+## 2.10 First-task composer [PROPOSED]
+
+One client module, `Bazaar.Client.FirstTask` (with `.Avalonia`), adds no code to Client.Core. It is the screen the walkthrough's "give a first task" step opens: a short text box, a Send button and one line of what happens next.
+
+- **What Send does.** It posts one `gc.send` to the first group chat, mentioning the first agent (ids from section 2.9 facts). It is an ordinary group chat message: the agent answers there, and the person can follow or edit it like any other. No private channel, no new task store. When the facts carry no chat or agent yet, Send is off and the screen says the company's first agent is not ready.
+- **Nothing hidden.** The text is the person's own words, shown back after sending. The module stores nothing; the walkthrough's "task given" fact is the server's, computed from the chat (section 2.9).
+- **Keyboard first.** The box takes no focus by default (doc 27); Tab reaches Send. Enter inserts a new line; Send is a button. No Ctrl chords.
+- **Agent profile screen.** The profile card is `Bazaar.Client.Souls`; the walkthrough's "meet your first agent" step opens it from the read-only profile route (doc 07, PROPOSED), keyed by the `first_agent_id` fact. When the server has no profile to show, the step says it cannot open and the name from the facts stays on the card.
+- **Sending.** The Windows head sends over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
+- **Testing.** Unit tests for the view model (disabled without ids, sends once, trims, shows failures without repeating a secret) and an Avalonia.Headless test by `firsttask-*` ids; the sender adapter is tested against a fake wire.
+
 ---
 
 ## Conflicts and gaps
