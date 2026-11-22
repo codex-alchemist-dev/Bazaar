@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.Gateway.Catalogue</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="DefaultCatalogue\default-catalogue.json" LogicalName="Bazaar.Server.Gateway.Catalogue.DefaultCatalogue.default-catalogue.json" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Catalogue.Abstractions\Bazaar.Server.Gateway.Catalogue.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

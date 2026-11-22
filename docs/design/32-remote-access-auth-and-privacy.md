@@ -68,6 +68,18 @@ ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped t
 
 Reuse of a retired refresh credential revokes the device and audits it. Lifetimes are settings (`auth.*`, Settings table). Revocation is immediate: live sockets close 4403, a device revision is checked on connect and `auth.refresh`, and the device's approval key (5a) is revoked with it. The owner revokes any device; a coworker revokes their own.
 
+**HTTP auth routes (access-token side).** Both routes carry the same transport rule: plaintext off the machine answers 403 `forbidden` unless the operator allowed an overlay (`wire.allow_plaintext_overlay`).
+
+| Route | Purpose | Status |
+|---|---|---|
+| `POST /auth/refresh` | Exchanges a live refresh secret for a new access token and refresh secret; any refusal answers 401 `invalid_grant`, reason in the server log only; 503 `unavailable` with no token issuer | BUILT (code merged) |
+| `GET /auth/whoami` | Reads the signed-in person from an access token (below) | PROPOSED, built in PR #1145; not merged until the PR lands |
+| `POST /auth/signout` | Signs the calling device out: revokes that one device so its refresh secret stops working at once (below) | PROPOSED, drafted on top of the whoami PR |
+
+`GET /auth/whoami` takes `Authorization: Bearer <access token>` and answers 200 `{ "human_id": "<guid>", "display_name": "...", "role": "owner" | "coworker", "device_id": "<guid>" }`. A missing, malformed, expired or badly signed token, a revoked device, and a suspended or removed human all answer the same 401 `{"error":"invalid_token"}`, byte for byte; the reason goes to the server log only and the token is never logged. 403 `forbidden` for plaintext off the machine (as above); 503 `unavailable` when no access-token verifier is registered. It is read-only and writes no audit entry. The token proves signature and expiry only, so the route also reads the `device` and `human` rows: that is what makes revocation and removal immediate here. GET only; `/auth/whoami` needs no change to the method guard in the host.
+
+`POST /auth/signout` takes `Authorization: Bearer <access token>` and no body. It revokes the device named in the token through `ITokenService.RevokeDeviceAsync` (the same revocation path as an owner revoking a device; audited by that path, with the signed-in human as actor) and answers 204. Signing out twice is not an error: a device that is already revoked is left unchanged. Every token refusal answers the same 401 `{"error":"invalid_token"}` as `/auth/whoami`; 403 `forbidden` for plaintext off the machine; 503 `unavailable` when no access-token verifier or token service is registered. It signs out this device only; other devices of the same person stay signed in. The client discards its stored credentials after a 204 or a 401.
+
 **Access token signing key** [PROPOSED]
 - **Algorithm and key.** The access token is signed with HMAC-SHA256 under a 256-bit signing key. The key is an install-scope data key: one row in `soul_dek` with scope `access-token` (one live row per scope). It is wrapped by the host KEK (doc 14, envelope encryption). The Identity Service holds it. No other module sees the key; they get only a verifier or an issuer, behind one interface.
 - **Token format:** `v1.<kid>.<payload>.<mac>`. `kid` is the `dek_id` of the signing key. `payload` is base64url JSON `{"sub": device id, "hum": human id, "exp": unix seconds}`. `mac` is base64url HMAC-SHA256 over the ASCII text `v1.<kid>.<payload>`.
@@ -99,6 +111,7 @@ Status: DECIDED for the Windows head, by the owner's delegation of 2026-11-18. I
 - **Presence.** Each approval signature needs a fresh Windows Hello verification (the platform's user consent verifier). Cancelled, unavailable or failed verification refuses the approval and signs nothing. A signature cannot be produced without presence, and the key is never used for anything else.
 - **Refusals are explicit.** No TPM, no Hello, a cancelled prompt and a software-only key each produce a named refusal. None of them falls back to a weaker path.
 - **Linux.** Unchanged here. It stays under the platform store question in the storage floor above.
+- **Desktop adapters [PROPOSED, 2026-11-22].** `Bazaar.Client.Approvals.Desktop` adapts the TPM signer and Hello presence to the client approval gate's `IDeviceApprovalSigner` and `IBiometricPrompt` (doc 52, merge button).
 
 ### 5b. Owner device enrolment [PROPOSED]
 
