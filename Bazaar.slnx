@@ -97,6 +97,8 @@
     <Project Path="src/Bazaar.Server.Transport.Grpc/Bazaar.Server.Transport.Grpc.csproj" />
     <Project Path="src/Bazaar.Client.Transport.Grpc/Bazaar.Client.Transport.Grpc.csproj" />
     <Project Path="src/Bazaar.Wire.Schema/Bazaar.Wire.Schema.csproj" />
+    <Project Path="src/Bazaar.Server.Wire.Discovery.Abstractions/Bazaar.Server.Wire.Discovery.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Wire.Discovery/Bazaar.Server.Wire.Discovery.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3/Bazaar.Client.Transport.AndroidHttp3.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android/Bazaar.Client.Transport.AndroidHttp3.Android.csproj" />
     <Project Path="src/Bazaar.Client.Transport.AndroidHttp3.Android.Head/Bazaar.Client.Transport.AndroidHttp3.Android.Head.csproj" />
@@ -446,6 +448,7 @@
     <Project Path="tests/Bazaar.Wire.Schema.Tests/Bazaar.Wire.Schema.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.Protobuf.Tests/Bazaar.Wire.Codec.Protobuf.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.MemoryPack.Tests/Bazaar.Wire.Codec.MemoryPack.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Wire.Discovery.Tests/Bazaar.Server.Wire.Discovery.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Tests/Bazaar.Client.Transport.AndroidHttp3.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests/Bazaar.Client.Transport.AndroidHttp3.Android.Head.Tests.csproj" />
