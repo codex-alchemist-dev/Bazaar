@@ -16,6 +16,7 @@ using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Display;
 using Bazaar.Server.Host.Http;
+using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
@@ -109,6 +110,8 @@ public static class HostApplicationExtensions
         // The DM access flow reads gc.dm_access_approvers live from the settings store. Registered first, so the gc-metadata component keeps it.
         services.TryAddSingleton<Bazaar.Server.GcMetadata.IDmAccessOptionsSource, Components.GcMetadata.SettingsDmAccessOptionsSource>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        services.AddBazaarGcForkTarget();
+        services.AddBazaarReplayWire();
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         services.AddBazaarBackupOffsite();

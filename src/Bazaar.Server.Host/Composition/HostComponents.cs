@@ -62,6 +62,7 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TimeMachine;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.SoulProfile;
@@ -131,6 +132,7 @@ public static class HostComponents
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
+        new TimeMachineComponent(),
         new MemoryComponent(),
         new HiveComponent(),
         new GeneticMemoryComponent(),

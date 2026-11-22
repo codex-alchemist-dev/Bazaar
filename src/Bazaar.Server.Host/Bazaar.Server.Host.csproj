@@ -47,6 +47,9 @@
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.TimeMachine\Bazaar.Server.TimeMachine.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Playtest\Bazaar.Server.Playtest.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WhatIf\Bazaar.Server.WhatIf.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcMetadata\Bazaar.Server.GcMetadata.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyMemory\Bazaar.Server.CompanyMemory.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcReactions\Bazaar.Server.GcReactions.csproj" />
