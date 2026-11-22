@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -39,7 +38,7 @@ public static partial class SetupPlanValidator
     private static partial Regex SemverRegex();
 
     /// <summary>Validates and normalizes <paramref name="plan"/>, adding every issue found to <paramref name="issues"/>.</summary>
-    public static void Validate(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    public static void Validate(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         ArgumentNullException.ThrowIfNull(plan);
         ArgumentNullException.ThrowIfNull(registry);
@@ -62,10 +61,51 @@ public static partial class SetupPlanValidator
         ValidateBackups(plan.Backups, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
+        ValidateFirstRun(plan.FirstRun, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
+        ValidateReleaseChannel(plan, registry, issues);
+        ValidateUpdatePolicy(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
+    }
+
+    private static void ValidateFirstRun(SetupFirstRunSection firstRun, List<SetupValidationIssue> issues)
+    {
+        if (IsBlank(firstRun.GeneralGcTitle) || firstRun.GeneralGcTitle.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.generalGcTitle", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (IsBlank(firstRun.DefaultAgentName) || firstRun.DefaultAgentName.Length > _maxNameLength)
+        {
+            issues.Add(Error("firstRun.defaultAgentName", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (firstRun.DefaultAgentPurpose is null || firstRun.DefaultAgentPurpose.Length > 500)
+        {
+            issues.Add(Error("firstRun.defaultAgentPurpose", "must be at most 500 characters."));
+        }
+
+        if (firstRun.DefaultAgentProfile is null || !SlugRegex().IsMatch(firstRun.DefaultAgentProfile))
+        {
+            issues.Add(Error("firstRun.defaultAgentProfile", "must be a lower-case profile name, for example balanced."));
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < firstRun.DefaultAgentSources.Count; i++)
+        {
+            var id = firstRun.DefaultAgentSources[i];
+            var path = $"firstRun.defaultAgentSources[{i}]";
+            if (id is null || !SlugRegex().IsMatch(id))
+            {
+                issues.Add(Error(path, "must be a lower-case model source id."));
+            }
+            else if (!seen.Add(id))
+            {
+                issues.Add(Error(path, "is listed twice."));
+            }
+        }
     }
 
     private static void ValidateInstall(SetupInstallSection install, List<SetupValidationIssue> issues)
@@ -289,7 +329,7 @@ public static partial class SetupPlanValidator
     /// The network block maps to two registry keys (doc 03). The values go through the registry, so a non-loopback bind is held
     /// for approval. A value set twice (in the block and in settings) is an error, so there is one answer.
     /// </summary>
-    private static void ValidateNetwork(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    private static void ValidateNetwork(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         if (plan.Network.StatusPort is < 1 or > 65535)
         {
@@ -318,11 +358,51 @@ public static partial class SetupPlanValidator
     }
 
     /// <summary>
+    /// The release channel is also the registry key <c>update.channel</c> (doc 30). A value set twice (in the plan field and in
+    /// settings) is an error, so there is one answer. A build whose registry has no such key skips the registry check; the channel
+    /// shape itself is checked in <c>ValidateInstall</c>.
+    /// </summary>
+    private static void ValidateReleaseChannel(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.UpdateChannelKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.UpdateChannelKey, "is already set by install.releaseChannel; set it in one place."));
+        }
+
+        if (!_releaseChannels.Contains(plan.Install.ReleaseChannel, StringComparer.Ordinal)
+            || !registry.TryGet(SetupSettingProjection.UpdateChannelKey, out var definition) || definition is null)
+        {
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Install.ReleaseChannel.Replace('-', '_'), SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "install.releaseChannel", value, issues);
+    }
+
+    /// <summary>
+    /// The update policy (doc 45 step 2). The security half is the registry key <c>deps.update.autoSecurityPatches</c>, so a value set
+    /// twice (in the plan field and in settings) is an error. The other half has no backing setting: only <c>manual</c>, the shipped
+    /// default, can be applied, so <c>automatic</c> is refused here rather than accepted and silently not stored.
+    /// </summary>
+    private static void ValidateUpdatePolicy(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(SetupSettingProjection.AutoSecurityPatchesKey))
+        {
+            issues.Add(Error("settings." + SetupSettingProjection.AutoSecurityPatchesKey, "is already set by install.updatePolicy.security; set it in one place."));
+        }
+
+        if (_updateModes.Contains(plan.Install.UpdatePolicy.Other, StringComparer.Ordinal) && !SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
+        {
+            issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
+        }
+    }
+
+    /// <summary>
     /// The Nigerian Prince Protocol step (docs/design/45 section 1.11). It is offered only when email is on, and enabling it is an
     /// owner-tier change to <c>security.scam_mail.protocol_enabled</c>, so it is held for approval and never applied silently. Off is
     /// the default and the safe state, so it needs no check. The plan section is the one place that sets the key.
     /// </summary>
-    private static void ValidateScamMailProtocol(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues)
+    private static void ValidateScamMailProtocol(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         const string settingName = "security.scam_mail.protocol_enabled";
         if (plan.Settings.ContainsKey(settingName))
@@ -351,7 +431,7 @@ public static partial class SetupPlanValidator
         CheckRegistryValue(definition, "scamMailProtocol.enabled", value, issues);
     }
 
-    private static void ValidateSettings(SetupPlan plan, SettingRegistry registry, List<SetupValidationIssue> issues) =>
+    private static void ValidateSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues) =>
         ValidateSettingValues(plan.Settings, registry, "settings.", issues);
 
     /// <summary>
@@ -360,11 +440,10 @@ public static partial class SetupPlanValidator
     /// </summary>
     internal static void ValidateSettingValues(
         IDictionary<string, JsonElement> settings,
-        SettingRegistry registry,
+        ISetupSettingCatalog registry,
         string pathPrefix,
         List<SetupValidationIssue> issues)
     {
-        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
         foreach (var name in settings.Keys.OrderBy(k => k, StringComparer.Ordinal).ToList())
         {
             var path = pathPrefix + name;
@@ -374,13 +453,13 @@ public static partial class SetupPlanValidator
                 continue;
             }
 
-            if (definition.Scope != SettingScope.Install)
+            if (!definition.IsInstallScope)
             {
                 issues.Add(Error(path, "is not an install-scope setting; the setup plan sets install values only."));
                 continue;
             }
 
-            settings[name] = NormalizeValue(definition, path, actor, settings[name], issues);
+            settings[name] = NormalizeValue(definition, path, settings[name], issues);
         }
     }
 
@@ -397,17 +476,16 @@ public static partial class SetupPlanValidator
     internal static bool IsSlug(string text) => SlugRegex().IsMatch(text);
 
     /// <summary>Runs one registry value through the same checks as a write. The stored value becomes the canonical form.</summary>
-    private static void CheckRegistryValue(SettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
+    private static void CheckRegistryValue(ISetupSettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
     {
-        var actor = new SettingActor(SetupConstants.PlanActorId, SettingRole.Operator);
-        NormalizeValue(definition, path, actor, value, issues);
+        NormalizeValue(definition, path, value, issues);
     }
 
     /// <summary>
     /// Type check and floor check (a reason is an error, exit 1), then the write rule (a value that needs approval or that
     /// the actor may not write is held, exit 2). Returns the canonical JSON in every case, so the hash is always defined.
     /// </summary>
-    private static JsonElement NormalizeValue(SettingDefinition definition, string path, SettingActor actor, JsonElement value, List<SetupValidationIssue> issues)
+    private static JsonElement NormalizeValue(ISetupSettingDefinition definition, string path, JsonElement value, List<SetupValidationIssue> issues)
     {
         var reason = definition.CheckValue(value);
         if (reason is not null)
@@ -416,8 +494,8 @@ public static partial class SetupPlanValidator
             return value.Clone();
         }
 
-        var evaluation = definition.Evaluate(actor, value);
-        if (evaluation.Outcome != SettingWriteOutcome.Accepted)
+        var evaluation = definition.Evaluate(SetupConstants.PlanActorId, value);
+        if (!evaluation.Accepted)
         {
             issues.Add(new SetupValidationIssue(SetupIssueSeverity.Hold, path, evaluation.Reason ?? "is held for approval."));
         }

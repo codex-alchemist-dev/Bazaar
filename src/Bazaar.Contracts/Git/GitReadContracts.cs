@@ -66,3 +66,9 @@ public sealed record GitMergedDto(string HeadSha);
 
 /// <summary>The body of a <c>429 rate_limited</c> answer. <paramref name="RetryAfterSeconds"/> is null when the forge gave no hint.</summary>
 public sealed record GitRateLimitedDto(string Error, int? RetryAfterSeconds);
+
+/// <summary>
+/// One repository the Git client can show (<c>GET /git/repos</c>). Provider and full name only, plus the default branch when the
+/// server knows it. It never carries the host clone path, an installation id or any credential.
+/// </summary>
+public sealed record GitRepoDto(string Provider, string FullName, string? DefaultBranch);
