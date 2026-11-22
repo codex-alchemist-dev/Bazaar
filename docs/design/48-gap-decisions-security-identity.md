@@ -38,11 +38,16 @@ Design consequences:
 - The package manifest is `bazaar-component.json`, the same file as the component manifest (BAZAAR-COMPONENTS.md section 2, owner 2026-11-16, replacing the earlier `bazaar-module.json` name). It also carries the dependency edges, hard and soft (BAZAAR-COMPONENTS.md section 4.1), which the signature covers. Its fields are: module id, semantic version, publisher id, licence (SPDX expression), target API version, dependencies, and a permission list. Every permission has a class (data read, data write, GC post, network host, filesystem path, secret name, UI pane, background job, process spawn, device capability) and a scope.
 
 - **Canonical vocabulary (owner, 2026-11-16):** the permission classes above are the one module permission vocabulary. The client manifest `Capabilities` (doc 41 section 8) is a view of these classes, and each capability maps to one class and one scope as follows: `wire:gc.history` is data read with scope GC; `wire:gc.post` is GC post; `wire:kanban.read` is data read with scope Kanban; `wire:kanban.write` is data write with scope Kanban; `wire:vault.read` is data read with scope Vault; `wire:constellation.read` is data read with scope Constellation; `storage:local` is filesystem path with scope module-local storage; `device:notify` is device capability. The classes network host, secret name, background job and process spawn have no client capability today. A module that needs one declares it in the package, and the client manifest does not carry it.
+- **Written form (owner card, 2026-11-19):** a permission is written `class:scope`. The class names are `data.read`, `data.write`, `gc.post`, `network`, `fs`, `secret`, `ui.pane`, `job`, `process` and `device`, in lower case, and no other class exists. The scope names one target (a component, a path or named root, a secret name, a pane, a job, a program, a device capability), with `/` between segments. A scope may end in `/*` to grant everything below that prefix, matched by whole segments: `secret:weather/*` covers `weather/api-key`, not `weather` itself and not `weather-admin/key`. There is no other wildcard: `*`, `fs:*` and `fs:/*` are not permissions. A `network` scope is exactly one host, a lower-case ASCII DNS name or a canonical IP literal, with no port, no prefix grant and no subdomain wildcard. Only `gc.post` may be written with no scope. Each client capability name in the paragraph above is read as its permission (`wire:gc.history` is `data.read:gc`, `wire:gc.post` is `gc.post`, `wire:kanban.read` is `data.read:kanban`, `wire:kanban.write` is `data.write:kanban`, `wire:vault.read` is `data.read:vault`, `wire:constellation.read` is `data.read:constellation`, `storage:local` is `fs:local`, `device:notify` is itself). A string that does not follow this form grants nothing at runtime. Dep descriptors keep their own permission ids (doc 42); a dep is not a hosted module and does not pass this gate.
 - The package is signed by the publisher key. The server verifies the signature on download, on install and on every start. A module with a bad or missing signature is not installed. Unsigned modules are not installable, with or without a warning. (This is the consequence of "signed modules"; it is not a setting.)
 - Publisher keys are registered in the server trust store with a publisher id, a key id and validity dates. First-party modules are signed with keys that stay on the server, per the build flow in `37`.
+- Build detail of the two rules above (PROPOSED, implementation of the DECIDED rules; no new owner choice): the signature covers the publisher id, and a package verifies only when its publisher id is the one registered for the signing key. Each registered key also lists the module id prefixes it may sign, matched by whole dot-separated labels (`bazaar` covers `bazaar.weather`, not `bazaarx`); a key with no listed prefix signs nothing. Without this, any trusted publisher could ship an update for another publisher's module. Module ids, versions, publisher ids and permission names are printable ASCII of at most 256 characters, so a look-alike or hidden character cannot change what the owner reads on the approval card.
 - Install shows the requested permissions in plain language and the licence. The owner approves the set once per module version. The approval is an audited event (`module.permissions.approved`), signed by the owner's device key (`15`).
+- The owner's approval names the module id, the version, the publisher id and the permission set, and only permissions the verified package declares can be approved. Install and every start verify the owner's signature on each stored approval before counting it; a row that does not verify, or that was signed for another publisher's package, grants nothing.
 - Any update that widens permissions needs a new approval. Narrowing needs none. Permission diffs are shown in the update card.
 - At runtime the module host enforces the approved set. A call outside the set is refused and audited. A module cannot read a secret it did not name, and cannot reach a host it did not name.
+- Build detail of the runtime rule (PROPOSED, implementation of the DECIDED rule; no new owner choice): the gate is the module `Bazaar.ModulePermissions`. The host puts a module's verified approved set in force when it starts the module and removes it when it stops it; a set in force is never replaced in place. A request names a class and an exact target, never a pattern. A target with `..`, an empty segment, a backslash, `*`, or a control, format or unassigned character is refused whatever the grants say, and so is a host in a second spelling (trailing dot, port, short or hexadecimal IPv4, IPv4-mapped IPv6). Every refusal is audited as `module.permission.denied` with the module, the class, the reason and the target only when it is clean (a malformed target is recorded by length alone, so a module cannot write text of its choosing into the audit log). At most 100 refusals per module per minute reach the audit log; the rest are counted and the count is recorded with the next refusal. If the audit write fails, the access stays refused. The approved-set check at install and start reads prefix grants the same way: a declared permission below an approved `/*` grant is a narrowing and needs no new approval, and a started module holds the set its own version declares, not the wider set an earlier version was approved for.
+- Build detail of "cannot reach a host it did not name" (PROPOSED, implementation of the DECIDED rule; no new owner choice): a module's HTTP requests go through `Bazaar.ModulePermissions.Http`. The host of each request, and again the host each connection really dials, must be granted. Redirects are returned to the module, not followed, so each hop is its own check. A granted name must resolve to public addresses only; an answer that includes a loopback, private, link-local (cloud metadata), carrier NAT or multicast address refuses the name, which closes DNS rebinding into the server's own network. A module that needs a private address declares the IP literal, so the owner sees it on the approval card.
 - Modules run in the process model of their tier (see section 2 for developer sandboxes, and `03` for the host). Production modules run in the server host, with the permission gate in front of every service they receive.
 
 Cross-links: `03` (module host, providers), `15` (`ToolDispatcher`, capability classes), `37` (signed releases, packaging), `14` (secret names for modules), section 3 (verified tag).
@@ -104,7 +109,14 @@ Design consequences:
 - No role can grant itself or another principal an approval capability.
 - Agents never hold `admin.*` capabilities.
 
-Built status: PLANNED. Doc `32` section 6 is updated to point here.
+Built status: BUILT as `Bazaar.Roles.Abstractions` and `Bazaar.Roles` (migration `roles/0001`). Doc `32` section 6 is updated to point here.
+
+Implementation notes (in force):
+
+- The approval capability is named `approve`. It sits in the owner template at instance scope. Only a human who holds it grants it, never to themselves, and never to an agent or service. This is how "no role can grant itself or another principal an approval capability" is read: the capability passes only from a human approver to another human.
+- The owner role keeps `admin.roles` and `approve` at instance scope, cannot be deleted, and always has at least one human holder (the removal check and the delete are one locked step in the store). The first human owner is set once, atomically.
+- A change that widens a human's grants goes through `IGrantWideningGate`. The shipped gate refuses everything until the approval and biometric modules plug in (fail closed).
+- Templates are inserted only when missing, so owner edits survive a restart.
 
 OPEN: none for the decision. The default set of built-in templates is a list the owner can change in the setup wizard.
 
@@ -210,9 +222,52 @@ Design consequences:
 - Biometric data is never in logs, the audit chain or backups.
 - A device without a required factor cannot perform a high-risk action. It can still read.
 
-Built status: PLANNED. Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
+Built status: PLANNED (format PROPOSED in 8.1; software verifier built in `Bazaar.Server.Biometric`, spike S-BIO B1 passed, B2 and B3 need the owner's devices; record in `docs/spikes/S-BIO.md`). Spike per platform (LiDAR face on the owner's device, multi-lens fallback, liveness reporting, fingerprint).
 
 OPEN: the platform list for LiDAR face beyond the owner's devices and the exact liveness reporting per platform. These are device-capability questions for the spike, not policy choices. The biometric matching thresholds stay with the platform.
+
+### 8.1 Biometric assertion format [PROPOSED]
+
+**Status: PROPOSED (coordinator request 2026-11-20; not an owner decision).** Section 8 says the device produces a signed assertion and the server verifies it, but names no wire format. This section fixes one, built on WebAuthn assertions, and says plainly what a server can and cannot learn from one. It stays PROPOSED until spike S-BIO (below) passes on the owner's hardware.
+
+**What a server can know.** WebAuthn gives the server three things it can check: the credential was made by an authenticator of a known kind (attestation), the authenticator signed this exact challenge, and it reports a user-verified flag (UV). UV is not "biometric": a PIN sets it too. The factor (face with depth, face with multi-lens, voice, fingerprint) and the liveness result are claims the device makes. They carry weight only because the credential's attestation shows a genuine platform authenticator, and because the claim is inside the signed data. The server therefore trusts the attested platform for factor and liveness, and treats a claim from an unattested credential as no claim.
+
+**The assertion (`BiometricAssertion`, version 1).** One JSON object through `IWireCodec`:
+
+| Field | Meaning |
+|---|---|
+| `v` | `1`. Any other value is refused. |
+| `credential_id` | The WebAuthn credential the device signed with (base64url). |
+| `authenticator_data` | Raw authenticator data (base64url): rpIdHash, flags, sign count. |
+| `client_data_json` | The UTF-8 client data (base64url), `type` `webauthn.get`. |
+| `signature` | The ES256 signature over `authenticator_data` followed by SHA-256 of `client_data_json` (base64url). |
+
+The client data carries three Bazaar members inside the signed bytes: `bazaar.factor` (`face-depth`, `face-multi`, `voice`, `fingerprint` or `hardware-key`), `bazaar.liveness` (`passed` or `not-reported`) and `bazaar.at` (milliseconds since the Unix epoch). The `origin` is `bazaar-device:<device id>`, since a native client has no web origin.
+
+**Binding to the action.** The challenge is `SHA-256("bazaar.biometric.v1" 0x00 SHA-256(owner payload bytes))`, where the owner payload bytes are `OwnerSignedPayload.Build` of the action being approved (section 7 and doc 32 section 5a). The assertion therefore covers the same action id, args hash, human, device, expiry and single-use nonce as the owner signature, and cannot be replayed for another action. The two signatures travel together; neither works alone.
+
+**Server checks, in order, each fail-closed with a fixed reason code and no detail about key material.**
+1. `v` is 1 and every field is present and within size limits.
+2. The credential is registered to the deciding human and device, and is single-device (WebAuthn backup-eligible and backup-state flags are both clear). A synced passkey is refused.
+3. `rpIdHash` matches the instance's relying party id; user presence and user verification flags are set.
+4. Client data `type` is `webauthn.get`, `origin` is the device's own, and `challenge` equals the challenge above.
+5. The signature verifies under the stored credential public key (ES256).
+6. The sign count is strictly greater than the stored one (a stored zero accepts the first), or a clone is suspected and the credential is refused until the owner re-enrols.
+7. `bazaar.at` is within the clock-skew bound of server time (the same bound as `OwnerSignatureOptions`).
+8. The credential's attested properties, recorded at enrolment, allow the claimed factor, and the factor is in the action class's allowed list (setting `biometric.allowed_factors.<class>`; the shipped default for high-risk actions is face with depth, face with multi-lens, and fingerprint). For every factor used on a high-risk action `bazaar.liveness` must be `passed`. This is a floor, not a setting, and it restates section 8: where a platform reports no liveness, the factor is not used for high-risk actions.
+
+**Enrolment.** The device registers a platform credential with attestation at the same moment it enrols its owner-approval key (doc 32 section 5a, whose enrolment path is still OPEN). The server verifies the attestation chain once and stores the credential id, the public key, the attested properties (hardware-backed, user-verification required, authenticator type) and the sign count. Android uses key attestation with the Keystore key set to require biometric (BIOMETRIC_STRONG) authentication on every use. Windows uses the platform authenticator with Windows Hello.
+
+**Where it plugs in.** `IWideningBiometricCheck` (doc 48 section 4) and the owner-gated actions in section 9 call one `IBiometricAssertionVerifier`. It lives in its own module, `Bazaar.Server.Biometric` with `Bazaar.Server.Biometric.Abstractions`, and keeps the WebAuthn parsing in one namespace so the backup-owner verifier (`Fido2AssertionVerifier`, section 7) and the passkey sign-in module can move onto it later instead of keeping separate copies. Templates never reach the server (section 8), and the assertion holds none.
+
+**Spike S-BIO (pass criteria fixed here, before any run).**
+- B1 (software, runs in CI): a software ES256 authenticator produces assertions in this format. The verifier accepts a correct one and refuses each of: wrong version, wrong challenge (another action), wrong origin, wrong rpIdHash, UP or UV clear, backup flags set, bad signature, replayed or lower sign count, stale `bazaar.at`, unattested or disallowed factor, liveness not passed on a high-risk action, unknown credential, and oversized or truncated input. Hostile input never throws.
+- B2 (hardware, owner's devices): an Android Keystore key that requires BIOMETRIC_STRONG on every use signs the challenge, the key attestation chain verifies, and the attested properties show per-use biometric. A Windows Hello credential signs and the platform reports whether the factor was biometric or PIN.
+- B3 (hardware, the owner's LiDAR device and the multi-lens fallback): the platform reports the factor and the liveness result in a form the client can place in `bazaar.factor` and `bazaar.liveness`.
+Fail consequence: if B2 cannot tell biometric from PIN on a platform, that platform cannot perform high-risk actions and stays read-only for them (section 8). If B3 fails, the factor is dropped from the allowed list.
+
+OPEN: whether Windows Hello can report biometric versus PIN (B2). If not, the Windows head cannot satisfy section 8 for high-risk actions and the owner decides between PIN-accepted and Android-only approvals.
+
 
 ## 9. Retention
 
@@ -227,6 +282,7 @@ Design consequences:
 - Backups keep old keys until the backup expires. The backup retention is the erasure window (`33`, C01). The proof states the window date.
 - Raw audit read records (section 5) have their own retention period, a setting. Their personal fields are crypto-erasable like any other.
 - Retention changes are high-risk actions (section 8).
+- Sweeper (built, `Bazaar.Server.Retention`): an hourly job asks each module's retention store for records past their period, soft-deletes them, then purges them after the soft-delete window. A hold covers a record when its scope is the record's person, GC or category, or the whole company; holds are re-read before every batch, a hold that cannot be read stops the sweep, and an unrecognised scope kind is treated as covering everything. Crypto-erase is not part of the sweep.
 
 OPEN: erasure inside Vault history and git history (`33` Q6, C38). The owner has not decided this, and the options are encrypted personal notes or history rewrite. Needs counsel. The shipped default for Vault pages is the most protective option (no personal data in a Vault page without per-subject encryption), still to be designed in `18`.
 

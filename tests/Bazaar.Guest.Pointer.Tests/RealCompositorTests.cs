@@ -122,15 +122,17 @@ public class RealCompositorTests(CageFixture cage) : IClassFixture<CageFixture>
     }
 
     [Fact]
-    public async Task Without_a_compositor_socket_the_tool_fails_quickly_with_one_line()
+    public async Task Without_a_compositor_socket_the_tool_fails_on_its_own_with_one_line()
     {
         string dir = Path.Combine(Path.GetTempPath(), "bazaar-pointer-empty-" + Guid.NewGuid().ToString("N")[..8]);
         Directory.CreateDirectory(dir);
         try
         {
+            // No wall-clock bound here: the elapsed time is mostly the start of the tool's process, which took over
+            // 4 seconds on a loaded Windows runner. The tool connects once and does not retry, so a missing socket
+            // ends it at once; a tool that waited for the socket would run into the runner's timeout, which throws.
             RunResult r = await Tool(dir, "wayland-0", "click", "5", "5", "1280", "720", "left");
-            Assert.NotEqual(0, r.ExitCode);
-            Assert.True(r.Elapsed < TimeSpan.FromSeconds(3), $"took {r.Elapsed.TotalMilliseconds:F0} ms");
+            Assert.Equal(1, r.ExitCode);
             Assert.Single(r.Stderr.Split('\n', StringSplitOptions.RemoveEmptyEntries));
             Assert.Contains("bazaar-pointer:", r.Stderr, StringComparison.Ordinal);
             TestContext.Current.SendDiagnosticMessage($"no-socket exit {r.ExitCode} in {r.Elapsed.TotalMilliseconds:F0} ms");

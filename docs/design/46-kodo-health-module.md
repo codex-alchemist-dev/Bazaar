@@ -173,6 +173,17 @@ Revision note. The first draft swapped a directory junction on Windows "with the
 - Checkpoints are anchored externally (the brief's external anchoring). Anchor sinks are operator choices, and the default is the owner's paired devices (each device stores the latest checkpoint and its own copy of the head). Optional sinks: an RFC 3161 timestamp authority, an S3-compatible object store with object lock, and a public transparency log. Each sink is a module behind `IAnchorSink`.
 - Merkle proofs: any single record can be proven against a checkpoint with a logarithmic-size proof. The API returns the proof on request (section 15.1). An auditor can verify a proof with the public key alone.
 
+### 6.5.1 Anchoring and Merkle proofs: pure core (PROPOSED)
+
+Built in `src/Bazaar.Kodo/Anchoring` (package 14, pure parts only; no sink, file, witness or HTTP code). These choices are PROPOSED, not DECIDED:
+
+- **Tree.** Binary Merkle tree over journal record hashes, RFC 6962 shape (split at the largest power of two below n). Leaf = SHA-256(0x00 || record hash), node = SHA-256(0x01 || left || right), empty root = SHA-256 of nothing. A lone node is never duplicated, so `[a,b,c]` and `[a,b,c,c]` have different roots, and an inner node cannot pass as a leaf. This is the same prefix convention as the audit checkpoint tree in doc 48, but that tree promotes odd nodes and has no consistency proofs, so the two roots are not interchangeable. `Bazaar.Kodo` must not reference `Bazaar.Server` (section 19), so the code is separate; unifying them is an open follow-up.
+- **Proofs.** Inclusion proofs (leaf in a tree of n) and consistency proofs (tree of m is a prefix of the tree of n), with verifiers that need only hashes and sizes (RFC 9162 algorithms). A proof does not bind the tree size by itself; the anchor record does.
+- **Anchor record.** `version`, `sinkId`, `treeSize`, `root`, `journalHead`, `anchoredAt` (UTC). Canonical JSON: compact, camelCase, base64 hashes, source-generated, unknown members rejected.
+- **When to anchor.** Every 1,000 new records or 15 minutes (the checkpoint cadence of 6.5), whichever comes first, and never when nothing is new. After a failed attempt, wait 1 minute before retrying. Ranges: 1 to 10,000,000 records, 1 second to 24 hours, retry 1 second to 1 hour. Not wired to settings yet.
+- **Fail safe.** A sink that throws, declines or hangs (30 second timeout) never blocks the journal or the other sinks. With no accepting sink the journal is simply not anchored; the planner counts an anchor as done only when a sink accepted it.
+- **Verifier.** A stored anchor is compared to the current chain: Verified only when the chain is intact and the anchored prefix hashes to the stored root and head. A rewrite with recomputed hashes, a broken chain or lost anchored records is Tampered. A malformed anchor, malformed records or a failed consistency proof between two anchors is Unknown, never Verified, and the status view must not show Unknown as healthy.
+
 ### 6.6 Threat model and stated limits
 
 Kodo defends against:
@@ -529,6 +540,20 @@ The brief's requirement: threshold alerts, trend forecasting, learned per-instal
 - The output is always labelled "unverified diagnosis" in the UI and in the webhook and API payloads. It is never used as the sole reason for a runbook step, and it cannot change a state.
 - Redaction runs on the input before the gateway call, and it is deterministic, never model-based (brief: redaction is never model-dependent).
 - A later on-device explanation path through the NPU (doc 31) is optional and off by default. It follows the same labelling and the same no-action rule.
+
+### 13.6 Predictor implementation choices (package 11, PROPOSED 2026-11-19)
+
+The pure core lives in `src/Bazaar.Kodo/Prediction`. It has no I/O, takes a `TimeProvider` or a time argument, and is advisory only (13.1). Doc 13.2 and 13.3 stay the target; these are the choices where the doc is silent or the first build is simpler. Nothing here is DECIDED.
+
+- **Trend fit.** A robust Theil-Sen line (median of pairwise slopes) over at most 256 samples in the window, not damped Holt. The 10th and 90th percentile slopes give the time-to-threshold band (`earliest`, `latest`); a null `latest` means the shallow end never reaches the threshold. Holt with damping and residual-based bands stays the longer-term target of 13.2.
+- **Confidence class.** `Unknown` (no forecast), `Low`, `Medium`, `High`, from the band width relative to the estimate (at most 0.5 is High, at most 1.5 is Medium, otherwise or unbounded Low). Only Medium and High can raise amber.
+- **Defaults.** Window 14 days and minimum span 72 hours (13.2). Minimum samples 24, sample cap 256, stale after 24 hours, future skew 5 minutes, amber horizon 7 days, forecast cap 365 days, value magnitude cap 1e15. All PROPOSED, all operator settings once the registry carries them; shipped values are the conservative ones.
+- **Insufficient or bad data is Unknown, never green.** NaN, infinity, out-of-range, out-of-order, equal-timestamp, future-stamped and stale samples all produce an Unknown result with a cause (`insufficient_data`, `invalid_sample`, `out_of_order_sample`, `future_sample`, `stale_data`). A rejected sample changes no stored state.
+- **Already past the threshold** is reported as `Breached` and mapped to amber `forecast_threshold_soon`; the deterministic rules own the real state.
+- **Baseline.** One entry per hour-of-week bucket (168, UTC) and week, latest wins, `TrailingWeeks` 4 and `MinWeeks` 3 (13.3). Median and MAD (scaled 1.4826) of earlier weeks only. Memory is at most 168 x 5 values. The scale has a floor of 5 percent of the median and an absolute floor of 1.0 in the series' unit (PROPOSED; set it per series for fractional series). A bucket below `MinWeeks` is warming up: Unknown with `baseline_warming_up`.
+- **Drift.** A two-sided CUSUM on residuals in scale units, slack 0.5, alarm level 5, residual clamped to 4 so one outlier never alarms, statistic capped at 10 times the alarm level. The alarm records the start of the excursion and the magnitude, and clears by itself when the series returns. The Page-Hinkley test from 13.3 is not built yet. Drift is amber with `drift_up` or `drift_down`, never red and never a bare number (13.1). The owner's request for an amber or red drift result is held to amber because 13.1 says a learned signal raises amber at most.
+- **Reset.** `BaselineDriftProbe.Reset` forgets everything learned. The caller writes the audit entry (13.3).
+- **Memory.** `PredictionMemory` (version 1) is source-generated camelCase JSON with unknown members rejected and a 1 MiB parse cap. Restore validates sizes, ranges, order and duplicates, and on any failure the caller keeps or starts fresh state. Times are UTC ticks.
 
 ## 14. Monitor pane in every client
 
@@ -892,6 +917,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 |---|---|---|
 | Module identity, naming and projects | PLANNED | No project exists |
 | Immutability: signed manifest, A/B slots, read-only runtime, tamper detection | PLANNED | Pure parts built in `src/Bazaar.Kodo/Runtime` (manifest, signature check, slot pointer, verifier; package 7). No sentinel or swap code yet. The design uses a signed pointer file (6.3), not a junction. Needs spike K1 (Windows read-only slot and pointer replace) and spike K2 (Linux bind-mount slots and pointer rename) run on hardware. Proposed for doc 35; not numbered there yet |
+| Journal hash chain, checkpoints, anchors, Merkle proofs | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Anchoring` (package 14): Merkle tree, inclusion and consistency proofs with verifiers, anchor record and codec, `IAnchorSink`, planner, fail-safe publisher, anchor verifier. Choices are PROPOSED in 6.5.1. No sinks, checkpoint signing, storage, API route or settings wiring yet. Needs spike K3 (anchor sink latency and object lock support) |
 | Journal hash chain, checkpoints, anchors, Merkle proofs | PLANNED | Needs spike K3 (anchor sink latency and object lock support) |
 | Sentinel process | PARTIAL | Pure parts built in `src/Bazaar.Kodo/Sentinel` (package 8): restart backoff, slot switch with probation and rollback, startup fallback, loopback status shape. Choices are PROPOSED in 7.8. No OS launcher, file store, loopback server, crash-loop detection or audit event yet |
 | Failure model: supervision, bulkheads, breakers, spill | PLANNED | Pure parts testable first |
@@ -900,7 +926,7 @@ Each package is a small PR with its tests (CLAUDE.md). Nothing is started.
 | Built-in probes | PLANNED | Catalogue in 9.1; most depend on modules that are not built |
 | Module health contract | PLANNED | Depends on doc 42 |
 | Score and SLOs | PLANNED | Formula in 12 |
-| Prediction (forecast, baseline, drift) | PLANNED | Deterministic parts first |
+| Prediction (forecast, baseline, drift) | PARTIAL | Pure core in `src/Bazaar.Kodo/Prediction` (package 11): robust trend forecaster, per-install baseline learner, CUSUM drift detector, saved memory (JSON), probe adapters. Choices PROPOSED in 13.6. No scheduler, storage, Page-Hinkley test, hourly recompute, alert wiring or Monitor pane yet |
 | Model explanations | PLANNED, OFF by default | Depends on the gateway (doc 05) |
 | Monitor pane in each client | PLANNED | Depends on client module split (doc 40 step 7) |
 | Read API, stream, webhooks, metrics and OTel export | PARTIAL | Pure core in `src/Bazaar.Kodo/Api` (package 9): snapshot builder and `kodo` stream revisions, with the wire DTOs and client `unobserved` derivation in `Bazaar.Contracts`. Choices PROPOSED in 15.6. No HTTP routes, no `/ws` registration, webhooks, metrics or OTel yet. Depends on doc 02 registry and doc 23 pipeline |
