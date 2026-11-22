@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <RootNamespace>Bazaar.Server.SignIn.Passkeys</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Fido2" />
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Roles.Abstractions\Bazaar.Roles.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn\Bazaar.Server.SignIn.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn.Abstractions\Bazaar.Server.SignIn.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn.Passkeys.Abstractions\Bazaar.Server.SignIn.Passkeys.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

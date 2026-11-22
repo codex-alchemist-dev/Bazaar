@@ -44,6 +44,7 @@ using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.SignIn;
+using Bazaar.Server.SignIn.Passkeys;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
@@ -105,6 +106,7 @@ public static class HostComponents
         new CommunityComponent(),
         new RolesComponent(),
         new SignInComponent(),
+        new PasskeysComponent(),
         new WebAdminComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
