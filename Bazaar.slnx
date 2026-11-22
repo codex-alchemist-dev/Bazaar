@@ -19,6 +19,8 @@
     <Project Path="src/Bazaar.Client.Constellation/Bazaar.Client.Constellation.csproj" />
     <Project Path="src/Bazaar.Client.Constellation.Abstractions/Bazaar.Client.Constellation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Dashboard/Bazaar.Client.Dashboard.csproj" />
+    <Project Path="src/Bazaar.Client.DefaultApp.Linux/Bazaar.Client.DefaultApp.Linux.csproj" />
+    <Project Path="src/Bazaar.Client.DefaultApp.Linux.Abstractions/Bazaar.Client.DefaultApp.Linux.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Gc/Bazaar.Client.Gc.csproj" />
     <Project Path="src/Bazaar.Client.Chat/Bazaar.Client.Chat.csproj" />
     <Project Path="src/Bazaar.Client.Chat.Abstractions/Bazaar.Client.Chat.Abstractions.csproj" />
@@ -309,6 +311,7 @@
     <Project Path="tests/Bazaar.Client.Rubedo.Tokens.Tests/Bazaar.Client.Rubedo.Tokens.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Constellation.Tests/Bazaar.Client.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.DefaultApp.Linux.Tests/Bazaar.Client.DefaultApp.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Gc.Tests/Bazaar.Client.Gc.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Chat.Tests/Bazaar.Client.Chat.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.ServerE2E.Tests/Bazaar.Client.ServerE2E.Tests.csproj" />
