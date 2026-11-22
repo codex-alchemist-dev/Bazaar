@@ -59,6 +59,13 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransa
         ORDER BY approved_at, id
         """;
 
+    private const string _listModuleApprovalsSql = """
+        SELECT module_id, version, permissions, approval_digest_sha256, signer_key_id, signature, owner_actor, approved_at
+        FROM module_permission_approval
+        WHERE module_id = $1
+        ORDER BY approved_at, id
+        """;
+
     /// <summary>Appends one update decision. Earlier decisions for the module are kept.</summary>
     public async Task AppendDecisionAsync(ModuleUpdateDecisionRecord record, CancellationToken ct = default)
     {
@@ -157,6 +164,21 @@ public sealed class ModuleManagerRepository(NpgsqlDataSource dataSource, ITransa
         await using var cmd = dataSource.CreateCommand(_listApprovalsSql);
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = moduleId });
         cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = version });
+        return await ReadApprovalsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>The approvals recorded for a module across all its versions, oldest first.</summary>
+    public async Task<IReadOnlyList<ModulePermissionApprovalRecord>> ListPermissionApprovalsAsync(string moduleId, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(moduleId);
+
+        await using var cmd = dataSource.CreateCommand(_listModuleApprovalsSql);
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = moduleId });
+        return await ReadApprovalsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    private static async Task<IReadOnlyList<ModulePermissionApprovalRecord>> ReadApprovalsAsync(NpgsqlCommand cmd, CancellationToken ct)
+    {
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
 
         var rows = new List<ModulePermissionApprovalRecord>();
