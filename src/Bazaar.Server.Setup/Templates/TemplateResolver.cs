@@ -1,4 +1,3 @@
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -43,15 +42,15 @@ public sealed record TemplateResolution(
 public sealed class TemplateResolver
 {
     private readonly ITemplateCatalog _catalog;
-    private readonly SettingRegistry _registry;
+    private readonly ISetupSettingCatalog _registry;
 
     /// <param name="catalog">Where exact template versions come from.</param>
-    /// <param name="registry">The settings registry the template's presets are checked against. Defaults to the registry this build ships.</param>
-    public TemplateResolver(ITemplateCatalog catalog, SettingRegistry? registry = null)
+    /// <param name="registry">The settings registry the template's presets are checked against.</param>
+    public TemplateResolver(ITemplateCatalog catalog, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(catalog);
         _catalog = catalog;
-        _registry = registry ?? SettingRegistry.Known;
+        _registry = registry ?? throw new ArgumentNullException(nameof(registry));
     }
 
     /// <summary>
@@ -92,7 +91,16 @@ public sealed class TemplateResolver
                 "must name one exact version, such as template:starter@1.0.0. Version ranges are not supported."));
         }
 
-        var templateSource = await _catalog.FindAsync(id, version, cancellationToken);
+        ITemplateSource? templateSource;
+        try
+        {
+            templateSource = await _catalog.FindAsync(id, version, cancellationToken);
+        }
+        catch (TemplateSourceException ex)
+        {
+            return Fail(new SetupValidationIssue(SetupIssueSeverity.Error, "company.source", ex.Message));
+        }
+
         if (templateSource is null)
         {
             return Fail(new SetupValidationIssue(
@@ -114,6 +122,17 @@ public sealed class TemplateResolver
                 SetupIssueSeverity.Error,
                 "company.source",
                 "the catalog returned a template that is not the one it was asked for."));
+            return new TemplateResolution(id, version, null, null, loaded.Seeds, issues);
+        }
+
+        if (_catalog is IPinnedTemplateCatalog pinned
+            && pinned.GetPinnedHash(id, version) is { } expected
+            && !string.Equals(expected, loaded.TemplateHash, StringComparison.Ordinal))
+        {
+            issues.Add(new SetupValidationIssue(
+                SetupIssueSeverity.Error,
+                "company.source",
+                "names a template whose content does not match the template hash pinned in the catalog."));
             return new TemplateResolution(id, version, null, null, loaded.Seeds, issues);
         }
 
