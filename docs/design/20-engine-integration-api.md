@@ -25,7 +25,7 @@ Engines (Godot, Roblox Studio, later others) become plugins to Bazaar.Server. Ea
 | Component | Runs on | Responsibility |
 |---|---|---|
 | Engine adapter (child process) | Server host, or an agent's headless Linux VM (placement OPEN, Q9) | Owns one engine binary; reports capabilities; executes commands |
-| Studio bridge | Bazaar.Client.Windows [PROPOSED] | Starts the official Studio MCP server (stdio) next to the human's Studio and relays granted calls to the server. Ratified exception (C17); keeps no grants or audit |
+| Studio bridge | Module `Bazaar.Client.Studio` (contracts in `Bazaar.Client.Studio.Abstractions`), composed by Bazaar.Client.Windows [PROPOSED, coordinator brief 2026-11-18] | Starts the official Studio MCP server (stdio) next to the human's Studio and relays granted calls to the server. Ratified exception (C17); keeps no grants or audit |
 | Capability registry | Bazaar.Server | Maps capabilities to adapters; answers "who supports X?" |
 | Tool dispatch | Bazaar.Server | Forwards an agent's granted adapter tool calls and records them (see Data) |
 | Pane renderer | Each client | Renders server-sent pane descriptors; loads an optional in-process pane plugin |
@@ -69,7 +69,7 @@ public sealed record PaneDescriptor(string Kind, string Title, string Capability
 
 ### Roblox adapter
 - **Official Studio MCP** (checked 2026-10-25): 26 tools, including `script_read`, `multi_edit`, `execute_luau`, `start_stop_play`, `get_console_output`, `screen_capture`, `inspect_instance`, `http_get`, `list_roblox_studios`. Each call targets a `studio_id`. Enabled in Studio under Assistant → Manage MCP Servers. No authentication or permission prompt is described; the page warns that connected clients can read and modify open places.
-- **Risk classes [PROPOSED]:** `read` = `script_read`, `script_search`, `script_grep`, `inspect_instance`, `search_game_tree`, `get_console_output`, `get_studio_state`. `write` = `multi_edit`, `insert_asset`, `upload_image`, `store_image`, asset generators. `exec` = `execute_luau`, `start_stop_play`, input tools, `http_get`.
+- **Risk classes [PROPOSED]:** `read` = `script_read`, `script_search`, `script_grep`, `inspect_instance`, `search_game_tree`, `get_console_output`, `get_studio_state`. `write` = `multi_edit`, `insert_asset`, `upload_image`, `store_image`, asset generators. `exec` = `execute_luau`, `start_stop_play`, `screen_capture`, the input tools `user_keyboard_input`, `user_mouse_input` and `character_navigation`, `http_get`. [PROPOSED, 2026-11-18, coordinator brief] The tool list and classes live in `Bazaar.Contracts.Engines.StudioToolCatalog`, which the server dispatch and the Studio bridge share, so both use the identical allow-list.
 - **Headless path:** `luau-analyze`, Selene and StyLua on the agent's Linux VM or server host; Rojo for file sync (Q8). Versions not verified (GitHub access to these repos was not attached this session).
 - **Open Cloud:** REST with API key or OAuth. Script editing and Luau execution are not confirmed on its pages. Out of v1 unless Q4 says otherwise. Any credential it needs is held by the Identity Service (C05), never by an adapter.
 
@@ -121,8 +121,8 @@ Registered in doc 03's settings registry (typed key, default, scope, who may cha
 4. Tool dispatch bridge: forwards granted MCP tool calls, audits to `audit_log` and the GC. Depends on 2, 3.
 5. Godot adapter: build check, commands, canary, output parser. Depends on 3.
 6. Godot scene-diff library for `.tscn`/`.tres`. Independent.
-7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3.
-8. Studio bridge in Bazaar.Client.Windows with recorded-transcript tests. Depends on 3, 4.
+7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3. [PROPOSED placement, coordinator brief 2026-11-18: server modules `Bazaar.Server.Luau.Abstractions` and `Bazaar.Server.Luau`; tests `Bazaar.Server.Luau.Tests`. Detail in doc 40 section 4b.]
+8. Studio bridge in Bazaar.Client.Windows with recorded-transcript tests. Depends on 3, 4. [PROPOSED placement, coordinator brief 2026-11-18: client module `Bazaar.Client.Studio.Abstractions` and `Bazaar.Client.Studio`, composed by the Windows head; tests `Bazaar.Client.Studio.Tests`. Detail in doc 40 section 4b. The server half (WP4 grant verifier) is not built: the bridge codes against `IStudioGrantVerifier` with a fake until WP4 lands the real verifier. Open follow-up.]
 9. Pane descriptor renderer plus plugin loader in `Bazaar.Client.Core`. Depends on 1.
 10. Rojo sync wrapper. Depends on 7.
 

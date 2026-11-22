@@ -15,6 +15,12 @@ public interface IModuleInstallStore
     /// Stores one signed permission approval and its audit entry in one transaction, so both commit or neither does.
     /// </summary>
     Task RecordPermissionApprovalAsync(ModulePermissionApprovalRecord record, InstallAuditEntry entry, CancellationToken ct = default);
+
+    /// <summary>
+    /// Every approval stored for a module, across its versions, oldest first. The gates read approvals from here and check
+    /// each owner signature themselves; they never take an approved set from a caller.
+    /// </summary>
+    Task<IReadOnlyList<ModulePermissionApprovalRecord>> ListPermissionApprovalsAsync(string moduleId, CancellationToken ct = default);
 }
 
 /// <summary>An audit entry produced by the install gate. <see cref="Payload"/> is a JSON object, not text.</summary>
