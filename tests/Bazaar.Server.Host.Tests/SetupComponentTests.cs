@@ -222,6 +222,8 @@ public sealed class SetupComponentTests
     {
         public string Id => "test.step";
 
+        public IReadOnlyCollection<string> Covers => [.. SetupPlanSections.All.Select(section => section.Id)];
+
         public int Order => 1;
 
         public Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken) =>
@@ -321,10 +323,12 @@ public sealed class SetupComponentTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var applied = Assert.Single(rig.Audit, r => r.Kind == SetupApplier.AppliedKind);
         Assert.Equal(SetupHttpConstants.BootstrapActor, applied.Actor);
-        // ISetupSettingAudit -> SettingAuditSinkSetupAudit -> ISettingAuditSink -> IAuditLog: one setting.change row for the plan's key.
-        var setting = Assert.Single(rig.Audit, r => r.Kind == AuditLogSettingSink.Kind);
-        Assert.Contains("host.shutdown_timeout_seconds", setting.Payload, StringComparison.Ordinal);
-        Assert.Equal(SetupHttpConstants.BootstrapActor, setting.Actor);
+        // ISetupSettingAudit -> SettingAuditSinkSetupAudit -> ISettingAuditSink -> IAuditLog: one setting.change row per setting the plan
+        // sets (the plan's settings map, the network block and the release channel).
+        var settings = rig.Audit.Where(r => r.Kind == AuditLogSettingSink.Kind).ToList();
+        Assert.Equal(4, settings.Count);
+        Assert.Contains(settings, r => r.Payload.Contains("host.shutdown_timeout_seconds", StringComparison.Ordinal));
+        Assert.All(settings, r => Assert.Equal(SetupHttpConstants.BootstrapActor, r.Actor));
         Assert.Contains(rig.Audit, r => r.Kind == SetupHttpConstants.AuditKind);
     }
 
