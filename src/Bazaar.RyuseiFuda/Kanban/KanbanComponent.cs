@@ -56,6 +56,8 @@ public sealed class KanbanComponent : ICdaxModule
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
+        // Owner move (doc 12, Card revision and client move command): the authorised UI command, owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardMoveHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();

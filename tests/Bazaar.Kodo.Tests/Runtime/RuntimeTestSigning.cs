@@ -17,6 +17,21 @@ internal static class RuntimeTestSigning
 
     private static readonly Lazy<RSA> _primary = new(() => RSA.Create(2048));
     private static readonly Lazy<RSA> _other = new(() => RSA.Create(2048));
+    private static readonly Lazy<byte[]> _primaryPublic = new(() => Locked(() => _primary.Value.ExportSubjectPublicKeyInfo()));
+
+    // The keys are shared by tests that run in parallel, and one RSA instance is not guaranteed safe for concurrent use.
+    private static readonly object _keyLock = new();
+
+    /// <summary>The public key of <see cref="PrimaryKey"/>, exported once.</summary>
+    public static byte[] PrimaryPublicKey => _primaryPublic.Value;
+
+    private static T Locked<T>(Func<T> work)
+    {
+        lock (_keyLock)
+        {
+            return work();
+        }
+    }
 
     /// <summary>The key the test trust root trusts.</summary>
     public static RSA PrimaryKey => _primary.Value;
@@ -34,14 +49,21 @@ internal static class RuntimeTestSigning
             new TrustedKey(
                 keyId,
                 RsaPkcs1Sha256Verifier.AlgorithmName,
-                (key ?? PrimaryKey).ExportSubjectPublicKeyInfo(),
+                key is null ? _primaryPublic.Value : Locked(key.ExportSubjectPublicKeyInfo),
                 notBefore ?? Now.AddDays(-1),
                 notAfter ?? Now.AddYears(1)),
         ]);
 
     /// <summary>The base64 RSA PKCS#1 SHA-256 signature of <paramref name="message"/>.</summary>
     public static string Sign(RSA key, ReadOnlySpan<byte> message) =>
-        Convert.ToBase64String(key.SignData(message, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+        Convert.ToBase64String(SignRaw(key, message));
+
+    /// <summary>The raw RSA PKCS#1 SHA-256 signature, serialised across threads.</summary>
+    public static byte[] SignRaw(RSA key, ReadOnlySpan<byte> message)
+    {
+        byte[] copy = message.ToArray();
+        return Locked(() => key.SignData(copy, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1));
+    }
 
     /// <summary>A small slot with three files, used by most tests.</summary>
     public static Dictionary<string, string> SampleContents() => new(StringComparer.Ordinal)
