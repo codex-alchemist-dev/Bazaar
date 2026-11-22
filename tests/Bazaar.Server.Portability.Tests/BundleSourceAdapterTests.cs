@@ -93,7 +93,7 @@ public sealed class BundleSourceAdapterTests : IDisposable
         var result = await Run([source], Options("v"));
 
         Assert.Equal(
-            ["vault/repo.bundle", "vault/tree/notes/a.md", "vault/tree/notes/b.md", "vault/vault-manifest.json"],
+            ["README.txt", "vault/repo.bundle", "vault/tree/notes/a.md", "vault/tree/notes/b.md", "vault/vault-manifest.json"],
             result.Files.Select(f => f.Path).ToArray());
         Assert.Equal(["/repo"], writer.RepoPaths);
         Assert.Equal("abc123", source.Manifest!.HeadCommit);
@@ -123,7 +123,7 @@ public sealed class BundleSourceAdapterTests : IDisposable
         var result = await Run([source], Options("p"));
 
         Assert.Equal(
-            ["personal/alice.enc.jsonl", "personal/bob.tombstone.json", "personal/index.json"],
+            ["README.txt", "personal/alice.enc.jsonl", "personal/bob.tombstone.json", "personal/index.json"],
             result.Files.Select(f => f.Path).ToArray());
         Assert.Null(source.PlaintextNotice);
         Assert.Single(audit.Records);
@@ -138,6 +138,31 @@ public sealed class BundleSourceAdapterTests : IDisposable
 
         Assert.Equal(PersonalFieldExporter.OwnerNotice, source.PlaintextNotice);
         Assert.Contains(result.Files, f => f.Path == "personal/alice.json");
+    }
+
+    [Fact]
+    public async Task Personal_source_plaintext_file_is_flagged_in_the_manifest_but_ciphertext_is_not()
+    {
+        var source = Personal(plaintext: true);
+        var result = await Run([source], Options("p"));
+
+        Assert.Equal(["personal/alice.json"], source.PlaintextPersonalPaths);
+        using var manifest = System.Text.Json.JsonDocument.Parse(result.Manifest);
+        var flagged = manifest.RootElement.GetProperty("files").EnumerateArray()
+            .Where(e => e.TryGetProperty("plaintextPersonal", out var flag) && flag.GetBoolean())
+            .Select(e => e.GetProperty("path").GetString()!)
+            .ToArray();
+        Assert.Equal(["personal/alice.json"], flagged);
+    }
+
+    [Fact]
+    public async Task Personal_source_without_plaintext_flags_nothing()
+    {
+        var source = Personal();
+        var result = await Run([source], Options("p"));
+
+        Assert.Empty(source.PlaintextPersonalPaths);
+        Assert.DoesNotContain("\"plaintextPersonal\"", result.Manifest);
     }
 
     [Fact]
@@ -161,7 +186,7 @@ public sealed class BundleSourceAdapterTests : IDisposable
         var result = await Run([source], Options("a"));
 
         Assert.Equal(
-            [AuditArchiveFormat.ArchivePath, AuditArchiveFormat.CheckpointsPath, AuditArchiveFormat.EntriesPath],
+            [BundleReadme.FileName, AuditArchiveFormat.ArchivePath, AuditArchiveFormat.CheckpointsPath, AuditArchiveFormat.EntriesPath],
             result.Files.Select(f => f.Path).ToArray());
         Assert.True(source.SelfCheck!.IsValid);
 
@@ -213,10 +238,10 @@ public sealed class BundleSourceAdapterTests : IDisposable
 
         Assert.Empty(ExportBundleWriter.Verify(bundle));
         Assert.True(BundleSigner.Verify(bundle, _key.ExportSubjectPublicKeyInfo()));
-        Assert.Equal(10, result.Files.Count);
+        Assert.Equal(11, result.Files.Count);
         Assert.Equal(
             [
-                "audit/archive.json", "audit/checkpoints.jsonl", "audit/entries.jsonl",
+                "README.txt", "audit/archive.json", "audit/checkpoints.jsonl", "audit/entries.jsonl",
                 "personal/alice.enc.jsonl", "personal/bob.tombstone.json", "personal/index.json",
                 "vault/repo.bundle", "vault/tree/notes/a.md", "vault/tree/notes/b.md", "vault/vault-manifest.json",
             ],
