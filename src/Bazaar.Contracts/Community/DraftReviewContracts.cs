@@ -44,6 +44,32 @@ public sealed record DraftReviewCardDto(
 /// <param name="EditedBody">Replacement body when the decision is edit-then-approve; otherwise null.</param>
 public sealed record DraftReviewDecisionDto(Guid DraftId, ApprovalDecisionDto Decision, string? EditedBody);
 
+/// <summary>
+/// The server's answer to a <see cref="DraftReviewDecisionDto"/> (doc 36 work package 8). It carries outcome codes and ids only,
+/// never a body, except the new card for an edited draft, which the owner must read to approve.
+/// </summary>
+/// <param name="DraftId">Draft that was decided.</param>
+/// <param name="Outcome"><c>posted</c>, <c>denied</c> or <c>edited</c> (the original is denied and a new draft awaits approval).</param>
+/// <param name="Reason">Short code when the outcome is a denial the owner did not choose, for example <c>body_hash_mismatch</c>; otherwise null.</param>
+/// <param name="ExternalId">Platform id of the posted item when <paramref name="Outcome"/> is <c>posted</c>.</param>
+/// <param name="Url">Public URL of the posted item when posted.</param>
+/// <param name="Reused">True when the platform already had this draft's item and no new one was created.</param>
+/// <param name="AlreadyDecided">True when this decision repeated one already recorded and nothing changed.</param>
+/// <param name="NewDraft">The new draft card for an <c>edited</c> outcome; null otherwise. It needs its own approval.</param>
+public sealed record CommunityDraftDecisionResultDto(
+    Guid DraftId,
+    string Outcome,
+    string? Reason,
+    string? ExternalId,
+    string? Url,
+    bool Reused,
+    bool AlreadyDecided,
+    DraftReviewCardDto? NewDraft);
+
+/// <summary>The open drafts awaiting the owner's decision, newest first (<c>GET /community/drafts?status=pending</c>).</summary>
+/// <param name="Drafts">Review cards of pending drafts whose approval is still open.</param>
+public sealed record DraftReviewListDto(IReadOnlyList<DraftReviewCardDto> Drafts);
+
 /// <summary>Source-generated JSON metadata for the community draft-review contracts. Options match the approval contracts.</summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -52,6 +78,8 @@ public sealed record DraftReviewDecisionDto(Guid DraftId, ApprovalDecisionDto De
 [JsonSerializable(typeof(QualityGateFindingDto))]
 [JsonSerializable(typeof(DraftReviewCardDto))]
 [JsonSerializable(typeof(DraftReviewDecisionDto))]
+[JsonSerializable(typeof(CommunityDraftDecisionResultDto))]
+[JsonSerializable(typeof(DraftReviewListDto))]
 [JsonSerializable(typeof(CommunityLogRowDto))]
 [JsonSerializable(typeof(CommunityLogPageDto))]
 [JsonSerializable(typeof(CommunityLogQueryDto))]
