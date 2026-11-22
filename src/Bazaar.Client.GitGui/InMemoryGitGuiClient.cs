@@ -86,6 +86,33 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
         return Task.FromResult<IReadOnlyList<GitCheckDto>>(Find(provider, repo, number).Checks);
     }
 
+    /// <summary>When set, <see cref="MergeAsync"/> throws it after recording the request. Lets a test exercise a refusal.</summary>
+    public Exception? MergeFailure { get; set; }
+
+    /// <summary>Every merge request this fake received, in order. Holds the signed approval, so use it in tests only.</summary>
+    public List<GitMergeRequestDto> MergeRequests { get; } = [];
+
+    public Task<GitMergedDto> MergeAsync(string provider, string repo, long number, GitMergeRequestDto request, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ThrowIfFailed();
+        MergeRequests.Add(request);
+        if (MergeFailure is not null)
+        {
+            throw MergeFailure;
+        }
+
+        var entry = Find(provider, repo, number);
+        var current = entry.Detail.Summary.HeadSha;
+        if (!string.Equals(current, request.HeadSha, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new HeadMovedException(current);
+        }
+
+        entry.Detail = entry.Detail with { Summary = entry.Detail.Summary with { State = "merged" } };
+        return Task.FromResult(new GitMergedDto(request.HeadSha));
+    }
+
     private static string Key(string provider, string repo, long number) =>
         $"{provider.ToLowerInvariant()}/{repo.ToLowerInvariant()}#{number}";
 
