@@ -47,7 +47,7 @@ public sealed class CouncilEscalationService(ICouncilEscalationSource queue, ICo
         var revealed = history.Any(t => t.To == VoteState.Revealed);
         var ballots = await store.ListBallotsAsync(voteId, ct).ConfigureAwait(false);
         var shown = revealed
-            ? ballots.Select(b => new EscalatedBallot(b.VoterId, b.Phase, b.Choice, b.Reasoning)).ToList()
+            ? ballots.Select(b => new EscalatedBallot(b.VoterId, b.Phase, b.Choice, b.Reasoning, b.TaintedAtWrite)).ToList()
             : [];
         IReadOnlyList<string> options = vote.Kind == VoteKind.ApproveReject
             ? [ApprovalChoices.Yes, ApprovalChoices.No]
@@ -65,7 +65,43 @@ public sealed class CouncilEscalationService(ICouncilEscalationSource queue, ICo
             shown,
             escalated?.Reason,
             escalated?.At ?? vote.CreatedAt,
-            vote.DeadlineAt);
+            vote.DeadlineAt,
+            revealed ? Summarise(options, ballots) : null,
+            Flags(ballots));
+    }
+
+    private static TaintFlags Flags(IReadOnlyList<StoredBallot> ballots)
+    {
+        var tainted = ballots.Where(b => b.TaintedAtWrite).ToList();
+        return new TaintFlags(tainted.Count, ballots.Count, [.. tainted.Select(b => b.VoterId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)]);
+    }
+
+    private static DissentSummary Summarise(IReadOnlyList<string> options, IReadOnlyList<StoredBallot> ballots)
+    {
+        var independent = Count(options, ballots.Where(b => b.Phase == BallotPhase.Independent));
+        var followUpBallots = ballots.Where(b => b.Phase == BallotPhase.FollowUp).ToList();
+        var followUp = followUpBallots.Count == 0 ? [] : Count(options, followUpBallots);
+        var latest = followUpBallots.Count == 0 ? independent : followUp;
+        var contested = latest.Where(c => c.Choice != ApprovalChoices.Abstain).ToList();
+        var total = contested.Sum(c => c.Count);
+        var top = contested.Count == 0 ? 0 : contested.Max(c => c.Count);
+        var leaders = contested.Where(c => c.Count == top && top > 0).ToList();
+        var leading = leaders.Count == 1 ? leaders[0].Choice : null;
+        var dissent = leading is null ? total : total - top;
+        return new DissentSummary(independent, followUp, leading, dissent, total, total == 0 ? null : (double)dissent / total);
+    }
+
+    private static List<OptionCount> Count(IReadOnlyList<string> options, IEnumerable<StoredBallot> ballots)
+    {
+        var cast = ballots.ToList();
+        var choices = options.Where(o => o != ApprovalChoices.Abstain).ToList();
+        foreach (var extra in cast.Select(b => b.Choice).Where(c => c != ApprovalChoices.Abstain && !choices.Contains(c)).Distinct())
+        {
+            choices.Add(extra);
+        }
+
+        choices.Add(ApprovalChoices.Abstain);
+        return [.. choices.Select(c => new OptionCount(c, cast.Count(b => b.Choice == c)))];
     }
 
     /// <summary>

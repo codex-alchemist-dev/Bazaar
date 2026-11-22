@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Bazaar.Server.Council.Escalation;
 using Bazaar.Server.Council.Http;
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -31,12 +32,17 @@ public sealed class CouncilEscalationRoutesTests : IAsyncLifetime
 
         public Task<CouncilVoteRecord?> FindVoteAsync(Guid voteId, CancellationToken ct) => Task.FromResult(Vote);
 
+        public List<CouncilTransitionRecord> Transitions { get; } = [new CouncilTransitionRecord(2, VoteState.Escalated, "escalated: tie", DateTimeOffset.UnixEpoch)];
+
+        public List<StoredBallot> Ballots { get; } = [];
+
         public Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<CouncilTransitionRecord>>(
-                [new CouncilTransitionRecord(2, VoteState.Escalated, "escalated: tie", DateTimeOffset.UnixEpoch)]);
+            Task.FromResult<IReadOnlyList<CouncilTransitionRecord>>([.. Transitions]);
+
+        public Task<IReadOnlyList<SealedBallotReason>> ListSealedReasonsAsync(Guid voteId, CancellationToken ct) => throw new NotSupportedException();
 
         public Task<IReadOnlyList<StoredBallot>> ListBallotsAsync(Guid voteId, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<StoredBallot>>([]);
+            Task.FromResult<IReadOnlyList<StoredBallot>>([.. Ballots]);
 
         public Task ResolveEscalationAsync(Guid voteId, string optionChoice, string? reasoning, CancellationToken ct)
         {
@@ -136,6 +142,50 @@ public sealed class CouncilEscalationRoutesTests : IAsyncLifetime
         Assert.Equal(_voteId, row.GetProperty("voteId").GetGuid());
         Assert.Equal("yes", row.GetProperty("options")[0].GetString());
         Assert.Equal("escalated: tie", row.GetProperty("escalationReason").GetString());
+    }
+
+    [Fact]
+    public async Task A_revealed_vote_lists_the_dissent_summary_and_taint_flags()
+    {
+        _council.Transitions.Insert(0, new CouncilTransitionRecord(1, VoteState.Revealed, "revealed", DateTimeOffset.UnixEpoch));
+        var at = DateTimeOffset.UnixEpoch;
+        _council.Ballots.AddRange(
+        [
+            new StoredBallot(_voteId, "cal", BallotPhase.Independent, "yes", "r1", false, at),
+            new StoredBallot(_voteId, "dot", BallotPhase.Independent, "no", "r2", true, at),
+            new StoredBallot(_voteId, "eve", BallotPhase.Independent, "abstain", "r3", false, at),
+        ]);
+
+        var res = await SendAsync(HttpMethod.Get, "/council/escalations", "owner");
+
+        using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var row = doc.RootElement.GetProperty("escalations")[0];
+        var dissent = row.GetProperty("dissent");
+        Assert.Equal(JsonValueKind.Null, dissent.GetProperty("leadingChoice").ValueKind);
+        Assert.Equal(2, dissent.GetProperty("dissentingBallots").GetInt32());
+        Assert.Equal(2, dissent.GetProperty("nonAbstainingBallots").GetInt32());
+        Assert.Equal(1.0, dissent.GetProperty("dissentShare").GetDouble());
+        Assert.Equal(0, dissent.GetProperty("followUp").GetArrayLength());
+        Assert.Equal("abstain", dissent.GetProperty("independent")[2].GetProperty("choice").GetString());
+        var taint = row.GetProperty("taint");
+        Assert.True(taint.GetProperty("anyTainted").GetBoolean());
+        Assert.Equal(1, taint.GetProperty("taintedBallots").GetInt32());
+        Assert.Equal("dot", taint.GetProperty("taintedVoters")[0].GetString());
+        Assert.True(row.GetProperty("ballots")[1].GetProperty("tainted").GetBoolean());
+    }
+
+    [Fact]
+    public async Task A_never_revealed_vote_has_no_dissent_summary_but_counts_taint()
+    {
+        _council.Ballots.Add(new StoredBallot(_voteId, "cal", BallotPhase.Independent, "yes", "r", true, DateTimeOffset.UnixEpoch));
+
+        var res = await SendAsync(HttpMethod.Get, "/council/escalations", "owner");
+
+        using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var row = doc.RootElement.GetProperty("escalations")[0];
+        Assert.Equal(JsonValueKind.Null, row.GetProperty("dissent").ValueKind);
+        Assert.Equal(0, row.GetProperty("ballots").GetArrayLength());
+        Assert.Equal(1, row.GetProperty("taint").GetProperty("taintedBallots").GetInt32());
     }
 
     [Theory]

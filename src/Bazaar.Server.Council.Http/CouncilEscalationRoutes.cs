@@ -66,11 +66,15 @@ public static class CouncilEscalationRoutes
             v.EligibleCount,
             v.IndependentBallotCount,
             v.BallotsRevealed,
-            [.. v.Ballots.Select(b => new BallotRow(b.VoterId, b.Phase.ToString(), b.Choice, b.Reasoning))],
+            [.. v.Ballots.Select(b => new BallotRow(b.VoterId, b.Phase.ToString(), b.Choice, b.Reasoning, b.TaintedAtWrite))],
             v.EscalationReason,
             v.EscalatedAt,
             v.DeadlineAt,
-            (long)Math.Max(0, (now - v.EscalatedAt).TotalSeconds)));
+            (long)Math.Max(0, (now - v.EscalatedAt).TotalSeconds),
+            v.Dissent is { } d
+                ? new DissentRow([.. d.Independent.Select(c => new CountRow(c.Choice, c.Count))], [.. d.FollowUp.Select(c => new CountRow(c.Choice, c.Count))], d.LeadingChoice, d.DissentingBallots, d.NonAbstainingBallots, d.DissentShare)
+                : null,
+            v.Taint is { } t ? new TaintRow(t.AnyTainted, t.TaintedBallots, t.TotalBallots, [.. t.TaintedVoters]) : new TaintRow(false, 0, 0, [])));
         return Results.Json(new EscalationList([.. rows]), CouncilHttpJson.Default.EscalationList);
     }
 
@@ -128,7 +132,13 @@ public static class CouncilEscalationRoutes
     }
 }
 
-internal sealed record BallotRow(string VoterId, string Phase, string Choice, string Reasoning);
+internal sealed record BallotRow(string VoterId, string Phase, string Choice, string Reasoning, bool Tainted);
+
+internal sealed record CountRow(string Choice, int Count);
+
+internal sealed record DissentRow(CountRow[] Independent, CountRow[] FollowUp, string? LeadingChoice, int DissentingBallots, int NonAbstainingBallots, double? DissentShare);
+
+internal sealed record TaintRow(bool AnyTainted, int TaintedBallots, int TotalBallots, string[] TaintedVoters);
 
 internal sealed record EscalationRow(
     Guid VoteId,
@@ -144,7 +154,9 @@ internal sealed record EscalationRow(
     string? EscalationReason,
     DateTimeOffset EscalatedAt,
     DateTimeOffset DeadlineAt,
-    long AgeSeconds);
+    long AgeSeconds,
+    DissentRow? Dissent,
+    TaintRow Taint);
 
 internal sealed record EscalationList(EscalationRow[] Escalations);
 
