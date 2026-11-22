@@ -53,6 +53,11 @@ public static class PaneKinds
 
     /// <summary>Hive Mind owner grant matrix and labelled copies (doc 25).</summary>
     public const string Hive = "bazaar.hive";
+    /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
+    public const string CommunityDrafts = "bazaar.community-drafts";
+
+    /// <summary>Community log: what agents did on outside platforms, never what they said (doc 36, work package 9).</summary>
+    public const string CommunityLog = "bazaar.community-log";
 
     /// <summary>Org chart: reports-to and loan edges, by company or project lens (doc 24 section 5).</summary>
     public const string Org = "bazaar.org";
@@ -62,4 +67,7 @@ public static class PaneKinds
 
     /// <summary>Interrupt stacks: agents with a pushed frame, depth 0 to 2 (doc 24 section 5).</summary>
     public const string InterruptStack = "bazaar.interrupt-stack";
+
+    /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
+    public const string GitSolarSystem = "bazaar.git-solar-system";
 }

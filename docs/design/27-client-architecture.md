@@ -63,7 +63,7 @@ This doc owns the cached offline profile and the minimal built-in shell (DECISIO
 - Pane kinds map to view factories in a registry. v1 loads first-party factories only (Q3); engine panes arrive as `PaneDescriptor` (20) and fall back to generic tree, log, form or table views.
 
 ### Theme file [OPEN; direction PROPOSED]
-- One JSON file: `schemaVersion`, `name`, `base` (light or dark), `tokens` (colours, fonts, spacing, radii, role badge colours, syntax colours, reduced-motion flag).
+- One JSON file: `schemaVersion`, `name`, `base` (light or dark), `tokens` (colours, fonts, spacing, radii, role badge colours, health-state colours, syntax colours, reduced-motion flag). Health-state colours are a background and a text token for each of `healthy`, `degraded`, `failing`, `recovering`, `frozen` and `unobserved` (`color.health.<state>.background` and `color.health.<state>.text`, doc 46 sections 8.1 and 12). Each text token is contrast-checked against its background at 4.5:1, like the role badge pairs. Colour is never the only signal: a state word always appears with it.
 - Pipeline: parse, then validate (required tokens; 4.5:1 contrast for text tokens; no URLs, scripts or remote fonts), then generate an Avalonia `ResourceDictionary` and a Monaco `defineTheme` payload from the same tokens.
 - Users import and export the file. The server stores revisions (02).
 

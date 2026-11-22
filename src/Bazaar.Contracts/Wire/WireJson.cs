@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
@@ -37,6 +38,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
 [JsonSerializable(typeof(GraphSnapshot))]
+[JsonSerializable(typeof(GitSolarSnapshot))]
+[JsonSerializable(typeof(GitSolarFeed))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
@@ -47,6 +50,16 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
 [JsonSerializable(typeof(HiveGrantChangeRequest))]
 [JsonSerializable(typeof(HiveGrantChangeReply))]
+[JsonSerializable(typeof(PrListRequest))]
+[JsonSerializable(typeof(PrListReply))]
+[JsonSerializable(typeof(PrSummaryRequest))]
+[JsonSerializable(typeof(PrSummaryReply))]
+[JsonSerializable(typeof(PrHunksRequest))]
+[JsonSerializable(typeof(PrHunksReply))]
+[JsonSerializable(typeof(PrReviewRequest))]
+[JsonSerializable(typeof(PrReviewReply))]
+[JsonSerializable(typeof(PrMergeRequest))]
+[JsonSerializable(typeof(PrMergeReply))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
