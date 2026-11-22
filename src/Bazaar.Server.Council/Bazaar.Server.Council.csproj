@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mirror.Abstractions\Bazaar.Server.Mirror.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />

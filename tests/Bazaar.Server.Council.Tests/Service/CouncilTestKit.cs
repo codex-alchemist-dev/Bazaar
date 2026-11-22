@@ -1,3 +1,4 @@
+using Bazaar.Server.Mirror;
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Service;
 
@@ -208,8 +209,10 @@ internal sealed class CouncilHarness
 
     public ICouncilDissentShareSource? Settings { get; set; }
 
+    public IMirrorFeed? Mirror { get; set; }
+
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Mirror);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)

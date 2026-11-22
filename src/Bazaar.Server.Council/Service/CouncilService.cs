@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Bazaar.Server.Mirror;
 
 namespace Bazaar.Server.Council.Service;
 
@@ -47,6 +48,7 @@ public sealed class CouncilService : ICouncilService
     private readonly CouncilOptions _options;
     private readonly ICouncilDecisionWriter? _decisionWriter;
     private readonly ICouncilDissentShareSource? _dissentShare;
+    private readonly IMirrorFeed? _mirror;
 
     /// <summary>Creates the service. The decision writer is optional until the Vault adapter exists (WP7).</summary>
     /// <exception cref="ArgumentException">The options are out of range.</exception>
@@ -57,7 +59,8 @@ public sealed class CouncilService : ICouncilService
         CouncilOptions options,
         TimeProvider clock,
         ICouncilDecisionWriter? decisionWriter = null,
-        ICouncilDissentShareSource? dissentShare = null)
+        ICouncilDissentShareSource? dissentShare = null,
+        IMirrorFeed? mirror = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _gcEvents = gcEvents ?? throw new ArgumentNullException(nameof(gcEvents));
@@ -66,6 +69,7 @@ public sealed class CouncilService : ICouncilService
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _decisionWriter = decisionWriter;
         _dissentShare = dissentShare;
+        _mirror = mirror;
         _options.Validate();
     }
 
@@ -292,6 +296,39 @@ public sealed class CouncilService : ICouncilService
             ?? throw new CouncilRejectedException("The vote is no longer awaiting the owner.");
 
         await RecordDecisionAsync(decided, optionChoice, "owner", reasoning, ct);
+        await FeedMirrorAsync(decided, optionChoice, reasoning, ct);
+    }
+
+    /// <summary>
+    /// Tells Mirror the owner broke a tie (doc 26 section 5). An approve or reject vote prefers or avoids its subject; an option vote
+    /// prefers the chosen option. An abstain is no preference. Mirror failing never undoes the decision.
+    /// </summary>
+    private async Task FeedMirrorAsync(CouncilVoteRecord vote, string choice, string? reasoning, CancellationToken ct)
+    {
+        if (_mirror is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var voteRef = $"council:{vote.VoteId:D}";
+            if (vote.Kind == VoteKind.ApproveReject)
+            {
+                if (choice is ApprovalChoices.Yes or ApprovalChoices.No)
+                {
+                    await _mirror.CouncilTieBrokenAsync(voteRef, vote.SubjectRef, choice == ApprovalChoices.Yes, reasoning, ct);
+                }
+            }
+            else
+            {
+                await _mirror.CouncilTieBrokenAsync(voteRef, $"{vote.SubjectRef}:{choice}", true, reasoning, ct);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A learning failure must not fail the owner's decision, which is already recorded.
+        }
     }
 
     /// <inheritdoc />
