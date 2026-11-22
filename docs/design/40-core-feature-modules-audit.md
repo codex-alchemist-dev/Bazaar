@@ -299,10 +299,9 @@ The agent runtime (`Bazaar.Server/Agents`, 91 files) is split into two module pr
 
 `Bazaar.Server` references both projects. `tests/Bazaar.Server.Agents.Tests` holds the tests that need only moved code (136 tests, all passing without a database). The Postgres-backed tests and the ones that drive `TurnRunner`, `AgentTurnsComponent` or the responder stay in `tests/Bazaar.Server.Tests/Agents`, which also links `SchedulerFakes.cs` from the new test project.
 
-Still in `Bazaar.Server/Agents` (17 files), with the reason each one stays:
+Still in `Bazaar.Server/Agents` (14 files), with the reason each one stays:
 
-- `Recovery/AgentLeaseRecoveryHandler.cs`: uses `IJobHandler` and `JobRecord` (`Bazaar.Server.Jobs`). Moves with the Jobs abstractions.
-- `Responder/AgentResponder.cs`, `Responder/AgentResponderService.cs`: use `IModelGateway` (`Bazaar.Server.Gateway`) and `IGcNotificationSource` (`Bazaar.Server.Wire.Sync`). Wire abstractions now exist (`Bazaar.Server.Wire.Abstractions`); moves with the Gateway abstractions.
+- `Recovery/AgentLeaseRecoveryHandler.cs`, `Responder/AgentResponder.cs` and `Responder/AgentResponderService.cs` have moved into `Bazaar.Server.Agents`, which now references the Jobs, Gateway and Wire abstractions. Their tests (`AgentResponder*Tests`) still sit in `tests/Bazaar.Server.Tests/Agents/Responder` with the Postgres-backed ones.
 - `Responder/AgentResponderServiceCollectionExtensions.cs`: registers the two classes above, so it stays with them.
 - `Responder/PgResponderGcStore.cs`: uses the internal `GcEnumText` in `Bazaar.Server.Gc`. Moves when that helper is public or moves to the GC abstractions.
 - `Turns/AgentTurnsComponent.cs`, `Turns/TurnRunner.cs`, `Turns/Runner/TurnRunner.cs`, `Turns/TurnRunAdapter.cs`: use `IModelGateway`, the mention and wire types, and `TurnRunner`. Move with the Gateway work.
