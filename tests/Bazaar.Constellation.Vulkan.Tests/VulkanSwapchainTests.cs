@@ -47,7 +47,7 @@ public class VulkanSwapchainTests
         RenderAttachResult attach = renderer.Attach(Headless());
         Assert.True(attach.Attached, attach.Reason);
 
-        renderer.SetScene(new ConstellationScene(2, default, default));
+        renderer.SetScene(new RenderScene(2, default));
         Assert.True(renderer.SubmitFrame(new RenderFrame(1, 1, 2, new float[] { 0f, 0f, 1f, 1f }), 0));
         for (int tick = 0; tick < 5; tick++)
         {

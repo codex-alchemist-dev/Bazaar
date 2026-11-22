@@ -1,5 +1,6 @@
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -40,6 +41,7 @@ public sealed class RoadmapPaneModule : IPaneModule, IClientModule
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
-        registry.RegisterView<RoadmapPaneViewModel>(RyuseiFudaPaneViews.Roadmap);
+        var head = context.Get<ViewContext>();
+        registry.RegisterView<RoadmapPaneViewModel>(pane => head is null ? RyuseiFudaPaneViews.Roadmap(pane) : RyuseiViewPanes.Roadmap(pane, head));
     }
 }

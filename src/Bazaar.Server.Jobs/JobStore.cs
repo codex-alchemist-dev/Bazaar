@@ -25,8 +25,9 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
     private const string _claimSql = """
         WITH due AS (
             SELECT id FROM job
-            WHERE (state = 'queued' AND run_at <= now())
-               OR (state = 'running' AND lease_until <= now())
+            WHERE ((state = 'queued' AND run_at <= now())
+               OR (state = 'running' AND lease_until <= now()))
+              AND id <> ALL(@exclude_ids)
             ORDER BY run_at, id
             LIMIT @batch_size
             FOR UPDATE SKIP LOCKED
@@ -52,6 +53,12 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
             run_at = now() + make_interval(secs => @delay_seconds),
             lease_owner = NULL, lease_until = NULL,
             last_error = @last_error, updated_at = now()
+        WHERE id = @id AND state = 'running' AND lease_owner = @owner
+        """;
+
+    private const string _extendLeaseSql = """
+        UPDATE job
+        SET lease_until = now() + make_interval(secs => @lease_seconds), updated_at = now()
         WHERE id = @id AND state = 'running' AND lease_owner = @owner
         """;
 
@@ -81,12 +88,23 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
 
     /// <summary>
     /// Claims up to <paramref name="batchSize"/> due jobs: queued jobs whose run time has come, and running jobs whose lease
-    /// has expired. Each claim takes a lease for <paramref name="lease"/> and counts as one attempt.
+    /// has expired. Each claim takes a lease for <paramref name="lease"/> and counts as one attempt. Jobs in
+    /// <paramref name="excludeIds"/> are skipped (a poller passes the jobs it already ran in this pass).
     /// </summary>
-    public async Task<IReadOnlyList<JobRecord>> ClaimDueAsync(
-        string owner, TimeSpan lease, int batchSize, CancellationToken ct = default)
+    public Task<IReadOnlyList<JobRecord>> ClaimDueAsync(
+        string owner, TimeSpan lease, int batchSize, IReadOnlyCollection<long> excludeIds, CancellationToken ct = default) =>
+        ClaimAsync(owner, lease, batchSize, excludeIds, ct);
+
+    /// <inheritdoc cref="ClaimDueAsync(string, TimeSpan, int, IReadOnlyCollection{long}, CancellationToken)"/>
+    public Task<IReadOnlyList<JobRecord>> ClaimDueAsync(
+        string owner, TimeSpan lease, int batchSize, CancellationToken ct = default) =>
+        ClaimAsync(owner, lease, batchSize, [], ct);
+
+    private async Task<IReadOnlyList<JobRecord>> ClaimAsync(
+        string owner, TimeSpan lease, int batchSize, IReadOnlyCollection<long> excludeIds, CancellationToken ct)
     {
         await using var cmd = dataSource.CreateCommand(_claimSql);
+        cmd.Parameters.AddWithValue("exclude_ids", NpgsqlDbType.Array | NpgsqlDbType.Bigint, excludeIds.ToArray());
         cmd.Parameters.AddWithValue("batch_size", batchSize);
         cmd.Parameters.AddWithValue("owner", owner);
         cmd.Parameters.AddWithValue("lease_seconds", lease.TotalSeconds);
@@ -105,6 +123,19 @@ public sealed class JobStore(NpgsqlDataSource dataSource)
         // UPDATE ... RETURNING has no order guarantee; hand jobs out oldest first.
         claimed.Sort((a, b) => a.Id.CompareTo(b.Id));
         return claimed;
+    }
+
+    /// <summary>
+    /// Pushes a running job's lease out to <paramref name="lease"/> from now. Returns false when the job is no longer
+    /// running under <paramref name="owner"/> (another poller reclaimed it), so the caller must stop work.
+    /// </summary>
+    public async Task<bool> ExtendLeaseAsync(long id, string owner, TimeSpan lease, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_extendLeaseSql);
+        cmd.Parameters.AddWithValue("id", id);
+        cmd.Parameters.AddWithValue("owner", owner);
+        cmd.Parameters.AddWithValue("lease_seconds", lease.TotalSeconds);
+        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
     }
 
     /// <summary>Marks a claimed job succeeded. Returns false when the lease is no longer held by <paramref name="owner"/>.</summary>

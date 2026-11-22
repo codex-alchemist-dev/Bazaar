@@ -13,10 +13,11 @@ namespace Bazaar.Contracts.Vms;
 public static class GuestFrameCodec
 {
     /// <summary>
-    /// Protocol version this build writes. Version 2 added PutFileResult, GetFileError, PtyExit and ExecError; the
-    /// other messages have the same layout in both versions.
+    /// Highest protocol version this build speaks; each frame carries the lowest version that defines its type. Version 2 added PutFileResult, GetFileError, PtyExit and ExecError; version 3
+    /// added the DeleteFile, ListFiles and ResolveRealPath requests and their results. The other messages have the same
+    /// layout in every version.
     /// </summary>
-    public const byte Version = 2;
+    public const byte Version = 3;
 
     /// <summary>Oldest protocol version this build still reads, so frames from older peers still parse.</summary>
     private const byte _oldestReadableVersion = 1;
@@ -44,7 +45,7 @@ public static class GuestFrameCodec
 
         var frame = new byte[_lengthBytes + counted];
         BinaryPrimitives.WriteUInt32BigEndian(frame, (uint)counted);
-        frame[_lengthBytes] = Version;
+        frame[_lengthBytes] = VersionOf(tag);
         frame[_lengthBytes + 1] = (byte)tagBytes.Length;
         tagBytes.CopyTo(frame, _lengthBytes + _headerBytes);
         body.CopyTo(frame, _lengthBytes + _headerBytes + tagBytes.Length);
@@ -110,6 +111,17 @@ public static class GuestFrameCodec
         }
     }
 
+    /// <summary>
+    /// The lowest protocol version that defines <paramref name="tag"/>. Each frame is stamped with it, so an older peer
+    /// still reads every message it knows and only a tag it cannot know closes its channel.
+    /// </summary>
+    private static byte VersionOf(string tag) => tag switch
+    {
+        "putFileResult" or "getFileError" or "ptyExit" or "execError" => 2,
+        "deleteFile" or "deleteFileResult" or "listFiles" or "listFilesResult" or "resolveRealPath" or "resolveRealPathResult" => 3,
+        _ => 1,
+    };
+
     private static (string Tag, byte[] Body) Encode(GuestMessage message) => message switch
     {
         Hello m => ("hello", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.Hello)),
@@ -128,6 +140,12 @@ public static class GuestFrameCodec
         GetFileError m => ("getFileError", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.GetFileError)),
         PtyExit m => ("ptyExit", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.PtyExit)),
         ExecError m => ("execError", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ExecError)),
+        DeleteFile m => ("deleteFile", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.DeleteFile)),
+        DeleteFileResult m => ("deleteFileResult", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.DeleteFileResult)),
+        ListFiles m => ("listFiles", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ListFiles)),
+        ListFilesResult m => ("listFilesResult", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ListFilesResult)),
+        ResolveRealPath m => ("resolveRealPath", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ResolveRealPath)),
+        ResolveRealPathResult m => ("resolveRealPathResult", JsonSerializer.SerializeToUtf8Bytes(m, GuestJsonContext.Default.ResolveRealPathResult)),
         _ => throw new GuestFrameException($"No guest tag for message type {message.GetType().Name}."),
     };
 
@@ -149,6 +167,12 @@ public static class GuestFrameCodec
         "getFileError" => Parse(body, GuestJsonContext.Default.GetFileError, tag),
         "ptyExit" => Parse(body, GuestJsonContext.Default.PtyExit, tag),
         "execError" => Parse(body, GuestJsonContext.Default.ExecError, tag),
+        "deleteFile" => Parse(body, GuestJsonContext.Default.DeleteFile, tag),
+        "deleteFileResult" => Parse(body, GuestJsonContext.Default.DeleteFileResult, tag),
+        "listFiles" => Parse(body, GuestJsonContext.Default.ListFiles, tag),
+        "listFilesResult" => Parse(body, GuestJsonContext.Default.ListFilesResult, tag),
+        "resolveRealPath" => Parse(body, GuestJsonContext.Default.ResolveRealPath, tag),
+        "resolveRealPathResult" => Parse(body, GuestJsonContext.Default.ResolveRealPathResult, tag),
         _ => throw new GuestFrameException($"Unknown guest message type '{tag}'. The channel must close."),
     };
 

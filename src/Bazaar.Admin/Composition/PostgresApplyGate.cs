@@ -4,6 +4,9 @@ using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Constitution;
+using Bazaar.Server.Setup.FirstRun;
+using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Setup.Postgres;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,11 +42,19 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         "AND has_table_privilege('audit_log', 'SELECT') AND has_table_privilege('audit_log', 'INSERT')";
 
     private NpgsqlDataSource? _dataSource;
+    private readonly IReadOnlyDictionary<string, string?> _variables;
 
-    private PostgresApplyGate(NpgsqlDataSource? dataSource)
+    private PostgresApplyGate(NpgsqlDataSource? dataSource, IReadOnlyDictionary<string, string?>? variables = null)
     {
         _dataSource = dataSource;
+        _variables = variables ?? new Dictionary<string, string?>();
     }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> CoveredSections => [.. InstallSettingsStep.CoveredSections, .. GatewaySourcesStep.CoveredSections, .. FirstRunSections];
+
+    /// <summary>The plan sections the first-run steps (the Constitution seed and the first-run seed) apply.</summary>
+    public static readonly IReadOnlyList<string> FirstRunSections = ["firstRun"];
 
     /// <inheritdoc />
     public bool DurableAuditStoreAvailable => _dataSource is not null;
@@ -77,7 +88,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
 
             var connectionString = await resolver.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
             dataSource = NpgsqlDataSource.Create(connectionString);
-            return await ProbeAsync(dataSource, cancellationToken).ConfigureAwait(false);
+            return await ProbeAsync(dataSource, cancellationToken, variables).ConfigureAwait(false);
         }
         catch (Exception exception) when (IsConnectionFailure(exception, cancellationToken))
         {
@@ -94,7 +105,10 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     /// Checks that <paramref name="dataSource"/> reaches an audit store this role can write. Open on success, with the gate taking
     /// ownership of the data source. Closed on failure, with the data source disposed.
     /// </summary>
-    public static async Task<PostgresApplyGate> ProbeAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken)
+    public static async Task<PostgresApplyGate> ProbeAsync(
+        NpgsqlDataSource dataSource,
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string?>? variables = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         try
@@ -105,7 +119,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
             var ready = await cmd.ExecuteScalarAsync(timeout.Token).ConfigureAwait(false);
             if (ready is true)
             {
-                return new PostgresApplyGate(dataSource);
+                return new PostgresApplyGate(dataSource, variables);
             }
         }
         catch (Exception exception) when (IsConnectionFailure(exception, cancellationToken))
@@ -128,6 +142,22 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         var settingAudit = new PostgresSettingAuditSink(audit);
         services.AddSingleton<ISettingAuditSink>(settingAudit);
         services.AddSingleton<ISetupSettingAudit>(new SettingAuditSinkSetupAudit(settingAudit));
+        services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(dataSource, sp.GetRequiredService<ISetupSettingCatalog>()));
+
+        // The same first-run steps as the host (SetupComponent), so a CLI apply and a host apply do the same thing: the default
+        // Constitution in the Vault, then the first GC and default agent. The Vault settings come from the process variables.
+        services.AddSingleton<ISetupStep>(new GatewaySourcesStep(dataSource));
+        services.AddSingleton(dataSource);
+        services.AddConstitutionSeed(ConstitutionVaultOptions.FromSettings(ReadVaultSetting));
+        services.AddFirstRunPostgres();
+        services.AddFirstRunSeed();
+    }
+
+    /// <summary>A configuration key as a variable: <c>Memory:Vault:RepoPath</c> is read from <c>Memory__Vault__RepoPath</c> or its uppercase form.</summary>
+    private string? ReadVaultSetting(string key)
+    {
+        var name = key.Replace(":", "__", StringComparison.Ordinal);
+        return ReadVariable(_variables, name) ?? ReadVariable(_variables, name.ToUpperInvariant());
     }
 
     /// <summary>Disposes the data source this gate owns. The shared closed gate owns none.</summary>

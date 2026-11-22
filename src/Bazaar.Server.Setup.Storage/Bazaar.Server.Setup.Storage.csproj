@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Storage.Abstractions\Bazaar.Server.Setup.Storage.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DataVolume.Abstractions\Bazaar.Server.DataVolume.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.DataVolume\Bazaar.Server.DataVolume.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+</Project>

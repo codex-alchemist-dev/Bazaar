@@ -1,4 +1,5 @@
-using Bazaar.Server.Components.Erasure;
+using Bazaar.Erasure;
+using Bazaar.Erasure.Abstractions;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 using Npgsql;
@@ -19,7 +20,7 @@ public sealed class ErasureDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 4 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
     }
 }
 

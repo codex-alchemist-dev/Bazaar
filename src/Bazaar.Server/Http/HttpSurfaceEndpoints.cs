@@ -46,7 +46,28 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
+    /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
+    /// </summary>
+    public static async ValueTask<IResult?> GuardAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var passed = false;
+        var refused = await Guarded(http, (_, _) =>
+        {
+            passed = true;
+            return Task.FromResult(Results.Empty);
+        });
+        return passed ? null : refused;
+    }
+
+    /// <summary>
+    /// Guards one route of the authenticated HTTP surface: plaintext refusal, bearer authentication (401), the HTTP rate bucket
+    /// (429), then <paramref name="run"/> with the caller. Public so a module can map its own route with the same guard
+    /// (for example <c>POST /github/merge</c>, doc 21).
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;
         var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
@@ -209,7 +230,7 @@ public static class HttpSurfaceEndpoints
         foreach (var hit in hits)
         {
             if (!long.TryParse(hit.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) continue;
-            if (grant.ThroughSeq is { } through && seq > through) continue;
+            if (!grant.Covers(seq)) continue;
             results.Add(new { gc = gcId, seq, score = hit.Score });
             if (results.Count == limit) break;
         }

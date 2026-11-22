@@ -3,8 +3,8 @@ using Bazaar.Contracts.Engines;
 namespace Bazaar.Server.EngineDispatch;
 
 /// <summary>
-/// Reads the server-owned grant (doc 20, Data and interfaces). The Postgres adapter over <c>EngineGrantStore</c> lands when
-/// <c>Bazaar.Engines</c> is extracted from <c>Bazaar.Server</c>; until then callers supply their own implementation.
+/// Reads the server-owned grant (doc 20, Data and interfaces). <c>PostgresEngineGrantReader</c> in <c>Bazaar.Server.Engines</c>
+/// is the Postgres adapter over <c>EngineGrantStore</c>; tests supply their own.
 /// </summary>
 public interface IEngineGrantReader
 {
