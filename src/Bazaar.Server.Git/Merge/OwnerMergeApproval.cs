@@ -1,7 +1,5 @@
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
 using Bazaar.Approvals;
+using Bazaar.Contracts.Git;
 
 namespace Bazaar.Server.Git.Merge;
 
@@ -15,28 +13,19 @@ public sealed record OwnerMergeApproval(PrRef Pr, OwnerPayload Payload, byte[] S
 public static class GitMergeArgs
 {
     /// <summary>The action name the owner payload carries for a squash merge.</summary>
-    public const string Action = "pr.merge";
+    public const string Action = GitMergeArgsHash.Action;
 
     /// <summary>
     /// SHA-256 over the provider, repo, PR number and merge request, each field length-prefixed so no two merges share one hash.
-    /// The head sha is lower-cased, so the case a client sends does not change the hash.
+    /// The head sha is lower-cased, so the case a client sends does not change the hash. The definition is shared with the client
+    /// (<see cref="GitMergeArgsHash"/>).
     /// </summary>
     public static byte[] Hash(PrRef pr, MergeRequest merge)
     {
         ArgumentNullException.ThrowIfNull(pr);
         ArgumentNullException.ThrowIfNull(merge);
-        var sb = new StringBuilder();
-        Append(sb, pr.Provider);
-        Append(sb, pr.FullName);
-        Append(sb, pr.Number.ToString(CultureInfo.InvariantCulture));
-        Append(sb, merge.HeadSha.ToLowerInvariant());
-        Append(sb, merge.CommitTitle);
-        Append(sb, merge.SignOff);
-        return SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString()));
+        return GitMergeArgsHash.Compute(pr.Provider, pr.FullName, pr.Number, merge.HeadSha, merge.CommitTitle, merge.SignOff);
     }
-
-    private static void Append(StringBuilder sb, string value) =>
-        sb.Append(value.Length.ToString(CultureInfo.InvariantCulture)).Append(':').Append(value).Append(';');
 }
 
 /// <summary>A squash merge was refused because its owner approval or the PR state did not hold. No merge request was sent.</summary>

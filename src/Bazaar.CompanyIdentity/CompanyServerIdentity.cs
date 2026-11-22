@@ -6,10 +6,11 @@ namespace Bazaar.CompanyIdentity;
 /// </summary>
 public sealed record CompanyServerIdentity
 {
-    private CompanyServerIdentity(Uri address, string keyHashPin)
+    private CompanyServerIdentity(Uri address, string keyHashPin, UpdateTrust? update)
     {
         Address = address;
         KeyHashPin = keyHashPin;
+        Update = update;
     }
 
     /// <summary>The address clients connect to. https, or plain http on loopback only.</summary>
@@ -18,9 +19,19 @@ public sealed record CompanyServerIdentity
     /// <summary>Lowercase hex SHA-256 of the server key's SubjectPublicKeyInfo (64 characters).</summary>
     public string KeyHashPin { get; }
 
-    /// <summary>Validates the address and pin, then builds the identity.</summary>
+    /// <summary>The update-trust values for the client updater (doc 37 section 4c), or null when this build asks for no update support.</summary>
+    public UpdateTrust? Update { get; }
+
+    /// <summary>Validates the address and pin, then builds an identity with no update support.</summary>
     /// <exception cref="ArgumentException">The address or pin is not acceptable.</exception>
-    public static CompanyServerIdentity Create(Uri address, string keyHashPin)
+    public static CompanyServerIdentity Create(Uri address, string keyHashPin) => Create(address, keyHashPin, update: null);
+
+    /// <summary>
+    /// Validates the address, pin and update trust, then builds the identity. A release build that asks for update support passes
+    /// <paramref name="update"/>; its manifest address must be on this server's own origin.
+    /// </summary>
+    /// <exception cref="ArgumentException">The address, pin or update trust is not acceptable.</exception>
+    public static CompanyServerIdentity Create(Uri address, string keyHashPin, UpdateTrust? update)
     {
         ArgumentNullException.ThrowIfNull(address);
         ArgumentNullException.ThrowIfNull(keyHashPin);
@@ -37,7 +48,10 @@ public sealed record CompanyServerIdentity
         if (!IsWellFormedPin(keyHashPin))
             throw new ArgumentException("The key-hash pin must be 64 lowercase hex characters.", nameof(keyHashPin));
 
-        return new CompanyServerIdentity(address, keyHashPin);
+        if (update is not null && !UpdateTrust.SameOrigin(address, update.ReleaseManifestUrl))
+            throw new ArgumentException("The release manifest URL must be on the company server's own origin.", nameof(update));
+
+        return new CompanyServerIdentity(address, keyHashPin, update);
     }
 
     private static bool IsLoopback(Uri address) =>
