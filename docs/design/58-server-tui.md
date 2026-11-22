@@ -40,7 +40,7 @@ Owner's wording: "Install wizard + live ops": an interactive full-screen termina
 The TUI starts in Install mode when no owner exists and in Ops mode afterwards.
 
 ### 2a. Installer flow (DECIDED, owner card 2026-11-18, "Full walkthrough every time")
-The installer TUI asks every setup step in the order of doc 45 section 1.3, one question at a time, with no short path. Scripted installs keep their own door (declarative config, doc 45 section 1.5); the TUI does not offer a quick path or ask for a config file first. Each step shows its safe default, and the dry-run summary (doc 45) is shown before anything is applied.
+The installer TUI asks every setup step in the order of doc 45 section 1.3, one question at a time, with no short path. **The fastest install needs no wizard at all (owner, 2026-11-22): a headless install from a config file (`bazaar-admin setup --config <path>`, doc 45 section 1.5).** The TUI is for people who want to be walked through it. Scripted installs keep that door; the TUI does not offer a quick path or ask for a config file first. Each step shows its safe default, and the dry-run summary (doc 45) is shown before anything is applied.
 
 ### 3. Screens (Ops)
 **Scope of the resident TUI (owner, 2026-11-19): server health, not the work.** It shows no agent or GC activity. Admin actions (modules, rebuilds, users) stay available as in section 4, but the screen is about whether the server is healthy.
