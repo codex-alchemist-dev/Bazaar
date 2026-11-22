@@ -5,6 +5,7 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
+using Bazaar.Client.Settings;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -51,6 +52,7 @@ public sealed class LinuxHeadModule : IClientModule
         [GcPaneModule.FirstCommandId] = GcPaneViewModel.PaneKind,
         [GcPaneModule.TopCommandId] = GcPaneViewModel.PaneKind,
         [ConstellationPaneModule.OpenCommandId] = PaneKinds.Constellation,
+        [SettingsPaneModule.OpenCommandId] = PaneKinds.Settings,
         [KanbanPaneModule.OpenCommandId] = PaneKinds.Kanban,
         [RoadmapPaneModule.OpenCommandId] = PaneKinds.Roadmap,
         // The unread list lives on the Dashboard (doc 28, start screen).
