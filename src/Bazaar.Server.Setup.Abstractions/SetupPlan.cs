@@ -192,8 +192,17 @@ public sealed class SetupFirstRunSection
     /// <summary>Create the default agent on the seeded Claude Code CLI policy.</summary>
     public bool SeedDefaultAgent { get; init; } = true;
 
-    /// <summary>An operator setting, not a built-in persona.</summary>
-    public string DefaultAgentName { get; init; } = "Assistant";
+    /// <summary>The default agent's name. The owner decided it is "Claude" (2026-11-22); the wizard lets the operator change it.</summary>
+    public string DefaultAgentName { get; init; } = "Claude";
+
+    /// <summary>What the default agent is for, in the operator's words. Shown on its profile. May be empty.</summary>
+    public string DefaultAgentPurpose { get; init; } = "";
+
+    /// <summary>
+    /// Model source ids the default agent may route through (for example the Claude Code CLI, the owner's Anthropic API key, FreeLLMAPI).
+    /// Empty means every Claude source the gateway has, chosen by availability at run time. Never a source the gateway does not list.
+    /// </summary>
+    public List<string> DefaultAgentSources { get; init; } = [];
 
     /// <summary>The owner's own act: accept the current Constitution so the default agent may activate. Never true by default.</summary>
     public bool AcceptConstitution { get; init; }

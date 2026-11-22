@@ -30,6 +30,17 @@ public class SetupPlanTextTests
     }
 
     [Fact]
+    public void The_first_agent_is_named_Claude_unless_changed_and_carries_its_purpose()
+    {
+        var plan = SetupPlanLoader.Load(SetupPlanText.Build(Request())).Plan!;
+        Assert.Equal("Claude", plan.FirstRun.DefaultAgentName);
+
+        var custom = SetupPlanLoader.Load(SetupPlanText.Build(Request() with { AgentName = "Sage", AgentPurpose = "Triage the board" })).Plan!;
+        Assert.Equal("Sage", custom.FirstRun.DefaultAgentName);
+        Assert.Equal("Triage the board", custom.FirstRun.DefaultAgentPurpose);
+    }
+
+    [Fact]
     public void The_same_request_always_gives_the_same_plan_hash()
     {
         var first = SetupPlanLoader.Load(SetupPlanText.Build(Request())).PlanHash;

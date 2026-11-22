@@ -19,6 +19,8 @@ public static class CompanySetupView
         public const string Name = "company-name";
         public const string Slug = "company-slug";
         public const string Owner = "company-owner";
+        public const string AgentName = "company-agent-name";
+        public const string AgentPurpose = "company-agent-purpose";
         public const string Locale = "company-locale";
         public const string Timezone = "company-timezone";
         public const string KekProvider = "company-kek-provider";
@@ -44,6 +46,8 @@ public static class CompanySetupView
         var name = Field("Company name", Ids.Name, text => model.CompanyName = text);
         var slug = Field("Company identifier (cannot change later)", Ids.Slug, text => model.Slug = text);
         var owner = Field("Owner display name", Ids.Owner, text => model.OwnerName = text);
+        var agentName = Field("First agent name", Ids.AgentName, text => model.AgentName = text);
+        var agentPurpose = Field("First agent purpose (optional)", Ids.AgentPurpose, text => model.AgentPurpose = text);
         var locale = Field("Default language", Ids.Locale, text => model.Locale = text);
         var timezone = Field("Default time zone", Ids.Timezone, text => model.Timezone = text);
         var kekProvider = Field("Key storage provider (dpapi, systemd-creds, file or env)", Ids.KekProvider, text => model.KekProvider = text);
@@ -68,7 +72,7 @@ public static class CompanySetupView
         var issues = new TextBlock { TextWrapping = TextWrapping.Wrap };
         AutomationProperties.SetAutomationId(issues, Ids.Issues);
 
-        var fields = new Control[] { name.Panel, slug.Panel, owner.Panel, locale.Panel, timezone.Panel, kekProvider.Panel, kekReference.Panel, code.Panel, noBackup, accept, check };
+        var fields = new Control[] { name.Panel, slug.Panel, owner.Panel, agentName.Panel, agentPurpose.Panel, locale.Panel, timezone.Panel, kekProvider.Panel, kekReference.Panel, code.Panel, noBackup, accept, check };
         var review = new Control[] { planHash, apply, edit };
 
         void Refresh()
@@ -78,9 +82,10 @@ public static class CompanySetupView
             var reviewing = model.Phase is CompanySetupPhase.Review or CompanySetupPhase.Applying;
             foreach (var control in fields) control.IsVisible = editing;
             foreach (var control in review) control.IsVisible = reviewing;
-            foreach (var box in new[] { name.Box, slug.Box, owner.Box, locale.Box, timezone.Box, kekProvider.Box, kekReference.Box, code.Box }) box.IsEnabled = model.CanEditForm;
+            foreach (var box in new[] { name.Box, slug.Box, owner.Box, agentName.Box, agentPurpose.Box, locale.Box, timezone.Box, kekProvider.Box, kekReference.Box, code.Box }) box.IsEnabled = model.CanEditForm;
             noBackup.IsEnabled = accept.IsEnabled = model.CanEditForm;
             Sync(slug.Box, model.Slug);
+            Sync(agentName.Box, model.AgentName);
             Sync(kekProvider.Box, model.KekProvider);
             Sync(kekReference.Box, model.KekReference);
             Sync(timezone.Box, model.Timezone);

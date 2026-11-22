@@ -24,7 +24,7 @@ internal sealed class FakeWorld : IFirstRunOwner, IFirstRunStore, IConstitutionA
         return Task.FromResult(new SeededGc(GcId.Value, created));
     }
 
-    public Task<SeededAgent> EnsureDefaultAgentAsync(string name, Guid? gcId, IReadOnlyList<string> whitelist, CancellationToken cancellationToken = default)
+    public Task<SeededAgent> EnsureDefaultAgentAsync(string name, string purpose, Guid? gcId, IReadOnlyList<string> whitelist, CancellationToken cancellationToken = default)
     {
         var created = AgentId is null;
         AgentId ??= Guid.NewGuid();
@@ -63,7 +63,13 @@ internal sealed class FakeWorld : IFirstRunOwner, IFirstRunStore, IConstitutionA
         return Task.FromResult(true);
     }
 
-    public Task<IReadOnlyList<string>> GetWhitelistAsync(CancellationToken cancellationToken = default) => Task.FromResult(Whitelist);
+    public Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, CancellationToken cancellationToken = default)
+    {
+        RequestedSources = requestedSources;
+        return Task.FromResult(Whitelist);
+    }
+
+    public IReadOnlyList<string> RequestedSources { get; private set; } = [];
 
     public Task WriteSeededAsync(Guid? gcId, Guid? agentId, bool constitutionAccepted, string operatorIdentity, CancellationToken cancellationToken = default)
     {
@@ -150,7 +156,19 @@ public class FirstRunSeedStepTests
 
         Assert.True(result.Succeeded);
         Assert.Empty(world.AgentWhitelist);
-        Assert.Contains("not installed", result.Message);
+        Assert.Contains("No Claude model source", result.Message);
+    }
+
+    [Fact]
+    public async Task The_requested_sources_reach_the_route_port_and_the_default_name_is_Claude()
+    {
+        var world = new FakeWorld();
+        var plan = new SetupPlan { FirstRun = new SetupFirstRunSection { DefaultAgentSources = ["anthropic-api", "freellmapi"] } };
+
+        await Step(world).ApplyAsync(plan, Context(), CancellationToken.None);
+
+        Assert.Equal(["anthropic-api", "freellmapi"], world.RequestedSources);
+        Assert.Equal("Claude", new SetupFirstRunSection().DefaultAgentName);
     }
 
     [Fact]
@@ -262,5 +280,7 @@ public class FirstRunPlanSectionTests
     {
         Assert.Equal(SetupExitCode.InvalidInput, Load(",\"firstRun\":{\"nope\":1}").ExitCode);
         Assert.Contains(Load(",\"firstRun\":{\"defaultAgentName\":\" \"}").Issues, i => i.Path == "firstRun.defaultAgentName");
+        Assert.Contains(Load(",\"firstRun\":{\"defaultAgentSources\":[\"A b\"]}").Issues, i => i.Path == "firstRun.defaultAgentSources[0]");
+        Assert.Contains(Load(",\"firstRun\":{\"defaultAgentSources\":[\"x\",\"x\"]}").Issues, i => i.Path == "firstRun.defaultAgentSources[1]");
     }
 }

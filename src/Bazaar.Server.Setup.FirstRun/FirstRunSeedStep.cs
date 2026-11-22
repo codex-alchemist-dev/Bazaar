@@ -55,10 +55,10 @@ public sealed class FirstRunSeedStep(
         string? note = null;
         if (section.SeedDefaultAgent)
         {
-            var whitelist = await routes.GetWhitelistAsync(cancellationToken);
-            agent = await store.EnsureDefaultAgentAsync(section.DefaultAgentName, gc?.GcId, whitelist, cancellationToken);
+            var whitelist = await routes.GetWhitelistAsync(section.DefaultAgentSources, cancellationToken);
+            agent = await store.EnsureDefaultAgentAsync(section.DefaultAgentName, section.DefaultAgentPurpose, gc?.GcId, whitelist, cancellationToken);
             if (agent.Created) made.AgentId = agent.AgentId;
-            if (whitelist.Count == 0) note = "The Claude Code provider is not installed, so the default agent has no route and cannot answer yet.";
+            if (whitelist.Count == 0) note = "No Claude model source is available, so the default agent has no route and cannot answer yet.";
         }
 
         var accepted = section.AcceptConstitution && await acceptance.RecordOwnerAcceptanceAsync(ownerId, cancellationToken);

@@ -48,6 +48,8 @@ public static class SetupPlanText
             json.WriteEndObject();
 
             json.WriteStartObject("firstRun");
+            json.WriteString("defaultAgentName", request.AgentName);
+            json.WriteString("defaultAgentPurpose", request.AgentPurpose);
             json.WriteBoolean("acceptConstitution", request.AcceptConstitution);
             json.WriteEndObject();
 

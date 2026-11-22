@@ -80,6 +80,26 @@ public static partial class SetupPlanValidator
         {
             issues.Add(Error("firstRun.defaultAgentName", $"must be 1 to {_maxNameLength} characters."));
         }
+
+        if (firstRun.DefaultAgentPurpose is null || firstRun.DefaultAgentPurpose.Length > 500)
+        {
+            issues.Add(Error("firstRun.defaultAgentPurpose", "must be at most 500 characters."));
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (var i = 0; i < firstRun.DefaultAgentSources.Count; i++)
+        {
+            var id = firstRun.DefaultAgentSources[i];
+            var path = $"firstRun.defaultAgentSources[{i}]";
+            if (id is null || !SlugRegex().IsMatch(id))
+            {
+                issues.Add(Error(path, "must be a lower-case model source id."));
+            }
+            else if (!seen.Add(id))
+            {
+                issues.Add(Error(path, "is listed twice."));
+            }
+        }
     }
 
     private static void ValidateInstall(SetupInstallSection install, List<SetupValidationIssue> issues)

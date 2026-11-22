@@ -30,7 +30,7 @@ public interface IFirstRunStore
     /// Creates the default agent as <c>provisioned</c> (not active), with exactly these whitelisted routes, and adds it to
     /// <paramref name="gcId"/> when one is given. An existing seeded agent is returned unchanged.
     /// </summary>
-    Task<SeededAgent> EnsureDefaultAgentAsync(string name, Guid? gcId, IReadOnlyList<string> whitelist, CancellationToken cancellationToken = default);
+    Task<SeededAgent> EnsureDefaultAgentAsync(string name, string purpose, Guid? gcId, IReadOnlyList<string> whitelist, CancellationToken cancellationToken = default);
 
     /// <summary>Moves the agent from provisioned to active.</summary>
     Task ActivateAgentAsync(Guid agentId, CancellationToken cancellationToken = default);
@@ -49,11 +49,14 @@ public interface IConstitutionAcceptance
     Task<bool> RecordOwnerAcceptanceAsync(Guid ownerPrincipalId, CancellationToken cancellationToken = default);
 }
 
-/// <summary>The seeded routes of the default agent: the Claude Code CLI provider's models (doc 91), as provider-qualified names.</summary>
+/// <summary>The routes of the default agent: Claude models from the gateway's sources, as provider-qualified names (doc 05, doc 91).</summary>
 public interface IDefaultAgentRoutes
 {
-    /// <summary>The whitelist for the default agent. Empty when the provider module is not installed. Never another provider.</summary>
-    Task<IReadOnlyList<string>> GetWhitelistAsync(CancellationToken cancellationToken = default);
+    /// <summary>
+    /// The whitelist for the default agent. <paramref name="requestedSources"/> narrows it to those source ids; empty means every
+    /// Claude source the gateway has. Empty result when the gateway has none. Never a source the gateway does not list.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetWhitelistAsync(IReadOnlyList<string> requestedSources, CancellationToken cancellationToken = default);
 }
 
 /// <summary>Writes the one audit row of the seed. The row holds ids and flags, never a name or a secret.</summary>

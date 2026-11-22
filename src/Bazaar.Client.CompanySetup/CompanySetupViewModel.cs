@@ -47,6 +47,8 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
     private string _kekReference;
     private bool _acknowledgeNoBackup;
     private bool _acceptConstitution;
+    private string _agentName = "Claude";
+    private string _agentPurpose = "";
     private string _bootstrapCode = "";
     private string? _planHash;
     private IReadOnlyList<SetupIssue> _issues = [];
@@ -153,6 +155,20 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
         set { if (Set(ref _acknowledgeNoBackup, value)) Changed(); }
     }
 
+    /// <summary>The first agent's name. Claude unless the owner changes it.</summary>
+    public string AgentName
+    {
+        get => _agentName;
+        set { if (Set(ref _agentName, value ?? "")) Changed(); }
+    }
+
+    /// <summary>What the first agent is for, in the owner's words. May be empty.</summary>
+    public string AgentPurpose
+    {
+        get => _agentPurpose;
+        set { if (Set(ref _agentPurpose, value ?? "")) Changed(); }
+    }
+
     /// <summary>The owner's own tick that accepts the Constitution so the default agent may start. Never set for the owner, never defaulted on.</summary>
     public bool AcceptConstitution
     {
@@ -193,12 +209,12 @@ public sealed class CompanySetupViewModel : INotifyPropertyChanged
     private bool IsComplete =>
         !string.IsNullOrWhiteSpace(_companyName) && !string.IsNullOrWhiteSpace(_slug) && !string.IsNullOrWhiteSpace(_ownerName)
         && !string.IsNullOrWhiteSpace(_locale) && !string.IsNullOrWhiteSpace(_timezone)
-        && !string.IsNullOrWhiteSpace(_kekProvider) && !string.IsNullOrWhiteSpace(_kekReference)
+        && !string.IsNullOrWhiteSpace(_agentName) && !string.IsNullOrWhiteSpace(_kekProvider) && !string.IsNullOrWhiteSpace(_kekReference)
         // The form has no backup target field, so the recorded acknowledgement is always needed (doc 45 open question 5).
         && _acknowledgeNoBackup;
 
     private CompanySetupRequest Request() => new(
-        _companyName.Trim(), _slug.Trim(), _ownerName.Trim(), _locale.Trim(), _timezone.Trim(), _kekProvider.Trim(), _kekReference.Trim(), _acknowledgeNoBackup, _acceptConstitution);
+        _companyName.Trim(), _slug.Trim(), _ownerName.Trim(), _locale.Trim(), _timezone.Trim(), _kekProvider.Trim(), _kekReference.Trim(), _acknowledgeNoBackup, _acceptConstitution, _agentName.Trim(), _agentPurpose.Trim());
 
     private async Task<SetupAccess> AccessAsync() => new(string.IsNullOrWhiteSpace(_bootstrapCode) ? null : _bootstrapCode, await _bearerToken());
 
