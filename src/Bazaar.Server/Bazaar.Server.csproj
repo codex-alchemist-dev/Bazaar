@@ -16,6 +16,7 @@
     <PackageReference Include="YamlDotNet" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Blobs.Abstractions\Bazaar.Server.Blobs.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Coding.Abstractions\Bazaar.Server.Coding.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
