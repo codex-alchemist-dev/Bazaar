@@ -68,6 +68,8 @@ public sealed class EndToEndFixture : IAsyncLifetime
             "--Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_E2E_DB",
             $"--Bazaar:Host:Status:Port={port}",
             "--Bazaar:DevAuth:Enabled=true",
+            // Stand-in (GAPS.md): the harness agent has no Soul, so posts are allowed unbound.
+            "--Bazaar:Gc:AgentPost:RequireSoulBinding=false",
             "--Bazaar:DevAuth:TokenSecret=env:BAZAAR_E2E_DEV_TOKEN",
             $"--Bazaar:DevAuth:PrincipalId={OwnerId}",
             "--Bazaar:Gateway:FreeLlmApi:Enabled=true",
