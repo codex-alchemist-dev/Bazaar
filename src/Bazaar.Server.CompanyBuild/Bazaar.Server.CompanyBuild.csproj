@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild.Abstractions\Bazaar.Server.CompanyBuild.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.CompanyIdentity\Bazaar.CompanyIdentity.csproj" />
