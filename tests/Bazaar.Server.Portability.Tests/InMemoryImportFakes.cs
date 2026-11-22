@@ -201,6 +201,12 @@ public sealed class LossyImportTargetWriter(IImportTargetWriter inner, string dr
     public Task<IReadOnlyList<string>> ReadVaultSourceKeysAsync(string jobId, CancellationToken ct) =>
         inner.ReadVaultSourceKeysAsync(jobId, ct);
 
+    public Task AppendKanbanTasksAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct) =>
+        inner.AppendKanbanTasksAsync(jobId, batchIndex, Keep(items), ct);
+
+    public Task<IReadOnlyList<string>> ReadKanbanSourceKeysAsync(string jobId, CancellationToken ct) =>
+        inner.ReadKanbanSourceKeysAsync(jobId, ct);
+
     private List<ImportItem> Keep(IReadOnlyList<ImportItem> items) =>
         items.Where(i => i.Record.SourceKey != dropKey).ToList();
 }

@@ -30,3 +30,9 @@ public static class CalendarSettings
     public static IReadOnlyList<SettingDefinition> All { get; } =
         [VacationConfirmerKey, ReleaseCreatorsKey, DisplayTimezoneKey];
 }
+
+/// <summary>
+/// What the calendar read route (doc 24 section 5) reports besides events. The composition root reads
+/// <c>calendar.display_timezone</c> from the settings store and registers it; without a registration the default applies.
+/// </summary>
+public sealed record CalendarReadOptions(DisplayTimezone DisplayTimezone = DisplayTimezone.Viewer);

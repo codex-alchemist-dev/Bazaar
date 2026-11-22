@@ -17,7 +17,7 @@ namespace Bazaar.RyuseiFuda.Kanban;
 /// in ascending id order, so the only lock waits are ones that cannot form a cycle.
 /// </para>
 /// </summary>
-public sealed class TaskService
+public sealed class TaskService : IKanbanTaskWithdrawal
 {
     private readonly NpgsqlDataSource _dataSource;
     private readonly TaskServiceOptions _options;
@@ -179,6 +179,65 @@ public sealed class TaskService
         await tx.CommitAsync(ct).ConfigureAwait(false);
         await PostReasonLinesAsync(reasonLines, actor, ct).ConfigureAwait(false);
         return TransitionResult.Applied(task.Version + 1);
+    }
+
+    /// <summary>
+    /// Withdraws a task: the only way into <see cref="TaskState.Withdrawn"/> (doc 12, "Withdrawn state"). The gates are
+    /// <see cref="TaskTransitionRules.EvaluateWithdrawal"/>. The row keeps its history; one <c>task.transitioned</c> event and a GC
+    /// reason line are added. Dependents stop being blocked by it (exclusive graph lock, like Done) but are not moved.
+    /// </summary>
+    public async Task<TaskWithdrawalStatus> WithdrawAsync(Guid taskId, TaskActor actor, string reason, CancellationToken ct = default)
+    {
+        var seen = await _tasks.GetAsync(taskId, ct).ConfigureAwait(false);
+        if (seen is null)
+        {
+            return TaskWithdrawalStatus.UnknownTask;
+        }
+
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        await LockGraphAsync(tx, seen.ProjectId, exclusive: true, ct).ConfigureAwait(false);
+
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TaskWithdrawalStatus.UnknownTask;
+        }
+
+        var outcome = TaskTransitionRules.EvaluateWithdrawal(task.State, new TransitionContext
+        {
+            IsSystem = actor.Kind == TaskActorKind.System,
+            IsOwner = actor.Kind == TaskActorKind.Owner,
+            IsAgent = actor.Kind == TaskActorKind.Agent,
+            HasReason = !string.IsNullOrWhiteSpace(reason),
+        });
+        if (outcome != TransitionOutcome.Allowed)
+        {
+            return task.State == TaskState.Withdrawn ? TaskWithdrawalStatus.AlreadyWithdrawn
+                : outcome == TransitionOutcome.MissingReason ? TaskWithdrawalStatus.MissingReason
+                : TaskWithdrawalStatus.NotAuthorised;
+        }
+
+        var graph = await _edges.ListForProjectAsync(seen.ProjectId, tx, ct).ConfigureAwait(false);
+        var statesBefore = await StatesAsync(tx, seen.ProjectId, ct).ConfigureAwait(false);
+        var statesAfter = new Dictionary<Guid, TaskState>(statesBefore) { [taskId] = TaskState.Withdrawn };
+
+        if (!await _tasks.UpdateAsync(tx, task with { State = TaskState.Withdrawn }, task.Version, ct).ConfigureAwait(false))
+        {
+            // Cannot happen under the row lock; refuse rather than report a withdrawal that did not happen.
+            return TaskWithdrawalStatus.NotAuthorised;
+        }
+
+        var seq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
+            Payload(("from", KanbanText.ToSql(task.State)), ("to", KanbanText.ToSql(TaskState.Withdrawn)), ("reason", reason))), ct).ConfigureAwait(false);
+        var dependents = graph.Where(e => e.BlockerId == taskId).Select(e => e.BlockedId);
+        await EmitBlockedChangesAsync(tx, dependents, graph, graph, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+
+        await PostReasonLinesAsync(
+            [new ReasonLine(taskId, task.OriginGcId, seq, task.Title, KanbanText.ToSql(task.State), KanbanText.ToSql(TaskState.Withdrawn), reason)],
+            actor, ct).ConfigureAwait(false);
+        return TaskWithdrawalStatus.Withdrawn;
     }
 
     /// <summary>
@@ -376,12 +435,24 @@ public sealed class TaskService
     /// Creates a Backlog card from a message (doc 12, WP6, "pin"). The card's origin GC is the message's GC, and the message
     /// is kept twice: as <c>origin_message_id</c> (the database checks it against the GC) and as a <c>gc</c> task link.
     /// <paramref name="gcId"/> is the GC the pin is made from; a message in any other GC, or an unknown message, is refused
-    /// and creates nothing.
+    /// and creates nothing. <paramref name="importJobId"/> marks the card as created by a portability import job (doc 44
+    /// section 8.8), stored in <c>tasks.import_job_id</c>; ordinary pins leave it null.
     /// </summary>
+    public Task<CreateFromMessageResult> CreateFromMessageAsync(
+        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, CancellationToken ct = default) =>
+        CreateFromMessageAsync(projectId, gcId, messageId, title, actor, null, ct);
+
+    /// <inheritdoc cref="CreateFromMessageAsync(Guid, Guid, Guid, string, TaskActor, CancellationToken)"/>
+    /// <param name="importJobId">The import job that creates the card, or null for an ordinary pin.</param>
     public async Task<CreateFromMessageResult> CreateFromMessageAsync(
-        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, CancellationToken ct = default)
+        Guid projectId, Guid gcId, Guid messageId, string title, TaskActor actor, string? importJobId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
+        if (importJobId is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(importJobId);
+        }
+
         var messageGcs = await _tasks.FindMessageGcIdsAsync(messageId, ct).ConfigureAwait(false);
         if (messageGcs.Count == 0)
         {
@@ -396,7 +467,7 @@ public sealed class TaskService
         var taskId = Guid.CreateVersion7();
         await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await _tasks.InsertAsync(tx, new NewTask(taskId, projectId, title, TaskState.Backlog, null, TaskGate.None, gcId, messageId, null), ct)
+        await _tasks.InsertAsync(tx, new NewTask(taskId, projectId, title, TaskState.Backlog, null, TaskGate.None, gcId, messageId, null, importJobId), ct)
             .ConfigureAwait(false);
         await _links.InsertAsync(tx, new TaskLink(taskId, TaskLinkKind.Gc, messageId.ToString("D")), ct).ConfigureAwait(false);
         var seq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Created, actor.ToText(),
@@ -484,18 +555,23 @@ public sealed class TaskService
     }
 
     /// <summary>
-    /// The project board: every task with its unfinished blockers and their titles (doc 12, board view). Read-only,
+    /// The project board: every task with its unfinished blockers and their titles (doc 12, board view). Withdrawn tasks are
+    /// left out unless the overload with <c>includeWithdrawn</c> asks for them; they still count in the blocker states. Read-only,
     /// no locks: a snapshot is a consistent read of one statement per table, which is enough for a view that the
     /// client re-reads on each board event.
     /// </summary>
-    public async Task<KanbanBoardSnapshot> GetBoardSnapshotAsync(Guid projectId, CancellationToken ct = default)
+    public Task<KanbanBoardSnapshot> GetBoardSnapshotAsync(Guid projectId, CancellationToken ct = default) =>
+        GetBoardSnapshotAsync(projectId, includeWithdrawn: false, ct);
+
+    /// <inheritdoc cref="GetBoardSnapshotAsync(Guid, CancellationToken)"/>
+    public async Task<KanbanBoardSnapshot> GetBoardSnapshotAsync(Guid projectId, bool includeWithdrawn, CancellationToken ct = default)
     {
         var tasks = await _tasks.ListByProjectAsync(projectId, null, null, ct).ConfigureAwait(false);
         var edges = await _edges.ListForProjectAsync(projectId, null, ct).ConfigureAwait(false);
         var byId = tasks.ToDictionary(t => t.Id, t => t);
         var states = byId.ToDictionary(kv => kv.Key, kv => kv.Value.State);
 
-        var cards = tasks.Select(task =>
+        var cards = tasks.Where(task => includeWithdrawn || task.State != TaskState.Withdrawn).Select(task =>
         {
             var unfinished = BlockedStatus.UnfinishedBlockers(task.Id, edges, states);
             var titles = unfinished

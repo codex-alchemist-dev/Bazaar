@@ -48,6 +48,8 @@ Purpose: written reflection after a failure.
 - **Publication:** private by default; publication is optional. Public publication is a separate Tier 2 action (15) to the target in `vent.publish_target`. The default target is the internal General Bazaar GC. An external target needs an operator-set target from 36 and counsel review (see the Settings table).
 - **Taint and reputation:** a draft from a hard-tainted session is held for the owner. A draft from a softly tainted session is held only if its source session was tainted (C06). Vents are never scored.
 
+**Implementation status (2026-11-22).** The server side of sections 1 and 2 lives in `Bazaar.Server.PsychWard` (plus `.Abstractions`): admission, check-in, discharge, fixed restrictions, the owner overview, vent writing with the sanitizer, the card gate and the publish gate. It replaces the loop-guard module's no-op `IPsychWardGate`, so any loop-guard trip admits every agent involved. Stores are in-memory until the `ward_stay` and `vent` migrations land. Still open: Postgres stores, the `ward` and `vent` GC entries, the Work-Life BREAK/WARD overlay, `ward.curfew_behaviour`, and the other triggers beyond the loop guard.
+
 ### 3. What If Engine [PROPOSED]
 Purpose: compare a decision with its alternatives using real runs.
 - **Triggers:** owner request; a Council vote with named alternatives (10); an architecture card.
@@ -67,6 +69,7 @@ Purpose: read the company's history as it was, and fork from any point.
 Purpose: a server-side model of the owner's preferences, used to annotate, order and offer rewrites of agent suggestions in the owner's view.
 - **Learns only from owner decisions:** card accept or reject with reason, owner edits to agent text, review comments, Council tie-breaks, explicit preference statements (the set is `mirror.signal_kinds`). No keystroke, clipboard, screen or file capture. Clients learn nothing; they display what the server returns.
 - **Storage:** `mirror_signal` and versioned `mirror_profile` in Postgres (Q4), with encrypted payloads (C01). Owner-scope; excluded from the Soul export (07) and from Hive Mind (25).
+- **Keys [PROPOSED]:** payloads and the profile body are sealed with AES-256-GCM under the owner's live `person_key` data key (doc 04), wrapped under the KEK through `IKekProvider`, with the row as associated data. The owner is the active `human` row with role `owner`. Erasure of the owner's keys makes Mirror unreadable. Sealing fails closed: no owner, no KEK or a destroyed key is an error, never plaintext.
 - **Method:** counts plus retrieved examples; no fine-tuning. A rule applies only above `mirror.evidence_threshold`, shown with its count.
 - **Output:** annotations, ranking in the owner's view, and an optional rewrite offered as a separate suggestion (`mirror.allow_rewrite_offers`). The original always stays visible; Mirror never removes an item (fixed). This keeps the owner's accept record in 11 unfiltered.
 - **Gateway:** the profile enters a prompt only if `mirror.model_source` allows a hosted model. Never in agent prompts.
