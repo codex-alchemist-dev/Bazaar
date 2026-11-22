@@ -17,6 +17,13 @@ public class KnownRegistryTests
     }
 
     [Fact]
+    public void Known_registry_holds_the_update_channel_key()
+    {
+        Assert.True(SettingRegistry.Known.TryGet("update.channel", out var definition));
+        Assert.Same(ModuleManagerSettings.Channel, definition);
+    }
+
+    [Fact]
     public void Known_registry_still_holds_the_host_keys()
     {
         foreach (var host in SettingRegistry.Host.Definitions)
