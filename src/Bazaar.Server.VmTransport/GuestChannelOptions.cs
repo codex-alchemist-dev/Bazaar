@@ -50,6 +50,21 @@ public sealed record GuestChannelOptions
     /// Once content is arriving, stalls are caught by the heartbeat watchdog instead.
     /// </summary>
     public TimeSpan FileAnswerTimeout { get; init; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Longest the content of one file read may take once it has started to arrive. Every byte the guest sends resets the heartbeat watchdog, so a guest
+    /// that trickles content would otherwise hold the file gate for ever. Past it the channel is faulted.
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is zero or negative.</exception>
+    public TimeSpan FileTransferTimeout
+    {
+        get;
+        init
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(value, TimeSpan.Zero);
+            field = value;
+        }
+    } = TimeSpan.FromMinutes(30);
 }
 
 /// <summary>What the first frame of a connection must carry.</summary>
