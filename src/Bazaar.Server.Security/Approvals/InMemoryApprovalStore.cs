@@ -9,6 +9,18 @@ public sealed class InMemoryApprovalStore : IApprovalStore
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ApprovalRequest> _rows = [];
 
+    /// <summary>Number of stored rows.</summary>
+    public int Count
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _rows.Count;
+            }
+        }
+    }
+
     /// <inheritdoc />
     public Task InsertAsync(ApprovalRequest request, CancellationToken ct = default)
     {
