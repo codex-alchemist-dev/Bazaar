@@ -1,3 +1,5 @@
+using Bazaar.Approvals;
+using Bazaar.GitHub.Adapter;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Portability;
@@ -40,6 +42,9 @@ public sealed class HostApplicationTests
             Assert.NotNull(sp.GetRequiredService<IGcNotificationSource>());
             Assert.NotNull(sp.GetRequiredService<AgentResponder>());
             Assert.IsType<PostgresImportJobStore>(sp.GetRequiredService<IImportJobStore>());
+            // The owner-signed merge gate and the one verifier it shares with the kill switch are live in the host graph (doc 21, C25).
+            Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
+            Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
         }
         finally
