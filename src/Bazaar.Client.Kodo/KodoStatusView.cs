@@ -9,7 +9,7 @@ namespace Bazaar.Client.Kodo;
 /// <summary>
 /// The Status view (doc 46 section 14.2, view 1). It draws a <see cref="KodoStatusPanel"/> and holds no logic: every word,
 /// colour token and flag comes from <see cref="KodoStatusPaneViewModel"/>. The owner calls <see cref="Refresh"/> on the UI thread
-/// when the reducer changes and on a timer (so <c>unobserved</c> appears without an event). Controls route to
+/// when the stream session changes and on a timer (so <c>unobserved</c> appears without an event). Controls route to
 /// <see cref="KodoStatusPaneViewModel.RequestControl"/>.
 /// </summary>
 public sealed class KodoStatusView : UserControl

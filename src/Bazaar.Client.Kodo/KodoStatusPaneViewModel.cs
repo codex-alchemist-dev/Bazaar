@@ -57,23 +57,30 @@ public sealed record KodoStatusPanel(
     string AccessibleSummary);
 
 /// <summary>
-/// Pure view model of the Status view. It formats what the reducer holds and the server computed; it never derives a health
-/// state, score or control right. <c>Unobserved</c> (doc 46 section 8.3) replaces every other word and the score is
-/// hidden behind "last known", so a dead stream never reads as healthy.
+/// Pure view model of the Status view. It formats what the shared <see cref="KodoStreamSession"/> (one
+/// <see cref="Live.KodoStreamTracker"/>) holds and the server computed; it never derives a health state, score or control
+/// right. <c>Unobserved</c> (doc 46 section 8.3) replaces every other word and the score is hidden behind "last known", so a
+/// dead stream never reads as healthy.
 /// </summary>
-public sealed class KodoStatusPaneViewModel(KodoStreamReducer reducer, IKodoPermissions permissions)
+public sealed class KodoStatusPaneViewModel(KodoStreamSession session, IKodoPermissions permissions)
 {
-    private readonly KodoStreamReducer _reducer = reducer ?? throw new ArgumentNullException(nameof(reducer));
+    private readonly KodoStreamSession _session = session ?? throw new ArgumentNullException(nameof(session));
     private readonly IKodoPermissions _permissions = permissions ?? throw new ArgumentNullException(nameof(permissions));
 
     /// <summary>Extra read API facts, or null while the head has none.</summary>
     public KodoStatusExtras? Extras { get; set; }
 
+    /// <summary>
+    /// The controls the server offered this caller, with its enabled flags and reasons. The stream snapshot does not carry
+    /// them, so the head copies them from <see cref="KodoStatusFeed.LastGood"/> (the read API status). Empty until then.
+    /// </summary>
+    public IReadOnlyList<KodoControlRow> Controls { get; set; } = [];
+
     /// <summary>Raised when a viewer asks for an enabled control. The head routes it to the Responder; nothing runs here.</summary>
     public event EventHandler<KodoControl>? ControlRequested;
 
-    /// <summary>The reducer this view model reads, so a view can refresh when it changes.</summary>
-    public KodoStreamReducer Reducer => _reducer;
+    /// <summary>The stream session this view model reads, so a view can refresh when it changes.</summary>
+    public KodoStreamSession Session => _session;
 
     /// <summary>Asks for a control. Returns false (and raises nothing) when it is not shown, disabled by the server, or not permitted.</summary>
     public bool RequestControl(KodoControl control)
@@ -88,12 +95,16 @@ public sealed class KodoStatusPaneViewModel(KodoStreamReducer reducer, IKodoPerm
         return true;
     }
 
-    /// <summary>Builds the panel for the reducer's state right now.</summary>
+    /// <summary>Builds the panel for the session's state right now.</summary>
     public KodoStatusPanel Build()
     {
-        var display = _reducer.Display();
-        var offline = display == KodoDisplayState.Unobserved;
-        var status = _reducer.Status;
+        var current = _session.Current();
+        KodoUnobserved.TryDisplayOf(current.State, out var display);
+        var offline = current.State == "unobserved";
+        if (offline)
+        {
+            display = KodoDisplayState.Unobserved;
+        }
 
         if (!_permissions.Can(KodoPermissions.ViewStatus))
         {
@@ -105,30 +116,30 @@ public sealed class KodoStatusPaneViewModel(KodoStreamReducer reducer, IKodoPerm
         var scoreText = "Score not available";
         var incident = false;
         var incidentText = "No open incident";
-        if (status is not null)
+        var shownScore = offline ? _session.LastKnownScore : current.Score;
+        if (shownScore is { } rawScore)
         {
-            var score = Math.Clamp(status.Score, 0, 100);
+            var score = Math.Clamp(rawScore, 0, 100);
             scoreText = offline ? $"Last known score {score} of 100" : $"Score {score} of 100";
-            if (!offline
-                && KodoUnobserved.TryDisplayOf(status.State, out var shown)
-                && shown == KodoDisplayState.Frozen)
+        }
+
+        if (!offline && display == KodoDisplayState.Frozen)
+        {
+            incident = true;
+            incidentText = "Incident mode is open";
+            if (KodoUnobserved.TryDisplayOf(current.Underlying, out var under))
             {
-                incident = true;
-                incidentText = "Incident mode is open";
-                if (KodoUnobserved.TryDisplayOf(status.UnderlyingState, out var under))
-                {
-                    headline = $"Frozen, underlying {StateWord(under).ToLowerInvariant()}";
-                }
+                headline = $"Frozen, underlying {StateWord(under).ToLowerInvariant()}";
             }
         }
 
-        var silent = _reducer.SilentFor();
+        var silent = _session.SilentFor();
         var offlineText = offline
             ? silent is { } age
                 ? $"Offline: last event {KodoStatusViewModel.FormatAge(age)} ago"
                 : "Offline: no event received yet"
             : string.Empty;
-        if (offline && _reducer.NeedsSnapshot && silent is not null)
+        if (offline && _session.NeedsSnapshot && silent is not null)
         {
             offlineText += ", waiting for a fresh snapshot";
         }
@@ -140,20 +151,19 @@ public sealed class KodoStatusPaneViewModel(KodoStreamReducer reducer, IKodoPerm
             ? alerts == 1 ? "1 open alert" : $"{alerts} open alerts"
             : "Open alerts not reported";
 
-        var components = _reducer.Components;
+        var components = current.Components;
         var notGreen = components.Count(c => c.State != "green");
         var componentsText = components.Count == 0
             ? "No component data"
             : notGreen == 0 ? $"All {components.Count} components green" : $"{notGreen} of {components.Count} components not green";
 
         var controls = new List<KodoControlPanelRow>();
-        if (!offline && status is not null && KodoStatusMapper.TryMap(status, out var mapped, out _))
+        if (!offline)
         {
-            foreach (var control in mapped!.Controls.Where(c => _permissions.Can(KodoPermissions.For(c.Control))))
+            foreach (var control in Controls.Where(c => _permissions.Can(KodoPermissions.For(c.Control))))
             {
-                var label = KodoStatusViewModel.Label(control.Control);
-                var name = control.Enabled ? label : $"{label}, unavailable: {control.DisabledReason ?? "not allowed now"}";
-                controls.Add(new KodoControlPanelRow(control.Control, label, control.Enabled, control.DisabledReason, name));
+                var name = control.Enabled ? control.Label : $"{control.Label}, unavailable: {control.DisabledReason ?? "not allowed now"}";
+                controls.Add(new KodoControlPanelRow(control.Control, control.Label, control.Enabled, control.DisabledReason, name));
             }
         }
 

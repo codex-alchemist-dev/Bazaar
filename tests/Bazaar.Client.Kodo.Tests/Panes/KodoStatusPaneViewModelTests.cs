@@ -1,22 +1,21 @@
-using Bazaar.Contracts.Kodo;
+using Bazaar.Client.Kodo.Live;
 using Microsoft.Extensions.Time.Testing;
+using static Bazaar.Client.Kodo.Tests.Panes.KodoTestFrames;
 
 namespace Bazaar.Client.Kodo.Tests.Panes;
 
 public class KodoStatusPaneViewModelTests
 {
-    private static readonly DateTimeOffset _start = new(2026, 11, 19, 12, 0, 0, TimeSpan.Zero);
-
     private sealed class Grants(params string[] granted) : IKodoPermissions
     {
         public bool Can(string permission) => granted.Contains(permission);
     }
 
-    private static (KodoStatusPaneViewModel Model, KodoStreamReducer Reducer, FakeTimeProvider Time) Make(IKodoPermissions? permissions = null)
+    private static (KodoStatusPaneViewModel Model, KodoStreamSession Session, FakeTimeProvider Time) Make(IKodoPermissions? permissions = null)
     {
-        var time = new FakeTimeProvider(_start);
-        var reducer = new KodoStreamReducer(time);
-        return (new KodoStatusPaneViewModel(reducer, permissions ?? new KodoAllPermissions()), reducer, time);
+        var time = new FakeTimeProvider(Start);
+        var session = new KodoStreamSession(time);
+        return (new KodoStatusPaneViewModel(session, permissions ?? new KodoAllPermissions()), session, time);
     }
 
     [Theory]
@@ -26,8 +25,8 @@ public class KodoStatusPaneViewModelTests
     [InlineData("recovering", "Recovering")]
     public void Each_state_shows_its_word_and_its_theme_token(string wire, string word)
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, wire));
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1, wire));
 
         var panel = model.Build();
 
@@ -41,8 +40,8 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Frozen_shows_the_underlying_state_and_an_open_incident()
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, "frozen", "failing"));
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1, "frozen", "failing"));
 
         var panel = model.Build();
 
@@ -54,8 +53,9 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Silence_shows_unobserved_with_offline_age_last_known_score_and_no_controls()
     {
-        var (model, reducer, time) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, controls: new KodoControlDto("restart", true, null)));
+        var (model, session, time) = Make();
+        session.Apply(Snapshot(1));
+        model.Controls = [Control(KodoControl.Restart)];
         time.Advance(TimeSpan.FromMinutes(3));
 
         var panel = model.Build();
@@ -84,10 +84,10 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void A_gap_shows_unobserved_and_waiting_for_a_snapshot()
     {
-        var (model, reducer, time) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1));
+        var (model, session, time) = Make();
+        session.Apply(Snapshot(1));
         time.Advance(TimeSpan.FromSeconds(5));
-        reducer.Apply(KodoStreamReducerTests.Beat(5));
+        session.Apply(Beat(5));
 
         var panel = model.Build();
 
@@ -98,9 +98,8 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Score_is_clamped_and_caps_and_alerts_are_called_out_when_reported()
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(new KodoStreamEventDto(1, KodoStreamEventDto.SnapshotType, _start, null,
-            new KodoStatusSnapshotDto(1, 1, KodoStreamReducerTests.Status("failing", score: 140), null, [])));
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1, "failing", score: 140));
         model.Extras = new KodoStatusExtras(2, [new KodoScoreCap("A critical probe is failing", 49)]);
 
         var panel = model.Build();
@@ -113,8 +112,8 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Without_extras_alerts_are_not_reported_rather_than_zero()
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1));
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1));
 
         var panel = model.Build();
 
@@ -126,8 +125,8 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void One_alert_uses_the_singular()
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1));
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1));
         model.Extras = new KodoStatusExtras(1, []);
 
         Assert.Equal("1 open alert", model.Build().OpenAlertsText);
@@ -136,12 +135,12 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Components_not_green_are_counted()
     {
-        var (model, reducer, _) = Make();
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, components:
+        var (model, session, _) = Make();
+        session.Apply(Snapshot(1, components:
         [
-            new KodoComponentDto("a", "green", null, _start),
-            new KodoComponentDto("b", "red", "x", _start),
-            new KodoComponentDto("c", "unknown", null, _start),
+            new KodoComponentWire("a", "green", null, Start),
+            new KodoComponentWire("b", "red", "x", Start),
+            new KodoComponentWire("c", "unknown", null, Start),
         ]));
 
         Assert.Equal("2 of 3 components not green", model.Build().ComponentsText);
@@ -150,10 +149,11 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Controls_show_only_when_permitted_and_keep_the_server_flags()
     {
-        var restart = new KodoControlDto("restart", false, "Blocked during incident");
-        var isolate = new KodoControlDto("isolate", true, null);
-        var (model, reducer, _) = Make(new Grants(KodoPermissions.ViewStatus, KodoPermissions.ControlRestart));
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, "frozen", "failing", null, restart, isolate));
+        var restart = Control(KodoControl.Restart, false, "Blocked during incident");
+        var isolate = Control(KodoControl.Isolate);
+        var (model, session, _) = Make(new Grants(KodoPermissions.ViewStatus, KodoPermissions.ControlRestart));
+        session.Apply(Snapshot(1, "frozen", "failing"));
+        model.Controls = [restart, isolate];
 
         var panel = model.Build();
 
@@ -167,8 +167,9 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void A_viewer_with_no_role_sees_no_status_and_no_controls()
     {
-        var (model, reducer, _) = Make(new KodoNoPermissions());
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, controls: new KodoControlDto("restart", true, null)));
+        var (model, session, _) = Make(new KodoNoPermissions());
+        session.Apply(Snapshot(1));
+        model.Controls = [Control(KodoControl.Restart)];
 
         var panel = model.Build();
 
@@ -179,8 +180,9 @@ public class KodoStatusPaneViewModelTests
     [Fact]
     public void Requesting_a_control_raises_only_for_a_shown_enabled_control()
     {
-        var (model, reducer, _) = Make(new Grants(KodoPermissions.ViewStatus, KodoPermissions.ControlRestart));
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, controls: [new KodoControlDto("restart", true, null), new KodoControlDto("isolate", true, null)]));
+        var (model, session, _) = Make(new Grants(KodoPermissions.ViewStatus, KodoPermissions.ControlRestart));
+        session.Apply(Snapshot(1));
+        model.Controls = [Control(KodoControl.Restart), Control(KodoControl.Isolate)];
         var raised = new List<KodoControl>();
         model.ControlRequested += (_, c) => raised.Add(c);
 

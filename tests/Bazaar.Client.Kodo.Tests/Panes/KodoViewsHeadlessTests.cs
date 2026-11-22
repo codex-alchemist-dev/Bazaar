@@ -3,8 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.LogicalTree;
 using Bazaar.Accessibility.Avalonia;
-using Bazaar.Contracts.Kodo;
+using Bazaar.Client.Kodo.Live;
 using Microsoft.Extensions.Time.Testing;
+using static Bazaar.Client.Kodo.Tests.Panes.KodoTestFrames;
 
 namespace Bazaar.Client.Kodo.Tests.Panes;
 
@@ -19,9 +20,9 @@ public class KodoViewsHeadlessTests
     public void The_status_view_shows_the_state_word_score_and_permitted_controls_with_names()
     {
         var time = new FakeTimeProvider(_now);
-        var reducer = new KodoStreamReducer(time);
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, "failing", controls: [new KodoControlDto("restart", true, null), new KodoControlDto("rollback", false, "Blocked")]));
-        var model = new KodoStatusPaneViewModel(reducer, new KodoAllPermissions()) { Extras = new KodoStatusExtras(3, [new KodoScoreCap("A critical probe is failing", 49)]) };
+        var session = new KodoStreamSession(time);
+        session.Apply(Snapshot(1, "failing"));
+        var model = new KodoStatusPaneViewModel(session, new KodoAllPermissions()) { Controls = [Control(KodoControl.Restart), Control(KodoControl.RollBack, false, "Blocked")], Extras = new KodoStatusExtras(3, [new KodoScoreCap("A critical probe is failing", 49)]) };
         var view = new KodoStatusView(model);
         var window = new Window { Content = view };
         window.Show();
@@ -41,9 +42,9 @@ public class KodoViewsHeadlessTests
     public void The_status_view_turns_unobserved_after_silence_on_refresh()
     {
         var time = new FakeTimeProvider(_now);
-        var reducer = new KodoStreamReducer(time);
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1));
-        var view = new KodoStatusView(new KodoStatusPaneViewModel(reducer, new KodoAllPermissions()));
+        var session = new KodoStreamSession(time);
+        session.Apply(Snapshot(1));
+        var view = new KodoStatusView(new KodoStatusPaneViewModel(session, new KodoAllPermissions()));
         Assert.Contains("Healthy", Texts(view));
 
         time.Advance(TimeSpan.FromMinutes(2));
@@ -58,9 +59,9 @@ public class KodoViewsHeadlessTests
     [AvaloniaFact]
     public void The_status_view_hides_everything_without_the_grant()
     {
-        var reducer = new KodoStreamReducer(new FakeTimeProvider(_now));
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, controls: new KodoControlDto("restart", true, null)));
-        var view = new KodoStatusView(new KodoStatusPaneViewModel(reducer, new KodoNoPermissions()));
+        var session = new KodoStreamSession(new FakeTimeProvider(_now));
+        session.Apply(Snapshot(1));
+        var view = new KodoStatusView(new KodoStatusPaneViewModel(session, new KodoNoPermissions()) { Controls = [Control(KodoControl.Restart)] });
 
         Assert.Empty(view.GetLogicalDescendants().OfType<Button>());
         Assert.Contains("Kodo status is not available for your role.", Texts(view));
@@ -69,9 +70,9 @@ public class KodoViewsHeadlessTests
     [AvaloniaFact]
     public void Clicking_an_enabled_control_raises_the_request()
     {
-        var reducer = new KodoStreamReducer(new FakeTimeProvider(_now));
-        reducer.Apply(KodoStreamReducerTests.Snapshot(1, controls: new KodoControlDto("restart", true, null)));
-        var model = new KodoStatusPaneViewModel(reducer, new KodoAllPermissions());
+        var session = new KodoStreamSession(new FakeTimeProvider(_now));
+        session.Apply(Snapshot(1));
+        var model = new KodoStatusPaneViewModel(session, new KodoAllPermissions()) { Controls = [Control(KodoControl.Restart)] };
         var raised = new List<KodoControl>();
         model.ControlRequested += (_, c) => raised.Add(c);
         var view = new KodoStatusView(model);
