@@ -81,4 +81,22 @@ public sealed record GitHubEvent
 
     /// <summary>Logins assigned to or asked to review the PR, from the pull request object.</summary>
     public IReadOnlyList<string> AssigneeLogins { get; init; } = [];
+
+    /// <summary>The issue number, for an <c>issues</c> or non-PR <c>issue_comment</c> event. Needed to register the issue GC (doc 21, issue GC).</summary>
+    public int? IssueNumber { get; init; }
+
+    /// <summary>The issue title, when the event carries the issue object.</summary>
+    public string? IssueTitle { get; init; }
+
+    /// <summary>The issue state from the payload, <c>open</c> or <c>closed</c>. Null when the event does not carry it.</summary>
+    public string? IssueState { get; init; }
+
+    /// <summary>The issue author login (<c>issue.user.login</c>), who is a member of the issue GC when it is an agent.</summary>
+    public string? IssueAuthorLogin { get; init; }
+
+    /// <summary>Logins assigned to the issue, from the issue object.</summary>
+    public IReadOnlyList<string> IssueAssigneeLogins { get; init; } = [];
+
+    /// <summary>issues assigned: the login that was just assigned (<c>assignee.login</c>).</summary>
+    public string? AssignedLogin { get; init; }
 }

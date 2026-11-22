@@ -168,6 +168,12 @@ public static class GitHubWebhookPayloadParser
                     _ => [],
                 },
                 AssigneeLogins = Logins(pull, "assignees").Concat(Logins(pull, "requested_reviewers")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                IssueNumber = issueNodeId is null ? null : Int(issue, "number"),
+                IssueTitle = issueNodeId is null ? null : Str(issue, "title"),
+                IssueState = issueNodeId is null ? null : Str(issue, "state")?.ToLowerInvariant(),
+                IssueAuthorLogin = issueNodeId is null ? null : Str(Obj(issue, "user"), "login"),
+                IssueAssigneeLogins = issueNodeId is null ? [] : Logins(issue, "assignees").Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                AssignedLogin = issueNodeId is null ? null : Str(Obj(root, "assignee"), "login"),
             });
         }
     }
