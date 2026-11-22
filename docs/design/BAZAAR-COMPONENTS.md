@@ -78,6 +78,11 @@ Dependency modules (doc 42, tagged `Deps`) and written modules (first-party and 
 - **Soft edges** (`softDependsOn`) mean a feature works better with the target. Soft edges may form cycles, for example A and B each softly depend on each other while both hard-depend on C. Soft edges never set start order. A missing or disabled soft target degrades only the features that name it. The rest of the module still runs.
 - Resolution happens from metadata before anything loads. The kernel reads all manifests, validates the hard graph, then computes start order from hard edges alone. Soft edges are wired after start, from the readiness of each target.
 - Kodo readiness gates (doc 46 §10) follow hard edges. A failed hard target opens the readiness gate of every node that hard-depends on it. Soft targets raise an amber state, not a red one.
+- Built: `ComponentGraph.Order` (start order from hard edges, cycles refused) and `ComponentGraph.Impact` (for one failed node, the transitive hard dependents to block and the soft dependents to mark amber). Not built: the `dependency` kind (doc 42 Q8 is open), `requires`, version ranges, and wiring `Impact` to the Kodo gates.
+
+### 4.2 Principal: who did it (owner, 2026-11-19)
+
+Every record of who acted uses one type, `Principal`, defined in `Cdax.Core` (the standalone Core, with no package references) (it carries no feature): a `kind` and an `id`. Kinds are `agent`, `user`, `service` and `system`. Its canonical text form is `kind:id` (for example `user:dom`, `agent:charles`, `service:kek`, `system:setup`). Audit entries, setting changes, module and install decisions, secret scopes and callers, approvals and telemetry consent all carry a `Principal`, so a person's change is recorded the same way as an agent's. An agent-only field remains only where the thing really is per-agent (for example an agent's own model usage or Kanban assignee). The audit log keeps its single `actor` text column and its hash chain, now written as the canonical `kind:id`, so no migration is needed. Existing bare values (`kek`, `setup:plan`) are read as `service:` or `system:` by a one-time mapping.
 
 ## 5. Data ownership: migrations per component
 
@@ -162,3 +167,33 @@ Until wave 1 lands, new work follows the rule the coordinator relays to running 
 2. Owner: component enable/disable is a setting. Which components an operator may disable is a policy question (for example, may the taint policy be disabled?). Default: core components cannot be disabled.
 3. Schema: the `(component_id, version)` history and the namespace folder layout need one answer before wave 2. Default: as in section 5.
 4. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
+
+## 13. Standalone Core readiness audit (PROPOSED, 2026-11-19)
+
+Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core System repo, dependency-free and product-neutral. This is the audit of `src/Bazaar.Core` at main d7874f05. Nothing here is DECIDED; the two owner questions at the end block the code.
+
+**What Core holds (9 files, about 210 lines).** `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, `IBazaarComponent` and `BazaarComponentRegistration`. It has no reference to `Bazaar.Server`, `Bazaar.Contracts` or any other Bazaar project, and no `AgentId`, company, tenant or Postgres concept.
+
+**Findings.**
+
+| # | Finding | Where | Effect on standalone use |
+|---|---|---|---|
+| 1 | Two package references: `Microsoft.Extensions.Configuration` and `Microsoft.Extensions.DependencyInjection` | `Bazaar.Core.csproj`; `IBazaarComponent.AddServices(IServiceCollection, IConfiguration)`; `BazaarComponentRegistration` | Core is not dependency-free. The manifest, kind and graph are pure; only the entry point and registration use the two packages. |
+| 2 | Product names in public API: `IBazaarComponent`, `BazaarComponentRegistration.AddBazaarComponents`, namespace `Bazaar.Core`, assembly `Bazaar.Core` | 5 files in Core; `IBazaarComponent` is used in 32 files, `AddBazaarComponents` in 23, `ComponentManifest` in 41 | Not product-neutral. |
+| 3 | Product-specific configuration key `Bazaar:Components:<id>:Enabled` | `BazaarComponentRegistration.IsEnabled`; 14 files reference the key | Hard-coded prefix. |
+| 4 | A Bazaar rename recorded in generic code: `LegacyIds = { ryusei -> ryusei-schedule }` | `BazaarComponentRegistration` | History of one product's component ids inside the generic kernel. |
+| 5 | Doc comments cite `docs/design/BAZAAR-COMPONENTS.md` and Bazaar terms (migration namespace, `gateway:adapter:openai_chat`) | all Core files | Cosmetic. |
+| 6 | `ComponentManifest.MigrationNamespace` encodes the Bazaar SQL-per-component layout | `ComponentManifest` | Mild: a Postgres-migration convention in the kernel, but it is only a pure string mapping. |
+
+**Proposed split (needs the owner's go-ahead).**
+
+1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, and a neutral component interface that does not mention DI or configuration. No package references.
+2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter.
+3. The architecture tests gain a rule that `Bazaar.Core` has no package or project references, so it stays dependency-free once split.
+
+**Owner questions.**
+
+1. **Names.** What are the standalone repo's namespace and public type names? The docs record "CDAX" only as a trademark and the pilot company (`Bazaar.CDAX`), and nowhere as the name of a Core System repo. Renaming `IBazaarComponent` and `Bazaar.Core` touches about 40 files and every component's registration, and the `Bazaar:Components` key is an operator-facing setting that needs a compatibility read of the old key.
+2. **Scope of the split.** Is the DI and configuration adapter module (item 2 above) the intended shape, or should Core keep `IServiceCollection` and accept the one package?
+
+Coordination: the "Converge Bazaar and Resibo shared features" thread is adding `Principal` and `Scope` to Core and deleting `ProviderSelector` (#919). This audit touches none of those files; any change there lands through that thread.

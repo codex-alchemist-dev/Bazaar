@@ -160,7 +160,7 @@ The target is one module contract for all modules, first-party and third-party a
 | Keystore-sealed credentials on Android | Done | PR #324 |
 | CodeQL advanced workflow on every PR | Done | PR #287; `.github/workflows/codeql.yml` |
 | Secret scanning path allowlist for test fixtures only | Done | Project memory |
-| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server/Gateway` |
+| Gateway: per-agent model policy, deny by default | Partial | `docs/design/05`; `src/Bazaar.Server.Gateway` |
 | Gateway: floors enforced by settings (tighten only) | Planned (`ST1`) | `docs/design/03`, `docs/design/15` |
 
 **Exit check (T8):** the security review closes with no open blocking finding in the design set, and the taint rules are covered by a rule-table test.
@@ -247,7 +247,7 @@ The target is one module contract for all modules, first-party and third-party a
 | QEMU/KVM backend, Linux as a first-class tested host | Planned (after v1 candidates) | `docs/ROADMAP.md` |
 | Guest agent project | Partial (project exists) | `src/Bazaar.Guest.Agent` |
 | Browser profiles with credential leases | Planned | `docs/design/16`, `docs/design/14` |
-| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Engines` |
+| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Server.Engines` |
 
 ## T14. Backup, restore and export
 

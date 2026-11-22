@@ -15,7 +15,7 @@ Labels: **[verified]** = primary source read (repo file, Microsoft Learn, Avalon
 | release.yml `package-android` | `dotnet publish ... -c Release -p:AndroidPackageFormat=apk` | none (Android workload) | n/a | Client.Android | `.github/workflows/release.yml` lines 486-492 |
 | `packaging/windows-msix/build-msix.ps1` | `dotnet publish $project -c Release -r win-x64 --self-contained true -o $layout` | win-x64 | yes | Client.Windows | build-msix.ps1 line 40 |
 | `packaging/linux-appimage/build-appimage.sh` | `dotnet publish ... --configuration Release --runtime <linux-x64|linux-arm64> --self-contained true` | per arch | yes | Client.Linux | build-appimage.sh lines 64-69 (not called by any workflow) |
-| `packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml` | `dotnet publish ... --runtime linux-x64 --self-contained true --source /run/build/...` (offline) | linux-x64 | yes | Client.Linux | flatpak yml lines 47-52 |
+| `packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml` | none (installs the tarball built by `packaging/linux/build-tarball.sh`; no dotnet in the manifest) | per arch | yes (via the tarball) | Client.Linux | flatpak yml |
 | `packaging/linux-snap/snap/snapcraft.yaml` | `dotnet publish ... -c Release -r linux-x64 --self-contained true` | linux-x64 | yes | Client.Linux | snapcraft.yaml lines 65-66 |
 | `packaging/macos/build-pkg.sh` | takes an existing publish dir (example uses osx-arm64, self-contained) | osx-arm64 | yes | Client.Terminal (default entry) | build-pkg.sh lines 19-21 |
 
@@ -114,7 +114,7 @@ Do not put this in `Directory.Build.props`. That file applies to the server host
 | 9 | `build.sh`, `build.ps1` | No change required | They never publish. Restore runs without `-c Release` and without a RID, so the condition is false and no crossgen2 pack is fetched [inference, measure]. Rule: never add `--no-restore` to a client publish. If you do, add `-p:PublishReadyToRun=true` to the restore too. That is the NETSDK1094 break. [verified: https://learn.microsoft.com/en-us/dotnet/core/compatibility/sdk/6.0/publish-readytorun-requires-restore-change] |
 | 10 | `.github/workflows/ci.yml` | Add a publish-smoke job (ubuntu-latest and windows-latest) that runs `dotnet publish -c Release -r <rid> --self-contained true` for Client.Windows and Client.Linux, then checks the output. Optionally run the Linux binary under a virtual X server for a few seconds. | Today no PR path publishes a client, so an R2R break first shows on a tag. Virtual X server feasibility on the hosted runner is [unverified]. Do not add publish to `build.sh`; that slows every local run. |
 | 11 | `.github/workflows/release.yml` | No change required | The publish lines use `-c Release -r ... --self-contained true`, so the csproj property applies. |
-| 12 | `packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml` and `generated-sources.json` | Must change before R2R is enabled for Linux, or the Flatpak build breaks offline. Add the crossgen2 pack for linux-x64 (and the runtime pack already needed by self-contained) to the generated sources. | The yml builds with `--source /run/build/bazaar-client/nuget-sources` and no network. `generated-sources.json` is an empty placeholder (yml comments on lines 70-72). Failure mode is inference [unverified]. |
+| 12 | `packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml` | No change needed for R2R: the Flatpak installs the tarball from `build-tarball.sh`, so R2R enabled there flows through. (Earlier note: the manifest once ran an offline `dotnet publish`; that was removed because no .NET 11 SDK extension exists.) | The manifest has no build step. |
 | 13 | `packaging/linux-snap/snap/snapcraft.yaml` | No change in this task. Check the snap build downloads the crossgen2 pack. | Network build; the pack is fetched at publish. [unverified] |
 | 14 | `packaging/android/build-android.sh` (line 23) and `src/Bazaar.Client.Android/Bazaar.Client.Android.csproj` (comment line 4) | Not R2R. Report only: default `ANDROID_TFM=net10.0-android` is stale against `net11.0-android`; the csproj comment points at `scripts/build-android.sh`, but the real path is `packaging/android/build-android.sh`. | [verified: both files] |
 | 15 | `docs/design/28-windows-client.md` (Startup budgets, line 28) and `docs/design/30-linux-client-and-packaging.md` (section 3) | After the change lands and is measured, record the R2R setting and numbers. CLAUDE.md requires doc fixes in the same change. | Budgets are PROPOSED and not measured. |
@@ -151,7 +151,7 @@ Do not put this in `Directory.Build.props`. That file applies to the server host
 12. Whether any Avalonia 12.1.4 DLL is already R2R-compiled in the NuGet package, which changes the expected gain [unverified].
 13. Whether Avalonia.Desktop 12.1.4's net10.0 asset is the one selected for net11.0, and whether a net11.0 target exists in a later Avalonia release [unverified].
 14. Whether `PublishReadyToRunCrossgen2ExtraArgs` is the right property name in the SDK that the repo pins [secondary only].
-15. Whether the Flatpak build passes offline with the crossgen2 pack added to `generated-sources.json` [unverified].
+15. (Closed: the Flatpak installs the prebuilt tarball, so there is no offline NuGet set to extend.)
 16. Whether a headless Linux publish smoke under a virtual X server runs on `ubuntu-latest` [unverified].
 
 ## 7. Sources
