@@ -1,6 +1,6 @@
 using Android.App;
 using AndroidX.Window.Layout;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 
 namespace Bazaar.Client.Android.Posture;
 
