@@ -160,7 +160,9 @@ The server side lives in `Bazaar.Server.Hive` and `.Abstractions` (the module th
 3. **Caller.** `HiveCaller(Principal, IsOwner)` comes from the authenticated session. A non-owner is refused with reason "owner only". `Principal` is recorded as the grantor.
 4. **Refusals.** An unknown kind, equal or empty projects, a blank principal and an unknown wire type come back as `accepted: false` with the reason set. Only cancellation and infrastructure failures throw.
 
-Not in this slice (not specified in the docs): an offer and request exchange between agents, and a grant re-check at read time. Today the grant is checked when a copy is made and again at release, and revoking deprecates the copies.
+Not in this slice: today the grant is checked when a copy is made and again at release, and revoking deprecates the copies. Two additions are PROPOSED, not built:
+- **Offer and request exchange.** An agent offers a lesson to the Hive, and an agent in another project requests it; the request becomes a normal copy submission, so every existing check (kind, taint, sanitizer, review window) still applies. The owner's grant matrix stays the only thing that lets a copy through.
+- **Grant re-check at read time.** A reader of a Hive copy re-checks the grant for each hop (origin project, target project, kind) when the note is read, so a revoked grant stops access even before the deprecation commit lands.
 
 ## Work packages
 1. Metric store, rollup job, CI and coverage collectors with fixtures. Needs 04, 21.
