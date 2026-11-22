@@ -104,6 +104,7 @@
     <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
     <Project Path="src/Bazaar.Components.ManagedPostgres/Bazaar.Components.ManagedPostgres.csproj" />
     <Project Path="src/Bazaar.Constellation.Rendering/Bazaar.Constellation.Rendering.csproj" />
+    <Project Path="src/Bazaar.Constellation.Sections/Bazaar.Constellation.Sections.csproj" />
     <Project Path="src/Bazaar.Constellation.Vulkan/Bazaar.Constellation.Vulkan.csproj" />
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
     <Project Path="src/Bazaar.Core/Bazaar.Core.csproj" />
@@ -665,6 +666,7 @@
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Communities.Tests/Bazaar.Constellation.Communities.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Rendering.Tests/Bazaar.Constellation.Rendering.Tests.csproj" />
+    <Project Path="tests/Bazaar.Constellation.Sections.Tests/Bazaar.Constellation.Sections.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Tests/Bazaar.Constellation.Vulkan.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.Bench/Bazaar.Constellation.Vulkan.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.BenchGate/Bazaar.Constellation.Vulkan.BenchGate.csproj" />
