@@ -71,7 +71,8 @@ public sealed class SmokeTests(EndToEndFixture env) : IClassFixture<EndToEndFixt
         while (reply is null)
         {
             var message = await client.Messages.ReadAsync(cts.Token);
-            if (message.AuthorId == EndToEndFixture.AgentId) reply = message;
+            // The tests share one GC and run in parallel, so match the reply to this test's own question.
+            if (message.AuthorId == EndToEndFixture.AgentId && message.Text.Contains(question, StringComparison.Ordinal)) reply = message;
         }
 
         await cts.CancelAsync();
@@ -103,8 +104,10 @@ public sealed class SmokeTests(EndToEndFixture env) : IClassFixture<EndToEndFixt
         await client.SubscribeAsync(WireStreams.GcPrefix + EndToEndFixture.GcId.ToString("D"), cts.Token);
         await client.RequestAsync<GcSend, GcSendResult>(
             WireTypes.GcSend, new GcSend(EndToEndFixture.GcId, "Count my tokens.", [EndToEndFixture.AgentId], null), cts.Token);
-        while ((await client.Messages.ReadAsync(cts.Token)).AuthorId != EndToEndFixture.AgentId)
+        while (true)
         {
+            var message = await client.Messages.ReadAsync(cts.Token);
+            if (message.AuthorId == EndToEndFixture.AgentId && message.Text.Contains("Count my tokens.", StringComparison.Ordinal)) break;
         }
 
         await cts.CancelAsync();
