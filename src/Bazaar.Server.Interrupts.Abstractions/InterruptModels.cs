@@ -33,6 +33,7 @@ public enum InterruptFrameState
 /// <param name="PushedAt">When the frame was pushed, from the injected clock.</param>
 /// <param name="TtlAt">When the frame expires, or null when it does not.</param>
 /// <param name="Version">Incremented on every change to the row.</param>
+/// <param name="Emergency">The owner's <c>emergency</c> tag (C35). Only an owner frame can carry it; the runtime and schedule read it to bypass vacation.</param>
 public sealed record InterruptFrame(
     Guid Id,
     Guid AgentId,
@@ -43,4 +44,5 @@ public sealed record InterruptFrame(
     InterruptFrameState State,
     DateTimeOffset PushedAt,
     DateTimeOffset? TtlAt,
-    long Version);
+    long Version,
+    bool Emergency = false);

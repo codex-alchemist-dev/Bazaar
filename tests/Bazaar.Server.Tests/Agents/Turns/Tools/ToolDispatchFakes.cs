@@ -7,22 +7,45 @@ using Bazaar.Server.Security.Taint;
 
 namespace Bazaar.Server.Tests.Agents.Turns.Tools;
 
-/// <summary>Policy engine fake: returns a fixed decision and records every context it was asked about.</summary>
+/// <summary>
+/// Policy engine fake: returns a fixed decision and records every context it was asked about. By default a result adds no
+/// taint, as for a tool that declares <see cref="ToolResultTaint.None"/>; <see cref="AfterResult"/> overrides that.
+/// </summary>
 internal sealed class FakePolicyEngine(PolicyDecision decision) : IToolPolicyEngine
 {
     public List<DispatchContext> Seen { get; } = [];
+
+    public Func<DispatchContext, Guid, SessionTaint>? AfterResult { get; set; }
 
     public PolicyDecision Evaluate(DispatchContext context)
     {
         Seen.Add(context);
         return decision;
     }
+
+    public SessionTaint TaintAfterResult(DispatchContext context, Guid resultId) =>
+        AfterResult is { } after ? after(context, resultId) : context.Taint;
 }
 
-/// <summary>Taint store fake: returns one taint for every session.</summary>
+/// <summary>Taint store fake: returns one taint for every session, and records every save. <see cref="SaveFailure"/> makes saves throw.</summary>
 internal sealed class FakeSessionTaintStore(SessionTaint taint) : ISessionTaintStore
 {
+    public List<(Guid SessionId, SessionTaint Taint)> Saved { get; } = [];
+
+    public Exception? SaveFailure { get; set; }
+
     public Task<SessionTaint> LoadAsync(Guid sessionId, CancellationToken cancellationToken) => Task.FromResult(taint);
+
+    public Task SaveAsync(Guid sessionId, SessionTaint saved, CancellationToken cancellationToken)
+    {
+        if (SaveFailure is { } failure)
+        {
+            throw failure;
+        }
+
+        Saved.Add((sessionId, saved));
+        return Task.CompletedTask;
+    }
 }
 
 /// <summary>Registry fake built from a name-to-tool map. Unknown names return false.</summary>

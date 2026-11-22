@@ -42,11 +42,23 @@ public static class WireTypes
     /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
     public const string GcTyping = "gc.typing";
 
+    /// <summary>Server event on the <c>engine.relay</c> stream: a Studio call for the owner's desktop to run (doc 02, doc 20). Payload <c>EngineRelayRequestFrame</c>.</summary>
+    public const string EngineRelayRequest = "engine.relay.request";
+
+    /// <summary>Client request answering one relay event (doc 02, doc 20). Payload <c>EngineRelayResultFrame</c>.</summary>
+    public const string EngineRelayResult = "engine.relay.result";
+
+    /// <summary>Client asks whether a grant covers a Studio tool (doc 02, doc 20). Payload <c>EngineGrantVerifyRequest</c>, answered with <c>EngineGrantVerifyReply</c>.</summary>
+    public const string EngineGrantVerify = "engine.grant.verify";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
     /// <summary>Owner moves one Kanban card to another column, checked against the card's revision (doc 12). Answered with a <c>KanbanMoveReply</c>.</summary>
     public const string BoardMove = "board.move";
+
+    /// <summary>Owner sets or clears one Kanban card's assignee, checked against the card's revision (doc 12). Answered with a <c>KanbanAssignReply</c>.</summary>
+    public const string BoardAssign = "board.assign";
 
     /// <summary>Owner pauses one RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
     public const string RyuseiPause = "ryusei.trigger.pause";
@@ -56,6 +68,12 @@ public static class WireTypes
 
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
+
+    /// <summary>Owner asks to grant one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
+    public const string HiveGrantSet = "hive.grant.set";
+
+    /// <summary>Owner asks to revoke one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
+    public const string HiveGrantRevoke = "hive.grant.revoke";
 
     /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
     public const string PrList = "pr.list";
@@ -90,8 +108,17 @@ public static class WireTypes
     /// <summary>Presence delta.</summary>
     public const string PresenceUpdate = "presence.update";
 
+    /// <summary>Client asks for every agent's presence row. Answered with a <c>PresenceSnapshot</c> (docs/design/23).</summary>
+    public const string PresenceSnapshot = "presence.snapshot";
+
+    /// <summary>One <c>kodo</c> stream frame (snapshot, state change or heartbeat), as the UTF-8 JSON of a Kodo stream event (doc 46, section 15.2).</summary>
+    public const string KodoEvent = "kodo.event";
+
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
+
+    /// <summary>One terminal frame on a <c>pane:&lt;terminalId&gt;</c> stream, as JSON text (docs/design/55, section 6.1).</summary>
+    public const string PaneFrame = "pane.frame";
 
     /// <summary>Client asks for its server-driven UI profile.</summary>
     public const string UiGet = "ui.get";

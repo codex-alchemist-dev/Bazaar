@@ -53,6 +53,7 @@ Enabled types are set by `council.vote_types_enabled` (approve/reject and option
 - **Motion class:** `bigger_change` or `ordinary`, set by `council.bigger_change_classes` (Settings below). [PROPOSED] Default: every membership or role motion and every Constitution change is a `bigger_change`. This closes the C32 follow-up on which motions are bigger changes as a per-install setting (DECISIONS-LOG round 13, rule 4); the owner's C32 statement still governs the escalation rule.
 - **Rule:** a `bigger_change` passes without the owner only when unanimous; split or tied outcomes escalate. An `ordinary` motion uses the vote-type rules above.
 - **Effect:** the Council emits `council.decision`; the owning doc applies the change (doc 07 for Soul and lifecycle state, doc 25 for hiring). This doc writes no agent tables (C04).
+- **Membership handoff** [PROPOSED]: the vote stores what the handoff needs. A membership motion carries a `membership_kind` (`hire`, `promote`, `retire`, `role_change`, `constitution_change`) and a `membership_subject_id` (the agent, or for a hire the template id), both set when the vote opens: `OpenAsync` requires both or neither, and a vote with neither is not a membership vote and has no handoff. When the vote is decided (by the tally or by the owner's resolution), `RecordDecisionAsync` maps the outcome (`MembershipOutcomeMapper`; an owner resolution maps as an escalated tally plus `OwnerResolution`) and calls every registered `IMembershipOutcomeSink`, after the `council.decision` event is written. Sinks are idempotent by vote id. The vote row carries `membership_outcome_delivered_at` (null until every sink accepted the outcome). A sink failure never undoes the decision: the vote stays Decided and undelivered, and the deadline sweeper re-drives every decided membership vote with no delivery mark, regardless of the recovery lookback, until delivery succeeds. A withdrawn vote has no handoff in this change.
 - **Context:** reputation (doc 11) is shown beside the vote; it does not weight it in v1.
 
 ### Eligibility, quorum and deadlines [PROPOSED]
@@ -140,7 +141,10 @@ Doc 10 owns these tables (C16). Shared conventions come from doc 04.
 council_vote        (vote_id PK, gc_id, subject_ref, kind, motion_class {ordinary|bigger_change},
                      state, version, options jsonb, deadline_at, extensions int,
                      eligible_snapshot jsonb, reveal_seed, vault_decision_no int null,
-                     high_impact bool not null default false [PROPOSED], created_at)
+                     high_impact bool not null default false [PROPOSED],
+                     membership_kind text null, membership_subject_id text null,
+                     membership_outcome_delivered_at timestamptz null [PROPOSED, migration council/0003],
+                     created_at)
 council_ballot      (vote_id, voter_id, phase {independent|followup}, choice,
                      reasoning (per-person encrypted), revealed bool, tainted_at_write bool,
                      submitted_at, PK (vote_id, voter_id, phase))
@@ -187,6 +191,8 @@ Registry rules from doc 03 (round 13): settings are per install here, changes ar
 | `council.pilot_holdout_share` | decimal | 0.15 | install | operator | No, audited |
 | `council.pilot_stop_flip_share` | decimal | 0.20 | install | operator | No, audited |
 | `council.pilot_target_votes` | int | 20 | install | operator | No, audited |
+
+**Registry and wiring** [PROPOSED]: `Bazaar.Server.Council/Settings/CouncilSettings.cs` declares 21 of the 23 keys (type, default, bounds, approval tier per the table above) and `CouncilSettingContribution` registers them through the Settings component (doc 03); `CouncilComponent` adds it. `council.bigger_change_classes` and `council.followup_dissent_share` are declared in `KnowledgeSettings` (doc 25) and are not declared twice. Bounds come from this doc where it gives one (`reputation_weight` 1.0 to 1.5, shares 0 to 1, `quorum_min` at least 1); the rest mirror `CouncilOptions.Validate`. Bounds this doc does not give are PROPOSED: `vote_deadline_working_days` at least 1, `escalation_renotify_hours` at least 1, `vote_types_enabled` non-empty. The host builds `CouncilOptions` from the keys when the Council service first resolves (`SettingsCouncilOptionsProvider`; a change to these keys applies at the next restart), and `council.followup_dissent_share` is read at each tally (`SettingsCouncilDissentShareSource`). `reputation_weight`, `abstain_counts_quorum`, `vote_types_enabled`, `vote_deadline_working_days` and `escalation_renotify_hours` are registered but no service reads them yet. Open: the `council.bigger_change_classes` key in `KnowledgeSettings` lists doc 25 classes (`new_agent`, `tool_grant`, ...), not the membership kinds above (`hire`, `promote`, ...), so the "must keep `hire`" floor is enforced only by `AddBazaarCouncilHiring`; reconciling the two is a follow-up for the owner.
 
 ## Per-person sealed reasons (implementation, C01) [PROPOSED]
 
@@ -236,6 +242,10 @@ AD = `bazaar.council.reason.v1`, then key id, vote id, voter principal id and a 
 - Before the reveal, the owner cannot read sealed ballots. This is the fail-closed default. It overrides the owner-readable default in "Private storage and reveal" for the period before the reveal only.
 - Question 1 below stays open. The answer may only loosen by an explicit owner change, recorded in `docs/design/DECISIONS-LOG.md`.
 - After the reveal, reads of reasons go through one audited API (GC read path, doc 04 conventions).
+
+### Implementation status and gaps [PROPOSED, 2026-11-22]
+
+Built: `council/0004` kind row, `AppendSealedAsync` on the Council GC port, sealed `council.reason` rows at reveal (independent) and at decision (follow-up) copied from the stored seal, no reasoning text in `council.reveal` or `council.decision`. Not yet built: (1) rows are written at reveal and decision, never at ballot time, because a ballot-time row would put the voter's clear `choice` in the GC log before the reveal and break the sealed first ballot; (2) the stored seal still uses the key id alone as associated data (the production cipher), not the vote, voter and phase AD above, so the blob can be moved between votes by someone who can write the log; the AD change needs a store migration and is its own work package; (3) `erased_at_write` is always false, the cipher cannot report a destroyed key without opening; (4) the owner's reasoning in `council.decision` is still plaintext; (5) tally reads still decrypt (`ListBallotsAsync`), so one erased voter can still block them; (6) reason rows are appended one at a time, not in one `AppendManyAsync` batch, and carry no `tainted_at_write`; retries are safe through the per-row idempotency keys; (7) no per-viewer open on the read path (GC-READ-1).
 
 ### Open [OPEN]
 
