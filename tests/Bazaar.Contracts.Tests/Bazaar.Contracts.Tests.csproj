@@ -9,11 +9,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Wire\**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Terminal\**\Golden\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Wire.Conformance\Bazaar.Wire.Conformance.csproj" />
   </ItemGroup>
 </Project>
