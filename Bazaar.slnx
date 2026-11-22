@@ -210,6 +210,7 @@
     <Project Path="src/Bazaar.Community/Bazaar.Community.csproj" />
     <Project Path="src/Bazaar.Server.Community.Abstractions/Bazaar.Server.Community.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Community.GitHub/Bazaar.Server.Community.GitHub.csproj" />
+    <Project Path="src/Bazaar.Server.Community.GitHub.Bridge/Bazaar.Server.Community.GitHub.Bridge.csproj" />
     <Project Path="src/Bazaar.Server.Coding.Abstractions/Bazaar.Server.Coding.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
@@ -413,6 +414,7 @@
     <Project Path="tests/Bazaar.Community.Tests/Bazaar.Community.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Community.Abstractions.Tests/Bazaar.Server.Community.Abstractions.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Community.GitHub.Tests/Bazaar.Server.Community.GitHub.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Community.GitHub.Bridge.Tests/Bazaar.Server.Community.GitHub.Bridge.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Agent.Tests/Bazaar.Guest.Agent.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.PoolSpawn.Tests/Bazaar.Guest.PoolSpawn.Tests.csproj" />
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
