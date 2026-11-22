@@ -30,14 +30,18 @@ public sealed class ThinkingGcStore(NpgsqlDataSource dataSource)
     /// Returns the Thinking GC id, creating the GC and the agent's member row when this is the first call. Null when the rules refuse:
     /// unknown, archived or Thinking working GC, or an agent that is not an active member of it.
     /// </summary>
-    public async Task<Guid?> EnsureAsync(Guid workingGcId, Guid agentId, CancellationToken ct)
+    public async Task<Guid?> EnsureAsync(Guid workingGcId, Guid agentId, CancellationToken ct) =>
+        (await EnsureWithStatusAsync(workingGcId, agentId, ct).ConfigureAwait(false))?.Id;
+
+    /// <summary>Like <see cref="EnsureAsync"/>, and says whether this call created the GC.</summary>
+    public async Task<(Guid Id, bool Created)?> EnsureWithStatusAsync(Guid workingGcId, Guid agentId, CancellationToken ct)
     {
         var id = DeterministicId(workingGcId, agentId);
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
 
         // Fast path: the common call after the first one.
         if (await ExistsAsync(conn, id, ct).ConfigureAwait(false))
-            return id;
+            return (id, false);
 
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
@@ -88,7 +92,7 @@ public sealed class ThinkingGcStore(NpgsqlDataSource dataSource)
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
-        return id;
+        return (id, created);
     }
 
     private static async Task<bool> ExistsAsync(NpgsqlConnection conn, Guid id, CancellationToken ct)

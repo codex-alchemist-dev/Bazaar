@@ -36,3 +36,23 @@ public interface IThinkingRecorder
     /// </summary>
     Task<bool> RecordAsync(ThinkingEntry entry, CancellationToken cancellationToken);
 }
+
+/// <summary>
+/// Tells other modules whether a GC is a Thinking GC (doc 01 Thinking GCs). The Archive and cold-storage modules refuse such
+/// text. A GC that does not exist is not a Thinking GC.
+/// </summary>
+public interface IThinkingGcLookup
+{
+    /// <summary>True when the GC exists and has type <c>thinking</c>.</summary>
+    Task<bool> IsThinkingGcAsync(Guid gcId, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Whether creating a Thinking GC also posts one collapsed pointer event in the working GC (doc 01 "The parent shows one
+/// collapsed pointer event" [PROPOSED]). Off by default.
+/// </summary>
+public interface IThinkingPointerPolicy
+{
+    /// <summary>True when the pointer event is posted.</summary>
+    ValueTask<bool> IsEnabledAsync(CancellationToken cancellationToken);
+}

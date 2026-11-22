@@ -21,8 +21,12 @@ public sealed class ThinkingGcRecorder(
     ThinkingGcStore store,
     IGcLogWriter writer,
     IGcBodyCodec bodyCodec,
-    ISoulBindings? souls = null) : IThinkingRecorder
+    ISoulBindings? souls = null,
+    IThinkingPointerPolicy? pointerPolicy = null) : IThinkingRecorder
 {
+    /// <summary>The system author id of the pointer event.</summary>
+    public static readonly Guid SystemAuthorId = Guid.Parse("00000000-0000-7000-8000-000000000001");
+
     /// <inheritdoc />
     public async Task<bool> RecordAsync(ThinkingEntry entry, CancellationToken cancellationToken)
     {
@@ -32,9 +36,22 @@ public sealed class ThinkingGcRecorder(
         if (!Guid.TryParse(entry.WorkingGcId, out var workingGcId))
             return false;
 
-        var thinkingGcId = await store.EnsureAsync(workingGcId, entry.AgentId, cancellationToken).ConfigureAwait(false);
-        if (thinkingGcId is null)
+        var ensured = await store.EnsureWithStatusAsync(workingGcId, entry.AgentId, cancellationToken).ConfigureAwait(false);
+        if (ensured is not var (id, created))
             return false;
+        var thinkingGcId = (Guid?)id;
+
+        if (created && pointerPolicy is not null && await pointerPolicy.IsEnabledAsync(cancellationToken).ConfigureAwait(false))
+        {
+            // One collapsed pointer in the parent (doc 01 [PROPOSED]). It carries ids only, never thinking text. Idempotent per Thinking GC.
+            var json = "{\"kind\":\"thinking_pointer\",\"thinking_gc_id\":\"" + id.ToString("D") + "\",\"agent_id\":\"" + entry.AgentId.ToString("D") + "\",\"collapsed\":true}";
+            await writer.AppendAsync(
+                new AppendRequest(workingGcId, GcEventKinds.System, AuthorKind.System, SystemAuthorId, SourceTrust.System, $"thinking-pointer:{id:N}")
+                {
+                    PayloadJson = json,
+                },
+                cancellationToken).ConfigureAwait(false);
+        }
 
         var soul = souls is null ? null : await souls.ResolveAsync(entry.AgentId, cancellationToken).ConfigureAwait(false);
         var kind = entry.Kind.ToString().ToLowerInvariant();

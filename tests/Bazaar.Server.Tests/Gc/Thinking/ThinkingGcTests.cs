@@ -228,6 +228,39 @@ public sealed class ThinkingGcTests(GcDb db) : IClassFixture<GcDb>
         Assert.Equal(TurnOutcome.Completed, result.Outcome);
     }
 
+    [Fact]
+    public async Task The_lookup_says_which_gcs_are_thinking_gcs()
+    {
+        GcTestSkip.WithoutDatabase();
+        var agent = Guid.CreateVersion7();
+        var working = await WorkingGcAsync(agent);
+        var thinking = (await Store.EnsureAsync(working, agent, Ct))!.Value;
+        var lookup = new ThinkingGcLookup(db.DataSource);
+
+        Assert.True(await lookup.IsThinkingGcAsync(thinking, Ct));
+        Assert.False(await lookup.IsThinkingGcAsync(working, Ct));
+        Assert.False(await lookup.IsThinkingGcAsync(Guid.CreateVersion7(), Ct));
+    }
+
+    [Fact]
+    public async Task The_pointer_event_is_posted_once_when_enabled_and_never_when_off()
+    {
+        GcTestSkip.WithoutDatabase();
+        var agent = Guid.CreateVersion7();
+        var on = await WorkingGcAsync(agent);
+        var off = await WorkingGcAsync(agent);
+        ThinkingGcRecorder With(bool enabled) => new(Store, new GcLogWriter(db.DataSource, new RecordingNotifier()), new PlaintextGcBodyCodec(), null, new StaticThinkingPointerPolicy(enabled));
+        ThinkingEntry Entry(Guid gc, int n) => new(agent, Guid.CreateVersion7(), gc.ToString("D"), n, ThinkingEntryKind.Reasoning, "t");
+
+        await With(true).RecordAsync(Entry(on, 1), Ct);
+        await With(true).RecordAsync(Entry(on, 2), Ct);
+        await With(false).RecordAsync(Entry(off, 1), Ct);
+
+        Assert.Equal(1L, await db.ScalarAsync<long>("SELECT count(*) FROM gc_event WHERE gc_id = $1 AND kind = 'system'", on));
+        Assert.Contains("thinking_pointer", await db.ScalarAsync<string>("SELECT payload::text FROM gc_event WHERE gc_id = $1", on));
+        Assert.Equal(0L, await db.ScalarAsync<long>("SELECT count(*) FROM gc_event WHERE gc_id = $1", off));
+    }
+
     private sealed class ThrowingRecorder : IThinkingRecorder
     {
         public Task<bool> RecordAsync(ThinkingEntry entry, CancellationToken cancellationToken) => throw new NpgsqlException("down");

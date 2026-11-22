@@ -25,10 +25,15 @@ public sealed class ThinkingGcComponent : IBazaarComponent
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton(sp => new ThinkingGcStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IThinkingGcLookup>(sp => new ThinkingGcLookup(sp.GetRequiredService<NpgsqlDataSource>()));
+        // Off by default. Operators turn the collapsed pointer event on with Bazaar:ThinkingGc:PointerEvent (doc 01, PROPOSED).
+        var pointerOn = bool.TryParse(configuration["Bazaar:ThinkingGc:PointerEvent"], out var on) && on;
+        services.TryAddSingleton<IThinkingPointerPolicy>(new StaticThinkingPointerPolicy(pointerOn));
         services.TryAddSingleton<IThinkingRecorder>(sp => new ThinkingGcRecorder(
             sp.GetRequiredService<ThinkingGcStore>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Write.IGcLogWriter>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Body.IGcBodyCodec>(),
-            sp.GetService<Bazaar.Souls.Abstractions.ISoulBindings>()));
+            sp.GetService<Bazaar.Souls.Abstractions.ISoulBindings>(),
+            sp.GetService<IThinkingPointerPolicy>()));
     }
 }
