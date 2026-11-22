@@ -79,6 +79,16 @@ public sealed class GitHubPrServiceTests
         }
     }
 
+    private sealed class FakeOwner(Guid? id) : IGitHubOwnerResolver
+    {
+        public Guid? Id { get; set; } = id;
+
+        public Task<Guid?> GetOwnerPrincipalIdAsync(CancellationToken ct) => Task.FromResult(Id);
+    }
+
+    private static GitHubPrService ServiceWithOwner(NpgsqlDataSource ds, FakeFactory factory, FakeOwner owner, GitHubPrGcOptions? options = null) =>
+        new(ds, factory, new FakeDirectory(), options ?? new GitHubPrGcOptions(), _bridge, _bridge, NullLogger<GitHubPrService>.Instance, owner);
+
     private static GitHubPrService Service(NpgsqlDataSource ds, FakeFactory factory) =>
         new(ds, factory, new FakeDirectory(), new GitHubPrGcOptions(), _owner, _bridge, NullLogger<GitHubPrService>.Instance);
 
@@ -364,5 +374,68 @@ public sealed class GitHubPrServiceTests
         var other = factory.Members[gc].ToList();
         await sink.DeliverAsync(woken with { Apply = false }, ct);
         Assert.Equal(other, factory.Members[gc]);
+    }
+
+    [Fact]
+    public async Task The_resolved_owner_is_a_member_at_creation_by_default()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprown1", MigrateAsync, ct);
+        var factory = new FakeFactory();
+
+        var result = await ServiceWithOwner(db.DataSource, factory, new FakeOwner(_owner)).ApplyAsync(Opened(_t0), ct);
+
+        Assert.Equal([_bridge, _owner, _charles], factory.Members[result!.GcId]);
+    }
+
+    [Fact]
+    public async Task With_no_owner_yet_the_GC_is_created_without_one_and_the_owner_is_added_at_the_next_event_once()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprown2", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var owner = new FakeOwner(null);
+        var service = ServiceWithOwner(db.DataSource, factory, owner);
+
+        var first = await service.ApplyAsync(Opened(_t0), ct);
+        Assert.Equal([_bridge, _charles], factory.Members[first!.GcId]);
+
+        owner.Id = _owner;
+        await service.ApplyAsync(Opened(_t0.AddMinutes(1), action: "edited"), ct);
+        await service.ApplyAsync(Opened(_t0.AddMinutes(2), action: "edited"), ct);
+
+        Assert.Equal([_bridge, _charles, _owner], factory.Members[first.GcId]);
+    }
+
+    [Fact]
+    public async Task OwnerIsMember_false_adds_no_resolved_owner()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprown3", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var service = ServiceWithOwner(db.DataSource, factory, new FakeOwner(_owner), new GitHubPrGcOptions { OwnerIsMember = false });
+
+        var result = await service.ApplyAsync(Opened(_t0), ct);
+        await service.ApplyAsync(Opened(_t0.AddMinutes(1), action: "edited"), ct);
+
+        Assert.Equal([_bridge, _charles], factory.Members[result!.GcId]);
+    }
+
+    [Fact]
+    public async Task The_override_makes_the_owner_the_creator_and_a_member_even_when_OwnerIsMember_is_false()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghprown4", MigrateAsync, ct);
+        var factory = new FakeFactory();
+        var service = new GitHubPrService(db.DataSource, factory, new FakeDirectory(), new GitHubPrGcOptions { OwnerPrincipalId = _owner, OwnerIsMember = false }, _owner, _bridge, NullLogger<GitHubPrService>.Instance, new FakeOwner(_owner));
+
+        var result = await service.ApplyAsync(Opened(_t0), ct);
+        await service.ApplyAsync(Opened(_t0.AddMinutes(1), action: "edited"), ct);
+
+        Assert.Equal([_owner, _bridge, _charles], factory.Members[result!.GcId]);
     }
 }
