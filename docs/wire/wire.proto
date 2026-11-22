@@ -121,6 +121,30 @@ message ClusterGlyph {
   float z = 5;
 }
 
+message EngineRelayCallFrame {
+  string grant_id = 1;
+  string studio_id = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+message EngineRelayCallResultFrame {
+  string grant_id = 1;
+  bool ok = 2;
+  string payload_json = 3;
+}
+
+message EngineRelayRequestFrame {
+  bytes relay_id = 1;
+  Instant deadline = 2;
+  EngineRelayCallFrame call = 3;
+}
+
+message EngineRelayResultFrame {
+  bytes relay_id = 1;
+  EngineRelayCallResultFrame result = 2;
+}
+
 message FocusRequest {
   string view_id = 1;
   string node_id = 2;

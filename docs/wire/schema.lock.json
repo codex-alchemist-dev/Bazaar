@@ -1,9 +1,11 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:838ab9d3311a4fef4bbd757ed645a00e7bd5b6da2ae51608cbf29baaaf918809",
+  "hash": "sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    { "type": "engine.relay.request", "payload": "Bazaar.Contracts.Engines.EngineRelayRequestFrame" },
+    { "type": "engine.relay.result", "payload": "Bazaar.Contracts.Engines.EngineRelayResultFrame" },
     { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
     { "type": "gc.history", "payload": "Bazaar.Contracts.Wire.GcHistory" },
     { "type": "gc.member.add", "payload": "Bazaar.Contracts.Wire.GcMemberAdd" },
@@ -34,6 +36,44 @@
     { "type": "welcome", "payload": "Bazaar.Contracts.Wire.Welcome" }
   ],
   "types": [
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayCallFrame",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "studioId", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "tool", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "argsJson", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayCallResultFrame",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "ok", "type": "bool", "nullable": false, "default": false },
+        { "n": 3, "name": "payloadJson", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayRequestFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "relayId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "deadline", "type": "datetime", "nullable": false, "default": false },
+        { "n": 3, "name": "call", "type": "ref:Bazaar.Contracts.Engines.EngineRelayCallFrame", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayResultFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "relayId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "result", "type": "ref:Bazaar.Contracts.Engines.EngineRelayCallResultFrame", "nullable": false, "default": false }
+      ]
+    },
     {
       "name": "Bazaar.Contracts.Gc.PrincipalKind",
       "kind": "enum",

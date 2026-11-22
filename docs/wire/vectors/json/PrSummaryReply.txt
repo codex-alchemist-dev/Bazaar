@@ -1,7 +1,7 @@
 Golden frame: PrSummaryReply
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:838ab9d3311a4fef4bbd757ed645a00e7bd5b6da2ae51608cbf29baaaf918809
+Schema hash: sha256:962d47efafeb2a390d543fe2b46d43ac1d09ae8d6f0e1bdc7585966322849f8a
 Payload record: Bazaar.Contracts.GitHub.PrSummaryReply
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 349 bytes
