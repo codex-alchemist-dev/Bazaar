@@ -286,6 +286,8 @@ Design consequences:
 - Retention changes are high-risk actions (section 8).
 - Sweeper (built, `Bazaar.Server.Retention`): an hourly job asks each module's retention store for records past their period, soft-deletes them, then purges them after the soft-delete window. A hold covers a record when its scope is the record's person, GC or category, or the whole company; holds are re-read before every batch, a hold that cannot be read stops the sweep, and an unrecognised scope kind is treated as covering everything. Crypto-erase is not part of the sweep.
 
+Built status: PARTLY BUILT. Legal hold create and release are built in `Bazaar.Erasure` (`ILegalHoldAdmin`, `LegalHoldService`): the owner's signature is checked through `IOwnerSignatureVerifier`, the signature binds the exact scope and reason (or the hold id), the signing device id is stored on the event, and the append-only event and its audit row commit in one transaction. Racing releases of one hold append one event. Biometrics layer on when they ship. Retention periods, soft delete and crypto-erase proofs are tracked in their own work.
+
 OPEN: erasure inside Vault history and git history (`33` Q6, C38). The owner has not decided this, and the options are encrypted personal notes or history rewrite. Needs counsel. The shipped default for Vault pages is the most protective option (no personal data in a Vault page without per-subject encryption), still to be designed in `18`.
 
 OPEN: whether key destruction counts as erasure under each jurisdiction (C01 (c)). Needs counsel.
