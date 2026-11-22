@@ -85,6 +85,9 @@ public sealed class ShadowConsumerTests
     {
         public ModelRequest? Seen { get; private set; }
 
+        public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public async IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             Seen = request;
