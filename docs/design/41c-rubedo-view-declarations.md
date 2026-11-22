@@ -126,3 +126,26 @@ Open for the owner (cards only if the owner wants them): whether `args` should a
 2. Golden corpus for views, shared by heads.
 3. Avalonia mapping of the widget set, with headless tests (Client.Core as adapter).
 4. Port one pane (the GC feed) to a view document as the pilot.
+
+## 11. Hosting views in a head (PROPOSED, 2026-11-20)
+
+Status: PROPOSED. Needs the owner's accept or change before code. It answers one gap: sections 1 to 10 define the document and the mapper, but nothing says how a module's pane gets a view document and a view context. The RyuseiFuda panes need this to swap their hand-built panes for view documents.
+
+**11.1 Who supplies what.**
+- The head supplies the `ViewContext` (theme, the four actions, the localiser, the action-error sink) once at start-up, as a service in the pane module context. A module never builds its own context and never reaches the head's action implementations directly.
+- The module supplies its view documents as embedded resources named `Views/<name>.view.json` (the document `name` field, dotted, must match the file name) and one data object per view that implements a small data interface (section 11.2).
+- The shared host in `Bazaar.Client.Views` joins the two. It holds no feature code.
+
+**11.2 Data.** A view reads only the sources it declares (section 4). The module hands the host an object that exposes each declared source as a typed value plus one change notice per source. The host re-evaluates bindings only on a notice. The module never pushes controls.
+
+**11.3 Load.** At pane creation the host reads the embedded document, validates it with the Rubedo validator, checks every declared data source against the module manifest, then maps it. Any failure shows the section 1 placeholder for the whole pane with the validator's message and writes one audit entry. A document is never partly rendered when its root fails; a bad child node degrades to a placeholder for that node only (existing mapper rule).
+
+**11.4 Layering.** Feature modules (`Bazaar.Client.<Name>`) may reference `Bazaar.Client.Views` and `Bazaar.Client.Theme` and nothing else new; `Bazaar.Client.Views` references no feature module. Architecture tests enforce both edges. Heads reference the modules and `Bazaar.Client.Views` and register the context service.
+
+**11.5 Pane kinds.** A view-backed pane registers under the same pane kind as the hand-built one it replaces, so saved layouts keep working. A pane kind with no loadable view falls back as in section 5.
+
+**11.6 Heads.** Desktop and Android use the Avalonia host. The terminal head (Calcinato) needs its own adapter against the same document and data interfaces; it is out of scope here.
+
+**11.7 Open for the owner.**
+1. Whether third-party modules may ship views later (this section only covers first-party, compiled-in modules, as doc 41b requires today).
+2. Hot reload of view documents during development (default: off).
