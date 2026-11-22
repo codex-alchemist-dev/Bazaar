@@ -8,7 +8,8 @@ namespace Bazaar.Server.Org;
 
 /// <summary>
 /// The Company Org Chart module (docs/design/24 section 2). Registers the relation repository and the loan service, which
-/// depend on the shared database and the GC components.
+/// depend on the shared database and the GC components. Host composition maps <c>POST /company/org</c> with
+/// <see cref="OrgReadRoute.MapCompanyOrg"/>.
 /// </summary>
 public sealed class OrgComponent : IBazaarComponent
 {
@@ -27,6 +28,7 @@ public sealed class OrgComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.TryAddSingleton<OrgRelationRepository>();
+        services.TryAddSingleton<IOrgRelationReader>(sp => sp.GetRequiredService<OrgRelationRepository>());
         services.TryAddSingleton<OrgLoanService>();
     }
 }

@@ -7,7 +7,7 @@ namespace Bazaar.Server.Org.Data;
 /// (migration 0018); a violation surfaces as a <see cref="PostgresException"/> with SQLSTATE 23505 (duplicate) or 23514
 /// (CHECK or cycle). Routing and loan lifecycle are not here (WP4).
 /// </summary>
-public sealed class OrgRelationRepository(NpgsqlDataSource dataSource)
+public sealed class OrgRelationRepository(NpgsqlDataSource dataSource) : IOrgRelationReader
 {
     private const string _columns = """
         id, kind, from_agent_id, to_agent_id, project_id, starts_at, ends_at, created_by, version
@@ -46,6 +46,18 @@ public sealed class OrgRelationRepository(NpgsqlDataSource dataSource)
             ORDER BY starts_at, id
             """);
         cmd.Parameters.AddWithValue("project_id", DbNullable(projectId));
+        cmd.Parameters.AddWithValue("include_ended", includeEnded);
+        return await ReadManyAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<OrgRelation>> ListAllAsync(bool includeEnded, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand($"""
+            SELECT {_columns} FROM org_relation
+            WHERE @include_ended OR ends_at IS NULL
+            ORDER BY starts_at, id
+            """);
         cmd.Parameters.AddWithValue("include_ended", includeEnded);
         return await ReadManyAsync(cmd, ct).ConfigureAwait(false);
     }
