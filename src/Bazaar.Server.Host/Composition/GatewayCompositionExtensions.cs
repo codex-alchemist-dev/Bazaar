@@ -123,6 +123,7 @@ public static class GatewayCompositionExtensions
         });
         services.TryAddSingleton<ICandidateRanker>(sp => sp.GetRequiredService<ProfileBoundRanker>());
         services.TryAddSingleton<IAgentSelectionSetup>(sp => sp.GetRequiredService<ProfileBoundRanker>());
+        services.TryAddSingleton<Bazaar.Server.Setup.FirstRun.IDefaultAgentRoutes, ClaudeLaneDefaultAgentRoutes>();
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
             sp.GetRequiredService<RouteResolver>(),
             sp.GetRequiredService<IGatewayDirectory>(),
