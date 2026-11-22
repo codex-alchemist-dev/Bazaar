@@ -194,6 +194,7 @@ public static class SetupWizardSteps
                 JoinChoices = JoinModules,
             },
         ]),
+        RemoteAccessStep.Create(),
     ];
 
     /// <summary>The apply question: the operator types the start of the plan hash the review printed, or Enter to stop.</summary>
