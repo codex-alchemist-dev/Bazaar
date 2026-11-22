@@ -142,6 +142,17 @@ public sealed class QuicNativeRealNetTests
     }
 
     [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
+    public async Task One_client_failing_its_handshake_does_not_stop_the_listener()
+    {
+        var (listener, cert, offer) = await StartAsync();
+        await using var _ = listener;
+        using var other = TestCertificates.CreateLocalhost();
+        await Assert.ThrowsAsync<System.Security.Authentication.AuthenticationException>(async () => await Connector(other).ConnectAsync(offer, ["json"], Ct));
+        await using var good = await Connector(cert).ConnectAsync(offer, ["json"], Ct);
+        Assert.Equal("json", good.Profile.Codec);
+    }
+
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
     public async Task No_common_codec_closes_with_4400()
     {
         var (listener, cert, offer) = await StartAsync();
