@@ -18,6 +18,8 @@ on:
   push:
     branches: [main]
   pull_request:
+    # ready_for_review starts the first full run when a draft is marked ready (drafts skip every job below).
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
   schedule:
     # Weekly run so the full-history secret scan also runs when no push happens (Mondays 03:17 UTC).
@@ -37,6 +39,9 @@ jobs:
   # skip is done per step with `if: needs.changes.outputs.code == 'true'`. Pushes and non-PR events are code.
   changes:
     name: Detect code changes
+    # Draft pull requests skip CI. A draft cannot merge, and marking it ready runs the full set once. Every other job
+    # either needs this job (and is skipped with it) or carries the same condition. Pushes and manual runs are not drafts.
+    if: github.event.pull_request.draft != true
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 5
     permissions:
@@ -333,6 +338,7 @@ jobs:
 
   secret-scan:
     name: Secret scan (full history)
+    if: github.event.pull_request.draft != true
     runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
     timeout-minutes: 15
     permissions:
