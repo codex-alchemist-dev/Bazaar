@@ -21,6 +21,17 @@ public static class RemoteAdminServiceCollectionExtensions
         services.TryAddSingleton<IAdminUserDirectory>(sp => new RemoteAdminUserDirectory(sp.GetRequiredService<IIdentityDirectoryStore>()));
         services.TryAddSingleton<IAdminDeviceDirectory>(sp => new RemoteAdminDeviceDirectory(sp.GetRequiredService<IIdentityDirectoryStore>()));
         services.TryAddSingleton<IOpsDeviceRevoker>(sp => new RemoteOpsDeviceRevoker(sp.GetRequiredService<ITokenService>()));
+        services.TryAddSingleton<IPersonSuspension>(sp => new PersonSuspensionService(
+            sp.GetRequiredService<IRefreshCredentialStore>(), sp.GetRequiredService<PrivacyAuditRecorder>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IOpsMemberRevoker>(sp => new RemoteOpsMemberRevoker(sp.GetRequiredService<IPersonSuspension>()));
+        services.TryAddSingleton<IOpsMemberRestorer>(sp => new RemoteOpsMemberRestorer(sp.GetRequiredService<IPersonSuspension>()));
+
+        // The panel's default check never revokes; replace it with one that ends a session when its person is suspended or its device
+        // revoked. Another implementation registered by the host is kept. (The stub is matched by name: this module does not reference
+        // Bazaar.Server.WebAdmin, only its abstractions.)
+        foreach (var stub in services.Where(d => d.ServiceType == typeof(IAdminRevocationCheck) && d.ImplementationType?.Name == "NoRevocation").ToList())
+            services.Remove(stub);
+        services.TryAddSingleton<IAdminRevocationCheck>(sp => new RemoteAdminRevocationCheck(sp.GetRequiredService<IRefreshCredentialStore>()));
         return services;
     }
 

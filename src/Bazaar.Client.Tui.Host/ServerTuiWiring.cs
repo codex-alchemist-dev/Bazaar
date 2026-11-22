@@ -115,10 +115,14 @@ public sealed class ServerTuiWiring : ITuiHostWiring
             Users: provider.GetService<IAdminUserDirectory>(),
             Devices: provider.GetService<IAdminDeviceDirectory>(),
             Approvals: provider.GetService<IAdminApprovalSource>());
-        // Writes with an owning operation. Not wired, and why: IOpsMemberRevoker (no operation to remove or suspend a person exists in
-        // identity), IOpsApprovalDecider (a decision needs a signed owner approval and the step-up proof format is undefined), IOpsStepUp
-        // (needs an approval-key device) and IAdminModuleSelection (no stored selection, revision or rebuild queue yet). See doc 58 4a.
-        var writes = new OpsWritePorts(Devices: provider.GetService<IOpsDeviceRevoker>());
+        // Writes with an owning operation: device revoke, and suspend and unsuspend a person (identity, doc 32). Not wired, and why:
+        // IOpsApprovalDecider (a decision needs a signed owner approval and the step-up proof format is undefined), IOpsStepUp (needs an
+        // approval-key device, so approving from the terminal tells the operator to use the owner device) and IAdminModuleSelection
+        // (no stored selection, revision or rebuild queue yet). See doc 58 4a.
+        var writes = new OpsWritePorts(
+            Members: provider.GetService<IOpsMemberRevoker>(),
+            Devices: provider.GetService<IOpsDeviceRevoker>(),
+            Restorer: provider.GetService<IOpsMemberRestorer>());
         return new OpsWiring(
             ports,
             signIn,

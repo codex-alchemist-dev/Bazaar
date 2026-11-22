@@ -49,3 +49,45 @@ public sealed class RemoteOpsDeviceRevoker(ITokenService tokens) : IOpsDeviceRev
         }
     }
 }
+
+/// <summary>
+/// <see cref="IOpsMemberRevoker"/> as a suspension (PROPOSED, doc 32 person suspension): the person's devices and approval keys are revoked
+/// and their status becomes <c>suspended</c>, which is reversible with <see cref="RemoteOpsMemberRestorer"/>. The refusal text is fixed;
+/// an exception message is never passed on.
+/// </summary>
+public sealed class RemoteOpsMemberRevoker(IPersonSuspension suspension) : IOpsMemberRevoker
+{
+    public async Task<OpsWriteResult> RevokeMemberAsync(Guid actorPrincipalId, Guid principalId, CancellationToken ct = default) =>
+        Result(await suspension.SuspendAsync(principalId, new PrincipalRef(actorPrincipalId, "human"), ct).ConfigureAwait(false), "suspended");
+
+    internal static OpsWriteResult Result(PersonSuspensionOutcome outcome, string state) => outcome switch
+    {
+        PersonSuspensionOutcome.Done => new OpsWriteResult(true),
+        PersonSuspensionOutcome.NotFound => new OpsWriteResult(false, "No such person."),
+        PersonSuspensionOutcome.NotAllowed => new OpsWriteResult(false, "The owner and your own account cannot be suspended."),
+        _ => new OpsWriteResult(false, "That person is not in a state that can be " + state + "."),
+    };
+}
+
+/// <summary><see cref="IOpsMemberRestorer"/> through <see cref="IPersonSuspension.UnsuspendAsync"/>. Revoked devices stay revoked.</summary>
+public sealed class RemoteOpsMemberRestorer(IPersonSuspension suspension) : IOpsMemberRestorer
+{
+    public async Task<OpsWriteResult> RestoreMemberAsync(Guid actorPrincipalId, Guid principalId, CancellationToken ct = default) =>
+        RemoteOpsMemberRevoker.Result(
+            await suspension.UnsuspendAsync(principalId, new PrincipalRef(actorPrincipalId, "human"), ct).ConfigureAwait(false),
+            "unsuspended");
+}
+
+/// <summary>
+/// <see cref="IAdminRevocationCheck"/> over the identity tables: a panel session ends when its person is suspended or removed or its
+/// device is revoked. An unknown person or device is not revoked here (the owner's local gate has no device row); sign-in decides who gets in.
+/// </summary>
+public sealed class RemoteAdminRevocationCheck(IRefreshCredentialStore store) : IAdminRevocationCheck
+{
+    public async Task<bool> IsRevokedAsync(Guid principalId, Guid deviceId, CancellationToken ct = default)
+    {
+        if (await store.FindHumanAsync(principalId, ct).ConfigureAwait(false) is { Status: not "active" })
+            return true;
+        return deviceId != Guid.Empty && await store.FindDeviceAsync(deviceId, ct).ConfigureAwait(false) is { RevokedAt: not null };
+    }
+}

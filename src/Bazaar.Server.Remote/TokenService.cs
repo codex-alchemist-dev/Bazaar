@@ -47,6 +47,11 @@ public sealed class TokenService(
         if (record.RevokedAt is not null)
             throw new TokenRefreshException(TokenRefreshFailure.DeviceRevoked);
 
+        // A person who is not active gets nothing, even if a device row slipped through. A missing row is tolerated (the foreign key
+        // guarantees one in Postgres); only a row that says suspended or removed refuses.
+        if (await store.FindHumanAsync(record.HumanId, ct).ConfigureAwait(false) is { Status: not "active" })
+            throw new TokenRefreshException(TokenRefreshFailure.PersonNotActive);
+
         var absoluteEnd = credential.ChainStartedAt + TimeSpan.FromDays(_options.RefreshAbsoluteDays);
         if (credential.ExpiresAt <= now || absoluteEnd <= now)
             throw new TokenRefreshException(TokenRefreshFailure.ExpiredCredential);
@@ -89,6 +94,9 @@ public sealed class TokenService(
             throw new TokenIssueException(TokenIssueFailure.InvalidDevice);
         if (await store.FindDeviceAsync(deviceId, ct).ConfigureAwait(false) is not null)
             throw new TokenIssueException(TokenIssueFailure.DeviceAlreadyExists);
+
+        if (await store.FindHumanAsync(humanId, ct).ConfigureAwait(false) is { Status: not "active" })
+            throw new TokenIssueException(TokenIssueFailure.PersonNotActive);
 
         var now = time.GetUtcNow();
         var secret = RefreshCredentialSecret.Generate();

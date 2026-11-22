@@ -69,7 +69,8 @@ public sealed class ServerWiringTests : IDisposable
         Assert.NotNull(wiring.Ports.Approvals);
         Assert.Null(wiring.Ports.Modules);
         Assert.NotNull(wiring.Writes.Devices);
-        Assert.Null(wiring.Writes.Members);
+        Assert.NotNull(wiring.Writes.Members);
+        Assert.NotNull(wiring.Writes.Restorer);
         Assert.Null(wiring.Writes.Approvals);
         Assert.Null(wiring.Writes.StepUp);
         Assert.Null(wiring.Writes.Modules);
