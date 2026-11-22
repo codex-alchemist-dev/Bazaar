@@ -76,3 +76,19 @@ public static class EngineRelayFrameMapping
         }
     }
 }
+
+/// <summary>
+/// Wire payload of the client request <see cref="EngineRelayWire.GrantVerifyType"/> [PROPOSED, 2026-11-22]: the Studio bridge asks the
+/// server whether a grant covers a tool before it runs the call. The relay event carries no agent id, so the server answers from
+/// the live relay it sent to the asking device.
+/// </summary>
+/// <param name="GrantId">The grant reference from the relay event.</param>
+/// <param name="Tool">The Studio MCP tool name.</param>
+/// <param name="RiskClass">The risk class the bridge classified the tool as.</param>
+[WirePayload(EngineRelayWire.GrantVerifyType)]
+public sealed record EngineGrantVerifyRequest(string GrantId, string Tool, RiskClass RiskClass);
+
+/// <summary>Answer to <see cref="EngineGrantVerifyRequest"/>.</summary>
+/// <param name="Covers">True only when a live relay on this device holds this grant and tool, and the tool is known at the stated risk class.</param>
+[WirePayload]
+public sealed record EngineGrantVerifyReply(bool Covers);

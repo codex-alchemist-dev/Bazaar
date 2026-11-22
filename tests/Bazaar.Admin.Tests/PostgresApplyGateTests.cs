@@ -59,6 +59,10 @@ public sealed class PostgresApplyGateTests
     public void The_gate_covers_the_first_run_section_like_the_host_does()
     {
         Assert.Contains("firstRun", PostgresApplyGate.Closed.CoveredSections);
+        Assert.Contains("install.identity", PostgresApplyGate.Closed.CoveredSections);
+        Assert.Contains("owner", PostgresApplyGate.Closed.CoveredSections);
+        Assert.Contains("owner.recovery", PostgresApplyGate.Closed.CoveredSections);
+        Assert.DoesNotContain("owner.backupOwners", PostgresApplyGate.Closed.CoveredSections);
         Assert.Contains("settings", PostgresApplyGate.Closed.CoveredSections);
         Assert.All(PostgresApplyGate.Closed.CoveredSections, id => Assert.True(SetupPlanSections.IsKnown(id), id));
     }

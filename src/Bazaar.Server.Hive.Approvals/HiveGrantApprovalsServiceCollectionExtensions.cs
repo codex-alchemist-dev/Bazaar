@@ -1,5 +1,8 @@
+using System.Data.Common;
 using Bazaar.Server.Hive.Abstractions;
+using Bazaar.Server.ReadAudit.Npgsql;
 using Bazaar.Server.Security.Approvals;
+using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -18,7 +21,10 @@ public static class HiveGrantApprovalsServiceCollectionExtensions
     public static IServiceCollection AddBazaarHiveGrantApprovals(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.TryAddSingleton<IHiveGrantChangeLedger, InMemoryHiveGrantChangeLedger>();
+        services.TryAddSingleton<IHiveGrantChangeLedger>(sp =>
+            (sp.GetService<AuditedDbDataSource>() ?? (DbDataSource?)sp.GetService<NpgsqlDataSource>()) is { } dataSource
+                ? new PgHiveGrantChangeLedger(dataSource)
+                : new InMemoryHiveGrantChangeLedger());
         services.Replace(ServiceDescriptor.Singleton<IHiveGrantApprovals>(sp =>
             sp.GetService<IOwnerApprovalEnqueuer>() is { } enqueuer
                 ? new OwnerQueueHiveGrantApprovals(enqueuer, sp.GetRequiredService<IHiveGrantChangeLedger>())
