@@ -157,7 +157,39 @@ public static class GitHubEventsApiParser
             ReviewerLogin = Str(Obj(payload, "requested_reviewer"), "login"),
             PrAuthorLogin = Str(Obj(pull, "user"), "login"),
             Merged = type == "PullRequestEvent" && pull is { } p && p.TryGetProperty("merged", out var merged) && merged.ValueKind == JsonValueKind.True,
+            Number = prNodeId is null ? null : Int(pull, "number") ?? Int(issue, "number"),
+            Title = prNodeId is null ? null : Str(pull, "title") ?? Str(issue, "title"),
+            PrState = prNodeId is null ? null : PrStateOf(pull) ?? Str(issue, "state"),
+            Draft = Bool(pull, "draft"),
+            BaseRef = Str(Obj(pull, "base"), "ref"),
+            HeadRef = eventName == "push" ? GitHubBranchRefs.FromPush(Str(payload, "ref"), Str(payload, "head")) : GitHubBranchRefs.SameRepoHeadRef(pull),
+            RepoFullName = Str(Obj(e, "repo"), "name"),
+            AssigneeLogins = Logins(pull, "assignees").Concat(Logins(pull, "requested_reviewers")).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            IssueNumber = issueNodeId is null ? null : Int(issue, "number"),
+            IssueTitle = issueNodeId is null ? null : Str(issue, "title"),
+            IssueState = issueNodeId is null ? null : Str(issue, "state")?.ToLowerInvariant(),
+            IssueAuthorLogin = issueNodeId is null ? null : Str(Obj(issue, "user"), "login"),
+            IssueAssigneeLogins = issueNodeId is null ? [] : Logins(issue, "assignees").Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            AssignedLogin = issueNodeId is null ? null : Str(Obj(payload, "assignee"), "login"),
         };
+    }
+
+    private static string? PrStateOf(JsonElement? pull) =>
+        Str(pull, "state") is { } state ? (Bool(pull, "merged") == true ? "merged" : state) : null;
+
+    private static int? Int(JsonElement? parent, string name) =>
+        parent is { ValueKind: JsonValueKind.Object } p && p.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var n) ? n : null;
+
+    private static bool? Bool(JsonElement? parent, string name) =>
+        parent is { ValueKind: JsonValueKind.Object } p && p.TryGetProperty(name, out var v) && v.ValueKind is JsonValueKind.True or JsonValueKind.False ? v.GetBoolean() : null;
+
+    private static IEnumerable<string> Logins(JsonElement? parent, string name)
+    {
+        if (parent is not { ValueKind: JsonValueKind.Object } p || !p.TryGetProperty(name, out var list) || list.ValueKind != JsonValueKind.Array)
+            yield break;
+        foreach (var item in list.EnumerateArray())
+            if (Str(item, "login") is { Length: > 0 } login)
+                yield return login;
     }
 
     private static JsonElement? Obj(JsonElement? parent, string name) =>
