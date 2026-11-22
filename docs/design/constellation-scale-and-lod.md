@@ -281,19 +281,18 @@ Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M poi
 - Option c has no per-frame edge cost. Its cost moves to build time (46 to 777 ms for the baked edges, on top of the node build in 10.7) and its image is edge density in the grid, not lines. It is also a different frame: it draws no points.
 - The remaining misses in a and b are not edges. The ring topology piles its points on a thin curve (14.5 ms 2D whole, 8.6 ms 3D whole, 2.9 ms 3D mid), which is point overdraw, not edge cost.
 
-## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D (PROPOSED, owner request 2026-11-19)
+## 11. Frame-rate target: 300+ fps, 400+ preferred, at billions of nodes, 2D and 3D
 
 **Source.** Owner message, 2026-11-19 07:59 UTC, relayed by the coordinator: the Intel Arc B580 (12 GB, a midrange card) should do 300+ fps, preferably 400+, "no matter what", tested with a couple of billion nodes with varied connections, in 2D and 3D.
 
-**What this changes in section 6.** The 60 fps rows stay as the floor for phones. On the PC tier the target becomes:
+**DECIDED (owner, 2026-11-19 08:18 UTC): the budget is adaptive, not one fixed number.** The owner asked for it to be "dynamic based on current performance", or to read what GPU it has. Both, in two layers:
+1. **Startup tier.** The client detects the GPU (vendor, model, VRAM) and runs a short micro-benchmark, then picks a starting tier: instance cap, edge cap, resident pool size, tile threshold. The tier table is a setting (configurability rule); operators can tighten it, never loosen it above the section 6 floors.
+2. **Closed-loop controller.** Each frame the client measures GPU frame time (rolling p95 over a short window) and raises or lowers detail to hold the target: LOD refine threshold, instance cap, edge density, density-field resolution. It drops detail fast when over budget and recovers slowly, with hysteresis so the picture does not flicker. A frame that would exceed the budget drops detail, never frames.
+3. **Target.** Defaults to the display refresh rate. **Acceptance bar (benchmarks, not the runtime target): the Arc B580 holds 300 fps at every size and mode, 400 fps preferred.** That is a p95 of 3.3 ms (2.5 ms for 400) at 100M, 1B and 2B nodes.
+4. **Quality first (owner, 2026-11-19 08:19 UTC).** Headroom is spent on detail before anything else: when the rolling p95 sits under 80% of the target for a calm stretch, detail rises (more instances, finer refine threshold, denser edges), up to twice the tier's starting caps. Detail only drops to hold the target. `FrameBudgetController` and `RenderTiers` in Rendering Core implement the loop.
+5. Phones keep the section 6 phone tier as their starting tier and the same controller. 60 fps stays their floor.
 
-| Item | PC tier target |
-|---|---|
-| Frame time, p95, GPU | 400 fps: ≤ 2.5 ms; floor 300 fps: ≤ 3.3 ms |
-| Frame time, p99 | ≤ 3.3 ms (no hitch below 300 fps) |
-| Instances drawn per frame | hard cap, default 2 000 000 (the B580 draws 2M in about 1 ms, section 10), operator-tightenable |
-| Edges drawn per frame | hard cap, default 1 000 000 line segments, bundled or sampled beyond that |
-| Graph size | no term: frame cost depends on the caps and the view, never on node count |
+The numbers in the old fixed table (2 000 000 instances, 100 000 edges, 2.5 / 3.3 ms) are now the B580 starting tier and the benchmark bar, not constants. Graph size is not an input: frame cost depends on the caps and the view, never on node count.
 
 **Method.** Out-of-core and bounded per frame; none of this touches data the view cannot show.
 1. **Selection.** Each frame the client picks a bounded set of tiles by walking the tile tree from the root, splitting the largest on-screen tile first, stopping at the instance cap, the tile cap, or the pixel threshold (below 96 px a tile is drawn from its sample). The CPU reference is `ViewSelector` in `Bazaar.Constellation.Rendering.Core`; the GPU compute pass must produce the same set and is tested against it.
@@ -303,6 +302,26 @@ Bench mode `topology-edges`, same machine and method as 10.7, N = 1B, M = 1M poi
 5. **GPU-driven draw.** Compute culling writes indirect arguments; one indirect-count draw per layer. Tile data resident in a fixed GPU pool with LRU, streamed under the section 6 bandwidth limit. A frame that would exceed a cap drops detail (coarser tiles), never frames.
 6. **Not yet measured on the B580:** swapchain present cost, compute culling, density splat, indirect count draws, mesh shaders, 3D. These decide whether 400 fps holds or only 300; they are the first benchmark milestone.
 
-**Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass: p99 ≤ 3.3 ms and p95 ≤ 2.5 ms at every size. The owner's PC runs it (benchmark thread).
+**Fully zoomed out (every node on screen).** Culling cannot help there, since nothing is outside the view, so the cost must not scale with nodes. Three things carry it: (a) a precomputed hierarchical cluster LOD, built on the server (section 3), where the root-level tiles hold cluster summaries and per-tile samples, so the selector never descends below the pixel threshold; (b) a density (heat) splat for every tile whose nodes fall below one pixel: a compute pass adds each tile's count into a screen-resolution texture, one write per tile, not per node, then a log tone map; (c) cost is set by screen pixels and the tile cap, not by node count: at most one splat per tile and one texel read per pixel. The result at 2 billion nodes on a 1080p screen is a few thousand tiles and about two million pixels of work. Edges at this distance are cluster-to-cluster bundles from per-tile summaries, never individual edges. The benchmark's far-zoom script covers this case explicitly in 2D and 3D.
 
-**Honest limit.** "No matter what" is met by bounding work per frame, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
+**3D mixed case: close-up detail with distant galaxies (owner, 2026-11-19 08:20 UTC).** This is the hardest 3D view and the one that matters most: the camera is next to a few nodes while far clusters are still in frame.
+- **Per-tile LOD by screen-space error.** Each tile's level is chosen from its projected size (the selector already splits the largest on-screen tile first), so tiles near the camera descend to full nodes and distant tiles stop at a sample, a cluster impostor (one billboard per cluster) or a density splat, all in the same frame under the same caps.
+- **Occlusion.** A Hi-Z pyramid from the previous frame's depth culls tiles hidden behind nearer geometry before they are drawn (compute pass, conservative, one-frame lag; nodes are sparse, so it pays mostly for dense clusters).
+- **Depth range.** Distances span many orders of magnitude, so rendering uses reversed-Z with a float depth buffer and camera-relative coordinates (tile origins are re-based to the eye on the CPU in double precision, so the GPU only sees small offsets). Logarithmic depth is the fallback if a device lacks a float depth format.
+- **Benchmark script.** 3D: the camera sits inside a dense leaf tile at full detail while clusters at 1e3, 1e5 and 1e7 times that distance stay on screen; then a fly-out and fly-in over the same scene. Pass criteria are the same p95 bar, plus no popping beyond one frame of LOD change and no depth fighting or jitter at the close-up nodes.
+
+**Benchmark (extends section 7).** A synthetic generator (`ImplicitTileTree` for tile structure, so nothing is stored) at 100 million, 1 billion and 2 billion nodes. Topologies: uniform, clustered (Louvain-like blobs), power-law hubs, grid, chain/ring. Modes: 2D orthographic and 3D perspective, each with a fixed pan/zoom/orbit script. Report GPU p50, p95 and p99 per frame, instances and tiles per frame, and tile bytes streamed. Pass on the B580: p95 ≤ 3.3 ms (≤ 2.5 ms for the 400 fps goal) at every size, with the controller on, and the detail level it settles at reported alongside. The owner's PC runs it (benchmark thread).
+
+**Honest limit.** "No matter what" is met by bounding work per frame and adapting to measured cost, so detail drops under extreme views rather than fps. Whether the B580 reaches 400 rather than 300 is not known until item 6 is measured.
+
+### 11.1 B580 draw baselines and what they change (measured 2026-11-19, benchmark thread)
+150 cells (5 topologies, 2D and 3D, whole, mid and close views), offscreen 1280x720, one point draw plus one line list of 1M edges generated in the shader, no culling, no depth test, no tile selection:
+- Node count barely matters (100M, 1B and 2B within a few percent at 1M points). Points cost about 0.42 ms per million, except thin-curve overdraw (a 2D ring seen whole: 4.2, 14.5 and 40 ms at 0.5M, 1M and 2M points).
+- **Edges are the problem, not nodes.** A flat 1M-edge line list costs about 6 ms in the whole and mid views and 16 to 17 ms close (uniform topology), 4 to 7 ms for hub-and-spoke, and the cost does not follow the point count. 76 of 150 cells meet p95 ≤ 2.5 ms and p99 ≤ 3.3 ms; edges cause 52 of the 74 misses.
+- **Decision from this (implementation default, a tier setting):** the edge cap drops from 1 000 000 to 100 000 on the B580 tier (30 000 phone, 200 000 high), edges draw only for near tiles, and everything farther uses cluster bundles. Edge density is also the first thing the frame controller sheds.
+- Host-side wall-clock p99 hitches (121 of 150 cells above 3.3 ms while GPU p99 was under 1 ms) look like a per-frame fence wait; to be isolated before a wall-clock fps claim is made.
+
+## 12. Node icons, sections and on-demand frame pacing
+
+The owner's 2026-11-20 asks (real icons per node kind, performance-driven LOD rungs, sections, no frames at standstill, a pacer targeting the display's refresh rate with VRR) are recorded in `constellation-node-detail-and-pacing.md`. Section 11's target "defaults to the display refresh rate" is now refined there: 0 fps when still, a lower rate for small movements, the full rate for big ones.
+
