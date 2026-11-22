@@ -33,7 +33,7 @@ public class TrelloMappingImporterTests
     }
 
     [Fact]
-    public void Map_proposes_each_record_as_a_vault_file_and_keeps_the_record()
+    public void Map_proposes_each_card_as_a_vault_file_and_keeps_its_content()
     {
         var importer = new TrelloMappingImporter();
         var records = importer.Parse(TrelloMappingImporter.BuiltInFixture());
@@ -44,8 +44,43 @@ public class TrelloMappingImporterTests
             var result = importer.Map(record, MappingRules.Default);
             Assert.False(result.IsSkipped);
             Assert.Equal(ImportTargetKind.VaultFile, result.Target);
-            Assert.Same(record, result.Record);
+            Assert.NotNull(result.Record);
+            Assert.Equal(record.SourceKey, result.Record!.SourceKey);
+            Assert.Equal(record.Title, result.Record.Title);
+            Assert.Equal(record.Body, result.Record.Body);
+            Assert.Equal(record.Attributes["list"], result.Record.Attributes["list"]);
         }
+    }
+
+    [Theory]
+    [InlineData("Ready", "Ready")]
+    [InlineData("in progress", "In progress")]
+    [InlineData("  Review ", "Review")]
+    [InlineData("DONE", "Done")]
+    [InlineData("Backlog", "Backlog")]
+    public void Map_puts_a_card_in_the_kanban_column_with_the_same_name(string list, string expected)
+    {
+        var mapped = MapCardInList(list);
+        Assert.Equal(expected, mapped.Attributes["kanban_column"]);
+        Assert.False(mapped.Attributes.ContainsKey("column_warning"));
+    }
+
+    [Fact]
+    public void Map_sends_an_unknown_list_to_backlog_with_a_warning()
+    {
+        var mapped = MapCardInList("Doing");
+        Assert.Equal("Backlog", mapped.Attributes["kanban_column"]);
+        Assert.Equal("unknown list: Doing", mapped.Attributes["column_warning"]);
+    }
+
+    [Fact]
+    public void Map_keeps_the_list_attribute_and_the_closed_flag_on_the_card()
+    {
+        var importer = new TrelloMappingImporter();
+        var closed = importer.Parse(TrelloMappingImporter.BuiltInFixture()).Single(r => r.Attributes["closed"] == "true");
+        var mapped = importer.Map(closed, MappingRules.Default).Record!;
+        Assert.Equal("true", mapped.Attributes["closed"]);
+        Assert.Equal(closed.Attributes["list"], mapped.Attributes["list"]);
     }
 
     [Fact]
@@ -53,7 +88,31 @@ public class TrelloMappingImporterTests
     {
         var importer = new TrelloMappingImporter();
         var record = importer.Parse(TrelloMappingImporter.BuiltInFixture())[0];
-        Assert.Equal(importer.Map(record, MappingRules.Default), importer.Map(record, MappingRules.Default));
+        Assert.True(ImporterContractChecks.SameMapping(
+            importer.Map(record, MappingRules.Default),
+            importer.Map(record, MappingRules.Default)));
+    }
+
+    [Fact]
+    public void Map_does_not_change_the_source_record()
+    {
+        var importer = new TrelloMappingImporter();
+        var record = importer.Parse(TrelloMappingImporter.BuiltInFixture())[0];
+        _ = importer.Map(record, MappingRules.Default);
+        Assert.False(record.Attributes.ContainsKey("kanban_column"));
+    }
+
+    private static SourceRecord MapCardInList(string list)
+    {
+        var importer = new TrelloMappingImporter();
+        var card = importer.Parse(new ImportSource("board.json", System.Text.Encoding.UTF8.GetBytes($$"""
+            {
+              "name": "Board",
+              "lists": [ { "id": "l1", "name": "{{list}}" } ],
+              "cards": [ { "id": "c1", "name": "Card", "desc": "", "idList": "l1", "closed": false, "due": null, "labels": [] } ]
+            }
+            """)))[0];
+        return importer.Map(card, MappingRules.Default).Record!;
     }
 
     [Fact]
