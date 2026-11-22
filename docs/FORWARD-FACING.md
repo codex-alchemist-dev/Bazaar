@@ -1,5 +1,7 @@
 # Forward-facing dependency tracking
 
+Docs section this implements: docs/FORWARD-FACING.md, "Known limits" (Renovate mechanism).
+
 Status: PROPOSED (tracking doc and mechanisms; adoption items are follow-up issues).
 Owner: Bazaar maintainers (per-row owner to be confirmed by the owner).
 Last audit: 2026-11-12 (dated table below; the 2026-11-11 inventory is kept and corrected by it).
@@ -52,10 +54,10 @@ this session), and Docker Hub tags. Web search results were used only for contex
 |---|---|---|---|---|
 | .NET SDK and runtime | SDK 11.0.100, `allowPrerelease: false` (`global.json`) | 11.0.0 runtime, SDK 11.0.100, GA 2026-11-10 (release metadata) | None found past 11.0 | Current. The RC pins from the 11-11 inventory are gone. |
 | Microsoft.Extensions.Hosting, Configuration, DependencyInjection, Options, Hosting.WindowsServices/Systemd, ProtectedData, EventLog | 11.0.0 | 11.0.0 (NuGet) | None | Current. |
-| Microsoft.Extensions.AI.Abstractions | 10.11.0 | 11.0.0 (NuGet, depends on System.Text.Json 11.0.0) | None | Bump to 11.0.0 (issue). |
-| Microsoft.Extensions.TimeProvider.Testing | 10.11.0 | 11.0.0 | None | Bump with the row above (issue). |
+| Microsoft.Extensions.AI.Abstractions | 11.0.0 | 11.0.0 (NuGet, depends on System.Text.Json 11.0.0) | None | Current (bumped; `Directory.Packages.props`). |
+| Microsoft.Extensions.TimeProvider.Testing | 11.0.0 | 11.0.0 | None | Current. |
 | Microsoft.AspNetCore.Mvc.Testing | 11.0.0 | 11.0.0 | None | Current. |
-| Avalonia, Avalonia.Desktop, Avalonia.Skia, Avalonia.Themes.Fluent, Avalonia.Headless.XUnit | 12.1.5 | 12.1.6 (NuGet) | 12.2: not on NuGet at this audit | Bump all to 12.1.6 in one change (issue). Avalonia.Android and Avalonia.Fonts.Inter are at 12.1.4 and should move too. |
+| Avalonia, Avalonia.Desktop, Avalonia.Skia, Avalonia.Themes.Fluent, Avalonia.Headless.XUnit, Avalonia.Android, Avalonia.Fonts.Inter | 12.1.6 | 12.1.6 (NuGet) | 12.2: not on NuGet at this audit | Current. All Avalonia packages sit on one version (`Directory.Packages.props`). |
 | SkiaSharp (transitive via Avalonia.Skia) | Avalonia.Skia 12.1.6 resolves SkiaSharp 3.119.4 | SkiaSharp 4.156.0 (stable) | 4.157.0-rc.1, 4.158.0-preview.2 | Avalonia has not moved to SkiaSharp 4 yet, so Graphite is not reachable from Avalonia. Track with the Avalonia bump. |
 | Vortice.Vulkan | 3.3.0 | 3.3.0 | None | Current. |
 | Vulkan (API) | Renderer target per doc 19 | Vulkan 1.4.361 (2026-08-28, Khronos via Phoronix); later patches not verified | None verified | Keep the 1.4 baseline. Re-check the patch level at renderer build. |
@@ -63,14 +65,14 @@ this session), and Docker Hub tags. Web search results were used only for contex
 | pgvector | 0.8.7 (`versions.txt`, pinned with its SHA-256 in #656) | 0.8.7 (2026-10-01, CHANGELOG); Docker Hub has `pgvector/pgvector:0.8.7-pg18` | No 0.9.0 in the changelog mirror (not verified on GitHub) | Done (#487). 0.8.3 fixed possible index corruption with HNSW vacuuming, so this is not cosmetic. |
 | pgvector image for PG 19 | None on Docker Hub at this audit | n/a | `pgvector/pgvector:pg19` not found | Do not wait for the image. Build pgvector 0.8.7 against the PG 19 RC in CI, as the Windows bundle does (#491). `deploy/compose/compose.pg19.yaml` stays opt-in until the image exists. |
 | Npgsql | 10.0.3 | 10.0.3 (NuGet) | 11.0 preview builds on MyGet; `Npgsql.EntityFrameworkCore.PostgreSQL` 11.0.0-rc.3 on NuGet; core 11.0 stable not on NuGet | Stay on 10.0.3. Npgsql 11 plans to make synchronous `Open` throw by default. The repo has no synchronous `Open()` calls on connections (grep of `src` and `tests`). Canary when 11.0 is stable. |
-| StackExchange.Redis | 3.4.31 | 3.4.35 (NuGet) | 4.0 alpha builds only | Bump to 3.4.35 (issue). The 3.4.5 figure in the 11-11 inventory was wrong. |
+| StackExchange.Redis | 3.4.35 | 3.4.35 (NuGet) | 4.0 alpha builds only | Current. The 3.4.5 figure in the 11-11 inventory was wrong. |
 | Valkey (not pinned; cache provider is design-only) | None | 9.1 GA 2026-05-19 (Linux Foundation). Docker Hub has a `9.1.3` tag. The valkey.io download page showed 9.1.1, so the two conflict. | 9.2.0-rc2 (Docker Hub) | Pin the latest 9.1.x patch when the cache provider is built, after verifying the patch level on the Valkey release page. |
-| MailKit, MimeKit | 4.18.2 | 5.0.0 (NuGet, stable, major) | None | Major bump. Review the 5.0 breaking changes before moving (issue). |
+| MailKit, MimeKit | 5.0.0 | 5.0.0 (NuGet, stable, major) | None | Current in code. The 5.0 breaking-change review was not recorded; confirm it before the next mail release (issue). |
 | Testcontainers.PostgreSql | 4.16.0 | 4.16.0 (last stable on NuGet) | None | Current. The "2.1.0-beta" row in the 11-11 inventory was wrong. |
 | xunit.v3.mtp-v2 | 3.2.2 | 4.0.3 (NuGet) | None | Stay on 3.2.x. Avalonia.Headless.XUnit 12.1.6 still depends on xunit.v3.extensibility.core 3.2.2. Re-check when Avalonia moves (issue). |
 | Microsoft.ML.OnnxRuntime | 1.32.0 | 1.32.0 (NuGet) | 1.32.0 is current | Current (bumped from 1.31.1 by Renovate #595). |
 | Markdig, YamlDotNet, LibGit2Sharp | 1.6.0, 18.1.0, 0.32.0 | Same | None | Current. |
-| Android (`net11.0-android`) | `SupportedOSPlatformVersion` 35; no `TargetSdkVersion` set in `Bazaar.Client.Android.csproj` | Android 17 (API 37), stable since June 2026 (developer.android.com "Android 17 is here") | Android 17 minor SDK expected Q4 2026 (secondary source) | Target API 37 once the Android client builds and passes the emulator run (issue). NDK version not verified. |
+| Android (`net11.0-android`) | `SupportedOSPlatformVersion` 35; `TargetSdkVersion` pinned to API 37 in `Bazaar.Client.Android.csproj` (#423) | Android 17 (API 37), stable since June 2026 (developer.android.com "Android 17 is here") | Android 17 minor SDK expected Q4 2026 (secondary source) | Current: API 37 is pinned. NDK version not verified. |
 
 Corrections to the 2026-11-11 inventory: the .NET SDK and Microsoft.Extensions rows (now GA),
 the StackExchange.Redis version (3.4.31 pinned, not 3.4.5), the Testcontainers row, and the PG
@@ -93,6 +95,7 @@ Known limits:
   Installing an app is a GitHub settings change, so the owner's Cowork session does it
   (see the GitHub permissions note in project memory). Until then `renovate.json` does
   nothing.
+- **Prerelease major bumps are skipped** (2026-11-19). A `renovate.json` rule sets `ignoreUnstable: true` for major updates of every tracked package except `Microsoft.*` and `Npgsql`, which stay on prerelease tracking because they follow .NET 11 and the Npgsql 11 previews. A major version is proposed only once it is stable; prerelease minor and patch updates and the .NET SDK and runtime pins are unchanged.
 - Once Renovate is installed, its tracked list overlaps Dependabot's stable updates for
   the same packages. The fix is to add `ignore` entries in `dependabot.yml` for exactly
   the packages Renovate tracks, while security updates stay on Dependabot. Do this in
@@ -135,7 +138,7 @@ and the `net11.0`/`net11.0-android` target frameworks in the project files.
 | Npgsql | `10.0.3` | Npgsql 11.0 previews: `11.0.0-preview.1-ci` builds on the `npgsql-vnext` MyGet feed (latest seen 2026-10-26). EF Core provider `11.0.0-preview.6` on NuGet. Reported features: failover, load balancing, multi-host. The EF provider notes PG 18 temporal constraints. | Reported (MyGet, NuGet listings). The Npgsql 11 release notes page is still a stub. | Multi-host and failover matter for the server's Postgres connection when it runs on Linux and Windows. | Track 11.0 previews through Renovate. Run a canary build against the preview when it is on NuGet.org. Do not adopt before GA. | Renovate (tracked, prerelease). Follow-up issue for the canary. |
 | Testcontainers.PostgreSql | `4.16.0` | A newer line is listed on the NuGet feed (a `2.1.0-beta` build was seen). The version scheme and changes are not verified. | Not found (only listings). | Test container lifecycle. | Check the official Testcontainers .NET releases before any bump. | Renovate (tracked, prerelease). |
 | Valkey (cache and presence on Linux) | Not pinned in the repo. Design uses Valkey on Linux and Garnet on Windows (`docs/design/03`). | Valkey 9.1 GA on 2026-05-19 (Linux Foundation). Adds TLS certificate reload, database-level ACLs, client-side caching support, and Valkey GLIDE 2.4 with C# and PHP. Valkey 9.0.x security patches (CVE fixes in TLS and streams) followed. | Confirmed (Linux Foundation, Valkey release pages). | Client-side caching for GC presence. Security patches must be deployed. | When the cache provider is built, pin Valkey at 9.1 or later, with the latest 9.x patch. Compare StackExchange.Redis with Valkey GLIDE for C# before choosing. | Follow-up issue. |
-| StackExchange.Redis | `3.4.5` | 4.x not found. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build. | Renovate (tracked, prerelease). |
+| StackExchange.Redis | `3.4.5` | 4.0.x alpha exists (PR #596 was closed for targeting it). Renovate now skips prerelease major bumps until 4.x is stable. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build, and when 4.x reaches stable. | Renovate (tracked; prerelease majors skipped). |
 | Garnet (Windows cache) | Not pinned in the repo. | Not searched in this audit. | Not found. | Windows cache provider. | Searched without result; re-check before the Windows cache provider is built. | Follow-up issue. |
 
 ### AI, inference and tests
