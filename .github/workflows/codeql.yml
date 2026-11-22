@@ -35,63 +35,56 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Decides whether the change touches code. Docs-only PRs skip the heavy work. The heavy jobs still run (a
-  # skipped matrix job would report an unexpanded check name and leave the required check pending), so the
-  # skip is done per step with `if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)`. Pushes and non-PR events are code.
-  changes:
-    name: Detect code changes
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
-    timeout-minutes: 5
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      code: ${{ steps.diff.outputs.code }}
-    steps:
-      - name: List changed files
-        id: diff
-        env:
-          GH_TOKEN: ${{ github.token }}
-          EVENT: ${{ github.event_name }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT" = "push" ] && [ "$GITHUB_REF" != "refs/heads/main" ]; then
-            # A branch push: compare the pushed commit with main (the compare API lists up to 300 files).
-            files="$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq '[.files[].filename] | if length >= 300 then empty else .[] end')" || files=""
-          elif [ "$EVENT" != "pull_request" ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          else
-          # Any failure here means "treat as code": the heavy jobs then run instead of silently skipping.
-          files="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')" || files=""
-          fi
-          if [ -z "$files" ]; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Code is anything outside docs/, *.md and the issue templates. Workflow changes count as code.
-          if printf '%s\n' "$files" | grep -Evq '^(docs/|\.github/ISSUE_TEMPLATE/)|\.md$'; then
-            echo "code=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "code=false" >> "$GITHUB_OUTPUT"
-          fi
-
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ${{ (github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)) && fromJSON('["self-hosted","bazaar-linux"]') || 'ubuntu-latest' }}
-    needs: changes
+    # A pull request from this repository is analysed by the push-triggered run of its branch (see the `on:` comment:
+    # the pull_request-only suite is not linked to the PR). Skipping it here stops every PR being scanned twice. Fork
+    # pull requests still run here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       security-events: write
+      pull-requests: read
     strategy:
       fail-fast: false
       matrix:
         language: [csharp, actions]
     steps:
+      # Decides whether this language has anything to analyse. This job always runs and reports, so the required
+      # check names never go missing; when nothing relevant changed the heavy steps are skipped and the job passes in
+      # seconds. A skipped matrix job would report an unexpanded check name, so the skip is per step. Anything unclear
+      # (an API error, no file list, 300 or more files, main, schedule, manual) means "analyse". There is no separate
+      # detect job: that saved a job slot per push.
+      - name: Decide whether to analyse
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          LANGUAGE: ${{ matrix.language }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -uo pipefail
+          run() { echo "run=$1" >> "$GITHUB_OUTPUT"; echo "analyse: $1 ($2)"; exit 0; }
+          if [ "$EVENT" = "push" ] && [ "$REF" != "refs/heads/main" ]; then
+            files="$(gh api "repos/$GITHUB_REPOSITORY/compare/main...$GITHUB_SHA" --jq '[.files[].filename] | if length >= 300 then empty else .[] end' 2>/dev/null)" || files=""
+          elif [ "$EVENT" = "pull_request" ]; then
+            files="$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' 2>/dev/null)" || files=""
+          else
+            run true "event $EVENT on $REF"
+          fi
+          [ -n "$files" ] || run true "no file list"
+          if [ "$LANGUAGE" = "actions" ]; then
+            pattern='^\.github/(workflows|actions)/'
+          else
+            pattern='(\.cs|\.csproj|\.props|\.targets|\.slnx|\.razor|\.axaml|\.xaml)$|^(global\.json|NuGet\.config)$'
+          fi
+          if printf '%s\n' "$files" | grep -Eq "$pattern"; then run true "relevant files changed"; else run false "no $LANGUAGE files changed"; fi
+
       - name: Check out
-        if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+        if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -102,14 +95,14 @@ jobs:
       # real build; the trade-off is deliberate to keep the required check fast
       # and independent of the SDK version.
       - name: Initialize CodeQL
-        if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+        if: steps.scope.outputs.run == 'true'
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           languages: ${{ matrix.language }}
           build-mode: none
 
       - name: Perform CodeQL analysis
-        if: needs.changes.outputs.code == 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository)
+        if: steps.scope.outputs.run == 'true'
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:${{ matrix.language }}
