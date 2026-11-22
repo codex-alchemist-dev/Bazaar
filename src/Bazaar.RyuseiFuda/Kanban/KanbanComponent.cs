@@ -1,7 +1,9 @@
 using Bazaar.Core;
 using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Health;
 using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Health;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
@@ -67,5 +69,10 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<DeadlineScanHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<DeadlineScanHandler>());
         services.AddSingleton(new RecurringJob(DeadlineScanHandler.JobKind, deadline.Interval));
+
+        // Project health feeder (doc 25): blocked share and reopened cards, one health project per board project.
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, KanbanHealthFactSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, KanbanHealthProjectSource>());
     }
 }

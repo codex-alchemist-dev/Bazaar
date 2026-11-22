@@ -96,7 +96,16 @@ public sealed class BrowserPoolOptions
     /// <summary>Memory ceiling per session in MB through a cgroup scope; 0 means no cgroup limit.</summary>
     public int MemoryMaxMb { get; set; } = 1024;
 
-    /// <summary>Wrap the launch in <c>systemd-run --scope</c> so the memory and task limits apply.</summary>
+    /// <summary>
+    /// Processor ceiling per session through the same cgroup scope, as a percentage of one core: 200 means two cores' worth of time.
+    /// 0 means no limit. One busy page can then not starve the other sessions on the pool VM.
+    /// </summary>
+    public int CpuQuotaPercent { get; set; } = 200;
+
+    /// <summary>The most processes and threads one session may have, through the same cgroup scope. Stops a fork bomb inside a slot.</summary>
+    public int TasksMax { get; set; } = 512;
+
+    /// <summary>Wrap the launch in <c>systemd-run --scope</c> so the memory, processor and task limits apply.</summary>
     public bool UseSystemdRun { get; set; } = true;
 
     /// <summary>
@@ -226,6 +235,16 @@ public sealed partial class BrowserPoolOptionsValidator : IValidateOptions<Brows
         if (options.MemoryMaxMb != 0 && options.MemoryMaxMb is < 128 or > 1_048_576)
         {
             errors.Add("MemoryMaxMb must be 0 (no limit) or 128 to 1048576.");
+        }
+
+        if (options.CpuQuotaPercent != 0 && options.CpuQuotaPercent is < 10 or > 100_000)
+        {
+            errors.Add("CpuQuotaPercent must be 0 (no limit) or 10 to 100000.");
+        }
+
+        if (options.TasksMax is < 64 or > 65_536)
+        {
+            errors.Add("TasksMax must be 64 to 65536.");
         }
 
         CheckExtraBinds(errors, options);

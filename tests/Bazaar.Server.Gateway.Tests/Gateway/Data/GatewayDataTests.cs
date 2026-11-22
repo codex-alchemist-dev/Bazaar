@@ -10,6 +10,8 @@ namespace Bazaar.Server.Tests.Gateway.Data;
 
 public sealed class GatewayDb : PgFixture, IAsyncLifetime
 {
+    private static IEnumerable<MigrationFile> Load(EmbeddedMigrationSource source) => source.Namespaces().SelectMany(source.Load);
+
     public override async ValueTask InitializeAsync()
     {
         if (PgSource.IsUnsupportedHost)
@@ -18,7 +20,10 @@ public sealed class GatewayDb : PgFixture, IAsyncLifetime
         }
 
         await base.InitializeAsync();
-        var source = new EmbeddedMigrationSource(typeof(AssemblyMarker).Assembly);
+        var source = new InMemoryMigrationSource([
+            .. Load(new EmbeddedMigrationSource(typeof(AssemblyMarker).Assembly)),
+            .. Load(new EmbeddedMigrationSource(typeof(GatewayDirectoryRepository).Assembly)),
+        ]);
         await new MigrationRunner(DataSource).MigrateAsync(source, "linux");
     }
 }
@@ -77,6 +82,19 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
     }
 
     [Fact]
+    public async Task Claude_code_cli_provider_and_subscription_identity_round_trip()
+    {
+        SkipWithoutDatabase();
+        var repo = Directory();
+        await repo.UpsertProviderAsync(new GwProvider("p-cli", "first_party", "claude_code_cli", "cli://claude-code", "none", null, "{}", null, null, true), Ct);
+        await repo.UpsertModelAsync(new GwModel("p-cli", "claude-haiku-5-5", "claude", GatewayIdentity.Subscription, "{}", GwModel.StatusAvailable, _t0, _t0, "config"), Ct);
+        Assert.Equal(GatewayIdentity.Subscription, (await repo.GetModelAsync(new ModelRef("p-cli", "claude-haiku-5-5"), Ct))!.Identity);
+
+        await new UsageRepository(db.DataSource).AppendAsync(Usage("agent-cli", GatewayIdentity.Subscription, _t0, "p-cli"), Ct);
+        Assert.Equal(GatewayIdentity.Subscription, Assert.Single(await new UsageRepository(db.DataSource).ListAsync("agent-cli", _t0.AddHours(-1), _t0.AddHours(1), Ct)).Identity);
+    }
+
+    [Fact]
     public async Task Model_upsert_keeps_first_seen_and_requires_a_provider()
     {
         SkipWithoutDatabase();
@@ -95,6 +113,25 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
         Assert.Single(await repo.ListModelsAsync("p-models", Ct));
 
         await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(model with { ProviderId = "ghost" }, Ct));
+    }
+
+    [Fact]
+    public async Task Model_kind_and_embedding_caps_round_trip_and_default_to_chat()
+    {
+        SkipWithoutDatabase();
+        var repo = Directory();
+        await repo.UpsertProviderAsync(Provider("p-kind"), Ct);
+        var chat = new GwModel("p-kind", "chat1", "claude", GatewayIdentity.Native, "{}", GwModel.StatusAvailable, _t0, _t0, "probe");
+        var embed = chat with { ModelId = "emb1", Kind = GwModel.KindEmbedding, EmbedMaxBatch = 64, EmbedMaxInputChars = 1000 };
+        await repo.UpsertModelAsync(chat, Ct);
+        await repo.UpsertModelAsync(embed, Ct);
+
+        var readChat = await repo.GetModelAsync(new ModelRef("p-kind", "chat1"), Ct);
+        var readEmbed = await repo.GetModelAsync(new ModelRef("p-kind", "emb1"), Ct);
+        Assert.Equal((GwModel.KindChat, null, null), (readChat!.Kind, readChat.EmbedMaxBatch, readChat.EmbedMaxInputChars));
+        Assert.Equal((GwModel.KindEmbedding, 64, 1000), (readEmbed!.Kind, readEmbed.EmbedMaxBatch, readEmbed.EmbedMaxInputChars));
+        await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(embed with { Kind = "video" }, Ct));
+        await Assert.ThrowsAsync<PostgresException>(() => repo.UpsertModelAsync(embed with { EmbedMaxBatch = 0 }, Ct));
     }
 
     [Fact]
@@ -225,6 +262,24 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
     }
 
     [Fact]
+    public async Task Denied_usage_row_round_trips_with_a_provider_that_has_no_row()
+    {
+        SkipWithoutDatabase();
+        var repo = new UsageRepository(db.DataSource);
+        var denied = Usage("agent-denied", GatewayIdentity.Native, _t0, "policy") with
+        {
+            Status = UsageStatus.Denied,
+            ErrorCode = "policy_denied:model_not_allowed",
+            Tokens = new GatewayTokenUsage(0, 0, 0, 0, 0, 0),
+            KeyRef = "none",
+            PriceVersion = null,
+        };
+        await repo.AppendAsync(denied, Ct);
+
+        Assert.Equal([denied], await repo.ListAsync("agent-denied", _t0, _t0.AddHours(1), Ct));
+    }
+
+    [Fact]
     public async Task Usage_keeps_input_separate_from_cache_reads_and_rejects_impossible_rows()
     {
         SkipWithoutDatabase();
@@ -263,7 +318,7 @@ public sealed class GatewayDataTests(GatewayDb db) : IClassFixture<GatewayDb>
 
     private static GatewayUsageRecord Usage(string agent, GatewayIdentity identity, DateTimeOffset at, string provider = "p-usage") => new(
         Guid.NewGuid(), at, agent, "turn-1", provider, "key-1", "claude-haiku-5-5", "claude-haiku-5-5-20260101", identity,
-        new GatewayTokenUsage(100, 10, 20, 30, 40, 5), 250, UsageStatus.Success, null, null, false, "2026-10");
+        new GatewayTokenUsage(100, 10, 20, 30, 40, 5), 250, UsageStatus.Success, null, null, false, "2026-10", UsageSource.For(provider));
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {

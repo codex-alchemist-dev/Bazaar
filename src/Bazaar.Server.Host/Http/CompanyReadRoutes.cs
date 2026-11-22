@@ -1,3 +1,4 @@
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Health;
 using Bazaar.Server.Http;
@@ -7,12 +8,13 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Http;
 
 /// <summary>
 /// Maps the Company pane read routes (doc 24 section 5) behind the HTTP surface guard (bearer, rate bucket).
-/// <c>IOrgDirectory</c> is not registered: no registry here lists agent or project names yet, so the Org model carries edges only.
+/// The Org directory lists agent names from the Agents module; no project registry exists yet, so no project names are listed.
 /// </summary>
 internal static class CompanyReadRoutes
 {
@@ -30,6 +32,7 @@ internal static class CompanyReadRoutes
     public static IServiceCollection AddBazaarCompanyReadOptions(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
+        services.TryAddSingleton<IAgentDirectoryReader>(sp => sp.GetRequiredService<AgentRepository>());
         services.AddScoped(sp =>
             sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Items[_timezoneItem] as CalendarReadOptions ?? new CalendarReadOptions());
         return services;

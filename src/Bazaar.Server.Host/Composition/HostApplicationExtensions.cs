@@ -41,6 +41,7 @@ public static class HostApplicationExtensions
         services.AddBazaarSecrets();
         services.AddBazaarProviders(configuration);
         services.AddBazaarHostWire(configuration);
+        services.AddBazaarHostWireDiscovery();
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarPostgresCredentialLeases();
