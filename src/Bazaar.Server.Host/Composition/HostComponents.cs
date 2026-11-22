@@ -9,6 +9,10 @@ using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.BrowserPool;
+using Bazaar.Server.BrowserPool.Display;
+using Bazaar.Server.BrowserPool.Image;
+using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.Components.Backup;
@@ -39,8 +43,17 @@ using Bazaar.Server.Setup.Host;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
+using Bazaar.Server.VmDensity;
+using Bazaar.Server.VmDisplay;
+using Bazaar.Server.VmDisplay.AgentTools;
+using Bazaar.Server.VmDisplay.Audit;
+using Bazaar.Server.VmDisplay.HyperV;
+using Bazaar.Server.VmDisplay.Kvm;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Discovery;
+
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -96,5 +109,36 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
+        // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
+        // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
+        // "not supported" off Windows; the KVM adapter is limited to Linux here.
+        new VmDisplayComponent(),
+        new VmDisplayAuditComponent(),
+        new VmDisplayAgentToolsComponent(),
+        new HyperVComponent(),
+        new OsLimitedComponent(new KvmComponent(), OperatingSystem.IsLinux),
+        new VmDensityComponent(),
+        new BrowserPoolComponent(),
+        new BrowserPoolDisplayComponent(),
+        new BrowserPoolLinuxHostComponent(),
+        new BrowserPoolImageComponent(),
     ];
+
+    /// <summary>
+    /// Registers a component only where its platform exists, for adapters that do not check the operating system themselves. The
+    /// manifest is unchanged, so the graph, the migration order and the module manager still see the component everywhere.
+    /// </summary>
+    private sealed class OsLimitedComponent(IBazaarComponent inner, Func<bool> supported) : IBazaarComponent
+    {
+        public ComponentManifest Manifest => inner.Manifest;
+
+        public void AddServices(IServiceCollection services, IConfiguration configuration)
+        {
+            if (supported())
+            {
+                inner.AddServices(services, configuration);
+            }
+        }
+    }
 }
