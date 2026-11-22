@@ -8,6 +8,8 @@ using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
@@ -110,6 +112,8 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new AccountApprovalComponent(),
+        new OwnerQueueComponent(),
         new CouncilComponent(),
         new CompanyMemoryComponent(),
         new TalentPoolComponent(),

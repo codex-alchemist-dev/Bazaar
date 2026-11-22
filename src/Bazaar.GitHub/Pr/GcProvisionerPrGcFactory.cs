@@ -29,6 +29,10 @@ public sealed class GcProvisionerPrGcFactory(IGcProvisioner provisioner, GitHubP
     public Task<bool> AddAgentAsync(Guid gcId, Guid agentId, string displayName, CancellationToken cancellationToken) =>
         provisioner.AddMemberAsync(gcId, new GcPrincipal(agentId, PrincipalKind.Agent, displayName), cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> AddOwnerAsync(Guid gcId, Guid ownerId, CancellationToken cancellationToken) =>
+        provisioner.AddMemberAsync(gcId, new GcPrincipal(ownerId, PrincipalKind.Owner, "owner"), cancellationToken);
+
     // Membership stores only the id today; the kind and name travel for the provisioner's contract.
     private GcPrincipal Principal(Guid id) =>
         id == options.OwnerPrincipalId ? new GcPrincipal(id, PrincipalKind.Owner, "owner")
