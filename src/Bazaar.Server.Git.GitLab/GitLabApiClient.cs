@@ -73,6 +73,16 @@ internal sealed class GitLabApiClient
                 return new GitLabResponse(outcome.Body, outcome.HasNextPage);
             }
 
+            if (outcome.Status == HttpStatusCode.NotFound)
+            {
+                throw new ForgeNotFoundException($"GitLab {method} {relativePath} found nothing.");
+            }
+
+            if (outcome.Status == HttpStatusCode.TooManyRequests && attempt >= _options.MaxRetries)
+            {
+                throw new ForgeRateLimitedException(outcome.RetryAfter);
+            }
+
             if (attempt >= _options.MaxRetries || !IsRetryable(method, outcome.Status))
             {
                 throw new GitLabApiException(outcome.Status, $"GitLab {method} {relativePath} failed with HTTP {(int)outcome.Status}.");
