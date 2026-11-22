@@ -47,7 +47,9 @@ jobs:
     # Draft pull requests skip CI. A draft cannot merge, and marking it ready runs the full set once. Every other job
     # either needs this job (and is skipped with it) or carries the same condition. Pushes and manual runs are not drafts.
     if: github.event.pull_request.draft != true
-    runs-on: ubuntu-latest
+    # The gate jobs (this one and Secret scan) run on the PC for the owner's own same-repo runs, so they never wait in the
+    # hosted queue ahead of the work they route. CI_RUNNER_MODE=hosted puts them back on GitHub (use it if the PC is off).
+    runs-on: ${{ fromJSON(github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (vars.CI_RUNNER_MODE || 'idle') != 'hosted' && '["self-hosted","bazaar-linux-pg"]' || '"ubuntu-latest"') }}
     timeout-minutes: 5
     permissions:
       contents: read
@@ -461,7 +463,7 @@ jobs:
   secret-scan:
     name: Secret scan (full history)
     if: github.event.pull_request.draft != true
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(github.actor == 'Cookiesmuch' && github.triggering_actor == 'Cookiesmuch' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (vars.CI_RUNNER_MODE || 'idle') != 'hosted' && '["self-hosted","bazaar-linux-pg"]' || '"ubuntu-latest"') }}
     timeout-minutes: 15
     permissions:
       contents: read

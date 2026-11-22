@@ -44,6 +44,10 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   pick the same free runner; and a job already sent to the PC waits there if the PC goes off (set `CI_RUNNER_MODE` to
   `hosted`). A watchdog that moves a stuck job is not built (a queued job cannot be moved; the run would have to be
   cancelled and dispatched again, which risks the required checks).
+- Gate jobs on the PC (2026-11-22): for the owner's own same-repo runs, `Detect code changes` and `Secret scan` also
+  run on the PC's Linux runners, so they do not wait in the hosted queue ahead of the jobs they route. They need `gh`
+  and `python3` on the PC; the affected-projects step falls back to "build everything" if either is missing. If the
+  PC is off, set `CI_RUNNER_MODE` to `hosted` and everything moves back to GitHub.
 - Faster pull request builds (2026-11-22, owner: do everything to speed up CI): a pull request builds, tests and
   format-checks only the affected projects, through one temporary solution (`scripts/ci/build-affected.sh` and
   `.ps1`, which write `Bazaar.affected.slnx`, not tracked). That is one restore, one parallel build, parallel tests
