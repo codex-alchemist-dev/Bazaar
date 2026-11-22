@@ -51,7 +51,7 @@ public sealed class ExportBundleAssemblerTests : IDisposable
         Assert.Empty(ExportBundleWriter.Verify(bundle));
         Assert.True(BundleSigner.Verify(bundle, _key.ExportSubjectPublicKeyInfo()));
         Assert.Equal(
-            ["gc/1/events.jsonl", "manifest.json", "manifest.pub", "manifest.sig", "vault/a.md"],
+            ["README.txt", "gc/1/events.jsonl", "manifest.json", "manifest.pub", "manifest.sig", "vault/a.md"],
             bundle.Files.Select(f => f.Path).ToArray());
     }
 
@@ -64,7 +64,7 @@ public sealed class ExportBundleAssemblerTests : IDisposable
         Assert.Equal(5, entry.Bytes);
         Assert.Equal(Convert.ToHexString(SHA256.HashData("alpha"u8)).ToLowerInvariant(), entry.Sha256);
         Assert.Contains(entry.Sha256, result.Manifest);
-        Assert.Contains("\"fileCount\":2", result.Manifest);
+        Assert.Contains("\"fileCount\":3", result.Manifest);
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class ExportBundleAssemblerTests : IDisposable
 
         var expected = new byte[chunk.Length * 50];
         for (var i = 0; i < 50; i++) chunk.CopyTo(expected, i * chunk.Length);
-        var entry = Assert.Single(result.Files);
+        var entry = Assert.Single(result.Files, f => f.Path == "graph/big.bin");
         Assert.Equal(50_000, entry.Bytes);
         Assert.Equal(Convert.ToHexString(SHA256.HashData(expected)).ToLowerInvariant(), entry.Sha256);
         Assert.Empty(ExportBundleWriter.Verify(await Read(result.Directory)));

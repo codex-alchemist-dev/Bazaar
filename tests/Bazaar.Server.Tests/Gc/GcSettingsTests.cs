@@ -31,8 +31,8 @@ public sealed class GcSettingsTests
     [Fact]
     public void Both_gc_keys_are_registered_in_the_known_settings()
     {
-        Assert.True(SettingRegistry.Known.TryGet("gc.invite_policy", out var invite));
-        Assert.True(SettingRegistry.Known.TryGet("gc.edit_window_hours", out var window));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("gc.invite_policy", out var invite));
+        Assert.True(BuiltInSettingRegistries.Known.TryGet("gc.edit_window_hours", out var window));
         Assert.Same(GcSettings.InvitePolicyKey, invite);
         Assert.Same(GcSettings.EditWindowHoursKey, window);
     }
@@ -65,11 +65,24 @@ public sealed class GcSettingsTests
     }
 
     [Fact]
+    public void Owner_dm_read_marker_defaults_on_and_turning_it_off_needs_approval()
+    {
+        Assert.Equal("privacy.owner_dm_read_marker", GcSettings.OwnerDmReadMarkerKey.Name);
+        Assert.True(GcSettings.OwnerDmReadMarkerKey.Default);
+        var owner = new SettingActor("owner", SettingRole.Owner);
+        using var on = JsonDocument.Parse("true");
+        using var off = JsonDocument.Parse("false");
+
+        Assert.Equal(SettingWriteOutcome.Accepted, GcSettings.OwnerDmReadMarkerKey.Evaluate(owner, on.RootElement).Outcome);
+        Assert.Equal(SettingWriteOutcome.PendingApproval, GcSettings.OwnerDmReadMarkerKey.Evaluate(owner, off.RootElement).Outcome);
+    }
+
+    [Fact]
     public void Every_gc_key_is_registered_in_the_known_settings()
     {
         foreach (var definition in GcSettings.All)
         {
-            Assert.True(SettingRegistry.Known.TryGet(definition.Name, out var registered), definition.Name);
+            Assert.True(BuiltInSettingRegistries.Known.TryGet(definition.Name, out var registered), definition.Name);
             Assert.Same(definition, registered);
         }
     }

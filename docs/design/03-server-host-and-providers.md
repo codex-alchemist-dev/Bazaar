@@ -28,7 +28,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 
 **Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` and `.Linux` hold the OS-bound modules; the Windows assembly never loads on Linux.
 
-**Provider roles [PROPOSED].**
+**Provider kinds [PROPOSED].** A role is just the interface a family of provider modules implements; the table lists the first-party modules.
 
 | Role | Windows | Linux | Readiness |
 |---|---|---|---|
@@ -37,13 +37,13 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 | `Cache` | Garnet (S2 passed) | Valkey | optional; presence and cache only |
 | `Search` | Postgres FTS plus pgvector index | `pg_search` (WP14), Postgres FTS fallback | Postgres FTS always usable |
 
-**Provider selection [PROPOSED].** Each `host.provider.<role>` setting is `auto` or an explicit kind. `auto` is a capability probe: it picks the highest-priority candidate whose `Probe()` is usable, so FTS works on both OSes and the Vm and Cache roles differ per OS. An explicit kind that is unusable fails startup; there is no silent fallback.
+**Provider modules [PROPOSED].** A provider is just another module on Core. Core has no selector, no per-role cardinality and no `auto`/`none`/`all` setting strings. Any number of provider modules can be installed; every installed provider loads and registers, and an operator installs and configures them in the app through the module system. A module that can use providers receives all registered providers of its kind and decides for itself what to do with several: use all of them, pick by kind, take the first usable, and so on. A provider reports its own state through `Probe()`; whether an unusable provider is fatal is the consuming module's decision (for example the service host refuses to start without a usable service-manager provider). This supersedes the earlier "one provider per role, `auto` or an explicit kind" rule.
 
-**Capability reporting [PROPOSED].** Each provider returns a `ProviderStatus`. The host logs one line per role at startup. The admin CLI and the status page draw on the same report; doc 23 decides what the page shows.
+**Capability reporting [PROPOSED].** Each provider returns a `ProviderStatus` from its own `Probe()`. The host logs one line per registered provider at startup, with any number of providers per role; Core picks none of them. A required role (`host.readiness.required_roles`) counts as satisfied when at least one registered provider of that role is usable. The admin CLI and the status page draw on the same report; doc 23 decides what the page shows.
 
 **Configuration and secrets [PROPOSED].** Later layers win: defaults, `appsettings.json` beside the executable, then `BAZAAR__...` environment variables. The data root is set in config (`%ProgramData%\Bazaar` on Windows, a fixed path on Linux). Options use `ValidateOnStart`. Bootstrap values (KEK reference, database connection) are the only values kept in host config. Bootstrap secrets are references only: `env:NAME` and `file:<path>` in `Bazaar.Server`; `dpapi:<path>` and `systemd-creds:<name>` from the providers. Every other secret goes through `ISecretStore` (doc 14). Values never reach logs, config dumps or the status page.
 
-**Startup [PROPOSED].** (1) Validate config. (2) Start logging. (3) Take the instance lock (Postgres advisory lock; a second instance exits). (4) Connect and check the schema version against the build; refuse to start on mismatch in either direction. Migrations run only through the explicit `migrate` command, under the same lock (C44). (5) Probe providers; refuse to start if a required role is unusable. (6) Run the recovery sweep, which calls doc 06. (7) Start hosted services; readiness turns true.
+**Startup [PROPOSED].** (1) Validate config. (2) Start logging. (3) Take the instance lock (Postgres advisory lock; a second instance exits). (4) Connect and check the schema version against the build; refuse to start on mismatch in either direction. Migrations run only through the explicit `migrate` command, under the same lock (C44). (5) Probe providers; refuse to start if a required role has no usable provider (a readiness requirement, not a selection). (6) Run the recovery sweep, which calls doc 06. (7) Start hosted services; readiness turns true.
 
 **Data volume at start [PROPOSED, doc 63].** Between steps 2 and 3 the host opens the KEK (open only; it never creates one), verifies the encrypted data volume and checks PostgreSQL's file locations (doc 63 section 5). Any failure ends the start with one log line and exit code 78. The host never creates a key, a volume or a database cluster at start; setup and the restore wizard do. Host config gains `Bazaar:Host:BootRoot` (KEK file, volume descriptor and container) beside the data root, which becomes the mount point of the encrypted volume. `data_volume` is a readiness role that cannot be removed, and "a managed database always runs inside a verified encrypted volume" joins the floors of the settings registry.
 
@@ -73,6 +73,7 @@ public interface IServiceHost : IProvider {        // runtime only; install and 
 public interface ICacheProvider : IProvider {      // cache and presence only; never GC fan-out (C07)
     Task SetAsync(string key, ReadOnlyMemory<byte> value, TimeSpan ttl, CancellationToken ct);
     Task<ReadOnlyMemory<byte>?> GetAsync(string key, CancellationToken ct);
+    Task DeleteAsync(string key, CancellationToken ct);   // PROPOSED (doc 40 section 4c.4): matches ValkeyCacheProvider; entries also expire by TTL
 }
 public interface ISearchProvider : IProvider {
     Task IndexAsync(SearchDocument doc, CancellationToken ct);
@@ -102,10 +103,6 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
-| `host.provider.service_host` | `auto`, `windows_service`, `systemd` | `auto` | install | operator | no |
-| `host.provider.vm` | `auto`, `hyperv`, `qemu_kvm`, `none` | `auto` | install | operator | no |
-| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet on Windows, Valkey on Linux) | install | operator | no |
-| `host.provider.search` | `auto`, `postgres_fts`, `pg_search` | `auto` | install | operator | no |
 | `host.readiness.required_roles` | list of roles | `search`, `service_host` | install | operator | no |
 | `host.shutdown_timeout_seconds` | int, 5 to 120 | 20 | install | operator | no |
 | `host.service.restart_delays_minutes` | list of int | 1, 1, 5 | install | operator | no |
@@ -134,7 +131,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 - **Security.** The status listener is GET-only and loopback by default. Secret errors name the reference, never the value. The service account gets the data root and one Postgres role.
 
 ## Testing
-- Fake providers per role. Generic-host tests cover startup order, the selection matrix, "explicit unusable fails start" and "schema mismatch refuses start".
+- Fake providers per role. Generic-host tests cover startup order, the capability report with zero, one and several providers of a role, "required role with no usable provider fails start" and "schema mismatch refuses start".
 - `migrate` applies once under the instance lock; startup against an older or newer schema refuses.
 - Settings: every key has a default and a type check; a value that breaks a floor (Administrator account, non-loopback bind without approval, Postgres removed from readiness) is rejected; each change writes an audit row.
 - Real Postgres: CI service container on Linux (doc 34 L2); local Windows Postgres on the owner's PC, pending doc 34's Windows-job decision.
@@ -149,7 +146,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 
 ## Work packages
 1. Host skeleton: Worker Service, validated options, logging. [Wave 0]
-2. Provider contracts, `ProviderStatus`, selector, capability report, fakes. [Wave 0]
+2. Provider contracts, `ProviderStatus`, capability report, fakes. [Wave 0]
 3. Bootstrap secret resolver: env and file schemes. [1]
 4. Instance lock, schema-version check, startup sequence and the `migrate` subcommand (runner from doc 04). [1, 2, 04]
 5. Recovery hook: startup sweep and shutdown checkpoint wiring, calling doc 06. [4, 06]
@@ -159,7 +156,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 9. Linux module: systemd, journald, systemd-creds. [2, 3]
 10. Postgres FTS search (OS-neutral). [2, 04]
 11. Kill and stop rig; soak harness. [5, 6, 06]
-12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2]
+12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2] Status: PROPOSED (2026-11-18) for the Valkey part. Valkey becomes the `valkey` dependency module (doc 40 section 4c, doc 42 section 11.1): `Bazaar.Server.Valkey.Abstractions` and `Bazaar.Server.Valkey`. `ICacheProvider` moves to `Bazaar.Server.Providers.Abstractions` with the same namespace and gains `DeleteAsync` (PROPOSED). There is no `host.provider.cache` setting: the cache modules are installed and configured like any other module.
 13. `Vm` provider registration against doc 16's contract; S8 sizing. [2, 16]. Unblocked by C03.
 14. `pg_search` provider. Blocked on counsel review.
 15. Settings registry: typed keys, floors and validation, `setting` table, audit on change. [1, 04, 15]
@@ -178,6 +175,6 @@ ANSWERED: VM topology is two VMs per agent; S8 is for sizing only (DECISIONS-LOG
 ANSWERED: GC fan-out is Postgres NOTIFY; Valkey or Garnet serve cache and presence only (DECISIONS-LOG round 1, C07).
 
 1. **Windows KEK store.** Default: DPAPI-protected file. Alternative: Windows Credential Manager. This is key custody, so it stays a question. Blocked on doc 33 C1 (recovery on new hardware).
-2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI stays OPEN. This is product scope.
+2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI is DECIDED as a separate client module (doc 58, owner 2026-11-19); `bazaar-admin` stays the plain, scriptable path.
 
-MOVED TO SETTINGS: host.provider.service_host, host.provider.vm, host.provider.cache, host.provider.search, host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)
+MOVED TO SETTINGS: host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)
