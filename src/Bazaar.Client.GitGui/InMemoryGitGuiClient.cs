@@ -13,6 +13,9 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
     /// <summary>When set, every call throws it. Lets a test exercise the error path.</summary>
     public Exception? Failure { get; set; }
 
+    /// <summary>The repos <see cref="ListReposAsync"/> returns.</summary>
+    public List<GitRepoDto> Repos { get; } = [];
+
     public int ListCalls { get; private set; }
 
     public int FileCalls { get; private set; }
@@ -39,6 +42,12 @@ public sealed class InMemoryGitGuiClient : IGitGuiClient
         var entry = Find(provider, repo, number);
         entry.Files = [.. files];
         entry.Checks = [.. checks];
+    }
+
+    public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfFailed();
+        return Task.FromResult<IReadOnlyList<GitRepoDto>>([.. Repos]);
     }
 
     public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default)
