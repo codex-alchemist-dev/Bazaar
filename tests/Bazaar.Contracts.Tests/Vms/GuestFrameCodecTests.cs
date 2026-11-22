@@ -29,6 +29,16 @@ public class GuestFrameCodecTests
         new GetFileError("/mnt/workspace/missing.bin", "the file is missing or cannot be opened"),
         new PtyExit("pty-1", 7),
         new ExecError("ex-1", ExecRefusalCodes.CwdNotAllowed, "the working directory is outside the allowed roots"),
+        new DeleteFile("src/old.txt"),
+        new DeleteFileResult("src/old.txt", true, null),
+        new DeleteFileResult("src/old.txt", false, "the file is missing"),
+        new ListFiles("src"),
+        new ListFilesResult("src", [new GuestFileEntry("a.cs", 12, false), new GuestFileEntry("sub", 0, true)], null),
+        new ListFilesResult("nope", [], "the directory is missing"),
+        new ResolveRealPath("link/a.txt"),
+        new ResolveRealPathResult("link/a.txt", "real/a.txt", null),
+        new ResolveRealPathResult("link/out", null, null),
+        new ResolveRealPathResult("../x", null, "the path is refused"),
     ];
 
     public static TheoryData<GuestMessage, string> VersionTwoTags() =>
@@ -40,12 +50,69 @@ public class GuestFrameCodecTests
         { new ExecError("ex-1", ExecRefusalCodes.TooManyExecs, "full"), "execError" },
     };
 
+    public static TheoryData<GuestMessage, string> VersionThreeTags() =>
+    new()
+    {
+        { new DeleteFile("a"), "deleteFile" },
+        { new DeleteFileResult("a", true, null), "deleteFileResult" },
+        { new ListFiles("a"), "listFiles" },
+        { new ListFilesResult("a", [], null), "listFilesResult" },
+        { new ResolveRealPath("a"), "resolveRealPath" },
+        { new ResolveRealPathResult("a", null, null), "resolveRealPathResult" },
+    };
+
+    [Theory]
+    [MemberData(nameof(VersionThreeTags))]
+    public void Version_three_messages_use_their_tag(GuestMessage message, string tag)
+    {
+        var frame = Frame(message);
+
+        Assert.Equal(3, frame[4]);
+        Assert.Equal(tag, Encoding.ASCII.GetString(frame, 6, frame[5]));
+    }
+
+    [Fact]
+    public async Task List_files_result_keeps_entries_by_value()
+    {
+        await using var stream = new MemoryStream();
+        await GuestFrameCodec.WriteAsync(stream, new ListFilesResult("d", [new GuestFileEntry("f", 7, false), new GuestFileEntry("g", 0, true)], null), _ct);
+
+        stream.Position = 0;
+        var result = Assert.IsType<ListFilesResult>(await GuestFrameCodec.ReadAsync(stream, _ct));
+        Assert.Equal("d", result.Dir);
+        Assert.Equal([new GuestFileEntry("f", 7, false), new GuestFileEntry("g", 0, true)], result.Entries);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    public async Task Version_three_messages_ignore_unknown_fields_and_read_a_null_real_path()
+    {
+        var list = Raw(3, "listFilesResult", "{\"dir\":\"d\",\"entries\":[{\"name\":\"f\",\"size\":1,\"isDirectory\":false,\"mtime\":5}],\"error\":null,\"more\":true}");
+        var resolve = Raw(3, "resolveRealPathResult", "{\"path\":\"p\",\"realPath\":null,\"extra\":1}");
+
+        var listed = Assert.IsType<ListFilesResult>(await GuestFrameCodec.ReadAsync(new MemoryStream(list), _ct));
+        var resolved = Assert.IsType<ResolveRealPathResult>(await GuestFrameCodec.ReadAsync(new MemoryStream(resolve), _ct));
+
+        Assert.Equal("f", Assert.Single(listed.Entries).Name);
+        Assert.Null(resolved.RealPath);
+        Assert.Null(resolved.Error);
+    }
+
+    [Fact]
+    public async Task Reads_version_two_frames_from_version_two_peers()
+    {
+        var frame = Raw(2, "putFileResult", "{\"path\":\"a\",\"ok\":true,\"error\":null}");
+
+        Assert.IsType<PutFileResult>(await GuestFrameCodec.ReadAsync(new MemoryStream(frame), _ct));
+    }
+
     [Theory]
     [MemberData(nameof(VersionTwoTags))]
     public void Version_two_messages_use_their_tag(GuestMessage message, string tag)
     {
         var frame = Frame(message);
 
+        Assert.Equal(2, frame[4]);
         Assert.Equal(tag, Encoding.ASCII.GetString(frame, 6, frame[5]));
     }
 
@@ -118,10 +185,10 @@ public class GuestFrameCodecTests
         var body = Encoding.UTF8.GetString(frame, 2 + 5 + 4, frame.Length - 2 - 5 - 4);
 
         Assert.Equal((uint)(frame.Length - 4), BinaryPrimitives.ReadUInt32BigEndian(frame));
-        Assert.Equal(2, frame[4]);
+        Assert.Equal(1, frame[4]);
         Assert.Equal(5, frame[5]);
         Assert.Equal("hello", Encoding.ASCII.GetString(frame, 6, 5));
-        Assert.Equal("{\"agentVersion\":\"0.3.0\",\"vmId\":\"vm-7\",\"nonce\":\"n\"}", body);
+        Assert.Equal("{\"agentVersion\":\"0.3.0\",\"vmId\":\"vm-7\",\"nonce\":\"n\",\"protocolVersion\":0}", body);
     }
 
     [Fact]
@@ -184,7 +251,7 @@ public class GuestFrameCodecTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(3)]
+    [InlineData(4)]
     [InlineData(255)]
     public async Task Rejects_unknown_version(int version)
     {

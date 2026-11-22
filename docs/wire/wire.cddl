@@ -1,0 +1,407 @@
+; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
+; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
+
+envelope = {
+  v: uint,
+  t: tstr,
+  k: "req" / "res" / "evt" / "err",
+  ? id: tstr,
+  ? re: tstr,
+  ? s: tstr,
+  ? n: int,
+  ? ts: #6.0(tstr),
+  ? p: any,
+  * tstr => any
+}
+
+uuid-text = tstr .regexp "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+decimal-fraction = #6.4([exponent: int, mantissa: int])
+float32-array = #6.85(bstr)
+
+; Message types and the payload rule each carries.
+; board.snapshot = kanban-board-request
+; gc.edit = gc-edit
+; gc.history = gc-history
+; gc.member.add = gc-member-add
+; gc.member.remove = gc-member-remove
+; gc.message = wire-gc-message
+; gc.read = gc-read
+; gc.send = gc-send
+; graph.lod = graph-lod-frame
+; hello = hello
+; lagged = lagged
+; ping = ping
+; pong = pong
+; resync = resync
+; ryusei.trigger.list = ryusei-trigger-list-request
+; ryusei.trigger.pause = ryusei-trigger-change-request
+; ryusei.trigger.resume = ryusei-trigger-change-request
+; stream.revoked = stream-revoked
+; subscribe = subscribe
+; unsubscribe = unsubscribe
+; welcome = welcome
+
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+
+principal-kind = "owner" / "human" / "agent"
+cluster-glyph = {
+  clusterId: tstr,  ; 1
+  memberCount: -2147483648..2147483647,  ; 2
+  x: float32,  ; 3
+  y: float32,  ; 4
+  z: float32,  ; 5
+  * tstr => any
+}
+focus-request = {
+  viewId: tstr,  ; 1
+  nodeId: tstr,  ; 2
+  * tstr => any
+}
+graph-edge = {
+  from: tstr,  ; 1
+  to: tstr,  ; 2
+  ? kind: graph-edge-kind,  ; 3
+  * tstr => any
+}
+graph-edge-kind = "unspecified" / "dependsOn" / "phaseMembership" / "wikiLink"
+graph-lod-edge = {
+  a: -2147483648..2147483647,  ; 1
+  b: -2147483648..2147483647,  ; 2
+  weight: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+graph-lod-frame = {
+  s: tstr,  ; 1
+  graphVersion: int,  ; 2
+  clustersOnly: bool,  ; 3
+  clusters: [* graph-lod-glyph],  ; 4
+  clusterEdges: [* graph-lod-edge],  ; 5
+  tiles: [* graph-lod-tile],  ; 6
+  * tstr => any
+}
+graph-lod-glyph = {
+  cluster: -2147483648..2147483647,  ; 1
+  centroid: float32-array,  ; 2
+  count: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+graph-lod-tile = {
+  col: -2147483648..2147483647,  ; 1
+  row: -2147483648..2147483647,  ; 2
+  nodeIndices: [* -2147483648..2147483647],  ; 3
+  * tstr => any
+}
+graph-node = {
+  id: tstr,  ; 1
+  ? kind: graph-node-kind,  ; 2
+  * tstr => any
+}
+graph-node-kind = "unspecified" / "objective" / "phase" / "vault"
+graph-snapshot = {
+  graphVersion: int,  ; 1
+  nodes: [* graph-node],  ; 2
+  edges: [* graph-edge],  ; 3
+  * tstr => any
+}
+layout-frame = {
+  graphVersion: int,  ; 1
+  layoutSeq: int,  ; 2
+  focusId: tstr,  ; 3
+  xyz: float32-array,  ; 4
+  * tstr => any
+}
+tile-frame = {
+  viewId: tstr,  ; 1
+  graphVersion: int,  ; 2
+  layoutSeq: int,  ; 3
+  key: tile-key,  ; 4
+  tier: zoom-tier,  ; 5
+  dimensions: 0..255,  ; 6
+  nodeIds: [* tstr],  ; 7
+  xyz: float32-array,  ; 8
+  clusters: [* cluster-glyph],  ; 9
+  * tstr => any
+}
+tile-key = {
+  level: -2147483648..2147483647,  ; 1
+  x: -2147483648..2147483647,  ; 2
+  y: -2147483648..2147483647,  ; 3
+  ? z: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+viewport-request = {
+  viewId: tstr,  ; 1
+  graphVersion: int,  ; 2
+  tier: zoom-tier,  ; 3
+  minX: float32,  ; 4
+  minY: float32,  ; 5
+  minZ: float32,  ; 6
+  maxX: float32,  ; 7
+  maxY: float32,  ; 8
+  maxZ: float32,  ; 9
+  maxNodes: -2147483648..2147483647,  ; 10
+  * tstr => any
+}
+zoom-tier = "far" / "mid" / "near"
+kanban-board-card = {
+  id: uuid-text,  ; 1
+  title: tstr,  ; 2
+  state: tstr,  ; 3
+  ? ownerAgentId: uuid-text,  ; 4
+  unfinishedBlockerIds: [* uuid-text],  ; 5
+  blockerTitles: [* tstr],  ; 6
+  ? revision: int,  ; 7
+  * tstr => any
+}
+kanban-board-request = {
+  projectId: uuid-text,  ; 1
+  * tstr => any
+}
+kanban-board-snapshot = {
+  projectId: uuid-text,  ; 1
+  cards: [* kanban-board-card],  ; 2
+  * tstr => any
+}
+release-artifact = {
+  os: tstr,  ; 1
+  architecture: tstr,  ; 2
+  format: tstr,  ; 3
+  url: tstr,  ; 4
+  sizeBytes: int,  ; 5
+  sha256: tstr,  ; 6
+  ? sha256Url: tstr,  ; 7
+  ? signatureUrl: tstr,  ; 8
+  ? signature: tstr,  ; 9
+  * tstr => any
+}
+release-manifest = {
+  channel: tstr,  ; 1
+  appVersion: tstr,  ; 2
+  minProtocol: tstr,  ; 3
+  maxProtocol: tstr,  ; 4
+  schemaVersion: tstr,  ; 5
+  signingKeyFingerprint: tstr,  ; 6
+  artifacts: [* release-artifact],  ; 7
+  * tstr => any
+}
+roadmap-board-snapshot = {
+  vaultId: uuid-text,  ; 1
+  phases: [* roadmap-phase-dto],  ; 2
+  unphasedObjectives: [* roadmap-objective-dto],  ; 3
+  dependencyCycle: [* tstr],  ; 4
+  errors: [* roadmap-document-error-dto],  ; 5
+  * tstr => any
+}
+roadmap-document-error-dto = {
+  path: tstr,  ; 1
+  field: tstr,  ; 2
+  message: tstr,  ; 3
+  * tstr => any
+}
+roadmap-objective-dto = {
+  path: tstr,  ; 1
+  title: tstr,  ; 2
+  phaseSlug: tstr,  ; 3
+  status: tstr,  ; 4
+  ? owner: tstr,  ; 5
+  dependsOn: [* tstr],  ; 6
+  progress: roadmap-progress-dto,  ; 7
+  * tstr => any
+}
+roadmap-phase-dto = {
+  slug: tstr,  ; 1
+  path: tstr,  ; 2
+  title: tstr,  ; 3
+  gatePassed: bool,  ; 4
+  objectiveCount: -2147483648..2147483647,  ; 5
+  openObjectives: -2147483648..2147483647,  ; 6
+  objectives: [* roadmap-objective-dto],  ; 7
+  * tstr => any
+}
+roadmap-progress-dto = {
+  linkedTasks: -2147483648..2147483647,  ; 1
+  backlog: -2147483648..2147483647,  ; 2
+  ready: -2147483648..2147483647,  ; 3
+  inProgress: -2147483648..2147483647,  ; 4
+  review: -2147483648..2147483647,  ; 5
+  done: -2147483648..2147483647,  ; 6
+  ? doneShare: decimal-fraction,  ; 7
+  * tstr => any
+}
+ryusei-trigger-change-reply = {
+  triggerId: uuid-text,  ; 1
+  version: int,  ; 2
+  * tstr => any
+}
+ryusei-trigger-change-request = {
+  triggerId: uuid-text,  ; 1
+  * tstr => any
+}
+ryusei-trigger-chip = {
+  triggerId: uuid-text,  ; 1
+  ? taskId: uuid-text,  ; 2
+  kind: tstr,  ; 3
+  state: tstr,  ; 4
+  ? nextFireAt: #6.0(tstr),  ; 5
+  purpose: tstr,  ; 6
+  version: int,  ; 7
+  * tstr => any
+}
+ryusei-trigger-list-reply = {
+  projectId: uuid-text,  ; 1
+  triggers: [* ryusei-trigger-chip],  ; 2
+  * tstr => any
+}
+ryusei-trigger-list-request = {
+  projectId: uuid-text,  ; 1
+  * tstr => any
+}
+gc-edit = {
+  gcId: uuid-text,  ; 1
+  messageId: uuid-text,  ; 2
+  text: tstr,  ; 3
+  * tstr => any
+}
+gc-history = {
+  gcId: uuid-text,  ; 1
+  before: int,  ; 2
+  limit: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+gc-member-add = {
+  gcId: uuid-text,  ; 1
+  principalId: uuid-text,  ; 2
+  kind: principal-kind,  ; 3
+  role: tstr,  ; 4
+  * tstr => any
+}
+gc-member-remove = {
+  gcId: uuid-text,  ; 1
+  principalId: uuid-text,  ; 2
+  * tstr => any
+}
+gc-page = {
+  items: [* wire-gc-message],  ; 1
+  hasMore: bool,  ; 2
+  * tstr => any
+}
+gc-read = {
+  gcId: uuid-text,  ; 1
+  upToN: int,  ; 2
+  * tstr => any
+}
+gc-send = {
+  gcId: uuid-text,  ; 1
+  text: tstr,  ; 2
+  ? mentions: [* uuid-text],  ; 3
+  ? replyToN: int,  ; 4
+  * tstr => any
+}
+gc-send-result = {
+  n: int,  ; 1
+  ev: int,  ; 2
+  * tstr => any
+}
+hello = {
+  versionMin: -2147483648..2147483647,  ; 1
+  versionMax: -2147483648..2147483647,  ; 2
+  minor: -2147483648..2147483647,  ; 3
+  codecs: [* tstr],  ; 4
+  deviceId: tstr,  ; 5
+  deviceClass: tstr,  ; 6
+  clientBuild: tstr,  ; 7
+  ? credential: tstr,  ; 8
+  ? cursors: [* stream-cursor],  ; 9
+  * tstr => any
+}
+lagged = {
+  s: tstr,  ; 1
+  lastSent: int,  ; 2
+  * tstr => any
+}
+ping = {
+  ? nonce: tstr,  ; 1
+  * tstr => any
+}
+pong = {
+  ? nonce: tstr,  ; 1
+  * tstr => any
+}
+resync = {
+  s: tstr,  ; 1
+  latestN: int,  ; 2
+  latestEv: int,  ; 3
+  unread: -2147483648..2147483647,  ; 4
+  tail: [* wire-gc-message],  ; 5
+  * tstr => any
+}
+stream-cursor = {
+  s: tstr,  ; 1
+  after: int,  ; 2
+  editAfter: int,  ; 3
+  * tstr => any
+}
+stream-result = {
+  s: tstr,  ; 1
+  status: tstr,  ; 2
+  * tstr => any
+}
+stream-revoked = {
+  s: tstr,  ; 1
+  * tstr => any
+}
+subscribe = {
+  streams: [* stream-cursor],  ; 1
+  * tstr => any
+}
+subscribe-result = {
+  results: [* stream-result],  ; 1
+  * tstr => any
+}
+unsubscribe = {
+  streams: [* tstr],  ; 1
+  * tstr => any
+}
+welcome = {
+  version: -2147483648..2147483647,  ; 1
+  minor: -2147483648..2147483647,  ; 2
+  codec: tstr,  ; 3
+  principalId: uuid-text,  ; 4
+  serverTime: #6.0(tstr),  ; 5
+  heartbeatIntervalS: -2147483648..2147483647,  ; 6
+  heartbeatTimeoutS: -2147483648..2147483647,  ; 7
+  limits: wire-limits,  ; 8
+  capabilities: [* tstr],  ; 9
+  uiRevision: int,  ; 10
+  ? upgradeRequired: bool,  ; 11
+  ? minimumBuild: tstr,  ; 12
+  ? schemaVersion: tstr,  ; 13
+  ? previousMajorSupported: bool,  ; 14
+  * tstr => any
+}
+wire-error = {
+  code: tstr,  ; 1
+  ? message: tstr,  ; 2
+  ? retryAfterMs: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+wire-gc-message = {
+  gcId: uuid-text,  ; 1
+  n: int,  ; 2
+  ev: int,  ; 3
+  messageId: uuid-text,  ; 4
+  authorId: uuid-text,  ; 5
+  text: tstr,  ; 6
+  ts: #6.0(tstr),  ; 7
+  edited: bool,  ; 8
+  mentions: [* uuid-text],  ; 9
+  ? replyToN: int,  ; 10
+  * tstr => any
+}
+wire-limits = {
+  maxFrameBytes: -2147483648..2147483647,  ; 1
+  inflightRequestsMax: -2147483648..2147483647,  ; 2
+  replayPageSize: -2147483648..2147483647,  ; 3
+  * tstr => any
+}

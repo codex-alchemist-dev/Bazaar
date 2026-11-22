@@ -78,6 +78,8 @@ Release builds (doc 37) keep line tables in a symbol bundle that the company ser
 
 **Module versions.** Every loaded module id with its version and build id, plus the client version string and channel. This is what lets the server tie a crash to one build.
 
+**Support bundle (cross-reference, 2026-11-22).** A person can also write a local, redacted zip of recent logs, the module list and the last crash record with `--support-bundle`. It uses this section's redactor and floors, is never sent by Bazaar, and is specified in doc 37 section 4d.
+
 ### 4.2 Where capture runs
 
 Capture runs in-process. It hooks the unhandled-exception events of the runtime (`AppDomain` and unobserved task exceptions on Windows and Linux; the uncaught-exception handler on Android). Handled exceptions are captured only when the code calls the reporting API with an error code. It does no I/O on the failing thread. It copies the capture into a bounded in-memory structure and writes one file to the local report queue on a background thread at the next safe point. If the process dies before the write, the report is lost; that is accepted, and the crash-on-last-run path (section 7.4) covers what it can.
@@ -412,7 +414,7 @@ Audit rows never contain report content. They carry ids, hashes and counts.
 
 ### 12.1 Ingestion, in order
 
-1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32).
+1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32). The first submission of an install id binds it to the authenticated device; a different device presenting a bound id is refused (doc 32, "Crash install binding" [DECIDED]).
 2. Check size caps and the schema version. Unknown versions are refused with an error the client can show.
 3. Re-run the redaction validator (section 6). Any canary or residual match refuses the report and audits the refusal.
 4. Check the attachment hash and image headers (magic bytes, dimension cap, no embedded metadata beyond size).

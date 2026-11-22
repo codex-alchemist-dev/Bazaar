@@ -47,13 +47,17 @@ public static class StatusEndpoints
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
 
+    /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
+    private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
+
     /// <summary>
-    /// The refresh and handoff routes (<c>/auth/refresh</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
+    /// The refresh, sign-out and handoff routes (<c>/auth/refresh</c>, <c>/auth/signout</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
     /// nothing else; any other method on these paths is a 405.
     /// </summary>
     private static bool IsPostOnlyRoute(PathString path) =>
         path.Value is { } value
         && (path.Equals("/auth/refresh", StringComparison.OrdinalIgnoreCase)
+            || path.Equals("/auth/signout", StringComparison.OrdinalIgnoreCase)
             || path.Equals("/auth/handoff", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
@@ -80,7 +84,7 @@ public static class StatusEndpoints
         }
         else
         {
-            var isApi = IsApiRoute(path);
+            var isApi = IsApiRoute(path) || IsSetupRoute(path);
             allowed = HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || (isApi && (HttpMethods.IsPost(method) || HttpMethods.IsPatch(method)));
             allow = isApi ? "GET, HEAD, POST, PATCH" : "GET, HEAD";
         }

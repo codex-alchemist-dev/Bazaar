@@ -23,6 +23,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Passport store** [PROPOSED]: ciphertext rows in host Postgres, in a schema that agent-facing database roles cannot reach.
 - **Identity Service** [PROPOSED]: a low-privilege host process. It is the only holder of decryption keys (through the KEK provider). It exposes `RequestAccess`, brokered calls, a credential-lease broker and a token minter.
 - **`ISecretStore`** (C05): the one server-side store for every secret that is not a bootstrap value. It holds provider API keys (Anthropic, FreeLLMAPI, other gateway upstreams), GitHub App private keys, OAuth refresh tokens and owner-class credentials. Only the KEK reference and the database credential are bootstrap values, resolved by 03. Consumers are host-side: the gateway (05) and the git provider (`IGitProvider`, C12). No VM, agent tool or browser reads the store. [PROPOSED] Each read names a purpose that policy must allow.
+- **`secret://bazaar/` resolution** [PROPOSED]: `SecretStoreResolver` (in `Bazaar.Secrets`) implements `ISecretResolver` over `ISecretStore`, so setup, gateway and backup references resolve one way. `secret://bazaar/<a>/<b>/...` maps to the installation scope, and the secret name is the segments joined with `.` and lowercased (`secret://bazaar/providers/anthropic/key` reads `providers.anthropic.key`). A path whose name fails `SecretName` is refused. The read is made by host component `secret-reference-resolver` with purpose `secret-reference.resolve`, so policy must hold `SecretGrant("secret-reference-resolver", "installation", null, "secret-reference.resolve")` (narrow it with a name per secret where the operator wants). A missing secret, a denial, an empty value or a store fault all throw `SecretResolutionException` with a fixed reason; no value or inner message is surfaced. Host wiring waits for a durable record repository, audit sink and agent registry.
 - **Owner-class credentials:** the owner merge credential, in either form from C25. No agent lease can name an owner-class credential. The server performs merges only on signed owner approval (21, 28).
 - **Owner approval signing key:** the device-held key that signs a merge approval is not defined here. Doc 32 owns that key class (28 flagged the gap). Until 32 defines it, this doc makes no claim about it.
 - **Approvals and audit** are owned by 15 (`approval`, `audit_log`). This doc calls them and defines no tables for either.
@@ -58,6 +59,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - One data key (DEK) per Soul, with an installation-scope DEK for provider and App keys. Each secret is AEAD-encrypted with a unique nonce.
 - DEKs are wrapped by a host key-encryption key (KEK) behind a provider interface. This doc owns the `soul_dek` table. The GC per-person key table is in 04.
 - Rotation re-wraps DEKs; it does not re-encrypt every row. Soul deletion destroys that Soul's DEK (crypto-shred).
+- **Access-token signing key** [PROPOSED] (doc 32 section 5): an install-scope key with scope `access-token`, one live row in `soul_dek`. It signs HMAC-SHA256 access tokens. It is wrapped by the same KEK, rotated on `auth.signing_key_rotation_days`, and crypto-shredded once its retired window and the token lifetime have passed. Only the Identity Service holds it. Never exported, never logged, never in the Soul export.
 
 | KEK option | Fit | Research finding |
 |---|---|---|
@@ -92,6 +94,8 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - **DECIDED:** a vTPM (swtpm, Hyper-V, QEMU) is accepted but classed as weaker custody, because the hypervisor host can read its state. Setup shows a warning and the audit log records the custody class. A vTPM never counts as hardware custody for the doc 48 floors.
 - **DECIDED:** on a Linux host that is itself a VM, the default is `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning above.
 
+**KEK location and creation [PROPOSED, doc 63].** The KEK file moves from `<data root>/keys` to `<boot root>/keys`, because the data root becomes an encrypted volume whose key is wrapped by the KEK. The host opens the KEK at start and never creates it: a missing or empty key file is a refusal (`data_volume_not_initialised`), not a reason to mint a key. Only setup and the restore wizard create one.
+
 **Key escrow** [PROPOSED]: a sealed offline KEK copy, held by the owner by default (setting below). Losing every copy means every credential is re-issued. The restore drill decrypts from that copy.
 
 **GitHub Apps** [PROPOSED]
@@ -113,12 +117,22 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - Global: stop all egress and all Tier 1+ tools.
 - Both are tested on a schedule.
 
+## Module layout
+
+Identity is a feature module on `Bazaar.Core` (`docs/design/40-core-feature-modules-audit.md` section 4). Projects:
+
+- `Bazaar.Server.Identity.Abstractions`: `IdentityContracts`, and the lease interfaces and `CredentialLease`. Other modules reference only this project. The KEK contract (`IKekProvider`, `KekUnwrapException`, namespace `Bazaar.Server.Identity.Keys`) stays in `Bazaar.Server` for now; the KEK thread decides its move.
+- `Bazaar.Server.Identity`: the implementation (leases, browser profiles, GitHub App tokens, mount, TOTP). Namespaces stay `Bazaar.Server.Identity.*`.
+- `Bazaar.Server.Identity.Postgres`: the durable lease store.
+
+Security types used here (`ToolTier`, taint) come from `Bazaar.Server.Security.Abstractions`. No Server feature code is added to `Bazaar.Server` or `Bazaar.Core`.
+
 ## Data and interfaces
 
 ```
 -- Sketches only; not migrations. Migrations are applied by `migrate` (C44).
 soul_dek(scope, dek_id, wrapped_dek bytea, kek_id, created_at, retired_at)
-   -- scope = soul_id, or 'install' for provider and App keys
+   -- scope = soul_id, 'install' for provider and App keys, or 'access-token' for the token signing key (doc 32 section 5)
 credential(credential_id, soul_id null, service, kind, handle, ciphertext bytea,
            nonce bytea, dek_id, tier, status, created_at, rotated_at, expires_at)
    -- kind: provider_key | app_key | owner | oauth | cookie | ssh | totp | recovery
@@ -175,6 +189,9 @@ interface IIdentityService {
 - **Reader sessions** are tool-less and request no leases [PROPOSED].
 - **Secrets in output:** brokered results are scanned for credential patterns before they reach a GC or the Vault.
 
+**Lease observers** [PROPOSED]
+`ILeaseObserver` (in `Bazaar.Server.Identity.Abstractions`) lets another module hear lease changes without Identity depending on it. `IdentityService` calls every registered observer after a lease is stored and audited (`OnIssuedAsync(CredentialLease)`) and after a revocation is stored and audited (`OnRevokedAsync(RevocationScope)`, agent-wide or global, including the revocation done when a quarantined agent asks). The lease carries ids and timing only, never a secret value; an observer that needs the value resolves it itself host-side through `ISecretStore`. The lease id (`lease.Id.Value.ToString()`) is the stable key an observer pairs issue and revoke on. A throwing observer is logged and never changes an access decision or a revocation. The first user is the leased-credential matcher in Security (doc 15).
+
 ## Testing
 - **Real Postgres:** agent-facing roles cannot read the Passport schema. Crypto-shred leaves ciphertext unreadable. The restore drill decrypts from the offline KEK copy.
 - **Fakes:** KEK provider and GitHub endpoint cover token mint, scope narrowing, expiry, and a push token that never reaches a VM path.
@@ -203,7 +220,7 @@ interface IIdentityService {
 - **Windows KEK custody vs recovery on new hardware** (33 C1, open): DPAPI machine scope needs a second master-key copy to recover. The provider and recovery location are settings; the recovery gap itself stays open in 33.
 - **Erasure legal sufficiency** (C01): key destruction is not yet validated by counsel.
 - **GitHub App token lifetime** is unverified until test T4 (21 C3).
-- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; 33 Q15 confirms.
+- **Cookie profile in backups** (for 33): 33 snapshots Soul folders, and the mount holds cookies. 15 excludes cookie profiles from backups by default [PROPOSED]; doc 33, "Cookie profile exclusion [PROPOSED]", confirms.
 - **Canary detection and per-agent share and OS account** (for 15): 15 must define the detection event that canary use raises.
 - **Owner approval signing key** (for 32, flagged by 28): the device-held key class is not yet defined.
 - **Already decided, for other docs:** 16 and 17 drop any blanket Passport-free browser VM (C22). 16 Q2's second share stays an explicit exception (C02). 03 and 05 reduce their resolvers to bootstrap values (C05). 27 renames its client store interface (C05).
