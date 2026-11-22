@@ -22,9 +22,13 @@ public sealed class CompanyReadRoutesTests
     private sealed class OneToken : IConnectionAuthenticator
     {
         public ValueTask<AuthResult> AuthenticateAsync(HelloCredential? credential, DeviceInfo device, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(credential?.Value == "good"
-                ? AuthResult.Success(new PrincipalRef(Guid.NewGuid(), "human"))
-                : AuthResult.Fail("unknown"));
+            ValueTask.FromResult(credential?.Value switch
+            {
+                "good" => AuthResult.Success(new PrincipalRef(Guid.NewGuid(), "human")),
+                "owner" => AuthResult.Success(new PrincipalRef(Guid.NewGuid(), "owner")),
+                "alice" => AuthResult.Success(new PrincipalRef(OneFrame.AgentId, "agent")),
+                _ => AuthResult.Fail("unknown"),
+            });
     }
 
     private sealed class EmptyRelations : IOrgRelationReader
@@ -150,6 +154,22 @@ public sealed class CompanyReadRoutesTests
             Assert.Equal(OneFrame.AgentId.ToString(), agent.GetProperty("agentId").GetString());
             Assert.Equal("Alice", agent.GetProperty("name").GetString());
             Assert.Equal("owner", Assert.Single(agent.GetProperty("frames").EnumerateArray()).GetProperty("source").GetString());
+        }
+    }
+
+    [Theory]
+    [InlineData("good", "(private)")]
+    [InlineData("owner", "look at this")]
+    [InlineData("alice", "look at this")]
+    public async Task Interrupts_route_opens_reasons_only_for_the_owner_and_the_agent_itself(string token, string expected)
+    {
+        var (app, client) = await StartAsync();
+        await using (app)
+        {
+            var response = await client.SendAsync(Post("/company/interrupts", token), TestContext.Current.CancellationToken);
+            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+            var frame = doc.RootElement.GetProperty("agents")[0].GetProperty("frames")[0];
+            Assert.Equal(expected, frame.GetProperty("reason").GetString());
         }
     }
 

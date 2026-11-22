@@ -26,12 +26,13 @@ internal static class Program
     public static int Main(string[] args)
     {
         if (DefaultAppCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultAppExit) { return defaultAppExit; }
+        if (DefaultTerminalCommandLine.TryRun(args, Environment.ProcessPath, Console.Out, Console.Error) is { } defaultTerminalExit) { return defaultTerminalExit; }
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
         ChatConnectionSettings? settings;
         try
         {
-            settings = ChatConnectionSettings.FromEnvironment(Environment.GetEnvironmentVariable);
+            settings = ChatConnectionSettings.FromEnvironment(LinuxClientSessions.EnvWithStoredToken(Environment.GetEnvironmentVariable));
         }
         catch (ArgumentException ex)
         {
@@ -61,8 +62,9 @@ internal static class Program
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
         // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
         using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
+        args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>

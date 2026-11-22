@@ -1,10 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12",
+  "x-schemaHash": "sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692",
   "x-messages": {
+    "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
     "gc.history": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcHistory" },
@@ -19,6 +20,8 @@
     "pane.frame": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PaneFrame" },
     "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
     "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
+    "presence.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
+    "presence.update": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceUpdate" },
     "resync": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Resync" },
     "ryusei.trigger.list": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest" },
     "ryusei.trigger.pause": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
@@ -181,6 +184,27 @@
       "additionalProperties": true
     },
     "Bazaar.Contracts.Graph.ZoomTier": { "anyOf": [ { "type": "string", "enum": ["far", "mid", "near"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
+    "Bazaar.Contracts.Kanban.KanbanAssignReply": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "revision": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanAssignRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "cardId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "assigneeAgentId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "expectedRevision": { "type": "integer" }
+      },
+      "required": ["projectId", "cardId", "expectedRevision"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Kanban.KanbanBoardCard": {
       "type": "object",
       "properties": {
@@ -481,6 +505,44 @@
       "required": [],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.PresenceSnapshot": {
+      "type": "object",
+      "properties": {
+        "rows": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WirePresenceRow" } }
+      },
+      "required": ["rows"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.PresenceSnapshotRequest": {
+      "type": "object",
+      "properties": {
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.PresenceTyping": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string" },
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "principalId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "typing": { "type": "boolean" },
+        "ttlMs": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["kind", "gcId", "principalId", "typing", "ttlMs"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.PresenceUpdate": {
+      "type": "object",
+      "properties": {
+        "kind": { "type": "string" },
+        "agentId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "revision": { "type": "integer" },
+        "row": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WirePresenceRow" }
+      },
+      "required": ["kind", "agentId", "revision", "row"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.Resync": {
       "type": "object",
       "properties": {
@@ -601,6 +663,24 @@
         "replayPageSize": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
       },
       "required": ["maxFrameBytes", "inflightRequestsMax", "replayPageSize"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WirePresenceRow": {
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "revision": { "type": "integer" },
+        "availability": { "type": "string" },
+        "overlays": { "type": "array", "items": { "type": "string" } },
+        "presence": { "type": "string" },
+        "activityKind": { "type": "string" },
+        "gcId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "turnId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] },
+        "label": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "since": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["agentId", "revision", "availability", "overlays", "presence", "activityKind", "since", "updatedAt"],
       "additionalProperties": true
     }
   }

@@ -22,6 +22,7 @@ public sealed class InterruptsReadRouteTests : IAsyncLifetime
     private static readonly Guid _gc = Guid.Parse("00000000-0000-7000-8000-0000000000c3");
 
     private readonly FakeReader _reader = new();
+    private InterruptViewer? _viewer = new(Guid.Parse("00000000-0000-7000-8000-0000000000f0"), true);
     private IResult? _refusal;
     private int _guardCalls;
     private WebApplication _app = null!;
@@ -52,6 +53,11 @@ public sealed class InterruptsReadRouteTests : IAsyncLifetime
         if (directory is not null)
         {
             builder.Services.AddSingleton(directory);
+        }
+
+        if (_viewer is not null)
+        {
+            builder.Services.AddSingleton(_viewer);
         }
 
         var app = builder.Build();
@@ -113,6 +119,58 @@ public sealed class InterruptsReadRouteTests : IAsyncLifetime
         Assert.Equal("suspended", bobFrames[1].GetProperty("state").GetString());
         Assert.Equal("look at the demo", bobFrames[1].GetProperty("reason").GetString());
         Assert.Equal(t0, ParseUtc(bobFrames[1].GetProperty("pushedAt").GetString()!));
+    }
+
+    [Fact]
+    public async Task Owner_sees_every_reason()
+    {
+        _reader.Rows = [Frame(_alice, InterruptSource.Owner, "secret a", InterruptFrameState.Active, DateTimeOffset.UnixEpoch),
+            Frame(_bob, InterruptSource.Owner, "secret b", InterruptFrameState.Active, DateTimeOffset.UnixEpoch)];
+
+        Assert.Equal(["secret a", "secret b"], await ReasonsAsync());
+    }
+
+    [Fact]
+    public async Task Agent_sees_only_its_own_reasons()
+    {
+        _viewer = new InterruptViewer(_alice, false);
+        await using var app = await StartAsync(_reader, new FakeDirectory());
+        _reader.Rows = [Frame(_alice, InterruptSource.Owner, "secret a", InterruptFrameState.Active, DateTimeOffset.UnixEpoch),
+            Frame(_bob, InterruptSource.Owner, "secret b", InterruptFrameState.Active, DateTimeOffset.UnixEpoch)];
+
+        Assert.Equal(["secret a", InterruptVisibilityRules.RedactedReason], await ReasonsAsync(app));
+    }
+
+    [Fact]
+    public async Task Without_a_registered_viewer_every_reason_is_redacted_and_the_frame_stays()
+    {
+        _viewer = null;
+        await using var app = await StartAsync(_reader, new FakeDirectory());
+        var frame = Frame(_alice, InterruptSource.SystemBuild, "secret a", InterruptFrameState.Suspended, DateTimeOffset.UnixEpoch);
+        _reader.Rows = [frame];
+        using var http = new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+
+        using var response = await http.PostAsync(
+            "/company/interrupts", new StringContent("{}", Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
+        var text = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        Assert.DoesNotContain("secret", text);
+        var f = Assert.Single(JsonElement.Parse(text).GetProperty("agents")[0].GetProperty("frames").EnumerateArray());
+        Assert.Equal(InterruptVisibilityRules.RedactedReason, f.GetProperty("reason").GetString());
+        Assert.Equal(frame.Id.ToString(), f.GetProperty("id").GetString());
+        Assert.Equal("system_build", f.GetProperty("source").GetString());
+        Assert.Equal("suspended", f.GetProperty("state").GetString());
+    }
+
+    private async Task<string[]> ReasonsAsync(WebApplication? app = null)
+    {
+        using var http = app is null ? _http : new HttpClient { BaseAddress = new Uri(app.Urls.First()) };
+        using var response = await http.PostAsync(
+            "/company/interrupts", new StringContent("{}", Encoding.UTF8, "application/json"), TestContext.Current.CancellationToken);
+        var model = JsonElement.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        return model.GetProperty("agents").EnumerateArray()
+            .SelectMany(a => a.GetProperty("frames").EnumerateArray())
+            .Select(f => f.GetProperty("reason").GetString()!).ToArray();
     }
 
     [Fact]
@@ -206,7 +264,7 @@ public sealed class InterruptsReadRouteTests : IAsyncLifetime
     {
         var done = Frame(_alice, InterruptSource.Owner, "old", InterruptFrameState.Done, DateTimeOffset.UnixEpoch);
 
-        var model = JsonElement.Parse(InterruptsReadRoute.WriteModel([done], new Dictionary<Guid, string>()));
+        var model = JsonElement.Parse(InterruptsReadRoute.WriteModel([done], new Dictionary<Guid, string>(), InterruptViewer.Anonymous));
 
         Assert.Empty(model.GetProperty("agents").EnumerateArray());
     }

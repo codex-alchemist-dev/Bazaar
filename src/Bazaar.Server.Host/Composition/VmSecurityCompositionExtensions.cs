@@ -28,8 +28,8 @@ namespace Bazaar.Server.Host.Composition;
 /// <item><description><b>Egress allowlist store</b>: only the in-memory store exists; allowlist growth is lost on restart. A durable store is unbuilt.</description></item>
 /// <item><description><b>Egress allowlist settings</b>: <c>security.egress.default_allowlist</c> and <c>vm.egress.allowlist_change_approval</c> have no
 /// setting contribution yet, so the options keep their shipped values (empty allowlist, approval tier floor).</description></item>
-/// <item><description><b>Taint lookup</b>: no <see cref="IAgentSessionTaintLookup"/> exists (the agent to session map lives in Bazaar.Server, which modules may not
-/// reference), so the egress taint reader cannot read a session and the gate denies growth requests.</description></item>
+/// <item><description><b>Taint</b>: the egress taint reader uses Security's <c>IAgentSessionTaintReader</c>, which the agent-turns component registers; if
+/// that reader is absent the gate denies growth requests.</description></item>
 /// <item><description><b>Scoped mounts</b>: the three host ports now have implementations in <c>Bazaar.Server.VmMounts.Providers</c>
 /// (<see cref="MountProvidersRegistration.AddBazaarVmMountProviders"/>): an SMB provider on a Windows host, a directory provider elsewhere, a
 /// guest channel adapter and a canary sink that audits and contains. They are registered, and the mount module composed, only when the
@@ -40,8 +40,8 @@ namespace Bazaar.Server.Host.Composition;
 /// attach rolls back at the profile copy and only workspace mounts complete; SMB canary reads cannot be observed; the guest-side mount is unbuilt.</description></item>
 /// <item><description><b>Guest scrubber</b>: the real <c>VmGuestScrubber</c> needs a VM lifecycle service, which exists only when a VM backend is configured
 /// (<c>Bazaar:Vms:WindowsSandbox</c>). Without one the scrubber stays unavailable and refuses.</description></item>
-/// <item><description><b>Approvals and taint</b>: the egress port uses the approvals service from agent safety; the owner-approval verifier and the
-/// taint lookup above are the unbuilt parts.</description></item>
+/// <item><description><b>Approvals</b>: the egress port uses the approvals service from agent safety; the owner-approval verifier is the unbuilt
+/// part.</description></item>
 /// </list>
 /// <para>
 /// The guest transport listener is registered by <see cref="VmTransportRegistration.AddBazaarVmTransport"/> (vsock on Linux). On Windows the host
