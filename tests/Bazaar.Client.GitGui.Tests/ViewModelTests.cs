@@ -216,6 +216,8 @@ public sealed class PrDetailViewModelTests
     {
         private bool _moved;
 
+        public Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default) => inner.ListReposAsync(cancellationToken);
+
         public int FileCalls { get; private set; }
 
         public Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default) =>
