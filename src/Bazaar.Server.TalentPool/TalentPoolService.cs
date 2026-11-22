@@ -25,7 +25,7 @@ public sealed class TalentPoolService(
     public async Task<TemplateSubmitResult> SubmitAsync(SoulManifest manifest, string actorId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
-        ManifestValidator.Validate(manifest, whitelist);
+        await ManifestValidator.ValidateAsync(manifest, whitelist, ct);
         var id = ManifestValidator.TemplateIdFor(manifest.Name);
         var sha = ManifestValidator.ContentSha(manifest);
 
@@ -88,7 +88,7 @@ public sealed class TalentPoolService(
 
         foreach (var model in t.Manifest.ModelWhitelist)
         {
-            if (!whitelist.IsAllowed(model))
+            if (!await whitelist.IsAllowedAsync(model, ct))
             {
                 throw new InstantiationRefusedException($"Model '{model}' is no longer on the install whitelist.");
             }
