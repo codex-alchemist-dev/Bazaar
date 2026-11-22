@@ -81,6 +81,18 @@ Doc 93 makes colours, materials, type, spacing, durations, springs and each micr
 - `invoke` runs through the same approval tier as the control it mirrors (doc 41 section 6, rule 3). A view cannot lower a tier.
 - No action sends a raw wire call. Wire access stays in the module's declared capabilities.
 
+### 6.1 Action arguments (PROPOSED, 2026-11-19)
+
+Status: PROPOSED. Found while porting the RyuseiFuda schedule pane: a button inside a list row (pause or resume this trigger, open this chat) must say which row it acts on, and an action id alone cannot. This stays inside the closed set of section 6.
+
+- A `button` may carry an optional `args` prop: a map of argument names to values. Each value is a literal or a Rubedo expression, resolved in the button's scope, so inside a list template the row's fields are available (`{ "id": { "expr": "id" } }`).
+- Arguments are named, flat and scalar (text, number, bool). The validator rejects a nested value, a name that is not an identifier, more than 8 arguments, and an expression that does not compile against the item schema.
+- Only `invoke`, `navigate`, `openPane` and `setSetting` accept arguments, and the action's target still comes from the document's `actions` entry, never from `args`. A view cannot change which command runs, only what it runs on, so no action becomes a raw wire call.
+- The head receives the arguments with the target. `IViewActions` gains an overload that takes the argument map; the tier check of section 6 runs on the command before the arguments are read, and the module's command declares the argument names and types it accepts. An undeclared or mistyped argument fails the action closed and is reported through the error callback.
+- Argument values are evaluated when the button is clicked, from the data the view was built with, not from a later update.
+
+Open for the owner (cards only if the owner wants them): whether `args` should also be allowed on `input` change actions (the value is already passed there).
+
 ## 7. Accessibility and i18n (from day one, owner decision)
 
 - Every `button`, `icon` and `input` needs a label: a localisation key or a literal. Validation fails without one.
