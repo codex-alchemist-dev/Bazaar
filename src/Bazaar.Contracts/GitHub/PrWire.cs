@@ -58,6 +58,9 @@ public sealed record PrListRequest(string? Repo, PrListState State, string? Curs
 /// <param name="HeadSha">Current head sha. A client sends it back on hunks, review and merge.</param>
 /// <param name="Checks">Checks rollup at <paramref name="HeadSha"/>.</param>
 /// <param name="Revision">Monotonic revision of this row; it changes whenever the PR's head or state does.</param>
+/// <param name="InstallationId">GitHub App installation that reads the repo. Null from a server that predates the identity fields; a client then cannot merge.</param>
+/// <param name="Owner">Repo owner login, the first half of <paramref name="Repo"/>. Null from an older server.</param>
+/// <param name="RepoName">Repo name, the second half of <paramref name="Repo"/>. Null from an older server.</param>
 public sealed record PrListRow(
     string PrId,
     string Repo,
@@ -68,7 +71,10 @@ public sealed record PrListRow(
     bool Draft,
     string HeadSha,
     PrChecksRollup Checks,
-    long Revision);
+    long Revision,
+    long? InstallationId = null,
+    string? Owner = null,
+    string? RepoName = null);
 
 /// <summary>Reply to <c>pr.list</c>.</summary>
 /// <param name="Rows">The page.</param>
@@ -94,6 +100,10 @@ public sealed record PrChangedFile(string Path, string Status, int Additions, in
 /// <param name="Checks">Checks rollup at <paramref name="HeadSha"/>.</param>
 /// <param name="ReviewerApproved">Reviewer approval flag. It is data only, never merge authority (doc 21).</param>
 /// <param name="LinkedCardId">The Kanban card this PR is tied to, or null.</param>
+/// <param name="InstallationId">GitHub App installation for this PR, or null from an older server.</param>
+/// <param name="Owner">Repo owner login, or null from an older server.</param>
+/// <param name="RepoName">Repo name, or null from an older server.</param>
+/// <param name="Number">PR number, or null from an older server.</param>
 public sealed record PrSummaryReply(
     string PrId,
     string HeadSha,
@@ -101,7 +111,11 @@ public sealed record PrSummaryReply(
     IReadOnlyList<PrChangedFile> Files,
     PrChecksRollup Checks,
     bool ReviewerApproved,
-    Guid? LinkedCardId);
+    Guid? LinkedCardId,
+    long? InstallationId = null,
+    string? Owner = null,
+    string? RepoName = null,
+    int? Number = null);
 
 /// <summary>Whether a head-keyed reply answered for the head the client asked about.</summary>
 [JsonConverter(typeof(JsonStringEnumConverter<PrHunksStatus>))]

@@ -494,7 +494,7 @@ jobs:
           retention-days: 7
 
   package-android:
-    name: Package Android APK
+    name: Package Android APK and AAB
     needs: packaging-detect
     # Runs only once src/Bazaar.Client.Android exists (doc 29). Unsigned: no keystore is read here.
     if: needs.packaging-detect.outputs.android == 'true'
@@ -521,17 +521,23 @@ jobs:
       - name: Install .NET Android workload
         run: dotnet workload install android
 
-      - name: Publish unsigned APK
+      - name: Build unsigned APK and AAB
         shell: bash
         run: |
           set -euo pipefail
           semver="${TAG#v}"
-          dotnet publish src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
-            -c Release -p:AndroidPackageFormat=apk -o stage/android
-          apk="$(find stage/android -name '*.apk' | head -n 1)"
-          if [[ -z "$apk" ]]; then echo "::error::No APK was produced."; exit 1; fi
+          # One build path for CI and releases: packaging/android/build-android.sh owns the
+          # publish flags and output names. No keystore is set here, so the output is unsigned.
+          ANDROID_OUT="$PWD/stage/android" bash packaging/android/build-android.sh
           mkdir -p dist
-          cp "$apk" "dist/Bazaar.Client.Android-$semver.apk"
+          found=0
+          for f in stage/android/*.apk stage/android/*.aab; do
+            [[ -f "$f" ]] || continue
+            ext="${f##*.}"
+            cp "$f" "dist/Bazaar.Client.Android-$semver-$(basename "${f%.*}").$ext"
+            found=1
+          done
+          if [[ "$found" -eq 0 ]]; then echo "::error::No APK or AAB was produced."; exit 1; fi
 
       # Named packaging-android, not installer-*: verify accepts only .msi, .exe, .zip,
       # .tar.gz and .nupkg, so an APK must not enter a release set until that list changes.
