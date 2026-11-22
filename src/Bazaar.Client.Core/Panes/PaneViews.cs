@@ -3,22 +3,34 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Bazaar.Client.Core.Chat;
-using Bazaar.Client.Core.Constellation;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Core.Panes;
 
 /// <summary>
 /// The views Client.Core owns: the generic fallback and the bodies of its own panes. A feature module registers its
-/// view with <see cref="PaneRegistry.RegisterView{TPane}"/> instead of adding a case here.
+/// view with <see cref="PaneRegistry.RegisterView{TPane}"/> instead of adding a case here. The registry reaches this
+/// class through <see cref="IPaneViewFactory"/>; <see cref="Instance"/> is the one the composition root passes in.
 /// </summary>
-public static class PaneViews
+public sealed class PaneViews : IPaneViewFactory
 {
+    /// <summary>The view factory the composition root hands to <see cref="PaneRegistry"/>.</summary>
+    public static PaneViews Instance { get; } = new();
+
+    private PaneViews()
+    {
+    }
+
     public static Control Create(IPaneViewModel pane) => pane switch
     {
         GenericPaneViewModel generic => WithTitle(generic.Title, Generic(generic)),
         _ => WithTitle(pane.Title, new TextBlock { Text = pane.Kind }),
     };
+
+    Control IPaneViewFactory.Create(IPaneViewModel pane) => Create(pane);
+
+    Control IPaneViewFactory.WithTitle(string title, Control body) => WithTitle(title, body);
 
     internal static StackPanel WithTitle(string title, Control body) => new StackPanel
     {
@@ -29,32 +41,6 @@ public static class PaneViews
             body,
         },
     };
-
-    internal static Control GcPane(GcPaneViewModel gc)
-    {
-        if (gc.Chat is null)
-        {
-            return new TextBlock { Text = "No group chat is connected.", Opacity = 0.7, TextWrapping = TextWrapping.Wrap };
-        }
-
-        // A fixed height gives the chat's message list a bounded area inside the stacked pane.
-        return new Border { Height = 480, Child = new ChatView { DataContext = gc.Chat } };
-    }
-
-    internal static StackPanel Dashboard(DashboardPaneViewModel dashboard)
-    {
-        var sections = new StackPanel { Spacing = 12 };
-        foreach (var section in dashboard.Sections)
-        {
-            sections.Children.Add(new TextBlock { Text = section.Title, FontWeight = FontWeight.SemiBold });
-            foreach (var item in section.Items)
-            {
-                sections.Children.Add(new TextBlock { Text = $"{item.Label}: {item.Value}" });
-            }
-        }
-
-        return sections;
-    }
 
     private static ScrollViewer Generic(GenericPaneViewModel generic)
     {
