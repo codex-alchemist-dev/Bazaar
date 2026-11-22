@@ -94,6 +94,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
 | `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| `POST /auth/refresh`, `GET /auth/whoami`, `POST /auth/signout` | Token refresh; the signed-in person behind an access token; sign this device out (`whoami` and `signout` are PROPOSED, built in their PRs) | 32 (section 5) |
 | Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
@@ -141,7 +142,7 @@ Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transpo
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `board.assign` [PROPOSED, shape in doc 12, Assign authority and command], `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.

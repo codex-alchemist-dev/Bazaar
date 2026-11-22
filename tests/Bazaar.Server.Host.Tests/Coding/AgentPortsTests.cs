@@ -79,6 +79,12 @@ public sealed class AgentPortsTests
 
         public bool Hangs { get; set; }
 
+        public Task SaveAsync(Guid sessionId, SessionTaint taint, CancellationToken cancellationToken)
+        {
+            Sessions[sessionId] = taint;
+            return Task.CompletedTask;
+        }
+
         public async Task<SessionTaint> LoadAsync(Guid sessionId, CancellationToken cancellationToken)
         {
             if (Hangs)

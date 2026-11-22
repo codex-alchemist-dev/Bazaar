@@ -46,6 +46,26 @@ public static class ComponentGraph
             }
         }
 
+        foreach (var manifest in byId.Values)
+        {
+            if (!manifest.EnabledByDefault && manifest.Kind == ComponentKind.Kernel)
+            {
+                throw new ComponentGraphException($"Kernel component '{manifest.Id}' cannot set enabledByDefault to false.");
+            }
+
+            // A default-on component that hard-depends on an optional one would fail the start with the shipped defaults.
+            if (manifest.EnabledByDefault)
+            {
+                var optional = manifest.DependsOn.Where(d => !byId[d].EnabledByDefault).Order(StringComparer.Ordinal).ToList();
+                if (optional.Count > 0)
+                {
+                    throw new ComponentGraphException(
+                        $"Component '{manifest.Id}' is enabled by default but depends on optional component(s): {string.Join(", ", optional)}. " +
+                        "Make the dependency default-on or the dependent optional too.");
+                }
+            }
+        }
+
         // Only hard edges set start order (docs/design/BAZAAR-COMPONENTS.md section 4.1, owner 2026-11-16). Soft edges are feature
         // links resolved from metadata, so they may form cycles and never reorder components.
         bool Ready(string id, HashSet<string> placedIds) => byId[id].DependsOn.All(placedIds.Contains);

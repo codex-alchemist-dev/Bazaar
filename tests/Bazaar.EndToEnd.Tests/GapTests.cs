@@ -18,6 +18,6 @@ public sealed class GapTests
     [Fact(Skip = "GAP 4: the client side is the wire client only. No Bazaar.Client.* app code runs headless against the server (GAPS.md).")]
     public void The_headless_client_shell_signs_in_and_shows_the_chat() { }
 
-    [Fact(Skip = "GAP 5: a task through the Kanban board and the turn loop is not exercised; AcceptanceTests covers chat to commit with harness stand-ins (GAPS.md, gaps 9 to 11).")]
+    [Fact(Skip = "GAP 5: a card assigned over the wire wakes the agent and the agent moves it to Review (BoardTaskTests). Still missing: the agent's reply posted in the card's GC, and the coding harness (GAPS.md).")]
     public void An_agent_picks_up_a_board_card_and_finishes_it() { }
 }

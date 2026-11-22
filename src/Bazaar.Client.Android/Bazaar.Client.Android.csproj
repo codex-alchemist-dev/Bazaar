@@ -31,11 +31,22 @@
   <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- Approval biometric prompt (doc 29, Approvals): AndroidX BiometricPrompt, newest stable binding. -->
+    <PackageReference Include="Xamarin.AndroidX.Biometric" />
     <!-- No direct Xamarin.AndroidX.Window reference. Its 1.5.1.3 pulls Core 1.19 (Lifecycle 2.11) against the Lifecycle 2.10 pins
          from Activity and Fragment (NU1608). Avalonia.Android brings Window 1.5.1.2 transitively, which resolves cleanly. -->
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Annotation\Bazaar.Client.Annotation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals\Bazaar.Client.Approvals.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Avalonia\Bazaar.Client.Approvals.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Http\Bazaar.Client.Approvals.Http.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.TalentPool.Http\Bazaar.Client.TalentPool.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Views\Bazaar.Client.Views.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Navigation\Bazaar.Client.Navigation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Mobile\Bazaar.Client.Mobile.csproj" />
@@ -49,5 +60,6 @@
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
     <ProjectReference Include="..\Bazaar.Client.GitSolarSystem\Bazaar.Client.GitSolarSystem.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
   </ItemGroup>
 </Project>

@@ -1,4 +1,5 @@
 using Bazaar.Server.Council;
+using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
 
 namespace Bazaar.Server.Council.Tests.Service;
@@ -106,6 +107,23 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
             .Select(pair => pair.Id)
             .ToList());
 
+    public Task<IReadOnlyList<Guid>> ListUndeliveredMembershipDecisionsAsync(int limit, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Guid>>(_votes.Values
+            .Where(vote => vote.State == VoteState.Decided
+                && vote.MembershipKind is not null
+                && vote.MembershipOutcomeDeliveredAt is null)
+            .OrderBy(vote => vote.VoteId)
+            .Take(limit)
+            .Select(vote => vote.VoteId)
+            .ToList());
+
+    public Task MarkMembershipOutcomeDeliveredAsync(Guid voteId, DateTimeOffset at, CancellationToken ct)
+    {
+        var vote = _votes[voteId];
+        _votes[voteId] = vote with { MembershipOutcomeDeliveredAt = vote.MembershipOutcomeDeliveredAt ?? at };
+        return Task.CompletedTask;
+    }
+
     public Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CouncilTransitionRecord>>(_transitions.GetValueOrDefault(voteId)?.ToList()
             ?? new List<CouncilTransitionRecord>());
@@ -208,8 +226,10 @@ internal sealed class CouncilHarness
 
     public ICouncilDissentShareSource? Settings { get; set; }
 
+    public List<IMembershipOutcomeSink> Sinks { get; } = new();
+
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Sinks);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)
@@ -230,7 +250,8 @@ internal sealed class CouncilHarness
         string? author = null,
         string? membershipSubject = null,
         DateTimeOffset? deadline = null,
-        bool highImpact = false) =>
+        bool highImpact = false,
+        MembershipMotionKind? membershipKind = null) =>
         new(
             SubjectRef: "task/42",
             Kind: kind,
@@ -241,7 +262,8 @@ internal sealed class CouncilHarness
             SubjectAuthorId: author,
             Deadline: deadline ?? Clock.Now.AddHours(100),
             MembershipSubjectId: membershipSubject,
-            HighImpact: highImpact);
+            HighImpact: highImpact,
+            MembershipKind: membershipKind ?? (membershipSubject is null ? null : MembershipMotionKind.Hire));
 
     /// <summary>The standard three-voter electorate: ada proposes, cal, dot and eve vote.</summary>
     public void AddThreeVoters()

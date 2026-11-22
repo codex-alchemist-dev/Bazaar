@@ -46,7 +46,8 @@ public sealed class TurnRunAdapter(
                 Role: request.Role,
                 StepCapOverride: request.StepCapOverride,
                 InboxItemIds: request.InboxItemIds.Count > 0 ? request.InboxItemIds : null,
-                ChainDepth: request.ChainDepth),
+                ChainDepth: request.ChainDepth,
+                TriggerGcId: request.TriggerGcId),
             cancellationToken).ConfigureAwait(false);
 
         return new TurnRunOutcome(

@@ -50,6 +50,12 @@ public sealed class StatusEndpointsTests
             var tiles = await client.PostAsync("/constellation/tiles", new StringContent(string.Empty), TestContext.Current.CancellationToken);
             Assert.NotEqual(HttpStatusCode.MethodNotAllowed, tiles.StatusCode);
 
+            var memory = await client.PostAsync("/company-memory/decisions", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, memory.StatusCode);
+
+            var pages = await client.PostAsync("/company-memory/pages", new StringContent(string.Empty), TestContext.Current.CancellationToken);
+            Assert.NotEqual(HttpStatusCode.MethodNotAllowed, pages.StatusCode);
+
             var delete = await client.DeleteAsync("/blobs", TestContext.Current.CancellationToken);
             Assert.Equal(HttpStatusCode.MethodNotAllowed, delete.StatusCode);
         }
@@ -142,6 +148,7 @@ public sealed class StatusEndpointsTests
 
     [Theory]
     [InlineData("/auth/refresh")]
+    [InlineData("/auth/signout")]
     public async Task Refresh_path_accepts_post(string path)
     {
         var (app, client, _) = await StartAsync();
@@ -156,6 +163,8 @@ public sealed class StatusEndpointsTests
     [Theory]
     [InlineData("PATCH", "/auth/refresh")]
     [InlineData("GET", "/auth/refresh")]
+    [InlineData("PATCH", "/auth/signout")]
+    [InlineData("GET", "/auth/signout")]
     [InlineData("POST", "/status")]
     [InlineData("PUT", "/status")]
     public async Task Other_methods_on_refresh_and_status_paths_are_405(string method, string path)

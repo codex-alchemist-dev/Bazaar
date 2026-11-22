@@ -20,12 +20,12 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
     // One row per message: its current version, plus the first event's reply and mentions. @SOURCE is the message source.
     private const string _select = """
         SELECT m.message_id, m.first_seq, m.author_id, v.version, v.seq AS ev, v.body_ct, v.body_nonce, v.key_id,
-               v.created_at, e.reply_to_seq,
+               v.created_at, e.reply_to_seq, v.withdrawn_by_import,
                ARRAY(SELECT x.target_principal_id FROM gc_mention x
                      WHERE x.gc_id = m.gc_id AND x.seq = m.first_seq ORDER BY x.target_principal_id) AS mentions
         FROM @SOURCE
         CROSS JOIN LATERAL (
-            SELECT version, seq, body_ct, body_nonce, key_id, created_at
+            SELECT version, seq, body_ct, body_nonce, key_id, created_at, withdrawn_by_import
             FROM gc_message_version
             WHERE gc_id = m.gc_id AND message_id = m.message_id
             ORDER BY version DESC
@@ -127,7 +127,13 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
         {
             // A tombstone has no body (docs/design/04): its text is empty.
             var text = string.Empty;
-            if (!reader.IsDBNull(5))
+            // A withdrawn version keeps its text in history; the view shows a placeholder instead (doc 44, 8.8).
+            var withdrawn = !reader.IsDBNull(10);
+            if (withdrawn)
+            {
+                text = GcBodyText.WithdrawnText;
+            }
+            else if (!reader.IsDBNull(5))
             {
                 ReadOnlyMemory<byte> ciphertext = reader.GetFieldValue<byte[]>(5);
                 ReadOnlyMemory<byte> nonce = reader.IsDBNull(6) ? ReadOnlyMemory<byte>.Empty : reader.GetFieldValue<byte[]>(6);
@@ -144,8 +150,9 @@ public sealed class PgGcStreamSource(NpgsqlDataSource dataSource, IGcBodyCodec b
                 Text: text,
                 Ts: reader.GetFieldValue<DateTimeOffset>(8),
                 Edited: reader.GetInt32(3) > 1,
-                Mentions: reader.GetFieldValue<Guid[]>(10),
-                ReplyToN: reader.IsDBNull(9) ? null : reader.GetInt64(9)));
+                Mentions: reader.GetFieldValue<Guid[]>(11),
+                ReplyToN: reader.IsDBNull(9) ? null : reader.GetInt64(9),
+                Withdrawn: withdrawn));
         }
 
         return items;
