@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 
 using Bazaar.Contracts.Ryusei;
@@ -32,9 +34,20 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcEdit))]
 [JsonSerializable(typeof(GcMemberAdd))]
 [JsonSerializable(typeof(GcMemberRemove))]
+[JsonSerializable(typeof(GcReact))]
+[JsonSerializable(typeof(GcReactResult))]
+[JsonSerializable(typeof(GcReactionsRequest))]
+[JsonSerializable(typeof(GcReactionsReply))]
+[JsonSerializable(typeof(WireGcReaction))]
+[JsonSerializable(typeof(GcTyping))]
+[JsonSerializable(typeof(GcTypingResult))]
+[JsonSerializable(typeof(PresenceTyping))]
+[JsonSerializable(typeof(PaneFrame))]
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
+[JsonSerializable(typeof(PrefsSet))]
+[JsonSerializable(typeof(PrefsSetResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]
@@ -46,6 +59,16 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RyuseiTriggerListRequest))]
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(PrListRequest))]
+[JsonSerializable(typeof(PrListReply))]
+[JsonSerializable(typeof(PrSummaryRequest))]
+[JsonSerializable(typeof(PrSummaryReply))]
+[JsonSerializable(typeof(PrHunksRequest))]
+[JsonSerializable(typeof(PrHunksReply))]
+[JsonSerializable(typeof(PrReviewRequest))]
+[JsonSerializable(typeof(PrReviewReply))]
+[JsonSerializable(typeof(PrMergeRequest))]
+[JsonSerializable(typeof(PrMergeReply))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
@@ -54,4 +77,6 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(ViewportRequest))]
 [JsonSerializable(typeof(ClusterGlyph))]
 [JsonSerializable(typeof(TileFrame))]
+[JsonSerializable(typeof(ReleaseManifest))]
+[JsonSerializable(typeof(ReleaseArtifact))]
 public sealed partial class WireJsonContext : JsonSerializerContext;

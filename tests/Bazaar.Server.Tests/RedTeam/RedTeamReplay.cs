@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;

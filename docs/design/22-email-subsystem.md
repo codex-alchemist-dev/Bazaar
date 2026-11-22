@@ -90,6 +90,27 @@ The wizard checks the operator's domain (example.com as placeholder):
 - Warn when a domain approaches Gmail bulk-sender thresholds (over 5,000 messages a day) [RESEARCHED].
 - Free subdomain registries are not recommended. The research found pricing and reputation unverified.
 
+### DNS checker module (WP10) [PROPOSED, 2026-11-18]
+Own module pair: `Bazaar.Server.MailDns` and `Bazaar.Server.MailDns.Abstractions` (namespace `Bazaar.Server.MailDns`). It references `Bazaar.Server.Mail.Abstractions` and `Bazaar.Server.Setup.Abstractions`, never `Bazaar.Server.csproj`.
+- `IDnsResolver` (in the abstractions): `TxtAsync(name)`, `PtrAsync(ip)`, `AddressesAsync(name)`, `MxAsync(name)`. A resolver failure is a result (`Timeout`, `ServFail`, `NxDomain`), never an exception the checker lets escape. The shipped resolver sits behind this interface, so tests run on a stub resolver and CI needs no network.
+- `IMailDnsChecker.CheckAsync(MailDnsRequest, ct)` returns a `MailDnsReport`: one `DnsCheckResult` per check (`Spf`, `Dkim`, `Dmarc`, `Ptr`, `BulkSender`), each `Pass`, `Warn`, `Fail` or `NotApplicable`, with a plain-words `Detail` and a `Fix` hint. The request carries the domain, the back end kind, the DKIM selector (optional), the sender's SPF include (optional), the DMARC report address (optional), whether the host is self-hosted, and the expected daily volume (optional). Nothing in the module names a domain, a provider or a selector (domain-agnostic rule).
+- Rules (from the section above): SPF is exactly one `v=spf1` record, includes the sender only, and ends `-all` (`~all` is `Warn`, `+all` and `?all` are `Fail`, two records are `Fail`, more than 10 DNS lookups is `Fail`). DKIM is a TXT at `<selector>._domainkey.<domain>` with `v=DKIM1` and a non-empty `p=`; an empty `p=` (revoked key) is `Fail`; no selector given is `NotApplicable`. DMARC is a TXT at `_dmarc.<domain>` with `v=DMARC1`; `p=none` with a `rua=mailto:` is `Pass` for a new domain, `p=none` without `rua` is `Warn`, no record is `Fail`, and `quarantine` or `reject` is `Pass`. PTR applies only when self-hosted: forward-confirmed reverse DNS (the PTR name resolves back to the sending IP), else `Fail`; hosted back ends are `NotApplicable`. `BulkSender` is `Warn` when the expected daily volume is over 5,000 [RESEARCHED].
+- The report is advice, not a gate: DNS may not have propagated, so a `Fail` never blocks setup. The setup step records the report in the audit row (counts only) and tells the operator what to fix. Nothing the checker reads is trusted as an instruction (DNS text is untrusted input; values are parsed, never shown as markup).
+- Setup step: `MailDnsSetupStep` (an `ISetupStep`, doc 45 step 11) does nothing when `email.enabled` is false. When true it runs the checker for the plan's mail domain and reports the result as a message. Plan fields added to `email` (all optional, doc 45): `domain`, `backendKind` (`generic`, `cloudflare`, `builtin`), `dkimSelector`, `dmarcReportAddress`, `selfHosted`. An unknown field is still rejected by the loader.
+
+### Client mail screens (WP12) [PROPOSED, 2026-11-18]
+Own module pair: `Bazaar.Client.Mail` and `Bazaar.Client.Mail.Abstractions`. Panes follow the existing pane contract (doc 27): the server derives a JSON model, the view model only formats it, and a missing required field falls back to the generic view. Pane kinds are added to `PaneKinds` in `Bazaar.Contracts`: `bazaar.mail.quarantine`, `bazaar.mail.mailbox`, `bazaar.mail.approval`, `bazaar.mail.dns`.
+- Quarantine: held messages as metadata only (reason codes, sender domain, auth result, received time, state `held`, `released`, `purged`, `reported`) and the daily digest counts. No message body ever appears; raw content is not in the model.
+- Mailbox: the Bazaar-managed mailbox view (Q1 default): messages as plain text. HTML never renders, remote images are never loaded, and every link shows its real host and is never fetched or opened from the pane.
+- Approval: the card for a hard-tainted outbound send (Tier 2): the server-set From, the recipients, the subject, the text body, the footer preview and the reason the send needs approval.
+- DNS: the `MailDnsReport` as rows with a status chip and the fix hint.
+- The panes are display-only. Release, report and send approvals go through the approval cards and the owner signature path of `Bazaar.Approvals` (docs 15 and 48); a pane never holds a release action. Owner-only release and the reader-cannot-release rule are enforced on the server and are not client settings.
+- Server data feeds (WP4 to WP6) are not built yet. The pane models are the contract; the screens are tested with fixture models and `Avalonia.Headless`.
+
+Built details (PROPOSED, from the first implementation, 2026-11-18):
+- DNS: `MailDnsRequest` also carries an optional `SendingIp`; when absent the PTR check uses the addresses of the domain's MX hosts (up to 4), else the domain's own address, and warns if none is found. A `Timeout` or `ServFail` is `Warn` ("could not be checked"); `NxDomain` on a required record is `Fail`. SPF with no `all` term is `Fail`; the walk stops after 10 lookups, 10 levels and 16 TXT fetches; an include loop is `Fail`. DMARC: several records is `Fail`; `p=none` whose `rua` differs from the configured report address is `Warn`. Answers are capped at 32 records and 4096 characters per TXT, and DNS text shown in a message is reduced to letters, digits and `.-_:`. The shipped resolver uses the `DnsClient` package. `MailDnsSetupStep` has order 11 and puts counts and fixes in the step message only (the apply writes the audit row). PROPOSED: `SetupStepResult` gains an optional `AuditCounts` map of name to integer (counts only, never text); the applier writes it into the step's audit row, and the audit payload guard still rejects anything else.
+- Panes: model keys are `digest {held, released, purged, reported, topSenderDomains[{domain,count}]}` and `items[{senderDomain, reasonCodes, authResult, receivedAt, state}]` (quarantine); `messages[{from, subject, receivedAt, text, links[url]}]` (mailbox); `from, recipients[], subject, body, footerPreview, reason` (approval); `domain?, rows[{kind, status, detail, fix?}]` (DNS). Enum values travel as names (`held`; `Spf`, `Pass`), so the server serializer must use string enums. A link shows its host and the full URL as plain text. PROPOSED: the approval card carries an `approvalId` that links it to the `Bazaar.Approvals` record, and the quarantine digest carries a `date` (ISO date, the day it covers). Heads compose `MailPanes.Modules` into their pane registry.
+
 ## Data and interfaces
 
 ```csharp
@@ -156,9 +177,9 @@ Registry rows (03 owns the registry; 27 and 32 surface them in the setup wizard 
 7. MailKit back ends for generic IMAP/SMTP and the built-in client. Needs 6.
 8. Cloudflare Worker, pull receiver and HTTPS sender. Needs 6.
 9. Built-in SMTP/IMAP server. Needs Q2 and 7.
-10. DNS checker and setup wizard. Needs 1.
+10. DNS checker and setup wizard. Needs 1. Module `Bazaar.Server.MailDns` (PROPOSED above).
 11. Scam-baiting protocol, last and off by default. Needs 6 and 4.
-12. Client screens (27 to 29). Needs 4 to 6.
+12. Client screens (27 to 29). Needs 4 to 6. Module `Bazaar.Client.Mail` (PROPOSED above; fixture models until 4 to 6 exist).
 
 Order: 1; then 2, 3 and 10 in parallel; then 4; then 5 and 6; then 7 to 9; then 11.
 
