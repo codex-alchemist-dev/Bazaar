@@ -412,6 +412,11 @@
     <Project Path="src/Bazaar.Client.CompanySetup.Abstractions/Bazaar.Client.CompanySetup.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.CompanySetup/Bazaar.Client.CompanySetup.csproj" />
     <Project Path="src/Bazaar.Client.CompanySetup.Avalonia/Bazaar.Client.CompanySetup.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Tui.Abstractions/Bazaar.Client.Tui.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Tui/Bazaar.Client.Tui.csproj" />
+    <Project Path="src/Bazaar.Client.Tui.Dashboard.Abstractions/Bazaar.Client.Tui.Dashboard.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Tui.Dashboard/Bazaar.Client.Tui.Dashboard.csproj" />
+    <Project Path="src/Bazaar.Client.Tui.Installer/Bazaar.Client.Tui.Installer.csproj" />
     <Project Path="src/Bazaar.Client.PullRequests.Abstractions/Bazaar.Client.PullRequests.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.PullRequests/Bazaar.Client.PullRequests.csproj" />
     <Project Path="tests/Bazaar.Client.PullRequests.Tests/Bazaar.Client.PullRequests.Tests.csproj" />
@@ -454,6 +459,9 @@
     <Project Path="tests/Bazaar.Server.Setup.FirstRun.Postgres.Tests/Bazaar.Server.Setup.FirstRun.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.FirstRun.Gateway.Tests/Bazaar.Server.Setup.FirstRun.Gateway.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.CompanySetup.Tests/Bazaar.Client.CompanySetup.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Tui.Tests/Bazaar.Client.Tui.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Tui.Dashboard.Tests/Bazaar.Client.Tui.Dashboard.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Tui.Installer.Tests/Bazaar.Client.Tui.Installer.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Chat.Tests/Bazaar.Client.Components.Chat.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.GitSolarSystem.Tests/Bazaar.Client.GitSolarSystem.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Components.Launcher.Tests/Bazaar.Client.Components.Launcher.Tests.csproj" />

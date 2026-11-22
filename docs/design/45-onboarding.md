@@ -58,7 +58,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 | Company templates | Owners who run several companies on the same kind of setup | Section 1.8. A template is an input to the plan, not a copy of a live company. |
 | Import | Owners moving an existing company in | A dump is chosen as the company source. Importers are doc 44 modules. |
 
-There is no separate server-side tour, no onboarding web page and no first-run screen in the server. The server's only human surfaces are the setup prompts and the read-only status page (doc 02, doc 23).
+There is no separate server-side tour and no first-run screen in the server process. The server process has no console; the human surfaces are the setup prompts, the TUI client module (doc 58), the admin panel (doc 51) and the read-only status page (doc 02, doc 23).
 
 ## 1.2 The setup plan: one result, one trail [PLANNED]
 
