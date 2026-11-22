@@ -153,7 +153,7 @@ public class AnalyticsTests
 
         var pane = AnalyticsPaneBuilder.Build(r);
 
-        Assert.Equal(PaneKinds.Analytics, pane.Kind);
+        Assert.Equal(PaneKinds.AgentAnalytics, pane.Kind);
         Assert.Equal(JsonValueKind.Number, pane.Model.GetProperty("company").GetProperty("revertRate").ValueKind);
         var bob = pane.Model.GetProperty("agents").EnumerateArray().Single(a => a.GetProperty("agentId").GetString() == "bob");
         Assert.Equal(JsonValueKind.Null, bob.GetProperty("reviewPassRate").ValueKind);

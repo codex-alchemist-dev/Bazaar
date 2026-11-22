@@ -4,9 +4,9 @@ using Avalonia.Media;
 namespace Bazaar.Client.Analytics;
 
 /// <summary>The pane body: the company line, then each agent's figures and what would help the company.</summary>
-public static class AnalyticsPaneView
+public static class AgentAnalyticsPaneView
 {
-    public static StackPanel Create(AnalyticsPaneViewModel pane)
+    public static StackPanel Create(AgentAnalyticsPaneViewModel pane)
     {
         var body = new StackPanel { Spacing = 8 };
         body.Children.Add(new TextBlock { Text = pane.CompanySummary, FontWeight = FontWeight.SemiBold });

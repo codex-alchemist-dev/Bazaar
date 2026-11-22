@@ -12,11 +12,11 @@ public sealed record AnalyticsAgentRow(string AgentId, string TasksPerWeek, stri
 /// Company analytics pane (doc 25). Rows arrive in the server's order (by agent id) and are never re-sorted by any figure: the pane
 /// is not a leaderboard. Model: see the server's <c>AnalyticsPaneBuilder</c>.
 /// </summary>
-public sealed class AnalyticsPaneViewModel : IPaneViewModel
+public sealed class AgentAnalyticsPaneViewModel : IPaneViewModel
 {
     public const string NoData = "no data";
 
-    public AnalyticsPaneViewModel(PaneDescriptor descriptor)
+    public AgentAnalyticsPaneViewModel(PaneDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
 

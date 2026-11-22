@@ -36,7 +36,7 @@ public static class WindowsModules
         new EnginePaneModule(),
         .. GitSolarSystemPanes.Modules,
         .. GitGuiPanes.Modules,
-        new AnalyticsPaneModule(),
+        new AgentAnalyticsPaneModule(),
         // The terminal pane comes last in pager order (doc 55, section 7).
         .. CalcinatoPanes.Modules,
     ];

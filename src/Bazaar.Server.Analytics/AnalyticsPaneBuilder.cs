@@ -49,7 +49,7 @@ public static class AnalyticsPaneBuilder
         }
 
         using var doc = JsonDocument.Parse(stream.ToArray());
-        return new PaneDescriptor(PaneKinds.Analytics, "Company analytics", string.Empty, doc.RootElement.Clone());
+        return new PaneDescriptor(PaneKinds.AgentAnalytics, "Company analytics", string.Empty, doc.RootElement.Clone());
     }
 
     private static void Rate(Utf8JsonWriter w, string name, double? value)

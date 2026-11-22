@@ -146,7 +146,7 @@ public sealed class App : Avalonia.Application
             .. InterruptPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
-            new AnalyticsPaneModule(),
+            new AgentAnalyticsPaneModule(),
         ];
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the phone shell exists. Preferences stay on this device until a wire sync is attached.

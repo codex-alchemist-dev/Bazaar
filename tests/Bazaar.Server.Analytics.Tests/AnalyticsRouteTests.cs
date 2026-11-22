@@ -76,7 +76,7 @@ public class AnalyticsRouteTests
     {
         var json = await client.GetStringAsync(url, TestContext.Current.CancellationToken);
         using var doc = JsonDocument.Parse(json);
-        Assert.Equal("bazaar.analytics", doc.RootElement.GetProperty("kind").GetString());
+        Assert.Equal("bazaar.agent-analytics", doc.RootElement.GetProperty("kind").GetString());
         return doc.RootElement.GetProperty("model").GetProperty("agents").EnumerateArray().Select(a => a.GetProperty("agentId").GetString()!).ToArray();
     }
 
