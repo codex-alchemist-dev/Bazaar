@@ -59,7 +59,7 @@ public static class ValkeyServiceCollectionExtensions
             sp.GetRequiredService<IValkeyClientFactory>(),
             CacheOptions(sp)));
 
-        // Not TryAdd: several cache providers may be registered, and the host selects one through ProviderSelector.
+        // Not TryAdd: several cache providers may be registered, and each consuming module decides what to do with several.
         services.AddSingleton<ICacheProvider>(sp =>
         {
             var options = CacheOptions(sp);

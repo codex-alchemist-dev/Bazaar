@@ -54,7 +54,7 @@ public sealed record ReportIncidentEntry(string Id, string Category, string Seve
 
 /// <summary>
 /// A generated health report (doc 46 section 16.7). Identifiers, numbers and times only: no model text, no free text, no names of
-/// agents, GCs or content. It is the same bytes for the same inputs, so its digest can be checked and a signer can sign the digest.
+/// agents, group chats or content. It is the same bytes for the same inputs, so its digest can be checked and a signer can sign the digest.
 /// </summary>
 /// <param name="SchemaVersion">The shape version, <see cref="CurrentSchemaVersion"/>.</param>
 /// <param name="Id">The report id: the definition id and the period end, so a re-run of one slot gives the same id.</param>

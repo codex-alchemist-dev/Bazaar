@@ -117,6 +117,16 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - Global: stop all egress and all Tier 1+ tools.
 - Both are tested on a schedule.
 
+## Module layout
+
+Identity is a feature module on `Bazaar.Core` (`docs/design/40-core-feature-modules-audit.md` section 4). Projects:
+
+- `Bazaar.Server.Identity.Abstractions`: `IdentityContracts`, and the lease interfaces and `CredentialLease`. Other modules reference only this project. The KEK contract (`IKekProvider`, `KekUnwrapException`, namespace `Bazaar.Server.Identity.Keys`) stays in `Bazaar.Server` for now; the KEK thread decides its move.
+- `Bazaar.Server.Identity`: the implementation (leases, browser profiles, GitHub App tokens, mount, TOTP). Namespaces stay `Bazaar.Server.Identity.*`.
+- `Bazaar.Server.Identity.Postgres`: the durable lease store.
+
+Security types used here (`ToolTier`, taint) come from `Bazaar.Server.Security.Abstractions`. No Server feature code is added to `Bazaar.Server` or `Bazaar.Core`.
+
 ## Data and interfaces
 
 ```
@@ -178,6 +188,9 @@ interface IIdentityService {
 - **Replay, restart, quarantine:** approval and lease IDs are single-use. Leases and approvals persist across restarts, so no silent widening. Quarantined agents cannot request leases, and their existing leases are revoked.
 - **Reader sessions** are tool-less and request no leases [PROPOSED].
 - **Secrets in output:** brokered results are scanned for credential patterns before they reach a GC or the Vault.
+
+**Lease observers** [PROPOSED]
+`ILeaseObserver` (in `Bazaar.Server.Identity.Abstractions`) lets another module hear lease changes without Identity depending on it. `IdentityService` calls every registered observer after a lease is stored and audited (`OnIssuedAsync(CredentialLease)`) and after a revocation is stored and audited (`OnRevokedAsync(RevocationScope)`, agent-wide or global, including the revocation done when a quarantined agent asks). The lease carries ids and timing only, never a secret value; an observer that needs the value resolves it itself host-side through `ISecretStore`. The lease id (`lease.Id.Value.ToString()`) is the stable key an observer pairs issue and revoke on. A throwing observer is logged and never changes an access decision or a revocation. The first user is the leased-credential matcher in Security (doc 15).
 
 ## Testing
 - **Real Postgres:** agent-facing roles cannot read the Passport schema. Crypto-shred leaves ciphertext unreadable. The restore drill decrypts from the offline KEK copy.
