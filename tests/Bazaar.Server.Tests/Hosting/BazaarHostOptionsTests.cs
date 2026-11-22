@@ -86,64 +86,6 @@ public class BazaarHostOptionsTests
         await StartHostedServicesAsync(absent);
     }
 
-    [Fact]
-    public async Task A_registered_kek_provider_is_opened_and_reported_configured_at_start()
-    {
-        var logger = new CapturingLogger();
-        var services = new ServiceCollection();
-        services.AddSingleton<ILogger<BazaarHostOptionsLogger>>(logger);
-        services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
-        services.AddBazaarHostOptions(new ConfigurationBuilder().AddInMemoryCollection(ValidConfiguration()).Build());
-        var opened = 0;
-        services.AddSingleton<Bazaar.Server.Identity.Kek.IKekProvider>(_ =>
-        {
-            opened++;
-            return new NoopKek();
-        });
-        using var provider = services.BuildServiceProvider();
-
-        await StartHostedServicesAsync(provider);
-
-        Assert.Equal(1, opened);
-        Assert.Contains("KekConfigured=True", logger.Messages);
-    }
-
-    [Fact]
-    public async Task Without_any_kek_the_start_reports_not_configured()
-    {
-        var logger = new CapturingLogger();
-        var services = new ServiceCollection();
-        services.AddSingleton<ILogger<BazaarHostOptionsLogger>>(logger);
-        services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
-        services.AddBazaarHostOptions(new ConfigurationBuilder().AddInMemoryCollection(ValidConfiguration()).Build());
-        using var provider = services.BuildServiceProvider();
-
-        await StartHostedServicesAsync(provider);
-
-        Assert.Contains("KekConfigured=False", logger.Messages);
-    }
-
-    private sealed class NoopKek : Bazaar.Server.Identity.Kek.IKekProvider
-    {
-        public string KekId => "test";
-
-        public ValueTask<byte[]> WrapAsync(ReadOnlyMemory<byte> dek, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken) => ValueTask.FromResult(dek.ToArray());
-
-        public ValueTask<byte[]> UnwrapAsync(ReadOnlyMemory<byte> wrappedDek, ReadOnlyMemory<byte> associatedData, CancellationToken cancellationToken) => ValueTask.FromResult(wrappedDek.ToArray());
-    }
-
-    private sealed class CapturingLogger : ILogger<BazaarHostOptionsLogger>
-    {
-        public string Messages { get; private set; } = "";
-
-        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-        public bool IsEnabled(LogLevel logLevel) => true;
-
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) =>
-            Messages += formatter(state, exception) + "\n";
-    }
-
     private static Dictionary<string, string?> ValidConfiguration() => new()
     {
         ["Bazaar:Host:DataRoot"] = _dataRoot,

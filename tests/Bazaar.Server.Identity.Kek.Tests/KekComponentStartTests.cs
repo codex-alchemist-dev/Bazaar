@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 
 namespace Bazaar.Server.Identity.Kek.Tests;
@@ -20,7 +21,7 @@ public sealed class KekComponentStartTests : IDisposable
     }
 
     [Fact]
-    public void Resolving_the_provider_on_a_fresh_install_creates_the_key_file_owner_only()
+    public async Task Starting_the_host_services_on_a_fresh_install_creates_the_key_file_owner_only()
     {
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?> { [KekComponent.DataRootKey] = _root })
@@ -30,10 +31,11 @@ public sealed class KekComponentStartTests : IDisposable
         new KekComponent().AddServices(services, configuration);
         using var provider = services.BuildServiceProvider();
 
-        var kek = provider.GetRequiredService<IKekProvider>();
+        foreach (var hosted in provider.GetServices<IHostedService>())
+            await hosted.StartAsync(CancellationToken.None);
 
         var keyPath = KekProviderFactory.KeyPathFor(KekProviderFactory.DefaultKind, _root);
-        Assert.NotNull(kek);
+        Assert.Contains(provider.GetServices<IHostedService>(), h => h is KekStartupOpener);
         Assert.True(File.Exists(keyPath));
         if (!OperatingSystem.IsWindows())
             Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(keyPath));
