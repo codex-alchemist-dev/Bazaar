@@ -46,6 +46,18 @@ public static class HttpSurfaceEndpoints
         return routes;
     }
 
+    /// <summary>
+    /// The HTTP surface guard for routes that live in a module (bearer, rate bucket). Host composition passes it as the <c>guard</c>
+    /// of a module's route mapper, so the module never references this project. The filter authenticates first (401), spends a
+    /// token of the HTTP bucket (429), then runs the route.
+    /// </summary>
+    public static RouteHandlerBuilder RequireBazaarAuth(this RouteHandlerBuilder route)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        return route.AddEndpointFilter(async (context, next) =>
+            await Guarded(context.HttpContext, async (_, _) => await next(context) is IResult result ? result : Results.Empty));
+    }
+
     internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
         var services = http.RequestServices;

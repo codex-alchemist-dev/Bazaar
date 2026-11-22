@@ -5,6 +5,7 @@ using Bazaar.Server.Host.Status;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Http;
 using Bazaar.Server.Wire.Connection;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
@@ -38,6 +39,7 @@ app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
 app.MapCommunityLog();
+app.MapBazaarTalentToolGrants(route => route.RequireBazaarAuth());
 app.MapBazaarSetup();
 app.UseBazaarWire();
 

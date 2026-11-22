@@ -45,7 +45,7 @@ public static class StatusEndpoints
 
     /// <summary>The authenticated API routes that also take writes: blob uploads and the Constellation tile endpoint.</summary>
     private static bool IsApiRoute(PathString path) =>
-        path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal);
+        path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal) || path.StartsWithSegments("/talent");
 
     /// <summary>
     /// The refresh route (<c>/auth/refresh</c>, doc 32 section 5). It takes POST and
