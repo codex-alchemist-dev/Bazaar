@@ -11,6 +11,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.CodingRunner.Abstractions\Bazaar.Server.CodingRunner.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingGit.Abstractions\Bazaar.Server.CodingGit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingStore.Abstractions\Bazaar.Server.CodingStore.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingEdit\Bazaar.Server.CodingEdit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingGit\Bazaar.Server.CodingGit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CodingReview.Abstractions\Bazaar.Server.CodingReview.Abstractions.csproj" />

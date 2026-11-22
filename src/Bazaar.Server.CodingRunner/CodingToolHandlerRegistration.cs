@@ -12,7 +12,7 @@ public static class CodingToolHandlerRegistration
 {
     /// <summary>
     /// Registers one <see cref="ICodingToolHandler"/> per tool: <c>search</c>, <c>repo_map</c>, <c>git_diff</c>, <c>git_commit</c>,
-    /// <c>git_push_draft_pr</c>, <c>review</c> and <c>subagent_spawn</c>. The services they wrap and the
+    /// <c>git_push_draft_pr</c>, <c>review</c>, <c>subagent_spawn</c>, <c>shell</c> and <c>run_checks</c>. The services they wrap and the
     /// <see cref="ICodingToolHostContext"/> come from the host; none is defaulted, so a missing one fails resolution instead of
     /// running a tool unguarded. The edit handler is registered separately by the host.
     /// </summary>
@@ -37,6 +37,8 @@ public static class CodingToolHandlerRegistration
         services.AddSingleton<ICodingToolHandler>(sp => new SubagentSpawnToolHandler(
             sp.GetRequiredService<ISubagentSpawner>(),
             sp.GetRequiredService<ICodingToolHostContext>()));
+        services.AddSingleton<ICodingToolHandler>(sp => new ShellToolHandler(sp.GetRequiredService<IGuestWorktreeSource>()));
+        services.AddSingleton<ICodingToolHandler>(sp => new RunChecksToolHandler(sp.GetRequiredService<ICheckSubjectSource>(), sp.GetRequiredService<IGuestWorktreeSource>(), sp.GetRequiredService<Bazaar.Server.CodingStore.ICheckRunStore>()));
         return services;
     }
 }

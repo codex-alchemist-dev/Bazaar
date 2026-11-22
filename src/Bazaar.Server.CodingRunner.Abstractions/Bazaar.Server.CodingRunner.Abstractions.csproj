@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.CodingPermissions.Abstractions\Bazaar.Server.CodingPermissions.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
   </ItemGroup>
 </Project>
