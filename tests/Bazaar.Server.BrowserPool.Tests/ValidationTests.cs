@@ -31,9 +31,78 @@ public class OptionsValidationTests
         Assert.Equal(TimeSpan.FromHours(2), o.SessionLifetime);
         Assert.Equal(TimeSpan.FromMinutes(20), o.IdleTimeout);
         Assert.Equal(1024, o.MemoryMaxMb);
+        Assert.Equal(256, o.DiskMaxMb);
+        Assert.Equal(65_536, o.DiskMaxInodes);
+        Assert.Equal("/usr/bin/mount", o.MountPath);
+        Assert.Equal("/usr/bin/umount", o.UmountPath);
         Assert.True(o.UseSystemdRun);
         Assert.Equal(20031, o.MaxUid);
     }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(16)]
+    [InlineData(256)]
+    [InlineData(1000)]
+    public void Disk_cap_in_range_or_zero_is_accepted(int mb) => Assert.Empty(Check(o => o.DiskMaxMb = mb));
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1)]
+    [InlineData(15)]
+    [InlineData(65_537)]
+    public void Disk_cap_out_of_range_is_refused(int mb) => Assert.NotEmpty(Check(o => { o.DiskMaxMb = mb; o.MemoryMaxMb = 0; }));
+
+    [Fact]
+    public void Disk_cap_up_to_the_maximum_is_accepted_without_a_memory_cap() =>
+        Assert.Empty(Check(o => { o.DiskMaxMb = 65_536; o.MemoryMaxMb = 0; }));
+
+    [Theory]
+    [InlineData(1023)]
+    [InlineData(16_777_217)]
+    [InlineData(0)]
+    public void Inode_cap_out_of_range_is_refused_while_the_disk_cap_is_on(int inodes) => Assert.NotEmpty(Check(o => o.DiskMaxInodes = inodes));
+
+    [Theory]
+    [InlineData(1024)]
+    [InlineData(16_777_216)]
+    public void Inode_cap_in_range_is_accepted(int inodes) => Assert.Empty(Check(o => o.DiskMaxInodes = inodes));
+
+    [Fact]
+    public void Inode_cap_is_not_checked_when_the_disk_cap_is_off() => Assert.Empty(Check(o => { o.DiskMaxMb = 0; o.DiskMaxInodes = 0; }));
+
+    [Fact]
+    public void Disk_cap_must_be_smaller_than_the_memory_cap_while_both_are_on()
+    {
+        var equal = Check(o => { o.MemoryMaxMb = 512; o.DiskMaxMb = 512; });
+        var above = Check(o => { o.MemoryMaxMb = 512; o.DiskMaxMb = 600; });
+
+        Assert.Contains(equal, e => e.Contains("DiskMaxMb must be smaller than MemoryMaxMb", StringComparison.Ordinal));
+        Assert.Contains(above, e => e.Contains("smaller than MemoryMaxMb", StringComparison.Ordinal));
+        Assert.Empty(Check(o => { o.MemoryMaxMb = 512; o.DiskMaxMb = 511; }));
+    }
+
+    [Fact]
+    public void Disk_cap_may_exceed_the_memory_cap_when_there_is_no_memory_cap()
+    {
+        Assert.Empty(Check(o => { o.MemoryMaxMb = 0; o.DiskMaxMb = 4096; }));
+        Assert.Empty(Check(o => { o.UseSystemdRun = false; o.MemoryMaxMb = 512; o.DiskMaxMb = 4096; }));
+    }
+
+    [Theory]
+    [InlineData("MountPath")]
+    [InlineData("UmountPath")]
+    public void Mount_programs_must_be_safe_absolute_paths(string which)
+    {
+        Assert.NotEmpty(Check(o =>
+        {
+            if (which == "MountPath") { o.MountPath = "mount"; } else { o.UmountPath = "/usr/bin/umount; id"; }
+        }));
+    }
+
+    [Fact]
+    public void Mount_programs_are_not_checked_when_the_cap_is_off() =>
+        Assert.Empty(Check(o => { o.DiskMaxMb = 0; o.MountPath = "x"; o.UmountPath = "y"; }));
 
     [Theory]
     [InlineData(9999)]
@@ -134,7 +203,7 @@ public class OptionsValidationTests
     [InlineData(0)]
     [InlineData(128)]
     [InlineData(4096)]
-    public void Memory_limit_in_range_or_zero_is_accepted(int mb) => Assert.Empty(Check(o => o.MemoryMaxMb = mb));
+    public void Memory_limit_in_range_or_zero_is_accepted(int mb) => Assert.Empty(Check(o => { o.MemoryMaxMb = mb; o.DiskMaxMb = 64; }));
 
     [Theory]
     [InlineData(-1)]
