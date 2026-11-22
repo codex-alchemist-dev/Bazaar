@@ -13,6 +13,20 @@ public sealed class JsonWireCodec : IWireCodec
     /// <summary>The negotiated codec name.</summary>
     public const string CodecName = "json";
 
+    private readonly WireDecodeLimits _limits;
+
+    /// <summary>Creates a codec with the default decode limits (doc 90 section 4.5).</summary>
+    public JsonWireCodec() : this(WireDecodeLimits.Default)
+    {
+    }
+
+    /// <summary>Creates a codec with explicit decode limits.</summary>
+    public JsonWireCodec(WireDecodeLimits limits)
+    {
+        ArgumentNullException.ThrowIfNull(limits);
+        _limits = limits;
+    }
+
     /// <inheritdoc />
     public string Name => CodecName;
 
@@ -46,6 +60,7 @@ public sealed class JsonWireCodec : IWireCodec
     {
         try
         {
+            JsonLimitScanner.Check(frame, _limits);
             return DecodeCore(frame);
         }
         catch (JsonException ex)
@@ -78,6 +93,7 @@ public sealed class JsonWireCodec : IWireCodec
     public T DecodePayload<T>(in Envelope envelope)
     {
         if (envelope.P.IsEmpty) throw new WireFormatException("Message has no payload.");
+        JsonLimitScanner.Check(envelope.P.Span, _limits);
         try
         {
             return JsonSerializer.Deserialize(envelope.P.Span, Info<T>())
@@ -86,6 +102,11 @@ public sealed class JsonWireCodec : IWireCodec
         catch (JsonException ex)
         {
             throw new WireFormatException("Payload does not match the message type.", ex);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or FormatException or OverflowException && ex is not WireFormatException)
+        {
+            // A record constructor refused the values (for example a range check): the frame is bad, not the server.
+            throw new WireFormatException("Payload values are not valid for the message type.", ex);
         }
     }
 
@@ -142,6 +163,13 @@ public sealed class JsonWireCodec : IWireCodec
         reader.TokenType == JsonTokenType.Null ? null : reader.GetString();
 
     private static JsonTypeInfo<T> Info<T>() =>
-        WireJsonContext.Default.GetTypeInfo(typeof(T)) as JsonTypeInfo<T>
-        ?? throw new NotSupportedException($"{typeof(T).Name} is not a registered wire payload.");
+        PayloadMarker<T>.IsRegistered && WireJsonContext.Default.GetTypeInfo(typeof(T)) is JsonTypeInfo<T> info
+            ? info
+            : throw new NotSupportedException($"{typeof(T).Name} is not a registered wire payload.");
+
+    // The context also knows built-in types such as string, which are not wire payloads; the marker decides.
+    private static class PayloadMarker<T>
+    {
+        public static readonly bool IsRegistered = typeof(T).IsDefined(typeof(WirePayloadAttribute), inherit: false);
+    }
 }

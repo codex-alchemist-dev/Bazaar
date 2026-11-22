@@ -30,6 +30,13 @@ public static class GcEventKinds
     /// <summary>An accepted reader-session hand-over.</summary>
     public const string Handover = "handover";
 
+    /// <summary>
+    /// A member adds or removes one emoji reaction on a message (docs/design/01, "Reactions"). The payload is
+    /// <c>{"e":"&lt;emoji&gt;","op":"add"|"remove"}</c> and <c>target_seq</c> is the message's first seq. The <c>gc-reactions</c>
+    /// component's migration registers the kind.
+    /// </summary>
+    public const string Reaction = "reaction";
+
     /// <summary>Metadata for an external mail; the content stays with reader sessions.</summary>
     public const string ExternalMail = "external_mail";
 }
