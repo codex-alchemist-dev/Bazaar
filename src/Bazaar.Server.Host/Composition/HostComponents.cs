@@ -25,6 +25,7 @@ using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
@@ -58,6 +59,7 @@ public static class HostComponents
         new VaultComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new ProjectsComponent(),
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),

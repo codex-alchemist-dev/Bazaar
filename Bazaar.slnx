@@ -109,6 +109,8 @@
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.Projects/Bazaar.Server.Projects.csproj" />
+    <Project Path="src/Bazaar.Server.Projects.Abstractions/Bazaar.Server.Projects.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
