@@ -27,9 +27,21 @@ public sealed class ArgumentAndHelpTests
     }
 
     [Fact]
-    public async Task Setup_without_a_subcommand_or_dry_run_exits_invalid_input()
+    public async Task Bare_setup_starts_the_wizard_and_stops_when_its_input_ends()
     {
-        var run = await AdminRun.Async("setup");
+        // A bare "setup" is the wizard (doc 45 section 1.1). With no answers the first question ends the input, and nothing is written.
+        var prompter = new ScriptedSetupPrompter([]);
+        var run = await AdminRun.WithPrompter(prompter, "setup");
+
+        Assert.Equal((int)SetupExitCode.InvalidInput, run.ExitCode);
+        Assert.Contains("Company name", prompter.Questions[0]);
+        Assert.Contains("stopped before the review", prompter.Output);
+    }
+
+    [Fact]
+    public async Task Setup_with_only_a_flag_and_no_subcommand_still_asks_for_a_subcommand()
+    {
+        var run = await AdminRun.Async("setup", "--set", "install.companyName=Example");
 
         Assert.Equal((int)SetupExitCode.InvalidInput, run.ExitCode);
         Assert.Contains("needs validate, apply, or --dry-run", run.Stderr);
