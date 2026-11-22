@@ -106,6 +106,7 @@ Configurability rule (DECISIONS-LOG round 13). Keys are read by the settings reg
 | `community.code.trailer_style` | enum: `assisted_by_signoff`, `co_authored_by`, `target_rules` | `assisted_by_signoff` | project | sponsor, operator | No. Floor: agents never add `Signed-off-by` |
 | `community.outreach.cold_email` | bool | `false` | install | operator (owner) | Yes, owner; needs counsel (CAN-SPAM, GDPR/PECR) |
 | `community.counsel_review_before_live_post` | bool | `true` | install | operator (owner) | Yes, owner; needs counsel |
+| `github.community_repo_allowlist` (owned by doc 21; mirrored here) | list of repo node ids; the shipped bridge reads it from `Bazaar:Community:GitHub:Installations` as entries of owner, repo (or `*` for one explicit owner), installationId, repositoryId | empty: no community repo is writable (needs counsel) | install | operator (owner) | Yes, owner. Floor: unlisted repos are never written to |
 
 Shared quota keys are owned by doc 15 and are not redefined here: `security.quota.public_items_per_platform_day` (5) and `security.quota.public_issue_pr_per_repo_day` (1, also used by doc 21). Settings may tighten these floors, never loosen them: hard-taint rules, Tier 2 for new accounts, and Deny for unverified or banned platforms.
 
@@ -147,6 +148,10 @@ Shared quota keys are owned by doc 15 and are not redefined here: `security.quot
 11. Reader and actor hand-over for community content. Dep: doc 15 reader-session primitive.
 12. Opt-in live GitHub spike (throwaway repo). Dep: 7.
 13. Other adapters (forums, Discord, Reddit). Blocked until each platform is verified and the owner decides.
+
+WP 11 schema [PROPOSED, 2026-11-19]: the reader returns a `community_thread_summary` hand-over (doc 15, "Hand-over"). Fields: `platform` (enum), `item_kind` (enum: issue, pr, thread, comment), `target_ref` (text, 120), `summary` (text, 800), `topic_tags` (up to 5 tags of 40, optional), `tone` (enum), `flags` (enum list, optional; reader observations only), `reply_wanted` (bool), `confidence` (0 to 100) and `source_refs` (1 to 20 GUIDs, required lineage). There is no URL type, and URL-like text is refused in every text field. Unknown fields are rejected. The schema and a System.Text.Json validator live in `Bazaar.Server.Community.Abstractions`; the host maps the schema into doc 15's registry. Bounded text can still carry injected wording, so the actor treats `summary` and `topic_tags` as quoted data, never as instructions.
+
+Module names for WP 7 and WP 8 [PROPOSED, 2026-11-18]: WP 7 is `Bazaar.Server.Community.GitHub`. WP 8 is `Bazaar.Contracts/Community` (draft-review contracts) with `Bazaar.Client.Community` (view model) and `Bazaar.Client.Community.Avalonia` (view and `IPaneModule`). Layout and rules: doc 40, section 4b.
 
 ## Conflicts
 1. **Reply path vs taint (remaining).** Rounds 2 and 4 keep the reader/actor split in v1 and forbid an autonomous reply from the session that read the thread. Doc 15 must still specify the hand-over format and the fresh-session path. Until Q1 is confirmed, every reply is Tier 2.

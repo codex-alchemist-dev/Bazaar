@@ -2,17 +2,20 @@ namespace Bazaar.Server.Security.Taint;
 
 /// <summary>
 /// Active sessions per agent, held in process memory (doc 15, "Reads for modules"). The session runner calls
-/// <see cref="Begin"/> when a session starts and <see cref="End"/> when it ends. Contents are lost on restart, which is safe:
+/// <see cref="BeginSession"/> when a run starts and <see cref="EndSession"/> when it ends. Contents are lost on restart, which is safe:
 /// sessions do not survive a restart either.
 /// </summary>
-/// <remarks>Thread-safe: every call takes one lock. Agent ids match exactly (ordinal).</remarks>
-public sealed class InMemoryAgentSessionDirectory : IAgentSessionDirectory
+/// <remarks>
+/// Thread-safe: every call takes one lock. Agent ids match exactly (ordinal). Begins are counted, so a session that two runs
+/// share (a subagent child in its parent's session) stays listed until both have ended.
+/// </remarks>
+public sealed class InMemoryAgentSessionDirectory : IAgentSessionDirectory, IAgentSessionRegistrar
 {
     private readonly Lock _gate = new();
-    private readonly Dictionary<string, HashSet<Guid>> _sessions = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Dictionary<Guid, int>> _sessions = new(StringComparer.Ordinal);
 
-    /// <summary>Marks a session as active for the agent. Adding the same session twice does nothing.</summary>
-    public void Begin(string agentId, Guid sessionId)
+    /// <inheritdoc />
+    public void BeginSession(string agentId, Guid sessionId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         if (sessionId == Guid.Empty)
@@ -22,23 +25,35 @@ public sealed class InMemoryAgentSessionDirectory : IAgentSessionDirectory
 
         lock (_gate)
         {
-            if (!_sessions.TryGetValue(agentId, out var set))
+            if (!_sessions.TryGetValue(agentId, out var runs))
             {
-                set = [];
-                _sessions[agentId] = set;
+                runs = [];
+                _sessions[agentId] = runs;
             }
 
-            set.Add(sessionId);
+            runs[sessionId] = runs.GetValueOrDefault(sessionId) + 1;
         }
     }
 
-    /// <summary>Removes a session from the agent's active set. Removing an unknown session does nothing.</summary>
-    public void End(string agentId, Guid sessionId)
+    /// <inheritdoc />
+    public void EndSession(string agentId, Guid sessionId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         lock (_gate)
         {
-            if (_sessions.TryGetValue(agentId, out var set) && set.Remove(sessionId) && set.Count == 0)
+            if (!_sessions.TryGetValue(agentId, out var runs) || !runs.TryGetValue(sessionId, out var count))
+            {
+                return;
+            }
+
+            if (count > 1)
+            {
+                runs[sessionId] = count - 1;
+                return;
+            }
+
+            runs.Remove(sessionId);
+            if (runs.Count == 0)
             {
                 _sessions.Remove(agentId);
             }
@@ -52,7 +67,7 @@ public sealed class InMemoryAgentSessionDirectory : IAgentSessionDirectory
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            IReadOnlyList<Guid> active = _sessions.TryGetValue(agentId, out var set) ? [.. set] : [];
+            IReadOnlyList<Guid> active = _sessions.TryGetValue(agentId, out var runs) ? [.. runs.Keys] : [];
             return ValueTask.FromResult(active);
         }
     }

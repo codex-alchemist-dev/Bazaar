@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Rubedo analysis (doc 41d section 4): transport-neutral diagnostics with ranges, completions, hover and signature help for expressions and view documents. A pure library with no UI and no I/O.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+  </ItemGroup>
+</Project>

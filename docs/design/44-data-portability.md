@@ -97,9 +97,9 @@ The graph is derived from the Vault index, GC references, Kanban and PR data. It
 
 - `graph/nodes.jsonl` and `graph/edges.jsonl`: node kind, source reference, label and edge kind.
 - `graph/graph.graphml`: the same graph in GraphML for external tools.
-- `graph/layout.jsonl`: node positions. Excluded by default (`portability.export.include_derived`, false), because positions are derived and change with every layout run.
+- `graph/layout.jsonl`: the layout position of each node, one JSON line per node in the same index order as `graph/nodes.jsonl` (`index`, `ref`, then `x`, `y`, `z`; 2D layouts keep `z` at 0). Positions are derived and change with every layout run, so the file is written only when `portability.export.include_derived` is true (default false). It sits under `graph/`, which `graph/derived.json` marks as derived and not authoritative. Owner decision (2026-11-18): layout positions are exported, as derived data. Section 7 has the matching rule.
 
-Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access).
+Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access). Positions come from the same viewer-filtered snapshot, so a position is never written for a node the viewer cannot read. A layout computed for another graph version is not exported.
 
 ### 4.6 Personal fields and the audit log
 
@@ -159,6 +159,12 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
+**Built status (2026-11-18, built to the proposal; owner approved building before the section is DECIDED, so it is easy to adjust).**
+- Roadmap: nothing new. The Vault exporter covers it; no separate format.
+- Workday: `WorkdayExporter` (`Bazaar.Server.Portability`) adds `workday/events.jsonl` (the full `task_events` log, every kind, canonical JSON payloads), `workday/gate-decisions.jsonl` and `workday/manifest.json`. Tasks, edges, links and applied transitions stay in the Kanban export (section 4.4).
+- Orrery: `OrreryExporter` writes `orrery/triggers.jsonl` (every `ryusei_trigger` column, each row marked `restoreAs: "paused"`), `orrery/fires.jsonl` (the `ryusei_fire` journal, for exported triggers only) and `orrery/manifest.json`. The `ryusei.trigger.*` audit rows travel with the audit-log export (section 4.6), not here.
+- Both read through narrow source interfaces (`IWorkdayExportSource`, `IOrreryExportSource`) that the host implements; the import side (restoring triggers paused) is not built yet.
 
 ### 4.z Whole-company export (added 2026-11-13, DECIDED)
 
@@ -223,6 +229,38 @@ Before a bundle is marked complete, the server runs the verification above on th
 - The public half is published in the bundle so a reader can check the signature without the instance.
 - A key rotation keeps the old public key in the bundle's history, so old exports still verify.
 
+### 6.4 Built status of the verifier (work package 3)
+
+Built: `Bazaar.Server.Portability.Verifier` (library) and `Bazaar.Verify` (exe `bazaar-verify`; publish with `dotnet publish src/Bazaar.Verify -c Release -r <rid>` for a self-contained single file). It reads a bundle directory with streaming reads and no instance, database or network, and prints a deterministic JSON report (`bazaar.verify.report.v1`). Exit codes: 0 verified, 1 failed, 2 usage.
+
+Checks: every file's SHA-256 and size against the manifest; manifest shape, totals and ordinal file order; files in the bundle that the manifest does not list; the manifest signature (`BundleSigner`; `--signing-key` pins a key the reader already trusts, otherwise the bundle's `manifest.pub` is used and the report says `signing_key_source: bundle`); per-GC `events.jsonl` links, `head.json` and row counts; the audit chain, checkpoints and archive marker (`AuditChainReplay`); and each inclusion proof (`AuditInclusionProofVerifier`). A bundle with audit data needs `--audit-key` (the audit key is not the export key and is not in the bundle); without it the check fails closed.
+
+Decisions where this doc was silent (owner may overrule): an unsigned bundle fails; `head.json` uses the fields `last_seq`, `head_hash` and `counts` (`events`, `messages`, `versions`, `mentions`); a GC's first event has a null or empty `prev_event_hash` and hashes are compared as opaque strings; the audit key is ECDSA P-256 with SHA-256 and fixed-size signatures, the same as the export key; any file the manifest does not list fails, `README.txt` included.
+
+Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
+
+### 6.5 Built status of the bundle sources (work packages 2, 4, 5, 7 and 8)
+
+Built: `ExportBundleAssembler` runs registered `IBundleSource` implementations into one signed bundle and hashes every byte as it streams. Three adapters feed it from the existing exporters: `VaultBundleSource` (id `vault.v1`; places `repo.bundle`, `tree/` and `vault-manifest.json` under `vault/`), `PersonalFieldBundleSource` (id `personal.v1`; writes the files the personal exporter returns, under `personal/`) and `AuditBundleSource` (id `audit.v1`; writes `audit/entries.jsonl`, `checkpoints.jsonl` and `archive.json`, after the exporter's own replay self-check). A refusal or self-check failure throws and leaves no bundle. The assembler computes the manifest entries, so the adapters report none of their own.
+
+Decisions where this doc was silent (owner may overrule): the source ids above (ordinal order makes the run `audit`, `personal`, `vault`); the Vault exporter's own `vault-manifest.json` ships as `vault/vault-manifest.json` and is also hashed in `manifest.json`; the personal exporter audits the export when it runs, before assembly ends, so a later assembly failure leaves that audit entry in place; the plaintext owner notice is exposed on the source (`PlaintextNotice`), not written into the bundle. Not built: `audit/proofs/` and `audit/verify/`, and Vault principal filtering.
+
+Also built (README, mentions and plaintext flag): the assembler writes `README.txt` after the sources have run (`BundleReadme`): plain language, one line for each top-level folder that is in the bundle, the loose files, and, when a plaintext file exists, a notice that erasure cannot reach it. It is hashed and listed in `manifest.json` like any file (the verifier fails an unlisted file), and sources cannot write that path. `GcMentionsBundleSource` (id `gc.mentions.v1`, reads through `IGcMentionSource`) writes `gc/<gc_id>/mentions.jsonl`, one line per `gc_mention` row (`seq`, `targetPrincipalId`), cut at the GC head read first, and an empty file for a GC with none. A source that writes decrypted personal data implements `IPlaintextBundleSource`; the assembler sets `plaintextPersonal: true` on those files' manifest entries (the field is absent on every other entry). `PersonalFieldBundleSource` flags `personal/<subject>.json`.
+
+Decisions where this doc was silent (owner may overrule): the README wording (the doc fixes only that it is generated, explains the layout and is not authoritative); the flag is per file and spelled `plaintextPersonal` (camelCase like the other manifest fields; section 4.6 writes `plaintext_personal`), with no bundle-level flag; mention lines use the same sealed hash-chain line (`prevHash`, `hash`) as the other `gc.jsonl.v1` files, and the mention reader pages by (seq, target) because one event can mention several principals; the mentions source does not write or change `head.json`. Open: the in-memory `ExportBundleWriter.Build` does not generate a README or flags.
+
+Also built (GC bundle source, head.json and self-check): `GcBundleSource` (id `gc.jsonl.v1`) runs `GcJsonlExporter` for each requested GC and copies `events.jsonl`, `messages.jsonl`, `versions.jsonl`, `mentions.jsonl` (when the exporter is given an `IGcMentionSource`) and `head.json` into the bundle, so a full GC bundle assembles and passes `ExportBundleWriter.Verify`, `BundleSigner.Verify` and `bazaar-verify`. Each GC is exported into a scratch directory, re-read by `GcExportSelfCheck`, then copied; a GC that fails throws and aborts the bundle. `GcExportHead` now writes `mentionCount` and `mentionHeadHash` when mentions are exported, and the self-check verifies `mentions.jsonl` (bytes, chain, count, head hash). The verifier reads `head.json` in either spelling (`last_seq`, `head_hash`, `counts`, or `headSeq`, `eventHeadHash` and flat `eventCount`, `messageCount`, `versionCount`, `mentionCount`) and event chain fields in either spelling (`prev_event_hash`/`event_hash` or `prevHash`/`hash`), and treats the all-zero genesis hash as no previous hash. `ExportBundleAssembler` now runs a file-level self-check on the directory it wrote (the manifest is the signed bytes, the signature verifies, every listed file hashes to its entry, no file is unlisted) before the bundle is moved into place or encrypted; a failure throws and leaves no bundle.
+
+Decisions where this doc was silent (owner may overrule): doc 44 section 4.2 fixes the content of `head.json`, not its field names, so the writer's camelCase names stand and the verifier accepts both; `GcMentionsBundleSource` remains for a bundle whose GC exporter has no mention reader, and the two must not both run for one GC. Not built: the section 6.2 self-check does not replay GC or audit chains at bundle level (the verifier library references this project, so the assembler cannot call it; the sources run their own chain self-checks), and a failed self-check is not yet recorded as `incomplete` in the audit log (the assembler has no audit sink).
+
+### 6.6 Built status of the Postgres export readers
+
+Built in `Bazaar.Server.Portability.Postgres` (raw Npgsql over the shared `NpgsqlDataSource`, no new tables, no migration): `PostgresGcMessageVersionSource` (`IGcMessageVersionSource`, over `gc_message_version`; ciphertext only, paged by seq), `PostgresGcMentionSource` (`IGcMentionSource`, over `gc_mention`; paged by the `(seq, target_principal_id)` primary key, so several mentions on one seq never skip or repeat) and `PostgresKanbanExportSource` (`IKanbanExportSource`, over `tasks`, `task_edges`, `task_links` and `task_events`; tasks in id order, edges by blocker then blocked, transitions by event seq). The two GC readers ask `IGcReadAccess` first, throw `GcAccessDeniedException` on a denied viewer and stop at the grant's last seq, as `GcLogReader` does. Tests run against a real PostgreSQL with only `common/0001` and `common/0012` applied.
+
+Decisions where this doc was silent (owner may overrule): a task's unfinished blockers and a transition's gate are derived at read time. Blockers are the task's blockers whose state is not `done`. A `task.transitioned` event does not store the gate, so the transition carries the task's gate now (the gate is set when the task is created). Only `task.transitioned` events are exported as transitions, and an edge's `createdBy` is the stored uuid in "D" text. Mention paging and sort use PostgreSQL's bytewise `uuid` order, which is the order of lowercase "D" text.
+
+Not built: `IGraphExportSource`. It returns the viewer-filtered Constellation snapshot (doc 19), which the host computes from the Vault, GC, Kanban and PR data. No table holds that graph (the only graph tables are the memory-graph revisions and edges, a different graph), so a Postgres reader would invent a projection. It stays with the Constellation projection.
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -237,7 +275,7 @@ Each row below is a hard exclusion or a route to the data. None of these is a se
 | Erased subjects' content | Destroyed by design (section 10) | Tombstones only |
 | Other principals' private Vault areas | Access rule (doc 18) | Owner export only, as section 4.3 |
 | Logs, presence, cache, search indexes, embeddings | Rebuildable or transient. Logs rotate (doc 33) | Rebuilt from the log and the Vault. Embeddings can be included as derived data with their embedding profile id (`portability.export.include_derived`, false) |
-| Layout positions and other derived views | Change on every run | Recomputed from sources |
+| Other derived views (render tiles, caches) | Change on every run | Recomputed from sources. Graph layout positions are not excluded: they are exported as derived data with `include_derived` (section 4.5) |
 | The live audit chain as a writable object | Import would forge history | Audit is exported as evidence (section 4.6) and imported only as an archive (section 8.2) |
 | Work in flight (open turns, locks, leases) | Not data at rest | Drain before export (doc 03 shutdown). Export of a running instance is a snapshot at a consistent point, with the point recorded |
 
@@ -284,6 +322,23 @@ Parsing untrusted files is the riskiest step, so it runs in a separate process:
 - Document formats are parsed without macros, without external entity resolution, and without executing embedded content. Embedded objects are listed in the preview and not extracted.
 - A parser crash fails only the job. The host restarts the parser with the job's checkpoint (crash-only design, doc 46 health hooks).
 
+Built status (2026-11-18): the in-process checks exist in `Bazaar.Server.Portability` (`ImportLimits`, `ArchiveGuard`): source size, archive entry count, entry-name path checks (absolute, drive and `..` paths), symlink and special-file rejection, expansion ratio, expanded bytes, XML nesting depth, record size, and DTDs prohibited. The docx importer and the import pipeline enforce them. The four limits without a documented default (`max_archive_entries`, `max_nesting_depth`, `max_record_bytes`, `max_expanded_bytes`) take their defaults from this change, per the configurability rule.
+
+Built status (2026-11-19, work package 10): the separate parser process exists. `Bazaar.Server.Portability.Sandbox` (runner, `SandboxedImporter`, crash-loop tracker, Linux provider) with `Bazaar.Server.Portability.Sandbox.Abstractions` (provider interface `IParserConfinement`, `ParserSandboxOptions`, failure kinds, the frame protocol) and the child executable `Bazaar.Server.Portability.ParserHost`. `ParserSandboxRunner.CreateImporters()` returns `IPortabilityImporter` wrappers, so `ImportPipeline` runs unchanged and Detect and Parse both run in the child. The child gets the staged input on stdin (a length-prefixed JSON request header, then the raw bytes) and returns `SourceRecord` frames, length-prefixed System.Text.Json source-generated JSON (no Protobuf; server-internal frames, so they do not use the client `Envelope` payload registry of `IWireCodec`). The child enforces `ImportLimits` itself. The server kills the whole process tree on a timeout, an oversize frame or too much output, and a crash, hang or limit failure ends the job as `failed` with no preview and no instance write. Importer modules load into the child only (`ImporterAssemblies`).
+
+Where this doc was silent, these are settings with safe defaults (not yet in the settings registry of doc 03; the settings table below lists the keys): frame-gap timeout 30 s (the wait between frames after the first), job timeout 15 min (this also bounds the wait for the first frame, because the importer contract returns a whole list, so Parse finishes before any frame is sent), memory ceiling 2 GiB, CPU ceiling 300 s, output cap 256 MiB, crash-loop threshold 3 abnormal endings in 10 min, `RequireFullConfinement` false. The crash circuit is keyed per importer and per source (a hash of the source name and content, computed server-side). It opens only when the threshold of abnormal endings comes from at least two different sources, so one hostile file cannot shut an importer for everyone, and one source that fails `source_failure_cap` times (default 3) in the window is refused until the window passes. Crash classification never reads the child's stderr (the child controls it): a child out of memory is a limit failure only when the host reports it in a structured frame or the child ended by SIGKILL (exit 137) without our kill, and exit code 2 is a bad request only when the host reported it in a structured frame with no earlier frames; otherwise it counts as a crash. A hostile child can fake either signal, which only moves its failure from "crash" to "limit". Only abnormal endings count toward the crash loop: a crash, a frame-gap timeout, oversize output or a protocol violation. A job-timeout kill is reported separately (`JobTimeout`) and does not count, because a legitimately slow parse of a large source ends the same way; so do a bad request (child exit code 2), a limit failure (including a child out of memory) and a parser error. A crash-loop opens a per-importer circuit that refuses jobs until the window passes (or an operator reset), and raises the `parser_crash_loop` signal once.
+
+**What section 8.3 requires and this change does NOT meet:** a wall-clock timeout per record (only a whole-job timeout and a gap between frames exist, because Parse is not streamed), read access limited to the staging input, and write access limited to the output stream. Network isolation is also not met on Windows. Treat the parser as partly confined until those are built.
+
+OS confinement actually applied:
+
+- Linux (`LinuxParserConfinement`, tested here): own session and process group killed as a group (`setsid`), CPU-time and core-dump limits (`prlimit`), a new network namespace (`unshare --net`, with a user namespace fallback) when the host allows it, a managed heap ceiling (`DOTNET_GCHeapHardLimit`, all OSes), an empty scratch working directory, and a scrubbed environment (only `PATH`, `DOTNET_ROOT`, temp and Windows system variables pass).
+- The Linux network fallback (`unshare --user --map-root-user --net`, used when plain `unshare --net` is refused) gives the child a user namespace, which widens the kernel attack surface it can reach. Operators who do not accept that should set `require_full_confinement` and run the server with the privilege for a plain network namespace, or disable user namespaces and accept that no-network is then not applied.
+- The Linux group kill is skipped once the child has exited (its pid may be reused), so descendants that outlive an already-exited leader are not killed by the sandbox.
+- Windows (`WindowsJobObjectConfinement` in `Bazaar.Server.Providers.Windows`, compiled but not run on Windows; `ParserConfinements.CreateDefault()` picks it up by name when that assembly is deployed, else it falls back to tree-kill only): job object with per-process memory and CPU limits, an active-process limit of one, kill on close, and `TerminateJobObject` as the tree kill. The child is assigned to the job right after it starts (.NET cannot start a process suspended).
+- Not applied anywhere yet: file-system read scoping ("read access only to its staging input") and write confinement (a zero file-size limit kills the .NET runtime at startup), a child-process cap on Linux, and network isolation on Windows. Each run reports these in `ParserRunInfo.NotApplied`; `RequireFullConfinement` makes a job refuse to run when anything is missing.
+- Not built: restart with the job's checkpoint (the importer contract parses a whole source at once, so a crash fails the job and the owner retries), the registry wiring of the settings, and a sandbox dependency probe (the self-test over the importers is built, section 11).
+
 ### 8.4 Idempotent re-import
 
 Re-importing the same source must not create duplicates.
@@ -304,11 +359,17 @@ Re-importing the same source must not create duplicates.
 - Imported text is external content. It carries trust `external` (doc 15). Agents that read imported notes do so in reader sessions, and high-impact actions after reading them need owner approval (doc 15, taint).
 - The import job record stores hashes and locations, never the plaintext of imported personal content.
 
+Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, common API key shapes, JWTs, connection strings and high-entropy credential assignments; a timed-out pattern counts as a finding), `ImportSecretGate` (policy `quarantine`, `warn` or `off`, where `off` is refused for external text; `Scan` and `Resolve` over a preview, with the three owner choices) and `ImportSecretAudit` (one `portability.import.secret_decision` entry per decision, holding the choice and rule ids only). A resolved preview is a new preview, so it needs a new dry-run. Not built: the wizard step that shows findings and takes the decisions (client), reading the setting from the registry, and a shared rule set with the Soul bundle scanner (`BundleSecretScanner` in Bazaar.Server has the same rules, kept separate because this project must not reference Bazaar.Server).
+
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
-- Default: staging is deleted when the job commits and verifies. The job keeps the source manifest, hashes and counts.
-- `portability.import.staging_retention_hours`, default 0. The floor is 72 hours unless the owner approves a longer period, because staging holds plaintext personal content.
+- Default: staging is deleted 72 hours after the job commits and verifies. The job keeps the source manifest, hashes and counts.
+- `portability.import.staging_retention_hours`, default 72, and 72 is the minimum (owner decision, 2026-11-19). A longer period is an admin setting and every change is audited, because staging holds plaintext personal content.
+
+**Built status (8.6):** `StagingRetention`, `IImportStagingStore` and `ImportStagingSweeper` delete staging once retention has passed. Retention defaults to and may not go below 72 hours (the doc's "default 0, floor 72" is read as 72 hours); a longer period is an admin setting and each change is audited as `portability.import.staging_retention_changed`.
+
+**Storage (coordinator picks, 2026-11-22, PROPOSED):** the staging record is table `import_staging`, keyed by (`job_id`, `source_key`), with the relative path of the payload file, its size and SHA-256, the staging time and a `deleted_at` that is set when staging is swept. Payload files live under one staging directory per job, and the table never holds file content. Deleting staging removes the files (injected, so the Postgres project holds no file code) and then marks the rows `deleted_at`; the rows stay as history, with the job's manifest, hashes and counts. The quota of section 8.7 is checked against the sum of `size_bytes` of the job's rows that are not deleted. Built (record side): `PostgresImportStagingStore` in `Bazaar.Server.Portability.Postgres`, migration `portability/0002_import_staging_withdrawal.sql`.
 
 ### 8.7 Large dumps
 
@@ -320,14 +381,35 @@ Re-importing the same source must not create duplicates.
 - **Progress and health.** Progress (items, bytes, ETA, failures) is reported to Observatory (doc 23) and to the health contract (doc 46). A job that makes no progress for a set time is marked `stalled` and alerted.
 - **Size limits.** `portability.import.max_upload_bytes`, default 10 GiB. A larger dump is split by the owner into jobs, or the owner raises the limit, which is audited.
 
+**Built status (8.7):** `ImportBatcher` (items and bytes), `ImportStallDetector` and `ImportRateLimiter` are built, plus the size cap in `ImportLimits`. Pause and resume rely on the job store (WP 9). Health reporting is built (section 11 built status); Observatory events are not wired, because doc 23 defines no portability events.
+
 ### 8.8 Withdrawing an import
 
 Undo never deletes history:
 
 - GC entries from an import get a new version that marks them `withdrawn_by_import: <job>`. The text stays in history, and the view hides it by default.
+  **[PROPOSED]** The version is written through the GC log writer (`AppendRequest.WithdrawnByImport`, doc 01 Edits): a new `message_edit` row by the system principal with `gc_message_version.withdrawn_by_import = <job id>`. Original versions are never changed. The editor-must-be-author rule does not apply to this principal.
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
-- Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
+- Kanban tasks from an import move to the stored `withdrawn` state with reason `withdrawn by import` [PROPOSED]. Blocked is derived in doc 12 and never stored, so it cannot be the target, and Kanban has no archive. `withdrawn` is terminal, hidden from boards by default, keeps the task's history, and stops counting as a blocker for other tasks. It is reached only through the Kanban task service's `IKanbanTaskWithdrawal` port, behind the doc 12 gates (system or owner actor, reason required, Done tasks owner only). See doc 12, "Withdrawn state".
 - The withdrawal is itself an audit entry, linked to the job.
+
+**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates. The Kanban side now exists as `IKanbanTaskWithdrawal` in `Bazaar.RyuseiFuda.Abstractions` (stored `withdrawn` state, PROPOSED). The `Block` and `Archive` modes of `KanbanWithdrawalMode` are retired (the enum and the `mode` parameter are gone). The adapters are built in `Bazaar.Server.Portability.Withdrawal` (see the adapters paragraph below).
+
+**Storage (coordinator picks, 2026-11-22, PROPOSED):**
+
+- **Withdrawal record.** Table `import_withdrawal` (`job_id`, `source_key`, `target_kind`, `target_id`, `withdrawn_at`) holds one row per withdrawn record and is also the resume record: a re-run reads it and skips what is there. Rows are history and are never deleted. `target_kind` is `gc_message`, `vault_file` or `kanban_task`; for a Kanban task the `source_key` is the task id, because a task has no source key of its own. A row is written after the side effect succeeded, so a crash between the two repeats the side effect, which must therefore be idempotent. Built: `PostgresImportWithdrawalStore`.
+- **GC side.** The `withdrawn_by_import` version is written through the GC log writer and message editor (`IGcAppender`, `IGcMessageEditor`), never by SQL on `gc_message_version`, which is append-only with a per-GC seq and a hash chain. The editor takes text only today and has no way to carry the marker, so this side is a port (`IGcWithdrawalMarker`) with no implementation yet. See the open questions below.
+- **Vault side.** The revert is a git commit, so it is a port (`IVaultWithdrawalReverter`) implemented outside the Postgres project.
+- **Kanban side.** Table `tasks` gets a nullable `import_job_id` (migration `kanban/0002_task_import_job.sql`, in the Kanban namespace) that the import commit sets on the tasks it creates. `PostgresKanbanImportedTaskReader` reads it for `IKanbanWithdrawalWriter.ReadImportedTaskIdsAsync`. The transition goes through the Kanban service and its doc 12 gates, not SQL. Doc 12 derives Blocked from blocker edges and has no archived state, so "transition to Blocked" and "archive" have no service operation yet. See the open questions below.
+
+**Built (2026-11-22, adapters, PROPOSED storage shapes):** `Bazaar.Server.Portability.Withdrawal` implements the three ports and references only `Bazaar.Server.Portability`, `Bazaar.RyuseiFuda.Abstractions` and `Bazaar.Vault.Abstractions`.
+- `GcWithdrawalMarker : IGcWithdrawalMarker` finds the job's messages from the GC log (the `import_job` and `source_key` payload fields), reads each message's current sealed version through `IGcMessageVersionSource`, and appends a system-authored `message_edit` with `WithdrawnByImport` through `IGcLogWriter.AppendManyAsync`. The new version carries the existing sealed body, so nothing is decrypted. The idempotency key is derived from job and message, so a repeat or a resumed batch writes nothing new. A tombstoned (erased) message is skipped. It mirrors `MessageEditPlanner.PlanWithdrawal`, which lives in Bazaar.Server and cannot be referenced from here.
+- `KanbanWithdrawalAdapter : IKanbanWithdrawalWriter` reads imported and withdrawn ids through `IImportedKanbanTaskReader` (implemented by `PostgresKanbanImportedTaskReader`) and withdraws each task through `IKanbanTaskWithdrawal` with the system actor and reason `withdrawn by import`. `Withdrawn` and `AlreadyWithdrawn` are done; any other status (for example a Done task, which only the owner may withdraw) fails the batch.
+- `VaultWithdrawalReverter : IVaultWithdrawalReverter` finds the job's notes by front matter, takes each path's prior state from the first parent of the import commit (found by the `Bazaar-Import-Job` trailer), writes the restores on an `agent/import-withdraw-<job>-<batch>` branch in a worktree through `IGitProvider`, and lands it through `IVaultWriter.SubmitAsync`. `IVaultWriter` only merges an existing branch, so the worktree commit still needs `IGitProvider` (as `VaultImportTarget` does). A conflict or a refused merge fails the batch. A repeat finds no note naming the job and does nothing.
+- Also built: `TaskService.CreateFromMessageAsync` takes an optional `importJobId`, stored in `tasks.import_job_id`, for the importers to pass.
+- Not built: host wiring of the three adapters, and a Postgres test of `tasks.import_job_id` that runs here (written, but the Kanban database tests need Docker or a provisioned PostgreSQL).
+
+**Open (8.8):** (1) which field of a GC edit event carries `withdrawn_by_import`, and how the view hides it (the message editor must accept a marker; it also requires the original author as editor). (2) What "Blocked with reason `withdrawn by import`" means when Blocked is derived: a blocker edge to a system task, a new stored state, or archive only. Neither is decided.
 
 ### 8.9 Import audit trail
 
@@ -374,6 +456,8 @@ Rules for every importer and exporter:
 - **Trust tiers.** Verified tag and unverified modules are shown as in doc 42. An unverified importer installs with a warning and runs under the same sandbox.
 - **Licence.** The AGPL module exception applies: an importer that uses only the public module API may be under any licence, including a closed commercial one. Its licence is shown at install (doc 42).
 
+**Built status:** `IMappingImporter` (in `Bazaar.Server.Portability`) adds `FormatId`, a declaration of targets, pure `Map` with versioned and hashed `MappingRules`, and a self-test, on top of `IPortabilityImporter`. `ImporterContractChecks` is the contract test every importer module runs. Verify is the shared `ImportVerifier`. Parse is not yet run in a separate process, and the doc 42 module and doc 46 health interfaces are not written, so the existing importers are not yet moved onto `IMappingImporter`.
+
 Exporters follow the same rules, and their output is streamed as `ExportFile` items with a SHA-256 added by the bundle writer, not by the exporter.
 
 ## 10. Relationship to erasure
@@ -395,6 +479,8 @@ Erasure is planned in doc 48. Its mechanics are in doc 04 (erasure hook), doc 08
 - Every export and import writes audit entries (section 4.1, section 8.9). Plaintext personal exports and secret-scanner decisions are audited with the actor.
 - A job that holds the owner's approval needed for a plaintext export or a size-limit raise stops at that decision and waits for it.
 
+**Built status (2026-11-22):** `PortabilityHealth` (in `Bazaar.Server.Portability`, module id `portability`) implements `IModuleHealthContract` of doc 46 section 10. Liveness does no I/O. Readiness reports `failed_verify`, `stalled` and `parser_crash_loop` alerts (`PortabilityJobAlerts`, pure) as Degraded, from counts that the host supplies through `IImportJobHealthSource` (the job store has no listing). Dependencies come from `IPortabilityDependencyProbe` items the host registers; a throwing probe is Unknown. The self-test runs every `IMappingImporter.SelfTest` over its built-in fixture, is the same for Quick and Full (no I/O, no residue), is Unknown when no importer is registered, and names importer ids only. Not built: the host implementations of the two source interfaces, DI registration, a sandbox dependency probe, the manifest `health` block, and Observatory events (doc 23 defines none for portability). Open: whether job alerts belong in readiness or in a separate Kodo probe, since doc 46 section 9.1 has no portability probe.
+
 ## 12. Settings
 
 Keys are install-scoped. The operator changes them in the setup wizard or advanced settings, and every change is audited (doc 15). Floors cannot be loosened. A setting can only tighten a floor.
@@ -407,10 +493,23 @@ Keys are install-scoped. The operator changes them in the setup wizard or advanc
 | `portability.export.part_bytes` | int | 4 GiB | Max 4 GiB | Operator | No |
 | `portability.import.max_upload_bytes` | int | 10 GiB | Hard maximum set by host storage | Operator | Yes (owner) to raise |
 | `portability.import.max_expansion_ratio` | int | 100 | Min 10 | Operator | No |
+| `portability.import.max_archive_entries` | int | 10000 | Min 1 | Operator | No |
+| `portability.import.max_nesting_depth` | int | 100 | Min 1 | Operator | No |
+| `portability.import.max_record_bytes` | int | 64 MiB | Min 1 | Operator | No |
+| `portability.import.max_expanded_bytes` | int | 512 MiB | Min 1 | Operator | No |
+| `portability.import.parser.frame_gap_timeout_seconds` | int | 30 | Min 1 | Operator | No |
+| `portability.import.parser.job_timeout_seconds` | int | 900 | Min 1 | Operator | No |
+| `portability.import.parser.max_memory_bytes` | int | 2 GiB | Min 64 MiB | Operator | No |
+| `portability.import.parser.max_cpu_seconds` | int | 300 | Min 1 | Operator | No |
+| `portability.import.parser.max_output_bytes` | int | 256 MiB | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_threshold` | int | 3 | Min 1 | Operator | No |
+| `portability.import.parser.source_failure_cap` | int | 3 | Min 1 | Operator | No |
+| `portability.import.parser.crash_loop_window_minutes` | int | 10 | Min 1 | Operator | No |
+| `portability.import.parser.require_full_confinement` | bool | false | Operator may set true | Operator | No |
 | `portability.import.batch_items` | int | 500 | 1 to 5000 | Operator | No |
 | `portability.import.write_rate` | int | 200 items per second | Bounded by chat latency budget | Operator | No |
 | `portability.import.secret_scan` | enum: `quarantine`, `warn`, `off` | `quarantine` | `off` not allowed for text from external sources | Operator | Yes (owner) to set `warn` or `off` |
-| `portability.import.staging_retention_hours` | int | 0 | Max 72 unless owner approves | Operator | Yes (owner) above 72 |
+| `portability.import.staging_retention_hours` | int | 72 | Min 72 (owner decision, 2026-11-19) | Operator | No; a longer period is an audited admin change |
 | `portability.import.dry_run_required` | bool | true | Always true (cannot be disabled) | None | Not settable |
 
 ## 13. Conflicts with existing docs
@@ -474,5 +573,6 @@ Nothing in this doc is built. The status of each part:
 - PROPOSED: the bundle layout, formats, signing, verification, the import stages, idempotent re-import, the sandbox limits, the settings table, the plugin interfaces in section 9 (sketch only).
 - PLANNED, named importers: Obsidian vault, Trello (JSON export), Miro (CSV export), Milanote (Markdown export). Each is a module, starts from a real sample taken by the owner, and is gated by the same tests as any other importer. Milanote's ZIP package is not read yet: the public article names it but does not describe its contents. The Milanote Markdown layout (one card per heading) and the Miro CSV header names are modelled, not verified against a real export, until the owner's sample is checked.
 - PLANNED, generic importers: docx, md and txt, and chat-log text dumps.
+- BUILT (status note, chat-log dumps): `ChatLogImporter` (`bazaar.import.chatlog`, `src/Bazaar.Server.Portability/ChatLogImporter.cs`) detects by line structure and recognises only three generic shapes: `[timestamp] name: text`, `timestamp - name: text`, and `timestamp name: text`. Lines without a timestamp prefix are not detected, and no product-specific format is assumed. Continuation lines join the previous message; each message is one `chat-entry` record with a stable key. The record size limit from `ImportLimits` is not enforced, because that type does not exist in the code yet. Nothing in `src/` composes the importer list into a host yet; the tests compose it through `ImportPipeline`. The docx, md and txt importers already exist in `Importers.cs` and `DocxImporter.cs`; this change does not alter them.
 - PLANNED, derived exports: the graph GraphML file and the optional Parquet analytics export. Neither is needed for v1.
 - PLANNED, dependencies: doc 42 (module contract), doc 46 (health contract), doc 48 (erasure). This doc follows their drafts when they exist.

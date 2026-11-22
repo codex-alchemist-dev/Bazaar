@@ -6,7 +6,7 @@ public enum ModuleSignatureStatus
     /// <summary>The signature verifies over the canonical form with a current, unrevoked publisher key.</summary>
     Valid,
 
-    /// <summary>A required field is empty or a permission is blank.</summary>
+    /// <summary>A required field is empty, holds a character outside printable ASCII, is too long, or the digest is not SHA-256 hex.</summary>
     Malformed,
 
     /// <summary>The package carries no signature bytes.</summary>
@@ -20,4 +20,10 @@ public enum ModuleSignatureStatus
 
     /// <summary>The signature does not verify over the canonical form with this key.</summary>
     BadSignature,
+
+    /// <summary>The package names a publisher other than the one that owns the signing key.</summary>
+    PublisherMismatch,
+
+    /// <summary>The signing key is valid, but its publisher may not sign this module id. One publisher cannot ship another's module.</summary>
+    ModuleNotInKeyScope,
 }

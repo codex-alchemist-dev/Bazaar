@@ -1,4 +1,4 @@
-namespace Bazaar.Server.Security.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// Signs and verifies erasure proofs (design doc 48, section 9). The real key is held by the Identity Service, so the

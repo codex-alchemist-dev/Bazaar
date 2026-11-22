@@ -8,7 +8,7 @@ namespace Bazaar.Server.Vms.WindowsSandbox;
 /// </summary>
 public static class WindowsSandboxModule
 {
-    /// <summary>The kind name the <c>host.provider.vm</c> setting selects.</summary>
+    /// <summary>The kind name this provider reports.</summary>
     public const string Kind = "windows_sandbox";
 
     /// <summary>Windows Sandbox needs x64 Windows with the optional feature enabled (name to verify on the owner's PC, doc 50 section 5).</summary>
