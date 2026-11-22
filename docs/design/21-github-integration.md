@@ -168,8 +168,11 @@ Registry owned by doc 03. Changes are audited. Surfaced in the setup wizard and 
 | `github.reviewer_family_rule` | enum: `require_different`, `flag_only` | `require_different` | install | operator (owner) | Yes, owner |
 | `github.pr_gc_archive_days` | int | 7 | install | operator (owner) | Yes, owner |
 | `github.signoff_event` | bool | true | install | operator (owner) | Yes, owner |
+| `github.api_base_address` (config `Bazaar:GitHub:Adapter:BaseAddress`) | https URI | `https://api.github.com/` [PROPOSED] | install | operator (owner) | Yes, owner |
 | `github.uninstalled_repo_issues` | enum: `off`, `per_issue_approval` | `off` (needs counsel) | install | operator (owner) | Yes, owner |
 | `github.community_repo_allowlist` | list of repo node ids | empty (needs counsel) | install | operator (owner) | Yes, owner |
+
+`github.api_base_address` points the adapter at GitHub Enterprise Server (its own `/api/v3` root) or at a test double. It must be https, because the installation token travels in every request; the adapter refuses anything else, so the setting cannot loosen that floor. The branch push origin check (doc 52: https and an allowed GitHub host) has no setting; a test harness that needs another origin does so in code, never through configuration.
 
 `github.uninstalled_repo_issues` has no effect unless live test T1 passes. Its options are documented for counsel: `off` posts nothing to uninstalled repos; `per_issue_approval` lets an owner approve each issue.
 
