@@ -33,6 +33,12 @@ public sealed record ExecResult(int ExitCode, bool TimedOut, bool Cancelled, boo
     public bool Succeeded => ExitCode == 0 && !TimedOut && !Cancelled;
 }
 
+/// <summary>One entry of a guest directory listing (<see cref="IGuestChannel.ListFilesAsync"/>).</summary>
+/// <param name="Name">Entry name, no separators.</param>
+/// <param name="Size">Byte size of a file; 0 for a directory.</param>
+/// <param name="IsDirectory">True for a directory.</param>
+public sealed record GuestDirectoryEntry(string Name, long Size, bool IsDirectory);
+
 /// <summary>
 /// The guest wire as the host sees it (doc 16 IGuestChannel). Paths are guest paths. Callers must pass jailed paths.
 /// The server has a provisional <c>IGuestChannel</c> of its own in the coding workspace ports; it is a separate type, and an adapter must
@@ -62,6 +68,27 @@ public interface IGuestChannel
     /// </summary>
     /// <exception cref="GuestFileException">The guest refused or failed the read, or the hash did not match.</exception>
     Task GetFileAsync(string guestPath, Stream sink, CancellationToken ct);
+
+    /// <summary>
+    /// Deletes one file (or one symlink, never its target) under the worktree root. <paramref name="relativePath"/> is relative to the worktree root
+    /// (the guest's first allowed root); the guest refuses absolute paths and <c>..</c>. Needs a protocol version 3 guest.
+    /// </summary>
+    /// <exception cref="GuestFileException">The guest refused or failed the delete, for example the file is missing or the path is a directory.</exception>
+    Task DeleteFileAsync(string relativePath, CancellationToken ct);
+
+    /// <summary>
+    /// Lists one directory, not recursive, ordered by name. <paramref name="relativeDir"/> is relative to the worktree root; empty means the root itself.
+    /// Needs a protocol version 3 guest.
+    /// </summary>
+    /// <exception cref="GuestFileException">The guest refused or failed the listing (outside the root, missing, or too large).</exception>
+    Task<IReadOnlyList<GuestDirectoryEntry>> ListFilesAsync(string relativeDir, CancellationToken ct);
+
+    /// <summary>
+    /// Follows symlinks in <paramref name="relativePath"/> inside the guest and returns the real path, relative to the worktree root with <c>/</c>
+    /// separators (<c>.</c> for the root). Returns null, failing closed, when the target leaves the root, cannot be resolved, or the path is refused.
+    /// The target need not exist. Needs a protocol version 3 guest.
+    /// </summary>
+    Task<string?> ResolveRealPathAsync(string relativePath, CancellationToken ct);
 
     /// <summary>Opens a terminal in the guest. The wire has no acknowledgement, so a shell that fails to start shows as a terminal with no output.</summary>
     Task<IGuestPty> OpenPtyAsync(int cols, int rows, CancellationToken ct);
