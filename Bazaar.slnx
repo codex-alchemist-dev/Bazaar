@@ -179,6 +179,8 @@
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Sanitization.Tests/Bazaar.Server.Sanitization.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Verification.Tests/Bazaar.Server.Verification.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Godot.Abstractions/Bazaar.Server.Godot.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Godot/Bazaar.Server.Godot.csproj" />
     <Project Path="tests/Bazaar.Server.Godot.Tests/Bazaar.Server.Godot.Tests.csproj" />
@@ -301,6 +303,9 @@
     <Project Path="src/Bazaar.Server.Providers.Linux/Bazaar.Server.Providers.Linux.csproj" />
     <Project Path="src/Bazaar.Server.Valkey/Bazaar.Server.Valkey.csproj" />
     <Project Path="src/Bazaar.Server.Sanitization.Abstractions/Bazaar.Server.Sanitization.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Mentions/Bazaar.Server.Mentions.csproj" />
+    <Project Path="src/Bazaar.Server.Sanitization/Bazaar.Server.Sanitization.csproj" />
+    <Project Path="src/Bazaar.Server.Verification/Bazaar.Server.Verification.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
