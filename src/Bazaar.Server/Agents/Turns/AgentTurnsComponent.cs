@@ -97,7 +97,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IDueInboxReader>(),
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
-            sp.GetRequiredService<TurnStarterOptions>()));
+            sp.GetRequiredService<TurnStarterOptions>(),
+            sp.GetServices<ITaskSessionHook>()));
+        // Ends task sessions for the Ryusei card transition (ITaskSessionHook). No hook is registered by default, so this is a no-op.
+        services.TryAddSingleton(sp => new TaskSessionEnder(sp.GetServices<ITaskSessionHook>()));
         services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();
