@@ -25,13 +25,10 @@ public sealed class PhoneGestureLayer : Grid
     private readonly RadialMenuView _view;
     private readonly DispatcherTimer _holdTimer;
     private GesturePoint _origin;
-    private readonly IHaptics? _haptics;
     private bool _dictating;
-    private string? _lastSector;
 
-    public PhoneGestureLayer(Control body, IReadOnlyList<string>? sectorIds = null, GestureOptions? options = null, IHaptics? haptics = null)
+    public PhoneGestureLayer(Control body, IReadOnlyList<string>? sectorIds = null, GestureOptions? options = null)
     {
-        _haptics = haptics;
         ArgumentNullException.ThrowIfNull(body);
         var ids = sectorIds ?? AndroidSettings.DefaultRadialSectors;
         var gestureOptions = options ?? new GestureOptions();
@@ -130,7 +127,6 @@ public sealed class PhoneGestureLayer : Grid
                 SwipeProgressed?.Invoke(this, result.Dx);
                 break;
             case GestureEventKind.SwipeCommitted:
-                _haptics?.Tick(HapticKind.SwipeCommit);
                 SwipeCommitted?.Invoke(this, result.Direction!.Value);
                 break;
             case GestureEventKind.SwipeCancelled:
@@ -156,7 +152,6 @@ public sealed class PhoneGestureLayer : Grid
     private void OpenRadial(GesturePoint point)
     {
         _origin = point;
-        _lastSector = null;
         _menu.Press();
         _view.Margin = new Thickness(point.X, point.Y, 0, 0);
         _view.IsVisible = true;
@@ -184,13 +179,6 @@ public sealed class PhoneGestureLayer : Grid
     private void Refresh()
     {
         _view.Highlight(_menu.Slot, _menu.Dictating);
-        var sector = _view.HighlightedSector;
-        if (sector is not null && !string.Equals(sector, _lastSector, StringComparison.Ordinal))
-        {
-            _haptics?.Tick(HapticKind.RadialSector);
-        }
-
-        _lastSector = sector;
         SetDictating(_menu.Dictating);
     }
 

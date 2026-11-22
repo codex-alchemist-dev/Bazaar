@@ -23,9 +23,8 @@ public sealed class PhoneShell : UserControl
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
     /// <param name="gestures">The swipe and hold thresholds. Null uses the doc 93 defaults.</param>
-    /// <param name="haptics">Plays the haptic ticks for radial sectors and swipe commits. Null plays none.</param>
     /// <param name="radialSectors">The radial menu's sectors, in order. Null uses the doc 29 default seven.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null)
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -35,7 +34,7 @@ public sealed class PhoneShell : UserControl
         DockPanel.SetDock(title, Dock.Top);
 
         // The gesture layer wraps the pager and is the last child, so DockPanel gives it the remaining height.
-        Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures, haptics);
+        Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures);
         Gestures.SwipeProgressed += (_, dx) => _pager.RenderTransform = new TranslateTransform(dx, 0);
         Gestures.SwipeCancelled += (_, _) => _pager.RenderTransform = null;
         Gestures.SwipeCommitted += (_, direction) =>
