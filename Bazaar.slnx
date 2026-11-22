@@ -67,6 +67,7 @@
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Reputation/Bazaar.Server.Reputation.csproj" />
     <Project Path="src/Bazaar.Server.OutcomeLedger.Abstractions/Bazaar.Server.OutcomeLedger.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.OutcomeLedger.GitHub/Bazaar.Server.OutcomeLedger.GitHub.csproj" />
     <Project Path="src/Bazaar.Server.OutcomeLedger/Bazaar.Server.OutcomeLedger.csproj" />
     <Project Path="src/Bazaar.Server.PsychWard.Abstractions/Bazaar.Server.PsychWard.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.PsychWard/Bazaar.Server.PsychWard.csproj" />
@@ -249,6 +250,7 @@
     <Project Path="tests/Bazaar.Server.ReadAudit.Tests/Bazaar.Server.ReadAudit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Blobs.Tests/Bazaar.Server.Blobs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.OutcomeLedger.GitHub.Tests/Bazaar.Server.OutcomeLedger.GitHub.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.OutcomeLedger.Tests/Bazaar.Server.OutcomeLedger.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.PsychWard.Tests/Bazaar.Server.PsychWard.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
