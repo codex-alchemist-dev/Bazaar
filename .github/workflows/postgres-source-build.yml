@@ -32,6 +32,10 @@ on:
         description: 'Repository path of the public key the signature is verified with. Not a secret. Required, no default.'
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -187,7 +191,7 @@ jobs:
           chmod 600 "$key"
           dotnet run packaging/postgres/source/SignBundle.cs -- sign \
             --bundle "$RUNNER_TEMP/pg-src-bundle/18" --module-id postgresql --version 18.7.0 \
-            --permission fs.dataRoot --key-id "${{ inputs.release_key_id }}" \
+            --permission fs.dataRoot --key-id "${{ inputs.release_key_id }}" --publisher-id "${{ inputs.release_publisher_id }}" \
             --private-key "$key" --out "$RUNNER_TEMP/pg-src-bundle/18.package.json"
           dotnet run packaging/postgres/source/SignBundle.cs -- verify \
             --package "$RUNNER_TEMP/pg-src-bundle/18.package.json" --public-key "${{ inputs.release_public_key_path }}" \

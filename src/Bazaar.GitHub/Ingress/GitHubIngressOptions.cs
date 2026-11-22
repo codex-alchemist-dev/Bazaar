@@ -28,8 +28,14 @@ public sealed class GitHubIngressOptions
     /// <summary>Events older than this are ignored, so a first start does not replay the 90-day window. Zero disables the cutoff. Default 24 hours.</summary>
     public TimeSpan MaxEventAge { get; init; } = TimeSpan.FromHours(24);
 
-    /// <summary>The principal id GitHub-bridged GC events are written under (<c>AuthorKind.ExternalBridge</c> or <c>System</c>). Required by <see cref="GitHubGcEventSink"/>.</summary>
+    /// <summary>
+    /// Optional override of the principal id GitHub-bridged GC events are written under (<c>AuthorKind.ExternalBridge</c> or <c>System</c>).
+    /// Leave it unset: <see cref="EffectiveBridgePrincipalId"/> then uses the seeded <see cref="GitHubBridgePrincipal.Id"/>.
+    /// </summary>
     public Guid? BridgePrincipalId { get; init; }
+
+    /// <summary>The bridge principal the sink writes under: the override when set, otherwise the seeded default. Never empty.</summary>
+    public Guid EffectiveBridgePrincipalId => BridgePrincipalId is { } id && id != Guid.Empty ? id : GitHubBridgePrincipal.Id;
 
     /// <summary>The install's Inbox GC (doc 21, Open question 2), where external issue and PR events land. Null means they are not posted.</summary>
     public Guid? InboxGcId { get; init; }
