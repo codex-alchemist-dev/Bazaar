@@ -6,5 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Npgsql" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>

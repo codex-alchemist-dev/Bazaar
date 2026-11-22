@@ -8,7 +8,7 @@ namespace Bazaar.Server.Portability.Postgres;
 /// <c>import_withdrawal</c>. Ids are lowercase "D" text, in id order. The transition itself belongs to the Kanban service and its
 /// doc 12 gates; this class never writes to <c>tasks</c>.
 /// </summary>
-public sealed class PostgresKanbanImportedTaskReader(NpgsqlDataSource dataSource, PostgresImportWithdrawalStore withdrawals)
+public sealed class PostgresKanbanImportedTaskReader(NpgsqlDataSource dataSource, PostgresImportWithdrawalStore withdrawals) : IImportedKanbanTaskReader
 {
     private const string _imported = "SELECT id::text FROM tasks WHERE import_job_id = $1 ORDER BY id";
 
