@@ -18,6 +18,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />

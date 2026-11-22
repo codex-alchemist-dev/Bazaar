@@ -23,6 +23,19 @@ updates:
       # Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.x.
       - dependency-name: "xunit.v3*"
         versions: [">=4.0.0"]
+      # Renovate tracks these (stable and prerelease; see renovate.json and docs/FORWARD-FACING.md).
+      # Dependabot security updates are separate and still apply.
+      - dependency-name: "Npgsql"
+      - dependency-name: "Avalonia*"
+      - dependency-name: "Microsoft.Extensions.*"
+      - dependency-name: "Microsoft.AspNetCore.Mvc.Testing"
+      - dependency-name: "Microsoft.ML.OnnxRuntime"
+      - dependency-name: "Vortice.Vulkan"
+      - dependency-name: "Testcontainers.PostgreSql"
+      - dependency-name: "StackExchange.Redis"
+      - dependency-name: "MimeKit"
+      - dependency-name: "MailKit"
+      - dependency-name: "LibGit2Sharp"
     groups:
       nuget-minor-and-patch:
         update-types:
