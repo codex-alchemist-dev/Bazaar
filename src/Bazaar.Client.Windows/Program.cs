@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -22,18 +23,26 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Navigation;
 using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Preferences;
+using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Shell;
+using Bazaar.Client.SignIn;
 using Bazaar.Client.Vault;
+using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
+using Bazaar.Contracts.Panes;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Windows;
 
@@ -44,6 +53,15 @@ internal static class Program
     {
         // Client GC: sustained low latency keeps UI frames free of blocking gen2 collections (doc 40).
         System.Runtime.GCSettings.LatencyMode = System.Runtime.GCLatencyMode.SustainedLowLatency;
+        // Logging first, so every later line (and a failed start) lands in the client log the support bundle reads (doc 37 section 4d).
+        SupportBundleCommands.InstallLog();
+        // --self-check and --support-bundle run headless and exit, before the single-instance mutex and any window.
+        if (SupportBundleCommands.TryRun(args, WindowsModules.Create) is { } exitCode)
+        {
+            Environment.ExitCode = exitCode;
+            return;
+        }
+
         var request = LaunchArgs.Parse(args);
         var pipeName = LaunchPipe.DefaultName(Environment.UserName);
         // How long a second launch waits for the running instance to answer (doc 28, startup budgets).
@@ -74,33 +92,28 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
-        IPaneModule[] modules =
-        [
-            RyuseiFudaPanes.Board,
-            new DashboardPaneModule(),
-            new ConstellationPaneModule(),
-            new GcPaneModule(),
-            new VaultSearchPaneModule(),
-            .. RyuseiFudaPanes.Modules,
-            .. OrgPanes.Modules,
-            .. CalendarPanes.Modules,
-            .. InterruptPanes.Modules,
-            new EnginePaneModule(),
-            .. GitSolarSystemPanes.Modules,
-            .. GitGuiPanes.Modules,
-            // The terminal pane comes last in pager order (doc 55, section 7).
-            .. CalcinatoPanes.Modules,
-        ];
+        var modules = WindowsModules.Create();
+        // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
+        // once the registry and the window exist; until then a pane cannot be shown. Preferences stay on this device until a wire sync is attached.
+        var paneSurface = new LatePaneSurface();
+        var preferences = new PreferenceStore(
+            modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
+            new FilePreferenceStorage(PreferencesPath(), Console.Error.WriteLine));
+        var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
         var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = CalcinatoTerminalPanes.AddServices(
             new PaneModuleContext()
                 .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
                 .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
-                .WithGitGui(ClientServer.Current),
+                .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
+                .WithGitGui(ClientServer.Current)
+                // The head supplies the view context; a module with view documents renders them, others keep their code-built panes (doc 41c section 11).
+                .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => Console.Error.WriteLine($"Bazaar: view action failed: {ex.Message}"))),
             terminals);
+        features = ComposeMergeApproval(features);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>().Append(new SupportBundleClientModule()), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
@@ -131,11 +144,25 @@ internal static class Program
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
 
+            paneSurface.Bind(
+                registry.Contains,
+                (kind, _) => Dispatcher.UIThread.InvokeAsync(() => window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry)).GetTask());
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
             // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
-            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+            window.Opened += async (_, _) =>
+            {
+                var head = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                // "Save support bundle" (doc 37 section 4d): written off the UI thread, then the path goes to the client log.
+                head.Shell.CommandInvoked += (_, id) =>
+                {
+                    if (id == SupportBundleClientModule.SaveCommandId)
+                    {
+                        _ = Task.Run(() => SupportBundleCommands.SaveFromPalette(modules, ClientDataPaths.DataDir(), TimeProvider.System, Console.Error.WriteLine));
+                    }
+                };
+            };
             return window;
         }
 
@@ -151,6 +178,28 @@ internal static class Program
     }
 
     /// <summary>
+    /// Registers the merge identity and approver for the saved session (doc 52, Merge identity). Runs off the calling thread with a
+    /// short budget; any failure, or no session, leaves both out and the merge card says this client cannot approve.
+    /// </summary>
+    private static PaneModuleContext ComposeMergeApproval(PaneModuleContext features)
+    {
+        try
+        {
+            using var budget = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var whoAmI = new HttpWhoAmIClient(ClientServer.Current.CreateHttpClient());
+            return MergeSessionResolver
+                .ComposeAsync(features, ClientSessions.Store, whoAmI, WindowsDeviceApprovalPlatform.TryCreate(), cancellationToken: budget.Token)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or InvalidOperationException or HttpRequestException)
+        {
+            Console.Error.WriteLine("Bazaar: merge approval is not available.");
+            return features;
+        }
+    }
+
+    /// <summary>
     /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.
     /// </summary>
     private static ChatConnectionSettings? ChatSettings(IReadOnlyList<string> args)
@@ -161,6 +210,9 @@ internal static class Program
                 ? gc.ToString("D")
                 : Environment.GetEnvironmentVariable(name));
     }
+
+    private static string PreferencesPath() =>
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "preferences.json");
 
     private static string CursorPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");

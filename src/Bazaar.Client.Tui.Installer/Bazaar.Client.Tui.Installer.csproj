@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Client.Tui.Installer.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Tui.Abstractions\Bazaar.Client.Tui.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Tui\Bazaar.Client.Tui.csproj" />
+    <!-- The wizard engine, its steps and the shared backend live once in the setup modules (doc 58). This head only supplies a prompter and a renderer. -->
+    <ProjectReference Include="..\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
