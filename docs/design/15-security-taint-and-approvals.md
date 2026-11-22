@@ -197,6 +197,13 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 - **Doc 22:** its reader model must become the hand-over primitive above.
 - **Doc 08:** must keep T0-T3 and the mapping above.
 
+## Code layout
+Planned extraction under the module sides rule (`BAZAAR-COMPONENTS.md` section 2.1, owner 2026-11-16). No behaviour change.
+- `src/Bazaar.Server.Security.Abstractions`: interfaces, records, enums, options, and the pure value and rule types (taint, policy types, and the audit, approval, quarantine and kill-switch contracts).
+- `src/Bazaar.Server.Security`: implementations (Postgres and in-memory stores, `ToolPolicyEngine`, `ApprovalService`, `KillSwitchEngine`, `AuditAnchorService`, `QuarantineService`, `TokenBudgetService`, DI extensions).
+
+Namespaces stay `Bazaar.Server.Security.*`. Tests move to `tests/Bazaar.Server.Security.Tests`. Consumers bind to `Security.Abstractions` only. The composition root (`Bazaar.Server.Host`) and `Bazaar.Server.AgentSafety` compose the implementation.
+
 ## Questions for the owner
 1. Confirm Claude's reading of C18: reader sessions for all external input in v1; actors never read external content. Default: yes.
 2. Does a schema-validated hand-over carry taint? Default: no; lineage is kept and only validated fields reach the actor. Bounded text can still carry injected instructions.

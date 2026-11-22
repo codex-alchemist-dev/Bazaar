@@ -17,7 +17,7 @@ public sealed class SetupReport
 
     /// <summary>
     /// The specific outcome when a result needs one more word. apply_unavailable: the apply gate is closed, so the applier was not
-    /// run. Null otherwise.
+    /// run. unapplied_sections: the plan asks for sections no registered step applies, so nothing was applied. Null otherwise.
     /// </summary>
     public string? Outcome { get; init; }
 
@@ -32,6 +32,12 @@ public sealed class SetupReport
 
     /// <summary>Dry-run changes, sorted by path.</summary>
     public List<SetupReportChange> Changes { get; init; } = [];
+
+    /// <summary>
+    /// Plan sections the plan asks for that no registered step applies (ids, never values). A dry run lists what an apply would
+    /// refuse; an apply that was held for them lists them too. Empty when every requested section is covered.
+    /// </summary>
+    public List<string> UnappliedSections { get; init; } = [];
 
     /// <summary>Steps that completed, in run order.</summary>
     public List<string> AppliedSteps { get; init; } = [];

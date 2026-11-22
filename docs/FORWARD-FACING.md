@@ -1,5 +1,7 @@
 # Forward-facing dependency tracking
 
+Docs section this implements: docs/FORWARD-FACING.md, "Known limits" (Renovate mechanism).
+
 Status: PROPOSED (tracking doc and mechanisms; adoption items are follow-up issues).
 Owner: Bazaar maintainers (per-row owner to be confirmed by the owner).
 Last audit: 2026-11-12 (dated table below; the 2026-11-11 inventory is kept and corrected by it).
@@ -68,7 +70,7 @@ this session), and Docker Hub tags. Web search results were used only for contex
 | MailKit, MimeKit | 5.0.0 | 5.0.0 (NuGet, stable, major) | None | Current in code. The 5.0 breaking-change review was not recorded; confirm it before the next mail release (issue). |
 | Testcontainers.PostgreSql | 4.16.0 | 4.16.0 (last stable on NuGet) | None | Current. The "2.1.0-beta" row in the 11-11 inventory was wrong. |
 | xunit.v3.mtp-v2 | 3.2.2 | 4.0.3 (NuGet) | None | Stay on 3.2.x. Avalonia.Headless.XUnit 12.1.6 still depends on xunit.v3.extensibility.core 3.2.2. Re-check when Avalonia moves (issue). |
-| Microsoft.ML.OnnxRuntime | 1.31.1 | 1.31.1 (NuGet) | 1.32 not verified | Current. |
+| Microsoft.ML.OnnxRuntime | 1.32.0 | 1.32.0 (NuGet) | 1.32.0 is current | Current (bumped from 1.31.1 by Renovate #595). |
 | Markdig, YamlDotNet, LibGit2Sharp | 1.6.0, 18.1.0, 0.32.0 | Same | None | Current. |
 | Android (`net11.0-android`) | `SupportedOSPlatformVersion` 35; `TargetSdkVersion` pinned to API 37 in `Bazaar.Client.Android.csproj` (#423) | Android 17 (API 37), stable since June 2026 (developer.android.com "Android 17 is here") | Android 17 minor SDK expected Q4 2026 (secondary source) | Current: API 37 is pinned. NDK version not verified. |
 
@@ -93,6 +95,7 @@ Known limits:
   Installing an app is a GitHub settings change, so the owner's Cowork session does it
   (see the GitHub permissions note in project memory). Until then `renovate.json` does
   nothing.
+- **Prerelease major bumps are skipped** (2026-11-19). A `renovate.json` rule sets `ignoreUnstable: true` for major updates of every tracked package except `Microsoft.*` and `Npgsql`, which stay on prerelease tracking because they follow .NET 11 and the Npgsql 11 previews. A major version is proposed only once it is stable; prerelease minor and patch updates and the .NET SDK and runtime pins are unchanged.
 - Once Renovate is installed, its tracked list overlaps Dependabot's stable updates for
   the same packages. The fix is to add `ignore` entries in `dependabot.yml` for exactly
   the packages Renovate tracks, while security updates stay on Dependabot. Do this in
@@ -135,14 +138,14 @@ and the `net11.0`/`net11.0-android` target frameworks in the project files.
 | Npgsql | `10.0.3` | Npgsql 11.0 previews: `11.0.0-preview.1-ci` builds on the `npgsql-vnext` MyGet feed (latest seen 2026-10-26). EF Core provider `11.0.0-preview.6` on NuGet. Reported features: failover, load balancing, multi-host. The EF provider notes PG 18 temporal constraints. | Reported (MyGet, NuGet listings). The Npgsql 11 release notes page is still a stub. | Multi-host and failover matter for the server's Postgres connection when it runs on Linux and Windows. | Track 11.0 previews through Renovate. Run a canary build against the preview when it is on NuGet.org. Do not adopt before GA. | Renovate (tracked, prerelease). Follow-up issue for the canary. |
 | Testcontainers.PostgreSql | `4.16.0` | A newer line is listed on the NuGet feed (a `2.1.0-beta` build was seen). The version scheme and changes are not verified. | Not found (only listings). | Test container lifecycle. | Check the official Testcontainers .NET releases before any bump. | Renovate (tracked, prerelease). |
 | Valkey (cache and presence on Linux) | Not pinned in the repo. Design uses Valkey on Linux and Garnet on Windows (`docs/design/03`). | Valkey 9.1 GA on 2026-05-19 (Linux Foundation). Adds TLS certificate reload, database-level ACLs, client-side caching support, and Valkey GLIDE 2.4 with C# and PHP. Valkey 9.0.x security patches (CVE fixes in TLS and streams) followed. | Confirmed (Linux Foundation, Valkey release pages). | Client-side caching for GC presence. Security patches must be deployed. | When the cache provider is built, pin Valkey at 9.1 or later, with the latest 9.x patch. Compare StackExchange.Redis with Valkey GLIDE for C# before choosing. | Follow-up issue. |
-| StackExchange.Redis | `3.4.5` | 4.x not found. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build. | Renovate (tracked, prerelease). |
+| StackExchange.Redis | `3.4.5` | 4.0.x alpha exists (PR #596 was closed for targeting it). Renovate now skips prerelease major bumps until 4.x is stable. | Not found. | Valkey protocol compatibility. | Re-check at the cache provider's build, and when 4.x reaches stable. | Renovate (tracked; prerelease majors skipped). |
 | Garnet (Windows cache) | Not pinned in the repo. | Not searched in this audit. | Not found. | Windows cache provider. | Searched without result; re-check before the Windows cache provider is built. | Follow-up issue. |
 
 ### AI, inference and tests
 
 | Dependency | Pinned at | Next or upcoming | Verification | Features that help Bazaar | Adoption step | Mechanism |
 |---|---|---|---|---|---|---|
-| Microsoft.ML.OnnxRuntime | `1.31.1` (repo). | 1.31.0 is the newest stable found in search; 1.32 has only nightly builds (Nov 2026). The 1.31.1 pin is not verified against the search result. | Reported for 1.31.0. Not found for 1.31.1 and 1.32. | 1.31: stabilized model-package and EPContext data APIs; improved CPU model loading; quantized MoE inference; device-based execution-provider selection. | Confirm the pin on NuGet. Adopt the 1.31 APIs only where the local CPU tier (doc 31) needs them. Track 1.32 GA. | Renovate (tracked, prerelease). |
+| Microsoft.ML.OnnxRuntime | `1.32.0` (repo, bumped from 1.31.1). | 1.31.0 is the newest stable found in search; 1.32 has only nightly builds (Nov 2026). The 1.31.1 pin is not verified against the search result. | Reported for 1.31.0. Not found for 1.31.1 and 1.32. | 1.31: stabilized model-package and EPContext data APIs; improved CPU model loading; quantized MoE inference; device-based execution-provider selection. | Confirm the pin on NuGet. Adopt the 1.31 APIs only where the local CPU tier (doc 31) needs them. Track 1.32 GA. | Renovate (tracked, prerelease). |
 | Microsoft.Extensions.AI.Abstractions | `10.11.0` | No 11.x release found. 10.8.0 is the newest seen in coverage. | Not found for 11.x. | Provider-neutral AI surface. | Keep on 10.x until an 11.x release is found on NuGet. | Renovate (tracked, prerelease). |
 | xunit.v3.mtp-v2 | `3.2.2` | 4.x is blocked by `Avalonia.Headless.XUnit 12.1.4` (binary incompatibility). | Confirmed by the pin comment in `Directory.Packages.props`. | Current test platform. | Re-check when Avalonia.Headless moves. | Dependabot (`xunit.v3*` ≥ 4 ignored). |
 | Microsoft.Testing.Platform | `global.json` `test.runner` | Current runner. | Confirmed by repo config. | Current test runner. | None now. | Canary (through the test run). |
