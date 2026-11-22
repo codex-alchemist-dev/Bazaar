@@ -32,7 +32,7 @@ $Status = "http://127.0.0.1:$StatusPort"
 $script:HostProc = $null; $script:Step = 0; $script:StepName = ''; $script:StepT0 = Get-Date
 
 function Mask([string]$s) { foreach ($v in $script:Secrets) { if ($v) { $s = $s.Replace($v, '***') } }; $s }
-function Log([string]$m) { $line = '{0} {1}' -f (Get-Date).ToUniversalTime().ToString('s') + 'Z', (Mask $m); Add-Content -Path $Log -Value $line -Encoding utf8; Write-Host $line }
+function Log([string]$m) { $ts = (Get-Date).ToUniversalTime().ToString('s') + 'Z'; $line = "$ts $(Mask $m)"; Add-Content -Path $Log -Value $line -Encoding utf8; Write-Host $line }
 function Step([string]$name) { $script:Step++; $script:StepName = $name; $script:StepT0 = Get-Date; Log "=== step $($script:Step): $name" }
 function Ok { Log ("--- ok: {0} ({1}s)" -f $script:StepName, [int]((Get-Date) - $script:StepT0).TotalSeconds) }
 function Fail([string]$m) { Log "!!! FAILED at step $($script:Step) ($($script:StepName)): $m"; Log "log: $Log"; Stop-Host; exit 1 }
