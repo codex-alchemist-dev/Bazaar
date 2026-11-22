@@ -28,6 +28,10 @@ internal static partial class FirstRunDatabase
             )
             """);
         await stub.ExecuteNonQueryAsync(ct);
+
+        // The Agents module's own migration (agents 0003) adds this column; the seed writes it, so the test database carries it too.
+        await using var model = dataSource.CreateCommand("ALTER TABLE agent ADD COLUMN IF NOT EXISTS model text NULL");
+        await model.ExecuteNonQueryAsync(ct);
     }
 
     private sealed class Sources : IMigrationSource

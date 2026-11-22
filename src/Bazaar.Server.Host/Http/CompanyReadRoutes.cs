@@ -1,6 +1,7 @@
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Health;
+using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Http;
 using Bazaar.Server.Interrupts;
 using Bazaar.Server.Org;
@@ -41,6 +42,10 @@ internal static class CompanyReadRoutes
     public static IServiceCollection AddBazaarCompanyReadOptions(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
+        // The retention sweep reads metrics.raw_retention_days; the last registration wins over the module's configuration default.
+        services.AddSingleton<IRawRetentionSource>(sp => sp.GetService<ISettingStore>() is { } store
+            ? new SettingRawRetentionSource(store)
+            : new FixedRawRetentionSource(RawRetention.DefaultDays));
         services.TryAddSingleton<IAgentDirectoryReader>(sp => sp.GetRequiredService<AgentRepository>());
         services.AddScoped(sp =>
             sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Items[_timezoneItem] as CalendarReadOptions ?? new CalendarReadOptions());

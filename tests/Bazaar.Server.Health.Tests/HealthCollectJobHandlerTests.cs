@@ -82,8 +82,7 @@ public class HealthCollectJobHandlerTests
         using var sp = services.BuildServiceProvider();
 
         Assert.Contains(sp.GetServices<IJobHandler>(), h => h.Kind == HealthCollectJobHandler.JobKind);
-        var job = Assert.Single(sp.GetServices<RecurringJob>());
-        Assert.Equal(HealthCollectJobHandler.JobKind, job.Kind);
+        var job = Assert.Single(sp.GetServices<RecurringJob>(), j => j.Kind == HealthCollectJobHandler.JobKind);
         Assert.Equal(TimeSpan.FromHours(1), job.Interval);
         Assert.IsType<InMemoryMetricStore>(sp.GetRequiredService<IMetricStore>());
     }
