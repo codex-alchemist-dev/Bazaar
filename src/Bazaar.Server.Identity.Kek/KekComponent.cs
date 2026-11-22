@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 
 namespace Bazaar.Server.Identity.Kek;
 
@@ -17,7 +18,7 @@ public sealed class KekComponent : IBazaarComponent
         Version: "0.1.0",
         Kind: ComponentKind.Provider,
         DependsOn: [],
-        Provides: ["identity:kek:provider"]);
+        Provides: ["identity:kek:provider", "identity:dek:service", "secrets:kek"]);
 
     /// <summary>The configuration key holding <c>identity.kek_provider</c>.</summary>
     public const string KekProviderKey = "Bazaar:Identity:KekProvider";
@@ -45,5 +46,12 @@ public sealed class KekComponent : IBazaarComponent
             // The KEK must open before the host runs; the open is bounded by the key file lock timeout.
             return KekProviderFactory.CreateAsync(configuration[KekProviderKey], dataRoot, keyring, mode, audit, time).AsTask().GetAwaiter().GetResult();
         });
+        // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
+        services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
+        services.AddSingleton<ISoulDekStore>(sp => new PostgresSoulDekStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.AddSingleton(sp => new SoulDekService(
+            sp.GetRequiredService<IKekProvider>(),
+            sp.GetRequiredService<ISoulDekStore>(),
+            sp.GetService<IKekAuditSink>()));
     }
 }

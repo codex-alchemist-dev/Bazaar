@@ -15,12 +15,37 @@ public static class KekProviderFactory
     /// <summary>The platform default: <c>dpapi</c> on Windows, <c>file</c> elsewhere.</summary>
     public static string DefaultKind => OperatingSystem.IsWindows() ? "dpapi" : "file";
 
+    /// <summary>
+    /// The key file for a kind, under <paramref name="dataRoot"/>. Each kind has its own file, so the source and target of a switch
+    /// coexist while the re-wrap runs. <c>file</c> keeps the historical <c>keys/kek.bin</c>.
+    /// </summary>
+    public static string KeyPathFor(string kind, string dataRoot) => kind switch
+    {
+        "file" => Path.Combine(dataRoot, "keys", "kek.bin"),
+        "dpapi" => Path.Combine(dataRoot, "keys", "kek-dpapi.bin"),
+        _ => throw new ArgumentException($"No key file is defined for identity.kek_provider '{kind}'.", nameof(kind)),
+    };
+
+    /// <summary>Opens a provider that must already exist (the re-wrap source). It never creates a key.</summary>
+    /// <exception cref="FileNotFoundException">The key file for the kind is absent.</exception>
+    public static IKekProvider OpenExisting(string kind, string dataRoot)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
+        var chosen = Normalise(kind);
+        if (chosen is "openbao" || !File.Exists(KeyPathFor(chosen, dataRoot)))
+            throw new FileNotFoundException($"No existing KEK file for identity.kek_provider '{chosen}'.", KeyPathFor(chosen, dataRoot));
+        return Create(chosen, dataRoot);
+    }
+
+    private static string Normalise(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
+
     /// <summary>Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under <paramref name="dataRoot"/>.</summary>
     public static IKekProvider Create(string? kind, string dataRoot)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(dataRoot);
-        var keyPath = Path.Combine(dataRoot, "keys", "kek.bin");
-        var chosen = string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
+        var chosen = Normalise(kind);
+        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, dataRoot) : string.Empty;
 
         switch (chosen)
         {

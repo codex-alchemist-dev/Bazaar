@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Npgsql" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
@@ -15,5 +16,6 @@
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <!-- The libsecret keyring provider (doc 61 Q2) lives with the other Secret Service code in Bazaar.Secrets. -->
     <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
+    <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
   </ItemGroup>
 </Project>
