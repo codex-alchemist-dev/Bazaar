@@ -19,6 +19,8 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Observatory;
+using Bazaar.Server.Observatory.Postgres;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
@@ -43,6 +45,9 @@ public static class HostComponents
         new SettingsComponent(),
         new SetupComponent(),
         new RetentionComponent(),
+        new ObservatoryComponent(),
+        new ObservatoryPostgresComponent(),
+        new ObservatoryBridgeComponent(),
         new KekComponent(),
         new GcComponent(),
         new CompanyComponent(),
