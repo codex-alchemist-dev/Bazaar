@@ -208,16 +208,12 @@
     <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.SupportBundle.Abstractions/Bazaar.SupportBundle.Abstractions.csproj" />
     <Project Path="src/Bazaar.SupportBundle/Bazaar.SupportBundle.csproj" />
-    <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
     <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
     <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
     <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
     <Project Path="src/Bazaar.Server.Gc.Archive/Bazaar.Server.Gc.Archive.csproj" />
     <Project Path="src/Bazaar.Server.Mirror.Abstractions/Bazaar.Server.Mirror.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mirror/Bazaar.Server.Mirror.csproj" />
-    <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.Roles.Biometric/Bazaar.Roles.Biometric.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
@@ -268,7 +264,6 @@
     <Project Path="src/Bazaar.Server.Portability.Sandbox/Bazaar.Server.Portability.Sandbox.csproj" />
     <Project Path="src/Bazaar.Server.Portability.ParserHost/Bazaar.Server.Portability.ParserHost.csproj" />
     <Project Path="src/Bazaar.Server.Portability.KanbanTarget/Bazaar.Server.Portability.KanbanTarget.csproj" />
-    <Project Path="src/Bazaar.Server.Portability.Postgres/Bazaar.Server.Portability.Postgres.csproj" />
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
@@ -476,7 +471,6 @@
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.SignIn.Tests/Bazaar.Server.SignIn.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Biometric.Tests/Bazaar.Roles.Biometric.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
