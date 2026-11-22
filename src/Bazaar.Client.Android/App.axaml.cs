@@ -4,6 +4,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
@@ -54,6 +55,7 @@ public sealed class App : Avalonia.Application
     }
 
     private MnemonicShell? _mnemonics;
+    private readonly CommandRouter _router = new();
 
     private async Task InstallMnemonicsAsync(ContentControl host)
     {
@@ -67,8 +69,14 @@ public sealed class App : Avalonia.Application
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             _mnemonics = await MnemonicHeadSetup.InstallAsync(top, host, _moduleCommands, path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
-            _mnemonics.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            // What a chosen command does belongs to the pane module that registered a handler for it.
+            _mnemonics.CommandInvoked += (_, id) =>
+            {
+                if (!_router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -98,6 +106,7 @@ public sealed class App : Avalonia.Application
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
+            .With<ICommandRouter>(_router)
             .With<IConstellationTileSource>(tiles)
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.

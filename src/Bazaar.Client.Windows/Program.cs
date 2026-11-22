@@ -7,6 +7,7 @@ using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
@@ -81,7 +82,9 @@ internal static class Program
             .. GitSolarSystemPanes.Modules,
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var router = new CommandRouter();
         var features = new PaneModuleContext()
+            .With<ICommandRouter>(router)
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
@@ -118,7 +121,7 @@ internal static class Program
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
             // Keyboard mnemonics and the command palette (doc 41 section 4.12) take the loaded modules' commands plus the shell's own.
-            _ = InstallMnemonicsAsync(window, loaded.Commands);
+            _ = InstallMnemonicsAsync(window, loaded.Commands, router);
             return window;
         }
 
@@ -144,14 +147,20 @@ internal static class Program
                 : Environment.GetEnvironmentVariable(name));
     }
 
-    private static async Task InstallMnemonicsAsync(Window window, IReadOnlyList<ClientCommandContribution> commands)
+    private static async Task InstallMnemonicsAsync(Window window, IReadOnlyList<ClientCommandContribution> commands, CommandRouter router)
     {
         try
         {
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
             var shell = await MnemonicHeadSetup.InstallAsync(window, window, commands, path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
-            shell.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            // What a chosen command does belongs to the pane module that registered a handler for it.
+            shell.CommandInvoked += (_, id) =>
+            {
+                if (!router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
             window.Closed += (_, _) => shell.Dispose();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)

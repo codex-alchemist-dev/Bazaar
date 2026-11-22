@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
@@ -19,6 +20,9 @@ namespace Bazaar.Client.Linux;
 internal static class Program
 {
     private const string _clientBuild = "bazaar-linux";
+
+    // The router modules register command handlers into. This head loads no pane modules yet.
+    private static readonly CommandRouter _router = new();
 
     [STAThread]
     public static int Main(string[] args)
@@ -117,18 +121,24 @@ internal static class Program
     {
         ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
         // Keyboard mnemonics and the command palette (doc 41 section 4.12). This head loads no client modules yet, so only the shell's own commands.
-        _ = InstallMnemonicsAsync(window, paths);
+        _ = InstallMnemonicsAsync(window, paths, _router);
     }
 
-    private static async Task InstallMnemonicsAsync(MainWindow window, LinuxPaths paths)
+    private static async Task InstallMnemonicsAsync(MainWindow window, LinuxPaths paths, CommandRouter router)
     {
         try
         {
             Directory.CreateDirectory(paths.StateDirectory);
             var path = Path.Combine(paths.StateDirectory, MnemonicHeadSetup.OverridesFileName);
             var shell = await MnemonicHeadSetup.InstallAsync(window, window, [], path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
-            shell.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            // What a chosen command does belongs to the pane module that registered a handler for it.
+            shell.CommandInvoked += (_, id) =>
+            {
+                if (!router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
             window.Closed += (_, _) => shell.Dispose();
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
