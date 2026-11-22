@@ -34,6 +34,7 @@
     <ProjectReference Include="..\Bazaar.Client.DefaultApp.Linux\Bazaar.Client.DefaultApp.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Updater.Linux\Bazaar.Client.Updater.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
