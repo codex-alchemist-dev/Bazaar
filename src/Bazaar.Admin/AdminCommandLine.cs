@@ -1,6 +1,8 @@
 using System.Text.Json;
+using Bazaar.Admin.Composition;
 using Bazaar.Admin.Placeholders;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Admin;
 
@@ -15,7 +17,8 @@ public static class AdminCommandLine
 
     /// <summary>
     /// Runs the command and returns its exit code (0, 1, 2 or 3, the <see cref="SetupExitCode"/> values). <paramref name="applyGate"/>
-    /// decides whether apply may run; left out, the placeholder gate is used, which is closed in this build.
+    /// decides whether apply may run; left out, the gate is built from the database connection reference in the environment
+    /// (see <see cref="PostgresApplyGate"/>) and is closed when no durable audit store is reachable.
     /// <paramref name="environment"/> supplies the <c>BAZAAR__SETUP__</c> variables; left out, the process environment is read.
     /// The wizard reads answers from <paramref name="prompter"/> (left out, the console); <c>secret set</c> reads its value from
     /// <paramref name="secretInput"/> and stores it in <paramref name="secretWriter"/>. Left out, both fail closed or read the console.
@@ -29,12 +32,12 @@ public static class AdminCommandLine
         ISetupPrompter? prompter = null,
         ISecretValueSource? secretInput = null,
         ISetupSecretWriter? secretWriter = null,
+        ISetupSettingCatalog? settings = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(args);
         ArgumentNullException.ThrowIfNull(stdout);
         ArgumentNullException.ThrowIfNull(stderr);
-        applyGate ??= new PlaceholderApplyGate();
         var variables = (environment ?? ProcessSetupEnvironment.Instance).Variables;
 
         // The JSON choice is read from the raw arguments first, so a usage error still answers a script in JSON.
@@ -57,9 +60,51 @@ public static class AdminCommandLine
             return (int)SetupExitCode.Ok;
         }
 
+        // Only the commands that apply need a gate, so only they probe the database. A gate built here is disposed here.
+        PostgresApplyGate? ownedGate = null;
+        if (applyGate is null)
+        {
+            if (parsed.Action is AdminAction.Wizard or AdminAction.Apply)
+            {
+                ownedGate = await PostgresApplyGate.FromEnvironmentAsync(variables, cancellationToken);
+                applyGate = ownedGate;
+            }
+            else
+            {
+                applyGate = PostgresApplyGate.Closed;
+            }
+        }
+
+        try
+        {
+            return await DispatchAsync(parsed, applyGate, args, json, variables, stdout, stderr, prompter, secretInput, secretWriter, settings ?? RegistrySetupSettingCatalog.Known, cancellationToken);
+        }
+        finally
+        {
+            if (ownedGate is not null)
+            {
+                await ownedGate.DisposeAsync();
+            }
+        }
+    }
+
+    private static async Task<int> DispatchAsync(
+        ParsedArguments parsed,
+        ICliApplyGate applyGate,
+        IReadOnlyList<string> args,
+        bool json,
+        IReadOnlyDictionary<string, string?> variables,
+        TextWriter stdout,
+        TextWriter stderr,
+        ISetupPrompter? prompter,
+        ISecretValueSource? secretInput,
+        ISetupSecretWriter? secretWriter,
+        ISetupSettingCatalog settings,
+        CancellationToken cancellationToken)
+    {
         if (parsed.Action == AdminAction.Wizard)
         {
-            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout), variables, applyGate);
+            var wizard = new SetupWizard(prompter ?? new ConsoleSetupPrompter(Console.In, stdout, secretInput ?? ConsoleSecretValueSource.Instance), variables, applyGate, settings, secretWriter ?? new UnavailableSetupSecretWriter());
             var outcome = await wizard.RunAsync(cancellationToken);
             return outcome.ExitCode;
         }
@@ -77,17 +122,17 @@ public static class AdminCommandLine
 
         if (parsed.Action == AdminAction.Verify)
         {
-            var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, cancellationToken);
+            var verify = await KodoCommands.VerifyAsync(parsed.ConfigPath!, settings, cancellationToken);
             EmitVerify(verify, json, stdout);
             return verify.ExitCode;
         }
 
         var report = parsed.Action switch
         {
-            AdminAction.Validate => SetupCommands.Validate(parsed.ConfigPath, parsed.SetArguments, variables),
-            AdminAction.DryRun => SetupCommands.DryRun(parsed.ConfigPath, parsed.SetArguments, variables),
-            AdminAction.Apply => await SetupCommands.ApplyAsync(
-                parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, cancellationToken),
+            AdminAction.Validate => SetupOrchestrator.Validate(parsed.ConfigPath, parsed.SetArguments, variables, settings),
+            AdminAction.DryRun => SetupOrchestrator.DryRun(parsed.ConfigPath, parsed.SetArguments, variables, settings, applyGate.CoveredSections),
+            AdminAction.Apply => await SetupOrchestrator.ApplyAsync(
+                parsed.ConfigPath, parsed.SetArguments, variables, parsed.PlanHash!, applyGate, settings, cancellationToken),
             _ => throw new ArgumentOutOfRangeException(nameof(args), parsed.Action, "Unknown action."),
         };
 
@@ -122,19 +167,19 @@ public static class AdminCommandLine
         AdminTextRenderer.WriteVerify(report, stdout);
     }
 
-    private static AdminReport UsageReport(AdminUsageException exception) => new()
+    private static SetupReport UsageReport(AdminUsageException exception) => new()
     {
         Command = "usage",
         ExitCode = (int)SetupExitCode.InvalidInput,
         Result = "invalid-input",
-        Issues = [new AdminIssue { Severity = "error", Path = exception.Flag, Message = exception.Message }],
+        Issues = [new SetupReportIssue { Severity = "error", Path = exception.Flag, Message = exception.Message }],
     };
 
-    private static void Emit(AdminReport report, bool json, TextWriter stdout, TextWriter stderr)
+    private static void Emit(SetupReport report, bool json, TextWriter stdout, TextWriter stderr)
     {
         if (json)
         {
-            stdout.WriteLine(JsonSerializer.Serialize(report, AdminJsonContext.Default.AdminReport));
+            stdout.WriteLine(JsonSerializer.Serialize(report, AdminJsonContext.Default.SetupReport));
             return;
         }
 

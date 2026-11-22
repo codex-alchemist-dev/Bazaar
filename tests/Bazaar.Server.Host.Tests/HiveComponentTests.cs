@@ -2,10 +2,13 @@ using Bazaar.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Hive.Abstractions;
+using Bazaar.Server.Hive.Settings;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
+using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -62,7 +65,7 @@ public sealed class HiveComponentTests
         var source = HostMigrations.Source();
 
         Assert.Contains("hive", source.Namespaces());
-        Assert.Equal([1], source.Load("hive").Select(f => f.Version).ToList());
+        Assert.Equal([1, 2], source.Load("hive").Select(f => f.Version).ToList());
     }
 
     [Fact]
@@ -158,5 +161,60 @@ public sealed class HiveComponentTests
     public void Options_that_would_loosen_a_limit_or_do_not_parse_fail_at_start(string key, string value)
     {
         Assert.Throws<InvalidOperationException>(() => new HiveComponent().AddServices(new ServiceCollection(), Config((key, value))));
+    }
+
+    [Fact]
+    public void Host_components_resolve_the_copy_service_with_the_vault_backed_reader()
+    {
+        var repo = Path.Combine(Path.GetTempPath(), "bazaar-hive-host-" + Guid.NewGuid().ToString("N"));
+        var configuration = Config(
+            (MemoryComponent.RepoPathKey, repo),
+            (MemoryComponent.WorktreeRootKey, repo + ".worktrees"),
+            (MemoryComponent.WriterNameKey, "Test Writer"),
+            (MemoryComponent.WriterEmailKey, "writer@example.invalid"),
+            (MemoryComponent.AuthorEmailFormatKey, "{agent}@example.invalid"));
+        var services = new ServiceCollection();
+        services.AddLogging();
+        // The same component instances the host ships, in host order.
+        foreach (var component in HostComponents.All.Where(c => c is MemoryComponent or HiveComponent))
+        {
+            component.AddServices(services, configuration);
+        }
+
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<MemoryVaultHiveNoteReader>(provider.GetRequiredService<IHiveNoteReader>());
+        Assert.NotNull(provider.GetRequiredService<HiveCopyService>());
+    }
+
+    [Fact]
+    public void Hive_registers_its_two_setting_keys_with_the_registry_contributions()
+    {
+        using var provider = Build(Config());
+
+        var names = provider.GetServices<ISettingContribution>().SelectMany(c => c.Settings).Select(s => s.Name).ToList();
+
+        Assert.Equal(["hive.grants", "hive.allowed_kinds"], names);
+    }
+
+    [Fact]
+    public void With_a_settings_store_the_grants_and_kinds_come_from_settings()
+    {
+        using var provider = Build(Config(), s => s.AddSingleton<ISettingStore>(new NoSettings()));
+
+        Assert.IsType<SettingsHiveGrantStore>(provider.GetRequiredService<IHiveGrantStore>());
+        Assert.IsType<SettingsHiveKindSource>(provider.GetRequiredService<IHiveKindSource>());
+    }
+
+    private sealed class NoSettings : ISettingStore
+    {
+        public Task<T> GetAsync<T>(SettingKey<T> key, string scopeId = "", CancellationToken cancellationToken = default) =>
+            Task.FromResult(key.Default);
+
+        public Task<SettingWriteResult> SetAsync<T>(SettingKey<T> key, T value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<SettingWriteResult> SetJsonAsync(string key, System.Text.Json.JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 }

@@ -106,6 +106,7 @@ public class CouncilDeadlineSweeperTests
         Assert.Equal(new CouncilSweepResult(1, 1, 0), result);
         Assert.Equal(VoteState.Decided, (await VoteOf(h, id)).State);
         Assert.Single(h.Events.OfKind("council.reveal"));
+        Assert.Equal(3, h.Events.OfKind("council.reason").Count());
         Assert.Single(h.Events.OfKind("council.decision"));
     }
 

@@ -60,6 +60,11 @@ public static class GcExportSelfCheck
         await CheckEventsAsync(store, head, eventsPath, problems, ct);
         await CheckVersionsAsync(store, head, eventsPath, versionsPath, problems, ct);
         await CheckMessagesAsync(store, head, eventsPath, messagesPath, problems, ct);
+        if (head.MentionCount is not null)
+        {
+            await CheckMentionsAsync(store, head, gcId, problems, ct);
+        }
+
         return new GcExportSelfCheckResult(problems);
     }
 
@@ -252,6 +257,46 @@ public static class GcExportSelfCheck
         if (messageChain.Prev != head.MessageHeadHash)
         {
             problems.Add($"{messagesPath}: the last hash does not match head.json.");
+        }
+    }
+
+    /// <summary>Checks <c>mentions.jsonl</c> when head.json declares it: file bytes, the chain, the count and the head hash.</summary>
+    private static async Task CheckMentionsAsync(IExportFileStore store, GcExportHead head, Guid gcId, List<string> problems, CancellationToken ct)
+    {
+        var path = GcJsonlFormat.PathFor(gcId, GcMentionsBundleSource.MentionsFile);
+        await CheckFileBytesAsync(store, head, path, problems, ct);
+        await using var stream = await OpenAsync(store, path, problems, ct);
+        if (stream is null)
+        {
+            return;
+        }
+
+        var chain = new ChainState();
+        try
+        {
+            await foreach (var seq in ReadChainAsync(
+                stream, path, chain, problems, m => m.GetProperty("seq").GetInt64(), ct))
+            {
+                if (seq < 1 || seq > head.HeadSeq)
+                {
+                    problems.Add($"{path}: a mention at seq {seq} lies outside the log (head seq {head.HeadSeq}).");
+                }
+            }
+        }
+        catch (Exception ex) when (IsMalformed(ex))
+        {
+            problems.Add($"{path} has a malformed line: {ex.Message}");
+            return;
+        }
+
+        if (chain.Count != head.MentionCount)
+        {
+            problems.Add($"{path} has {chain.Count} mentions; head.json says {head.MentionCount}.");
+        }
+
+        if (chain.Prev != (head.MentionHeadHash ?? GcJsonlFormat.GenesisHash))
+        {
+            problems.Add($"{path}: the last hash does not match head.json.");
         }
     }
 

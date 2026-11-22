@@ -28,7 +28,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         """;
 
     private const string _keyssql = """
-        SELECT k.ord, e.seq, e.event_id, e.created_at
+        SELECT k.ord, e.seq, e.event_id, e.created_at, e.message_id
         FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS k(author_id, client_msg_id, ord)
         JOIN gc_event e ON e.gc_id = $1 AND e.author_id = k.author_id AND e.client_msg_id = k.client_msg_id
         """;
@@ -38,8 +38,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
     private const string _inserteventsql = """
         INSERT INTO gc_event (gc_id, seq, event_id, kind, author_kind, author_id, session_id, source_trust,
                               tainted_at_write, taint_sources, message_id, version, target_seq, reply_to_seq,
-                              payload, client_msg_id, created_at, soul_id, soul_version)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19)
+                              payload, client_msg_id, created_at, soul_id, soul_version, payload_ct, key_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15::jsonb, $16, $17, $18, $19, $20, $21)
         """;
 
     private const string _insertmessagesql = "INSERT INTO gc_message (gc_id, message_id, first_seq, author_id) VALUES ($1, $2, $3, $4)";
@@ -51,8 +51,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
     // An edit adds a version of a message that already exists: no gc_message row, and the version number comes from the request.
     private const string _insertEditVersionSql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version)
-        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version, withdrawn_by_import)
+        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11, $12)
         """;
 
     // A join or a leave is a new state row keyed by its own seq (gc_member is append-only; the key includes joined_seq).
@@ -93,7 +93,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         {
             if (existing.TryGetValue(i, out var found))
             {
-                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt);
+                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt, found.MessageId);
             }
             else
             {
@@ -175,8 +175,19 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                     nameof(requests));
             if (isEdit && (r.MessageId is null || r.Version is null || r.Version < 2))
                 throw new ArgumentException("An edit needs the message id and a version of 2 or more.", nameof(requests));
+            if (r.WithdrawnByImport is { } job)
+            {
+                if (!isEdit)
+                    throw new ArgumentException("Only a message edit can withdraw an import.", nameof(requests));
+                if (r.AuthorKind != AuthorKind.System)
+                    throw new ArgumentException("Only the system principal withdraws an import.", nameof(requests));
+                if (job.Length is 0 or > AppendRequest.MaxWithdrawnByImportLength)
+                    throw new ArgumentException($"WithdrawnByImport must be 1 to {AppendRequest.MaxWithdrawnByImportLength} characters.", nameof(requests));
+            }
             if (r.Mentions.Count > 0 && !isMessage)
                 throw new ArgumentException("Only a message event carries mentions.", nameof(requests));
+            if (r.Sealed is { } sealedPayload && (sealedPayload.Ciphertext.IsEmpty || sealedPayload.KeyId == Guid.Empty))
+                throw new ArgumentException("A sealed payload needs non-empty ciphertext and a key id.", nameof(requests));
             if (r.Membership is not null && r.Message is not null)
                 throw new ArgumentException("A membership event carries no message body.", nameof(requests));
         }
@@ -184,7 +195,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         return gcId;
     }
 
-    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt)> Existing)> LockAndLookupAsync(
+    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt, Guid? MessageId)> Existing)> LockAndLookupAsync(
         NpgsqlConnection conn, NpgsqlTransaction tx, Guid gcId, IReadOnlyList<AppendRequest> requests, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(conn, tx);
@@ -205,9 +216,9 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         var archived = reader.GetBoolean(1);
 
         await reader.NextResultAsync(ct).ConfigureAwait(false);
-        var existing = new Dictionary<int, (long, Guid, DateTimeOffset)>();
+        var existing = new Dictionary<int, (long, Guid, DateTimeOffset, Guid?)>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3));
+            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3), reader.IsDBNull(4) ? null : reader.GetGuid(4));
 
         // Archive blocks new events; answering a repeat of an event written before the archive stays allowed.
         if (archived && existing.Count < requests.Count)
@@ -234,13 +245,14 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 P(gcId), P(seq), P(eventId), P(r.Kind), P(GcEnumText.ToText(r.AuthorKind)), P(r.AuthorId), N(r.SessionId),
                 P(GcEnumText.ToText(r.SourceTrust)), P(r.TaintedAtWrite ?? false), N(r.TaintSourcesJson), N(messageId),
                 N(version), N(r.TargetSeq), N(r.ReplyToSeq), N(r.PayloadJson), P(r.ClientMsgId), P(now),
-                N(r.Soul?.SoulId), N(r.Soul?.Version)));
+                N(r.Soul?.SoulId), N(r.Soul?.Version),
+                r.Sealed is { } sealedPayload ? PBytes(sealedPayload.Ciphertext) : NullBytes(), N(r.Sealed?.KeyId)));
 
             if (r.Message is { } body && messageId is { } mid)
             {
                 if (isEdit)
                 {
-                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version)));
+                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version), N(r.WithdrawnByImport)));
                 }
                 else
                 {
@@ -258,7 +270,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(member.Role), P(seq), N(left)));
             }
 
-            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);
+            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now, messageId);
         }
 
         await batch.ExecuteNonQueryAsync(ct).ConfigureAwait(false);

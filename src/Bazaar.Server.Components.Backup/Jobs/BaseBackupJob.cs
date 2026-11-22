@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Bazaar.Contracts.Backup;
 using Bazaar.Server.Components.Backup.Engines;
+using Bazaar.Server.Components.Backup.Offsite;
 using Bazaar.Server.Components.Backup.Processes;
 using Bazaar.Server.Components.Backup.Retention;
 
@@ -19,7 +20,10 @@ public sealed class BaseBackupJob(
     IBackupRunLog runLog,
     IProcessRunner? processes = null,
     string? archiveDirectory = null,
-    string? pgBinDirectory = null)
+    string? pgBinDirectory = null,
+    IBackupTargetResolver? offsite = null,
+    int offsiteAttempts = 3,
+    TimeSpan offsiteRetryDelay = default)
 {
     public const string SidecarName = "bazaar-backup-set.json";
 
@@ -45,12 +49,63 @@ public sealed class BaseBackupJob(
 
             var done = Record(runId, BackupKind.BaseBackup, BackupState.Succeeded, started, time.GetUtcNow(), set.Bytes, set.SetId,
                 $"engine={engine.Name}; kept={plan.Keep.Count}; deleted={plan.Delete.Count}");
+
+            // The local set is final and recorded before any upload, so an offsite failure can never undo or hide it.
+            await UploadOffsiteAsync(set, ct).ConfigureAwait(false);
             return done;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // Type and message only: process errors carry no arguments, and no secret is written here.
             return Record(runId, BackupKind.BaseBackup, BackupState.Failed, started, time.GetUtcNow(), 0, null, $"{ex.GetType().Name}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Ships the finished set offsite (doc 33, "Offsite composition [PROPOSED]"). Reads the policy now, so the live cookie flag
+    /// applies. A target named <c>none</c> is skipped without a run record. Failures are recorded as an Offsite run after the
+    /// attempts are used up and never touch the local set.
+    /// </summary>
+    private async Task UploadOffsiteAsync(BackupSet set, CancellationToken ct)
+    {
+        if (offsite is null)
+            return;
+
+        var runId = Guid.CreateVersion7();
+        var started = time.GetUtcNow();
+        var attempts = Math.Max(1, offsiteAttempts);
+        var recorded = false;
+        for (var attempt = 1; attempt <= attempts; attempt++)
+        {
+            try
+            {
+                var target = await offsite.ResolveAsync(ct).ConfigureAwait(false);
+                if (target.Name == NoOpBackupTarget.TargetName)
+                    return;
+                if (!recorded)
+                {
+                    Record(runId, BackupKind.Offsite, BackupState.Running, started, null, 0, set.SetId, $"target={target.Name}");
+                    recorded = true;
+                }
+
+                var snapshot = await target.PutDirectoryAsync(set.Path, ["bazaar", "base-backup", "set-" + set.SetId], ct).ConfigureAwait(false);
+                Record(runId, BackupKind.Offsite, BackupState.Succeeded, started, time.GetUtcNow(), set.Bytes, set.SetId,
+                    $"target={target.Name}; snapshot={snapshot.SnapshotId}; attempt={attempt}");
+                return;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // Type and message only: process errors carry no arguments, and no secret is written here.
+                if (attempt < attempts)
+                {
+                    if (offsiteRetryDelay > TimeSpan.Zero)
+                        await Task.Delay(offsiteRetryDelay, time, ct).ConfigureAwait(false);
+                    continue;
+                }
+
+                Record(runId, BackupKind.Offsite, BackupState.Failed, started, time.GetUtcNow(), 0, set.SetId,
+                    $"{ex.GetType().Name}: {ex.Message}; attempts={attempts}");
+            }
         }
     }
 
