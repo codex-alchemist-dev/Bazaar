@@ -86,6 +86,7 @@ Resolution: path first, then title or alias. If several match, prefer the same p
 **Access (per-agent privacy) [PROPOSED].**
 - Git has no per-path ACLs. The Vault service enforces access: every read, search hit and link resolution checks the caller's principal against the document's `area` and `owner`.
 - Defaults: the owner reads everything. An agent reads its own private memory, `company/`, its projects' areas and shared areas. Other agents do not read private memory (08's rule). Peer reads of private memory follow `vault.memory_peer_read` (default: none).
+- Built rule for search, body fetch and moves (`VaultAccess`, fail closed): a document with an `owner` is readable by that agent and the owner only. A document with no owner is readable by an agent only under `company/`, `shared/` or its own `agents/<id>/` area; every other ownerless document (project areas, `hive/`, `decisions/`, drafts, `twin/`, root files) is the owner's only until the search caller carries project membership and Hive grants (08 section 6). Callers that are neither the owner nor an agent read nothing.
 - Review rationale notes (doc 11) are readable by their author, the owner and members of the linked GC. Drafts follow doc 19's default (owner and author).
 - Links into a private area that the caller cannot read resolve as unresolved, so existence is not leaked.
 - Any full clone exposes every file and all history. Agent workspaces therefore receive only the paths the agent may read (sparse checkout), and the full repo stays on the host. Untested; see Testing.

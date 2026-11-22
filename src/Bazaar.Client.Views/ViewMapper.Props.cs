@@ -86,6 +86,22 @@ public sealed partial class ViewMapper
     private string Label(ViewNode node, string name, Scope scope) =>
         _context.Localizer.Text(Text(node, name, scope));
 
+    /// <summary>
+    /// The display text of a <c>text</c> or <c>badge</c> (doc 41c, section 3). A <c>value</c> is a literal or an expression and is
+    /// shown as written, never looked up as a key. Without a <c>value</c>, a <c>label</c> is a localisation key or a literal.
+    /// </summary>
+    private string Content(ViewNode node, Scope scope)
+    {
+        if (node.Props.ContainsKey("value"))
+        {
+            return Text(node, "value", scope);
+        }
+
+        return node.Props.ContainsKey("label")
+            ? Label(node, "label", scope)
+            : throw new ViewDeclarationException("needs a 'value' or a 'label' prop.");
+    }
+
     private static string? OptionalText(ViewNode node, string name, Scope scope) =>
         node.Props.ContainsKey(name) ? Text(node, name, scope) : null;
 

@@ -12,6 +12,28 @@ public interface IGitHubAdapter
 
     /// <summary>The PR's current head sha. The owner's approval is void if this moves (doc 21, Merge request path).</summary>
     Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The state of every check on <paramref name="headSha"/>: check runs and legacy commit statuses together. The merge gate refuses
+    /// anything but <see cref="PrChecksState.Passing"/> (doc 21, Merge request path: "checks pass").
+    /// </summary>
+    Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken);
+}
+
+/// <summary>Combined state of the checks on one commit.</summary>
+public enum PrChecksState
+{
+    /// <summary>At least one check exists and every one finished green (success, neutral or skipped).</summary>
+    Passing,
+
+    /// <summary>At least one check failed, was cancelled, timed out or needs action.</summary>
+    Failing,
+
+    /// <summary>No check has failed, but at least one has not finished.</summary>
+    Pending,
+
+    /// <summary>The commit has no checks, so nothing can be verified. Treated as not passing.</summary>
+    NoChecks,
 }
 
 public sealed record PrRef(long InstallationId, string Owner, string Repo, int Number);
