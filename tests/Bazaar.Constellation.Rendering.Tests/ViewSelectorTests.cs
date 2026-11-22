@@ -110,6 +110,46 @@ public sealed class ViewSelectorTests
     }
 
     [Fact]
+    public void ThreeD_CloseUpWithDistantGalaxies_NearIsDeeperThanFar()
+    {
+        var tree = new ImplicitTileTree(_world3D, 3, 2_000_000_000_000L);
+        // Eye just outside a corner of the world, looking along the diagonal so near and far tiles share the frame.
+        var cam = new PerspectiveCamera3D(-1_000_100, -1_000_100, -1_000_100, 1_000_000, 1_000_000, 1_000_000, Far: 1.0e9f);
+        var view = new PerspectiveView(cam, 1920, 1080);
+        ViewSelection sel = ViewSelector.Select(tree, view, new ViewSelectorOptions(MaxInstances: 2_000_000, MaxTiles: 8192));
+        Assert.True(sel.TotalInstances <= 2_000_000);
+        var byDistance = sel.Tiles
+            .Select(t => (t.Key.Level, Info: tree.GetInfo(t.Key)))
+            .OrderBy(x => Math.Abs(x.Info.Bounds.CenterX - cam.EyeX))
+            .ToList();
+        Assert.True(byDistance.Count > 1);
+        Assert.True(byDistance[0].Level > byDistance[^1].Level);
+    }
+
+    [Fact]
+    public void ThreeD_OccludedTilesDoNotSpendTheBudget()
+    {
+        var tree = new ImplicitTileTree(_world3D, 3, 2_000_000_000L);
+        var cam = new PerspectiveCamera3D(0, 0, 3_000_000, 0, 0, 0, Far: 1.0e8f);
+        var view = new PerspectiveView(cam, 1920, 1080);
+        ViewSelection open = ViewSelector.Select(tree, view);
+
+        // A depth image where everything is hidden behind a wall right in front of the camera (reversed-Z: 1 is nearest).
+        const int W = 256;
+        const int H = 144;
+        float[] wall = new float[W * H];
+        Array.Fill(wall, 1f);
+        var pyramid = new HiZPyramid(wall, W, H);
+        float[] m = new float[16];
+        cam.WriteViewProjection(m, 1920f / 1080f);
+        var hidden = ViewSelector.Select(tree, view, null, OcclusionCuller.AsTest(pyramid, m, true));
+
+        Assert.True(open.Tiles.Count > 0);
+        Assert.True(hidden.TotalInstances < open.TotalInstances);
+        Assert.True(hidden.Tiles.Count < open.Tiles.Count);
+    }
+
+    [Fact]
     public void ImplicitTree_LeafCountsStayWithinCapacity()
     {
         var tree = new ImplicitTileTree(_world3D, 3, 2_000_000_000L, leafCapacity: 4096);

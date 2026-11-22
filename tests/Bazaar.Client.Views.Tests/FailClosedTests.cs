@@ -52,7 +52,7 @@ public class FailClosedTests
     public void A_binding_outside_the_scope_fails_closed()
     {
         var harness = new Harness();
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Bind("missing")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Bind("missing")));
 
         Control control = harness.Build(ViewFixtures.Document(node));
 
@@ -164,7 +164,7 @@ public class FailClosedTests
     {
         // The schema has no localisation-key marker yet (doc 41c, section 7), so a string prop is always a literal.
         var harness = new Harness();
-        var node = ViewFixtures.Node("text", [], ("text", ViewFixtures.Lit("greeting")));
+        var node = ViewFixtures.Node("text", [], ("value", ViewFixtures.Lit("greeting")));
 
         var text = Assert.IsType<TextBlock>(harness.Build(ViewFixtures.Document(node)));
 
@@ -179,7 +179,7 @@ public class FailClosedTests
             ViewValidator.SupportedDslVersion,
             "bazaar.test.view",
             new Dictionary<string, ViewDataSource>(StringComparer.Ordinal) { ["count"] = new ViewDataSource("fixture:count", Bazaar.Rubedo.RubedoType.Number) },
-            ViewFixtures.Node("text", [], ("text", new ViewExpr("count + 1"))),
+            ViewFixtures.Node("text", [], ("value", new ViewExpr("count + 1"))),
             new Dictionary<string, ViewAction>());
 
         var text = Assert.IsType<TextBlock>(harness.Build(document, data: ViewFixtures.Data(("count", 41m))));

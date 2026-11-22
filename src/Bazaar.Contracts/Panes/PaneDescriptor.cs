@@ -18,6 +18,9 @@ public static class PaneKinds
     /// <summary>Kanban dependency board (doc 12).</summary>
     public const string Kanban = "bazaar.kanban";
 
+    /// <summary>Calcinato terminal pane: a shell or server terminal in the modal emulator (doc 55, section 5.4).</summary>
+    public const string Terminal = "bazaar.terminal";
+
     /// <summary>Start-screen dashboard of what changed while away (CLAUDE.md, client start screen).</summary>
     public const string Dashboard = "bazaar.dashboard";
 
@@ -35,4 +38,22 @@ public static class PaneKinds
 
     /// <summary>RyuseiFuda Workday: the macro board's team schedule, grouped by owner (doc 38, layer 1).</summary>
     public const string Workday = "bazaar.ryusei-workday";
+
+    /// <summary>Community draft review: outbound posts waiting for the owner's approval (doc 36, work package 8).</summary>
+    public const string CommunityDrafts = "bazaar.community-drafts";
+
+    /// <summary>Community log: what agents did on outside platforms, never what they said (doc 36, work package 9).</summary>
+    public const string CommunityLog = "bazaar.community-log";
+
+    /// <summary>Org chart: reports-to and loan edges, by company or project lens (doc 24 section 5).</summary>
+    public const string Org = "bazaar.org";
+
+    /// <summary>Company calendar: a month grid of plans, releases and vacations (doc 24 section 5).</summary>
+    public const string Calendar = "bazaar.calendar";
+
+    /// <summary>Interrupt stacks: agents with a pushed frame, depth 0 to 2 (doc 24 section 5).</summary>
+    public const string InterruptStack = "bazaar.interrupt-stack";
+
+    /// <summary>Git Solar System: the solar-system view of one repository's history (doc 19, Git Solar System client module).</summary>
+    public const string GitSolarSystem = "bazaar.git-solar-system";
 }
