@@ -331,6 +331,8 @@ Re-importing the same source must not create duplicates.
 - Imported text is external content. It carries trust `external` (doc 15). Agents that read imported notes do so in reader sessions, and high-impact actions after reading them need owner approval (doc 15, taint).
 - The import job record stores hashes and locations, never the plaintext of imported personal content.
 
+Built status (2026-11-18): `ImportSecretScanner` (rules for private key blocks, common API key shapes, JWTs, connection strings and high-entropy credential assignments; a timed-out pattern counts as a finding), `ImportSecretGate` (policy `quarantine`, `warn` or `off`, where `off` is refused for external text; `Scan` and `Resolve` over a preview, with the three owner choices) and `ImportSecretAudit` (one `portability.import.secret_decision` entry per decision, holding the choice and rule ids only). A resolved preview is a new preview, so it needs a new dry-run. Not built: the wizard step that shows findings and takes the decisions (client), reading the setting from the registry, and a shared rule set with the Soul bundle scanner (`BundleSecretScanner` in Bazaar.Server has the same rules, kept separate because this project must not reference Bazaar.Server).
+
 ### 8.6 Staging retention
 
 - Staging holds the source as uploaded and the parse output until commit verifies.
