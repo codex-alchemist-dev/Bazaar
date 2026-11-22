@@ -120,6 +120,8 @@ Keys are registered in doc 03's settings registry [PROPOSED]. All are install-sc
 
 **Default catalogue** (shipped as a secret-free file; each entry carries `freeTier`, `termsRisk`, `trainsOnFreeData` and `verification` fields. V = primary page read; P = partly; U = unverified; re-check raw pages before release):
 
+[Built: `src/Bazaar.Server.Gateway.Catalogue/DefaultCatalogue/default-catalogue.json`, loaded by `DefaultCatalogueLoader`. `freeTier`, `termsRisk` and `trainsOnFreeData` are `unknown` for every entry until the owner or a raw-page check fills them; `verification` and its note come from the Status column below.]
+
 | Source | Adapter | Base URL | Status |
 |---|---|---|---|
 | Anthropic | anthropic_messages | `https://api.anthropic.com` | P: limits and prices V; native path carried, not re-read |
