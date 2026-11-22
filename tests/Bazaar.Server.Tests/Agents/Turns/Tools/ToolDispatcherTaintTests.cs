@@ -89,7 +89,7 @@ public class ToolDispatcherTaintTests
 
     private sealed record Rig(ToolDispatcher Dispatcher, FakeSessionTaintStore Store, FakeAuditLog Audit, FakeInFlightCallStore InFlight);
 
-    private static Rig ResultRig(SessionTaint taint, FakeTool tool, string toolName)
+    private static Rig ResultRig(SessionTaint taint, FakeTool tool, string toolName, params ITaintRaisedListener[] listeners)
     {
         var store = new FakeSessionTaintStore(taint);
         var audit = new FakeAuditLog();
@@ -100,7 +100,8 @@ public class ToolDispatcherTaintTests
             store,
             inFlight,
             audit,
-            new FixedClock(PolicyFixtures._now));
+            new FixedClock(PolicyFixtures._now),
+            taintListeners: listeners);
         return new Rig(dispatcher, store, audit, inFlight);
     }
 
@@ -218,5 +219,60 @@ public class ToolDispatcherTaintTests
         Assert.Same(Assert.Single(engine.Seen), context);
         Assert.NotEqual(Guid.Empty, resultId);
         Assert.Empty(store.Saved);
+    }
+
+    private sealed class RecordingListener : ITaintRaisedListener
+    {
+        public List<TaintRaised> Seen { get; } = [];
+
+        public Task OnTaintRaisedAsync(TaintRaised raised, CancellationToken cancellationToken = default)
+        {
+            Seen.Add(raised);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingListener : ITaintRaisedListener
+    {
+        public Task OnTaintRaisedAsync(TaintRaised raised, CancellationToken cancellationToken = default) => throw new InvalidOperationException("boom");
+    }
+
+    [Fact]
+    public async Task A_clean_session_raised_to_hard_notifies_listeners_with_ids_level_and_time()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("{}")), "screen.capture", new ThrowingListener(), listener);
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        var raised = Assert.Single(listener.Seen);
+        Assert.Equal(_agentId.ToString("D"), raised.AgentId);
+        Assert.Equal(_sessionId, raised.SessionId);
+        Assert.Equal(TaintState.Hard, raised.Level);
+        Assert.Equal(PolicyFixtures._now, raised.At);
+    }
+
+    [Fact]
+    public async Task A_repeat_at_the_same_level_does_not_notify()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(PolicyFixtures.Hard(), new FakeTool(_ => Task.FromResult("{}")), "screen.capture", listener);
+
+        await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Single(rig.Store.Saved);
+        Assert.Empty(listener.Seen);
+    }
+
+    [Fact]
+    public async Task A_tool_that_adds_no_taint_does_not_notify()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("{}")), "gc.read", listener);
+
+        await rig.Dispatcher.InvokeAsync(Request("gc.read"), TestContext.Current.CancellationToken);
+
+        Assert.Empty(listener.Seen);
     }
 }

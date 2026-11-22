@@ -242,7 +242,7 @@ public static class HttpSurfaceEndpoints
         foreach (var hit in hits)
         {
             if (!long.TryParse(hit.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) continue;
-            if (grant.ThroughSeq is { } through && seq > through) continue;
+            if (!grant.Covers(seq)) continue;
             results.Add(new { gc = gcId, seq, score = hit.Score });
             if (results.Count == limit) break;
         }

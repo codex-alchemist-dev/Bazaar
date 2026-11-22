@@ -87,7 +87,7 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
 
         EnsureEnabled(target, "capture");
         Guard(target, "capture", () => InputValidator.ValidateTarget(target));
-        DisplayVerdict verdict = Gate(() => _gate.CheckCapture(target));
+        DisplayVerdict verdict = await GateAsync(() => _gate.CheckCaptureAsync(target, ct));
         if (!verdict.Allowed)
             throw Refuse(target, "capture", DisplayFailure.Refused, verdict.Reason ?? "refused by the display gate");
         if (!_captureLimiter.TryAcquire(target.AgentId))
@@ -140,7 +140,7 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
             InputValidator.ValidateBatch(batch.Actions, _options);
         });
         IReadOnlyList<InputAction> actions = batch.Actions;
-        DisplayVerdict verdict = Gate(() => _gate.CheckInput(target, actions));
+        DisplayVerdict verdict = await GateAsync(() => _gate.CheckInputAsync(target, actions, ct));
         if (!verdict.Allowed)
             throw Refuse(target, "input", DisplayFailure.Refused, verdict.Reason ?? "refused by the display gate");
         if (!_inputLimiter.TryAcquire(target.AgentId))
@@ -306,11 +306,11 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
     }
 
     // A gate that throws is treated as a refusal: the module fails closed.
-    private static DisplayVerdict Gate(Func<DisplayVerdict> check)
+    private static async Task<DisplayVerdict> GateAsync(Func<ValueTask<DisplayVerdict>> check)
     {
         try
         {
-            return check() ?? DisplayVerdict.Deny("the display gate returned no verdict");
+            return await check().ConfigureAwait(false) ?? DisplayVerdict.Deny("the display gate returned no verdict");
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

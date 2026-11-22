@@ -11,9 +11,9 @@ internal sealed class AllowAllDisplayGate : IDisplayGate
 
     public bool Throw { get; set; }
 
-    public DisplayVerdict CheckCapture(DisplayTarget target) => Verdict();
+    public ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct) => ValueTask.FromResult(Verdict());
 
-    public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => Verdict();
+    public ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct) => ValueTask.FromResult(Verdict());
 
     private DisplayVerdict Verdict()
     {

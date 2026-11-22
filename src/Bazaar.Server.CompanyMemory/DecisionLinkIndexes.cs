@@ -32,7 +32,7 @@ public sealed class InMemoryDecisionLinkIndex : IDecisionLinkIndex
     }
 }
 
-/// <summary>The index in Postgres (<c>decision_link</c>, migration components/company_memory/0001).</summary>
+/// <summary>The index in Postgres (<c>decision_link</c>, migration components/company_memory/0002).</summary>
 public sealed class PgDecisionLinkIndex(NpgsqlDataSource dataSource) : IDecisionLinkIndex
 {
     public async Task ReplaceAllAsync(IReadOnlyList<DecisionLink> links, CancellationToken ct)

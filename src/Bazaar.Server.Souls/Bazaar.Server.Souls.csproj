@@ -14,4 +14,7 @@
     <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Presets\Data\*.json" LogicalName="%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
