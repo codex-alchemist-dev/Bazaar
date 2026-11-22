@@ -12,15 +12,15 @@ internal static class KodoCommands
     /// Loads the file. Errors exit 1 with no checks. Otherwise the checks run, and the exit code follows
     /// <see cref="KodoVerifyExitCodes.For"/>, with a validator hold counted as amber.
     /// </summary>
-    public static async Task<KodoVerifyReport> VerifyAsync(string configPath, CancellationToken cancellationToken)
+    public static async Task<KodoVerifyReport> VerifyAsync(string configPath, ISetupSettingCatalog settings, CancellationToken cancellationToken)
     {
-        var read = SetupCommands.ReadConfig(configPath);
+        var read = SetupOrchestrator.ReadConfig(configPath);
         if (read.Issue is not null)
         {
             return Refused(read.Issue);
         }
 
-        var load = SetupPlanLoader.Load(read.Text!);
+        var load = SetupPlanLoader.Load(read.Text!, settings);
         if (load.Plan is null)
         {
             return Refused(load.Issues.Select(SetupChangeView.ToIssue).ToList());
@@ -44,14 +44,14 @@ internal static class KodoCommands
     }
 
     /// <summary>A report for input that could not be read or loaded. No checks ran, so there is no score.</summary>
-    private static KodoVerifyReport Refused(List<AdminIssue> issues) => new()
+    private static KodoVerifyReport Refused(List<SetupReportIssue> issues) => new()
     {
         ExitCode = KodoVerifyExitCodes.InvalidInput,
         Result = ResultFor(KodoVerifyExitCodes.InvalidInput),
         Issues = issues,
     };
 
-    private static KodoVerifyReport Refused(AdminIssue issue) => Refused([issue]);
+    private static KodoVerifyReport Refused(SetupReportIssue issue) => Refused([issue]);
 
     private static AdminCheck ToAdminCheck(SetupCheckReport row) => new()
     {

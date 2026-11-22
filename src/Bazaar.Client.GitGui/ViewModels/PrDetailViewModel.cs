@@ -1,4 +1,5 @@
 using Bazaar.Client.GitGui.Diff;
+using Bazaar.Client.GitGui.Merge;
 using Bazaar.Contracts.Git;
 
 namespace Bazaar.Client.GitGui.ViewModels;
@@ -14,6 +15,9 @@ public sealed class PrDetailViewModel : GitViewModelBase
 
     private readonly IGitGuiClient _client;
     private readonly int _diffContextLines;
+    private readonly IOwnerMergeApprover? _approver;
+    private MergeCardState _mergeState;
+    private string? _mergeMessage;
     private GitPrDetailDto? _detail;
     private IReadOnlyList<GitPrFileDto> _files = [];
     private IReadOnlyList<GitCheckDto> _checks = [];
@@ -24,7 +28,7 @@ public sealed class PrDetailViewModel : GitViewModelBase
     private bool _loading;
     private string? _error;
 
-    public PrDetailViewModel(IGitGuiClient client, string provider, string repo, long number, IGitProviderUi? providerUi = null, int diffContextLines = 3)
+    public PrDetailViewModel(IGitGuiClient client, string provider, string repo, long number, IGitProviderUi? providerUi = null, int diffContextLines = 3, IOwnerMergeApprover? mergeApprover = null)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
@@ -37,9 +41,10 @@ public sealed class PrDetailViewModel : GitViewModelBase
         Number = number;
         ProviderUi = providerUi;
         _diffContextLines = diffContextLines;
+        _approver = mergeApprover;
     }
 
-    /// <summary>Raised when the owner requests a merge from an enabled card. Nothing is signed or sent here.</summary>
+    /// <summary>Raised when the owner requests a merge from an enabled card. The event itself signs and sends nothing; <see cref="MergeAsync"/> does.</summary>
     public event EventHandler<OwnerMergeRequestedEventArgs>? OwnerMergeRequested;
 
     public string Provider { get; }
@@ -65,7 +70,26 @@ public sealed class PrDetailViewModel : GitViewModelBase
     public IReadOnlyList<GitReviewDto> Reviews => _detail?.Reviews ?? [];
 
     /// <summary>The merge card for the head currently shown, or null before the first load.</summary>
-    public MergeCard? Merge { get => _merge; private set => Set(ref _merge, value); }
+    public MergeCard? Merge { get => _merge; private set { if (Set(ref _merge, value)) { Raise(nameof(CanMerge)); } } }
+
+    /// <summary>Where the last merge attempt stands.</summary>
+    public MergeCardState MergeState
+    {
+        get => _mergeState;
+        private set
+        {
+            if (Set(ref _mergeState, value))
+            {
+                Raise(nameof(CanMerge));
+            }
+        }
+    }
+
+    /// <summary>The line to show for <see cref="MergeState"/>, or null when idle. Never carries server text or a signature.</summary>
+    public string? MergeMessage { get => _mergeMessage; private set => Set(ref _mergeMessage, value); }
+
+    /// <summary>True when the merge button is on: the card allows it and no attempt is running or finished.</summary>
+    public bool CanMerge => Merge is { CanRequestMerge: true } && _mergeState is not (MergeCardState.Signing or MergeCardState.Merging or MergeCardState.Merged);
 
     public GitPrFileDto? SelectedFile { get => _selectedFile; private set => Set(ref _selectedFile, value); }
 
@@ -178,6 +202,91 @@ public sealed class PrDetailViewModel : GitViewModelBase
 
         OwnerMergeRequested?.Invoke(this, new OwnerMergeRequestedEventArgs(card.Provider, card.Repo, card.Number, card.HeadSha));
         return true;
+    }
+
+    /// <summary>
+    /// The merge button (doc 52 Client). Builds the owner approval for the card's head, asks the device approver for a fresh
+    /// presence check and signature, and posts it to the server's merge route. The client holds no forge credential and calls no
+    /// forge. Outcomes map to <see cref="MergeState"/>: 409 reloads at the new head and says to review again; 403 is a generic
+    /// "not approved"; 429 and 5xx say to try later. Returns true only when the server merged.
+    /// </summary>
+    public async Task<bool> MergeAsync(CancellationToken cancellationToken = default)
+    {
+        if (!CanMerge || Merge is not { } card || _detail is not { } detail)
+        {
+            return false;
+        }
+
+        RequestMerge();
+        if (_approver is null)
+        {
+            SetMerge(MergeCardState.CannotApprove, "This client cannot approve merges.");
+            return false;
+        }
+
+        SetMerge(MergeCardState.Signing, "Waiting for your approval.");
+        try
+        {
+            var title = DeviceOwnerMergeApprover.CommitTitleFor(detail.Summary.Title, card.Number);
+            var approval = await _approver.ApproveAsync(
+                new MergeApprovalRequest(card.Provider, card.Repo, card.Number, card.HeadSha, title), cancellationToken).ConfigureAwait(true);
+            if (approval.Outcome != MergeApprovalOutcome.Approved || approval.Merge is not { } request)
+            {
+                var (state, text) = approval.Outcome switch
+                {
+                    MergeApprovalOutcome.Cancelled => (MergeCardState.Cancelled, "Approval cancelled. Nothing was merged."),
+                    MergeApprovalOutcome.Unavailable => (MergeCardState.CannotApprove, "This device cannot approve merges."),
+                    _ => (MergeCardState.Failed, "The approval could not be signed. Nothing was merged."),
+                };
+                SetMerge(state, text);
+                return false;
+            }
+
+            SetMerge(MergeCardState.Merging, "Merging.");
+            await _client.MergeAsync(card.Provider, card.Repo, card.Number, request, cancellationToken).ConfigureAwait(true);
+            SetMerge(MergeCardState.Merged, $"Merged at head {card.HeadSha}.");
+            await LoadAsync(cancellationToken).ConfigureAwait(true);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            SetMerge(MergeCardState.Cancelled, "Approval cancelled. Nothing was merged.");
+            return false;
+        }
+        catch (HeadMovedException)
+        {
+            await LoadAsync(cancellationToken).ConfigureAwait(true);
+            SetMerge(MergeCardState.HeadMoved, "The head moved. Review the new head and approve again.");
+            return false;
+        }
+        catch (GitMergeNotApprovedException)
+        {
+            SetMerge(MergeCardState.NotApproved, "Not approved.");
+            return false;
+        }
+        catch (GitRateLimitedException limited)
+        {
+            SetMerge(MergeCardState.RateLimited, limited.RetryAfterSeconds is { } s
+                ? $"The forge is busy. Try again in {s} seconds."
+                : "The forge is busy. Try again later.");
+            return false;
+        }
+        catch (GitServerUnavailableException)
+        {
+            SetMerge(MergeCardState.Unavailable, "The server or the forge is unavailable. The merge may not have happened; check before trying again.");
+            return false;
+        }
+        catch (GitGuiException)
+        {
+            SetMerge(MergeCardState.Failed, "The merge could not be completed.");
+            return false;
+        }
+    }
+
+    private void SetMerge(MergeCardState state, string? message)
+    {
+        MergeState = state;
+        MergeMessage = message;
     }
 
     private void RaiseStale()
