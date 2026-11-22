@@ -1,7 +1,5 @@
 using Bazaar.Server.Portability.Sandbox;
 using Bazaar.Server.Providers;
-using Bazaar.Server.Vms.WindowsSandbox;
-using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 
 namespace Bazaar.Server.Providers.Windows;
 
@@ -19,27 +17,8 @@ public static class WindowsProviders
         return [new WindowsServiceHostProvider()];
     }
 
-    /// <summary>
-    /// The VM provider candidates in preference order. Hyper-V goes first once it exists; the sandbox is listed after it.
-    /// Returns an empty list when the host is not Windows. The sandbox declares one instance per host, so the agent pair
-    /// (which needs two) never selects it (fail closed in the Server's ProviderSelector).
-    /// </summary>
-    public static IReadOnlyList<IVmProvider> VmCandidates(string dataRoot)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return [];
-        }
-
-        var configDirectory = Path.Combine(dataRoot, "vms", "windows-sandbox");
-        // No base image is configured yet, so the empty id is the only parent id it could match. Any real parent is refused,
-        // which keeps child creation fail closed until an operator sets the image.
-        var sandbox = new WindowsSandboxBackend(
-            new WsbCliSandboxHost(new ProcessWsbCommandRunner(), configDirectory),
-            new WindowsSandboxHostFacts(),
-            new WindowsSandboxOptions(Guid.Empty));
-        return [sandbox];
-    }
+    // VM providers are not listed here: each provider module contributes an IVmBackendSource through DI, and the host orders the
+    // pair candidates (doc 62 section 9.2).
 
     /// <summary>
     /// The job-object confinement for the portability parser child (doc 44 section 8.3), or null when the host is not Windows

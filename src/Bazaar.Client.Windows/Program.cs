@@ -14,6 +14,7 @@ using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
+using Bazaar.Client.Devices;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.GitGui;
@@ -78,12 +79,16 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            new DevicesPaneModule(),
             .. GitSolarSystemPanes.Modules,
             .. GitGuiPanes.Modules,
         ];
+        // The Devices pane reads its list over the chat session's wire connection, which is built later; it hides until then.
+        var deviceRequests = new DeferredWireRequester();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .With<IDeviceListSource>(new WireDeviceListSource(deviceRequests))
             .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
             .WithGitGui(ClientServer.Current);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
@@ -102,6 +107,15 @@ internal static class Program
             if (chatSettings is not null)
             {
                 chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+            }
+
+            if (chat is not null)
+            {
+                // Once the session has started, hand its connection to the Devices pane (UI thread; the pane then refreshes).
+                var session = chat.Session;
+                _ = chat.Started.ContinueWith(
+                    _ => Dispatcher.UIThread.Post(() => deviceRequests.Set(session.Requests)),
+                    TaskScheduler.Default);
             }
 
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.

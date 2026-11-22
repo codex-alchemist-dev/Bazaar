@@ -5,6 +5,7 @@ using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Roadmap;
 
 using Bazaar.Contracts.Ryusei;
+using Bazaar.Contracts.Vms;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -47,6 +48,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(RyuseiTriggerChangeReply))]
 [JsonSerializable(typeof(RyuseiTriggerListRequest))]
 [JsonSerializable(typeof(RyuseiTriggerListReply))]
+[JsonSerializable(typeof(DeviceListRequest))]
+[JsonSerializable(typeof(DeviceListReply))]
 [JsonSerializable(typeof(PrListRequest))]
 [JsonSerializable(typeof(PrListReply))]
 [JsonSerializable(typeof(PrSummaryRequest))]

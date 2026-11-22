@@ -28,6 +28,9 @@ using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Vault;
+using Bazaar.Server.Vms.Android;
+using Bazaar.Server.Vms.Devices;
+using Bazaar.Server.Vms.MicroVm;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -61,6 +64,9 @@ public static class HostComponents
         new AgentTurnsComponent(),
         new MailComponent(),
         new ModuleManagerComponent(),
+        new DeviceProvidersComponent(),
+        new AndroidComponent(),
+        new MicroVmComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
         new OpenAiChatAdapterComponent(),

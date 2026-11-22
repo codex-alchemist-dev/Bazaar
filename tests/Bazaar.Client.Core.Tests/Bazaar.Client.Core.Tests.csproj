@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Devices\Bazaar.Client.Devices.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Ex\Bazaar.Ex.csproj" />

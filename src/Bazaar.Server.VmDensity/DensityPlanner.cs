@@ -92,7 +92,7 @@ public static class DensityPlanner
     }
 
     /// <summary>
-    /// Save candidates in the order to use them: other agents' idle VMs (Windows first, then Linux, least recently used first, VmId as
+    /// Save candidates in the order to use them: other agents' idle VMs (Windows first, then Linux, then Android, least recently used first, VmId as
     /// the tie-break), then the requester's own idle VMs in the same order as a last resort.
     /// </summary>
     internal static List<RunningVm> OrderCandidates(DensityVm request, IReadOnlyList<RunningVm> running, VmDensityOptions options, DateTimeOffset now)
@@ -104,7 +104,7 @@ public static class DensityPlanner
             && now - r.Activity.LastUsedAt >= options.MinIdleBeforeSave;
 
         IEnumerable<RunningVm> Sorted(IEnumerable<RunningVm> source) => source
-            .OrderBy(r => r.Vm.Os == DensityGuestOs.Windows ? 0 : 1)
+            .OrderBy(r => SaveRank(r.Vm.Os))
             .ThenBy(r => r.Activity.LastUsedAt)
             .ThenBy(r => r.Vm.VmId);
 
@@ -112,4 +112,12 @@ public static class DensityPlanner
         bool Own(RunningVm r) => string.Equals(r.Vm.AgentId, request.AgentId, StringComparison.Ordinal);
         return [.. Sorted(candidates.Where(r => !Own(r))), .. Sorted(candidates.Where(Own))];
     }
+
+    // Windows guests are the most expensive to keep running, device guests the most expensive to bring back (doc 62 section 9.3).
+    private static int SaveRank(DensityGuestOs os) => os switch
+    {
+        DensityGuestOs.Windows => 0,
+        DensityGuestOs.Linux => 1,
+        _ => 2,
+    };
 }

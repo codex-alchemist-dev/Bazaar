@@ -17,4 +17,11 @@ public interface IEnvironmentVmStore
 
     /// <summary>Records the backend handle. Returns false when no VM has that id.</summary>
     Task<bool> SetBackendRefAsync(Guid vmId, string backendRef, DateTimeOffset now, CancellationToken ct);
+
+    /// <summary>
+    /// Every VM that is not retired. The density directory, the device cap and the idle-stop sweep read it (doc 62 section 9.3). A store
+    /// that cannot list keeps this default, and those features then fail instead of guessing.
+    /// </summary>
+    Task<IReadOnlyList<EnvironmentVmRecord>> ListNonRetiredAsync(CancellationToken ct) =>
+        throw new NotSupportedException("This VM store cannot list VMs.");
 }

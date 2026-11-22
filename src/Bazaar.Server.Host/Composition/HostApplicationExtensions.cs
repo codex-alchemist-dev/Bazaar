@@ -16,6 +16,7 @@ using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Sanitization;
 using Bazaar.Server.Souls.Retirement;
+using Bazaar.Server.Vms.Density;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,6 +62,8 @@ public static class HostApplicationExtensions
         // The setup component shows its one-time bootstrap code through this; the setup modules themselves use no console.
         services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // The density governor's lifecycle adapters (doc 62 section 9.3), only when a vm-density component registered a governor.
+        services.AddVmDensityLifecycleAdapters();
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);

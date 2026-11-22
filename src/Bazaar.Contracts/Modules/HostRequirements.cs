@@ -57,6 +57,8 @@ public static class HostCompatibility
         "hyperv",
         "windows-sandbox",
         "kvm",
+        "android-emulator",
+        "microvm",
     };
 
     /// <summary>Checks the declaration itself: schema version, non-empty lists, known names, no duplicates. Pure.</summary>

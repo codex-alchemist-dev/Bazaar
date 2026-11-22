@@ -48,6 +48,12 @@ internal sealed class FakeEnvironmentVmStore : IEnvironmentVmStore
         }
     }
 
+    public Task<IReadOnlyList<EnvironmentVmRecord>> ListNonRetiredAsync(CancellationToken ct)
+    {
+        lock (_gate)
+            return Task.FromResult<IReadOnlyList<EnvironmentVmRecord>>([.. _rows.Values.Where(r => r.State != VmState.Retired).OrderBy(r => r.Id)]);
+    }
+
     /// <summary>Seeds a row without going through the service, for test setup.</summary>
     public void Seed(EnvironmentVmRecord vm)
     {

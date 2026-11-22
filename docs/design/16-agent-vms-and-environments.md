@@ -20,7 +20,7 @@ Defines the environment each agent works in: one Windows VM and one Linux VM per
 ## Design
 
 **Components**
-- **VM provider** (`IVmBackend`): Hyper-V on Windows (first); KVM on Linux (later). The only backend interface, called only by the server, never from a guest. [PROPOSED] internals.
+- **VM provider** (`IVmBackend`): Hyper-V on Windows (first); KVM on Linux (later). The only backend interface, called only by the server, never from a guest. [PROPOSED] internals. Several providers can be installed at once; doc 62 section 9.2 says how the lifecycle routes each VM to the backend that owns it.
 - **Environment service**: owns the agent's VM pair, lifecycle, schedules and resource accounting. Serialises lifecycle operations per VM.
 - **Guest agent**: one self-contained .NET 11 program, baked into both guest images. Runs commands, moves files and hosts terminal sessions. [PROPOSED]
 - **Guest channel** (`IGuestChannel`): the only guest wire. `IWorkspace` (doc 17) is a facade over it.

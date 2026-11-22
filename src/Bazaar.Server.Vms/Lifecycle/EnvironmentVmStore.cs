@@ -16,4 +16,7 @@ public sealed class EnvironmentVmStore(EnvironmentRepository repository) : IEnvi
 
     public Task<bool> SetBackendRefAsync(Guid vmId, string backendRef, DateTimeOffset now, CancellationToken ct) =>
         repository.SetBackendRefAsync(vmId, backendRef, now, ct);
+
+    public Task<IReadOnlyList<EnvironmentVmRecord>> ListNonRetiredAsync(CancellationToken ct) =>
+        repository.ListNonRetiredVmsAsync(ct);
 }

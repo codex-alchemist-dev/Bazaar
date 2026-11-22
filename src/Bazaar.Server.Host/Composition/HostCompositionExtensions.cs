@@ -15,6 +15,7 @@ using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Souls;
+using Bazaar.Server.Vms.Lifecycle;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -105,10 +106,11 @@ public static class HostCompositionExtensions
             var valkey = sp.GetRequiredService<IOptions<ValkeyCacheOptions>>().Value;
             IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
             IReadOnlyList<ICacheProvider> caches = LinuxProviders.CacheCandidates(valkey, sp.GetService<ISecretResolver>());
-            // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
+            // VM pair candidates come from the provider modules through DI, in the documented order (doc 62 section 9.2). Nothing is
+            // probed when the role is disabled.
             IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
                 ? []
-                : WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot);
+                : VmsCompositionExtensions.PairCandidates(sp.GetServices<IVmBackendSource>());
             return new ProviderCapabilityReport(
             [
                 ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),

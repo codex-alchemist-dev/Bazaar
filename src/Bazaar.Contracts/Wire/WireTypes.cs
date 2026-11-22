@@ -45,6 +45,9 @@ public static class WireTypes
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
+    /// <summary>Owner asks which device providers are enabled and which device guests run (doc 62 section 9.1). Answered with a <c>DeviceListReply</c>.</summary>
+    public const string DeviceList = "vms.devices.list";
+
     /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
     public const string PrList = "pr.list";
 

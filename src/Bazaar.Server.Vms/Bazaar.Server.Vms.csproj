@@ -6,6 +6,10 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The density governor's contract: every start is admitted first (doc 62 section 9.3). Abstractions only, never the governor. -->
+    <ProjectReference Include="..\Bazaar.Server.VmDensity.Abstractions\Bazaar.Server.VmDensity.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>
