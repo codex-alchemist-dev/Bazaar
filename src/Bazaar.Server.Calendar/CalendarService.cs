@@ -6,31 +6,9 @@ using Npgsql;
 
 namespace Bazaar.Server.Calendar;
 
-/// <summary>The Company Calendar's writer (docs/design/24 section 4). The only code that changes <c>calendar_event</c>.</summary>
-public interface ICalendarService
-{
-    /// <summary>Creates an event. A vacation starts proposed unless the actor may confirm it.</summary>
-    Task<CalendarResult> CreateAsync(CalendarDraft draft, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
-
-    /// <summary>Writes a new version of an event if <paramref name="expectedVersion"/> still matches. The status is kept.</summary>
-    Task<CalendarResult> UpdateAsync(Guid id, long expectedVersion, CalendarDraft draft, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
-
-    /// <summary>Confirms a proposed vacation under <c>calendar.vacation_confirmer</c>.</summary>
-    Task<CalendarResult> ConfirmAsync(Guid id, long expectedVersion, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
-
-    /// <summary>Cancels an event. Cancel is a status change; the row stays.</summary>
-    Task<CalendarResult> CancelAsync(Guid id, long expectedVersion, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default);
-
-    /// <summary>Reads one event. The title stays sealed; see <see cref="CalendarService.OpenTitleAsync"/>.</summary>
-    Task<CalendarEventRecord?> GetAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>Lists events overlapping [<paramref name="from"/>, <paramref name="until"/>), including cancelled rows.</summary>
-    Task<IReadOnlyList<CalendarEventRecord>> ListOverlappingAsync(DateTimeOffset from, DateTimeOffset until, Guid? agentId, CancellationToken ct = default);
-}
-
 /// <summary>
 /// Calendar writes (docs/design/24 section 4). Each change runs in one transaction that locks the row, checks the actor and the
-/// expected version, and writes the new version. After the commit it appends one GC line through <see cref="ICalendarGcAppender"/>.
+/// expected version, and writes the new version. After the commit it appends one GC line through <see cref="IGcLogWriter"/>.
 /// <para>
 /// GC seam: the GC writer opens its own connection and transaction, so the line cannot share the calendar transaction. The
 /// line's client message id is <c>calendar:{id}:{version}:{change}</c>, so <see cref="AnnounceAsync"/> can be run again
@@ -45,7 +23,7 @@ public interface ICalendarService
 public sealed class CalendarService(
     NpgsqlDataSource dataSource,
     IGcBodyCodec bodies,
-    ICalendarGcAppender gcWriter,
+    IGcLogWriter gcWriter,
     CalendarPolicy? policy = null) : ICalendarService
 {
     private readonly CalendarRepository _events = new(dataSource);
