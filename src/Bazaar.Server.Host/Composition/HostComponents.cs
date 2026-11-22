@@ -141,6 +141,7 @@ public static class HostComponents
         new ValkeyComponent(),
         new GarnetComponent(),
         new PresenceComponent(),
+        new Bazaar.Server.Presence.Sources.PresenceSourcesComponent(),
         // Screenshot and input for agent VMs, the density governor and the shared browser pool (docs/design/59). Every port the host
         // does not supply yet keeps the module's own fail-closed default, so none of this does anything until the operator and the
         // missing host ports are in place. The pool's Linux host and image check register nothing off Linux, and Hyper-V answers
