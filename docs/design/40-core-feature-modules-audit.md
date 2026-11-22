@@ -112,6 +112,20 @@ Applied to the three features:
 | Layer 1 kanban (`kanban`) | Folded into `Bazaar.RyuseiFuda` as the Workday layer (owner, 2026-11-16). No standalone Kanban module. | The `kanban` component id stays stable and migrations stay in namespace `ryusei`. Code is in `src/Bazaar.RyuseiFuda/Kanban` and `src/Bazaar.Client.RyuseiFuda/Workday`. Its C# namespaces still read `Bazaar.Server.Kanban`; renaming them is tracked in the extraction work. |
 | No connectivity code yet | `Bazaar.Conduit` with `Conduit.Cloudflared`, `Conduit.P2P` | New code only; nothing to rename. |
 
+## 4b. Community modules (doc 36, work packages 7 and 8) [PROPOSED]
+
+Recorded 2026-11-18 from doc 36. Nothing here is built yet, and nothing is renamed by this entry.
+
+- **Server, existing:** `Bazaar.Community` (`src/Bazaar.Community`) holds the policy, quotas, quality gates and bot profile. It is the server-side module that will be renamed `Bazaar.Server.Community` by the detach/rename wave.
+- **Abstractions, existing:** `Bazaar.Server.Community.Abstractions` (`src/Bazaar.Server.Community.Abstractions`) holds `ICommunityAdapter`, `OutboundPost`, `PostReceipt`, `ApprovalId` and `CommunityPostException`. An adapter is reachable only through the dispatcher, which verifies the approval first.
+- **Contracts:** `Bazaar.Contracts/Community` holds the draft-review wire types: `DraftReviewCardDto`, `DraftReviewDecisionDto` and `QualityGateFindingDto`. The pane kind is `bazaar.community-drafts`.
+- **WP 7, `Bazaar.Server.Community.GitHub`:** the GitHub adapter for issues, draft PRs and comments. It implements `ICommunityAdapter` and gets its token through `ICommunityGitHubTokenSource`, a seam. The GitHub App registration is parked for the owner. The host adapts the Identity Service token provider to this seam later. The project does not reference `Bazaar.Server.csproj`.
+- **WP 7 rules:** each post is idempotent by the hidden marker `<!-- bazaar-draft:{DraftId} -->`. The adapter refuses a body whose hash does not match the approval, a body with no disclosure footer, and any body with a `Signed-off-by` line, since agents never add one. A rate limit is retryable. A refusal is not.
+- **WP 7 paths:** fork-and-PR and issue creation on uninstalled repos stay behind spike S22, unchanged (doc 36, Conflicts 2).
+- **WP 8, `Bazaar.Client.Community`:** the view model, with no Avalonia reference. It references `Bazaar.Client.Core` only, like other client modules.
+- **WP 8, `Bazaar.Client.Community.Avalonia`:** the view and its `IPaneModule`.
+- **WP 8 card:** the draft-review card shows the exact quoted body, its hash, the gate results, a footer indicator and taint excerpts. Approve is disabled when a gate failed, the footer is missing, or the approval is not pending. Edit-then-approve creates a new draft that needs a new approval.
+- **WP 8 registration:** registration into the client heads waits for the client module registry (section 5, step 7).
 ## 4b. Planned modules: Luau static checks and Studio bridge [PROPOSED]
 
 Source: coordinator brief, 2026-11-18, placing doc 20 work packages 7 and 8 so the code PR can follow. Not an owner decision. Names follow section 4 (`Bazaar.<F>.Abstractions` plus `Bazaar.<F>`); the server module sits under `Bazaar.Server.` as `Bazaar.Server.AgentSafety` does.
