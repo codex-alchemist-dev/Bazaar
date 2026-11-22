@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Kanban;
 
 /// <summary>
@@ -23,4 +25,5 @@ public sealed record KanbanBoardCard(
 /// <summary>A whole project board: every task in the project with its blockers.</summary>
 /// <param name="ProjectId">Project the board belongs to.</param>
 /// <param name="Cards">Cards in the order the server stores them.</param>
+[WirePayload]
 public sealed record KanbanBoardSnapshot(Guid ProjectId, IReadOnlyList<KanbanBoardCard> Cards);
