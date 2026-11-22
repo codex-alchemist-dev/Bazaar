@@ -7,6 +7,22 @@
     <IsAotCompatible>true</IsAotCompatible>
     <!-- The LibraryImport source generator emits unsafe code for the libc calls in Posix. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- No culture data is used: the tool only formats integers invariantly. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <!--
+    Native AOT is for publish only (dotnet publish -c Release -r linux-x64 or linux-arm64), so plain builds and the solution build
+    on Windows never need the native toolchain. The result is one static-ish binary with no .NET runtime needed in the pool VM image.
+    Error messages are the tool's own strings, so UseSystemResourceKeys stays off.
+  -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' Or '$(RuntimeIdentifier)' == 'linux-arm64'">
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <OptimizationPreference>Size</OptimizationPreference>
+    <StackTraceSupport>false</StackTraceSupport>
+    <DebuggerSupport>false</DebuggerSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Guest.PoolSpawn.Tests" />

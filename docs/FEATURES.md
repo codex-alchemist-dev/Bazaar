@@ -94,7 +94,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | RyuseiFuda: Workday (company board) | The macro board and schedule, previously Kanban. | Partial (Kanban tables, transitions, blocker graph shipped) | `docs/design/12`, `src/Bazaar.RyuseiFuda/Kanban`, `src/Bazaar.Client.RyuseiFuda/Workday` |
 | RyuseiFuda: Orrery (per-agent scheduling) | Per-agent timers, intervals, watchers and events that re-invoke an agent. Earlier wording called it "Micro". | Partial (trigger repository, scheduler tick, fire recording, per-agent wake cap, audit, chain depth carried into tool calls and fire-woken turns, #359, #370) | `docs/design/38` |
 | RyuseiFuda: Roadmap | Objectives and phases in the Vault, shown in the Constellation. Earlier wording called it "Objective". | Partial (layer 3 views and front-matter contract, pure objective roadmap read model #364, `src/Bazaar.RyuseiFuda/Roadmap`) | `docs/design/38` WP-R12 |
-| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Folded into RyuseiFuda (Workday layer) by owner decision 2026-11-16; the `kanban` component id stays. | Shipped (columns, transitions, blocker graph) | `docs/design/12` |
+| Kanban | The dependency board: Backlog, Ready, In progress, Review, Done, with Blocked shown automatically. Done means the PR merged. Folded into RyuseiFuda (Workday layer) by owner decision, 2026-11-16; the old name is kept only for stored keys and compatibility reads; the `kanban` component ID stays stable. | Shipped (columns, transitions, blocker graph); code fold in progress | `docs/design/12`, `docs/design/38` R4 |
 | Macro and Micro (old names) | Earlier names for RyuseiFuda's Workday and Orrery layers. | Superseded. Do not use in new code or docs. | project memory, `docs/design/38` |
 | GC metadata | Typed GCs with structured metadata. Types live in a registry table. | Planned (types decided; concept proposed) | `docs/design/01` |
 | Bazaar Archive | An auto-generated project history book. | Planned (v1 scope). No design doc found; Unclear. | `Bazaar.md` §4 |
@@ -154,12 +154,12 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
-| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server/Gateway` |
+| Model Gateway | Bazaar.Server's own gateway: per-agent model policy, one interface for all providers. | Shipped (contracts, fakes, three adapters, policy, health, usage) | `docs/design/05`, `src/Bazaar.Server.Gateway` |
 | Adapters (`openai_chat`, `anthropic_messages`, `gemini_generate_content`) | Wire-family adapters the gateway looks up by name. | Shipped | `docs/design/05` |
 | FreeLLMAPI provider | First-class FreeLLMAPI provider with priority support. Live key check (S17) pending. | Partial | `docs/design/05b` |
 | Routing methods (`custom/*`) | Automatic switching, custom rules and a whitelist of cheaper code-capable models. No unbounded global auto. | Planned (rules OPEN) | CLAUDE.md |
 | Claude lane | Claude member uses the owner's Anthropic key and free tokens via FreeLLMAPI, by availability. Subscription logins never route through the gateway. | Partial (owner's Anthropic key is a config-defined gateway source, #451; dev responder agents get a Haiku route, #456; the $30 cap is parked for the owner) | CLAUDE.md |
-| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server/Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
+| Usage and cost | Usage records, cost chips and quota surfacing. | Partial (`src/Bazaar.Server.Gateway` usage; Observatory rollup in flight) | `docs/design/23` |
 
 ## 9. Environments, engines and coding
 
