@@ -21,7 +21,7 @@ public sealed record KodoMetricPoint(double Value, IReadOnlyList<KodoMetricLabel
 public sealed record KodoMetricFamily(string Name, string Description, string Unit, IReadOnlyList<KodoMetricPoint> Points);
 
 /// <summary>
-/// The only label names the export writes (doc 46 section 15.4). Agent ids and GC ids are never labels: the cardinality rule of doc 23
+/// The only label names the export writes (doc 46 section 15.4). Agent ids and group-chat ids are never labels: the cardinality rule of doc 23
 /// is applied here because the doc 23 pipeline does not exist yet (PROPOSED, doc 46 section 15.7).
 /// </summary>
 public static class KodoMetricLabels

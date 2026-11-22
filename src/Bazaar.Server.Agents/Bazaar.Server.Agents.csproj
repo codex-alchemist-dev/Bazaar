@@ -9,6 +9,7 @@
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
+    <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Agents.Abstractions\Bazaar.Server.Agents.Abstractions.csproj" />

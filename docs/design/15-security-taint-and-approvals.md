@@ -152,7 +152,7 @@ session_taint(session_id, agent_id, state, taint_sources jsonb, updated_at)
 approval(id, agent_id, session_id, tool, args_hash, payload jsonb, taint_sources jsonb,
          status, requested_at, expires_at, decided_by, decided_at, signature)
 handover(id, reader_session_id, schema_id, payload jsonb, source_refs uuid[], status, created_at)
-audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash bytea)
+audit_log(seq bigserial, ts, actor, kind, payload jsonb, prev_hash bytea, hash bytea)  -- actor = Principal text form kind:id (agent, user, service, system); see BAZAAR-COMPONENTS 4.2
 quarantine(id, subject_kind, subject_id, reason, created_by, released_by)
 rate_bucket(agent_id, platform, capability, window_start, count)
 service_terms(service, allows_automation, requires_disclosure, checked_on, source_ref)
