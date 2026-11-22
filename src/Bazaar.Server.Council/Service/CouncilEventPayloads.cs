@@ -26,6 +26,9 @@ internal sealed record CouncilOpenPayload
 
     public required string MotionClass { get; init; }
 
+    /// <summary>Set by the proposer when the vote opens (doc 10, Follow-up on dissent).</summary>
+    public bool HighImpact { get; init; }
+
     public required IReadOnlyList<string> Options { get; init; }
 
     public required string ProposerId { get; init; }
