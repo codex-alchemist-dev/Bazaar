@@ -1,6 +1,6 @@
 # Client visual system, materials and motion (desktop and mobile)
 
-Status: PROPOSED, with owner picks of 2026-11-22 recorded below · Owner questions: 8
+Status: direction approved by the owner 2026-11-22 ("Seems good"); details PROPOSED · Open questions: answered with recommendations, see the end
 Depends on: 27-client-architecture.md, 28-windows-client.md, 29-android-client.md, 30-linux-client-and-packaging.md, 41-client-gui-customization-and-dsl.md, constellation-render-core.md · Used by: 34-testing-strategy.md
 
 ## Purpose
@@ -135,6 +135,9 @@ Level columns: L = liquid (phone), S = subtle (desktop), R = reduced. "fade" mea
 | Haptics | Tick on commit points, per radial sector, send, approve | none | kept |
 The catalogue is the starting set (about 40). The target is to give every pressable, list change and state change a row here as the screens are built; each new row names its three levels and has a headless test that the level switch works. Adding rows is a docs change, as with the doc 29 scope table.
 
+### Everything is a Rubedo-overridable token [PROPOSED; owner note 2026-11-22]
+The GUI is fully customisable through Rubedo (docs 41, 41a, 41c), so nothing in this doc is hard-coded in a view. Colours, the hue family, materials, type, spacing, radii, durations, spring parameters, motion level, each micro-interaction's three levels and each gesture threshold (hold time, edge inset, swipe commit distance) live as typed values in theme and motion documents that a company or person can override through the normal scopes. Views reference tokens by name only. A catalogue row is a named interaction preset (`motion.interaction.<name>` with `liquid`, `subtle` and `reduced` variants) that a document can replace or turn off. A headless test scans views for literal colours, durations and thresholds and fails the build on any. Safety floors stay: text contrast, the reduced-motion substitution and the system back-gesture edge cannot be overridden below their floor.
+
 ### Theme file additions [PROPOSED]
 Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old tokens unchanged: `color.hue.0` to `color.hue.11` (or the generator parameters), `material.mode`, `material.tint`, `material.opacity`, `material.fallback.*`, `motion.duration.*`, `motion.spring.*`, `motion.scale.desktop`, `motion.liquid.*` (squash and stretch limits, ripple size and duration, merge softness), plus the existing `reducedMotion`. The validator rejects unknown tokens as it does now. Migration of v1 files fills defaults.
 
@@ -173,11 +176,12 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 9. Unfold transition and posture layouts (book, tabletop). Depends on doc 29 package 2 and 3.
 
 ## Open questions
-1. Confirm the Constellation hue approach (golden-ratio stepping) is the intended "colourful like the nodes" look, or supply the exact palette.
-2. Should the shipped default theme stay Void, or follow the OS light or dark setting at first run?
-3. Does a company layout get to set the default theme and material mode, or only the person?
-4. Is blur acceptable on low-end phones if it measures fine, or should Android never blur?
-5. How much motion on desktop: the proposed half-length set, or phone-level Fluid everywhere?
-6. Tablet and desktop-mode Android behaviour, iconography, empty and error states, and the dashboard layout are not covered here and come in a later round.
-7. Book and tabletop: separate server variants, or one half-open variant with an orientation flag?
-8. Can the merge (goo) effect be dropped on a device where it costs too much, falling back to squash and stretch only? **Recommended answer: yes, automatically.** This follows the owner's standing principle of no graphics settings, all dynamic (as for the Constellation): the client measures frame time and drops the merge effect, then other effects, one level at a time, without a user setting, and restores them when there is headroom. The person can still choose `reduced` in `client.motion_level`.
+Answered with the recommended option; the owner approved the direction on 2026-11-22 and can change any of these.
+1. Colour: golden-ratio hue stepping, as the Constellation does. Any exact palette is a Rubedo override.
+2. Default theme: Void. Follow the OS light or dark setting only if the person turns that on.
+3. A company layout may set the default theme and material mode; the person can override it.
+4. Android blur: allowed when measured cheap, dropped automatically otherwise (no graphics setting).
+5. Desktop motion: the half-length subtle set, not phone-level liquid.
+6. Tablet and desktop-mode Android behaviour, iconography, empty and error states, and the dashboard layout are a later round.
+7. Book and tabletop: one half-open variant with an orientation flag, until a company needs separate ones.
+8. Merge (goo) effect: degrade automatically, in line with the owner's no-graphics-settings principle. The client measures frame time, drops the merge effect and then other effects one level at a time, and restores them with headroom. `reduced` stays a person's choice in `client.motion_level`.
