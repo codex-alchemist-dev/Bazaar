@@ -16,6 +16,7 @@ internal static class TestCertificates
         request.CertificateExtensions.Add(names.Build());
         request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid("1.3.6.1.5.5.7.3.1")], false));
         using var cert = request.CreateSelfSigned(DateTimeOffset.UtcNow.AddMinutes(-5), DateTimeOffset.UtcNow.AddDays(1));
-        return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx), null);
+        // Same recipe as tests/Bazaar.Conduit.Tests: Windows Schannel cannot serve with an ephemeral key, so round-trip it into the user key store.
+        return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pfx, string.Empty), string.Empty, X509KeyStorageFlags.UserKeySet);
     }
 }
