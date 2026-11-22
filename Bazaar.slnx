@@ -173,6 +173,8 @@
     <Project Path="src/Bazaar.Server.Vms.Ios.Abstractions/Bazaar.Server.Vms.Ios.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Ios/Bazaar.Server.Vms.Ios.csproj" />
     <Project Path="src/Bazaar.Server.Vms.MacNode.Abstractions/Bazaar.Server.Vms.MacNode.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.MacOs.Abstractions/Bazaar.Server.Vms.MacOs.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.MacOs/Bazaar.Server.Vms.MacOs.csproj" />
     <Project Path="src/Bazaar.Server.Vms.MicroVm/Bazaar.Server.Vms.MicroVm.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Devices.Abstractions/Bazaar.Server.Vms.Devices.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Density/Bazaar.Server.Vms.Density.csproj" />
@@ -362,6 +364,7 @@
     <Project Path="tests/Bazaar.Server.Vms.Devices.Tests/Bazaar.Server.Vms.Devices.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Ios.Tests/Bazaar.Server.Vms.Ios.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.MacNode.Abstractions.Tests/Bazaar.Server.Vms.MacNode.Abstractions.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Vms.MacOs.Tests/Bazaar.Server.Vms.MacOs.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.MicroVm.Tests/Bazaar.Server.Vms.MicroVm.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Density.Tests/Bazaar.Server.Vms.Density.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.Pointer.Tests/Bazaar.Guest.Pointer.Tests.csproj" />
