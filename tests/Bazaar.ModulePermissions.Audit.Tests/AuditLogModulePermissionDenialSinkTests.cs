@@ -16,12 +16,16 @@ public class AuditLogModulePermissionDenialSinkTests
     {
         private readonly Lock _gate = new();
         private readonly List<AuditEntry> _entries = [];
+        private int _entered;
 
         public int FailuresLeft { get; set; }
 
         public TaskCompletionSource? Blocker { get; set; }
 
         public int Attempts { get; private set; }
+
+        /// <summary>Calls that have reached the log, including one that is still blocked.</summary>
+        public int Entered => Volatile.Read(ref _entered);
 
         public IReadOnlyList<AuditEntry> Entries
         {
@@ -36,6 +40,7 @@ public class AuditLogModulePermissionDenialSinkTests
 
         public async Task AppendAsync(AuditEntry e, CancellationToken ct = default)
         {
+            Interlocked.Increment(ref _entered);
             if (Blocker is { } blocker)
             {
                 await blocker.Task;
@@ -151,19 +156,22 @@ public class AuditLogModulePermissionDenialSinkTests
         var log = new FakeAuditLog { Blocker = blocker };
         await using var sink = new AuditLogModulePermissionDenialSink(log, new FakeTimeProvider(_t0));
 
-        // One entry is taken by the pump and stalls; the queue then fills; the rest overflow.
-        var total = AuditLogModulePermissionDenialSink.QueueCapacity + 500;
-        for (var i = 0; i < total; i++)
+        // The pump takes the first entry and stalls in the store. Only then is the queue filled, so the count of
+        // refusals that do not fit is exact and the pump cannot report part of it early.
+        sink.Record(Denial("guess/first"));
+        await WaitForAsync(() => log.Entered == 1);
+
+        const int overflow = 500;
+        for (var i = 0; i < AuditLogModulePermissionDenialSink.QueueCapacity + overflow; i++)
         {
             sink.Record(Denial($"guess/{i}"));
         }
 
-        Assert.InRange(sink.PendingOverflow, 499, 500);
-        var overflow = sink.PendingOverflow;
+        Assert.Equal(overflow, sink.PendingOverflow);
 
         log.Blocker = null;
         blocker.SetResult();
-        await WaitForAsync(() => log.Entries.Count == total - overflow);
+        await WaitForAsync(() => log.Entries.Count == AuditLogModulePermissionDenialSink.QueueCapacity + 1);
 
         var reported = log.Entries.Sum(e => JsonElement.Parse(e.Payload).GetProperty("not_recorded_before").GetInt64());
         Assert.Equal(overflow, reported);
