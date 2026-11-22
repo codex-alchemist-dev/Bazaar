@@ -1,6 +1,5 @@
 using System.Security.Cryptography;
 using System.Text;
-using Bazaar.Server.Gc.Body;
 
 namespace Bazaar.Server.Diagnostics.Adapters;
 
@@ -17,7 +16,7 @@ public sealed record CrashSealingOptions(Guid CompanyKeyOwnerId)
 /// device. The associated data binds the payload kind and the record id, so a blob cannot be moved to another record or passed
 /// off as another kind. Destroying the person's key makes <see cref="OpenAsync"/> throw.
 /// </summary>
-public sealed class PersonKeyCrashSealer(PersonKeyStore keys, ICrashInstallDirectory directory, CrashSealingOptions options) : ICrashPayloadSealer
+public sealed class PersonKeyCrashSealer(ICrashKeyStore keys, ICrashInstallDirectory directory, CrashSealingOptions options) : ICrashPayloadSealer
 {
     private const int _nonceSize = 12;
     private const int _tagSize = 16;

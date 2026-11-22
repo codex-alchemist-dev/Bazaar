@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Bazaar.Server.Components.Erasure;
+using Bazaar.Erasure.Abstractions;
 using Bazaar.Server.Diagnostics.Adapters;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Identity.Kek;
@@ -59,7 +59,7 @@ public sealed class AdapterTests
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var ct = TestContext.Current.CancellationToken;
         await using var db = await NewDbAsync(ct);
-        var sealer = new PersonKeyCrashSealer(new PersonKeyStore(db.DataSource, new XorKek()), new FixedDirectory(Guid.NewGuid()), CrashSealingOptions.Default);
+        var sealer = new PersonKeyCrashSealer(new TestKeys(new PersonKeyStore(db.DataSource, new XorKek())), new FixedDirectory(Guid.NewGuid()), CrashSealingOptions.Default);
         var install = Guid.NewGuid();
         var record = Guid.NewGuid();
         var plain = "{\"report\":1}"u8.ToArray();
@@ -79,7 +79,7 @@ public sealed class AdapterTests
         var ct = TestContext.Current.CancellationToken;
         await using var db = await NewDbAsync(ct);
         var person = Guid.NewGuid();
-        var sealer = new PersonKeyCrashSealer(new PersonKeyStore(db.DataSource, new XorKek()), new FixedDirectory(person), CrashSealingOptions.Default);
+        var sealer = new PersonKeyCrashSealer(new TestKeys(new PersonKeyStore(db.DataSource, new XorKek())), new FixedDirectory(person), CrashSealingOptions.Default);
         var record = Guid.NewGuid();
         var payload = await sealer.SealAsync(Guid.NewGuid(), SealedPayloadKind.Report, record, new byte[] { 1, 2, 3 }, ct);
 
@@ -98,7 +98,7 @@ public sealed class AdapterTests
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         var ct = TestContext.Current.CancellationToken;
         await using var db = await NewDbAsync(ct);
-        var sealer = new PersonKeyCrashSealer(new PersonKeyStore(db.DataSource, new XorKek()), new FixedDirectory(null), CrashSealingOptions.Default);
+        var sealer = new PersonKeyCrashSealer(new TestKeys(new PersonKeyStore(db.DataSource, new XorKek())), new FixedDirectory(null), CrashSealingOptions.Default);
 
         await sealer.SealAsync(Guid.NewGuid(), SealedPayloadKind.Report, Guid.NewGuid(), new byte[] { 1 }, ct);
 
@@ -147,6 +147,7 @@ public sealed class AdapterTests
         var services = new ServiceCollection();
         services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Database=unused"));
         services.AddSingleton<IKekProvider>(new XorKek());
+        services.AddSingleton<ICrashKeyStore>(sp => new TestKeys(new PersonKeyStore(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<IKekProvider>())));
         services.AddSingleton<Bazaar.Server.Security.Audit.IAuditLog>(new RecordingAudit());
         services.AddLogging();
         services.AddBazaarDiagnosticsModule(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
@@ -164,4 +165,16 @@ public sealed class AdapterTests
         Assert.Equal("owner/repo", options.IssueRepo);
         Assert.Equal(5, options.IssuesPerDay);
     }
+}
+
+/// <summary>Test binding of the crash key port to the real key store (the host has the same adapter).</summary>
+internal sealed class TestKeys(PersonKeyStore keys) : ICrashKeyStore
+{
+    public async ValueTask<CrashDataKey> GetOrCreateActiveAsync(Guid ownerId, CancellationToken ct)
+    {
+        var key = await keys.GetOrCreateActiveAsync(ownerId, ct);
+        return new CrashDataKey(key.KeyId, key.DataKey);
+    }
+
+    public ValueTask<byte[]?> UnwrapAsync(Guid keyId, CancellationToken ct) => keys.UnwrapAsync(keyId, ct);
 }

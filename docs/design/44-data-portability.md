@@ -97,9 +97,9 @@ The graph is derived from the Vault index, GC references, Kanban and PR data. It
 
 - `graph/nodes.jsonl` and `graph/edges.jsonl`: node kind, source reference, label and edge kind.
 - `graph/graph.graphml`: the same graph in GraphML for external tools.
-- `graph/layout.jsonl`: node positions. Excluded by default (`portability.export.include_derived`, false), because positions are derived and change with every layout run.
+- `graph/layout.jsonl`: the layout position of each node, one JSON line per node in the same index order as `graph/nodes.jsonl` (`index`, `ref`, then `x`, `y`, `z`; 2D layouts keep `z` at 0). Positions are derived and change with every layout run, so the file is written only when `portability.export.include_derived` is true (default false). It sits under `graph/`, which `graph/derived.json` marks as derived and not authoritative. Owner decision (2026-11-18): layout positions are exported, as derived data. Section 7 has the matching rule.
 
-Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access).
+Graph export never carries anything the viewer's principal could not read. It uses the same filter as the live projection (doc 19, doc 18 access). Positions come from the same viewer-filtered snapshot, so a position is never written for a node the viewer cannot read. A layout computed for another graph version is not exported.
 
 ### 4.6 Personal fields and the audit log
 
@@ -159,6 +159,12 @@ Names are the owner's, unchanged: RyuseiFuda, with its parts Roadmap, Workday an
 - **Roadmap (objective layer, doc 38 layer 3).** Objectives and phases are Vault Markdown documents written through `VaultWriter`. Export route: the Vault export in section 4.3 (Markdown in git). No separate format. Derived views are recomputed, not exported (section 7).
 - **Workday (macro board, doc 38 layer 1, which is the Kanban of doc 12).** Data lives in the existing tables `tasks`, `task_edges`, `task_links`, `task_events` and `task_gate_decisions`. Export: task rows, dependency edges, links, and the event and gate-decision logs, each with its sequence and provenance. Workday reads are owner-only in the current design. Custom roles (doc 48) do not widen that without an owner decision.
 - **Orrery (micro schedule, doc 38 layer 2).** Data lives in the proposed `ryusei_trigger` table and its firing history. Export: trigger definitions as rows, and firing history from the audit and journal logs. Import restores trigger definitions paused, so no trigger fires on import (PROPOSED).
+
+**Built status (2026-11-18, built to the proposal; owner approved building before the section is DECIDED, so it is easy to adjust).**
+- Roadmap: nothing new. The Vault exporter covers it; no separate format.
+- Workday: `WorkdayExporter` (`Bazaar.Server.Portability`) adds `workday/events.jsonl` (the full `task_events` log, every kind, canonical JSON payloads), `workday/gate-decisions.jsonl` and `workday/manifest.json`. Tasks, edges, links and applied transitions stay in the Kanban export (section 4.4).
+- Orrery: `OrreryExporter` writes `orrery/triggers.jsonl` (every `ryusei_trigger` column, each row marked `restoreAs: "paused"`), `orrery/fires.jsonl` (the `ryusei_fire` journal, for exported triggers only) and `orrery/manifest.json`. The `ryusei.trigger.*` audit rows travel with the audit-log export (section 4.6), not here.
+- Both read through narrow source interfaces (`IWorkdayExportSource`, `IOrreryExportSource`) that the host implements; the import side (restoring triggers paused) is not built yet.
 
 ### 4.z Whole-company export (added 2026-11-13, DECIDED)
 
@@ -233,6 +239,20 @@ Decisions where this doc was silent (owner may overrule): an unsigned bundle fai
 
 Not checked yet (listed in every report as `not_checked`): bundle parts and splitting (the writer does not split yet; only file order is checked), encrypted archives (decrypt first), recomputing GC event hashes (doc 01 has not fixed the rule), key-rotation history (no file format yet), and the Vault repository check on `vault/repo.bundle`.
 
+### 6.5 Built status of the bundle sources (work packages 2, 4, 5, 7 and 8)
+
+Built: `ExportBundleAssembler` runs registered `IBundleSource` implementations into one signed bundle and hashes every byte as it streams. Three adapters feed it from the existing exporters: `VaultBundleSource` (id `vault.v1`; places `repo.bundle`, `tree/` and `vault-manifest.json` under `vault/`), `PersonalFieldBundleSource` (id `personal.v1`; writes the files the personal exporter returns, under `personal/`) and `AuditBundleSource` (id `audit.v1`; writes `audit/entries.jsonl`, `checkpoints.jsonl` and `archive.json`, after the exporter's own replay self-check). A refusal or self-check failure throws and leaves no bundle. The assembler computes the manifest entries, so the adapters report none of their own.
+
+Decisions where this doc was silent (owner may overrule): the source ids above (ordinal order makes the run `audit`, `personal`, `vault`); the Vault exporter's own `vault-manifest.json` ships as `vault/vault-manifest.json` and is also hashed in `manifest.json`; the personal exporter audits the export when it runs, before assembly ends, so a later assembly failure leaves that audit entry in place; the plaintext owner notice is exposed on the source (`PlaintextNotice`), not written into the bundle. Not built: `audit/proofs/` and `audit/verify/`, and Vault principal filtering.
+
+Also built (README, mentions and plaintext flag): the assembler writes `README.txt` after the sources have run (`BundleReadme`): plain language, one line for each top-level folder that is in the bundle, the loose files, and, when a plaintext file exists, a notice that erasure cannot reach it. It is hashed and listed in `manifest.json` like any file (the verifier fails an unlisted file), and sources cannot write that path. `GcMentionsBundleSource` (id `gc.mentions.v1`, reads through `IGcMentionSource`) writes `gc/<gc_id>/mentions.jsonl`, one line per `gc_mention` row (`seq`, `targetPrincipalId`), cut at the GC head read first, and an empty file for a GC with none. A source that writes decrypted personal data implements `IPlaintextBundleSource`; the assembler sets `plaintextPersonal: true` on those files' manifest entries (the field is absent on every other entry). `PersonalFieldBundleSource` flags `personal/<subject>.json`.
+
+Decisions where this doc was silent (owner may overrule): the README wording (the doc fixes only that it is generated, explains the layout and is not authoritative); the flag is per file and spelled `plaintextPersonal` (camelCase like the other manifest fields; section 4.6 writes `plaintext_personal`), with no bundle-level flag; mention lines use the same sealed hash-chain line (`prevHash`, `hash`) as the other `gc.jsonl.v1` files, and the mention reader pages by (seq, target) because one event can mention several principals; the mentions source does not write or change `head.json`. Open: the in-memory `ExportBundleWriter.Build` does not generate a README or flags.
+
+Also built (GC bundle source, head.json and self-check): `GcBundleSource` (id `gc.jsonl.v1`) runs `GcJsonlExporter` for each requested GC and copies `events.jsonl`, `messages.jsonl`, `versions.jsonl`, `mentions.jsonl` (when the exporter is given an `IGcMentionSource`) and `head.json` into the bundle, so a full GC bundle assembles and passes `ExportBundleWriter.Verify`, `BundleSigner.Verify` and `bazaar-verify`. Each GC is exported into a scratch directory, re-read by `GcExportSelfCheck`, then copied; a GC that fails throws and aborts the bundle. `GcExportHead` now writes `mentionCount` and `mentionHeadHash` when mentions are exported, and the self-check verifies `mentions.jsonl` (bytes, chain, count, head hash). The verifier reads `head.json` in either spelling (`last_seq`, `head_hash`, `counts`, or `headSeq`, `eventHeadHash` and flat `eventCount`, `messageCount`, `versionCount`, `mentionCount`) and event chain fields in either spelling (`prev_event_hash`/`event_hash` or `prevHash`/`hash`), and treats the all-zero genesis hash as no previous hash. `ExportBundleAssembler` now runs a file-level self-check on the directory it wrote (the manifest is the signed bytes, the signature verifies, every listed file hashes to its entry, no file is unlisted) before the bundle is moved into place or encrypted; a failure throws and leaves no bundle.
+
+Decisions where this doc was silent (owner may overrule): doc 44 section 4.2 fixes the content of `head.json`, not its field names, so the writer's camelCase names stand and the verifier accepts both; `GcMentionsBundleSource` remains for a bundle whose GC exporter has no mention reader, and the two must not both run for one GC. Not built: the section 6.2 self-check does not replay GC or audit chains at bundle level (the verifier library references this project, so the assembler cannot call it; the sources run their own chain self-checks), and a failed self-check is not yet recorded as `incomplete` in the audit log (the assembler has no audit sink).
+
 ## 7. What cannot be exported, and why
 
 Each row below is a hard exclusion or a route to the data. None of these is a setting.
@@ -247,7 +267,7 @@ Each row below is a hard exclusion or a route to the data. None of these is a se
 | Erased subjects' content | Destroyed by design (section 10) | Tombstones only |
 | Other principals' private Vault areas | Access rule (doc 18) | Owner export only, as section 4.3 |
 | Logs, presence, cache, search indexes, embeddings | Rebuildable or transient. Logs rotate (doc 33) | Rebuilt from the log and the Vault. Embeddings can be included as derived data with their embedding profile id (`portability.export.include_derived`, false) |
-| Layout positions and other derived views | Change on every run | Recomputed from sources |
+| Other derived views (render tiles, caches) | Change on every run | Recomputed from sources. Graph layout positions are not excluded: they are exported as derived data with `include_derived` (section 4.5) |
 | The live audit chain as a writable object | Import would forge history | Audit is exported as evidence (section 4.6) and imported only as an archive (section 8.2) |
 | Work in flight (open turns, locks, leases) | Not data at rest | Drain before export (doc 03 shutdown). Export of a running instance is a snapshot at a consistent point, with the point recorded |
 
@@ -361,6 +381,8 @@ Undo never deletes history:
 - Vault files from an import are reverted by a new commit that restores the prior state of each path. The history stays.
 - Kanban tasks from an import get a transition to Blocked with reason `withdrawn by import`, or are archived, following doc 12 gates.
 - The withdrawal is itself an audit entry, linked to the job.
+
+**Built status:** `ImportWithdrawer` (Bazaar.Server.Portability) withdraws GC entries and Vault files in batches through `IImportWithdrawalWriter`, writes one `portability.import.withdraw` audit entry per batch, stops at the first failure, and resumes on re-run. Kanban tasks are withdrawn by `ImportKanbanWithdrawer` (Blocked with reason `withdrawn by import`, or archive) through `IKanbanWithdrawalWriter`; the host applies the doc 12 gates.
 
 ### 8.9 Import audit trail
 

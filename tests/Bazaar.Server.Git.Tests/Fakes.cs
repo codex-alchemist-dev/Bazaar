@@ -24,19 +24,46 @@ internal sealed class FakeForge(string id = "fake") : IForgeProvider
     {
         ListCalls++;
         LastQuery = query;
+        LastRepo = repo;
         return Task.FromResult((OnList ?? (_ => new PagedResult<PrSummary>([TestData.Summary(1)], false)))(query));
     }
 
     public ListPrsQuery? LastQuery { get; private set; }
 
-    public Task<PrDetail> GetPrAsync(PrRef pr, CancellationToken cancellationToken) =>
-        Task.FromResult(new PrDetail(TestData.Summary(pr.Number), "body", 2, 3, 4, [new ReviewSummary("rev", ReviewEvent.RequestChanges, TestData.Sha, DateTimeOffset.FromUnixTimeSeconds(5))]));
+    /// <summary>The repo the last list call named, so a test can check the full nested path reached the forge.</summary>
+    public RepoRef? LastRepo { get; private set; }
 
-    public Task<IReadOnlyList<PrFile>> GetPrFilesAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<PrFile>>(Files);
+    /// <summary>The PR the last detail, head, files or checks call named.</summary>
+    public PrRef? LastPr { get; private set; }
 
-    public Task<IReadOnlyList<CheckRun>> GetChecksAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<CheckRun>>(Checks);
+    public Task<PrDetail> GetPrAsync(PrRef pr, CancellationToken cancellationToken)
+    {
+        LastPr = pr;
+        return Task.FromResult(new PrDetail(TestData.Summary(pr.Number), "body", 2, 3, 4, [new ReviewSummary("rev", ReviewEvent.RequestChanges, TestData.Sha, DateTimeOffset.FromUnixTimeSeconds(5))]));
+    }
 
-    public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => Task.FromResult(Head);
+    public Task<IReadOnlyList<PrFile>> GetPrFilesAsync(PrRef pr, string headSha, CancellationToken cancellationToken)
+    {
+        LastPr = pr;
+        return Task.FromResult<IReadOnlyList<PrFile>>(Files);
+    }
+
+    public Task<IReadOnlyList<CheckRun>> GetChecksAsync(PrRef pr, string headSha, CancellationToken cancellationToken)
+    {
+        LastPr = pr;
+        return Task.FromResult<IReadOnlyList<CheckRun>>(Checks);
+    }
+
+    public Exception? HeadThrows { get; set; }
+
+    public int HeadCalls { get; private set; }
+
+    public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken)
+    {
+        LastPr = pr;
+        HeadCalls++;
+        return HeadThrows is null ? Task.FromResult(Head) : throw HeadThrows;
+    }
 
     public Task PostReviewAsync(PrRef pr, ReviewRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
 }
@@ -47,9 +74,13 @@ internal sealed class FakeExecutor(string id = "fake") : IForgeMergeExecutor
 
     public int Calls { get; private set; }
 
+    public Exception? Throws { get; set; }
+
     public Task SquashMergeAsync(PrRef pr, MergeRequest request, CancellationToken cancellationToken)
     {
         Calls++;
+        if (Throws is not null)
+            throw Throws;
         return Task.CompletedTask;
     }
 }
