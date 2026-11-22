@@ -66,6 +66,31 @@ public sealed class InstallSettingsStepRefusalTests
     }
 
     [Fact]
+    public async Task A_merge_credential_reference_that_is_not_a_secret_store_reference_fails_the_step_and_is_not_echoed()
+    {
+        var plan = new SetupPlan
+        {
+            Custody = new SetupCustodySection { MergeCredential = new SetupMergeCredentialSection { Kind = "owner_app", AppIdRef = "env:" + _canary } },
+        };
+
+        var result = await ApplyAsync(plan);
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("identity.merge_credential.app_id_ref", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_company_source_the_registry_does_not_accept_fails_the_step_and_is_not_echoed()
+    {
+        var result = await ApplyAsync(new SetupPlan { Company = new SetupCompanySection { Source = "https://" + _canary } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("company.source", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task An_automatic_update_policy_for_the_rest_fails_the_step_because_no_setting_stores_it()
     {
         var plan = new SetupPlan { Install = new SetupInstallSection { UpdatePolicy = new SetupUpdatePolicySection { Other = "automatic" } } };
@@ -77,13 +102,55 @@ public sealed class InstallSettingsStepRefusalTests
     }
 
     [Fact]
-    public void The_step_covers_the_update_policy_but_not_the_sections_it_cannot_store()
+    public void The_step_covers_the_update_policy_backups_email_the_merge_credential_and_the_company_source_but_not_the_sections_it_cannot_store()
     {
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none");
         var covers = new InstallSettingsStep(dataSource, RegistrySetupSettingCatalog.Known).Covers;
 
         Assert.Contains("install.updatePolicy", covers);
-        Assert.DoesNotContain(covers, id => id is "privacy" or "backups" or "models" or "git" or "email" or "company" or "modules");
+        Assert.Contains("git", covers);
+        Assert.Contains("company", covers);
+        Assert.Contains("backups", covers);
+        Assert.Contains("email", covers);
+        // The models section is the gateway sources step's: this step writes only the preset half of it.
+        Assert.DoesNotContain(covers, id => id is "privacy" or "models" or "modules");
         Assert.All(covers, id => Assert.True(SetupPlanSections.IsKnown(id), id));
+    }
+
+    [Fact]
+    public async Task An_enabled_email_with_no_back_end_fails_the_step()
+    {
+        var result = await ApplyAsync(new SetupPlan { Email = new SetupEmailSection { Enabled = true } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("email.backend", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_back_end_while_email_is_off_fails_the_step()
+    {
+        var result = await ApplyAsync(new SetupPlan { Email = new SetupEmailSection { Enabled = false, Backend = "cloudflare" } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("email.backend", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_backup_target_off_the_install_is_held_by_the_registry_and_fails_the_step_naming_the_key_only()
+    {
+        var result = await ApplyAsync(new SetupPlan { Backups = new SetupBackupsSection { Target = "s3:https://" + _canary + ".example.invalid/bucket" } });
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("backup.target", result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_malformed_backup_target_fails_the_step_and_is_not_echoed()
+    {
+        var result = await ApplyAsync(new SetupPlan { Backups = new SetupBackupsSection { Target = _canary } });
+
+        Assert.False(result.Succeeded);
+        Assert.DoesNotContain(_canary, result.Message, StringComparison.Ordinal);
     }
 }
