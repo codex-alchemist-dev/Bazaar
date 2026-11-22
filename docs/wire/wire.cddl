@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:5bbac82abad59ad160bd8661bfac64a1e16504258b83cd9782e78f830623ad12.
+; Schema hash sha256:cfa96d21efb577f6a1582d933eb298fa2dcf83e293ad2df1e01fd7a32000bf06.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -20,6 +20,7 @@ decimal-fraction = #6.4([exponent: int, mantissa: int])
 float32-array = #6.85(bstr)
 
 ; Message types and the payload rule each carries.
+; board.assign = kanban-assign-request
 ; board.snapshot = kanban-board-request
 ; gc.edit = gc-edit
 ; gc.history = gc-history
@@ -43,7 +44,7 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
 
 principal-kind = "owner" / "human" / "agent"
 cluster-glyph = {
@@ -145,6 +146,19 @@ viewport-request = {
   * tstr => any
 }
 zoom-tier = "far" / "mid" / "near"
+kanban-assign-reply = {
+  status: tstr,  ; 1
+  ? revision: int,  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-request = {
+  projectId: uuid-text,  ; 1
+  cardId: uuid-text,  ; 2
+  ? assigneeAgentId: uuid-text,  ; 3
+  expectedRevision: int,  ; 4
+  * tstr => any
+}
 kanban-board-card = {
   id: uuid-text,  ; 1
   title: tstr,  ; 2
