@@ -4,13 +4,20 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
+using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Modules;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
+using Bazaar.Contracts.Modules;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Linux;
@@ -50,7 +57,16 @@ internal static class Program
 
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        var showAthanor = args.Contains("--athanor", StringComparer.Ordinal);
+        AthanorEditorServices? athanor = null;
+        try
+        {
+            return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, showAthanor, services => athanor = services), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        }
+        finally
+        {
+            athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -93,22 +109,55 @@ internal static class Program
     }
 
     /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
-    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths)
+    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, bool showAthanor, Action<AthanorEditorServices> keepAthanor)
     {
+        MainWindow window;
         if (settings is null)
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
-            var plain = new MainWindow();
-            InstallShell(plain);
-            return plain;
+            window = new MainWindow();
+        }
+        else
+        {
+            Directory.CreateDirectory(paths.StateDirectory);
+            var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+            window = new MainWindow(chat.View);
+            window.Closed += async (_, _) => await chat.DisposeAsync();
         }
 
-        Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
-        var window = new MainWindow(chat.View);
-        window.Closed += async (_, _) => await chat.DisposeAsync();
+        if (showAthanor)
+        {
+            ShowAthanor(window, settings, paths, keepAthanor);
+        }
+
+        // Installed last so it wraps whatever the window now shows.
         InstallShell(window);
         return window;
+    }
+
+    /// <summary>
+    /// Shows the editor pane (<c>--athanor</c>). The editor is composed here, on the UI thread, because its hosts are Avalonia
+    /// controls and so that a normal start pays nothing for it (doc 57 section 2.2).
+    /// </summary>
+    private static void ShowAthanor(MainWindow window, ChatConnectionSettings? settings, LinuxPaths paths, Action<AthanorEditorServices> keepAthanor)
+    {
+        IClientModule[] modules = [new AthanorPaneModule()];
+        var load = ClientModuleHost.Load(modules, ClientHostFacts.Current(), Console.Error.WriteLine);
+        var athanor = AthanorHeadComposition.Create(
+            AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, paths.StateDirectory),
+            settings,
+            load.Commands,
+            Console.Error.WriteLine);
+        keepAthanor(athanor);
+        var features = new PaneModuleContext()
+            .With<IEditorHost>(athanor.Host)
+            .With<IEditorFileSource>(athanor.Source)
+            .With<IEditorDraftStore>(athanor.Drafts);
+        var registry = FirstPartyPanes.CreateRegistry(
+            load.Only<IPaneModule>(modules.OfType<IPaneModule>()),
+            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
+            features: features);
+        window.ShowPanes([AthanorPaneModule.WindowPane], registry);
     }
 
     // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).

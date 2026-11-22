@@ -6,6 +6,11 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Drafts;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
+using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -77,20 +82,15 @@ internal static class Program
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
+            new AthanorPaneModule(),
             .. GitSolarSystemPanes.Modules,
         ];
-        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
-        var features = new PaneModuleContext()
-            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
-        // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var shipped = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine).Only(modules);
-        var registry = FirstPartyPanes.CreateRegistry(
-            shipped,
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            features: features);
+        var loadResult = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var shipped = loadResult.Only(modules);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
+        var showAthanor = args.Contains("--athanor", StringComparer.Ordinal);
         var preloadStart = PreloadArguments.IsPreload(args);
+        AthanorEditorServices? athanor = null;
 
         // The window is built on the UI thread. With chat settings it shows the dev chat; without them, the plain window.
         // With --panes it shows the Kanban and Constellation panes instead of the start content (chat keeps running).
@@ -101,9 +101,30 @@ internal static class Program
                 chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
+            // The registry is built here, on the UI thread, because the editor hosts are Avalonia controls (doc 57 section 2.2).
+            // The editor is composed only for --athanor, so a normal start pays nothing for the WebView2 probe (doc 40 budgets).
+            if (showAthanor)
+            {
+                athanor = AthanorHeadComposition.Create(
+                    AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, AthanorHeadComposition.DefaultDataDirectory()),
+                    chatSettings,
+                    loadResult.Commands,
+                    Console.Error.WriteLine);
+            }
+
+            var features = CreateFeatures(HttpConstellationTileSource.Create(ClientServer.Current), athanor);
+            var registry = FirstPartyPanes.CreateRegistry(
+                shipped,
+                report: message => Console.Error.WriteLine($"Bazaar: {message}"),
+                features: features);
+
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
-            if (showPanes)
+            if (showAthanor)
+            {
+                window.ShowPanes([AthanorPaneModule.WindowPane], registry);
+            }
+            else if (showPanes)
             {
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
@@ -120,8 +141,33 @@ internal static class Program
         finally
         {
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
+
+    /// <summary>
+    /// The services the head hands the feature modules. Without <paramref name="athanor"/> the editor is the plain-text host over
+    /// the offline source, which costs nothing at start; with it (<c>--athanor</c>) the editor is what
+    /// <see cref="AthanorHeadComposition"/> chose (doc 57 section 2.2).
+    /// </summary>
+    internal static PaneModuleContext CreateFeatures(IConstellationTileSource? tiles, AthanorEditorServices? athanor = null)
+    {
+        var context = athanor is null
+            ? new PaneModuleContext()
+                .With<IEditorHost>(new PlainTextFallbackHost())
+                .With<IEditorFileSource>(new OfflineEditorFileSource())
+                .With<IEditorDraftStore>(new FileEditorDraftStore(AthanorDraftsPath(), TimeProvider.System))
+            : new PaneModuleContext()
+                .With<IEditorHost>(athanor.Host)
+                .With<IEditorFileSource>(athanor.Source)
+                .With<IEditorDraftStore>(athanor.Drafts);
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        context = context.With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+        return tiles is null ? context : context.With(tiles);
+    }
+
+    private static string AthanorDraftsPath() =>
+        Path.Combine(AthanorHeadComposition.DefaultDataDirectory(), "athanor-drafts");
 
     /// <summary>
     /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.
