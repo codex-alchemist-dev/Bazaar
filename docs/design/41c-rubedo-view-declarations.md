@@ -61,6 +61,17 @@ Unknown widgets in a newer document render as `placeholder`, never as a crash (d
 - A layout node names a pane kind. The pane's view is looked up by that kind. A pane kind with no view falls back to the module's default view, or to `placeholder`.
 - Layout's `visibleWhen` is a Rubedo expression (doc 41a section 10), the same as any other expression.
 
+### 5.1 Token catalog, hue, material and motion tokens (PROPOSED, 2026-11-22; from doc 93)
+Doc 93 makes colours, materials, type, spacing, durations, springs and each micro-interaction an overridable token. View documents are how a company overrides them, so the view layer needs to know the token names without Rubedo depending on any theme code.
+- **Catalog is injected.** Rubedo defines `IViewTokenCatalog` (`bool Contains(string name)`, `TokenKind? KindOf(string name)`, `IEnumerable<string> Names`) in `Bazaar.Rubedo.Views`. The host fills it from the theme and motion documents (`Bazaar.Client.Theme` today). Rubedo references no theme or Bazaar code, so it can move to the shared repo unchanged. `ViewValidator.Validate(document, options)` takes the catalog in its options.
+- **Namespaces doc 93 adds:** `color.hue.0` to `color.hue.11` (the golden-ratio family), `material.mode`, `material.tint`, `material.opacity`, `motion.duration.*`, `motion.spring.*`, `motion.scale.desktop`, `motion.liquid.*`, and `motion.interaction.<name>` (a named interaction preset with `liquid`, `subtle` and `reduced` variants). The catalog, not Rubedo, owns the list; Rubedo only checks membership and kind.
+- **Token props.** A node prop whose value is a token reference is `{ "token": "color.hue.3" }`; a bare string stays a literal. The validator checks the name is in the catalog and the kind fits the prop (colour for `color`, duration for `duration`). Unknown name: `view.unknown_token`. Wrong kind: `view.token_kind_mismatch`.
+- **Interaction presets.** Any node may carry `motion`: `{ "token": "motion.interaction.send-button" }` to pick a preset, or the literal `"none"` to switch the node's motion off. The three level variants live in the motion document, not in the view, and the person's `client.motion_level` picks one at run time.
+- **No literals.** A style prop that is a raw colour (`#rgb`, `#rrggbb`, `rgb(...)`), a raw duration (`"200ms"`) or a raw gesture threshold fails with `view.literal_style_value`. This is the validator half of doc 93's "scan views for literals" rule; the headless scan of built views stays.
+- **Floors are not view concerns.** Text contrast, the reduced-motion substitution and the system back-gesture edge are enforced by the theme validator and the motion layer (doc 93), after the document loads. A view cannot lower them, because it can only name tokens.
+- **Expressions.** The nine context identifiers of doc 41a section 3 are unchanged. Motion level and material mode are not Rubedo identifiers: what is shown must not depend on whether animation is on. (Open question 6 below.)
+- **Tooling.** `RubedoAnalyzer.CompleteView` completes token names from the catalog, filtered by prop kind; the language server takes the catalog with `--tokens <file>` (a JSON list of `{ name, kind }`, like `--schema`); the docs generator lists the namespaces from the catalog it is given.
+
 ## 6. Actions
 
 - Actions are a closed set: `navigate` (to a pane or GC), `invoke` (a named command from the module manifest), `openPane`, `setSetting` (a setting key the manifest declares).
@@ -92,6 +103,7 @@ Unknown widgets in a newer document render as `placeholder`, never as a crash (d
    - **Answer (owner, 2026-11-15): ACCEPTED.** A keyed list with one item template.
 5. **Authoring.** Views are shipped by modules and company builds only (proposed). Should people import view documents, under Tier 2 approval, as layouts are planned to?
    - **Answer (owner, 2026-11-15): ACCEPTED.** Views ship from modules and company builds only. There are no runtime imports.
+6. **Motion level in expressions (PROPOSED, 2026-11-22).** Should `visibleWhen` and `enabledWhen` be able to read the person's motion level or material mode? Recommended: no. Visibility and enablement must not change with an animation setting; the nine identifiers stay as they are (section 5.1).
 
 ## 10. Work after the owner answers (accepted 2026-11-15, work started)
 
