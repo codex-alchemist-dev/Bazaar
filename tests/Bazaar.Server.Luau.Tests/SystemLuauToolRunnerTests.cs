@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Bazaar.Server.Engines.Abstractions;
 using Bazaar.Server.Luau;
 using Bazaar.Server.Luau.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,7 +29,7 @@ public class SystemLuauToolRunnerTests
         var runner = new SystemLuauToolRunner();
         var watch = System.Diagnostics.Stopwatch.StartNew();
 
-        LuauProcessResult result = await runner.RunAsync("sleep", ["30"], Path.GetTempPath(), TimeSpan.FromMilliseconds(300), CancellationToken.None);
+        ProcessResult result = await runner.RunAsync("sleep", ["30"], Path.GetTempPath(), TimeSpan.FromMilliseconds(300), CancellationToken.None);
 
         Assert.True(result.TimedOut);
         Assert.True(watch.Elapsed < TimeSpan.FromSeconds(20), $"Timed-out process was not killed promptly: {watch.Elapsed}.");
@@ -51,7 +52,7 @@ public class SystemLuauToolRunnerTests
         SkipUnlessLinux();
         var runner = new SystemLuauToolRunner(maxOutputCharacters: 1000);
 
-        LuauProcessResult result = await runner.RunAsync("head", ["-c", "300000", "/dev/zero"], Path.GetTempPath(), TimeSpan.FromSeconds(30), CancellationToken.None);
+        ProcessResult result = await runner.RunAsync("head", ["-c", "300000", "/dev/zero"], Path.GetTempPath(), TimeSpan.FromSeconds(30), CancellationToken.None);
 
         Assert.False(result.TimedOut);
         Assert.Equal(0, result.ExitCode);
@@ -75,7 +76,7 @@ public class SystemLuauToolRunnerTests
 
         Assert.IsType<LuauChecker>(provider.GetRequiredService<ILuauChecker>());
         Assert.Same(options, provider.GetRequiredService<LuauToolOptions>());
-        Assert.IsType<SystemLuauToolRunner>(provider.GetRequiredService<ILuauToolRunner>());
+        Assert.IsType<SystemLuauToolRunner>(provider.GetRequiredService<IProcessRunner>());
     }
 
     [Fact]

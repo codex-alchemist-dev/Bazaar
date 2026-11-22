@@ -19,8 +19,8 @@ namespace Bazaar.Server.Gc.Wire;
 /// </remarks>
 public sealed class GcMemberAddHandler(
     IGcLogWriter writer,
-    GcReadAccess access,
-    PgGcMembershipSource source,
+    IGcWriteAccess access,
+    IGcMembershipSource source,
     Bazaar.Server.Settings.ISettingStore settings) : IWireRequestHandler
 {
     /// <inheritdoc />
@@ -49,7 +49,7 @@ public sealed class GcMemberAddHandler(
 /// <c>gc.member.remove</c>: removes a principal. The owner may remove anyone; a member may remove only themselves. The
 /// planner makes that decision.
 /// </summary>
-public sealed class GcMemberRemoveHandler(IGcLogWriter writer, GcReadAccess access, PgGcMembershipSource source) : IWireRequestHandler
+public sealed class GcMemberRemoveHandler(IGcLogWriter writer, IGcWriteAccess access, IGcMembershipSource source) : IWireRequestHandler
 {
     /// <inheritdoc />
     public string Type => WireTypes.GcMemberRemove;
@@ -75,8 +75,8 @@ internal static class GcMembershipWire
     public static async ValueTask<WireReply> ChangeAsync(
         WireRequestContext context,
         IGcLogWriter writer,
-        GcReadAccess access,
-        PgGcMembershipSource source,
+        IGcWriteAccess access,
+        IGcMembershipSource source,
         Guid gcId,
         Func<GcMembershipSnapshot, GcViewer, GcPlanResult> plan,
         CancellationToken ct)
