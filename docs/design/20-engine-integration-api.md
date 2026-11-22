@@ -121,7 +121,7 @@ Registered in doc 03's settings registry (typed key, default, scope, who may cha
 4. Tool dispatch bridge: forwards granted MCP tool calls, audits to `audit_log` and the GC. Depends on 2, 3.
 5. Godot adapter: build check, commands, canary, output parser. Depends on 3.
 6. Godot scene-diff library for `.tscn`/`.tres`. Independent.
-7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3. [PROPOSED placement, coordinator brief 2026-11-18: server modules `Bazaar.Server.Luau.Abstractions` and `Bazaar.Server.Luau`; tests `Bazaar.Server.Luau.Tests`. Detail in doc 40 section 4b.]
+7. Luau static-check adapter (`luau-analyze`, Selene, StyLua). Depends on 3. [PROPOSED placement, coordinator brief 2026-11-18: server modules `Bazaar.Server.Luau.Abstractions` and `Bazaar.Server.Luau`; tests `Bazaar.Server.Luau.Tests`. Detail in doc 40 section 4c. Status note: the projects exist on main (src/Bazaar.Server.Luau, src/Bazaar.Server.Luau.Abstractions, tests/Bazaar.Server.Luau.Tests).]
 8. Studio bridge in Bazaar.Client.Windows with recorded-transcript tests. Depends on 3, 4. [PROPOSED placement, coordinator brief 2026-11-18: client module `Bazaar.Client.Studio.Abstractions` and `Bazaar.Client.Studio`, composed by the Windows head; tests `Bazaar.Client.Studio.Tests`. Detail in doc 40 section 4b. The server half (WP4 grant verifier) is not built: the bridge codes against `IStudioGrantVerifier` with a fake until WP4 lands the real verifier. Open follow-up.]
 9. Pane descriptor renderer plus plugin loader in `Bazaar.Client.Core`. Depends on 1.
 10. Rojo sync wrapper. Depends on 7.

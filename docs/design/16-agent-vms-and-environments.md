@@ -101,7 +101,7 @@ Each part is its own module pair on Bazaar.Core: `Bazaar.Server.<Name>` plus `Ba
 - Model traffic goes only to the gateway, which the default allowlist names. Credentials never cross the proxy in plain text from the guest: cookie injection at the proxy (doc 15) is a hook (`IProxyRequestFilter`), built later with the credential broker.
 - Every allow, deny and rule change is an audit row (rate-limited per agent so a flood cannot swamp the log).
 
-**Browser profiles (WP13)** wait for these three. They are one follow-up module, `Bazaar.Server.VmBrowser`, after WP7 to WP9 merge. The Windows Sandbox guest delivery question (doc 50 section 7) is separate and stays open.
+**Browser profiles (WP13)** wait for these three. They are one follow-up module, after WP7 to WP9 merge; the browser module on main is `Bazaar.Server.Browser` (and `.Abstractions`, component `browser`), and no `Bazaar.Server.VmBrowser` project exists. The Windows Sandbox guest delivery question (doc 50 section 7) is separate and stays open.
 
 ## Data and interfaces
 

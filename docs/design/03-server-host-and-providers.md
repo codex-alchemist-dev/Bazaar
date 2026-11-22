@@ -26,7 +26,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 ## Design
 **Composition root [PROPOSED].** Only `Bazaar.Server.Host` builds the host. It calls `AddBazaarServer(options)` from `Bazaar.Server`, then registers each provider module whose `Supports(os)` returns true. Modules are an explicit list, not assembly scanning, which keeps Native AOT open.
 
-**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` and `.Linux` hold the OS-bound modules; the Windows assembly never loads on Linux.
+**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` holds the OS-bound Windows modules and never loads on Linux. The Linux modules are still in `src/Bazaar.Server/Providers/Linux/`; the approved name `Bazaar.Server.Providers.Linux` is not created yet.
 
 **Provider roles [PROPOSED].**
 

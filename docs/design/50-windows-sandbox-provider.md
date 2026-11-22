@@ -1,6 +1,6 @@
 # Windows Sandbox VM provider and host-compatibility metadata
 
-Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Facts about Windows Sandbox are unverified until spike S-WSB runs on the owner's PC (section 8).
+Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Spike S-WSB has run on the owner's PC and verified start, list, stop, exec and the single-instance refusal (`docs/spikes/S-WSB.md`); facts it did not cover remain unverified (section 8).
 Depends on: `16-agent-vms-and-environments.md` (VM contract, lifecycle, topology), `03-server-host-and-providers.md` (provider roles and selection), `41-client-gui-customization-and-dsl.md` (module manifest, section 8) · Used by: `42-deps-as-modules.md` (install checks), `49-gap-decisions-operations.md`
 
 ## Purpose
