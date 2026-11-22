@@ -19,7 +19,7 @@ public class SignInServiceTests
         return (new HttpSignInService(http, store, "windows", "0.1.0", new FixedTime()), handler, store);
     }
 
-    private const string Tokens = """{"access_token":"a1","token_type":"Bearer","expires_in":900,"refresh_token":"r1"}""";
+    private const string _tokens = """{"access_token":"a1","token_type":"Bearer","expires_in":900,"refresh_token":"r1"}""";
 
     [Theory]
     [InlineData("abcDEF123-_", "abcDEF123-_")]
@@ -39,7 +39,7 @@ public class SignInServiceTests
     [Fact]
     public async Task Redeeming_a_code_saves_the_session_and_sends_the_device_class()
     {
-        var (service, handler, store) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, Tokens));
+        var (service, handler, store) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, _tokens));
 
         var result = await service.RedeemHandoffAsync("bazaar://signin?code=abc123", TestContext.Current.CancellationToken);
 
@@ -90,7 +90,7 @@ public class SignInServiceTests
     [Fact]
     public async Task A_bad_code_is_rejected_before_any_request()
     {
-        var (service, handler, _) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, Tokens));
+        var (service, handler, _) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, _tokens));
 
         Assert.Equal(SignInOutcome.InvalidCode, (await service.RedeemHandoffAsync("not a code!", TestContext.Current.CancellationToken)).Outcome);
         Assert.Empty(handler.Requests);
@@ -101,7 +101,7 @@ public class SignInServiceTests
     {
         var accept = true;
         var (service, handler, store) = Make((_, _) => accept
-            ? FakeHandler.Json(HttpStatusCode.OK, Tokens)
+            ? FakeHandler.Json(HttpStatusCode.OK, _tokens)
             : FakeHandler.Json(HttpStatusCode.Unauthorized, """{"error":"invalid_grant"}"""));
         await store.SaveAsync(new ClientSession("old", "oldr", _now), TestContext.Current.CancellationToken);
 
@@ -117,7 +117,7 @@ public class SignInServiceTests
     [Fact]
     public async Task Refresh_without_a_session_does_not_call_the_server()
     {
-        var (service, handler, _) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, Tokens));
+        var (service, handler, _) = Make((_, _) => FakeHandler.Json(HttpStatusCode.OK, _tokens));
 
         Assert.Equal(SignInOutcome.Refused, (await service.RefreshAsync(TestContext.Current.CancellationToken)).Outcome);
         Assert.Empty(handler.Requests);

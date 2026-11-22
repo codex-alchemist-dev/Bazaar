@@ -248,13 +248,13 @@ public class FirstRunSeedStepTests
 
 public class FirstRunPlanSectionTests
 {
-    private const string Base = """
+    private const string _base = """
         {"schemaVersion":1,"install":{"companyName":"X","companySlug":"x"},"custody":{"kekProvider":"dpapi","kekRef":"dpapi:k"},
          "owner":{"displayName":"D"},"backups":{"acknowledgeNoTarget":true},"company":{"source":"blank"}
          FIRSTRUN}
         """;
 
-    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(Base.Replace("FIRSTRUN", firstRun));
+    private static SetupLoadResult Load(string firstRun) => SetupPlanLoader.Load(_base.Replace("FIRSTRUN", firstRun));
 
     [Fact]
     public void The_section_may_be_left_out_and_its_defaults_apply()
