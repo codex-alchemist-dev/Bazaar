@@ -1,4 +1,5 @@
 using Bazaar.CompanyIdentity;
+using Bazaar.Contracts.Modules;
 using Bazaar.Server.CompanyBuild.Abstractions;
 
 namespace Bazaar.Server.CompanyBuild;
@@ -19,6 +20,7 @@ public static class CompanyBuildPipeline
     /// <param name="isSigned">Whether the company supplied signing settings. Unsigned sets are labelled.</param>
     /// <param name="maxAttempts">Attempts per target, from 1 to <see cref="CompanyBuildRunner.MaxAllowedAttempts"/>.</param>
     /// <param name="timeProvider">Clock for the report, so tests can fix the time.</param>
+    /// <param name="clientModules">Manifests of the client modules in the build. A module whose host requirements a target does not meet is listed in the README; the client host skips it at load.</param>
     /// <param name="cancellationToken">Cancels the run. Cancellation is not a failed target.</param>
     /// <exception cref="CompanyBuildException">The company id, a target id or the target list is invalid.</exception>
     public static async Task<CompanyBuildSetReport> RunAsync(
@@ -31,6 +33,7 @@ public static class CompanyBuildPipeline
         bool isSigned = false,
         int maxAttempts = CompanyBuildRunner.DefaultMaxAttempts,
         TimeProvider? timeProvider = null,
+        IReadOnlyList<ModuleManifest>? clientModules = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(plan);
@@ -86,6 +89,10 @@ public static class CompanyBuildPipeline
             reports.Add(new CompanyBuildTargetReport(target.Id, report));
         }
 
+        var hostNotes = clientModules is null
+            ? null
+            : targets.ToDictionary(t => t.Id, t => CompanyBuildHostCheck.Unsupported(clientModules, t), StringComparer.Ordinal);
+
         var complete = reports.All(r => r.Report.Succeeded);
         var finished = new CompanyBuildSetReport(
             plan.CompanyId,
@@ -96,9 +103,9 @@ public static class CompanyBuildPipeline
             layout.CompanyDirectory);
 
         await CompanyBuildFiles.WriteChecksumsAsync(layout, cancellationToken).ConfigureAwait(false);
-        CompanyBuildFiles.WriteAtomic(layout.ReadmePath, CompanyBuildFiles.RenderReadme(plan, finished));
+        CompanyBuildFiles.WriteAtomic(layout.ReadmePath, CompanyBuildFiles.RenderReadme(plan, finished, hostNotes));
         CompanyBuildFiles.WriteAtomic(layout.ReportPath, CompanyBuildFiles.RenderReport(finished));
-        CompanyBuildFiles.AppendHistory(layout, finished);
+        CompanyBuildFiles.AppendHistory(layout, finished, identity.Address.AbsoluteUri, identity.KeyHashPin);
         if (!complete)
         {
             CompanyBuildFiles.WriteAtomic(layout.IncompleteMarkerPath, "At least one target failed. See BUILD-REPORT.txt.\n");

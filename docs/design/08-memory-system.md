@@ -277,6 +277,14 @@ Quarantine: a quarantined agent (doc 15 containment) gets no reads of `company/*
 Settings for this section are in the Settings table (`company_knowledge.*`, `graph_retrieval.company.max_seeds`, `memory.context.company_share`).
 - Read access (fail closed): `company/memory/**` is readable by the owner, maintenance and every agent, including cover. A Hive copy under `hive/**` is readable by the owner and maintenance, and by an agent (or a cover, through its primary) only when it is a member of one of the copy's grant target projects. The targets come from the copy flow's ledger, not from front matter (copies record only `origin_project` and `origin_note`); `VaultPathAccess` asks an `IHiveCopyTargets` source, and without one every agent is denied all of `hive/**`. Member humans other than the owner do not read `hive/**`. A copy still in its review window is not in the Vault, so nobody reads it there.
 
+#### Hive copy flow (built: `Bazaar.Server.Hive`)
+
+- A copy request names a lesson, a target project and the source text. It is refused unless the source is a procedural, failure or semantic (technical-fact) memory note at T2 or higher, untainted, active and without subject tags, the kind is in `hive.allowed_kinds` and a grant covers (origin project, target project, kind). With no grants nothing transfers.
+- The sanitizer (pure) checks title and body for the origin project, other project names, customers, people (names passed in by the caller) and secret patterns (`SecretScanner`). It reports finding codes, never the matched text.
+- An eligible copy is held, not written. After `hive.grant_review_days` it is released under the grant (re-checked at release); with 0 it is released only by an owner approval. Release writes `hive/<kind>/<slug>.md` in one `IMemoryBatchSink` commit with front matter `memory.kind: hive` plus `origin_project`, `origin_note`, `origin_kind` and `trust` (the source tier). The copy's own `memory.trust` is capped at T2 so a copy never promotes itself.
+- Revoking a grant removes it, drops held copies under it and sets the copies' status to `deprecated` (version plus one, deprecation record) through the writer. Files are never deleted; a copy another grant still covers stays active.
+- Operator options with protective defaults: allowed kinds default to procedure and failure (doc 25; doc 08's table also lists technical facts, so technical facts need an explicit opt-in), writer agent id `hive`, copy tier cap T2.
+
 ### 7. Consolidation ("coffee break") [PROPOSED]
 
 - Runs in the agent's own break window from the Work-Life scheduler (doc 09), never inside a turn. Time and token caps are settings (`memory.consolidation.max_minutes`, `memory.consolidation.max_tokens`).
@@ -294,6 +302,8 @@ Retrieval:
 3. Return top-k within a token budget, each hit labelled with scope, tier, kind and origin.
 
 No unscoped query exists. Decay: retrieval weight falls with time since last use, with a half-life per kind; floors apply to failure, T3 and company notes. Decay never deletes; deprecated notes are excluded; working notes are swept at TTL.
+
+**Project areas [PROPOSED; built].** Project memory under `projects/<slug>/**` (section 1) and Twin pages under `twin/<slug>/**` (doc 25) are readable by the project's agents, by a cover whose primary is a member, by member humans, by the owner and by maintenance. Membership comes from `IProjectMembership`; Vault search, body fetch, link expansion and moves resolve it once per request into `VaultCaller.Projects`, and the memory access layer (`VaultPathAccess`) and the search rule (`VaultAccess.ProjectAreaOf`) share one definition of which paths are project areas. No membership source means no project reads (fail closed). Hive copies keep their own grant rule (section 6).
 
 **Cover reads primary (doc 09).** Cover reads the handover note and shared project memory, never private memory. Anything the primary wants the cover to know is written to the handover note or a project note. Per-agent opt-in to private reads is not offered in v1 (DECISIONS-LOG C38 recommendation; the owner answered C38 only in general terms, so question 3 keeps it open). Doc 09 Q1 should match.
 
@@ -356,7 +366,7 @@ Every change writes an `audit_log` entry (doc 15). Settings never loosen the fix
 | `memory.note_max_bytes` | int | 4096 | install | operator | No |
 | `memory.query_candidates` | int | 2000 | install | operator | No |
 | `memory.max_notes_per_agent` | int | 100000 | install | operator | No |
-| `hive.allowed_kinds` | list: `procedure`, `failure`, `technical-fact` | all three | install | operator; Council may propose (C32) | Yes (Council vote); excluded classes cannot be added |
+| `hive.allowed_kinds` | list: `procedure`, `failure`, `technical-fact` | `procedure`, `failure` (technical facts are an explicit opt-in) [PROPOSED] | install | operator; Council may propose (C32) | Yes (Council vote); excluded classes cannot be added |
 | `hive.grants` | list of (source project, target project, kind) | empty (no transfer) | install | operator; Council may propose | Yes |
 | `company_knowledge.admission` | enum: `review_window`, `council`, `owner` | `review_window` | install | operator; Council may propose | Yes (owner) when loosened toward `review_window`; tightening needs none |
 | `company_knowledge.review_days` | int, 0 to 90 | 14 (0: the owner admits every candidate) | install | operator | Yes (owner) when lowered above 0 |

@@ -27,26 +27,24 @@ public abstract record ModuleInstallResult
 
 /// <summary>
 /// Installs a module package (doc 48 section 1, doc 50 section 5). Runs <see cref="ModuleInstallCheck"/> first (signature, then
-/// host), then <see cref="PermissionApproval"/> against the owner's approved set. Only when both pass does it write the
+/// host), then <see cref="PermissionApproval"/> against the owner's approved set, which it reads from the store and checks row
+/// by row against the owner's key (<see cref="ModuleApprovalCheck"/>). Only when both pass does it write the
 /// <c>module.installed</c> audit entry, which is the install record. Any refusal writes nothing.
 /// </summary>
-public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IModuleInstallStore store, TimeProvider time)
+public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IOwnerApprovalVerifier ownerVerifier, IModuleInstallStore store, TimeProvider time)
 {
     /// <summary>Checks the package and installs it when it passes.</summary>
     /// <param name="package">The package to install, as downloaded.</param>
     /// <param name="host">What this host offers.</param>
-    /// <param name="approved">The permission set the owner approved for this module version (or the last approved version).</param>
     /// <param name="actor">Who asked for the install, for the audit entry.</param>
     public async Task<ModuleInstallResult> InstallAsync(
         ModulePackage package,
         HostFacts host,
-        IReadOnlySet<string> approved,
         string actor,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentNullException.ThrowIfNull(host);
-        ArgumentNullException.ThrowIfNull(approved);
         ArgumentException.ThrowIfNullOrWhiteSpace(actor);
 
         switch (ModuleInstallCheck.Evaluate(package, verifier, host))
@@ -57,6 +55,8 @@ public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IMod
                 return new ModuleInstallResult.RefusedHost(hostRefusal.Issues);
         }
 
+        var approvals = await store.ListPermissionApprovalsAsync(package.ModuleId, ct).ConfigureAwait(false);
+        var approved = ModuleApprovalCheck.ApprovedFor(package, approvals, ownerVerifier);
         var permissions = PermissionApproval.Evaluate(package.DeclaredPermissions, approved);
         if (!permissions.IsApproved)
         {
@@ -70,6 +70,7 @@ public sealed class ModuleInstallService(IModuleSignatureVerifier verifier, IMod
             ["host_os"] = new JsonArray([.. package.Host.OperatingSystems.Order(StringComparer.Ordinal).Select(o => (JsonNode)o)]),
             ["module_id"] = package.ModuleId,
             ["permissions"] = new JsonArray([.. package.DeclaredPermissions.Order(StringComparer.Ordinal).Select(p => (JsonNode)p)]),
+            ["publisher"] = package.PublisherId,
             ["signer"] = package.SignerKeyId,
             ["version"] = package.Version,
         };
