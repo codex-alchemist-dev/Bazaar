@@ -50,6 +50,7 @@ These drafts turn the decisions in `CLAUDE.md` and `docs/deep-dives/` into build
 | # | Doc | Purpose | Qs | Key dependencies |
 |---|---|---|---|---|
 | 16 | [16-agent-vms-and-environments.md](16-agent-vms-and-environments.md) | Two VMs per agent, golden image, guest protocol, mounts, egress, resources, licensing | 13 | 03, 07, 14, 15, 17 |
+| 59 | [59-desktop-density-and-guest-display.md](59-desktop-density-and-guest-display.md) | Screenshots and input for VMs and browsers without a viewer, the light desktop profile, browser placement, and the density governor (PROPOSED) | 2 | 16, 50, 14, 15 |
 | 17 | [17-coding-agent-harness.md](17-coding-agent-harness.md) | Coding tools, edit formats, server-side verification, git workflow, review flow | 12 | 16, 15, 12, 21, 18 |
 | 20 | [20-engine-integration-api.md](20-engine-integration-api.md) | Godot and Roblox adapters, capabilities, pane streaming, Studio bridge | 13 | 15, 16, 27, 28 |
 
@@ -148,3 +149,4 @@ Rows for the docs added on 2026-11-13. Docs 42 to 48 are DRAFT or DECIDED as the
 | 56 | [56-offline-sync-module.md](56-offline-sync-module.md) | Offline editing with merge as module set: HLC, idempotent write queue, per-class merge rules, encrypted client queue (implements 49 section 4) | 8 | 01, 02, 12, 18, 19, 27, 48, 49 |
 | 52 | [52-git-modules.md](52-git-modules.md) | Git modules (PROPOSED): Bazaar.Server.Git engine, forge contract, owner-signed merge gate, GitLab adapter, Bazaar.Client.GitGui panes and provider UI modules | - | 14, 15, 21, 32, 40, 41 |
 | 60 | [60-legal-team.md](60-legal-team.md) | Legal team (PROPOSED): terms review before site votes and sign-ups, accepted-terms ledger, legal Souls, limits | 07, 10, 14, 15, 36, 59 |
+| 63 | [63-encrypted-data-folder.md](63-encrypted-data-folder.md) | Encrypted data folder: the data root and PostgreSQL live in a Bazaar-keyed encrypted volume (BitLocker VHDX, LUKS2), fail-closed start guard, default column sealing | 4 | 03, 04, 14, 33, 42, 45, 46, 48, 61 |
