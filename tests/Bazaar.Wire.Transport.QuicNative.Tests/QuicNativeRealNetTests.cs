@@ -35,7 +35,7 @@ public sealed class QuicNativeRealNetTests
         await listener.StartAsync(Ct);
         Assert.Single(listener.Offers);
         var offer = listener.Offers[0];
-        return (listener, cert, offer with { Endpoint = $"localhost:{listener.LocalEndPoint!.Port}" });
+        return (listener, cert, offer with { Endpoint = $"127.0.0.1:{listener.LocalEndPoint!.Port}" });
     }
 
     private static QuicWireConnector Connector(X509Certificate2 cert) => new(new QuicWireConnectorOptions { PinCertificate = QuicCertificatePin.Sha256(cert.GetCertHash(HashAlgorithmName.SHA256)) });
@@ -96,7 +96,7 @@ public sealed class QuicNativeRealNetTests
         await using var connection = await QuicConnection.ConnectAsync(
             new QuicClientConnectionOptions
             {
-                RemoteEndPoint = new DnsEndPoint("localhost", listener.LocalEndPoint!.Port),
+                RemoteEndPoint = new IPEndPoint(IPAddress.Loopback, listener.LocalEndPoint!.Port),
                 DefaultStreamErrorCode = 0,
                 DefaultCloseErrorCode = 0,
                 ClientAuthenticationOptions = new SslClientAuthenticationOptions
@@ -139,6 +139,17 @@ public sealed class QuicNativeRealNetTests
         var ex = await Assert.ThrowsAsync<System.Security.Authentication.AuthenticationException>(async () => await Connector(other).ConnectAsync(offer, ["json"], Ct));
         Assert.Contains("RemoteCertificateValidationCallback", ex.Message, StringComparison.Ordinal);
         Assert.Contains(QuicWireSupport.DiagnosticsMarker, ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]
+    public async Task One_client_failing_its_handshake_does_not_stop_the_listener()
+    {
+        var (listener, cert, offer) = await StartAsync();
+        await using var _ = listener;
+        using var other = TestCertificates.CreateLocalhost();
+        await Assert.ThrowsAsync<System.Security.Authentication.AuthenticationException>(async () => await Connector(other).ConnectAsync(offer, ["json"], Ct));
+        await using var good = await Connector(cert).ConnectAsync(offer, ["json"], Ct);
+        Assert.Equal("json", good.Profile.Codec);
     }
 
     [Fact(SkipUnless = nameof(Enabled), Skip = _skipReason)]

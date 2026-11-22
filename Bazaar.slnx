@@ -37,6 +37,7 @@
     <Project Path="src/Bazaar.Server.Browser.Abstractions/Bazaar.Server.Browser.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval/Bazaar.Server.AccountApproval.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval.Abstractions/Bazaar.Server.AccountApproval.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.AccountApproval.OwnerQueue/Bazaar.Server.AccountApproval.OwnerQueue.csproj" />
     <Project Path="src/Bazaar.Server.AccountApproval.Postgres/Bazaar.Server.AccountApproval.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild/Bazaar.Server.CompanyBuild.csproj" />
     <Project Path="src/Bazaar.Server.CompanyBuild.Abstractions/Bazaar.Server.CompanyBuild.Abstractions.csproj" />
@@ -178,6 +179,8 @@
     <Project Path="src/Bazaar.Server.Luau.Abstractions/Bazaar.Server.Luau.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Luau/Bazaar.Server.Luau.csproj" />
     <Project Path="tests/Bazaar.Server.Luau.Tests/Bazaar.Server.Luau.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Sanitization.Tests/Bazaar.Server.Sanitization.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Verification.Tests/Bazaar.Server.Verification.Tests.csproj" />
     <Project Path="src/Bazaar.Server.Godot.Abstractions/Bazaar.Server.Godot.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Godot/Bazaar.Server.Godot.csproj" />
     <Project Path="tests/Bazaar.Server.Godot.Tests/Bazaar.Server.Godot.Tests.csproj" />
@@ -190,6 +193,12 @@
     <Project Path="tests/Bazaar.Fun.Tests/Bazaar.Fun.Tests.csproj" />
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
+    <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.SignIn.Abstractions/Bazaar.Server.SignIn.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.SignIn/Bazaar.Server.SignIn.csproj" />
+    <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.SupportBundle.Abstractions/Bazaar.SupportBundle.Abstractions.csproj" />
     <Project Path="src/Bazaar.SupportBundle/Bazaar.SupportBundle.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
@@ -249,6 +258,8 @@
     <Project Path="src/Bazaar.Server.Portability.Sandbox.Abstractions/Bazaar.Server.Portability.Sandbox.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Portability.Sandbox/Bazaar.Server.Portability.Sandbox.csproj" />
     <Project Path="src/Bazaar.Server.Portability.ParserHost/Bazaar.Server.Portability.ParserHost.csproj" />
+    <Project Path="src/Bazaar.Server.Portability.KanbanTarget/Bazaar.Server.Portability.KanbanTarget.csproj" />
+    <Project Path="src/Bazaar.Server.Portability.Postgres/Bazaar.Server.Portability.Postgres.csproj" />
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
@@ -292,6 +303,9 @@
     <Project Path="src/Bazaar.Server.Providers.Linux/Bazaar.Server.Providers.Linux.csproj" />
     <Project Path="src/Bazaar.Server.Valkey/Bazaar.Server.Valkey.csproj" />
     <Project Path="src/Bazaar.Server.Sanitization.Abstractions/Bazaar.Server.Sanitization.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Mentions/Bazaar.Server.Mentions.csproj" />
+    <Project Path="src/Bazaar.Server.Sanitization/Bazaar.Server.Sanitization.csproj" />
+    <Project Path="src/Bazaar.Server.Verification/Bazaar.Server.Verification.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
@@ -450,9 +464,12 @@
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.SignIn.Tests/Bazaar.Server.SignIn.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Biometric.Tests/Bazaar.Roles.Biometric.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Browser.Tests/Bazaar.Server.Browser.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AccountApproval.OwnerQueue.Tests/Bazaar.Server.AccountApproval.OwnerQueue.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Postgres.Tests/Bazaar.Server.AccountApproval.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AccountApproval.Tests/Bazaar.Server.AccountApproval.Tests.csproj" />
     <Project Path="tests/Bazaar.Erasure.Tests/Bazaar.Erasure.Tests.csproj" />
@@ -541,6 +558,7 @@
     <Project Path="tests/Bazaar.Server.Skimmer.Tests/Bazaar.Server.Skimmer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Host.Tests/Bazaar.Server.Host.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Tests/Bazaar.Server.Portability.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Portability.KanbanTarget.Tests/Bazaar.Server.Portability.KanbanTarget.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Postgres.Tests/Bazaar.Server.Portability.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Verifier.Tests/Bazaar.Server.Portability.Verifier.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Portability.Withdrawal.Tests/Bazaar.Server.Portability.Withdrawal.Tests.csproj" />

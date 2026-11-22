@@ -21,6 +21,9 @@ public enum CloudflaredMode
 /// </summary>
 public static class ConduitSettings
 {
+    /// <summary>The setup wizard writes as the operator and the owner approves, so both roles may change a Conduit key (like the status bind).</summary>
+    private static readonly SettingRole _ownerOrOperator = SettingRole.Owner | SettingRole.Operator;
+
     private const string _timeoutName = "conduit.connect_timeout_ms";
     private const string _refreshName = "conduit.offer_refresh_seconds";
 
@@ -35,7 +38,7 @@ public static class ConduitSettings
 
     /// <summary><c>conduit.port-forward.probe_url</c>: where the module checks the forward from outside.</summary>
     public static readonly SettingKey<string> PortForwardProbeUrl = new(
-        "conduit.port-forward.probe_url", string.Empty, SettingScope.Install, SettingRole.Owner,
+        "conduit.port-forward.probe_url", string.Empty, SettingScope.Install, _ownerOrOperator,
         "An https URL that returns the server id, used to mark a port-forward offer verified. Empty skips the probe.",
         validate: value => value.Length == 0 || IsHttpsUrl(value) ? null : "must be empty or an https URL.");
 
@@ -47,7 +50,7 @@ public static class ConduitSettings
 
     /// <summary><c>conduit.cloudflared.mode</c>: <c>named</c> or <c>quick</c>.</summary>
     public static readonly SettingKey<CloudflaredMode> CloudflaredModeKey = new(
-        "conduit.cloudflared.mode", CloudflaredMode.Named, SettingScope.Install, SettingRole.Owner,
+        "conduit.cloudflared.mode", CloudflaredMode.Named, SettingScope.Install, _ownerOrOperator,
         "named: a tunnel on the operator's registered domain. quick: no account, and the address changes on every start.",
         ApprovalTier.Tier2,
         requiresApprovalFor: mode => mode == CloudflaredMode.Quick);
@@ -71,7 +74,7 @@ public static class ConduitSettings
 
     /// <summary><c>conduit.relay.url</c>.</summary>
     public static readonly SettingKey<string> RelayUrl = new(
-        "conduit.relay.url", string.Empty, SettingScope.Install, SettingRole.Owner,
+        "conduit.relay.url", string.Empty, SettingScope.Install, _ownerOrOperator,
         "The wss URL of the operator relay.", ApprovalTier.Tier2,
         validate: value => value.Length == 0 || value.StartsWith("wss://", StringComparison.Ordinal) && Uri.TryCreate(value, UriKind.Absolute, out _)
             ? null
@@ -82,7 +85,7 @@ public static class ConduitSettings
 
     /// <summary><c>conduit.p2p.stun_servers</c>.</summary>
     public static readonly SettingKey<IReadOnlyList<string>> P2pStunServers = new(
-        "conduit.p2p.stun_servers", [], SettingScope.Install, SettingRole.Owner,
+        "conduit.p2p.stun_servers", [], SettingScope.Install, _ownerOrOperator,
         "STUN servers for peer-to-peer, as host:port. The operator picks documented public servers.",
         validate: servers => servers.All(s => s.Contains(':', StringComparison.Ordinal) && s.Length > 2) ? null : "each entry must be host:port.");
 
@@ -91,12 +94,12 @@ public static class ConduitSettings
 
     /// <summary><c>conduit.connect_timeout_ms</c>: how long a client waits for one path before trying the next.</summary>
     public static readonly SettingKey<int> ConnectTimeoutMs = new(
-        _timeoutName, 4000, SettingScope.Install, SettingRole.Owner, "Milliseconds a client waits for one offer before trying the next.",
+        _timeoutName, 4000, SettingScope.Install, _ownerOrOperator, "Milliseconds a client waits for one offer before trying the next.",
         validate: value => value is >= 250 and <= 60000 ? null : "must be 250 to 60000.");
 
     /// <summary><c>conduit.offer_refresh_seconds</c>: how often offers are re-published.</summary>
     public static readonly SettingKey<int> OfferRefreshSeconds = new(
-        _refreshName, 60, SettingScope.Install, SettingRole.Owner, "Seconds between offer refreshes.",
+        _refreshName, 60, SettingScope.Install, _ownerOrOperator, "Seconds between offer refreshes.",
         validate: value => value is >= 5 and <= 3600 ? null : "must be 5 to 3600.");
 
     /// <summary>Every Conduit key.</summary>
@@ -110,13 +113,13 @@ public static class ConduitSettings
 
     /// <summary>A switch. Turning it on needs Tier 2 approval when <paramref name="exposes"/>; turning it off never waits.</summary>
     private static SettingKey<bool> Flag(string name, bool defaultValue, bool exposes, string description) =>
-        new(name, defaultValue, SettingScope.Install, SettingRole.Owner, description,
+        new(name, defaultValue, SettingScope.Install, _ownerOrOperator, description,
             exposes ? ApprovalTier.Tier2 : ApprovalTier.None,
             requiresApprovalFor: exposes ? enabled => enabled : null);
 
     /// <summary>A text setting, empty by default. A non-empty value needs Tier 2 approval, because it changes what is exposed.</summary>
     private static SettingKey<string> Text(string name, string description, Func<string, string?>? check) =>
-        new(name, string.Empty, SettingScope.Install, SettingRole.Owner, description, ApprovalTier.Tier2,
+        new(name, string.Empty, SettingScope.Install, _ownerOrOperator, description, ApprovalTier.Tier2,
             validate: check, requiresApprovalFor: value => value.Length > 0);
 
     private static string? HostCheck(string value) =>

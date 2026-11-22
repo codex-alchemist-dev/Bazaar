@@ -67,9 +67,9 @@ public static class StatusEndpoints
     {
         var path = context.Request.Path;
         var method = context.Request.Method;
-        if (path.StartsWithSegments("/admin"))
+        if (path.StartsWithSegments("/admin") || path.StartsWithSegments("/signin"))
         {
-            // The admin panel (doc 51) enforces its own method table and answers 405 itself.
+            // The admin panel (doc 51) and the sign-in page (doc 32 section 4) enforce their own method tables and answer 405 themselves.
             await next();
             return;
         }
