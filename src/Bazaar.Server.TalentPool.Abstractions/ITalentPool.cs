@@ -43,8 +43,8 @@ public interface ITalentTemplateStore
 /// <summary>The install model whitelist (docs/design/25: a template whose model is outside it is refused).</summary>
 public interface ITalentModelWhitelist
 {
-    /// <summary>True when the model may be used.</summary>
-    bool IsAllowed(string model);
+    /// <summary>True when the model (provider-qualified, <c>provider:model</c>) may be used.</summary>
+    ValueTask<bool> IsAllowedAsync(string model, CancellationToken cancellationToken);
 }
 
 /// <summary>The Tier 2 approval for a template's tool grants (docs/design/15). A hire vote never implies it.</summary>

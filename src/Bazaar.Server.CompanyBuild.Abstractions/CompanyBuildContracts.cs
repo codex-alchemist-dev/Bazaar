@@ -61,3 +61,8 @@ public sealed record CompanyBuildSetReport(
     bool Complete,
     bool IsSigned,
     string OutputDirectory);
+
+/// <summary>One finding of the build-identity setup check. Codes are stable for tests and the setup report.</summary>
+/// <param name="Code">One of <c>no-build</c>, <c>build-incomplete</c>, <c>identity-unrecorded</c>, <c>address-mismatch</c>, <c>key-pin-mismatch</c>.</param>
+/// <param name="Message">Plain text for the setup report. It never carries a secret; the pin is a public hash.</param>
+public sealed record CompanyBuildIdentityIssue(string Code, string Message);
