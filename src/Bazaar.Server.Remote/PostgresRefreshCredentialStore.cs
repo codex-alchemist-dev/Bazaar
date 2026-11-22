@@ -7,8 +7,18 @@ namespace Bazaar.Server.Components.Remote;
 /// Tables come from <c>remote/0001_pairing_auth.sql</c>. Hash lookups use the unique index on
 /// <c>refresh_credential.hash</c>. Rotation is one transaction, and the partial unique index allows only one live row per device.
 /// </summary>
-public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) : IRefreshCredentialStore
+public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) : IRefreshCredentialStore, IIdentityDirectoryStore
 {
+    private const string _listHumansSql = "SELECT id, display_name, role, status FROM human ORDER BY display_name, id";
+
+    // Last activity is the newest refresh credential's issue time; a device with none yet falls back to its creation time.
+    private const string _listDevicesSql = """
+        SELECT d.id, d.human_id, d.label, d.class, d.revision, d.revoked_at,
+               COALESCE((SELECT max(rc.issued_at) FROM refresh_credential rc WHERE rc.device_id = d.id), d.created_at)
+        FROM device d
+        ORDER BY d.label, d.id
+        """;
+
     private const string _findCredentialSql = """
         SELECT rc.id, rc.device_id, rc.issued_at, rc.retired_at, rc.expires_at,
                (SELECT min(oldest.issued_at) FROM refresh_credential oldest WHERE oldest.device_id = rc.device_id)
@@ -34,6 +44,36 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
         """;
 
     private const string _revokeSql = "UPDATE device SET revoked_at = $2, revision = revision + 1 WHERE id = $1 AND revoked_at IS NULL";
+
+    public async Task<IReadOnlyList<HumanRecord>> ListHumansAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_listHumansSql);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var rows = new List<HumanRecord>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            rows.Add(new HumanRecord(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<DeviceDirectoryEntry>> ListDevicesAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_listDevicesSql);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var rows = new List<DeviceDirectoryEntry>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            var device = new DeviceRecord(
+                Id: reader.GetGuid(0),
+                HumanId: reader.GetGuid(1),
+                Label: reader.GetString(2),
+                Class: reader.GetString(3),
+                Revision: reader.GetInt32(4),
+                RevokedAt: reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5));
+            rows.Add(new DeviceDirectoryEntry(device, reader.GetFieldValue<DateTimeOffset>(6)));
+        }
+
+        return rows;
+    }
 
     public async Task<RefreshCredentialRecord?> FindByHashAsync(byte[] hash, CancellationToken ct = default)
     {

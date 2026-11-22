@@ -2,7 +2,12 @@ using Bazaar.Admin.Composition;
 using Bazaar.Client.Tui.Dashboard;
 using Bazaar.Roles;
 using Bazaar.Roles.Abstractions;
+using Bazaar.PrivacyAudit;
+using Bazaar.Server.Components.Remote;
 using Bazaar.Server.OpsPorts;
+using Bazaar.Server.Security;
+using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Approvals.Db;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.WebAdmin.Security;
@@ -80,6 +85,14 @@ public sealed class ServerTuiWiring : ITuiHostWiring
             new InMemoryAdminSessionStore(AdminSessionOptions.Default, sp.GetRequiredService<IAdminRevocationCheck>()));
         new OpsPortsComponent().AddServices(services, configuration);
 
+        // The identity and approvals ports, from the modules that own that data (docs 32 and 15): the same read ports the web admin uses,
+        // and the device revoker over the token service. The token service is built revoke-only: its access-token issuer always refuses.
+        services.AddBazaarPrivacyAudit();
+        services.AddBazaarRemoteRevokeOnly();
+        services.AddBazaarRemoteAdminPorts();
+        services.AddSingleton<IApprovalStore>(sp => new PostgresApprovalStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.AddBazaarAdminApprovalSource();
+
         var provider = services.BuildServiceProvider();
         var gate = provider.GetRequiredService<RoleStoreOwnerLocalGate>();
         var signIn = new OpsSignIn(
@@ -93,13 +106,21 @@ public sealed class ServerTuiWiring : ITuiHostWiring
             Events: provider.GetRequiredService<IOpsEventSource>(),
             Crashes: provider.GetRequiredService<IOpsCrashJournal>(),
             Logs: provider.GetRequiredService<IOpsLogSource>(),
-            Audit: provider.GetRequiredService<IAdminAuditReader>());
+            Audit: provider.GetRequiredService<IAdminAuditReader>(),
+            Users: provider.GetService<IAdminUserDirectory>(),
+            Devices: provider.GetService<IAdminDeviceDirectory>(),
+            Approvals: provider.GetService<IAdminApprovalSource>());
+        // Writes with an owning operation. Not wired, and why: IOpsMemberRevoker (no operation to remove or suspend a person exists in
+        // identity), IOpsApprovalDecider (a decision needs a signed owner approval and the step-up proof format is undefined), IOpsStepUp
+        // (needs an approval-key device) and IAdminModuleSelection (no stored selection, revision or rebuild queue yet). See doc 58 4a.
+        var writes = new OpsWritePorts(Devices: provider.GetService<IOpsDeviceRevoker>());
         return new OpsWiring(
             ports,
             signIn,
             provider.GetRequiredService<IOpsCrashJournal>(),
             gate.OwnerExistsAsync,
-            new Disposables(provider, owner));
+            new Disposables(provider, owner),
+            writes);
     }
 
     /// <summary>The process variables as configuration: <c>Bazaar__Ops__LogFile</c> (or its uppercase form) becomes <c>Bazaar:Ops:LogFile</c>.</summary>

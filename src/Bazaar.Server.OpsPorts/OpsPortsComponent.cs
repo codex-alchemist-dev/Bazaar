@@ -14,9 +14,10 @@ namespace Bazaar.Server.OpsPorts;
 /// only, with <c>TryAdd</c>, so an owning module's own implementation of a port wins. It needs <see cref="IRoleStore"/> and
 /// <see cref="IPermissionChecker"/> (the roles module) for the gate and the roles check, and an <see cref="NpgsqlDataSource"/> for
 /// the audit view; a port whose dependency is missing is not registered, and its screen shows "unavailable".
-/// <para>Not here: <c>IAdminStatusSource</c>, <c>IAdminKodoSource</c>, <c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>,
-/// <c>IAdminApprovalSource</c> and <c>IAdminModuleSelection</c>. The modules that own that data (Kodo, identity, approvals, module
-/// selection) have no read model yet, and the doc 51 ports are theirs to implement.</para>
+/// <para>Not here: <c>IAdminStatusSource</c>, <c>IAdminKodoSource</c> and <c>IAdminModuleSelection</c> (their owning modules have no
+/// read model yet). The identity ports (<c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>, <c>IOpsDeviceRevoker</c>) are
+/// implemented by <c>Bazaar.Server.Remote</c> and <c>IAdminApprovalSource</c> by <c>Bazaar.Server.Security</c>; the TUI host and
+/// the server host register them (doc 58 section 4a).</para>
 /// </summary>
 public sealed class OpsPortsComponent : IBazaarComponent
 {

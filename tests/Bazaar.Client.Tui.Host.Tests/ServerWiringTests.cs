@@ -63,6 +63,28 @@ public sealed class ServerWiringTests : IDisposable
         Assert.NotNull(wiring.Ports.Audit);
         Assert.Null(wiring.Ports.Status);
         Assert.Null(wiring.Ports.Kodo);
+
+        // Ports whose owning module has a read model are wired; the ones without stay unavailable (doc 58 4a).
+        Assert.NotNull(wiring.Ports.Users);
+        Assert.NotNull(wiring.Ports.Devices);
+        Assert.NotNull(wiring.Ports.Approvals);
+        Assert.Null(wiring.Ports.Modules);
+        Assert.NotNull(wiring.Writes.Devices);
+        Assert.Null(wiring.Writes.Members);
+        Assert.Null(wiring.Writes.Approvals);
+        Assert.Null(wiring.Writes.StepUp);
+        Assert.Null(wiring.Writes.Modules);
+    }
+
+    [Fact]
+    public async Task The_wired_directories_read_through_the_data_source_so_an_unreachable_database_throws_and_the_screen_shows_unavailable()
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder("Host=localhost;Port=1;Database=x;Timeout=1").Build();
+        var configuration = ServerTuiWiring.ConfigurationFrom(new Dictionary<string, string?> { ["BAZAAR__OPS__DATADIRECTORY"] = _dir });
+        await using var wiring = ServerTuiWiring.Compose(dataSource, new MemoryAudit(), configuration, TimeProvider.System);
+
+        await Assert.ThrowsAnyAsync<Exception>(() => wiring.Ports.Users!.ListAsync(TestContext.Current.CancellationToken));
+        await Assert.ThrowsAnyAsync<Exception>(() => wiring.Ports.Approvals!.ListPendingAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
