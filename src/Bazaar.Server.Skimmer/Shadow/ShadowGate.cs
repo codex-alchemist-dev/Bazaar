@@ -23,10 +23,22 @@ public sealed class ShadowGate(IRelevanceScorer scorer)
     /// has <c>Shadow = true</c>; a scored wake means "would promote" only.
     /// </summary>
     /// <exception cref="NotSupportedException">The mode is <see cref="SkimmerMode.Defer"/>.</exception>
+    public Task<IReadOnlyList<GateDecision>> DecideAsync(
+        GcMessageRef message,
+        IReadOnlyList<ShadowAgent> agents,
+        ShadowSettings settings,
+        CancellationToken ct) =>
+        DecideAsync(message, agents, settings, rulesOnly: false, ct);
+
+    /// <summary>
+    /// As <see cref="DecideAsync(GcMessageRef, IReadOnlyList{ShadowAgent}, ShadowSettings, CancellationToken)"/>; when
+    /// <paramref name="rulesOnly"/> is true the scorer is skipped and unmatched messages defer (queue over its depth limit).
+    /// </summary>
     public async Task<IReadOnlyList<GateDecision>> DecideAsync(
         GcMessageRef message,
         IReadOnlyList<ShadowAgent> agents,
         ShadowSettings settings,
+        bool rulesOnly,
         CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(message);
@@ -58,7 +70,7 @@ public sealed class ShadowGate(IRelevanceScorer scorer)
             }
         }
 
-        if (undecided.Count > 0)
+        if (undecided.Count > 0 && !rulesOnly)
         {
             var results = await ScoreOrNullAsync(message, undecided.Select(i => agents[i].Profile).ToList(), settings, ct).ConfigureAwait(false);
             foreach (var i in undecided)
@@ -71,6 +83,11 @@ public sealed class ShadowGate(IRelevanceScorer scorer)
                         ? Record(agent, GatePaths.Scored, GateDecisions.Wake, result.Category, result.ScoreBasisPoints)
                         : Record(agent, GatePaths.Default, GateDecisions.Defer, result.Category, result.ScoreBasisPoints);
             }
+        }
+
+        for (var i = 0; i < decisions.Length; i++)
+        {
+            decisions[i] ??= Record(agents[i], GatePaths.Default, GateDecisions.Defer, null, null);
         }
 
         return decisions!;
