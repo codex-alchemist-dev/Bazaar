@@ -13,6 +13,9 @@ public enum PoolImageRequirementKind
 
     /// <summary>The AppArmor profile that lets <c>bwrap</c> create user namespaces. <see cref="PoolImageRequirement.Path"/> is where it is installed.</summary>
     AppArmorProfile,
+
+    /// <summary>An installed tool whose SHA-256 must equal the tool manifest's value. <see cref="PoolImageRequirement.ToolName"/> names the tool.</summary>
+    ToolHash,
 }
 
 /// <summary>One requirement of the pool VM image.</summary>
@@ -20,7 +23,8 @@ public enum PoolImageRequirementKind
 /// <param name="Kind">What it is.</param>
 /// <param name="Path">Where it must be, as configured.</param>
 /// <param name="SlotsMustExecute">True when slot uids must be able to execute (programs) or traverse (directories) it.</param>
-public sealed record PoolImageRequirement(string Id, PoolImageRequirementKind Kind, string Path, bool SlotsMustExecute);
+/// <param name="ToolName">For <see cref="PoolImageRequirementKind.ToolHash"/>, the tool's name in the manifest; otherwise null.</param>
+public sealed record PoolImageRequirement(string Id, PoolImageRequirementKind Kind, string Path, bool SlotsMustExecute, string? ToolName = null);
 
 /// <summary>
 /// The exact list of what a pool VM must have for the configured pool to work (docs/design/59, section 7). Built from the pool's and
@@ -38,7 +42,13 @@ public sealed class PoolImageRequirements
     public const string SystemdRunProgram = "systemd-run";
 
     /// <summary>Derives the list. Options are assumed valid (the pool and the host validate them at startup).</summary>
-    public static PoolImageRequirements From(BrowserPoolOptions pool, LinuxPoolHostOptions host)
+    public static PoolImageRequirements From(BrowserPoolOptions pool, LinuxPoolHostOptions host) => From(pool, host, null);
+
+    /// <summary>
+    /// Derives the list, and when <paramref name="image"/> names a tool manifest, one hash requirement per tool: the pool-spawn helper
+    /// at its configured path (when set) and the pointer tool in the tool install directory.
+    /// </summary>
+    public static PoolImageRequirements From(BrowserPoolOptions pool, LinuxPoolHostOptions host, PoolImageOptions? image)
     {
         ArgumentNullException.ThrowIfNull(pool);
         ArgumentNullException.ThrowIfNull(host);
@@ -88,6 +98,16 @@ public sealed class PoolImageRequirements
         }
 
         list.Add(new("apparmor:" + BwrapAppArmorProfile.ProfileName, PoolImageRequirementKind.AppArmorProfile, BwrapAppArmorProfile.InstallPath, false));
+        if (image?.ToolManifestPath is not null)
+        {
+            if (host.PoolSpawnHelperPath is { } spawn)
+            {
+                list.Add(new("tool-hash:" + PoolToolBundle.PoolSpawnTool, PoolImageRequirementKind.ToolHash, spawn, false, PoolToolBundle.PoolSpawnTool));
+            }
+
+            list.Add(new("tool-hash:" + PoolToolBundle.PointerTool, PoolImageRequirementKind.ToolHash, image.ToolInstallDirectory.TrimEnd('/') + "/" + PoolToolBundle.PointerTool, false, PoolToolBundle.PointerTool));
+        }
+
         return new PoolImageRequirements(Deduplicate(list));
     }
 
