@@ -1,6 +1,6 @@
 using System.Threading.Channels;
-using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Skimmer.Shadow;
+using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
@@ -20,7 +20,7 @@ public sealed record GcShadowConsumerOptions(ShadowSettings Settings, int QueueD
 /// missed, so every GC an agent belongs to is queued once. A failure is logged and the GC is picked up by the next
 /// notification, since the cursor is the highest recorded seq. It never wakes or enqueues anything.
 /// </summary>
-public sealed class GcShadowConsumerHost(
+public sealed partial class GcShadowConsumerHost(
     IGcNotificationSource notifications,
     IShadowAgentDirectory directory,
     ShadowConsumer consumer,
@@ -80,11 +80,14 @@ public sealed class GcShadowConsumerHost(
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex, "Shadow pass for GC {GcId} failed; the next notification retries from the cursor.", gcId);
+            LogPassFailed(logger, ex, gcId);
         }
 
         return recorded;
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Shadow pass for GC {GcId} failed; the next notification retries from the cursor.")]
+    private static partial void LogPassFailed(ILogger logger, Exception exception, Guid gcId);
 
     /// <inheritdoc />
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
