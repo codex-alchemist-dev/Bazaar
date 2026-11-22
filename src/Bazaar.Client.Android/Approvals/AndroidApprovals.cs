@@ -2,6 +2,8 @@ using Android.App;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Http;
+using Bazaar.Client.TalentPool;
+using Bazaar.Client.TalentPool.Http;
 
 namespace Bazaar.Client.Android.Approvals;
 
@@ -22,5 +24,22 @@ public static class AndroidApprovals
 
         var gate = new ApprovalGate(new AndroidBiometricPrompt(activity), new KeystoreDeviceApprovalSigner(enrolledDeviceId), client);
         return (gate, client);
+    }
+
+    /// <summary>
+    /// The Talent tool-grant gate and source (docs/design/25), over the same biometric and Keystore key as approvals. The gate is
+    /// null until an approval key and the owner's human id are enrolled, so the pane lists nothing it could not sign.
+    /// <paramref name="ownerHumanId"/> is the owner's id the server knows from enrolment (doc 32).
+    /// </summary>
+    public static (ToolGrantGate? Gate, IPendingToolGrantSource Source) CreateToolGrants(
+        ServerEndpoint endpoint, Func<Activity?> activity, string? enrolledDeviceId, string? ownerHumanId)
+    {
+        var client = HttpToolGrantClient.Create(endpoint);
+        if (string.IsNullOrEmpty(enrolledDeviceId) || !Guid.TryParse(ownerHumanId, out var human) || !KeystoreDeviceApprovalSigner.HasKey())
+        {
+            return (null, client);
+        }
+
+        return (new ToolGrantGate(new AndroidBiometricPrompt(activity), new KeystoreDeviceApprovalSigner(enrolledDeviceId), client, human), client);
     }
 }

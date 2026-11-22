@@ -1,4 +1,6 @@
+using Bazaar.GitHub;
 using Bazaar.Community.Observatory;
+using Bazaar.Core;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Startup;
@@ -8,6 +10,7 @@ using Bazaar.Server.Http;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
+using Bazaar.Server.Wire.Discovery;
 
 if (args.Length > 0 && args[0].Equals("migrate", StringComparison.OrdinalIgnoreCase))
 {
@@ -51,10 +54,15 @@ app.UseBazaarGetOnly();
 app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
 app.MapBazaarHttpSurface();
+app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
 app.MapCommunityLog();
 app.MapBazaarSetup();
 app.UseBazaarWire();
+if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
+{
+    app.MapBazaarWireDiscovery();
+}
 
 // Resolve before RunAsync: the container is disposed when the host stops, so resolving afterwards throws.
 var exitCode = app.Services.GetRequiredService<HostExitCode>();

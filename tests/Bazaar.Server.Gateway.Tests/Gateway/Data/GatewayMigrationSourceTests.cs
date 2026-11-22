@@ -23,7 +23,7 @@ public class GatewayMigrationSourceTests
 
         var plan = MigrationRunner.Plan(source, MigrationNamespaces.Common, []);
 
-        var file = Assert.Single(plan);
+        var file = Assert.Single(plan, f => f.Name == "gateway_grants");
         Assert.Equal("gateway", file.Namespace);
         Assert.Equal(3, file.Version);
         Assert.Equal("gateway_grants", file.Name);
@@ -32,7 +32,7 @@ public class GatewayMigrationSourceTests
     [Fact]
     public void Grants_migration_grants_only_insert_select_and_update_to_the_app_role()
     {
-        var file = Assert.Single(new EmbeddedMigrationSource(typeof(UsageRepository).Assembly).Load("gateway"));
+        var file = Assert.Single(new EmbeddedMigrationSource(typeof(UsageRepository).Assembly).Load("gateway"), f => f.Name == "gateway_grants");
 
         Assert.Contains("GRANT SELECT, INSERT ON gw_usage TO bazaar_app;", file.Sql);
         Assert.Contains("GRANT SELECT, INSERT, UPDATE ON gw_provider, gw_model, gw_route, gw_quota_state, agent_model_policy TO bazaar_app;", file.Sql);

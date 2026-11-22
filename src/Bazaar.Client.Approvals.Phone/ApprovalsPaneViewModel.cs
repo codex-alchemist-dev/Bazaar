@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Approvals.Avalonia;
+using Bazaar.Client.TalentPool;
+using Bazaar.Client.TalentPool.Avalonia;
 using Bazaar.Contracts.Approvals;
 using Bazaar.Contracts.Panes;
 
@@ -18,16 +20,25 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
 
     private readonly ApprovalGate? _gate;
     private readonly IPendingApprovalSource? _source;
+    private readonly ToolGrantGate? _toolGrantGate;
+    private readonly IPendingToolGrantSource? _toolGrantSource;
     private ApprovalCardViewModel? _detail;
     private string _notice = "";
 
-    public ApprovalsPaneViewModel(PaneDescriptor descriptor, ApprovalGate? gate, IPendingApprovalSource? source)
+    public ApprovalsPaneViewModel(
+        PaneDescriptor descriptor,
+        ApprovalGate? gate,
+        IPendingApprovalSource? source,
+        ToolGrantGate? toolGrantGate = null,
+        IPendingToolGrantSource? toolGrantSource = null)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
         Kind = descriptor.Kind;
         Title = string.IsNullOrEmpty(descriptor.Title) ? DefaultTitle : descriptor.Title;
         _gate = gate;
         _source = source;
+        _toolGrantGate = toolGrantGate;
+        _toolGrantSource = toolGrantSource;
         BackCommand = new ApprovalCommand(CloseDetail, () => _detail is not null);
         RefreshCommand = new ApprovalCommand(() => _ = RefreshAsync(), () => true);
     }
@@ -40,6 +51,9 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
 
     public ObservableCollection<ApprovalListItemViewModel> Items { get; } = [];
 
+    /// <summary>Talent tool grants waiting for the owner (docs/design/25). Each has its own card with a biometric Approve and no deny.</summary>
+    public ObservableCollection<ToolGrantCardViewModel> ToolGrants { get; } = [];
+
     public ApprovalCommand BackCommand { get; }
 
     public ApprovalCommand RefreshCommand { get; }
@@ -51,7 +65,7 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
 
     public bool ShowList => _detail is null;
 
-    public bool IsEmpty => Items.Count == 0;
+    public bool IsEmpty => Items.Count == 0 && ToolGrants.Count == 0;
 
     /// <summary>A note for the owner: nothing waiting, not connected, or no approval key. Empty when the list speaks for itself.</summary>
     public string Notice => _notice;
@@ -61,6 +75,7 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
     /// <summary>Fetches the pending approvals and brings the list in line. A card already shown is updated in place.</summary>
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
     {
+        await RefreshToolGrantsAsync(cancellationToken);
         if (_source is null)
         {
             SetNotice("This phone is not connected to a server, so it cannot list approvals.");
@@ -107,7 +122,53 @@ public sealed class ApprovalsPaneViewModel : IPaneViewModel, INotifyPropertyChan
             }
         }
 
-        SetNotice(Items.Count == 0 ? "Nothing is waiting for you." : "");
+        SetNotice(Items.Count == 0 && ToolGrants.Count == 0 ? "Nothing is waiting for you." : "");
+    }
+
+    /// <summary>
+    /// Brings the tool-grant cards in line with the server. Silent when the phone has no gate or source, or the fetch fails:
+    /// the approval list still works, and no card is ever decided from stale text because a card is rebuilt only when its tools change.
+    /// </summary>
+    private async Task RefreshToolGrantsAsync(CancellationToken cancellationToken)
+    {
+        if (_toolGrantSource is null || _toolGrantGate is null)
+        {
+            return;
+        }
+
+        IReadOnlyList<ToolGrantCard> pending;
+        try
+        {
+            pending = await _toolGrantSource.ListPendingAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return;
+        }
+
+        foreach (var gone in ToolGrants.Where(g => pending.All(c => c.HireKey != g.Card.HireKey) && g.CanApprove).ToList())
+        {
+            ToolGrants.Remove(gone);
+        }
+
+        foreach (var card in pending)
+        {
+            var existing = ToolGrants.FirstOrDefault(g => g.Card.HireKey == card.HireKey);
+            if (existing is not null && (existing.Card.Tools.SequenceEqual(card.Tools) || !existing.CanApprove))
+            {
+                continue;
+            }
+
+            // A changed tool list is a new card: the old one can no longer be signed.
+            if (existing is not null)
+            {
+                ToolGrants.Remove(existing);
+            }
+
+            ToolGrants.Add(new ToolGrantCardViewModel(_toolGrantGate, card));
+        }
+
+        Raise(nameof(IsEmpty));
     }
 
     private void OpenDetail(ApprovalListItemViewModel item)
