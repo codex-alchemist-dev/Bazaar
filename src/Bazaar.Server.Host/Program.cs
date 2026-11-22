@@ -25,6 +25,7 @@ if (args.Length > 0 && args[0].Equals("db", StringComparison.OrdinalIgnoreCase))
 }
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddKekHostConfig();
 
 builder.Services.AddBazaarHostApplication(builder.Configuration);
 
