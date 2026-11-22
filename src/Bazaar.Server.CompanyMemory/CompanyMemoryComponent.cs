@@ -4,6 +4,7 @@ using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.CompanyMemory;
 
@@ -45,6 +46,14 @@ public sealed class CompanyMemoryComponent : IBazaarComponent
             && sp.GetService<VaultWriter>() is { } writer
                 ? new VaultCompanyDecisionStore(git, writer, repoPath)
                 : new InMemoryCompanyDecisionStore());
-        services.TryAddSingleton<ICompanyMemory>(sp => new CompanyMemoryService(sp.GetRequiredService<ICompanyDecisionStore>()));
+        // In-memory fallback is a singleton too, so a host without a database keeps its edges between calls.
+        services.TryAddSingleton<IDecisionLinkIndex>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource
+                ? new PgDecisionLinkIndex(dataSource)
+                : new InMemoryDecisionLinkIndex());
+        services.TryAddSingleton<ICompanyMemory>(sp => new CompanyMemoryService(
+            sp.GetRequiredService<ICompanyDecisionStore>(),
+            sp.GetRequiredService<IDecisionLinkIndex>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>>()));
     }
 }

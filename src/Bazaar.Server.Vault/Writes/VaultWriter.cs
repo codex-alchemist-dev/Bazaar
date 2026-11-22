@@ -148,6 +148,7 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
         await File.WriteAllTextAsync(fullPath, RenderDecision(draft), new UTF8Encoding(false), ct);
+        await MarkSupersededAsync(decisionsDirectory, draft.Supersedes, ct);
 
         var message = new StringBuilder($"Decision {number:D4}: {draft.Title}");
         message.Append("\n\n");
@@ -157,6 +158,44 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], number);
     }
+
+    /// <summary>
+    /// Flips each accepted decision the new record replaces to <c>superseded</c>, in the same commit as the new record. This is
+    /// the one edit <see cref="DecisionImmutability"/> allows on a frozen decision. Proposed and already superseded records
+    /// and references with no file are left alone.
+    /// </summary>
+    private static async Task MarkSupersededAsync(string decisionsDirectory, IReadOnlyList<string>? references, CancellationToken ct)
+    {
+        foreach (var reference in references ?? [])
+        {
+            var name = reference.StartsWith("decisions/", StringComparison.Ordinal) ? reference["decisions/".Length..] : reference;
+            if (name.EndsWith(".md", StringComparison.Ordinal))
+            {
+                name = name[..^3];
+            }
+
+            if (name.Contains('/', StringComparison.Ordinal) || name.Contains("..", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var target = Path.Combine(decisionsDirectory, name + ".md");
+            if (!File.Exists(target))
+            {
+                continue;
+            }
+
+            var text = await File.ReadAllTextAsync(target, ct);
+            var flipped = AcceptedStatusLine().Replace(text, "status: superseded${eol}", 1);
+            if (!string.Equals(text, flipped, StringComparison.Ordinal))
+            {
+                await File.WriteAllTextAsync(target, flipped, new UTF8Encoding(false), ct);
+            }
+        }
+    }
+
+    [GeneratedRegex("^status: accepted(?<eol>\\r?)$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
+    private static partial Regex AcceptedStatusLine();
 
     private async Task NotifyAsync(string oldCommit, string newCommit, CancellationToken ct)
     {

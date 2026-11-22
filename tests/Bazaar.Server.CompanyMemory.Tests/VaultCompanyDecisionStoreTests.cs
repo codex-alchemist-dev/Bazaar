@@ -75,4 +75,41 @@ public sealed class VaultCompanyDecisionStoreTests : IDisposable
         Assert.True(again.AlreadyRecorded);
         Assert.Equal(first.Path, again.Path);
     }
+
+    [Fact]
+    public async Task Superseding_an_accepted_decision_flips_its_status_in_the_same_commit()
+    {
+        var first = await _memory.RecordDecisionAsync(
+            new(Guid.NewGuid(), "use-polling", "Use polling", "Poll.", "agent-ana"), TestContext.Current.CancellationToken);
+        var firstFile = Path.Combine(_root, first.Path);
+        File.WriteAllText(firstFile, File.ReadAllText(firstFile).Replace("status: proposed", "status: accepted", StringComparison.Ordinal));
+        using (var repo = new Repository(_root))
+        {
+            Commands.Stage(repo, "*");
+            var signature = new Signature(_identity.Name, _identity.Email, DateTimeOffset.UtcNow);
+            repo.Commit("accept 0001", signature, signature);
+        }
+
+        var second = await _memory.RecordDecisionAsync(
+            new(Guid.NewGuid(), "use-notify", "Use notify", "Notify.", "agent-ben", ["0001"]), TestContext.Current.CancellationToken);
+
+        Assert.Contains("status: superseded", File.ReadAllText(firstFile));
+        Assert.Contains("status: proposed", File.ReadAllText(Path.Combine(_root, second.Path)));
+        var view = await _memory.GetChainAsync("0001", TestContext.Current.CancellationToken);
+        Assert.NotNull(view);
+        Assert.Equal("superseded", view.Focus.Status);
+        using var check = new Repository(_root);
+        Assert.Equal(0, check.RetrieveStatus().Count(e => e.State != FileStatus.Ignored));
+    }
+
+    [Fact]
+    public async Task Superseding_a_proposed_decision_leaves_its_status_alone()
+    {
+        var first = await _memory.RecordDecisionAsync(
+            new(Guid.NewGuid(), "use-polling", "Use polling", "Poll.", "agent-ana"), TestContext.Current.CancellationToken);
+        await _memory.RecordDecisionAsync(
+            new(Guid.NewGuid(), "use-notify", "Use notify", "Notify.", "agent-ben", ["0001"]), TestContext.Current.CancellationToken);
+
+        Assert.Contains("status: proposed", File.ReadAllText(Path.Combine(_root, first.Path)));
+    }
 }

@@ -1,4 +1,5 @@
 using Bazaar.Server.Knowledge.CompanyMemory;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.CompanyMemory;
 
@@ -6,7 +7,13 @@ namespace Bazaar.Server.CompanyMemory;
 /// Company Memory over a decision store (doc 25). Recording validates what the chain will rest on; reading rebuilds the
 /// chain from the store each time with <see cref="DecisionChain"/>, so the Vault stays the only copy.
 /// </summary>
-public sealed class CompanyMemoryService(ICompanyDecisionStore store) : ICompanyMemory
+/// <param name="store">Where decisions live.</param>
+/// <param name="index">The derived link index, refreshed after each recorded decision. Null for none.</param>
+/// <param name="logger">Told when a refresh fails. The decision itself is already stored, so a failed refresh never fails the record.</param>
+public sealed partial class CompanyMemoryService(
+    ICompanyDecisionStore store,
+    IDecisionLinkIndex? index = null,
+    Microsoft.Extensions.Logging.ILogger<CompanyMemoryService>? logger = null) : ICompanyMemory
 {
     private readonly ICompanyDecisionStore _store = store ?? throw new ArgumentNullException(nameof(store));
 
@@ -31,7 +38,37 @@ public sealed class CompanyMemoryService(ICompanyDecisionStore store) : ICompany
 
         // Stored as bare names (0001-slug): the form the Vault writes and DecisionChain reads.
         var names = targets.Select(p => p["decisions/".Length..^".md".Length]).ToList();
-        return await _store.CreateAsync(request with { Supersedes = names }, ct);
+        var recorded = await _store.CreateAsync(request with { Supersedes = names }, ct);
+        if (!recorded.AlreadyRecorded)
+        {
+            try
+            {
+                await RebuildIndexAsync(ct);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                if (logger is not null)
+                {
+                    IndexRefreshFailed(logger, exception, recorded.Path);
+                }
+            }
+        }
+
+        return recorded;
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The decision link index refresh failed after decision {Path}; rebuild it to catch up.")]
+    private static partial void IndexRefreshFailed(ILogger logger, Exception exception, string path);
+
+    public async Task<int> RebuildIndexAsync(CancellationToken ct)
+    {
+        var links = DecisionChain.Derive(await _store.ListAsync(ct));
+        if (index is not null)
+        {
+            await index.ReplaceAllAsync(links, ct);
+        }
+
+        return links.Count;
     }
 
     public async Task<DecisionChainView?> GetChainAsync(string reference, CancellationToken ct)

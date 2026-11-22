@@ -14,6 +14,9 @@ public interface ICompanyMemory
     /// no such decision exists.
     /// </summary>
     Task<DecisionChainView?> GetChainAsync(string reference, CancellationToken ct);
+
+    /// <summary>Rebuilds the <see cref="IDecisionLinkIndex"/> from the decisions in the store. Returns the number of edges.</summary>
+    Task<int> RebuildIndexAsync(CancellationToken ct);
 }
 
 /// <summary>
@@ -27,4 +30,17 @@ public interface ICompanyDecisionStore
 
     /// <summary>Writes a new decision with the next free number. Idempotent by <see cref="RecordDecisionRequest.DocId"/>.</summary>
     Task<RecordedDecision> CreateAsync(RecordDecisionRequest request, CancellationToken ct);
+}
+
+/// <summary>
+/// The derived <c>decision_links</c> index (doc 25): chain edges and cached status, rebuilt from the Vault and never
+/// authoritative. Other modules (Archive, Constellation) read edges here without parsing every decision file.
+/// </summary>
+public interface IDecisionLinkIndex
+{
+    /// <summary>Replaces every edge with <paramref name="links"/>, atomically. An empty list clears the index.</summary>
+    Task ReplaceAllAsync(IReadOnlyList<Bazaar.Server.Knowledge.CompanyMemory.DecisionLink> links, CancellationToken ct);
+
+    /// <summary>The edges that start or end at <paramref name="path"/> (a Vault path), sorted by from, then to.</summary>
+    Task<IReadOnlyList<Bazaar.Server.Knowledge.CompanyMemory.DecisionLink>> LinksTouchingAsync(string path, CancellationToken ct);
 }
