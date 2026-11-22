@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>Rubedo language server (doc 41d section 5): LSP 3.17 over stdio or a loopback socket, mapping requests to Bazaar.Rubedo.Analysis. A separate tool process, never hosted inside Bazaar.Server.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Rubedo\Bazaar.Rubedo.csproj" />
+    <ProjectReference Include="..\Bazaar.Rubedo.Analysis\Bazaar.Rubedo.Analysis.csproj" />
+  </ItemGroup>
+</Project>
