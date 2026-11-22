@@ -77,7 +77,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 0 | Preflight | Checks OS and edition, CPU, memory, disk, free ports, time sync, the data root and its ACL, and the existence of a service account that is not Administrator. Reports Windows edition as an operator fact (doc 03 Conflict 1). | 03 |
 | 1 | Install identity | Install id (generated), company name and slug, default locale, default timezone, release channel (LTSC, Stable, Beta, Alpha or Latest-Commit; Beta while the version is 0.x). | CLAUDE.md, VERSIONING |
 | 2 | Update policy | Confirms the shipped default: automatic for security, manual for everything else. Per-module and per-channel policies are edited later. | Gap decisions; doc 30 |
-| 3 | Data root and bundled PostgreSQL | Creates the data root, starts the bundled PostgreSQL 18 or 19 with pgvector as a hidden supervised child on loopback, and sets the data directory ACL. Choice of major version: section 1.4. | 03, 04, owner brief |
+| 3 | Key, encrypted volume and bundled PostgreSQL | [PROPOSED, doc 63 section 10] Chooses the key-encryption-key provider (moved forward from step 5), creates the encrypted data volume and mounts it as the data root; setup cannot finish without it. Then creates the data root contents, starts the bundled PostgreSQL 18 or 19 with pgvector as a hidden supervised child on loopback, and sets the data directory ACL. Choice of major version: section 1.4. | 03, 04, owner brief |
 | 4 | Schema | Runs the explicit `migrate` command once on the empty database under the instance lock. Records fixed values (partition count) in `schema_setting`. | 04 (C44) |
 | 5 | Custody | Sets the key-encryption-key provider, bootstraps the Identity Service, and sets the audit anchor target. Mounts stay disabled until the anchor is set. | 14, 15 |
 | 6 | Owner | Creates the owner identity, enrols at least one passkey or hardware key, and creates the encrypted recovery bundle. There is no device pairing (section 2.1). | 32, 14 |
@@ -147,7 +147,7 @@ Rules: unknown keys are rejected (the file fails closed); every key is either a 
   },
   "custody": {
     "kekProvider": "dpapi",
-    "kekRef": "dpapi:C:\\ProgramData\\Bazaar\\kek.bin",
+    "kekRef": "dpapi:C:\\ProgramData\\Bazaar\\keys\\kek-dpapi.bin",
     "auditAnchorTarget": "https://anchor.example.invalid/bazaar-audit",
     "mergeCredential": { "kind": "owner_app", "appIdRef": "secret://bazaar/owner/app-id" }
   },
