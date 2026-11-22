@@ -56,13 +56,13 @@ public sealed class GitHubWakeEndToEndTests
         await seed.ExecuteNonQueryAsync(ct);
     }
 
-    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = false, string? extraAgentLogin = null)
+    private static GitHubWebhookProcessor Compose(NpgsqlDataSource dataSource, bool ownerOverride = false, string? extraAgentLogin = null, bool ownerIsMemberOff = false)
     {
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Bazaar:GitHub:Ingress:AgentLogins:0"] = _agentLogin,
             ["Bazaar:GitHub:Ingress:MemberLogins:0"] = "boss",
-        }.Concat(extraAgentLogin is null ? [] : [new KeyValuePair<string, string?>("Bazaar:GitHub:Ingress:AgentLogins:1", extraAgentLogin)]).Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : []))
+        }.Concat(extraAgentLogin is null ? [] : [new KeyValuePair<string, string?>("Bazaar:GitHub:Ingress:AgentLogins:1", extraAgentLogin)]).Concat(ownerOverride ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerPrincipalId", _owner.ToString())] : []).Concat(ownerIsMemberOff ? [new KeyValuePair<string, string?>("Bazaar:GitHub:PrGc:OwnerIsMember", "false")] : []))
             .Build();
         var services = new ServiceCollection();
         services.AddLogging();
@@ -128,7 +128,7 @@ public sealed class GitHubWakeEndToEndTests
             Assert.Equal("open", r.GetString(4));
         }
 
-        // No owner setting: the bridge creates the GC, and the owner reads it through the implicit owner-reader role (doc 01), with no member row.
+        // No owner setting and no owner row yet: the bridge creates the GC, and the owner reads it through the implicit owner-reader role (doc 01), with no member row.
         var bridge = GitHubBridgePrincipal.Id;
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND type_key = 'pr' AND created_by = '{bridge}'", ct));
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_bob}'", ct));
@@ -322,5 +322,109 @@ public sealed class GitHubWakeEndToEndTests
         await StoreAsync(db.DataSource, "d3", "issue_comment", Comment("boss", "MEMBER", $"@{adaLogin} again").Replace("IC_1", "IC_2", StringComparison.Ordinal), ct);
         Assert.Equal(1, await processor.ProcessBatchAsync(ct));
         Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{ada}'", ct));
+    }
+
+    private static async Task SeedOwnerAsync(NpgsqlDataSource ds, CancellationToken ct, string status = "active")
+    {
+        await using var cmd = ds.CreateCommand("INSERT INTO human (id, display_name, role, status) VALUES (@id, 'Boss', 'owner', @status)");
+        cmd.Parameters.AddWithValue("id", _owner);
+        cmd.Parameters.AddWithValue("status", status);
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    [Fact]
+    public async Task The_owner_is_a_member_of_a_new_PR_GC_by_default_without_any_setting()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake10", MigrateAsync, ct);
+        await SeedOwnerAsync(db.DataSource, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "issue_comment", Comment("boss", "MEMBER", $"@{_agentLogin} please review"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        // The bridge still creates the GC; the owner is a member exactly once, and the comment (a replay of the add) changed nothing.
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND created_by = '{GitHubBridgePrincipal.Id}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_bob}'", ct));
+        // Inbox rows stay agent-only: the agent's mention row exists, the owner has none.
+        Assert.Equal(1L, await CountAsync(db.DataSource, "SELECT count(*) FROM inbox_item", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, $"SELECT count(*) FROM inbox_item WHERE agent_id = '{_owner}'", ct));
+    }
+
+    [Fact]
+    public async Task With_no_owner_yet_the_PR_GC_is_created_and_the_owner_is_added_at_the_next_event()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake11", MigrateAsync, ct);
+        var processor = Compose(db.DataSource);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}'", ct));
+        Assert.Equal(0L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+
+        // First run happens; the next event for the PR adds the owner.
+        await SeedOwnerAsync(db.DataSource, ct);
+        await StoreAsync(db.DataSource, "d2", "issue_comment", Comment("boss", "MEMBER", "looks fine"), ct);
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+
+        // A further event adds no second row.
+        await StoreAsync(db.DataSource, "d3", "issue_comment", Comment("boss", "MEMBER", "again").Replace("IC_1", "IC_2", StringComparison.Ordinal), ct);
+        Assert.Equal(1, await processor.ProcessBatchAsync(ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+    }
+
+    [Fact]
+    public async Task OwnerIsMember_false_leaves_the_owner_to_the_implicit_reader_role()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake12", MigrateAsync, ct);
+        await SeedOwnerAsync(db.DataSource, ct);
+        var processor = Compose(db.DataSource, ownerIsMemberOff: true);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "issue_comment", Comment("boss", "MEMBER", "looks fine"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(0L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+        var access = new Bazaar.Server.Gc.Read.GcReadAccess(db.DataSource);
+        Assert.Equal(Bazaar.Server.Gc.Read.GcReadGrant.Full, await access.GetGrantAsync(gc, new Bazaar.Contracts.Gc.GcPrincipal(_owner, Bazaar.Contracts.Gc.PrincipalKind.Owner, "owner"), ct));
+    }
+
+    [Fact]
+    public async Task The_override_wins_over_OwnerIsMember_false_and_the_database_owner_is_not_added_twice()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake13", MigrateAsync, ct);
+        await SeedOwnerAsync(db.DataSource, ct);
+        var processor = Compose(db.DataSource, ownerOverride: true, ownerIsMemberOff: true);
+        await StoreAsync(db.DataSource, "d1", "pull_request", Opened(), ct);
+        await StoreAsync(db.DataSource, "d2", "issue_comment", Comment("boss", "MEMBER", "looks fine"), ct);
+
+        Assert.Equal(2, await processor.ProcessBatchAsync(ct));
+
+        var gc = GitHubPrService.GcIdFor(_node);
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc WHERE gc_id = '{gc}' AND created_by = '{_owner}'", ct));
+        Assert.Equal(1L, await CountAsync(db.DataSource, $"SELECT count(*) FROM gc_member WHERE gc_id = '{gc}' AND principal_id = '{_owner}'", ct));
+    }
+
+    [Fact]
+    public async Task A_suspended_owner_row_is_not_resolved()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "No test PostgreSQL available.");
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await PgTestDatabase.CreateAsync("ghwake14", MigrateAsync, ct);
+        await SeedOwnerAsync(db.DataSource, ct, status: "suspended");
+        Assert.Null(await new PgGitHubOwnerResolver(db.DataSource).GetOwnerPrincipalIdAsync(ct));
     }
 }

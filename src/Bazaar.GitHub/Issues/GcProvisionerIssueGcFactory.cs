@@ -25,6 +25,10 @@ public sealed class GcProvisionerIssueGcFactory(IGcProvisioner provisioner, GitH
     public Task<bool> AddAgentAsync(Guid gcId, Guid agentId, string displayName, CancellationToken cancellationToken) =>
         provisioner.AddMemberAsync(gcId, new GcPrincipal(agentId, PrincipalKind.Agent, displayName), cancellationToken);
 
+    /// <inheritdoc />
+    public Task<bool> AddOwnerAsync(Guid gcId, Guid ownerId, CancellationToken cancellationToken) =>
+        provisioner.AddMemberAsync(gcId, new GcPrincipal(ownerId, PrincipalKind.Owner, "owner"), cancellationToken);
+
     private GcPrincipal Principal(Guid id) =>
         id == ownerPrincipalId ? new GcPrincipal(id, PrincipalKind.Owner, "owner")
         : id == ingress.EffectiveBridgePrincipalId ? new GcPrincipal(id, PrincipalKind.Agent, "github-bridge")
