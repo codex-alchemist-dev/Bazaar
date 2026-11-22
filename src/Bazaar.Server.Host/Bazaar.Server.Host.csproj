@@ -37,9 +37,13 @@
     <ProjectReference Include="..\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AgentSafety\Bazaar.Server.AgentSafety.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.AccountApproval\Bazaar.Server.AccountApproval.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.AccountApproval.Postgres\Bazaar.Server.AccountApproval.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.AccountApproval.OwnerQueue\Bazaar.Server.AccountApproval.OwnerQueue.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Gateway\Bazaar.Server.Setup.FirstRun.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GcMetadata\Bazaar.Server.GcMetadata.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyMemory\Bazaar.Server.CompanyMemory.csproj" />
@@ -69,10 +73,13 @@
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals\Bazaar.Server.VmEgress.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Approvals.Security\Bazaar.Server.VmEgress.Approvals.Security.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmMounts\Bazaar.Server.VmMounts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmMounts.Providers\Bazaar.Server.VmMounts.Providers.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmTransport\Bazaar.Server.VmTransport.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Garnet\Bazaar.Server.Garnet.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Presence.Postgres\Bazaar.Server.Presence.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Presence.Sources\Bazaar.Server.Presence.Sources.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Valkey\Bazaar.Server.Valkey.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />
@@ -96,13 +103,30 @@
     <ProjectReference Include="..\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
     <ProjectReference Include="..\Bazaar.Server.PsychWard\Bazaar.Server.PsychWard.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingPermissions\Bazaar.Server.CodingPermissions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingEdit\Bazaar.Server.CodingEdit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.RepoMap\Bazaar.Server.RepoMap.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingGit\Bazaar.Server.CodingGit.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingReview\Bazaar.Server.CodingReview.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingStore\Bazaar.Server.CodingStore.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Subagents\Bazaar.Server.Subagents.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingWorkspace\Bazaar.Server.CodingWorkspace.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingRunner\Bazaar.Server.CodingRunner.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Git.Abstractions\Bazaar.Server.Git.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Secrets.Postgres\Bazaar.Server.Secrets.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Analytics\Bazaar.Server.Analytics.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Analytics.Postgres\Bazaar.Server.Analytics.Postgres.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Analytics.Git\Bazaar.Server.Analytics.Git.csproj" />
     <ProjectReference Include="..\Bazaar.Server.ReadAudit.Npgsql\Bazaar.Server.ReadAudit.Npgsql.csproj" />
     <ProjectReference Include="..\Bazaar.Server.ThinkingGc\Bazaar.Server.ThinkingGc.csproj" />
     <ProjectReference Include="..\Bazaar.Archive\Bazaar.Archive.csproj" />
+    <ProjectReference Include="..\Bazaar.Archive.Gc\Bazaar.Archive.Gc.csproj" />
+    <ProjectReference Include="..\Bazaar.Archive.Http\Bazaar.Archive.Http.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gc.Archive\Bazaar.Server.Gc.Archive.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Skimmer\Bazaar.Server.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gc.Skimmer\Bazaar.Server.Gc.Skimmer.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Abstractions\Bazaar.Server.Setup.FirstRun.Abstractions.csproj" />
@@ -124,6 +148,7 @@
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.LinuxHost\Bazaar.Server.BrowserPool.LinuxHost.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Image\Bazaar.Server.BrowserPool.Image.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Gate\Bazaar.Server.BrowserPool.Gate.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.BrowserPool.Egress\Bazaar.Server.BrowserPool.Egress.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Audit\Bazaar.Server.BrowserPool.Audit.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -15,13 +15,15 @@ public sealed class SubscriptionEngine(
     GcDispatcher dispatcher,
     SyncOptions options,
     TimeProvider? time = null,
-    IGraphLodSource? graphLod = null)
+    IGraphLodSource? graphLod = null,
+    IEnumerable<IStreamGate>? gates = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly IStreamGate[] _gates = gates is null ? [] : [.. gates];
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
     public SubscriptionSession CreateSession(Guid principalId, PrincipalKind principalKind, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
+        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod, _gates);
 }
 
 /// <summary>One connection's subscriptions. Thread-safe: <c>subscribe</c> requests may overlap.</summary>
@@ -36,13 +38,15 @@ public sealed class SubscriptionSession : ISubscriptionSession
     private readonly SyncFrames _frames;
     private readonly IConnectionOutbound _outbound;
     private readonly IGraphLodSource? _graphLod;
+    private readonly IStreamGate[] _gates;
+    private readonly HashSet<string> _gated = [];
     private readonly CancellationTokenSource _cts = new();
     private readonly object _gate = new();
     private readonly Dictionary<string, GcSubscription> _subs = [];
 
     internal SubscriptionSession(
         Guid principalId, PrincipalKind principalKind, IGcStreamSource source, IGcAccessPolicy access, GcDispatcher dispatcher,
-        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod)
+        SyncOptions options, SyncFrames frames, IConnectionOutbound outbound, IGraphLodSource? graphLod, IStreamGate[] gates)
     {
         _principalId = principalId;
         _principalKind = principalKind;
@@ -53,12 +57,13 @@ public sealed class SubscriptionSession : ISubscriptionSession
         _frames = frames;
         _outbound = outbound;
         _graphLod = graphLod;
+        _gates = gates;
     }
 
     /// <summary>Streams this connection is subscribed to.</summary>
     public IReadOnlyCollection<string> Streams
     {
-        get { lock (_gate) { return [.. _subs.Keys]; } }
+        get { lock (_gate) { return [.. _subs.Keys, .. _gated]; } }
     }
 
     /// <summary>
@@ -92,6 +97,7 @@ public sealed class SubscriptionSession : ISubscriptionSession
             lock (_gate)
             {
                 _subs.Remove(name, out sub);
+                _gated.Remove(name);
             }
 
             sub?.Dispose();
@@ -106,6 +112,7 @@ public sealed class SubscriptionSession : ISubscriptionSession
         {
             all = [.. _subs.Values];
             _subs.Clear();
+            _gated.Clear();
         }
 
         _cts.Cancel();
@@ -139,6 +146,27 @@ public sealed class SubscriptionSession : ISubscriptionSession
         return (SubscribeStatuses.Ok, () => _outbound.EnqueueAsync(_frames.GraphLod(outgoing), _cts.Token).AsTask());
     }
 
+    /// <summary>
+    /// A non-GC, non-graph stream (<c>presence</c>) is subscribable only when a registered <see cref="IStreamGate"/> names it and
+    /// allows the principal. There is no replay: the client fetches current state with a request. Without a gate the answer is
+    /// <c>denied</c>, which is also the answer for unknown names.
+    /// </summary>
+    private async Task<string> SubscribeGatedAsync(string stream, CancellationToken ct)
+    {
+        var gate = Array.Find(_gates, g => string.Equals(g.Stream, stream, StringComparison.Ordinal));
+        if (gate is null || !await gate.CanSubscribeAsync(_principalId, _principalKind, ct).ConfigureAwait(false))
+        {
+            return SubscribeStatuses.Denied;
+        }
+
+        lock (_gate)
+        {
+            _gated.Add(stream);
+        }
+
+        return SubscribeStatuses.Ok;
+    }
+
     private async Task<(string Status, Func<Task>? Start)> SubscribeOneAsync(StreamCursor cursor, CancellationToken ct)
     {
         if (WireStreams.TryParseGraph(cursor.S, out var graphId))
@@ -148,7 +176,7 @@ public sealed class SubscriptionSession : ISubscriptionSession
 
         if (!WireStreams.TryParseGc(cursor.S, out var gcId))
         {
-            return (SubscribeStatuses.Denied, null);
+            return (await SubscribeGatedAsync(cursor.S, ct).ConfigureAwait(false), null);
         }
 
         if (!await _access.CanReadAsync(_principalId, _principalKind, gcId, ct).ConfigureAwait(false))
