@@ -61,6 +61,7 @@
     <Project Path="src/Bazaar.Client.Studio.Abstractions/Bazaar.Client.Studio.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Souls/Bazaar.Client.Souls.csproj" />
     <Project Path="src/Bazaar.Client.Views/Bazaar.Client.Views.csproj" />
+    <Project Path="src/Bazaar.Client.Windowing/Bazaar.Client.Windowing.csproj" />
     <Project Path="src/Bazaar.Client.Terminal/Bazaar.Client.Terminal.csproj" />
     <Project Path="src/Bazaar.Client.Windows/Bazaar.Client.Windows.csproj" />
     <Project Path="src/Bazaar.Components.ManagedPostgres/Bazaar.Components.ManagedPostgres.csproj" />
@@ -74,6 +75,7 @@
     <Project Path="src/Bazaar.Wire.Generators/Bazaar.Wire.Generators.csproj" />
     <Project Path="src/Bazaar.Wire.Codec.Cbor/Bazaar.Wire.Codec.Cbor.csproj" />
     <Project Path="src/Bazaar.Wire.Codec.MessagePack/Bazaar.Wire.Codec.MessagePack.csproj" />
+    <Project Path="src/Bazaar.Wire.Codec.Protobuf/Bazaar.Wire.Codec.Protobuf.csproj" />
     <Project Path="src/Bazaar.Wire.Conformance/Bazaar.Wire.Conformance.csproj" />
     <Project Path="src/Bazaar.Server.Wire.Abstractions/Bazaar.Server.Wire.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Wire/Bazaar.Server.Wire.csproj" />
@@ -362,6 +364,7 @@
     <Project Path="tests/Bazaar.Constellation.Vulkan.BenchGate/Bazaar.Constellation.Vulkan.BenchGate.csproj" />
     <Project Path="tests/Bazaar.Constellation.Vulkan.BenchGate.Tests/Bazaar.Constellation.Vulkan.BenchGate.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.LocalInference.Tests/Bazaar.Client.LocalInference.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Windowing.Tests/Bazaar.Client.Windowing.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Terminal.Tests/Bazaar.Client.Terminal.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Abstractions.Tests/Bazaar.Wire.Abstractions.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Generators.Tests/Bazaar.Wire.Generators.Tests.csproj" />
@@ -369,6 +372,7 @@
     <Project Path="tests/Bazaar.Transport.Grpc.Tests/Bazaar.Transport.Grpc.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Codec.MessagePack.Tests/Bazaar.Wire.Codec.MessagePack.Tests.csproj" />
     <Project Path="tests/Bazaar.Wire.Schema.Tests/Bazaar.Wire.Schema.Tests.csproj" />
+    <Project Path="tests/Bazaar.Wire.Codec.Protobuf.Tests/Bazaar.Wire.Codec.Protobuf.Tests.csproj" />
     <Project Path="tests/Bazaar.Contracts.Tests/Bazaar.Contracts.Tests.csproj" />
     <Project Path="tests/Bazaar.Diagnostics.Tests/Bazaar.Diagnostics.Tests.csproj" />
     <Project Path="tests/Bazaar.Engines.Tests/Bazaar.Engines.Tests.csproj" />

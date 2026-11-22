@@ -198,7 +198,7 @@ Implements sections 4, 5 and 7 for the tarball (owner card 2026-11-19; the compa
 3. `ITerminalBackend` and the Linux local PTY (no blocking conflict now).
 4. Linux server package and smoke test (needs 2).
 5. Windows server MSI spike, then build (needs 2).
-6. Velopack pack spike for the Windows client (needs doc 28's head).
+6. Velopack pack spike for the Windows client (needs doc 28's head). **Status (2026-11-20): script written, spike still OPEN.** `packaging/velopack/pack-client.ps1` runs `vpk pack` once per channel (`--channel win-x64-<channel>`, so each channel has its own `releases.<channel>.json` feed), signs the produced `*.exe` afterwards through `packaging/signing/signer.ps1`, and writes `FEED-MANIFEST.txt` (channel, ring, version, SHA-256 per file). It never uploads. Verified against Velopack docs: the flag names used and the per-channel `releases.{channel}.json` feed. Not verified: Setup.exe and `.nupkg` naming per channel, legacy `RELEASES-<channel>` output, vpk exit codes, signing of the app binaries inside the package (only the installer is signed today). No real `vpk` run has happened. The dry-run test (`test-pack-client.ps1`) had not been run when this note was written, because `pwsh` was not available in the authoring environment.
 7. `release.yml` draft: environment gate, checksums, draft release, no signing yet.
 8. SignPath integration (route chosen; timing per setting `packaging.signing_mode`).
 9. Linux client head on the shared UI (needs docs 27 and 28); `.desktop` and `xdg-mime`; Monaco only after the WebKitGTK spike; Flatpak spike.
