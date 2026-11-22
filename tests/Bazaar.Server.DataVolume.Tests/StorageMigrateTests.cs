@@ -101,7 +101,10 @@ public sealed class StorageMigrateTests : IDisposable
                 }
                 else if (entry is DirectoryInfo child)
                 {
-                    map[relative] = "dir:" + child.LastWriteTimeUtc.Ticks;
+                    // No directory time here: NTFS updates a folder's last-write time lazily, after the files made in it
+                    // are closed, so it can move after the snapshot without anything touching the folder. An added or
+                    // removed entry still shows up as a different key set.
+                    map[relative] = "dir";
                     Walk(child);
                 }
                 else

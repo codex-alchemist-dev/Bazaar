@@ -222,10 +222,11 @@ public sealed class PipeProtocolTests
         var security = VolumeStatusPipeServer.BuildSecurity(service);
 
         var rules = security.GetAccessRules(true, false, typeof(SecurityIdentifier)).Cast<PipeAccessRule>().ToList();
+        // Windows adds Synchronize to every allow rule on a pipe, so the comparison leaves it out.
         var allowed = rules.Where(r => r.AccessControlType == AccessControlType.Allow)
-            .Select(r => ((SecurityIdentifier)r.IdentityReference, r.PipeAccessRights)).ToList();
-        Assert.Contains((new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl), allowed);
-        Assert.Contains((new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.FullControl), allowed);
+            .Select(r => ((SecurityIdentifier)r.IdentityReference, r.PipeAccessRights & ~PipeAccessRights.Synchronize)).ToList();
+        Assert.Contains((new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null), PipeAccessRights.FullControl & ~PipeAccessRights.Synchronize), allowed);
+        Assert.Contains((new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null), PipeAccessRights.FullControl & ~PipeAccessRights.Synchronize), allowed);
         Assert.Contains((service, PipeAccessRights.ReadWrite), allowed);
         Assert.Equal(3, allowed.Count);
         Assert.Contains(rules, r => r.AccessControlType == AccessControlType.Deny
