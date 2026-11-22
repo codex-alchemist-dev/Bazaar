@@ -21,9 +21,17 @@ internal sealed record TokenReply(
     [property: JsonPropertyName("expires_in")] int ExpiresIn,
     [property: JsonPropertyName("refresh_token")] string? RefreshToken);
 
+/// <summary>The 200 body of <c>GET /auth/whoami</c> (doc 32 section 5).</summary>
+internal sealed record WhoAmIReply(
+    [property: JsonPropertyName("human_id")] Guid HumanId,
+    [property: JsonPropertyName("display_name")] string? DisplayName,
+    [property: JsonPropertyName("role")] string? Role,
+    [property: JsonPropertyName("device_id")] Guid DeviceId);
+
 /// <summary>Source-generated JSON, so the client needs no reflection (CLAUDE.md).</summary>
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.Unspecified)]
 [JsonSerializable(typeof(HandoffRequest))]
 [JsonSerializable(typeof(RefreshRequest))]
 [JsonSerializable(typeof(TokenReply))]
+[JsonSerializable(typeof(WhoAmIReply))]
 internal sealed partial class SignInJsonContext : JsonSerializerContext;

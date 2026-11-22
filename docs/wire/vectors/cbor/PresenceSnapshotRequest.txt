@@ -1,0 +1,15 @@
+Golden frame: PresenceSnapshotRequest
+Codec: cbor (binary)
+Protocol: 1.0
+Schema hash: sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e
+Payload record: Bazaar.Contracts.Wire.PresenceSnapshotRequest
+Envelope: v=1 t=presence.snapshot k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
+Frame length: 121 bytes
+Payload as JSON: {}
+Frame hex:
+  A861760161747170726573656E63652E736E617073686F74616B636576746269
+  6468766563746F722D316173782767633A30313936613666302D303030302D37
+  3030302D383030302D303030303030303030303031616E07627473C078183230
+  32362D31312D31395430353A33363A31322E3334355A6170A0
+
+A foreign client passes when it decodes the .bin file to this envelope and payload, and encodes them back to the same bytes.
