@@ -180,4 +180,4 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 5. How much motion on desktop: the proposed half-length set, or phone-level Fluid everywhere?
 6. Tablet and desktop-mode Android behaviour, iconography, empty and error states, and the dashboard layout are not covered here and come in a later round.
 7. Book and tabletop: separate server variants, or one half-open variant with an orientation flag?
-8. Can the merge (goo) effect be dropped on a device where it costs too much, falling back to squash and stretch only, or must every device show it?
+8. Can the merge (goo) effect be dropped on a device where it costs too much, falling back to squash and stretch only? **Recommended answer: yes, automatically.** This follows the owner's standing principle of no graphics settings, all dynamic (as for the Constellation): the client measures frame time and drops the merge effect, then other effects, one level at a time, without a user setting, and restores them when there is headroom. The person can still choose `reduced` in `client.motion_level`.
