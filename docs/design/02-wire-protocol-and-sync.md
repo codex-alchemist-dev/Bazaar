@@ -72,6 +72,8 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 
 **Versioning [PROPOSED].** Version is `major.minor`. Minors only add optional fields, event types and capability flags; receivers ignore unknown fields and events; an unknown request returns `err unsupported`. The server supports the current and previous major. With no overlap, `welcome` carries `upgrade_required` and the minimum build, then the socket closes with 4426.
 
+**Welcome compatibility fields [PROPOSED].** `welcome` ends with two optional fields, added as a minor change (older clients ignore them; a `welcome` without them still decodes, with both read as null): `schemaVersion` (string, the server's database schema version from doc 04, so a client updater can judge whether a build fits; not the wire `SchemaHash` of doc 90, which identifies the wire schema) and `previousMajorSupported` (bool, the effective value of `wire.previous_major_supported`). The server fills `previousMajorSupported` on every `welcome`, including the `upgrade_required` one. `schemaVersion` is left out until doc 04 defines one schema version value (its migrations are versioned per namespace today). `Bazaar.Contracts` exposes a pure `WelcomeCompatibility` mapping (`major.minor` strings, unknown as null) for client heads. The fields from doc 90 (`Offers`, `OfferHash`, `SchemaHash`) land later and are appended after these; whichever change merges second merges main.
+
 **Server-driven layout [PROPOSED].**
 - `ui.get { deviceClass, viewport, posture }` returns a `UiProfile`: start-screen widgets, navigation, palette commands, theme reference, overrides and preferences. It carries a variant for every posture the server supports (folded, unfolded, half-open), so the client switches locally with no round trip (C27).
 - `ui.changed { revision }` follows any change; `prefs.set` is validated and stored by the server.
@@ -86,6 +88,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | Sign-in and handoff routes | Three routes, off by default, no content | 32 |
+| Provisioning routes `POST /setup/plans`, `POST /setup/plans/{hash}/apply`, `GET /setup/status` | JSON only, own rate bucket; bootstrap code plus loopback before the owner exists, then the owner role only; not sign-in routes | 45 (section 1.9) |
 | `POST /hooks/github/{opaque}` | Optional webhook, only behind an operator tunnel | 21 |
 | `GET /status` | Status page: format here, contents in 23 | 23 |
 
