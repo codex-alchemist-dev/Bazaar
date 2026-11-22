@@ -30,31 +30,35 @@ public enum VoteDisposition
 public sealed record PeerVoteResult(VoteDisposition Disposition, AccountApprovalDecision? Decision);
 
 /// <summary>
-/// Collects peer approvals for account-creation requests (doc 15). One lock serialises all changes, so a duplicate approval, an
-/// approval racing a refusal and a late approval are each decided in one order. Every final decision is audited once and, when it
-/// needs the owner, handed off once. The audit row is written before the state changes: no audit, no decision.
-/// State is in memory; a request does not survive a restart (the hand-off and audit rows do).
+/// Collects peer approvals for account-creation requests (doc 15). One lock serialises all changes in this process, and the store
+/// applies each vote and decision atomically and only while the request is pending, so a duplicate approval, an approval racing a
+/// refusal and a late approval are each decided in one order. Every final decision is audited once and, when it needs the owner,
+/// handed off once. The audit row is written before the state changes: no audit, no decision. Any store error propagates: the request
+/// is not approved (fail closed). State lives in the <see cref="IAccountApprovalStore"/>: in memory by default, in Postgres when
+/// <c>Bazaar.Server.AccountApproval.Postgres</c> is loaded, in which case requests and votes survive a restart.
 /// </summary>
 public sealed class AccountApprovalService : IDisposable
 {
     private readonly IApproverDirectory _directory;
     private readonly IAuditLog _audit;
     private readonly IOwnerApprovalHandOff _handOff;
+    private readonly IAccountApprovalStore _store;
     private readonly AccountApprovalOptions _options;
     private readonly TimeProvider _time;
     private readonly SemaphoreSlim _gate = new(1, 1);
-    private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
 
     public AccountApprovalService(
         IApproverDirectory directory,
         IAuditLog audit,
         IOwnerApprovalHandOff handOff,
+        IAccountApprovalStore store,
         IOptions<AccountApprovalOptions> options,
         TimeProvider? time = null)
     {
         _directory = directory;
         _audit = audit;
         _handOff = handOff;
+        _store = store;
         _options = options.Value;
         var errors = _options.Validate();
         if (errors.Count > 0)
@@ -78,21 +82,22 @@ public sealed class AccountApprovalService : IDisposable
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (_entries.TryGetValue(request.RequestId, out var existing))
+            var existing = await _store.GetAsync(request.RequestId, ct).ConfigureAwait(false);
+            if (existing is not null)
             {
-                if (!string.Equals(existing.Request.RequesterAgentId, request.RequesterAgentId, StringComparison.Ordinal)
-                    || !string.Equals(existing.Request.Service, request.Service, StringComparison.Ordinal))
-                {
-                    throw new InvalidOperationException($"Request id '{request.RequestId}' is already used for a different request.");
-                }
-
-                return existing.Decision;
+                return SameRequestOrThrow(existing, request).Decision;
             }
 
-            var entry = new Entry(request);
-            await EvaluateAsync(entry, ct).ConfigureAwait(false);
-            _entries[request.RequestId] = entry;
-            return entry.Decision;
+            var decision = await EvaluateAsync(request, [], ct).ConfigureAwait(false);
+            if (!await _store.TryCreateAsync(request, decision, ct).ConfigureAwait(false))
+            {
+                // Another writer stored this id first. Its decision stands.
+                var winner = await _store.GetAsync(request.RequestId, ct).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException($"Request id '{request.RequestId}' could not be stored.");
+                return SameRequestOrThrow(winner, request).Decision;
+            }
+
+            return decision;
         }
         finally
         {
@@ -108,47 +113,49 @@ public sealed class AccountApprovalService : IDisposable
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (!_entries.TryGetValue(vote.RequestId ?? string.Empty, out var entry))
+            var record = await _store.GetAsync(vote.RequestId ?? string.Empty, ct).ConfigureAwait(false);
+            if (record is null)
             {
                 return new PeerVoteResult(VoteDisposition.UnknownRequest, null);
             }
 
-            if (!string.Equals(vote.Service, entry.Request.Service, StringComparison.Ordinal))
+            if (!string.Equals(vote.Service, record.Request.Service, StringComparison.Ordinal))
             {
-                return new PeerVoteResult(VoteDisposition.BindingMismatch, entry.Decision);
+                return new PeerVoteResult(VoteDisposition.BindingMismatch, record.Decision);
             }
 
-            if (entry.Decision is not Pending)
+            if (record.Decision is not Pending)
             {
-                return new PeerVoteResult(VoteDisposition.AlreadyDecided, entry.Decision);
+                return new PeerVoteResult(VoteDisposition.AlreadyDecided, record.Decision);
             }
 
             var candidates = await LoadCandidatesAsync(ct).ConfigureAwait(false);
-            var eligible = AccountApprovalPolicy.EligibleApprovers(entry.Request, candidates, _options);
+            var eligible = AccountApprovalPolicy.EligibleApprovers(record.Request, candidates, _options);
             if (!eligible.Contains(vote.ApproverAgentId, StringComparer.Ordinal))
             {
-                await AppendVoteAsync(entry, vote, VoteDisposition.Ineligible, ct).ConfigureAwait(false);
-                return new PeerVoteResult(VoteDisposition.Ineligible, entry.Decision);
+                await AppendVoteAsync(record.Request, vote, VoteDisposition.Ineligible, ct).ConfigureAwait(false);
+                return new PeerVoteResult(VoteDisposition.Ineligible, record.Decision);
             }
 
-            if (entry.Votes.Any(v => string.Equals(v.ApproverAgentId, vote.ApproverAgentId, StringComparison.Ordinal) && v.Kind == vote.Kind))
+            if (record.Votes.Any(v => string.Equals(v.ApproverAgentId, vote.ApproverAgentId, StringComparison.Ordinal) && v.Kind == vote.Kind))
             {
-                return new PeerVoteResult(VoteDisposition.Duplicate, entry.Decision);
+                return new PeerVoteResult(VoteDisposition.Duplicate, record.Decision);
             }
 
-            await AppendVoteAsync(entry, vote, VoteDisposition.Counted, ct).ConfigureAwait(false);
-            entry.Votes.Add(vote);
-            try
+            await AppendVoteAsync(record.Request, vote, VoteDisposition.Counted, ct).ConfigureAwait(false);
+            var decision = await EvaluateAsync(record.Request, [.. record.Votes, vote], ct).ConfigureAwait(false);
+            switch (await _store.TryAppendVoteAsync(vote, decision, ct).ConfigureAwait(false))
             {
-                await EvaluateAsync(entry, ct).ConfigureAwait(false);
+                case StoredVoteOutcome.Stored:
+                    return new PeerVoteResult(VoteDisposition.Counted, decision);
+                case StoredVoteOutcome.DuplicateVote:
+                    return new PeerVoteResult(VoteDisposition.Duplicate, record.Decision);
+                case StoredVoteOutcome.AlreadyDecided:
+                    var current = await _store.GetAsync(record.Request.RequestId, ct).ConfigureAwait(false);
+                    return new PeerVoteResult(VoteDisposition.AlreadyDecided, current?.Decision ?? record.Decision);
+                default:
+                    return new PeerVoteResult(VoteDisposition.UnknownRequest, null);
             }
-            catch
-            {
-                entry.Votes.Remove(vote);
-                throw;
-            }
-
-            return new PeerVoteResult(VoteDisposition.Counted, entry.Decision);
         }
         finally
         {
@@ -162,17 +169,29 @@ public sealed class AccountApprovalService : IDisposable
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (!_entries.TryGetValue(requestId, out var entry))
+            var record = await _store.GetAsync(requestId, ct).ConfigureAwait(false);
+            if (record is null)
             {
                 return null;
             }
 
-            if (entry.Decision is Pending)
+            if (record.Decision is not Pending)
             {
-                await EvaluateAsync(entry, ct).ConfigureAwait(false);
+                return record.Decision;
             }
 
-            return entry.Decision;
+            var decision = await EvaluateAsync(record.Request, record.Votes, ct).ConfigureAwait(false);
+            if (decision == record.Decision)
+            {
+                return decision; // Still pending with the same count: nothing new to record.
+            }
+
+            if (!await _store.TryDecideAsync(requestId, decision, ct).ConfigureAwait(false))
+            {
+                return (await _store.GetAsync(requestId, ct).ConfigureAwait(false))?.Decision;
+            }
+
+            return decision;
         }
         finally
         {
@@ -185,7 +204,7 @@ public sealed class AccountApprovalService : IDisposable
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            return _entries.TryGetValue(requestId, out var entry) ? entry.Decision : null;
+            return (await _store.GetAsync(requestId, ct).ConfigureAwait(false))?.Decision;
         }
         finally
         {
@@ -193,14 +212,21 @@ public sealed class AccountApprovalService : IDisposable
         }
     }
 
-    // Must run under _gate. Audit, then hand-off, then commit: a failure leaves the request as it was.
-    private async Task EvaluateAsync(Entry entry, CancellationToken ct)
+    private static AccountApprovalRecord SameRequestOrThrow(AccountApprovalRecord existing, AccountApprovalRequest request) =>
+        string.Equals(existing.Request.RequesterAgentId, request.RequesterAgentId, StringComparison.Ordinal)
+        && string.Equals(existing.Request.Service, request.Service, StringComparison.Ordinal)
+            ? existing
+            : throw new InvalidOperationException($"Request id '{request.RequestId}' is already used for a different request.");
+
+    // Must run under _gate. Audit, then hand-off; the caller commits the decision to the store afterwards: a failure leaves the request as it was.
+    private async Task<AccountApprovalDecision> EvaluateAsync(
+        AccountApprovalRequest request, IReadOnlyList<PeerVote> votes, CancellationToken ct)
     {
         var candidates = await LoadCandidatesAsync(ct).ConfigureAwait(false);
-        var decision = AccountApprovalPolicy.Decide(entry.Request, entry.Votes, candidates, _options, _time.GetUtcNow());
+        var decision = AccountApprovalPolicy.Decide(request, votes, candidates, _options, _time.GetUtcNow());
         if (decision is not Pending)
         {
-            await _audit.AppendAsync(DecisionEntry(entry.Request, decision), ct).ConfigureAwait(false);
+            await _audit.AppendAsync(DecisionEntry(request, decision), ct).ConfigureAwait(false);
             if (decision is NeedsOwner owner)
             {
                 await _handOff.RequestOwnerApprovalAsync(new OwnerApprovalRequest(owner.RequestId, owner.Rule.ToString(), owner.Evidence), ct)
@@ -208,7 +234,7 @@ public sealed class AccountApprovalService : IDisposable
             }
         }
 
-        entry.Decision = decision;
+        return decision;
     }
 
     private async Task<IReadOnlyList<ApproverCandidate>> LoadCandidatesAsync(CancellationToken ct)
@@ -232,7 +258,7 @@ public sealed class AccountApprovalService : IDisposable
         return result;
     }
 
-    private Task AppendVoteAsync(Entry entry, PeerVote vote, VoteDisposition disposition, CancellationToken ct) =>
+    private Task AppendVoteAsync(AccountApprovalRequest request, PeerVote vote, VoteDisposition disposition, CancellationToken ct) =>
         _audit.AppendAsync(
             new AuditEntry(
                 _time.GetUtcNow(),
@@ -240,9 +266,9 @@ public sealed class AccountApprovalService : IDisposable
                 "account_approval.peer_vote",
                 JsonSerializer.Serialize(new Dictionary<string, object?>
                 {
-                    ["requestId"] = entry.Request.RequestId,
-                    ["requester"] = entry.Request.RequesterAgentId,
-                    ["service"] = entry.Request.Service,
+                    ["requestId"] = request.RequestId,
+                    ["requester"] = request.RequesterAgentId,
+                    ["service"] = request.Service,
                     ["approver"] = vote.ApproverAgentId,
                     ["vote"] = vote.Kind.ToString(),
                     ["disposition"] = disposition.ToString(),
@@ -274,20 +300,5 @@ public sealed class AccountApprovalService : IDisposable
                 ["refusers"] = votes.Where(v => v.Kind == PeerVoteKind.Refuse).Select(v => v.ApproverAgentId).ToArray(),
                 ["siteVoteReference"] = request.SiteVote?.VoteReference,
             }));
-    }
-
-    private sealed class Entry
-    {
-        public Entry(AccountApprovalRequest request)
-        {
-            Request = request;
-            Decision = new Pending(request.RequestId, 0, 0);
-        }
-
-        public AccountApprovalRequest Request { get; }
-
-        public List<PeerVote> Votes { get; } = [];
-
-        public AccountApprovalDecision Decision { get; set; }
     }
 }
