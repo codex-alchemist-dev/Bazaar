@@ -7,29 +7,30 @@ namespace Bazaar.Install.Trust;
 /// The exact bytes a publisher signs for a module package.
 /// </summary>
 /// <remarks>
-/// Format 0x02 (owner, 2026-11-16: host requirements are signed). Layout: one version prefix byte, then the module id, the
-/// version and the content digest, each UTF-8 and preceded by its byte length as a 4-byte big-endian integer. After those come
+/// Format 0x03 (the publisher id is signed, doc 48 section 1). Layout: one version prefix byte, then the module id, the
+/// version, the content digest and the publisher id, each UTF-8 and preceded by its byte length as a 4-byte big-endian integer. After those come
 /// tagged fields, in this order: each declared permission as <c>permission:&lt;name&gt;</c> in ordinal sort order, then the host
 /// requirements as <c>host.schema:&lt;n&gt;</c>, <c>host.os:&lt;name&gt;</c>, <c>host.arch:&lt;name&gt;</c> and
 /// <c>host.feature:&lt;name&gt;</c>, each group sorted ordinal. The tags keep a permission from being read as a host value.
-/// The signer key id is not signed, because the key is looked up by that id and must verify under it. Format 0x01 (no host
-/// requirements) is retired; no module package has been published under it.
+/// The signer key id is not signed, because the key is looked up by that id and must verify under it. Formats 0x01 (no host
+/// requirements) and 0x02 (no publisher id) are retired; no module package has been published under it.
 /// </remarks>
 public static class ModuleCanonicalForm
 {
     /// <summary>The format version prefix byte.</summary>
-    public const byte FormatVersion = 0x02;
+    public const byte FormatVersion = 0x03;
 
     /// <summary>The canonical bytes for the package. Null-checks the package; does not validate its fields.</summary>
     public static byte[] Build(ModulePackage package)
     {
         ArgumentNullException.ThrowIfNull(package);
 
-        var fields = new List<string>(capacity: 3 + package.DeclaredPermissions.Count + 1)
+        var fields = new List<string>(capacity: 4 + package.DeclaredPermissions.Count + 1)
         {
             package.ModuleId,
             package.Version,
             package.ContentDigestSha256Hex,
+            package.PublisherId,
         };
         foreach (var permission in package.DeclaredPermissions.Order(StringComparer.Ordinal))
         {
