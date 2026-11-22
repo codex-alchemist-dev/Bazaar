@@ -18,7 +18,7 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
     private CouncilStore NewStore() => new(db.DataSource, new CouncilTestCipher());
 
-    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null) => new(
+    private static CouncilVoteRecord NewVote(Guid gcId, VoteKind kind = VoteKind.ApproveReject, IReadOnlyList<string>? options = null, bool highImpact = false) => new(
         Guid.CreateVersion7(),
         gcId,
         "task:42",
@@ -34,7 +34,8 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
         "agent-author",
         987654321L,
         null,
-        _opened);
+        _opened,
+        highImpact);
 
     private static StoredBallot NewBallot(Guid voteId, string voter, BallotPhase phase, string choice, string reasoning, DateTimeOffset at) =>
         new(voteId, voter, phase, choice, reasoning, TaintedAtWrite: false, SubmittedAt: at);
@@ -92,6 +93,21 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
         // Opening writes the first transition in the same transaction: null to Collecting, reason "open".
         Assert.Equal([(1L, (string?)null, "collecting", "open")], await TransitionsAsync(vote.VoteId));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_high_impact_flag_round_trips(bool highImpact)
+    {
+        SkipWithoutDatabase();
+        var store = NewStore();
+        var gcId = await db.CreateGcAsync();
+        var vote = NewVote(gcId, highImpact: highImpact);
+
+        await store.InsertVoteAsync(vote, Ct);
+
+        Assert.Equal(highImpact, (await store.FindVoteAsync(vote.VoteId, Ct))!.HighImpact);
     }
 
     [Fact]
@@ -262,5 +278,53 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
 
         Assert.Equal(7, (await store.FindVoteAsync(vote.VoteId, Ct))!.VaultDecisionNo);
         await Assert.ThrowsAsync<InvalidOperationException>(() => store.SetVaultDecisionNoAsync(vote.VoteId, 8, Ct));
+    }
+
+    [Fact]
+    public async Task Sweep_queries_find_overdue_and_stuck_votes_and_recent_decisions()
+    {
+        SkipWithoutDatabase();
+        var store = NewStore();
+        var gcId = await db.CreateGcAsync();
+        var far = _due.AddDays(30);
+
+        // Overdue and still collecting: due at the sweep time.
+        var overdue = NewVote(gcId);
+        await store.InsertVoteAsync(overdue, Ct);
+
+        // Still collecting with a deadline in the future: not due.
+        var future = NewVote(gcId) with { DeadlineAt = far };
+        await store.InsertVoteAsync(future, Ct);
+
+        // Revealed: a crash leftover, due whatever its deadline.
+        var revealed = NewVote(gcId) with { DeadlineAt = far };
+        await store.InsertVoteAsync(revealed, Ct);
+        Assert.True(await store.TryTransitionAsync(revealed.VoteId, 1, VoteState.Revealed, "all eligible ballots cast", _due, null, null, Ct));
+
+        // Decided at the sweep time: not due, but a recent decision.
+        var decided = NewVote(gcId) with { DeadlineAt = far };
+        await store.InsertVoteAsync(decided, Ct);
+        Assert.True(await store.TryTransitionAsync(decided.VoteId, 1, VoteState.Revealed, "all eligible ballots cast", _due, null, null, Ct));
+        Assert.True(await store.TryTransitionAsync(decided.VoteId, 2, VoteState.Decided, "decided by tally", _due, null, null, Ct));
+
+        var due = await store.ListVotesDueAsync(_due.AddHours(1), 1000, Ct);
+        Assert.Contains(overdue.VoteId, due);
+        Assert.Contains(revealed.VoteId, due);
+        Assert.DoesNotContain(future.VoteId, due);
+        Assert.DoesNotContain(decided.VoteId, due);
+        var dueList = due.ToList();
+        Assert.True(dueList.IndexOf(revealed.VoteId) < dueList.IndexOf(overdue.VoteId), "Revealed votes come first.");
+
+        var recent = await store.ListDecidedSinceAsync(_due.AddHours(-1), 1000, Ct);
+        Assert.Contains(decided.VoteId, recent);
+        Assert.DoesNotContain(overdue.VoteId, recent);
+
+        var transitions = await store.ListTransitionsAsync(decided.VoteId, Ct);
+        var versions = new List<long> { 1L, 2L, 3L };
+        var states = new List<VoteState> { VoteState.Collecting, VoteState.Revealed, VoteState.Decided };
+        var reasons = new List<string> { "open", "all eligible ballots cast", "decided by tally" };
+        Assert.Equal(versions, transitions.Select(t => t.Version).ToList());
+        Assert.Equal(states, transitions.Select(t => t.To).ToList());
+        Assert.Equal(reasons, transitions.Select(t => t.Reason).ToList());
     }
 }

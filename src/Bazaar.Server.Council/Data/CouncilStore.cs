@@ -19,14 +19,14 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
 {
     private const string _voteColumns = """
         vote_id, gc_id, subject_ref, kind, motion_class, state, version, options::text, deadline_at, extensions,
-        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at
+        eligible_snapshot::text, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact
         """;
 
     private const string _insertVoteSql = """
         INSERT INTO council_vote (vote_id, gc_id, subject_ref, kind, motion_class, state, version, options, deadline_at,
-            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at)
+            extensions, eligible_snapshot, proposer_id, subject_author_id, reveal_seed, vault_decision_no, created_at, high_impact)
         VALUES (@vote_id, @gc_id, @subject_ref, @kind, @motion_class, @state, @version, @options::jsonb, @deadline_at,
-            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at)
+            @extensions, @eligible_snapshot::jsonb, @proposer_id, @subject_author_id, @reveal_seed, @vault_decision_no, @created_at, @high_impact)
         """;
 
     private const string _insertTransitionSql = """
@@ -51,6 +51,27 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     private const string _vaultDecisionNoSql = """
         UPDATE council_vote SET vault_decision_no = @decision_no
         WHERE vote_id = @vote_id AND (vault_decision_no IS NULL OR vault_decision_no = @decision_no)
+        """;
+
+    // Revealed votes first: a revealed vote is always a crash leftover, so it should not wait behind future deadlines.
+    private const string _dueVotesSql = """
+        SELECT vote_id FROM council_vote
+        WHERE state = 'revealed' OR (state IN ('collecting', 'follow_up') AND deadline_at <= @now)
+        ORDER BY (state = 'revealed') DESC, deadline_at, vote_id
+        LIMIT @limit
+        """;
+
+    private const string _decidedSinceSql = """
+        SELECT t.vote_id FROM council_transition t
+        WHERE t.to_state = 'decided' AND t.at >= @since
+        ORDER BY t.at, t.vote_id
+        LIMIT @limit
+        """;
+
+    private const string _listTransitionsSql = """
+        SELECT version, to_state, reason, at FROM council_transition
+        WHERE vote_id = @vote_id
+        ORDER BY version
         """;
 
     private const string _insertBallotSql = """
@@ -113,6 +134,7 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             cmd.Parameters.AddWithValue("reveal_seed", vote.RevealSeed);
             cmd.Parameters.AddWithValue("vault_decision_no", CouncilText.Nullable(vote.VaultDecisionNo));
             cmd.Parameters.AddWithValue("created_at", vote.CreatedAt);
+            cmd.Parameters.AddWithValue("high_impact", vote.HighImpact);
             await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
         }
 
@@ -215,6 +237,45 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_dueVotesSql);
+        cmd.Parameters.AddWithValue("now", now);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_decidedSinceSql);
+        cmd.Parameters.AddWithValue("since", since);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_listTransitionsSql);
+        cmd.Parameters.AddWithValue("vote_id", voteId);
+        var result = new List<CouncilTransitionRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(new CouncilTransitionRecord(
+                reader.GetInt64(0),
+                CouncilText.ParseState(reader.GetString(1)),
+                reader.GetString(2),
+                reader.GetFieldValue<DateTimeOffset>(3)));
+        }
+
+        return result;
+    }
+
+    /// <inheritdoc />
     public async Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(ballot);
@@ -297,6 +358,18 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
+    private static async Task<IReadOnlyList<Guid>> ReadVoteIdsAsync(NpgsqlCommand cmd, CancellationToken ct)
+    {
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
+    }
+
     private static NpgsqlParameter Jsonb(string name, string json) => new(name, NpgsqlDbType.Jsonb) { Value = json };
 
     private static CouncilVoteRecord ReadVote(NpgsqlDataReader r)
@@ -319,7 +392,8 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
             SubjectAuthorId: r.IsDBNull(12) ? null : r.GetString(12),
             RevealSeed: r.GetInt64(13),
             VaultDecisionNo: r.IsDBNull(14) ? null : r.GetInt32(14),
-            CreatedAt: r.GetFieldValue<DateTimeOffset>(15));
+            CreatedAt: r.GetFieldValue<DateTimeOffset>(15),
+            HighImpact: r.GetBoolean(16));
     }
 }
 

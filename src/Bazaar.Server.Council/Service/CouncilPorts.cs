@@ -19,6 +19,7 @@ namespace Bazaar.Server.Council.Service;
 /// <param name="RevealSeed">Seed for the stored, randomised reason order (council.reason_order).</param>
 /// <param name="VaultDecisionNo">NNNN of the decision file, once written; null before.</param>
 /// <param name="CreatedAt">When the vote opened.</param>
+/// <param name="HighImpact">The proposer's high-impact flag, fixed at open (doc 10, Follow-up on dissent).</param>
 public sealed record CouncilVoteRecord(
     Guid VoteId,
     Guid GcId,
@@ -35,7 +36,8 @@ public sealed record CouncilVoteRecord(
     string? SubjectAuthorId,
     long RevealSeed,
     int? VaultDecisionNo,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool HighImpact = false);
 
 /// <summary>
 /// One stored ballot (council_ballot, one row per voter and phase). Reasoning is plaintext here; the store encrypts it
@@ -56,6 +58,15 @@ public sealed record StoredBallot(
     string Reasoning,
     bool TaintedAtWrite,
     DateTimeOffset SubmittedAt);
+
+/// <summary>
+/// One row of the vote's transition history (council_transition), as the deadline sweeper reads it.
+/// </summary>
+/// <param name="Version">The vote version the transition wrote.</param>
+/// <param name="To">The state the transition moved the vote to.</param>
+/// <param name="Reason">The reason text the service wrote with the transition.</param>
+/// <param name="At">When the transition was written.</param>
+public sealed record CouncilTransitionRecord(long Version, VoteState To, string Reason, DateTimeOffset At);
 
 /// <summary>
 /// Storage port for the Council service. Implemented over Postgres by the store (WP3); the service and its tests use fakes.
@@ -90,6 +101,22 @@ public interface ICouncilStore
     Task<IReadOnlyList<StoredBallot>> ListBallotsAsync(Guid voteId, CancellationToken ct);
 
     /// <summary>
+    /// Votes the deadline sweeper must look at: votes in Collecting or FollowUp whose deadline is at or before
+    /// <paramref name="now"/>, and votes in Revealed (a crash after the reveal transition left them there). Revealed votes
+    /// come first, then by deadline, then by id. At most <paramref name="limit"/> ids.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListVotesDueAsync(DateTimeOffset now, int limit, CancellationToken ct);
+
+    /// <summary>
+    /// Decided votes whose decided transition was written at or after <paramref name="since"/>, oldest first, at most
+    /// <paramref name="limit"/> ids. Used to re-drive a decision whose council.decision event may not have been written.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> ListDecidedSinceAsync(DateTimeOffset since, int limit, CancellationToken ct);
+
+    /// <summary>The vote's transition history in version order (council_transition).</summary>
+    Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct);
+
+    /// <summary>
     /// Inserts a ballot for (vote, voter, phase). Returns false when that phase already has a ballot for the voter;
     /// the caller decides whether that is a rejection (independent) or a change (follow-up versions are kept in the store).
     /// </summary>
@@ -114,4 +141,15 @@ public interface ICouncilDecisionWriter
 {
     /// <summary>Writes the decision file for a decided or owner-resolved vote and returns its number.</summary>
     Task<int> WriteDecisionAsync(Guid voteId, string slug, string markdownBody, CancellationToken ct);
+}
+
+/// <summary>
+/// Port to the live follow-up dissent share (doc 10, Follow-up on dissent). The host adapter reads the operator setting
+/// <c>council.followup_dissent_share</c>; the module cannot reference the settings store, so it asks through this port at
+/// each tally and an operator change applies without a restart. Without an adapter <see cref="CouncilOptions.FollowupDissentShare"/> stands.
+/// </summary>
+public interface ICouncilDissentShareSource
+{
+    /// <summary>Reads the current dissent share, a fraction in (0, 1].</summary>
+    Task<decimal> GetFollowupDissentShareAsync(CancellationToken ct);
 }
