@@ -181,6 +181,13 @@ public static class ExportBundleAssembler
             await File.WriteAllBytesAsync(Path.Combine(work, BundleSigner.SignatureFileName), signature, ct);
             await File.WriteAllBytesAsync(Path.Combine(work, BundleSigner.PublicKeyFileName), publicKey, ct);
 
+            // Doc 44 section 6.2: re-read what was written before the bundle is offered. A failure leaves no bundle.
+            var selfCheck = await SelfCheckAsync(work, manifestBytes, files, signature, publicKey, ct);
+            if (selfCheck.Count > 0)
+            {
+                throw new InvalidOperationException("The bundle failed its self-check and is incomplete: " + string.Join(" ", selfCheck));
+            }
+
             string? archive = null;
             if (options.EncryptedArchivePath is not null)
             {
@@ -215,6 +222,62 @@ public static class ExportBundleAssembler
             if (archiveTemp is not null && File.Exists(archiveTemp)) File.Delete(archiveTemp);
             throw;
         }
+    }
+
+    /// <summary>
+    /// The section 6.2 self-check at the file level, streaming from disk: the manifest is the bytes that were signed and its
+    /// signature verifies, every listed file hashes to its entry, and no file on disk is unlisted. Chain checks (GC, audit) belong to
+    /// <c>Bazaar.Server.Portability.Verifier</c>, which references this project, so the sources run their own chain self-checks
+    /// (<see cref="GcExportSelfCheck"/>, the audit replay) and the assembler checks the bytes. Returns the problems, empty when sound.
+    /// </summary>
+    private static async Task<List<string>> SelfCheckAsync(
+        string work, byte[] manifestBytes, IReadOnlyList<ExportedFile> files, byte[] signature, byte[] publicKey, CancellationToken ct)
+    {
+        var problems = new List<string>();
+        var manifestOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, ExportBundleWriter.ManifestFileName), ct);
+        if (!manifestOnDisk.AsSpan().SequenceEqual(manifestBytes))
+        {
+            problems.Add("manifest.json on disk is not the manifest that was signed.");
+        }
+
+        var signatureOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, BundleSigner.SignatureFileName), ct);
+        var keyOnDisk = await File.ReadAllBytesAsync(Path.Combine(work, BundleSigner.PublicKeyFileName), ct);
+        if (!signatureOnDisk.AsSpan().SequenceEqual(signature) || !keyOnDisk.AsSpan().SequenceEqual(publicKey)
+            || !BundleSigner.VerifyManifest(manifestOnDisk, signatureOnDisk, keyOnDisk))
+        {
+            problems.Add("the manifest signature does not verify.");
+        }
+
+        var listed = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var file in files)
+        {
+            ct.ThrowIfCancellationRequested();
+            listed.Add(file.Path);
+            var full = Path.Combine(work, file.Path.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(full))
+            {
+                problems.Add("missing from the bundle: " + file.Path);
+                continue;
+            }
+
+            await using var stream = File.OpenRead(full);
+            var actual = await GcJsonlFormat.HashAsync(file.Path, stream, ct);
+            if (actual.Bytes != file.Bytes || actual.Sha256 != file.Sha256)
+            {
+                problems.Add("changed after it was hashed: " + file.Path);
+            }
+        }
+
+        foreach (var full in Directory.EnumerateFiles(work, "*", SearchOption.AllDirectories))
+        {
+            var relative = Path.GetRelativePath(work, full).Replace(Path.DirectorySeparatorChar, '/');
+            if (relative != ExportBundleWriter.ManifestFileName && !BundleSigner.IsSignatureFile(relative) && !listed.Contains(relative))
+            {
+                problems.Add("not listed in the manifest: " + relative);
+            }
+        }
+
+        return problems;
     }
 
     /// <summary>Reads a bundle directory (as <see cref="AssembleAsync"/> wrote it) into memory, for verification or encryption.</summary>
