@@ -147,6 +147,7 @@
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.Retention/Bazaar.Server.Gateway.Retention.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.LoopGuard.Abstractions/Bazaar.LoopGuard.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.LoopGuard/Bazaar.Server.LoopGuard.csproj" />
@@ -343,6 +344,7 @@
     <Project Path="tests/Bazaar.Rubedo.Docs.Tests/Bazaar.Rubedo.Docs.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.LanguageServer.Tests/Bazaar.Rubedo.LanguageServer.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Retention.Tests/Bazaar.Server.Retention.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Gateway.Retention.Tests/Bazaar.Server.Gateway.Retention.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Kodo.Tests/Bazaar.Client.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Org.Tests/Bazaar.Client.Org.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Calendar.Tests/Bazaar.Client.Calendar.Tests.csproj" />
