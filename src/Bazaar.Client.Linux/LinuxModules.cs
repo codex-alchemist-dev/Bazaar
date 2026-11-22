@@ -1,5 +1,6 @@
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
+using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
@@ -30,6 +31,7 @@ public static class LinuxModules
         .. OrgPanes.Modules,
         .. CalendarPanes.Modules,
         .. InterruptPanes.Modules,
+        .. ColdArchivePanes.Modules,
         new EnginePaneModule(),
         // The terminal pane comes last in pager order (doc 55, section 7).
         .. CalcinatoPanes.Modules,

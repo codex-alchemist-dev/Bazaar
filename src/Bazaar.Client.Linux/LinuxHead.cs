@@ -9,6 +9,7 @@ using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Chat.Abstractions;
+using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
@@ -97,6 +98,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         var context = new PaneModuleContext(Report: message => log($"Bazaar: {message}"))
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
             .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => log($"Bazaar: view action failed: {ex.Message}")));
         if (_chat is not null)
         {
@@ -194,6 +196,7 @@ internal sealed class LinuxHead : IAsyncDisposable
     // With dev chat settings the window opens on the GC pane; otherwise on the Dashboard (doc 28). --terminal opens the terminal.
     private static string InitialKind(LinuxHeadOptions options) =>
         options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
+        : options.Args.Contains("--cold-archive", StringComparer.Ordinal) ? PaneKinds.ColdArchive
         : options.Settings is not null ? GcPaneViewModel.PaneKind
         : PaneKinds.Dashboard;
 
