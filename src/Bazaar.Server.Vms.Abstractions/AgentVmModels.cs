@@ -44,4 +44,20 @@ public enum VmRunState
 /// <see cref="VmRunState.Running"/>; it may be null in other states.
 /// </param>
 /// <param name="State">The recorded power state.</param>
-public sealed record AgentVmInfo(Guid VmId, Guid AgentId, VmGuestOs Os, string? BackendRef, VmRunState State);
+/// <param name="MemoryMb">
+/// The memory assigned to the VM in MiB, from the VM's environment record. Zero or less means it is not known. Added after the first
+/// five members (PROPOSED, doc 59 section 8); existing callers that pass five arguments keep compiling.
+/// </param>
+/// <param name="CanSaveState">
+/// Whether the VM module's backend can save a running VM's state and resume it (the backend's save capability), or null when that is not
+/// known (no backend is configured, or the directory was built without one). Null must be read as "cannot save". It says nothing about
+/// whether saving is wise right now.
+/// </param>
+public sealed record AgentVmInfo(
+    Guid VmId,
+    Guid AgentId,
+    VmGuestOs Os,
+    string? BackendRef,
+    VmRunState State,
+    int MemoryMb = 0,
+    bool? CanSaveState = null);
