@@ -26,7 +26,7 @@ public static class SetupPlanLoader
         [""] =
         [
             "schemaVersion", "install", "database", "custody", "owner", "privacy", "backups", "models", "email",
-            "scamMailProtocol", "company", "modules", "network", "settings",
+            "scamMailProtocol", "company", "modules", "network", "agents", "settings",
         ],
         ["install"] = ["companyName", "companySlug", "locale", "timezone", "releaseChannel", "updatePolicy"],
         ["install.updatePolicy"] = ["security", "other"],
@@ -42,6 +42,7 @@ public static class SetupPlanLoader
         ["email"] = ["enabled", "backend"],
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
+        ["agents[]"] = ["name"],
         ["network"] = ["statusBind", "statusPort"],
     };
 

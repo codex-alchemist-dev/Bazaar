@@ -1,5 +1,8 @@
 using Bazaar.Core;
 using Bazaar.RateLimits;
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Company;
+using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.Http;
 using Bazaar.Server.Setup.Postgres;
@@ -20,7 +23,7 @@ namespace Bazaar.Server.Setup.Host;
 /// adapters bind <c>Bazaar.Server</c> types to the setup seams; the setup libraries themselves never reference the server.
 /// </summary>
 /// <remarks>
-/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings). A host or test
+/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings), <see cref="GatewaySourcesStep"/> and <see cref="CompanySeedStep"/> (company, owner and first agents). A host or test
 /// can pass its own steps to the constructor instead, and those replace the defaults. A step whose backing store is not in the tree
 /// is not registered (see doc 45 section 1.3 status rows). With no step registered, an apply of a plan that changes anything ends in
 /// exit 3 with one audit row. The routes are gated: before an owner exists a call needs loopback and the one-time bootstrap code,
@@ -83,6 +86,14 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
 
         services.AddSingleton<ISetupStep>(sp => new InstallSettingsStep(
             sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<ISetupSettingCatalog>()));
+        // The company, owner and first agents. The agent store is the Agents module's own; a host that registered one keeps it.
+        services.TryAddSingleton<ISetupCompanySeeder>(sp => new PostgresCompanySeeder(
+            sp.GetRequiredService<NpgsqlDataSource>(),
+            sp.GetService<AgentRepository>() ?? new AgentRepository(
+                sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<IAgentLifecycleObserver>(), sp.GetService<IAgentHandleAssigner>())));
+        services.TryAddSingleton<ICompanyProfileReader>(sp => new PostgresCompanyProfileReader(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.AddSingleton<ISetupStep>(sp => new CompanySeedStep(
+            sp.GetRequiredService<ISetupCompanySeeder>(), sp.GetRequiredService<IAuditLog>(), sp.GetService<TimeProvider>()));
         services.AddSingleton<ISetupStep>(sp => new GatewaySourcesStep(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetService<IModelSourceCatalogue>()));
     }
 }

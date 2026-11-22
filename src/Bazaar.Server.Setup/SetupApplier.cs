@@ -67,6 +67,22 @@ public sealed class SetupApplier
     public IReadOnlyList<SetupPlanSection> UnappliedSectionsOf(SetupPlan plan, SetupStateSnapshot? current = null) =>
         SetupPlanSections.Unapplied(plan, CoveredSections, current);
 
+    /// <summary>
+    /// The dry-run summary of the registered steps: what each would do against the current state, one line each, in run order and
+    /// prefixed with the step id. Changes nothing. A step with nothing to say adds no line.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> DescribeStepsAsync(SetupPlan plan, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(plan);
+        var lines = new List<string>();
+        foreach (var step in _steps)
+        {
+            lines.AddRange((await step.DescribeAsync(plan, cancellationToken).ConfigureAwait(false)).Select(line => $"{step.Id}: {line}"));
+        }
+
+        return lines;
+    }
+
     /// <summary>Applies <paramref name="request"/>. Never throws for a refused, held or failed apply; only for a broken caller or an audit write that fails.</summary>
     public async Task<SetupApplyResult> ApplyAsync(SetupApplyRequest request, CancellationToken cancellationToken = default)
     {

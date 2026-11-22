@@ -31,7 +31,8 @@ public static class SetupPlanSections
         new("database", ["database"], [3, 4]),
         new("custody", ["custody.kekProvider", "custody.kekRef", "custody.auditAnchorTarget"], [5]),
         new("custody.identityKek", ["custody.identityKek"], [5]),
-        new("owner", ["owner"], [6]),
+        new("owner", ["owner.displayName", "owner.requireSecondFactor"], [6]),
+        new("owner.recovery", ["owner.recovery"], [6]),
         new("privacy", ["privacy"], [7]),
         new("backups", ["backups"], [8]),
         new("models", ["models"], [9]),
@@ -41,6 +42,7 @@ public static class SetupPlanSections
         new("company", ["company"], [13]),
         new("modules", ["modules"], [14]),
         new("network", ["network"], [15]),
+        new("agents", ["agents"], []),
         new("settings", ["settings"], []),
     ];
 

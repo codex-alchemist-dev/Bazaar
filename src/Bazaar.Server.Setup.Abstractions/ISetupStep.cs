@@ -22,6 +22,13 @@ public interface ISetupStep
     /// </summary>
     IReadOnlyCollection<string> Covers => [];
 
+    /// <summary>
+    /// Describes, without changing anything, what <see cref="ApplyAsync"/> would do against the current state: one short line per
+    /// change, never a secret and never personal data. The dry-run summary collects these. The default is no lines, for a step whose
+    /// changes the plan-leaf dry run already shows.
+    /// </summary>
+    Task<IReadOnlyList<string>> DescribeAsync(SetupPlan plan, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<string>>([]);
+
     /// <summary>Applies the step. Idempotent: see the type remarks.</summary>
     Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken);
 

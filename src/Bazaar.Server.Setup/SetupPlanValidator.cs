@@ -12,6 +12,8 @@ namespace Bazaar.Server.Setup;
 public static partial class SetupPlanValidator
 {
     private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
+    private const int _maxSeedAgents = 16;
+    private const int _maxAgentNameLength = 64;
     private static readonly string[] _updateModes = ["automatic", "manual"];
     private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
     private static readonly string[] _identityKekProviders = ["file", "dpapi", "openbao", "tpm"];
@@ -66,6 +68,7 @@ public static partial class SetupPlanValidator
         ValidateEmail(plan, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
+        ValidateAgents(plan.Agents, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
@@ -176,6 +179,37 @@ public static partial class SetupPlanValidator
         else if (merge.AppIdRef is not null)
         {
             issues.Add(Error("custody.mergeCredential.appIdRef", "must be omitted when kind is owner_linked."));
+        }
+    }
+
+    /// <summary>
+    /// The seeded agents (doc 45 section 1.3a). Each name is 1 to 64 characters (the <c>agent.name</c> check), has no control
+    /// character or leading or trailing space, and is unique within the plan without regard to case. At most <see cref="_maxSeedAgents"/>.
+    /// </summary>
+    private static void ValidateAgents(List<SetupSeedAgent>? agents, List<SetupValidationIssue> issues)
+    {
+        if (agents is null)
+        {
+            return;
+        }
+
+        if (agents.Count > _maxSeedAgents)
+        {
+            issues.Add(Error("agents", $"must hold at most {_maxSeedAgents} agents; add the rest in the app."));
+        }
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var i = 0; i < agents.Count; i++)
+        {
+            var name = agents[i].Name;
+            if (IsBlank(name) || name.Length > _maxAgentNameLength || name != name.Trim() || name.Any(char.IsControl))
+            {
+                issues.Add(Error($"agents[{i}].name", $"must be 1 to {_maxAgentNameLength} characters with no control character and no leading or trailing space."));
+            }
+            else if (!seen.Add(name))
+            {
+                issues.Add(Error($"agents[{i}].name", "must be unique in the plan, without regard to case."));
+            }
         }
     }
 

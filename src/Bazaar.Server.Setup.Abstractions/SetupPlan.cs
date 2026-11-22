@@ -37,6 +37,14 @@ public sealed class SetupPlan
 
     public SetupNetworkSection Network { get; init; } = new();
 
+    /// <summary>
+    /// The agents the company starts with (doc 45 section 1.3a). Optional. Absent means none and is left out of the canonical form,
+    /// so a plan without it keeps its hash. An agent is created in the <c>created</c> state: setup never activates one, because the
+    /// Constitution must be accepted first (doc 24).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<SetupSeedAgent>? Agents { get; init; }
+
     /// <summary>Setting values keyed by registry name (doc 03). Each value is the canonical JSON the registry accepts.</summary>
     public Dictionary<string, JsonElement> Settings { get; init; } = [];
 }
@@ -191,4 +199,11 @@ public sealed class SetupNetworkSection
 
     /// <summary>Maps to the registry key host.status.port. Must be 1 to 65535 in a plan.</summary>
     public int StatusPort { get; init; } = 8443;
+}
+
+/// <summary>One agent the setup creates (doc 45 section 1.3a). Only the name is a plan field; the Soul, model policy and schedule are chosen later in their own flows.</summary>
+public sealed class SetupSeedAgent
+{
+    /// <summary>Required. 1 to 64 characters, no leading or trailing space, unique within the plan (compared without case).</summary>
+    public string Name { get; init; } = "";
 }
