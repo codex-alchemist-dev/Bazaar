@@ -1,6 +1,6 @@
 # Onboarding: Server Setup and Client First Run
 
-Status: DRAFT for owner review (2026-11-13; section 1.15 graphical installer added 2026-11-22, PROPOSED). The direction is DECIDED by the owner (brief of 2026-11-13). Every mechanism below is PLANNED (designed, not built) unless a line says otherwise. Owner questions: 6
+Status: DRAFT for owner review (2026-11-13; section 1.16 graphical installer added 2026-11-22, PROPOSED). The direction is DECIDED by the owner (brief of 2026-11-13). Every mechanism below is PLANNED (designed, not built) unless a line says otherwise. Owner questions: 6
 Depends on: 02-wire-protocol-and-sync.md (HTTP surface, status), 03-server-host-and-providers.md (config layers, settings registry, floors), 04-postgres-schema-and-migrations.md (`migrate`, partitions), 05-model-gateway.md (sources, routing), 14-identity-service-and-passport.md (`ISecretStore`, KEK, merge credential), 15-security-taint-and-approvals.md (`audit_log`, scam-mail setting), 22-email-subsystem.md (mail back ends, bait-protocol wizard), 24-company-systems-core.md (Constitution), 27-client-architecture.md (client shell, prefs, keyboard model), 29-android-client.md (radial menu), 32-remote-access-auth-and-privacy.md (recovery, privacy profile; no pairing), 33-backup-dr-and-export.md (backup targets, restore), 37-distribution-matrix-and-packaging.md (per-company packages). Named in the brief but not yet in `docs/design/`: 41 (client mnemonic navigation), 44 (data portability and importers), 46 (Kodo health API), 48 (audit view).
 Used by: 30-linux-client-and-packaging.md, 34-testing-strategy.md
 
@@ -48,7 +48,7 @@ A new Bazaar install must reach a correct, safe, running company without a manua
 | Entry point | Who uses it | Notes |
 |---|---|---|
 | Interactive wizard, `bazaar-admin setup` | Owner at the server console, or over SSH | Plain text prompts, one question at a time, keyboard only, readable by a screen reader. The plain path stays as the accessible one; the TUI (doc 58) and graphical installer (section 1.15) are opt-in beside it (doc 03 Q2 default is a small non-TUI `bazaar-admin`). The questions, validation, plan-hash confirmation and apply live in a UI-free `SetupWizardEngine` behind the `ISetupPrompter` port, so a second front end such as the planned server TUI (`Bazaar.Client.Tui`, Terminal.Gui) drives the same steps by implementing that port; `bazaar-admin` supplies only the console prompter. |
-| Installer TUI and graphical installer | Owner at the box (TUI, doc 58) or at a desktop (GUI) | Two more front ends to the same wizard engine and `ISetupPrompter`; the GUI is designed in section 1.15. The fastest install stays the config file. |
+| Installer TUI and graphical installer | Owner at the box (TUI, doc 58) or at a desktop (GUI) | Two more front ends to the same wizard engine and `ISetupPrompter`; the GUI is designed in section 1.16. The fastest install stays the config file. |
 | Wizard in a connected client | Owner, signed in to the client | Same steps, shown in the client's admin panel (doc 27 settings surface). Used for later changes more than first install. |
 | Declarative config file | Operators, scripted installs, reproducible rebuilds | `bazaar-setup.json`, applied with `bazaar-admin setup --config <path>` (section 1.5). |
 | CLI flags | Quick single changes, scripts | `bazaar-admin setup --set company.name=...`. Flags carry values and references only. |
@@ -86,9 +86,10 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
-| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC). Domains are never hardcoded. | 22 |
+| 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC; PTR when self-hosted). Domains are never hardcoded. Optional plan fields under `email` (PROPOSED, 2026-11-18): `domain`, `backendKind`, `dkimSelector`, `dmarcReportAddress`, `selfHosted`. The check is advice and never blocks the apply. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
 | 13 | Company source | Blank company, a template at a version (section 1.8), or an import (doc 44). The Constitution is drafted here and must be accepted by the owner before any Soul activates. | 24, 44 |
+| 13b | First-run seed [PROPOSED] | Creates the first group chat and the default agent, and records the owner's Constitution acceptance. Section 1.15. | 01, 06, 24 |
 | 14 | Modules | The first module set (Bazaar.GC is always present; Constellation, Conduit, KODO, RyuseiFuda and others by choice). Each module's licence is shown and checked against the licence policy. | 37, brief |
 | 15 | Status and network | Status listener bind (loopback by default; any other bind needs Tier 2 approval). No inbound internet connection by default (doc 03). | 03, 02 |
 | 16 | Plan review and apply | Shows the change list and the plan hash. Apply runs under the lock. | 1.2 |
@@ -102,7 +103,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 1 Install identity (release channel), 12 Scam-mail protocol, 15 Status and network (bind and port), plus the plan's `settings` map | **BUILT** as `install.settings` (`InstallSettingsStep`, order 1500, in `Bazaar.Server.Setup.Postgres`) | Writes the install-scope rows of the `setting` table: the `settings` map, `network.statusBind` and `network.statusPort` (`host.status.bind`, `host.status.port`), `install.releaseChannel` (`update.channel`, snake_case wire form) and `scamMailProtocol.enabled` (`security.scam_mail.protocol_enabled`, written only when on, which is held for owner approval). Every value goes through the registry first. One transaction, same per-key locks as the settings store. A key already holding the planned value is left alone (idempotent). Rollback restores the previous value and writer, or removes the row, and leaves a value someone changed after the run. The applier writes the `setting.changed` rows. |
 | 0 Preflight, 2 Update policy, 3 Data root and PostgreSQL, 4 Schema, 5 Custody, 6 Owner, 7 Privacy and retention, 8 Backups, 9 Model sources, 10 Git and GitHub, 11 Email, 13 Company source, 14 Modules, 16 to 18 | PLANNED, no step registered | Each needs a store or service that is not in the tree yet. The rest of the install identity (company name, slug, locale, timezone, install id) has no table; the update policy has no setting key; the backup target has no setting key; the audit anchor target is not `security.audit.export_target` (an enum); the owner needs a passkey ceremony; the module set has no enabled-modules store. `migrate` stays its own explicit command (doc 04), and an apply needs the migrated `audit_log`. Until they land, an apply refuses a plan that asks for those parts (see "Unapplied sections" below). |
 
-**Unapplied sections (DECIDED 2026-11-19, rationale: a setup that cannot apply what the operator asked for must say so before it changes anything).** `SetupPlanSections` (in `Bazaar.Server.Setup.Abstractions`) is the one registry of plan sections: `install.identity` (step 1), `install.releaseChannel` (1), `install.updatePolicy` (2), `database` (3, 4), `custody` (5), `owner` (6), `privacy` (7), `backups` (8), `models` (9), `git` (10, the merge credential), `email` (11), `scamMailProtocol` (12), `company` (13), `modules` (14), `network` (15) and `settings` (the registry values map). Every plan leaf belongs to exactly one section (a test enforces it). Each `ISetupStep` declares the sections it applies in `Covers` (default none), so registering a step shrinks the list with no other edit.
+**Unapplied sections (DECIDED 2026-11-19, rationale: a setup that cannot apply what the operator asked for must say so before it changes anything).** `SetupPlanSections` (in `Bazaar.Server.Setup.Abstractions`) is the one registry of plan sections: `install.identity` (step 1), `install.releaseChannel` (1), `install.updatePolicy` (2), `database` (3, 4), `custody` (5), `owner` (6), `privacy` (7), `backups` (8), `models` (9), `git` (10, the merge credential), `email` (11), `scamMailProtocol` (12), `company` (13), `modules` (14), `network` (15), `settings` (the registry values map) and `firstRun` (the first-run seed, no doc step number). Every plan leaf belongs to exactly one section (a test enforces it). Each `ISetupStep` declares the sections it applies in `Covers` (default none), so registering a step shrinks the list with no other edit.
 - A section is *requested* when any of its leaves differs from the shipped default plan (and, once a state reader exists, from the current state). A section left at its default or empty is not requested and needs no step. Required fields (company name and slug, KEK, owner name, company source) have no default, so they always request their sections.
 - Before the lock or any step, the applier compares the requested sections with the registered steps' `Covers`. Any requested section nobody covers holds the apply: exit 2, issue path `unapplied_sections`, message naming the section ids and doc step numbers (never values), `appliedSteps` empty, nothing changed, so a partial apply cannot happen. Exit 0 therefore means every requested section was applied. Exit codes keep their meanings.
 - The list appears in the apply result (`UnappliedSections`), the CLI text and `--json` (`unappliedSections`, outcome `unapplied_sections`), the HTTP bodies of `POST /setup/plans` and `.../apply` (`unappliedSections`), the HTTP call audit row (outcome `held:unapplied_sections`) and a `setup.plan.applied` row with outcome `held_unapplied_sections` (section ids only; this is the one held apply that is recorded, so the refusal is on the record). A dry run (`setup --dry-run`, `POST /setup/plans`) lists the same sections, marked as what an apply would be held for.
@@ -120,7 +121,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | Update policy | Confirm | Automatic for security; manual for the rest | Owner gap decision, 2026-11-13. |
 | PostgreSQL major version | Yes | The newest bundled version the release marks as default; PG 18 until PG 19 is marked default | PG 19 GA is expected around 2026-11-19. Both versions stay supported (dual-version rule). |
 | GC partition count | Yes | 16 | Fixed after the first GC data (doc 04). |
-| Key-encryption-key provider | Yes | `dpapi` on Windows; systemd-creds on Linux (doc 03) | `openbao` optional (doc 14). |
+| Key-encryption-key provider | Yes | `dpapi` on Windows; `file` (a protected key file) on Linux and other hosts (doc 14, DECIDED) | `tpm` (Linux opt-in, sealed through `systemd-creds` where systemd is present) and `openbao` optional (doc 14). |
 | Audit anchor target | Yes | Required, no default | Mounts stay disabled until set (doc 14). |
 | Owner passkey or hardware key | Yes | Required to finish [PROPOSED] | A second factor is needed for recovery and high-risk actions (gap decision: biometrics and MFA). |
 | Recovery bundle and printed codes | Yes | Bundle created; printed codes per `recovery.printed_codes_enabled` (doc 32) | Backup-owner quorum is an optional list (doc 32). |
@@ -282,11 +283,24 @@ Kodo is the Health API module (module name Bazaar.KODO). It runs as the final se
 
 The server has no tour, no first-run screen and no onboarding page. Setup is complete when the plan is applied and Kodo reports, whichever door was used. Tours exist only in the client apps (Part 2).
 
-## 1.15 Doors and the graphical server installer [PROPOSED unless tagged; owner intent DECIDED]
+## 1.15 First-run seed [PROPOSED]
+
+A blank company has nobody to talk to. This step gives a fresh install one place to start, so "install, sign in, create a company, do real work" has something to do. It is a module of its own (`Bazaar.Server.Setup.FirstRun` with `.Abstractions`) that registers one apply step, `firstrun.seed`, after the owner (step 6) and company source (step 13) steps. Everything here is PROPOSED until the owner decides.
+
+- **Plan section `firstRun`.** Keys: `seedGeneralGc` (bool, default true), `generalGcTitle` (default `General`), `seedDefaultAgent` (bool, default true), `defaultAgentName` (default `Claude`, owner 2026-11-22; the wizard lets the operator change it), `defaultAgentPurpose` (free text, may be empty), `defaultAgentSources` (model source ids; empty means every Claude source the gateway has), `defaultAgentProfile` (selection profile of doc 92, default `balanced`; the route is created over those sources and the profile bound to it), `acceptConstitution` (bool, default false). Unknown keys are rejected like every other section.
+- **General group chat.** One GC of the seeded type `general` (doc 01), with the owner as a member and the default agent added when it exists. Created once; the step finds it again by a fixed marker on later applies, so a second apply changes nothing.
+- **Default agent.** One agent with its own identity, in the `general` GC, named `Claude` by default. It takes its model dynamically from any Claude source the gateway has (the Claude Code CLI of doc 91, the owner's Anthropic API key, FreeLLMAPI, or another Claude source), by availability at run time (owner, 2026-11-22). Its whitelist holds only provider-qualified entries from those sources, narrowed by `defaultAgentSources` when the operator lists some; deny by default, doc 05. The wizard asks for the name, purpose and sources (the first-agent step); the create-company screen asks for name and purpose. No Soul content ships with it. It is created `provisioned` and **does not activate until the Constitution is accepted** (doc 24: no activation without an accepted Constitution commit). If the gateway has no Claude source, the agent is still created with an empty whitelist and the step reports that it cannot answer yet; it never routes through a source the gateway does not list.
+- **Constitution acceptance.** `acceptConstitution` is the owner's own act, made on the create-company screen (a checkbox the owner ticks) or in the plan file the owner wrote. When true, the step records the acceptance for the current Constitution commit and the agent activates. When false, the agent waits and the dashboard says so. An acceptance is never inferred, never set by a default, and never made on the owner's behalf by an agent.
+- **Audit.** One `setup.firstrun.seeded` row with the GC id, the agent id and whether acceptance was recorded. No secret appears.
+- **Rollback.** Rolling back removes a seeded agent and its membership and leaves the GC row (the GC log is append-only, doc 01); a rolled-back GC is archived, not deleted.
+- **Ports, not stores.** The step talks to three ports (GC creation, agent provisioning, Constitution acceptance) so it can run with fakes before the stores that back them land. The Postgres adapters are separate slices.
+- **Testing.** Idempotent apply; seed with and without acceptance; provider missing; the agent is not active before acceptance; rollback; and a canary secret check. The end-to-end smoke harness (gap 2) runs it through `POST /setup/plans/{hash}/apply`.
+
+## 1.16 Doors and the graphical server installer [PROPOSED unless tagged; owner intent DECIDED]
 
 Owner decision (relayed 2026-11-22), recorded in doc 58: the server installer comes in a full-screen terminal version (doc 58) and a **graphical version** (GUI), both running the same wizard. The fastest install is a headless install from a config file. This section designs the graphical door. Everything below is PROPOSED unless it carries a DECIDED tag; the owner's "no web client" rule and the Avalonia client decision (CLAUDE.md) are the DECIDED inputs it stays inside.
 
-### 1.15.1 The doors and what each is for
+### 1.16.1 The doors and what each is for
 
 | Door | Command or head | For | Status |
 |---|---|---|---|
@@ -294,14 +308,14 @@ Owner decision (relayed 2026-11-22), recorded in doc 58: the server installer co
 | CLI flags and environment | `setup --set key=value`, `BAZAAR__SETUP__...` | Small changes, overlays on a file. | PLANNED (section 1.1) |
 | Plain console wizard | `bazaar-admin setup` (`ConsolePrompter`) | Any terminal, SSH, no TTY, screen readers, the accessible path. Stays. | PLANNED |
 | Installer TUI | `Bazaar.Client.Tui.Installer` (doc 58) | A box with no desktop; people who want a walkthrough over SSH. | DECIDED scope (doc 58) |
-| Graphical installer | A native Avalonia head (section 1.15.3) | A person at a desktop who wants a guided, visual install, mainly the Windows owner's PC (the first supported host). | Intent DECIDED, design PROPOSED |
+| Graphical installer | A native Avalonia head (section 1.16.3) | A person at a desktop who wants a guided, visual install, mainly the Windows owner's PC (the first supported host). | Intent DECIDED, design PROPOSED |
 | Provisioning API, templates | Section 1.9, 1.8 | Automation, and the in-client wizard for later changes. | PLANNED |
 
-All doors are front ends to one thing, the setup plan (section 1.2). The GUI and the TUI offer the same full walkthrough, one question per step in the section 1.3 order, with no quick path inside them; the quick path is the config file. The GUI may offer "Open a config file" on the welcome screen only to load a file into the review (section 1.15.5), never to skip validation. Doc 45 section 1.1's "Not a TUI" wording is superseded by doc 58: the plain wizard stays as the accessible path, the TUI and GUI are opt-in beside it.
+All doors are front ends to one thing, the setup plan (section 1.2). The GUI and the TUI offer the same full walkthrough, one question per step in the section 1.3 order, with no quick path inside them; the quick path is the config file. The GUI may offer "Open a config file" on the welcome screen only to load a file into the review (section 1.16.5), never to skip validation. Doc 45 section 1.1's "Not a TUI" wording is superseded by doc 58: the plain wizard stays as the accessible path, the TUI and GUI are opt-in beside it.
 
-### 1.15.2 One engine, one prompter contract
+### 1.16.2 One engine, one prompter contract
 
-The GUI is another `ISetupPrompter` over the same `SetupWizardEngine`, `SetupWizardSteps` and `SetupWizardBackend`. It owns how a question looks and nothing else: no step list, no validation rule, no plan path, no default, no hash. A rule that exists in a GUI view model and not in the engine is a bug (an architecture test and the conformance suite in section 1.15.9 enforce it).
+The GUI is another `ISetupPrompter` over the same `SetupWizardEngine`, `SetupWizardSteps` and `SetupWizardBackend`. It owns how a question looks and nothing else: no step list, no validation rule, no plan path, no default, no hash. A rule that exists in a GUI view model and not in the engine is a bug (an architecture test and the conformance suite in section 1.16.9 enforce it).
 
 The current port (`ShowMessage`, `ShowProgress`, `AskText`, `ChooseOne`, `ChooseMany`, `Confirm`, `AskSecret`, with `WizardQuestion` as data) already carries the question model: `Id`, `Prompt`, `Kind`, `Default`, `PlanPath`, `Options`, `Hint`, `Optional`, `Validate`, `Intro`. A console and a TUI are served by it as it is. A GUI needs more, and the additions must be **additive and optional** so the plain console and the TUI do not change:
 
@@ -318,7 +332,7 @@ The current port (`ShowMessage`, `ShowProgress`, `AskText`, `ChooseOne`, `Choose
 
 These additions go through the setup abstractions project and carry tests in the engine's own suite. Their shape is PROPOSED and one design pass should decide the exact names; the rule that they are additive and optional is the part to keep.
 
-### 1.15.3 How the GUI is hosted
+### 1.16.3 How the GUI is hosted
 
 **DECIDED inputs.** Native, never a web client: browser-based clients are excluded, though a native client may embed web components (CLAUDE.md). One C# codebase for all clients; Avalonia is the client UI framework, with OSI-only packages. First supported and tested host: Windows. The server itself is headless, so the installer is a **client-side program that runs on the box (or the owner's PC) and talks to the setup engine in-process**, the same shape as the installer TUI (doc 58, Install mode: engine in-process, loopback and one-time bootstrap code, doc 45 section 1.9). It never adds a window or a listener to the server process.
 
@@ -338,7 +352,7 @@ These additions go through the setup abstractions project and carry tests in the
 
 **Which installer opens.** `bazaar-admin setup` stays plain. A launcher picks the door: GUI when a display is available and `--gui` or the packaged shortcut is used; TUI when a TTY and no display; plain when `--plain`, `NO_COLOR`, a screen-reader flag, or no TTY. Override flags always win. Default order is configurable by the operator in the package, not a server setting.
 
-### 1.15.4 Screens
+### 1.16.4 Screens
 
 Each screen is one or more wizard steps from section 1.3, in that order, with the engine's defaults shown. A left rail lists the screens with state (done, current, needs attention, not started); Back and Next at the bottom; every field has its hint and help text from the question model; every state is words, not only colour.
 
@@ -347,7 +361,7 @@ Each screen is one or more wizard steps from section 1.3, in that order, with th
 | 1 | Welcome and requirements | 0 | What will happen, the licence summary (AGPL-3.0, with module licences shown in step 14), and a Kodo preflight probe list: OS and edition (an operator fact), CPU, memory, disk headroom, free ports, time sync, the data root and its ACL, a non-Administrator service account. Each probe shows pass, warn or fail with the fix in plain words. A fail on a floor blocks Next; a warn needs an acknowledgement. Probes are read-only (Kodo, section 1.12). |
 | 2 | Install location and data root | 3 | The data root (default per OS, `%ProgramData%` on Windows), disk space needed against free, ACL check, release channel (Beta while 0.x), update policy confirm (automatic for security, manual for the rest). The volume and encryption choice of step 3 is shown here as its own block, because setup cannot finish without it ([PROPOSED, doc 63 section 10]). |
 | 3 | Database | 3, 4 | The bundled PostgreSQL (the default, hidden child on loopback), the major version default, the GC partition count (16, fixed after first data, with that warning). **An external database never appears here** (DECIDED, owner 2026-11-16; hidden advanced or headless setting only). |
-| 4 | Identity and key custody | 5, 6 | The key-encryption-key provider (default `dpapi` on Windows, systemd-creds on Linux; `openbao` optional), the audit anchor target (required), the owner's name, passkey or hardware-key enrolment, and the encrypted recovery bundle. A passkey ceremony is the one place a GUI needs the OS: see section 1.15.8. Second factor is optional with a warning (DECIDED, owner 2026-11-16). |
+| 4 | Identity and key custody | 5, 6 | The key-encryption-key provider (default `dpapi` on Windows, systemd-creds on Linux; `openbao` optional), the audit anchor target (required), the owner's name, passkey or hardware-key enrolment, and the encrypted recovery bundle. A passkey ceremony is the one place a GUI needs the OS: see section 1.16.8. Second factor is optional with a warning (DECIDED, owner 2026-11-16). |
 | 5 | Privacy, retention and backups | 7, 8 | Privacy profile (private instance by default), retention and erasure window (most protective option, "needs counsel" notes), backup target and schedule. Finishing with no backup target needs a recorded acknowledgement (DECIDED, owner 2026-11-16), shown as a checkbox that names what is being accepted. |
 | 6 | Gateway sources | 9 | The FreeLLMAPI guided setup (priority source, with its own probe), the owner's Anthropic API key by reference (entered as a secret or picked as a reference), optional custom proxies and local runtimes, and the default free-lane preset. A subscription login is refused with the reason, on every route. A note says that some free tiers train on prompts (CLAUDE.md). |
 | 7 | Company and owner | 1, 13, 10 | Company name and slug (slug cannot change later), locale and timezone, the company source (blank, template at a version, or import), the merge credential (no default, must be chosen), the GitHub App installation. |
@@ -359,22 +373,22 @@ Each screen is one or more wizard steps from section 1.3, in that order, with th
 
 Screens 4 to 9 can be reordered by the person only within the engine's dependency order; the step order of section 1.3 is the engine's, not the GUI's.
 
-### 1.15.5 Same plan, same hash
+### 1.16.5 Same plan, same hash
 
 The GUI collects answers as `path=value` pairs through the engine, exactly like the console does, and never builds plan JSON itself. The backend normalizes, validates and hashes (section 1.2): sorted keys, no insignificant whitespace, SHA-256, secrets as references only. So the same answers produce the same canonical plan JSON and plan hash on the GUI, TUI, console, file and API doors, and the audit row differs only in the entry path. Section 1.2 names four entry paths (`wizard`, `cli`, `file`, `api`); the TUI and GUI both use `wizard` because they run the same wizard, and a separate **front-end** field (`console`, `tui`, `gui`) is recorded beside it, as data, for the audit view (doc 48). **Open:** whether that field is worth a schema change; the default is to record it. Loading a config file into the GUI feeds its values as the starting answers, then the person still walks the review.
 
-### 1.15.6 Failure, rollback and what the GUI shows
+### 1.16.6 Failure, rollback and what the GUI shows
 
 The engine and applier own failure handling (section 1.2: each step is idempotent, a failed step rolls back its own transaction and stops the apply with exit code 3). The GUI only shows it:
 
 - **Per-step state:** pending, running, done, skipped (already at the planned value), held (needs approval), failed, rolled back. Each has a word, an icon and a colour.
 - **On failure:** the apply stops, the failed step is expanded with the step's message (key and rule, never a value), the list shows what was committed and what was rolled back, and the screen offers **Retry** (resume from the last committed step, same plan hash), **Back to review** (the plan may be edited, which makes a new hash and a new dry run) and **Copy report** (a plain-text report with no secret values, for a bug report). No "force" button exists.
 - **Held changes** (a change that needs approval) are shown as held, with where to approve them; they are not errors (exit code 2).
-- **Closing the window mid-apply** asks first and, if confirmed, leaves the apply to finish or stop at a step boundary; the next launch offers the resume described in section 1.15.2.
+- **Closing the window mid-apply** asks first and, if confirmed, leaves the apply to finish or stop at a step boundary; the next launch offers the resume described in section 1.16.2.
 - **Unapplied sections** (section 1.3) are listed on the review screen before any change, so the person sees up front what this build cannot yet apply.
 - **Crash of the installer itself** cannot corrupt an install: it holds no state the engine does not also hold, and the instance lock (doc 03) is the engine's.
 
-### 1.15.7 Accessibility and theming
+### 1.16.7 Accessibility and theming
 
 - **Theme:** the installer reads the same one theme file format that drives Avalonia and Monaco (CLAUDE.md), with a built-in light and dark default and the OS high-contrast setting honoured. No hard-coded colours.
 - **Keyboard:** every screen is fully usable by keyboard (Tab order that follows reading order, Enter for the default action, Escape for Back with confirmation). The client's mnemonic and command-palette default (doc 41) is **not** applied in the installer: it is a short fixed flow, and the installer runs before the client keymap exists. Plain, visible shortcuts only, no Ctrl chords (the owner's rule), remappable is not required.
@@ -382,13 +396,13 @@ The engine and applier own failure handling (section 1.2: each step is idempoten
 - **Text and layout:** scales with the OS text size, no information in colour alone, no fixed pixel layouts, strings through Localisation, a minimum window that fits 1024 by 768.
 - **Motion:** no animation that carries meaning; a reduced-motion setting is honoured.
 
-### 1.15.8 No display, remote and passkeys
+### 1.16.8 No display, remote and passkeys
 
-- **No display (headless-safe).** The graphical head checks for a usable display and graphics backend at start. If there is none (SSH, a server box, a failed backend, a container), it prints one plain line saying why and **falls back to the installer TUI when a TTY exists, otherwise to the plain wizard**, or to the headless file door when `--config` was given. It never exits with a crash and never leaves a half-drawn window. The fallback keeps the person's already given answers where it can (the draft of section 1.15.2).
+- **No display (headless-safe).** The graphical head checks for a usable display and graphics backend at start. If there is none (SSH, a server box, a failed backend, a container), it prints one plain line saying why and **falls back to the installer TUI when a TTY exists, otherwise to the plain wizard**, or to the headless file door when `--config` was given. It never exits with a crash and never leaves a half-drawn window. The fallback keeps the person's already given answers where it can (the draft of section 1.16.2).
 - **Remote:** the installer runs on the machine being installed. There is no remote GUI installer, no web page and no listener (no web client, ever). Installing a Linux box from a Windows PC is done over SSH with the TUI or plain wizard, or by a config file.
 - **Passkey ceremony:** the owner enrolment needs a platform authenticator. The GUI hosts it through the OS (WebAuthn on Windows) behind a provider interface, the same boundary as every OS-specific piece (CLAUDE.md), and the installer's narrow interactive sign-in page exception (a passkey page) is the only allowed browser surface if the OS API is not usable. Without any usable authenticator, the step follows the DECIDED rule: second factor optional with a warning, with recovery and high-risk actions blocked until one is added.
 
-### 1.15.9 Testing
+### 1.16.9 Testing
 
 - **Conformance suite (shared with doc 58):** one suite drives the plain, TUI and GUI prompters through the same scripted answers and asserts equal plan JSON, equal plan hash and equal audit rows apart from the front-end field. Real PostgreSQL for the apply (doc 34).
 - **Avalonia.Headless** (required for UI changes): a headless test per screen (renders, shows defaults, shows a validation message and maps a backend issue to the right field), forward and back with answer preservation and dependent-answer invalidation, resume from a draft and from a stored apply result, the review hash confirmation (a click alone does not apply), the apply screen against a fake backend that fails at step N (retry, back to review, copy report), and a keyboard-only walk of the whole flow with no pointer input.
@@ -397,9 +411,9 @@ The engine and applier own failure handling (section 1.2: each step is idempoten
 - **Architecture test:** the installer head references neither `Bazaar.Server` nor chat client code, holds no validation rule that is not in the engine, and builds no plan JSON.
 - **Accessibility pass:** the manual screen-reader pass of the Testing section, extended to the GUI.
 
-### 1.15.10 Open questions for the owner (defaults recommended)
+### 1.16.10 Open questions for the owner (defaults recommended)
 
-1. **Head choice.** A (reuse `Client.Core`), B (tiny separate head) or C (extract a shared kit). Default: B now, C later (section 1.15.3).
+1. **Head choice.** A (reuse `Client.Core`), B (tiny separate head) or C (extract a shared kit). Default: B now, C later (section 1.16.3).
 2. **Async prompter.** An async port the engine prefers, or the engine on a worker thread. Default: the async port.
 3. **Draft persistence.** Allow a resumable answer draft (references only, encrypted for the OS user), or restart on close. Default: allow.
 4. **Front-end audit field.** Record `console`, `tui` or `gui` beside the entry path. Default: record.
@@ -454,6 +468,17 @@ The owner has not chosen a sample-data sandbox company. Empty states explain wha
 ## 2.5 Import at first run [DECIDED via doc 44]
 
 The import wizard is offered after the tour and from the palette. It is the same importer set as the server's import source (section 1.8). Nothing is imported without an explicit choice.
+
+## 2.6 Sign-in and create-company screens [PLANNED; the handoff route's body is PROPOSED]
+
+Two client modules, each its own project set (`Bazaar.Client.SignIn` and `Bazaar.Client.CompanySetup`, each with `.Abstractions` and `.Avalonia`). They add no code to Client.Core. A head (Windows first) shows them with `--sign-in`, `--create-company` or `--first-run`.
+
+- **No host to type, no company to choose.** The client already talks to the server it was built for (section 2.1) and an install has one company (decided inputs), so there is no server picker and no company list. The first screen only checks that the server is up (`GET /health/ready`) and offers Retry when it is not.
+- **Sign-in screen.** The person signs in on the server's own sign-in page, opened in their browser (`/signin?audience=native`, doc 32 section 4). The page hands back a single-use code, as `bazaar://signin?code=...` or as text to paste. The client redeems it at `POST /auth/handoff` with `{ "code", "device_class", "client_build" }` and expects the same token body as `POST /auth/refresh` (`access_token`, `token_type`, `expires_in`, `refresh_token`). **The `/auth/handoff` request and reply shape is PROPOSED** until the route is built (doc 32 names the route only). The client never draws a password or passkey prompt and never sees a credential other than the tokens. A saved session is reused, refreshed when its access token has expired, and cleared when the server refuses the refresh. Every failure shows one generic message.
+- **Session storage.** A port (`ISessionStore`). The default keeps the session in memory only, so a restart signs out. A protected store per platform is the module `Bazaar.Client.SignIn.Storage`: one file sealed through the head's `ISecretProtector` (DPAPI on Windows today; Keystore and libsecret come with their heads), written atomically, and a file that cannot be opened reads as signed out.
+- **Create-company screen.** The setup wizard in a connected client (section 1.1), over the provisioning API (section 1.9). It collects company name, identifier (derived from the name, editable, fixed after creation), owner name, locale, time zone, key-encryption-key provider and reference, and the recorded no-backup-target acknowledgement, and the owner's own tick that accepts the Constitution (`firstRun.acceptConstitution`, section 1.15; never on by default). It writes a sparse setup plan with `company.source` = `blank`; the server fills every other decision with its shipped default and hashes the normalized plan. The screen checks first (`POST /setup/plans`, writes nothing), shows the plan hash and the server's findings, and applies only that hash (`POST /setup/plans/{hash}/apply`). Before the owner exists the call carries the one-time bootstrap code from the server console (header `X-Bazaar-Bootstrap-Code`); after, the owner's bearer token. A held or failed apply returns to the form with the reason; a replayed apply says the company already exists.
+- **Not on these screens.** Template and import sources, backup targets, model sources, email, the owner's passkey enrolment and the intro and tour. Each is its own step or module.
+- **Testing.** Avalonia.Headless tests drive each screen by its automation ids (`signin-*`, `company-*`). A test feeds the plan the client writes through the server's own `SetupPlanLoader`, so the two cannot drift apart. The smoke harness drives the same ids.
 
 ---
 
