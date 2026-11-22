@@ -17,6 +17,7 @@ using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -80,13 +81,15 @@ internal static class Program
             .. RyuseiFudaPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
         ];
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var router = new CommandRouter();
         var features = new PaneModuleContext()
             .With<ICommandRouter>(router)
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
-            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current));
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loaded.Only(modules);
