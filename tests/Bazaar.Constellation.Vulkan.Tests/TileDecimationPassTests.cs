@@ -11,13 +11,13 @@ public class TileDecimationPassTests
         0, 0, 0, 0,
         0, 0, 0.5f, 1);
 
-    private static readonly Matrix4x4 Identity2D = Orthographic(1f);
+    private static readonly Matrix4x4 _identity2D = Orthographic(1f);
 
     [Fact]
     public void Two_points_in_one_cell_keep_only_the_higher_index()
     {
         Vector3[] positions = [new(0.1f, 0.1f, 0), new(0.1001f, 0.1001f, 0)];
-        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 2)], Identity2D, 640, 360);
+        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 2)], _identity2D, 640, 360);
         Assert.Equal([1], survivors);
     }
 
@@ -25,7 +25,7 @@ public class TileDecimationPassTests
     public void Points_in_different_cells_all_survive()
     {
         Vector3[] positions = [new(-0.5f, 0, 0), new(0, 0, 0), new(0.5f, 0, 0)];
-        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 3)], Identity2D, 640, 360);
+        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 3)], _identity2D, 640, 360);
         Assert.Equal([0, 1, 2], survivors);
     }
 
@@ -33,7 +33,7 @@ public class TileDecimationPassTests
     public void Points_outside_the_view_are_dropped()
     {
         Vector3[] positions = [new(2f, 0, 0), new(0, -1.5f, 0), new(0, 0, 0)];
-        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 3)], Identity2D, 640, 360);
+        int[] survivors = TileDecimationPass.Decimate(positions, [(0, 3)], _identity2D, 640, 360);
         Assert.Equal([2], survivors);
     }
 
@@ -41,7 +41,7 @@ public class TileDecimationPassTests
     public void Only_the_listed_tiles_are_considered()
     {
         Vector3[] positions = [new(-0.5f, 0, 0), new(0, 0, 0), new(0.5f, 0, 0), new(0.7f, 0, 0)];
-        int[] survivors = TileDecimationPass.Decimate(positions, [(1, 1), (3, 1)], Identity2D, 640, 360);
+        int[] survivors = TileDecimationPass.Decimate(positions, [(1, 1), (3, 1)], _identity2D, 640, 360);
         Assert.Equal([1, 3], survivors);
     }
 
@@ -65,7 +65,7 @@ public class TileDecimationPassTests
             positions[i] = new Vector3((float)(random.NextDouble() * 2 - 1), (float)(random.NextDouble() * 2 - 1), 0);
         }
 
-        int[] survivors = TileDecimationPass.Decimate(positions, [(0, positions.Length)], Identity2D, 16, 9);
+        int[] survivors = TileDecimationPass.Decimate(positions, [(0, positions.Length)], _identity2D, 16, 9);
         Assert.InRange(survivors.Length, 1, 16 * 9);
     }
 }
