@@ -117,6 +117,7 @@ public static class HostApplicationExtensions
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         services.AddBazaarCouncilHostAdapters();
+        services.AddBazaarCouncilSettings();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
         services.AddBazaarAgentResponder(configuration);
