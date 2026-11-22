@@ -30,6 +30,9 @@ public sealed class FirstRunSeedStep(
     public int Order => StepOrder;
 
     /// <inheritdoc />
+    public IReadOnlyCollection<string> Covers => ["firstRun"];
+
+    /// <inheritdoc />
     public async Task<SetupStepResult> ApplyAsync(SetupPlan plan, SetupApplyContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(plan);

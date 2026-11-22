@@ -9,6 +9,9 @@ namespace Bazaar.Client.GitGui;
 /// </summary>
 public interface IGitGuiClient
 {
+    /// <summary>The repositories the server lists for the Git view (<c>GET /git/repos</c>).</summary>
+    Task<IReadOnlyList<GitRepoDto>> ListReposAsync(CancellationToken cancellationToken = default);
+
     /// <summary>One page of PRs. <paramref name="page"/> is 1-based. <paramref name="state"/> is <c>open</c>, <c>closed</c>, <c>merged</c> or <c>all</c>.</summary>
     Task<GitPrPageDto> ListPrsAsync(string provider, string repo, string state, int page, int pageSize, CancellationToken cancellationToken = default);
 

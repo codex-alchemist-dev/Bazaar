@@ -1,3 +1,4 @@
+using Bazaar.Client.Commands.Fuzzy;
 using Bazaar.Localisation;
 
 namespace Bazaar.Ex;
@@ -50,28 +51,6 @@ public static class MnemonicPalette
         }
 
         var haystack = mnemonic + " " + title;
-        return IsSubsequence(needle, haystack) ? _subsequenceRank : null;
-    }
-
-    private static bool IsSubsequence(string needle, string haystack)
-    {
-        var position = 0;
-        foreach (var character in needle)
-        {
-            var found = haystack.IndexOf(character, position);
-            if (found < 0 && !char.IsLetterOrDigit(character))
-            {
-                continue;
-            }
-
-            if (found < 0)
-            {
-                return false;
-            }
-
-            position = found + 1;
-        }
-
-        return true;
+        return FuzzyCore.IsSubsequence(needle, haystack, skipMissingSymbols: true) ? _subsequenceRank : null;
     }
 }
