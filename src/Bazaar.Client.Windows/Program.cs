@@ -41,6 +41,7 @@ using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
+using Bazaar.SupportBundle;
 
 namespace Bazaar.Client.Windows;
 
@@ -110,7 +111,7 @@ internal static class Program
             terminals);
         features = ComposeMergeApproval(features);
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
-        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>(), ClientHostFacts.Current(), Console.Error.WriteLine);
+        var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>().Append(new SupportBundleClientModule()), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(
             shipped,
@@ -148,7 +149,18 @@ internal static class Program
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
             // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
-            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+            window.Opened += async (_, _) =>
+            {
+                var head = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                // "Save support bundle" (doc 37 section 4d): written off the UI thread, then the path goes to the client log.
+                head.Shell.CommandInvoked += (_, id) =>
+                {
+                    if (id == SupportBundleClientModule.SaveCommandId)
+                    {
+                        _ = Task.Run(() => SupportBundleCommands.SaveFromPalette(modules, ClientDataPaths.DataDir(), TimeProvider.System, Console.Error.WriteLine));
+                    }
+                };
+            };
             return window;
         }
 
