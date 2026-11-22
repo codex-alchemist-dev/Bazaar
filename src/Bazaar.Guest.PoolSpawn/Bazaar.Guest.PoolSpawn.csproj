@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <AssemblyName>bazaar-pool-spawn</AssemblyName>
+    <RootNamespace>Bazaar.Guest.PoolSpawn</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+    <!-- The LibraryImport source generator emits unsafe code for the libc calls in Posix. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Guest.PoolSpawn.Tests" />
+  </ItemGroup>
+</Project>
