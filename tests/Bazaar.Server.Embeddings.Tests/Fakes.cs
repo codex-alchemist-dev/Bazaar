@@ -111,10 +111,17 @@ internal sealed class CountingProvider(IEmbeddingProvider inner) : IEmbeddingPro
 
     public bool Fail { get; set; }
 
+    public EmbeddingException? FailWith { get; set; }
+
     public EmbeddingProviderDescriptor Descriptor => inner.Descriptor;
 
     public Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken)
     {
+        if (FailWith is not null)
+        {
+            throw FailWith;
+        }
+
         if (Fail)
         {
             throw new EmbeddingException("provider down");
@@ -123,6 +130,15 @@ internal sealed class CountingProvider(IEmbeddingProvider inner) : IEmbeddingPro
         Seen.AddRange(texts);
         return inner.EmbedAsync(texts, cancellationToken);
     }
+}
+
+/// <summary>Refuses any batch that holds <paramref name="tooLong"/> the way the gateway does for an over-cap input.</summary>
+internal sealed class TooLongProvider(IEmbeddingProvider inner, string tooLong) : IEmbeddingProvider
+{
+    public EmbeddingProviderDescriptor Descriptor => inner.Descriptor;
+
+    public Task<EmbeddingResult> EmbedAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken) =>
+        texts.Contains(tooLong) ? throw new EmbeddingInputTooLongException("too long") : inner.EmbedAsync(texts, cancellationToken);
 }
 
 internal sealed class StubHandler(Func<HttpRequestMessage, string, HttpResponseMessage> respond) : HttpMessageHandler
