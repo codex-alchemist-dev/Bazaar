@@ -37,6 +37,7 @@ public sealed class MirrorComponent : IBazaarComponent
                 : new InMemoryMirrorStore());
         services.AddSingleton(_ => ReadOptions(configuration));
         services.AddSingleton<IMirrorService, MirrorService>();
+        services.AddSingleton<IMirrorFeed, MirrorFeed>();
     }
 
     public static MirrorOptions ReadOptions(IConfiguration configuration)

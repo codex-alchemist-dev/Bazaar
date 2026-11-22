@@ -10,12 +10,12 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
     private static byte[] SignalAd(Guid id) => Encoding.UTF8.GetBytes("mirror_signal:" + id.ToString("N"));
     private static byte[] ProfileAd(int version) => Encoding.UTF8.GetBytes("mirror_profile:" + version);
 
-    public async Task AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken)
+    public async Task<bool> AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken)
     {
         var sealedValue = await cipher.SealAsync(signal.Payload, SignalAd(signal.Id), cancellationToken).ConfigureAwait(false);
         await using var cmd = dataSource.CreateCommand(
             "INSERT INTO mirror_signal (id, kind, topic, direction, source_ref, weight, key_id, nonce, ciphertext, created_at) " +
-            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)");
+            "VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING");
         cmd.Parameters.AddWithValue(signal.Id);
         cmd.Parameters.AddWithValue(signal.Kind.ToString());
         cmd.Parameters.AddWithValue(signal.Topic);
@@ -26,7 +26,7 @@ public sealed class PostgresMirrorStore(NpgsqlDataSource dataSource, IMirrorCiph
         cmd.Parameters.AddWithValue(sealedValue.Nonce);
         cmd.Parameters.AddWithValue(sealedValue.Ciphertext);
         cmd.Parameters.AddWithValue(signal.CreatedAt);
-        await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        return await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false) > 0;
     }
 
     public async Task<IReadOnlyList<MirrorSignal>> ListSignalsAsync(CancellationToken cancellationToken)

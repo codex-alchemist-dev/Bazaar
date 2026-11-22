@@ -9,10 +9,18 @@ public sealed class InMemoryMirrorStore : IMirrorStore
     private readonly HashSet<string> _suppressed = [];
     private bool _paused;
 
-    public Task AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken)
+    public Task<bool> AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken)
     {
-        lock (_gate) { _signals.Add(signal); }
-        return Task.CompletedTask;
+        lock (_gate)
+        {
+            if (_signals.Any(s => s.Id == signal.Id))
+            {
+                return Task.FromResult(false);
+            }
+
+            _signals.Add(signal);
+            return Task.FromResult(true);
+        }
     }
 
     public Task<IReadOnlyList<MirrorSignal>> ListSignalsAsync(CancellationToken cancellationToken)

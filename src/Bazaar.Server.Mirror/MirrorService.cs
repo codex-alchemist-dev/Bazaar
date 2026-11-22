@@ -17,7 +17,11 @@ public sealed class MirrorService(IMirrorStore store, MirrorOptions options, Tim
             return false;
         }
 
-        await store.AddSignalAsync(signal, cancellationToken);
+        if (!await store.AddSignalAsync(signal, cancellationToken))
+        {
+            return false;
+        }
+
         await RebuildAsync(cancellationToken);
         return true;
     }

@@ -87,7 +87,8 @@ public interface IMirrorService
 /// <summary>Storage for signals. The Postgres store encrypts <see cref="MirrorSignal.Payload"/> per person (doc 26, C01).</summary>
 public interface IMirrorStore
 {
-    Task AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken);
+    /// <summary>Adds a signal. Returns false when a signal with the same id is already stored (feeds are idempotent).</summary>
+    Task<bool> AddSignalAsync(MirrorSignal signal, CancellationToken cancellationToken);
     Task<IReadOnlyList<MirrorSignal>> ListSignalsAsync(CancellationToken cancellationToken);
     Task AddProfileAsync(MirrorProfile profile, CancellationToken cancellationToken);
     Task<MirrorProfile?> GetLatestProfileAsync(CancellationToken cancellationToken);
@@ -119,4 +120,27 @@ public interface IMirrorCipher
 
     /// <summary>Throws <see cref="System.Security.Cryptography.CryptographicException"/> when the key is destroyed or the key, the data or the value is wrong.</summary>
     ValueTask<string> OpenAsync(SealedMirrorValue value, byte[] associatedData, CancellationToken cancellationToken);
+}
+
+/// <summary>
+/// Where the owner decision sources report to Mirror (doc 26 section 5). Each call is one owner decision, never a capture of
+/// keystrokes, clipboard, screen or files. Calls are idempotent by source reference, so a replayed event adds nothing.
+/// Returns true when a new signal was learned from.
+/// </summary>
+public interface IMirrorFeed
+{
+    /// <summary>The owner accepted or rejected an approval card, with an optional reason. Topics say what the card was about.</summary>
+    Task<bool> CardDecidedAsync(string cardRef, bool accepted, string? reason, IReadOnlyList<string> topics, CancellationToken cancellationToken);
+
+    /// <summary>The owner edited agent text. Topics the edit removed count against; topics it added count for.</summary>
+    Task<bool> OwnerEditedAsync(string sourceRef, IReadOnlyList<string> removedTopics, IReadOnlyList<string> addedTopics, string? note, CancellationToken cancellationToken);
+
+    /// <summary>The owner left a review comment that states a preference on a topic.</summary>
+    Task<bool> ReviewCommentedAsync(string sourceRef, string topic, MirrorDirection direction, string comment, CancellationToken cancellationToken);
+
+    /// <summary>The owner broke a Council tie. Approving prefers the topic, rejecting avoids it.</summary>
+    Task<bool> CouncilTieBrokenAsync(string voteRef, string topic, bool approved, string? reasoning, CancellationToken cancellationToken);
+
+    /// <summary>The owner stated a preference outright.</summary>
+    Task<bool> PreferenceStatedAsync(string statementRef, string topic, MirrorDirection direction, string statement, CancellationToken cancellationToken);
 }
