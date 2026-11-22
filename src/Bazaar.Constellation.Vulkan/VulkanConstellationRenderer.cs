@@ -7,14 +7,14 @@ namespace Bazaar.Constellation.Vulkan;
 /// Vulkan backend for the Constellation view (doc 19, WP7).
 /// Attach binds a <see cref="VulkanSwapchain"/> to the surface, and Draw clears and presents each frame.
 /// Draw clears the background and draws the latest interpolated frame as instanced nodes. Each node takes its colour,
-/// radius and ring width from its style: SetScene gives every node the fallback style, and SetNodeStyles replaces
-/// that with per-node styles. The adapter does not map its own styles yet.
+/// radius and ring width from its style: SetScene gives every node the default style,
+/// and SetNodeStyles replaces that with explicit per-node styles (the adapter colours nodes by cluster this way).
 /// The backend never claims a surface it did not bind, and reports why when it cannot draw.
 /// </summary>
 public sealed class VulkanConstellationRenderer : IConstellationRenderer
 {
     /// <summary>Background colour cleared each frame until node drawing lands (RGBA, linear).</summary>
-    private static readonly (float R, float G, float B, float A) _background = (0.05f, 0.06f, 0.08f, 1f);
+    private static readonly (float R, float G, float B, float A) _background = ConstellationNodeStyles.DefaultTheme.Background;
 
     /// <summary>Style used for every node until per-node styles arrive from the adapter (RGBA, radius in world units).</summary>
     private static readonly NodeStyle _nodeStyle = NodeStyle.Create(0.80f, 0.86f, 0.95f, 1f, 0.012f);
@@ -29,7 +29,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
     private int _dimensions;
     private float[] _positions = [];
     private VulkanSwapchain? _swapchain;
-    private ConstellationScene? _scene;
+    private RenderScene? _scene;
     private int _widthPixels;
     private int _heightPixels;
     private bool _disposed;
@@ -40,7 +40,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         Func<RenderSurface, (VulkanSwapchain? Swapchain, string Reason)>? createSwapchain = null)
     {
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
-        _createSwapchain = createSwapchain ?? VulkanSwapchain.TryCreate;
+        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface));
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
@@ -88,7 +88,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         return new RenderAttachResult(true, string.Empty);
     }
 
-    public void SetScene(ConstellationScene scene)
+    public void SetScene(RenderScene scene)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(scene);
@@ -101,10 +101,7 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         _interpolator.Reset();
     }
 
-    /// <summary>
-    /// Sets the style of every node of the current scene. The table is read when this is called; later changes to it
-    /// need another call. Throws when no scene is set or the table does not match the scene's node count.
-    /// </summary>
+    /// <inheritdoc/>
     public void SetNodeStyles(NodeStyleTable styles)
     {
         ThrowIfDisposed();
