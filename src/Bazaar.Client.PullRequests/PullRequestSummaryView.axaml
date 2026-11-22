@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:pr="using:Bazaar.Client.PullRequests"
+             xmlns:gh="using:Bazaar.Contracts.GitHub"
+             x:Class="Bazaar.Client.PullRequests.PullRequestSummaryView"
+             x:DataType="pr:PullRequestSummaryViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="16" Spacing="8">
+      <TextBlock Text="{Binding Title}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Number, StringFormat='PR #{0}'}" Name="NumberText" />
+      <TextBlock Text="{Binding HeadSha, StringFormat='Head: {0}'}" Name="HeadText" FontFamily="monospace" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Checks, StringFormat='Checks: {0}'}" Name="ChecksText" />
+      <TextBlock Text="{Binding ReviewerApproved, StringFormat='Reviewer approved: {0} (data only, not merge authority)'}" Name="ReviewerText" TextWrapping="Wrap" />
+      <TextBlock Text="{Binding Summary}" Name="SummaryText" TextWrapping="Wrap" />
+      <ItemsControl ItemsSource="{Binding Files}" Name="FilesList">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="gh:PrChangedFile">
+            <TextBlock Text="{Binding Path}" FontFamily="monospace" TextWrapping="Wrap" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <TextBlock Text="{Binding Notice}" Name="NoticeText" TextWrapping="Wrap" />
+
+      <Button Name="MergeButton" Content="Merge" IsEnabled="{Binding CanMerge}" Click="OnMergeClick" />
+      <StackPanel Name="ConfirmPanel" IsVisible="{Binding HasPendingMerge}" Spacing="4">
+        <TextBlock Text="{Binding PendingMergeTitle, StringFormat='Squash as: {0}'}" TextWrapping="Wrap" />
+        <Button Name="ConfirmMergeButton" Content="Confirm with biometric" Click="OnConfirmMergeClick" />
+        <Button Name="CancelMergeButton" Content="Cancel" Click="OnCancelMergeClick" />
+      </StackPanel>
+
+      <TextBox Name="ReviewBody" AcceptsReturn="True" Watermark="Review text" />
+      <Button Name="RequestChangesButton" Content="Request changes" IsEnabled="{Binding CanReview}" Click="OnRequestChangesClick" />
+      <Button Name="CommentButton" Content="Comment" IsEnabled="{Binding CanReview}" Click="OnCommentClick" />
+
+      <TextBox Name="DiffPathBox" Watermark="File path for the full diff" />
+      <Button Name="DiffButton" Content="Show diff" IsEnabled="{Binding FullDiffEnabled}" Click="OnDiffClick" />
+      <Border Name="DiffHost" BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="4" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
