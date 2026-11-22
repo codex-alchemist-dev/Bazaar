@@ -18,11 +18,15 @@ function Invoke-Step {
     }
 }
 
-Invoke-Step 'restore' { dotnet restore Bazaar.slnx }
-foreach ($p in ($Projects -split '\s+' | Where-Object { $_ -and $_ -notmatch 'Android' })) {
-    Invoke-Step "build $p" { dotnet build $p -c Release --no-restore }
-}
-foreach ($t in ($Tests -split '\s+' | Where-Object { $_ })) {
-    Invoke-Step "test $t" { dotnet test --project $t -c Release --no-build }
-}
-Invoke-Step 'format' { dotnet format Bazaar.slnx --verify-no-changes --no-restore }
+# One temporary solution that lists only the affected projects (same idea as build-affected.sh): one restore, a parallel
+# build, parallel tests, and a format check that loads only these projects. Android projects have their own CI job.
+$slice = 'Bazaar.affected.slnx'
+$all = @(($Projects + ' ' + $Tests) -split '\s+' | Where-Object { $_ -and $_ -notmatch 'Android' } | ForEach-Object { $_.Replace('\', '/') } | Sort-Object -Unique)
+if ($all.Count -eq 0) { Write-Error 'no projects to put in the slice'; exit 1 }
+$lines = @('<Solution>') + ($all | ForEach-Object { "  <Project Path=`"$_`" />" }) + @('</Solution>')
+[System.IO.File]::WriteAllText((Join-Path (Get-Location) $slice), (($lines -join "`n") + "`n"))
+
+Invoke-Step 'restore' { dotnet restore $slice }
+Invoke-Step 'build' { dotnet build $slice -c Release --no-restore }
+if ($Tests.Trim()) { Invoke-Step 'test' { dotnet test --solution $slice -c Release --no-build } }
+Invoke-Step 'format' { dotnet format $slice --verify-no-changes --no-restore }
