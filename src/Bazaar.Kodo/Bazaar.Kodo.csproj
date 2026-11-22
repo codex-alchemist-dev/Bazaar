@@ -5,5 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Kodo.Tests" />
+    <!-- Wire DTOs live in Contracts (doc 46 section 4) so Bazaar.Client.Kodo can read them without the server module. -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
   </ItemGroup>
 </Project>

@@ -284,7 +284,29 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         await AddMemberAsync(gc, former, joinedSeq: 0, leftSeq: 2);
         var policy = new GcStreamAccessPolicy(Access);
 
-        Assert.False(await policy.CanReadAsync(former, gc, ct));
+        Assert.False(await policy.CanReadAsync(former, PrincipalKind.Human, gc, ct));
+    }
+
+    [Fact]
+    public async Task The_owner_reads_a_DM_on_the_live_stream_without_membership()
+    {
+        // Drift audit item 4 (docs/design/01): the owner reads all, DMs included. The owner is not a member of this DM.
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var owner = Guid.CreateVersion7();
+        var other = Guid.CreateVersion7();
+        var gc = Guid.CreateVersion7();
+        await using (var cmd = db.DataSource.CreateCommand("INSERT INTO gc (gc_id, type_key, title, created_by) VALUES ($1, 'dm', 'dm', $2)"))
+        {
+            cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = gc });
+            cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = other });
+            await cmd.ExecuteNonQueryAsync(ct);
+        }
+        await AddMemberAsync(gc, other, joinedSeq: 0, leftSeq: null);
+        var policy = new GcStreamAccessPolicy(Access);
+
+        Assert.True(await policy.CanReadAsync(owner, PrincipalKind.Owner, gc, ct));
+        Assert.False(await policy.CanReadAsync(owner, PrincipalKind.Human, gc, ct));
     }
 
     [Fact]
@@ -324,7 +346,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         using var running = new CancellationTokenSource();
         var dispatching = dispatcher.RunAsync(notifications, null, running.Token);
         var outbound = new BoundedOutbound(1000);
-        using var session = engine.CreateSession(member.Id, _codec, outbound);
+        using var session = engine.CreateSession(member.Id, PrincipalKind.Human, _codec, outbound);
 
         var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), 0, 0)]), ct);
         Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
@@ -374,7 +396,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
             {
                 // One loop pass is one connection: its own queue and session, dropped without a goodbye.
                 using var outbound = new BoundedOutbound(10_000);
-                using var session = engine.CreateSession(member.Id, _codec, outbound);
+                using var session = engine.CreateSession(member.Id, PrincipalKind.Human, _codec, outbound);
                 var cursor = log.Count == 0 ? (N: 0L, Ev: 0L) : log[^1];
                 var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), cursor.N, cursor.Ev)]), ct);
                 Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
@@ -605,7 +627,7 @@ public sealed class GcWireGlueTests(GcDb db) : IClassFixture<GcDb>
         using var running = new CancellationTokenSource();
         var dispatching = dispatcher.RunAsync(notifications, null, running.Token);
         var outbound = new BoundedOutbound(1000);
-        using var session = engine.CreateSession(leaver.Id, _codec, outbound);
+        using var session = engine.CreateSession(leaver.Id, PrincipalKind.Human, _codec, outbound);
         var outcome = await session.SubscribeAsync(new Subscribe([new StreamCursor(WireStreams.Gc(gc), 0, 0)]), ct);
         Assert.Equal(SubscribeStatuses.Ok, outcome.Result.Results.Single().Status);
         _ = outcome.StartAsync();

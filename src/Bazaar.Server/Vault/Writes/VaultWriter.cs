@@ -110,6 +110,10 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
     /// Creates a decision record at <c>decisions/NNNN-&lt;slug&gt;.md</c> with the next free number and commits it. The
     /// number is assigned under the vault lane, so two concurrent decisions never share one.
     /// </summary>
+    /// <remarks>
+    /// Idempotent by <see cref="DecisionDraft.DocId"/>: a second draft with the same id returns the number of the record
+    /// already written and commits nothing, so a caller that retries after a crash never creates a second file.
+    /// </remarks>
     public async Task<VaultEditResult> CreateDecisionAsync(DecisionDraft draft, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -123,7 +127,13 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         using var laneLease = await AcquireAsync(_vaultLane, ct);
 
         var oldCommit = await _git.HeadAsync(_repoPath, ct);
-        var number = NextDecisionNumber(Path.Combine(_repoPath, _decisionsFolder));
+        var decisionsDirectory = Path.Combine(_repoPath, _decisionsFolder);
+        if (FindDecisionNumber(decisionsDirectory, ToUlid(draft.DocId)) is { } existing)
+        {
+            return new VaultEditResult(VaultEditOutcome.UpToDate, oldCommit, oldCommit, [], existing);
+        }
+
+        var number = NextDecisionNumber(decisionsDirectory);
         var relativePath = $"{_decisionsFolder}/{number:D4}-{draft.Slug}.md";
         var fullPath = Path.Combine(_repoPath, relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
@@ -212,6 +222,36 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
             .DefaultIfEmpty(0)
             .Max();
         return highest + 1;
+    }
+
+    /// <summary>
+    /// Number of the decision record whose front matter carries <paramref name="ulid"/> (<c>id:</c> is the second line,
+    /// see <see cref="RenderDecision"/>), or null when no record has it.
+    /// </summary>
+    internal static int? FindDecisionNumber(string decisionsDirectory, string ulid)
+    {
+        if (!Directory.Exists(decisionsDirectory))
+        {
+            return null;
+        }
+
+        var idLine = "id: " + ulid;
+        foreach (var path in Directory.EnumerateFiles(decisionsDirectory, "*.md"))
+        {
+            var match = DecisionPrefix().Match(Path.GetFileName(path));
+            if (!match.Success)
+            {
+                continue;
+            }
+
+            var head = File.ReadLines(path).Take(2).ToArray();
+            if (head.Length == 2 && head[1] == idLine)
+            {
+                return int.Parse(match.Groups["number"].Value, System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

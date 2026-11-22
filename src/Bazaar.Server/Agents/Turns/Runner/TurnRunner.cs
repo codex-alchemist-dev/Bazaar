@@ -313,7 +313,7 @@ public sealed class TurnRunner : ITurnRunner
         {
             await _posts.PostAsync(run.Request.AgentId, run.TurnId, gcId, text, ct).ConfigureAwait(false);
         }
-        catch (AgentPostRefusedException)
+        catch (Exception ex) when (ex is AgentPostRefusedException or AgentPostUnboundException)
         {
             // A refusal is raised before anything is appended, so the step is abandoned, not unknown. The turn ends refused.
             run.InFlight = null;

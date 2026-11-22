@@ -311,7 +311,10 @@ public static class HttpSurfaceEndpoints
         return Results.Json(new { body });
     }
 
-    /// <summary>Owner reads everything; an agent reads shared documents and its own private memory; anyone else reads shared only.</summary>
+    /// <summary>
+    /// Owner reads everything; an agent reads <c>company/</c>, <c>shared/</c>, its own area and its own private memory; anyone
+    /// else reads nothing (<see cref="Vault.Search.VaultAccess"/>).
+    /// </summary>
     private static Vault.Search.VaultCaller VaultCallerFor(PrincipalRef principal) => principal.Kind switch
     {
         "owner" => Vault.Search.VaultCaller.Owner,

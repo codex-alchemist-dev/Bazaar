@@ -140,7 +140,7 @@ public sealed class VaultGraphSourceDataTests(VaultDb db) : IClassFixture<VaultD
         await repo.ReplaceDocumentAsync(Memory(vault, memB2, "agents/b/memory/two.md", _agentB.AgentOwner!), [Block("b2")], [], Ct);
         await repo.ReplaceDocumentAsync(Memory(vault, memB, "agents/b/memory/one.md", _agentB.AgentOwner!), [Block("b")], [Link(memB, 0, "Two", memB2)], Ct);
         await repo.ReplaceDocumentAsync(
-            Doc(vault, shared, "projects/x/Shared.md"),
+            Doc(vault, shared, "shared/x/Shared.md"),
             [Block("shared")],
             [Link(shared, 0, "A", memA), Link(shared, 1, "B", memB)],
             Ct);
@@ -181,14 +181,15 @@ public sealed class VaultGraphSourceDataTests(VaultDb db) : IClassFixture<VaultD
     }
 
     [Fact]
-    public async Task A_human_member_sees_what_Vault_search_would_show_them_and_no_private_memory()
+    public async Task A_member_who_is_neither_the_owner_nor_an_agent_sees_nothing_as_in_Vault_search()
     {
         SkipWithoutDatabase();
-        var (vault, shared, _, _, _, repo) = await SeedAsync();
+        var (vault, _, _, _, _, repo) = await SeedAsync();
 
         var graph = await new VaultGraphSource(repo, vault).GetSnapshotAsync(_human, Ct);
 
-        Assert.Equal(Ordered(shared), Ids(graph));
+        // The Vault access rule fails closed for a caller with no agent owner (doc 18): the graph shows no more than search does.
+        Assert.Empty(graph.Nodes);
         Assert.Empty(graph.Edges);
     }
 

@@ -66,7 +66,7 @@ public sealed partial class VaultWriter
             return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
         }
 
-        if (!VaultAccess.CanRead(OwnerOf(fromText), request.Caller))
+        if (!VaultAccess.CanRead(request.FromPath, OwnerOf(fromText), request.Caller))
         {
             return new VaultEditResult(VaultEditOutcome.Refused, oldCommit, oldCommit, [request.FromPath], null);
         }
@@ -190,7 +190,7 @@ public sealed partial class VaultWriter
         var newTarget = StripExtension(request.ToPath);
 
         // Entries the caller cannot read are removed before resolution, so they never match and never cause ambiguity.
-        bool CanSee(VaultIndexEntry entry) => VaultAccess.CanRead(owners[entry.Path], request.Caller);
+        bool CanSee(VaultIndexEntry entry) => VaultAccess.CanRead(entry.Path, owners[entry.Path], request.Caller);
 
         foreach (var entry in index)
         {
