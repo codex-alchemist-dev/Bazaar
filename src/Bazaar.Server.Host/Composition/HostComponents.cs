@@ -46,6 +46,7 @@ public static class HostComponents
         new SetupComponent(),
         new WalkthroughComponent(),
         new SoulProfileComponent(),
+        new FirstRunAdaptersComponent(),
         new RetentionComponent(),
         new KekComponent(),
         new GcComponent(),

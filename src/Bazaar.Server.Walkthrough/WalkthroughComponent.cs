@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Walkthrough;
 
@@ -27,7 +28,9 @@ public sealed class WalkthroughComponent : IBazaarComponent
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.TryAddSingleton<WalkthroughComponentMarker>();
-        services.TryAddSingleton<IWalkthroughPrefsStore, InMemoryWalkthroughPrefsStore>();
+        // Durable when the host has its database; in memory (a restart forgets) when it does not, such as a test host.
+        services.TryAddSingleton<IWalkthroughPrefsStore>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PostgresWalkthroughPrefsStore(dataSource) : new InMemoryWalkthroughPrefsStore());
     }
 }
 
