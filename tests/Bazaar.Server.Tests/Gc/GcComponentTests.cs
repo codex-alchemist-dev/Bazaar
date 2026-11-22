@@ -48,6 +48,7 @@ public class GcComponentTests
         Assert.NotNull(provider.GetRequiredService<IGcLogWriter>());
         Assert.NotNull(provider.GetRequiredService<IGcLogReader>());
         Assert.NotNull(provider.GetRequiredService<IGcReadAccess>());
+        Assert.NotNull(provider.GetRequiredService<IGcProvisioner>());
     }
 
     [Fact]

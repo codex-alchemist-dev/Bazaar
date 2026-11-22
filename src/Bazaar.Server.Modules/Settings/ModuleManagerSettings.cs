@@ -37,6 +37,16 @@ public static class ModuleManagerSettings
         "update.channel", UpdateChannel.Beta, SettingScope.Install, SettingRole.Operator,
         "Release channel this install follows: LTSC, Stable, Beta, Alpha or Latest-Commit. Latest-Commit is owner-only.");
 
+    /// <summary>
+    /// What the company starts from (doc 45 step 13): <c>blank</c>, <c>template:&lt;id&gt;@&lt;semver&gt;</c> or <c>import:&lt;id&gt;</c>. A
+    /// reference only: it names a template or an import, and holds no template content. Shipped default <c>blank</c>, which creates
+    /// nothing from outside. Setup validates the exact grammar; the registry checks the prefix and the absence of spaces.
+    /// </summary>
+    public static readonly SettingKey<string> CompanySource = new(
+        "company.source", "blank", SettingScope.Install, SettingRole.Operator,
+        "What the company starts from: blank, template:<id>@<semver> or import:<id>.",
+        validate: CheckCompanySource);
+
     public static readonly SettingKey<int> DeferWarnDays = new(
         ModuleManagerSettingNames.DeferWarnDaysSettingKey, ModuleManagerSettingNames.DefaultDeferWarnDays, SettingScope.Install, SettingRole.Operator,
         "Days a deferred update may wait before the module manager and Kodo show it as aging.",
@@ -100,6 +110,7 @@ public static class ModuleManagerSettings
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
         Channel,
+        CompanySource,
         DeferWarnDays,
         AutoSecurityPatches,
         RingCanaryPercent,
@@ -149,6 +160,20 @@ public static class ModuleManagerSettings
             TimeSpan.FromMinutes(initialBackoffMinutes),
             multiplier,
             TimeSpan.FromMinutes(maxBackoffMinutes)).Validated();
+    }
+
+    private static string? CheckCompanySource(string source)
+    {
+        if (source == "blank")
+            return null;
+        var rest = source.StartsWith("template:", StringComparison.Ordinal) ? source["template:".Length..]
+            : source.StartsWith("import:", StringComparison.Ordinal) ? source["import:".Length..]
+            : null;
+        if (rest is null || rest.Length is 0 or > 200 || rest.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            return "must be blank, template:<id>@<semver> or import:<id>.";
+        return source.StartsWith("template:", StringComparison.Ordinal) && !rest.Contains('@', StringComparison.Ordinal)
+            ? "template sources must be template:<id>@<semver>."
+            : null;
     }
 
     private static string? CheckMultiplier(double multiplier) =>

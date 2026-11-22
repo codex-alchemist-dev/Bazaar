@@ -18,6 +18,8 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
 
     private const string _findDeviceSql = "SELECT id, human_id, label, class, revision, revoked_at FROM device WHERE id = $1";
 
+    private const string _findHumanSql = "SELECT id, display_name, role, status FROM human WHERE id = $1";
+
     private const string _insertDeviceSql =
         "INSERT INTO device (id, human_id, label, class, revision, created_at) VALUES ($1, $2, $3, $4, $5, $6)";
 
@@ -64,6 +66,16 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
             Class: reader.GetString(3),
             Revision: reader.GetInt32(4),
             RevokedAt: reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5));
+    }
+
+    public async Task<HumanRecord?> FindHumanAsync(Guid humanId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(_findHumanSql);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
+            return null;
+        return new HumanRecord(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
     }
 
     public async Task CreateDeviceAsync(
