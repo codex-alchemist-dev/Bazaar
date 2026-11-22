@@ -30,6 +30,7 @@ public sealed class CommunityPanesTests
         var context = new PaneModuleContext().WithCommunity(ServerEndpoint.Development);
 
         Assert.IsType<HttpDraftReviewDecisionSender>(context.Get<IDraftReviewDecisionSender>());
+        Assert.IsType<HttpCommunityLogSource>(context.Get<ICommunityLogSource>());
         Assert.Null(context.Get<IDecisionSigner>());
     }
 
