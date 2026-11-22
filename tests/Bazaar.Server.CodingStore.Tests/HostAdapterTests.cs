@@ -5,6 +5,7 @@ using Bazaar.Server.CodingStore.Data;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Subagents;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -102,7 +103,7 @@ public sealed class HostAdapterTests
     [Fact]
     public void Harness_uses_in_process_traces_without_a_data_source()
     {
-        using var sp = new ServiceCollection().AddBazaarCodingHarness().BuildServiceProvider();
+        using var sp = new ServiceCollection().AddBazaarCodingHarness(EnabledConfig()).BuildServiceProvider();
 
         Assert.IsType<InProcessToolCallTrace>(sp.GetRequiredService<IToolCallTrace>());
         Assert.IsType<InProcessSubagentTrace>(sp.GetRequiredService<ISubagentTrace>());
@@ -113,7 +114,7 @@ public sealed class HostAdapterTests
     {
         await using var ds = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=x");
         var services = new ServiceCollection();
-        services.AddBazaarCodingHarness();
+        services.AddBazaarCodingHarness(EnabledConfig());
         services.AddSingleton(ds);
         await using var sp = services.BuildServiceProvider();
 
@@ -129,4 +130,13 @@ public sealed class HostAdapterTests
 
         Assert.Equal([1, 2, 3], files.Select(f => f.Version).Order());
     }
+
+    private static IConfiguration EnabledConfig() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Coding:Harness:Enabled"] = "true",
+                ["Coding:Harness:Git:AppNoreplyEmail"] = "bot@noreply.example.test",
+            })
+            .Build();
 }
