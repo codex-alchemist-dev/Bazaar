@@ -325,16 +325,18 @@ public sealed class SealedGitRepoTests : IDisposable
     [Fact]
     public async Task Git_child_does_not_inherit_git_variables()
     {
-        Environment.SetEnvironmentVariable("GIT_SSH_COMMAND", "touch evil");
+        // GIT_PAGER wins over every other source in `git var GIT_PAGER`, so seeing it echoed means the variable leaked.
+        Environment.SetEnvironmentVariable("GIT_PAGER", "evil-pager-canary");
         try
         {
             var repo = Repo();
-            var env = await repo.WithWorkingTreeAsync(async g => (await GitCommand.RunAsync(g, ["var", "GIT_EDITOR"])).ExitCode);
-            Assert.Equal(0, env);
+            var result = await repo.WithWorkingTreeAsync(g => GitCommand.RunAsync(g, ["var", "GIT_PAGER"]));
+            Assert.Equal(0, result.ExitCode);
+            Assert.DoesNotContain("evil-pager-canary", result.StandardOutput, StringComparison.Ordinal);
         }
         finally
         {
-            Environment.SetEnvironmentVariable("GIT_SSH_COMMAND", null);
+            Environment.SetEnvironmentVariable("GIT_PAGER", null);
         }
     }
 
