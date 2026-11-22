@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using Bazaar.Approvals;
 using Bazaar.Client.Approvals;
-using Bazaar.Client.Core.Mobile;
+using Bazaar.Client.Mobile;
 using Bazaar.Contracts.GitHub;
 
 namespace Bazaar.Client.PullRequests;

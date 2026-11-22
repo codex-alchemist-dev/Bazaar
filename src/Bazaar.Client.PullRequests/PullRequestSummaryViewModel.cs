@@ -1,4 +1,4 @@
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.GitHub;
 
 namespace Bazaar.Client.PullRequests;
@@ -32,7 +32,7 @@ public sealed class PullRequestSummaryViewModel : PullRequestViewModelBase
 {
     private readonly IPullRequestClient _client;
     private readonly IOwnerActionGate _gate;
-    private readonly Core.Mobile.AndroidSettings _settings;
+    private readonly Bazaar.Client.Mobile.AndroidSettings _settings;
     private PrListRow _row;
     private PrSummaryReply? _summary;
     private PendingMerge? _pending;
@@ -47,7 +47,7 @@ public sealed class PullRequestSummaryViewModel : PullRequestViewModelBase
         PrListRow row,
         IPullRequestClient client,
         IOwnerActionGate gate,
-        Core.Mobile.AndroidSettings settings)
+        Bazaar.Client.Mobile.AndroidSettings settings)
     {
         _row = row ?? throw new ArgumentNullException(nameof(row));
         _client = client ?? throw new ArgumentNullException(nameof(client));
