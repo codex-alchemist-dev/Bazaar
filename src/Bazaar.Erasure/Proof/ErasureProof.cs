@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
 using System.Text;
 
-namespace Bazaar.Server.Security.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// The signed proof of a crypto-erase (design doc 48, section 9): the per-subject keys were destroyed and a tombstone was

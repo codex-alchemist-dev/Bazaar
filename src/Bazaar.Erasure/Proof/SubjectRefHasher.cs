@@ -2,7 +2,7 @@ using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Bazaar.Server.Security.Erasure;
+namespace Bazaar.Erasure;
 
 /// <summary>
 /// Builds the subject reference that an erasure proof carries (design doc 48, section 9). The reference is a SHA-256 over
