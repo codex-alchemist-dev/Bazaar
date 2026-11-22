@@ -18,6 +18,7 @@ public enum SetupEntryPath
 /// <param name="TemplateId">The template used, when there is one.</param>
 /// <param name="TemplateVersion">The template version used, when there is one.</param>
 /// <param name="CurrentState">The state the dry run compared against. Null means an empty install.</param>
+/// <param name="TemplateHash">The template hash (doc 45 section 1.8), recorded in the apply row. Null when no template was used.</param>
 public sealed record SetupApplyRequest(
     SetupPlan Plan,
     string PlanHash,
@@ -25,7 +26,8 @@ public sealed record SetupApplyRequest(
     string OperatorIdentity,
     string? TemplateId = null,
     string? TemplateVersion = null,
-    SetupStateSnapshot? CurrentState = null);
+    SetupStateSnapshot? CurrentState = null,
+    string? TemplateHash = null);
 
 /// <summary>The outcome of an apply. Exit 0 applied, 1 refused as invalid, 2 held, 3 failed and rolled back (doc 45 section 1.7).</summary>
 /// <param name="ExitCode">The exit code the command returns.</param>
