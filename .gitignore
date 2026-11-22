@@ -462,3 +462,4 @@ test-results/
 
 # Claude Code agent worktrees (local only)
 .claude/worktrees/
+Bazaar.affected.slnx

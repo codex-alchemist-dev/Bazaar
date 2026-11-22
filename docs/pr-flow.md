@@ -34,6 +34,13 @@ Status: DECIDED (owner, 2026-10-24 and 2026-10-25). The workflow files are the s
   the owner's own same-repo runs, and only while the repository has at most `CI_OVERFLOW_QUEUE` queued runs
   (default 8); otherwise they overflow to hosted. Repository variable `CI_RUNNER_MODE` forces `self`, `hosted`
   or `auto`. The default is `hosted` (owner 2026-11-22, PC runners stopped): every job runs on GitHub until the variable is set to `auto` or `self`. Publish smoke runs on pull requests (not drafts) that touch code, and on main.
+- Faster pull request builds (2026-11-22, owner: do everything to speed up CI): a pull request builds, tests and
+  format-checks only the affected projects, through one temporary solution (`scripts/ci/build-affected.sh` and
+  `.ps1`, which write `Bazaar.affected.slnx`, not tracked). That is one restore, one parallel build, parallel tests
+  and a format check that loads only those projects. The Windows leg of Build and test works only when a
+  Windows-specific project can be affected (`windows` output of `scripts/ci/affected.py`: a project named
+  Windows or HyperV, or something it depends on, changed); otherwise it skips every step on an Ubuntu runner and
+  still reports green, so the check name stays. `main` always runs the full Windows build, test and format check.
 - Required checks are set in the "Protect main" ruleset. Their names must not change:
   renaming a job breaks the match and leaves PRs waiting forever.
 

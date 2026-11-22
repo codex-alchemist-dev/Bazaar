@@ -8,6 +8,8 @@ CHANGED_FILES_FILE lists one repository-relative path per line. Prints GITHUB_OU
   all=true|false        true: run everything (a shared file changed, or a changed file is outside every project)
   android=true|false    the Android head or its gate tests can be affected
   linux_client=true|false  the Linux client head can be affected
+  windows=true|false    a Windows-specific project (name contains Windows or HyperV) can be affected; false lets the pull
+                        request skip the Windows leg of Build and test (main always runs it)
   projects=<space separated project paths, every affected project (tests included)>
   tests=<space separated test project paths>   test projects whose own project or a referenced project changed
 
@@ -92,7 +94,7 @@ def main() -> int:
         hit.add(owner)
 
     if all_:
-        print("all=true\nandroid=true\nlinux_client=true\nprojects=\ntests=")
+        print("all=true\nandroid=true\nlinux_client=true\nwindows=true\nprojects=\ntests=")
         return 0
 
     closure_cache = {}
@@ -115,12 +117,14 @@ def main() -> int:
 
     android = any(affected(t) for t in ANDROID_TARGETS if t in projects)
     linux = any(affected(t) for t in LINUX_TARGETS if t in projects)
+    windows = any(affected(d) for d in projects if re.search(r"Windows|HyperV", os.path.basename(d)))
     tests = sorted({d for d in projects if is_test[d] and affected(d)} | {d for d in readers if d in in_sln})
     every = sorted({d for d in projects if d in in_sln and affected(d)} | {d for d in readers if d in in_sln})
     print("all=false")
     print("projects=" + " ".join(f"{t}/{os.path.basename(t)}.csproj" for t in every))
     print(f"android={'true' if android else 'false'}")
     print(f"linux_client={'true' if linux else 'false'}")
+    print(f"windows={'true' if windows else 'false'}")
     print("tests=" + " ".join(f"{t}/{os.path.basename(t)}.csproj" for t in tests))
     return 0
 
