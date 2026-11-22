@@ -158,7 +158,7 @@ Applied to the three features:
 
 - **Web admin panel (doc 51, PROPOSED mechanics):** `Bazaar.Server.WebAdmin.Abstractions` (the gate, session, audit and per-section ports) and `Bazaar.Server.WebAdmin` (endpoints under `/admin`, embedded assets, session store, audit recorder). Component id `web-admin`. It references neither `Bazaar.Server` nor any feature implementation; each section reads through a port that the owning module (Kodo, module manager, identity, audit, approvals, company build) implements, and a missing port shows "unavailable".
 
-- **Server TUI (doc 58):** `Bazaar.Client.Tui.Abstractions` and `Bazaar.Client.Tui` (shared kit), with two heads, `Bazaar.Client.Tui.Installer` (supplies an `ISetupPrompter`) and `Bazaar.Client.Tui.Dashboard` (the 24/7 Ops screens), each with its own manifest. and references the setup engine and the web admin ports through abstractions only. No wizard logic of its own.
+- **Server TUI (doc 58):** `Bazaar.Client.Tui.Abstractions` and `Bazaar.Client.Tui` (shared kit), with two heads, `Bazaar.Client.Tui.Installer` (supplies an `ISetupPrompter`) and `Bazaar.Client.Tui.Dashboard` (the 24/7 Ops screens), each with its own manifest. and references the setup engine and the web admin ports through abstractions only. No wizard logic of its own. **Built (2026-11-22):** `Bazaar.Client.Tui.Abstractions` (`ITerminal`, `IPromptWidgets`, menu models, mode types), `Bazaar.Client.Tui` (mode selector, menu bar state, console widgets) and `Bazaar.Client.Tui.Installer` (`TuiSetupPrompter`, `TuiSetupReportRenderer`, `TuiInstaller`), with tests in `Bazaar.Client.Tui.Tests` and `Bazaar.Client.Tui.Installer.Tests`. `Bazaar.Client.Tui.Dashboard` is not started.
 
 ## 4a. Renames (planned, small PRs)
 

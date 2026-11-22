@@ -24,6 +24,8 @@
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0" />
     <!-- Windows client updater (doc 28, Client updater): Velopack, newest stable on nuget.org (2026-11-22). Behind IVelopackAdapter. -->
     <PackageVersion Include="Velopack" Version="1.2.161" />
+    <!-- Server TUI (doc 58 WP1): Terminal.Gui v2, MIT. Pinned after the spike restored and built it on the net11.0 SDK; no project references it yet (the shell sits behind IPromptWidgets). -->
+    <PackageVersion Include="Terminal.Gui" Version="2.6.0" />
     <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
     <PackageVersion Include="Markdig" Version="1.6.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
