@@ -206,15 +206,16 @@
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
+    <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
+    <Project Path="src/Bazaar.Archive.Http/Bazaar.Archive.Http.csproj" />
     <Project Path="src/Bazaar.Server.SignIn.Abstractions/Bazaar.Server.SignIn.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.SignIn/Bazaar.Server.SignIn.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin.Abstractions/Bazaar.Server.WebAdmin.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.WebAdmin/Bazaar.Server.WebAdmin.csproj" />
     <Project Path="src/Bazaar.SupportBundle.Abstractions/Bazaar.SupportBundle.Abstractions.csproj" />
     <Project Path="src/Bazaar.SupportBundle/Bazaar.SupportBundle.csproj" />
-    <Project Path="src/Bazaar.Archive.Abstractions/Bazaar.Archive.Abstractions.csproj" />
-    <Project Path="src/Bazaar.Archive/Bazaar.Archive.csproj" />
-    <Project Path="src/Bazaar.Archive.Gc/Bazaar.Archive.Gc.csproj" />
     <Project Path="src/Bazaar.Server.Gc.Archive/Bazaar.Server.Gc.Archive.csproj" />
     <Project Path="src/Bazaar.Server.Mirror.Abstractions/Bazaar.Server.Mirror.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mirror/Bazaar.Server.Mirror.csproj" />
@@ -237,6 +238,26 @@
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode.Windows/Bazaar.Server.Providers.ClaudeCode.Windows.csproj" />
     <Project Path="src/Bazaar.Server.WorkLife/Bazaar.Server.WorkLife.csproj" />
     <Project Path="src/Bazaar.Server.Council/Bazaar.Server.Council.csproj" />
+    <Project Path="src/Bazaar.Server.CodingPermissions.Abstractions/Bazaar.Server.CodingPermissions.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingPermissions/Bazaar.Server.CodingPermissions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingEdit.Abstractions/Bazaar.Server.CodingEdit.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingEdit/Bazaar.Server.CodingEdit.csproj" />
+    <Project Path="src/Bazaar.Server.RepoMap.Abstractions/Bazaar.Server.RepoMap.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.RepoMap/Bazaar.Server.RepoMap.csproj" />
+    <Project Path="src/Bazaar.Server.CodingGit.Abstractions/Bazaar.Server.CodingGit.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingGit/Bazaar.Server.CodingGit.csproj" />
+    <Project Path="src/Bazaar.Server.CodingWorkspace.Abstractions/Bazaar.Server.CodingWorkspace.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingWorkspace/Bazaar.Server.CodingWorkspace.csproj" />
+    <Project Path="src/Bazaar.Server.CodingReview.Abstractions/Bazaar.Server.CodingReview.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingReview/Bazaar.Server.CodingReview.csproj" />
+    <Project Path="src/Bazaar.Server.CodingRunner.Abstractions/Bazaar.Server.CodingRunner.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingRunner/Bazaar.Server.CodingRunner.csproj" />
+    <Project Path="src/Bazaar.Server.Subagents.Abstractions/Bazaar.Server.Subagents.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Subagents/Bazaar.Server.Subagents.csproj" />
+    <Project Path="src/Bazaar.Server.CodingStore.Abstractions/Bazaar.Server.CodingStore.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.CodingStore/Bazaar.Server.CodingStore.csproj" />
+    <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Mail/Bazaar.Server.Mail.csproj" />
     <Project Path="src/Bazaar.Server.Council.Hiring/Bazaar.Server.Council.Hiring.csproj" />
     <Project Path="src/Bazaar.Server.Agents.Abstractions/Bazaar.Server.Agents.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Agents/Bazaar.Server.Agents.csproj" />
@@ -313,10 +334,13 @@
     <Project Path="src/Bazaar.Server.Http.Auth.Abstractions/Bazaar.Server.Http.Auth.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Data.Migrations.Abstractions/Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Data.Migrations/Bazaar.Server.Data.Migrations.csproj" />
-    <Project Path="src/Bazaar.Server.Mail.Abstractions/Bazaar.Server.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Abstractions/Bazaar.Server.Providers.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Valkey.Abstractions/Bazaar.Server.Valkey.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Garnet/Bazaar.Server.Garnet.csproj" />
+    <Project Path="src/Bazaar.Server.Presence/Bazaar.Server.Presence.csproj" />
+    <Project Path="src/Bazaar.Server.Presence.Abstractions/Bazaar.Server.Presence.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Presence/Bazaar.Client.Presence.csproj" />
+    <Project Path="src/Bazaar.Client.Presence.Abstractions/Bazaar.Client.Presence.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers/Bazaar.Server.Providers.csproj" />
     <Project Path="src/Bazaar.Server.Providers.Linux/Bazaar.Server.Providers.Linux.csproj" />
     <Project Path="src/Bazaar.Server.Valkey/Bazaar.Server.Valkey.csproj" />
@@ -407,6 +431,7 @@
     <Project Path="src/Bazaar.Server.VmDisplay.HyperV/Bazaar.Server.VmDisplay.HyperV.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.AgentTools/Bazaar.Server.VmDisplay.AgentTools.csproj" />
     <Project Path="src/Bazaar.Server.VmDisplay.Audit/Bazaar.Server.VmDisplay.Audit.csproj" />
+    <Project Path="src/Bazaar.Server.VmDisplay.Gate/Bazaar.Server.VmDisplay.Gate.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Bazaar.Architecture.Tests/Bazaar.Architecture.Tests.csproj" />
@@ -510,6 +535,7 @@
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Tests/Bazaar.Archive.Tests.csproj" />
     <Project Path="tests/Bazaar.Archive.Gc.Tests/Bazaar.Archive.Gc.Tests.csproj" />
+    <Project Path="tests/Bazaar.Archive.Http.Tests/Bazaar.Archive.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Mirror.Tests/Bazaar.Server.Mirror.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Analysis.Tests/Bazaar.Rubedo.Analysis.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Docs.Tests/Bazaar.Rubedo.Docs.Tests.csproj" />
@@ -574,6 +600,17 @@
     <Project Path="tests/Bazaar.Server.Security.Tests/Bazaar.Server.Security.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WorkLife.Tests/Bazaar.Server.WorkLife.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingPermissions.Tests/Bazaar.Server.CodingPermissions.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingEdit.Tests/Bazaar.Server.CodingEdit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.RepoMap.Tests/Bazaar.Server.RepoMap.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingGit.Tests/Bazaar.Server.CodingGit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingWorkspace.Tests/Bazaar.Server.CodingWorkspace.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingReview.Tests/Bazaar.Server.CodingReview.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingRunner.Tests/Bazaar.Server.CodingRunner.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Subagents.Tests/Bazaar.Server.Subagents.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.CodingStore.Tests/Bazaar.Server.CodingStore.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Mail.Tests/Bazaar.Server.Mail.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Hiring.Tests/Bazaar.Server.Council.Hiring.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Postgres.Tests/Bazaar.Server.Identity.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Identity.Tests/Bazaar.Server.Identity.Tests.csproj" />
@@ -596,6 +633,8 @@
     <Project Path="tests/Bazaar.Server.Providers.Linux.Tests/Bazaar.Server.Providers.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Tests/Bazaar.Server.Gateway.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Garnet.Tests/Bazaar.Server.Garnet.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Presence.Tests/Bazaar.Server.Presence.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Presence.Tests/Bazaar.Client.Presence.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Catalogue.Tests/Bazaar.Server.Gateway.Catalogue.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
@@ -637,7 +676,6 @@
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Updates.Tests/Bazaar.Client.Updates.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Updater.Linux.Tests/Bazaar.Client.Updater.Linux.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Coding.Tests/Bazaar.Server.Coding.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.HyperV.Tests/Bazaar.Server.Vms.HyperV.Tests.csproj" />
@@ -657,6 +695,7 @@
     <Project Path="tests/Bazaar.Server.VmDisplay.HyperV.Tests/Bazaar.Server.VmDisplay.HyperV.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.AgentTools.Tests/Bazaar.Server.VmDisplay.AgentTools.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmDisplay.Audit.Tests/Bazaar.Server.VmDisplay.Audit.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.VmDisplay.Gate.Tests/Bazaar.Server.VmDisplay.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.VmTransport.Tests/Bazaar.Server.VmTransport.Tests.csproj" />
   </Folder>
 </Solution>

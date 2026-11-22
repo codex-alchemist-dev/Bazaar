@@ -25,17 +25,18 @@ public sealed class SetupComponentStepTests
     }
 
     [Fact]
-    public void The_default_component_registers_the_install_settings_constitution_and_first_run_seed_steps()
+    public void The_default_component_registers_the_install_settings_model_sources_constitution_and_first_run_seed_steps()
     {
         using var provider = Build(new SetupComponent());
 
         var steps = provider.GetServices<ISetupStep>().OrderBy(step => step.Order).ToList();
 
         // The Constitution is drafted just before the first-run seed, which needs a commit to accept.
-        Assert.Equal(["constitution.seed", "firstrun.seed", "install.settings"], steps.Select(step => step.Id));
+        Assert.Equal(["constitution.seed", "firstrun.seed", "models.sources", "install.settings"], steps.Select(step => step.Id));
         Assert.IsType<ConstitutionSeedStep>(steps[0]);
         Assert.IsType<FirstRunSeedStep>(steps[1]);
-        Assert.IsType<InstallSettingsStep>(steps[2]);
+        Assert.IsType<GatewaySourcesStep>(steps[2]);
+        Assert.IsType<InstallSettingsStep>(steps[3]);
     }
 
     [Fact]
@@ -91,7 +92,7 @@ public sealed class SetupComponentStepTests
     }
 
     [Fact]
-    public async Task The_progress_list_reports_the_registered_step_as_pending()
+    public async Task The_progress_list_reports_the_registered_steps_as_pending()
     {
         using var provider = Build(new SetupComponent());
 
@@ -100,6 +101,7 @@ public sealed class SetupComponentStepTests
         Assert.Contains(snapshot.Steps, progress => progress.Id == "install.settings");
         Assert.Contains(snapshot.Steps, progress => progress.Id == "firstrun.seed");
         Assert.Contains(snapshot.Steps, progress => progress.Id == "constitution.seed");
+        Assert.Contains(snapshot.Steps, progress => progress.Id == "models.sources");
     }
 
     private sealed class NullAudit : IAuditLog

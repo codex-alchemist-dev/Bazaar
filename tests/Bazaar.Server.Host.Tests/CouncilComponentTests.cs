@@ -53,7 +53,7 @@ public sealed class CouncilComponentTests
 
         var source = HostMigrations.Source();
         Assert.Contains("council", source.Namespaces());
-        Assert.Equal([1, 2], source.Load("council").Select(f => f.Version).ToList());
+        Assert.Equal([1, 2, 3], source.Load("council").Select(f => f.Version).ToList());
     }
 
     [Fact]

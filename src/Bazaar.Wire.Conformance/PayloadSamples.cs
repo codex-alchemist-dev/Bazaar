@@ -1,5 +1,4 @@
 using Bazaar.Contracts.Gc;
-using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Releases;
@@ -60,6 +59,8 @@ public static class PayloadSamples
     private static readonly DateTimeOffset _local = new(2026, 11, 19, 7, 36, 12, TimeSpan.FromHours(2));
     private static readonly string _text = "h\u00e9llo \U0001F642 \"quoted\" \\ \u2028 end";
 
+    private static readonly WirePresenceRow _presenceRow = new(_author, 4, "OnShift", ["Throttled", "Idle"], "thinking", "ModelCall", _gc, _other, "planning the release", _at, _at);
+
     private static readonly WireGcMessage _message = new(_gc, 12, 40, _other, _author, _text, _at, true, [_author, _other], 7);
 
     /// <summary>Every sample, in a stable order.</summary>
@@ -117,23 +118,13 @@ public static class PayloadSamples
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
         Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
         Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
-        Of(null, new PrListRequest("acme/bazaar", PrListState.Open, null, 30), WireTypes.PrList),
-        Of("cursor", new PrListRequest(null, PrListState.All, "MTIzfFBSXzE=", null), WireTypes.PrList),
-        Of(null, new PrListReply([new PrListRow("PR_1", "acme/bazaar", 7, "Add x", "bot[bot]", PrAuthorKind.Agent, false, new string('a', 40), PrChecksRollup.Passing, 3, 99, "acme", "bazaar")], "MTIzfFBSXzE=")),
-        Of("empty", new PrListReply([], null)),
-        Of(null, new PrSummaryRequest("PR_1"), WireTypes.PrSummary),
-        Of(null, new PrSummaryReply("PR_1", new string('a', 40), "1 file changed, +3 -2", [new PrChangedFile("src/a.cs", "modified", 3, 2)], PrChecksRollup.Failing, false, _gc, 99, "acme", "bazaar", 7)),
-        Of("minimal", new PrSummaryReply("PR_1", new string('a', 40), "", [], PrChecksRollup.None, false, null)),
-        Of(null, new PrHunksRequest("PR_1", new string('a', 40), "src/a.cs", null), WireTypes.PrHunks),
-        Of(null, new PrHunksReply(PrHunksStatus.Ok, new string('a', 40), "src/a.cs", [new PrHunk("@@ -1,2 +1,3 @@", 1, 2, 1, 3, [" a", "+b", "-c"])], null)),
-        Of(null, new PrReviewRequest("PR_1", new string('a', 40), PrReviewEvents.Comment, "Looks fine."), WireTypes.PrReview),
-        Of(null, new PrReviewReply(PrReviewStatus.Applied, null, null)),
-        Of(null, new PrMergeRequest("PR_1", new string('a', 40), "Add x", "Add x\n\nSigned-off-by: A <a@example.org>",
-            new PrOwnerPayload("pr.merge", _gc, [1, 2, 3], new string('a', 40), _author, "device-1", _at, _at.AddMinutes(4), [9, 8, 7]), [4, 5, 6]), WireTypes.PrMerge),
-        Of(null, new PrMergeReply(PrMergeStatus.Merged, null, null)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",
             [new ReleaseArtifact("linux", "linux-x64", "tar.gz", "https://releases.example.org/v0.1.0/Bazaar-0.1.0-linux-x64.tar.gz", 1024,
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "Bazaar-0.1.0-linux-x64.tar.gz.sha256", "Bazaar-0.1.0-linux-x64.tar.gz.asc")])),
+        Of(null, new PresenceTyping(PresenceKinds.Typing, _gc, _author, true, 5000), WireTypes.PresenceUpdate),
+        Of(null, new PresenceUpdate(PresenceKinds.Agent, _author, 4, _presenceRow), WireTypes.PresenceUpdate),
+        Of(null, new PresenceSnapshotRequest(), WireTypes.PresenceSnapshot),
+        Of(null, new PresenceSnapshot([_presenceRow, _presenceRow with { AgentId = _other, Revision = 1, Overlays = [], GcId = null, TurnId = null, Label = null }])),
         Of(null, new RyuseiTriggerChangeRequest(_gc), WireTypes.RyuseiPause),
         Of(null, new RyuseiTriggerChangeReply(_gc, 4)),
         Of(null, new RyuseiTriggerListRequest(_gc), WireTypes.RyuseiList),

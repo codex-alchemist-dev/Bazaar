@@ -1,11 +1,13 @@
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.CodingStore.Data;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Mail;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
@@ -29,10 +31,12 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
         new ComponentMigrationSource(typeof(CompanyMemoryComponent).Assembly),
         new ComponentMigrationSource(typeof(MirrorComponent).Assembly),
+        new ComponentMigrationSource(typeof(MailComponent).Assembly),
         new ComponentMigrationSource(typeof(GcReactionsComponent).Assembly),
         new ComponentMigrationSource(typeof(TalentPoolComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
         new ComponentMigrationSource(typeof(PostgresFirstRunStore).Assembly),
+        new ComponentMigrationSource(typeof(PostgresToolCallStore).Assembly),
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),

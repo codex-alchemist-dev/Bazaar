@@ -10,6 +10,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
@@ -62,6 +63,11 @@ public static class HostApplicationExtensions
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarLegalHoldReader();
 
+        // Coding harness (doc 17). Off unless Coding:Harness:Enabled is true. When on, the ports with no production source yet
+        // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
+        // records) must be bound, or the host fails at start naming the port.
+        services.AddBazaarCodingHarness(configuration);
+
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
         if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
@@ -104,6 +110,7 @@ public static class HostApplicationExtensions
         services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
         services.AddBazaarCompanyReadOptions();
+        services.AddBazaarArchive();
         return services;
     }
 }

@@ -54,7 +54,10 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
             Tools,
             Posts,
             Time,
-            options);
+            options,
+            Registry);
+
+        public InProcessRunningTurnRegistry Registry { get; } = new();
     }
 
     private async Task<Guid> NewAgentAsync()
@@ -115,6 +118,93 @@ public sealed class TurnRunnerTests(AgentDb db) : IClassFixture<AgentDb>
         Assert.All(steps, s => Assert.Equal(TurnStepStatus.Completed, s.Status));
         Assert.Null(await Leases.GetAsync(agent, Ct));
         Assert.Equal(1, await Inbox.CountAsync(agent, InboxState.Done, Ct));
+    }
+
+    [Fact]
+    public async Task A_running_turn_is_registered_while_it_runs_and_removed_when_it_ends()
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        var agent = await NewAgentAsync();
+        var item = await EnqueueMentionAsync(agent);
+        var parent = await StartRunningTurnAsync(agent);
+        var request = Request(agent, [item]) with { Depth = 2, ParentTurnId = parent, TriggerGcSeq = 7 };
+        h.Provider.EnqueueCall([.. CallTool("c1", "lookup", "{}"), Finish(StopReason.ToolUse)]);
+        h.Provider.EnqueueCall(Text("Done."), Finish(StopReason.EndTurn));
+        RunningTurnInfo? seen = null;
+        h.Tools.Handler = (call, _) =>
+        {
+            seen = h.Registry.TryGet(call.TurnId);
+            return Task.FromResult(new ToolDispatchResult(ToolDispatchOutcome.Executed, "{}"));
+        };
+
+        var outcome = await h.Create(db, Options()).RunAsync(request, Ct);
+
+        Assert.NotNull(seen);
+        Assert.Equal((outcome.TurnId, agent, request.SessionId, "turn-a"), (seen.TurnId, seen.AgentId, seen.SessionId, seen.LeaseHolder));
+        Assert.Equal(["lookup"], seen.ToolAllowlist);
+        Assert.Equal((2, 40, _gcId, 7L, "test-route"), (seen.Depth, seen.StepCap, seen.TriggerGcId, seen.TriggerGcSeq, seen.Route));
+        Assert.Null(h.Registry.TryGet(outcome.TurnId));
+    }
+
+    [Fact]
+    public async Task A_turn_that_throws_is_removed_from_the_registry_before_the_lease_is_released()
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        var agent = await NewAgentAsync();
+        var item = await EnqueueMentionAsync(agent);
+        h.Provider.EnqueueCall([.. CallTool("c1", "lookup", "{}"), Finish(StopReason.ToolUse)]);
+        Guid turnId = Guid.Empty;
+        h.Tools.Handler = (call, _) =>
+        {
+            turnId = call.TurnId;
+            Assert.NotNull(h.Registry.TryGet(turnId));
+            throw new InvalidOperationException("tool crashed");
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => h.Create(db, Options()).RunAsync(Request(agent, [item]), Ct));
+
+        Assert.NotEqual(Guid.Empty, turnId);
+        Assert.Null(h.Registry.TryGet(turnId));
+        Assert.Null(await Leases.GetAsync(agent, Ct));
+    }
+
+    [Fact]
+    public async Task A_turn_whose_lease_is_lost_is_not_registered_afterwards()
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        var agent = await NewAgentAsync();
+        var item = await EnqueueMentionAsync(agent);
+        h.Provider.EnqueueCall([.. CallTool("c1", "lookup", "{}"), Finish(StopReason.ToolUse)]);
+        Guid turnId = Guid.Empty;
+        h.Tools.Handler = async (call, ct) =>
+        {
+            turnId = call.TurnId;
+            await Leases.ReleaseAsync(agent, "turn-a", ct);
+            await Leases.TryAcquireAsync(agent, "thief", _lease, ct);
+            return new ToolDispatchResult(ToolDispatchOutcome.Executed, "{}");
+        };
+
+        var outcome = await h.Create(db, Options()).RunAsync(Request(agent, [item]), Ct);
+
+        Assert.Equal(TurnEndReason.LeaseLost, outcome.Reason);
+        Assert.Null(h.Registry.TryGet(turnId));
+    }
+
+    [Fact]
+    public async Task A_run_that_does_not_get_the_lease_registers_nothing()
+    {
+        SkipWithoutDatabase();
+        var h = new Harness();
+        var agent = await NewAgentAsync();
+        Assert.True(await Leases.TryAcquireAsync(agent, "someone-else", _lease, Ct));
+
+        var outcome = await h.Create(db, Options()).RunAsync(Request(agent), Ct);
+
+        Assert.Equal(Guid.Empty, outcome.TurnId);
+        Assert.Null(h.Registry.TryGet(outcome.TurnId));
     }
 
     [Fact]
