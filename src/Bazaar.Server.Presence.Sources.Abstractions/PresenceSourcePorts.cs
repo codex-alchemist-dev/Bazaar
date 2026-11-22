@@ -62,6 +62,32 @@ public enum TurnGcKind
     Other,
 }
 
+/// <summary>What a GC is, for presence: its <see cref="TurnGcKind"/> and, for a project GC, the project it belongs to.</summary>
+/// <param name="Kind">The kind. <see cref="TurnGcKind.Other"/> when unknown.</param>
+/// <param name="ProjectId">The project slug, or null when the GC has none.</param>
+public readonly record struct GcKindInfo(TurnGcKind Kind, string? ProjectId = null)
+{
+    /// <summary>The answer for an unknown GC.</summary>
+    public static GcKindInfo Other => new(TurnGcKind.Other);
+}
+
+/// <summary>Says what kind of GC a turn runs in (doc 23, GC context). An implementation never throws for an unknown GC; it answers <see cref="GcKindInfo.Other"/>.</summary>
+public interface IGcKindLookup
+{
+    /// <summary>Looks up the GC.</summary>
+    ValueTask<GcKindInfo> LookupAsync(Guid gcId, CancellationToken ct);
+}
+
+/// <summary>
+/// The project an agent is working on now, so a project GC of another project reads as "other project". Optional: the agent runtime
+/// exposes no current project yet, so with no implementation registered the project-differs rule never fires.
+/// </summary>
+public interface IAgentProjectLookup
+{
+    /// <summary>The agent's current project slug, or null when it has none.</summary>
+    ValueTask<string?> GetCurrentProjectAsync(Guid agentId, CancellationToken ct);
+}
+
 /// <summary>One turn or tool lifecycle event.</summary>
 /// <param name="AgentId">The agent.</param>
 /// <param name="At">When it happened (UTC).</param>

@@ -8,7 +8,8 @@ namespace Bazaar.Server.Agents.Turns;
 /// none, every call is a no-op, so the runtime works with no presence module registered. A sink failure never fails the turn; it is
 /// logged at debug and the turn carries on. An external cancel still reaches the caller.
 /// </summary>
-public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? time = null, ILogger? logger = null)
+public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? time = null, ILogger? logger = null,
+    IGcKindLookup? gcKinds = null, IAgentProjectLookup? agentProjects = null)
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
@@ -23,7 +24,23 @@ public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? 
 
         try
         {
-            var activity = new TurnActivity(agentId, _time.GetUtcNow(), kind, turnId, Guid.TryParse(gcId, out var gc) ? gc : null, ToolName: toolName);
+            Guid? gc = Guid.TryParse(gcId, out var parsed) ? parsed : null;
+            var gcInfo = GcKindInfo.Other;
+            string? agentProject = null;
+            try
+            {
+                if (gc is { } id && gcKinds is not null)
+                    gcInfo = await gcKinds.LookupAsync(id, ct).ConfigureAwait(false);
+                if (agentProjects is not null)
+                    agentProject = await agentProjects.GetCurrentProjectAsync(agentId, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not OutOfMemoryException)
+            {
+                // An unknown GC or project reads as Other and none; the event still goes out.
+                gcInfo = GcKindInfo.Other;
+            }
+
+            var activity = new TurnActivity(agentId, _time.GetUtcNow(), kind, turnId, gc, gcInfo.Kind, gcInfo.ProjectId, agentProject, toolName);
             await sink.OnTurnActivityAsync(activity, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
