@@ -47,6 +47,17 @@ public class CommunityComponentTests
     }
 
     [Fact]
+    public void The_expiry_service_is_a_hosted_service_and_the_sweeper_waits_for_host_dependencies()
+    {
+        var services = new ServiceCollection();
+        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new CommunityComponent()]);
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Contains(provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>(), s => s is CommunityDraftExpiryService);
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<ICommunityDraftExpirySweeper>());
+    }
+
+    [Fact]
     public void Draft_store_resolves_over_the_shared_data_source()
     {
         var services = new ServiceCollection();
