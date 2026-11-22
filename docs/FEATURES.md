@@ -116,7 +116,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Name | What it is | Status | Owning doc or code |
 |---|---|---|---|
 | Bazaar.Client.Core | Shared Avalonia UI library: shell, theme model, connection client, key router, panes, module manifest validator (#521), self-update core (#552). | Partial | `src/Bazaar.Client.Core`, `docs/design/27` |
-| Command palette (Ex) | Fuzzy palette opened by a mnemonic. No Ctrl chords. Client-wide mnemonic navigation is `Bazaar.Ex` (#511); the palette filters mnemonic rows (#553). | Partial (`src/Bazaar.Ex`); remapping and the full palette UI open | `docs/design/27`, CLAUDE.md |
+| Command palette (Ex) | Fuzzy palette opened by a mnemonic. No Ctrl chords. Client-wide mnemonic navigation is `Bazaar.Ex` (#511); the palette filters mnemonic rows (#553). | Partial (`src/Bazaar.Ex`); the remap screen (`MnemonicRemapScreen`) is in place, opening it from a mnemonic and the full palette UI are open | `docs/design/27`, CLAUDE.md |
 | Theme | One theme file drives Avalonia and Monaco. | Partial (theme model merged) | `docs/design/27` |
 | Discord-style GC view | GC messages with avatar, role badge, model badge, cost chip, presence, timestamp, profile cards. | Partial (`Bazaar.Client.Components.Chat`) | CLAUDE.md, `docs/design/27` |
 | Start screen dashboard | What changed while away: unread GCs and mentions, PRs and decisions awaiting you, agents and board, build health and usage. | Planned | CLAUDE.md |
@@ -144,7 +144,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Remote access and auth | Remote access, authentication, authorization and privacy settings. | Partial (`src/Bazaar.Server/Remote`, `Tls`, `RateLimits`) | `docs/design/32` |
 | Pairing | Device authorization and pairing for clients (`/pair/*` routes). Linux keeps the refresh credential in the Secret Service keyring (#509, #518). | Shipped (state machine, device-authorization client, HTTP routes) | `docs/design/32` §3 |
 | Privacy audit | Audit of privacy-relevant events. | Partial (`src/Bazaar.Server/Components/PrivacyAudit`) | `docs/design/32` |
-| Erasure | Per-person erasure mechanics. | Partial (`Components/Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
+| Erasure | Per-person erasure mechanics. | Partial (`Bazaar.Erasure`); mechanics OPEN | `docs/design/14`, CLAUDE.md |
 | Tls | TLS termination and key pinning. | Partial (`Components/Tls`) | project memory, `docs/design/32` |
 | Rate limits | Server rate limiting. Conduit auth lockout uses exponential backoff with shipped floors (#545). | Partial (`Components/RateLimits`) | `docs/design/32` |
 | Status listener | Read-only server status page and listener. | Partial (`Bazaar.Server.Host`) | `docs/design/03` |
@@ -167,9 +167,9 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Agent VMs | Each agent gets a Windows VM and a Linux VM, headless by default. | Partial (`src/Bazaar.Server.Vms`: environments, images, lifecycle, reconciliation; guest agent project `Bazaar.Guest.Agent`; Hyper-V provider blocked on spike S8) | `docs/design/16` |
 | Browser profiles | Full Chromium with an anonymous profile and Passport-backed account profiles. | Planned (credential leases in flight) | `docs/design/16`, `docs/design/14` |
 | Coding-Agent Harness | The coding harness agents use to build and test. | Partial (`src/Bazaar.Server/Coding`) | `docs/design/17` |
-| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
-| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Engines/Godot`) | `docs/design/20` |
-| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
+| Engine Integration API | Plugin architecture for game engines. | Partial (`src/Bazaar.Server.Engines`: registry, grants, adapters) | `docs/design/20`, `Bazaar.md` §4 |
+| Godot adapter | Godot headless adapter. | Partial (`src/Bazaar.Server.Engines/Godot`) | `docs/design/20` |
+| Roblox Studio bridge | Roblox Studio, first-class. Runs only on the owner's Bazaar.Windows. Agents do headless Luau checks and file sync. | Partial (`src/Bazaar.Server.Engines/Roblox`) | `docs/design/20`, CLAUDE.md |
 | GitHub integration | GitHub Apps (org `codex-alchemist-dev`), PR flow and owner merge. | Partial (`src/Bazaar.Server.GitHub`: adapter, auth, events, workspace) | `docs/design/21` |
 | Git engine | The git engine behind the Vault and Constellation. | Partial (spike S23 merged) | `docs/design/35` |
 | Git modules | Bazaar.Server.Git (engine and provider contract), Bazaar.Client.GitGui, Bazaar.Client.GitGui.Github and Bazaar.Client.GitGui.Gitlab. Each has its own manifest and version. | Planned (module split decided 2026-11-16) | `docs/design/41` section 4.14, `21`, `52` (PROPOSED) |
@@ -184,10 +184,10 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Migration runner | Embedded, versioned SQL migrations; `migrate` command. | Shipped | `docs/design/04`, `src/Bazaar.Server/Data` |
 | Backup | Backup engine and restore drill. | Partial (`src/Bazaar.Server/Backup`, `Bazaar.Server.Components.Backup`) | `docs/design/33` |
 | Export | Data export. | Planned (part of doc 33) | `docs/design/33` |
-| Search providers | Postgres full-text on Windows, `pg_search` on Linux (blocked on counsel review). | Partial (FTS merged; `pg_search` blocked) | `docs/design/03`, `src/Bazaar.Server/Providers/Search` |
-| Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Planned (Garnet blocked on spike S2) | `docs/design/03` |
+| Search providers | Postgres full-text on Windows, `pg_search` on Linux (blocked on counsel review). | Partial (FTS merged; `pg_search` blocked) | `docs/design/03`, `src/Bazaar.Server.Providers/Search` |
+| Cache and presence | Garnet on Windows, Valkey on Linux; GC fan-out via Postgres NOTIFY. | Partial (Garnet module `src/Bazaar.Server.Garnet` built and in the host component list; not yet run on Windows against a real Garnet binary; Valkey in `src/Bazaar.Server.Valkey`) | `docs/design/03` |
 | Windows provider | Windows Service host and Windows providers. | Partial (`src/Bazaar.Server.Providers.Windows`) | `docs/design/03` |
-| Linux provider | systemd host and Linux providers. | Partial (`src/Bazaar.Server/Providers/Linux`) | `docs/design/03` |
+| Linux provider | systemd host and Linux providers. | Partial (`src/Bazaar.Server.Providers.Linux`, `src/Bazaar.Server/Providers/Linux`) | `docs/design/03` |
 | Bazaar.Server.MSI, Chocolatey, MSIX, AppImage, RPM, OCI image | Packaging artifacts for the server and clients. | Shipped (scripts and packaging merged; MSIX signed with the company server certificate, #510 and #551; CycloneDX SBOM for tagged releases, #538) | `docs/design/37`, `packaging/` |
 | Release workflow and channels | Version-tag release workflow. Channels: LTSC, Stable, Beta, Alpha, Latest-Commit, chosen by the operator. Plain SemVer with the commit appended (#505). | Shipped (workflow); LTSC planned | `docs/VERSIONING.md`, `docs/release.md` |
 | Community and external platforms | Community posting tiers and external-platform adapters. | Partial (`src/Bazaar.Server.Community`); forum, Discord and Reddit adapters blocked | `docs/design/36` |
@@ -275,7 +275,7 @@ These items are named in the sources but their meaning, status or home is not se
 From the wave scan (2026-10-30). Listed so the status above is not read as more finished than it is.
 
 - Hyper-V VM provider, HvSocket transport and VM benchmark: blocked on owner-hardware spike S8.
-- Garnet cache on Windows: blocked on spike S2.
+- Garnet cache on Windows: spike S2 passed; module built, awaiting a real Windows run.
 - Monaco editor, diff and PR panes, editor pane: blocked on the Monaco gate S12.
 - ConPTY terminal pane: blocked on S11 and the terminal-widget choice.
 - Android push and Play closed test: blocked on the owner's tester list and device spike S7.

@@ -7,6 +7,7 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Commands;
 using Bazaar.Client.Components.Chat;
@@ -14,6 +15,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
+using Bazaar.Ex.Head;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
@@ -22,8 +24,10 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
+using Bazaar.Client.Interrupts;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
@@ -31,7 +35,6 @@ using Bazaar.Client.Shell;
 using Bazaar.Client.Vault;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
-using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 
 namespace Bazaar.Client.Windows;
@@ -81,6 +84,9 @@ internal static class Program
             new GcPaneModule(),
             new VaultSearchPaneModule(),
             .. RyuseiFudaPanes.Modules,
+            .. OrgPanes.Modules,
+            .. CalendarPanes.Modules,
+            .. InterruptPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
             .. GitGuiPanes.Modules,
@@ -133,8 +139,13 @@ internal static class Program
                 window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry);
                 return true;
             });
-            // Keyboard mnemonics and the command palette (doc 41 section 4.12) take the loaded modules' commands plus the shell's own.
-            _ = InstallMnemonicsAsync(window, loaded.Commands, router);
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) =>
+            {
+                var host = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                RouteCommands(host, router);
+            };
             return window;
         }
 
@@ -160,27 +171,15 @@ internal static class Program
                 : Environment.GetEnvironmentVariable(name));
     }
 
-    private static async Task InstallMnemonicsAsync(Window window, IReadOnlyList<ClientCommandContribution> commands, CommandRouter router)
-    {
-        try
+    // What a chosen command does belongs to the pane module that registered a handler for it.
+    private static void RouteCommands(MnemonicHeadHost host, CommandRouter router) =>
+        host.Shell.CommandInvoked += (_, id) =>
         {
-            var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
-            var shell = await MnemonicHeadSetup.InstallAsync(window, window, commands, path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane module that registered a handler for it.
-            shell.CommandInvoked += (_, id) =>
+            if (!router.TryInvoke(id))
             {
-                if (!router.TryInvoke(id))
-                {
-                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
-                }
-            };
-            window.Closed += (_, _) => shell.Dispose();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
-        }
-    }
+                Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+            }
+        };
 
     private static string CursorPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "cursors.json");

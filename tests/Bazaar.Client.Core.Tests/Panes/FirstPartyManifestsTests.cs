@@ -88,7 +88,7 @@ public class FirstPartyManifestsTests
     public void Module_contributions_match_the_module_owned_defaults_of_the_mnemonic_engine()
     {
         var contributed = Bazaar.Ex.MnemonicAssignment.FromContributions(ClientModuleHost.Load(FirstParty(), _host).Commands);
-        var shellIds = new[] { Bazaar.Ex.NavigationDefaults.UnreadCommandId, Bazaar.Ex.NavigationDefaults.SettingsCommandId };
+        var shellIds = new[] { Bazaar.Ex.NavigationDefaults.UnreadCommandId, Bazaar.Ex.NavigationDefaults.SettingsCommandId, Bazaar.Ex.NavigationDefaults.RemapCommandId };
         var moduleOwned = Bazaar.Ex.NavigationDefaults.Assignments.Where(a => !shellIds.Contains(a.CommandId));
 
         Assert.Equal(

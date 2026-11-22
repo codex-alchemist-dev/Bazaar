@@ -1,0 +1,5 @@
+# Published wire schema artifacts are byte-exact: keep LF in text, never touch the golden frames.
+*.json text eol=lf
+*.cddl text eol=lf
+*.txt text eol=lf
+*.bin -text

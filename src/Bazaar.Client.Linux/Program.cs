@@ -10,6 +10,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
+using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
 using Bazaar.Ex.Head;
@@ -19,10 +20,10 @@ namespace Bazaar.Client.Linux;
 
 internal static class Program
 {
-    private const string _clientBuild = "bazaar-linux";
-
     // The router modules register command handlers into. This head loads no pane modules yet.
     private static readonly CommandRouter _router = new();
+
+    private const string _clientBuild = "bazaar-linux";
 
     [STAThread]
     public static int Main(string[] args)
@@ -54,8 +55,10 @@ internal static class Program
         }
 
         using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
+        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
         var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths), preloadStart), backend).StartWithClassicDesktopLifetime(args);
+        return BuildAvaloniaApp(() => LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart), backend).StartWithClassicDesktopLifetime(args);
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -98,52 +101,55 @@ internal static class Program
     }
 
     /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
-    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths)
+    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates)
     {
         if (settings is null)
         {
             Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
             var plain = new MainWindow();
-            InstallShell(plain, paths);
+            ShowFirstRun(plain, args);
+            InstallShell(plain);
             return plain;
         }
 
         Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
+        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
         var window = new MainWindow(chat.View);
+        ShowFirstRun(window, args);
         window.Closed += async (_, _) => await chat.DisposeAsync();
-        InstallShell(window, paths);
+        InstallShell(window);
+        AttachMnemonics(window, paths);
         return window;
     }
 
-    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window, LinuxPaths paths)
+    // --sign-in, --create-company and --first-run replace the window content with the first-run screens (doc 45 section 2.6).
+    private static void ShowFirstRun(MainWindow window, IReadOnlyList<string> args)
     {
-        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
-        // Keyboard mnemonics and the command palette (doc 41 section 4.12). This head loads no client modules yet, so only the shell's own commands.
-        _ = InstallMnemonicsAsync(window, paths, _router);
+        if (FirstRunScreens.TryBuild(args) is { } firstRun)
+        {
+            window.Content = firstRun;
+        }
     }
 
-    private static async Task InstallMnemonicsAsync(MainWindow window, LinuxPaths paths, CommandRouter router)
+    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
+    private static void AttachMnemonics(MainWindow window, LinuxPaths paths)
     {
-        try
+        Directory.CreateDirectory(paths.StateDirectory);
+        window.Opened += async (_, _) =>
         {
-            Directory.CreateDirectory(paths.StateDirectory);
-            var path = Path.Combine(paths.StateDirectory, MnemonicHeadSetup.OverridesFileName);
-            var shell = await MnemonicHeadSetup.InstallAsync(window, window, [], path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane module that registered a handler for it.
-            shell.CommandInvoked += (_, id) =>
+            var host = await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
+            // What a chosen command does belongs to the pane module that registered a handler for it; this head loads none yet.
+            host.Shell.CommandInvoked += (_, id) =>
             {
-                if (!router.TryInvoke(id))
+                if (!_router.TryInvoke(id))
                 {
                     Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
                 }
             };
-            window.Closed += (_, _) => shell.Dispose();
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
-        {
-            Console.Error.WriteLine($"Bazaar: keyboard mnemonics are off: {ex.Message}");
-        }
+        };
     }
+
+    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
+    private static void InstallShell(MainWindow window) =>
+        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }

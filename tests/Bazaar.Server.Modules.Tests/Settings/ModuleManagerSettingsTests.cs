@@ -12,7 +12,7 @@ public sealed class ModuleManagerSettingsTests
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
 
     /// <summary>The registry the host builds: the built-in keys plus this module's contribution.</summary>
-    private static readonly SettingRegistry _known = SettingRegistry.WithContributions([new ModuleManagerSettingContribution()]);
+    private static readonly SettingRegistry _known = BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]);
 
     private static readonly string[] _expectedNames =
     [

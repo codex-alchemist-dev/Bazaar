@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:chat="using:Bazaar.Client.Chat"
              xmlns:chatabs="using:Bazaar.Client.Chat.Abstractions"
+             xmlns:motion="using:Bazaar.Client.Motion.Avalonia"
              x:Class="Bazaar.Client.Chat.ChatView"
              x:DataType="chat:ChatViewModel">
   <DockPanel Margin="16">
@@ -13,6 +14,14 @@
       <TextBlock Text="{Binding Error}"
                  Foreground="Crimson"
                  IsVisible="{Binding Error, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+      <StackPanel x:Name="TypingRow"
+                  Orientation="Horizontal"
+                  Spacing="{DynamicResource Bazaar.space.sm}"
+                  IsVisible="{Binding IsTyping}"
+                  AutomationProperties.Name="Typing indicator">
+        <motion:TypingDots VerticalAlignment="Center" IsVisible="{Binding IsTyping}" />
+        <TextBlock Text="{Binding TypingLabel}" Opacity="0.7" />
+      </StackPanel>
       <DockPanel>
         <Button x:Name="SendButton"
                 DockPanel.Dock="Right"
@@ -35,6 +44,7 @@
           <StackPanel Margin="0,4" Spacing="2">
             <TextBlock Text="{Binding Header}" FontWeight="SemiBold" />
             <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+            <chat:ReactionStrip Reactions="{Binding Reactions}" />
           </StackPanel>
         </DataTemplate>
       </ListBox.ItemTemplate>
