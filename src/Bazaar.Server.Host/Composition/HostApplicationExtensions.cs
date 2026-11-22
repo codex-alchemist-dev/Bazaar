@@ -11,6 +11,7 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Display;
@@ -54,6 +55,7 @@ public static class HostApplicationExtensions
         services.AddBazaarHostWireDiscovery();
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
+        services.AddBazaarGeneticMemoryHost();
         services.AddBazaarPostgresCredentialLeases();
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();

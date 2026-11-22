@@ -51,6 +51,8 @@
     <Project Path="src/Bazaar.Server.Hive/Bazaar.Server.Hive.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Approvals/Bazaar.Server.Hive.Approvals.csproj" />
     <Project Path="src/Bazaar.Server.Hive.Abstractions/Bazaar.Server.Hive.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.GeneticMemory/Bazaar.Server.GeneticMemory.csproj" />
+    <Project Path="src/Bazaar.Server.GeneticMemory.Abstractions/Bazaar.Server.GeneticMemory.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.GcMetadata.Abstractions/Bazaar.Server.GcMetadata.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.GcMetadata/Bazaar.Server.GcMetadata.csproj" />
     <Project Path="src/Bazaar.Server.CompanyMemory/Bazaar.Server.CompanyMemory.csproj" />
@@ -326,6 +328,9 @@
     <Project Path="src/Bazaar.Server.Portability.KanbanTarget/Bazaar.Server.Portability.KanbanTarget.csproj" />
     <Project Path="src/Bazaar.Client.Portability/Bazaar.Client.Portability.csproj" />
     <Project Path="src/Bazaar.Client.Portability.Avalonia/Bazaar.Client.Portability.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.GeneticMemory/Bazaar.Client.GeneticMemory.csproj" />
+    <Project Path="src/Bazaar.Client.GeneticMemory.Abstractions/Bazaar.Client.GeneticMemory.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.GeneticMemory.Avalonia/Bazaar.Client.GeneticMemory.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
     <Project Path="src/Bazaar.Conduit/Bazaar.Conduit.csproj" />
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
@@ -710,6 +715,7 @@
     <Project Path="tests/Bazaar.Server.Portability.Sandbox.Tests/Bazaar.Server.Portability.Sandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Tests/Bazaar.Client.Portability.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Portability.Avalonia.Tests/Bazaar.Client.Portability.Avalonia.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.GeneticMemory.Avalonia.Tests/Bazaar.Client.GeneticMemory.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.LiveTests/Bazaar.Conduit.LiveTests.csproj" />

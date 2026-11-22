@@ -57,6 +57,9 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Hive.Approvals\Bazaar.Server.Hive.Approvals.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Hive.Abstractions\Bazaar.Server.Hive.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.GeneticMemory\Bazaar.Client.GeneticMemory.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.GeneticMemory\Bazaar.Server.GeneticMemory.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.GeneticMemory.Abstractions\Bazaar.Server.GeneticMemory.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup.Probes\Bazaar.Server.Setup.Probes.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Admin\Bazaar.Admin.csproj" />

@@ -55,6 +55,7 @@
     <ProjectReference Include="..\Bazaar.Server.Health\Bazaar.Server.Health.csproj" />
     <ProjectReference Include="..\Bazaar.Conduit\Bazaar.Conduit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.GeneticMemory\Bazaar.Server.GeneticMemory.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Hive.Approvals\Bazaar.Server.Hive.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mirror\Bazaar.Server.Mirror.csproj" />
     <ProjectReference Include="..\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
