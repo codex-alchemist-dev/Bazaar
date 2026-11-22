@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.Jobs;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.Retention;
 /// keep; an operator sets a period per category under <c>Bazaar:Retention:{category}:PeriodDays</c> and
 /// <c>:SoftDeleteDays</c> with <c>:Method</c> (<c>None</c>, <c>SoftDeleteThenPurge</c> or <c>CryptoErase</c>).
 /// </summary>
-public sealed class RetentionComponent : IBazaarComponent
+public sealed class RetentionComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "retention",

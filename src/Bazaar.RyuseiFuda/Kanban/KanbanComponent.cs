@@ -1,10 +1,10 @@
-using Bazaar.Core;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -15,7 +15,7 @@ namespace Bazaar.RyuseiFuda.Kanban;
 /// Kanban as a Bazaar Component (docs/design/12-kanban-and-dependencies.md, docs/design/BAZAAR-COMPONENTS.md). Registers the task
 /// repositories and <see cref="TaskService"/>. It needs the shared <c>NpgsqlDataSource</c> from the kernel and depends on no other component.
 /// </summary>
-public sealed class KanbanComponent : IBazaarComponent
+public sealed class KanbanComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "kanban",

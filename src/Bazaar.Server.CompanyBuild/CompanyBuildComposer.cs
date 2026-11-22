@@ -1,10 +1,10 @@
-using Bazaar.Core;
 using Bazaar.Server.CompanyBuild.Abstractions;
+using Cdax.Core;
 
 namespace Bazaar.Server.CompanyBuild;
 
 /// <summary>
-/// Composes a company's build from its selected modules through Bazaar.Core's graph (docs/design/BAZAAR-COMPONENTS.md section 4.1).
+/// Composes a company's build from its selected modules through Cdax.Core's graph (docs/design/BAZAAR-COMPONENTS.md section 4.1).
 /// Hard dependencies are added and must be acyclic. Soft dependencies are kept only when their module is in the plan, and never
 /// set start order.
 /// </summary>

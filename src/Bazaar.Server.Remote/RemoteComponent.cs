@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Components.Remote;
 /// access-token issuer and the dev-only owner seed. Nothing is registered here yet, so the component stays the single owner of
 /// the schema and its manifest, the same as <see cref="Bazaar.Server.Mail.MailComponent"/>.
 /// </remarks>
-public sealed class RemoteComponent : IBazaarComponent
+public sealed class RemoteComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "remote",

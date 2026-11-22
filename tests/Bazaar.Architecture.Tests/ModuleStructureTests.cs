@@ -60,14 +60,27 @@ public class ModuleStructureTests
     [Fact]
     public void Bazaar_core_project_exists_and_is_referenced_by_hosts()
     {
-        var corePath = RepoPaths.ProjectFile("Bazaar.Core");
-        Assert.True(File.Exists(corePath), "Bazaar.Core project is missing.");
+        var corePath = RepoPaths.ProjectFile("Cdax.Core");
+        Assert.True(File.Exists(corePath), "Cdax.Core project is missing.");
 
         foreach (var host in new[] { "Bazaar.Server.Host", "Bazaar.Client.Core" })
         {
             var refs = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(host)).ToArray();
-            Assert.Contains("Bazaar.Core", refs);
+            Assert.Contains(refs, r => r is "Cdax.Core" or "Cdax.Core.Hosting");
         }
+    }
+
+    /// <summary>
+    /// Cdax.Core must stay dependency-free so it can become a standalone repo (docs/design/BAZAAR-COMPONENTS.md section 13):
+    /// no package references and no project references. The dependency-injection and configuration entry point lives in Cdax.Core.Hosting.
+    /// </summary>
+    [Fact]
+    public void Bazaar_core_has_no_package_or_project_references()
+    {
+        var project = System.Xml.Linq.XDocument.Load(RepoPaths.ProjectFile("Cdax.Core"));
+
+        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Empty(project.Descendants("ProjectReference"));
     }
 
     /// <summary>Every PR body and the PR template must carry the docs-section checklist item (CLAUDE.md, PR checklist rule).</summary>

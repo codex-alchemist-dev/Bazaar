@@ -1,5 +1,4 @@
 using Bazaar.Community;
-using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.GitHub;
 using Bazaar.RyuseiFuda.Kanban;
@@ -25,6 +24,7 @@ using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Vault;
+using Cdax.Core;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -34,7 +34,7 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class HostComponents
 {
-    public static IReadOnlyList<IBazaarComponent> All { get; } =
+    public static IReadOnlyList<ICdaxModule> All { get; } =
     [
         new AuditComponent(),
         new SettingsComponent(),

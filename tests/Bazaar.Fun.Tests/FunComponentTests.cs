@@ -1,6 +1,6 @@
-using Bazaar.Core;
 using Bazaar.Fun;
 using Bazaar.Fun.Ward;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -20,7 +20,7 @@ public sealed class FunComponentTests
             .Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddBazaarComponents(configuration, [new FunComponent()]);
+        services.AddCdaxModules(configuration, [new FunComponent()]);
 
         using var provider = services.BuildServiceProvider();
 
@@ -39,7 +39,7 @@ public sealed class FunComponentTests
             .Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddBazaarComponents(configuration, [new FunComponent()]);
+        services.AddCdaxModules(configuration, [new FunComponent()]);
 
         using var provider = services.BuildServiceProvider();
 

@@ -25,7 +25,16 @@ public sealed record ModuleManifest(
     IReadOnlyList<string> SettingKeys,
     IReadOnlyList<string> Capabilities,
     ModuleIsolation Isolation,
-    HostRequirements Host);
+    HostRequirements Host,
+    IReadOnlyList<string>? DependsOn = null,
+    IReadOnlyList<string>? SoftDependsOn = null)
+{
+    /// <summary>Module ids this module needs. The host skips the module when one is missing or did not load. Never null.</summary>
+    public IReadOnlyList<string> Hard => DependsOn ?? [];
+
+    /// <summary>Module ids this module uses when present. A missing one costs only the linked feature. Never null.</summary>
+    public IReadOnlyList<string> Soft => SoftDependsOn ?? [];
+}
 
 /// <summary>One manifest problem. Path is a JSON pointer; Code is stable for tests.</summary>
 public sealed record ModuleManifestIssue(string Path, string Code, string Message);
@@ -101,6 +110,8 @@ public static partial class ModuleManifestValidator
         CheckList(manifest.PaneKinds, "/paneKinds", DottedNamePattern(), "bad-pane-kind", issues);
         CheckList(manifest.Commands, "/commands", DottedNamePattern(), "bad-command", issues);
         CheckList(manifest.SettingKeys, "/settingKeys", SettingKeyPattern(), "bad-setting-key", issues);
+        CheckList(manifest.Hard, "/dependsOn", DottedNamePattern(), "bad-dependency", issues);
+        CheckList(manifest.Soft, "/softDependsOn", DottedNamePattern(), "bad-dependency", issues);
 
         if (manifest.Capabilities is null)
         {

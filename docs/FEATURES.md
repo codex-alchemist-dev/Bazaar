@@ -25,7 +25,7 @@ Code status is judged from the source tree and merged PR titles at `origin/main`
 | Bazaar | The open-source platform for a persistent AI software company. Agents with their own identity, memory and accounts coordinate in group chats, with no master orchestrator. | Shipped (partial product) | `docs/deep-dives/Bazaar.md` |
 | Codex Alchemist | The first company built on Bazaar, and the developer of the Bazaar platform. The name "Codex" overlaps OpenAI's product and has not been cleared. | Shipped (as the owner's instance) | `docs/deep-dives/Bazaar.md` §1 |
 | Bazaar Components | The modular model: every capability is a component with a manifest and contracts. The kernel is the only hard-coded part. Wave 0 is in code; later waves are open. | Partial | `docs/design/BAZAAR-COMPONENTS.md`, `src/Bazaar.Server/Components` |
-| Bazaar Kernel | The component runtime: discovery, graph validation, ordering and lifecycle. | Partial (`Components/ComponentGraph.cs`, `IBazaarComponent.cs`) | `docs/design/BAZAAR-COMPONENTS.md` §9 |
+| Bazaar Kernel | The component runtime: discovery, graph validation, ordering and lifecycle. | Partial (`Components/ComponentGraph.cs`, `ICdaxModule.cs`) | `docs/design/BAZAAR-COMPONENTS.md` §9 |
 | Bazaar.Server | The headless, OS-agnostic .NET 11 server that does all the compute. | Shipped | `docs/deep-dives/Bazaar.Server.md`, `src/Bazaar.Server` |
 | Bazaar.Server.Host | The host executable: service host, options, status listener. | Shipped | `src/Bazaar.Server.Host` |
 | Bazaar SDK (`Bazaar.Sdk`) | One shared API every subsystem uses. AGPL-3.0 (owner card, 2026-11-13). | Partial (project exists) | `src/Bazaar.Sdk`, `Bazaar.Server.md` |

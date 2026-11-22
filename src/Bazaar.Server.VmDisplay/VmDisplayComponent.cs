@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Server.VmDisplay.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.VmDisplay;
 /// <see cref="IBrowserPageDriver"/>, and the real <see cref="IDisplayGate"/> and <see cref="IDisplayAuditSink"/>. Until the host
 /// supplies a gate the module refuses everything.
 /// </summary>
-public sealed class VmDisplayComponent : IBazaarComponent
+public sealed class VmDisplayComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vm-display",

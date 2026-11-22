@@ -1,13 +1,13 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>
 /// The entry point of a Bazaar Component. The kernel calls <see cref="AddServices"/> in dependency order, and only for enabled
 /// components (docs/design/BAZAAR-COMPONENTS.md section 3). A component registers its own services and nothing else.
 /// </summary>
-public interface IBazaarComponent
+public interface ICdaxModule
 {
     ComponentManifest Manifest { get; }
 

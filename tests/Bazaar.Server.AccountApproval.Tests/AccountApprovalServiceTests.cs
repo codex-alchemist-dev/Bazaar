@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Bazaar.Core;
 using Bazaar.Server.AccountApproval.Abstractions;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

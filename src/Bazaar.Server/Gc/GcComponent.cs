@@ -1,6 +1,6 @@
-using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Posting;
 using Bazaar.Server.Gc.Wire;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,7 +17,7 @@ namespace Bazaar.Server.Gc;
 /// (<c>src/Bazaar.Server/Data/Sql/common/</c>). Move them to namespace "gc" once agent/wp-migration-namespaces merges.
 /// Until then this component owns no migration files.
 /// </remarks>
-public sealed class GcComponent : IBazaarComponent
+public sealed class GcComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "gc",

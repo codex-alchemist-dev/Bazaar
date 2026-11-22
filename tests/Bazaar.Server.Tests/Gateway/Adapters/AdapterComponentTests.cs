@@ -1,10 +1,10 @@
-using Bazaar.Core;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Pipeline;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Tests.Gateway.Adapters;
 
 public class AdapterComponentTests
 {
-    private static IBazaarComponent[] AdapterComponents() =>
+    private static ICdaxModule[] AdapterComponents() =>
     [
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),
@@ -58,7 +58,7 @@ public class AdapterComponentTests
         services.AddSingleton(Options.Create(new FreeLlmApiOptions()));
         services.AddSingleton(new FreeLlmApiRoutingDiagnostics());
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), AdapterComponents());
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), AdapterComponents());
 
         using var sp = services.BuildServiceProvider(validateScopes: true);
         var registrations = sp.GetServices<ModelAdapterRegistration>().ToDictionary(r => r.WireName, StringComparer.Ordinal);
@@ -74,10 +74,10 @@ public class AdapterComponentTests
         var services = new ServiceCollection();
         var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Bazaar:Components:adapter-anthropic-messages:Enabled"] = "false",
+            ["Cdax:Modules:adapter-anthropic-messages:Enabled"] = "false",
         }).Build();
 
-        services.AddBazaarComponents(configuration, AdapterComponents());
+        services.AddCdaxModules(configuration, AdapterComponents());
 
         using var sp = services.BuildServiceProvider();
         Assert.DoesNotContain(sp.GetServices<ModelAdapterRegistration>(), r => r.WireName == "anthropic_messages");

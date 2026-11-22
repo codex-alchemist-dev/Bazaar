@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Gateway.AnthropicDirect;
 /// stay in <c>AddBazaarGateway</c>, which reads these options with the disabled defaults when this component is not registered.
 /// </summary>
 /// <remarks>When the source is off (the default), nothing is registered: no options binding and no startup key check.</remarks>
-public sealed class AnthropicDirectComponent : IBazaarComponent
+public sealed class AnthropicDirectComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "anthropic-direct",
@@ -41,17 +41,17 @@ public sealed class AnthropicDirectComponent : IBazaarComponent
 
     /// <summary>
     /// Fails startup when the source is switched on (<c>Bazaar:Gateway:AnthropicDirect:Enabled</c>) while this component is
-    /// disabled (<c>Bazaar:Components:anthropic-direct:Enabled=false</c>). A disabled component registers nothing, so without
+    /// disabled (<c>Cdax:Modules:anthropic-direct:Enabled=false</c>). A disabled component registers nothing, so without
     /// this check the gateway setting would be ignored silently.
     /// </summary>
     public static void RequireComponentWhenGatewayIsOn(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        if (IsEnabled(configuration) && !BazaarComponentRegistration.IsEnabled(configuration, ManifestDefinition.Id))
+        if (IsEnabled(configuration) && !CdaxModuleRegistration.IsEnabled(configuration, ManifestDefinition.Id))
         {
             throw new InvalidOperationException(
                 $"{AnthropicDirectOptions.SectionName}:Enabled is true, but the {ManifestDefinition.Id} component is disabled " +
-                $"(Bazaar:Components:{ManifestDefinition.Id}:Enabled=false). Enable the component or set {AnthropicDirectOptions.SectionName}:Enabled to false.");
+                $"(Cdax:Modules:{ManifestDefinition.Id}:Enabled=false). Enable the component or set {AnthropicDirectOptions.SectionName}:Enabled to false.");
         }
     }
 

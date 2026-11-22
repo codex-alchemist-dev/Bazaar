@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +9,7 @@ namespace Bazaar.GitHub;
 /// with the ingress and PR service work packages. Host composition lists it in the component set and the kernel calls
 /// <see cref="AddServices"/>.
 /// </summary>
-public sealed class GitHubComponent : IBazaarComponent
+public sealed class GitHubComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "github",

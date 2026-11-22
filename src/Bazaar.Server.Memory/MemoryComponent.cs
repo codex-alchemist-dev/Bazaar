@@ -1,4 +1,3 @@
-using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
@@ -6,6 +5,7 @@ using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
 using Bazaar.Server.Vault.Writes;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -28,7 +28,7 @@ namespace Bazaar.Server.Memory.GitVault;
 /// <c>Memory:Vault:VaultId</c> the Vault id for lexical search (without it, search returns no candidates).
 /// There is no default identity or domain.
 /// </remarks>
-public sealed class MemoryComponent : IBazaarComponent
+public sealed class MemoryComponent : ICdaxModule
 {
     public const string RepoPathKey = "Memory:Vault:RepoPath";
     public const string WorktreeRootKey = "Memory:Vault:WorktreeRoot";
