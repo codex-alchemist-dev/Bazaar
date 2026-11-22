@@ -24,7 +24,7 @@ public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
         cmd.Parameters.AddWithValue(record.KeyRef);
         cmd.Parameters.AddWithValue(record.ModelId);
         cmd.Parameters.AddWithValue((object?)record.ServedModel ?? DBNull.Value);
-        cmd.Parameters.AddWithValue(record.Identity == GatewayIdentity.Native ? "native" : "pooled");
+        cmd.Parameters.AddWithValue(record.Identity.ToText());
         cmd.Parameters.AddWithValue(tokens.Input);
         cmd.Parameters.AddWithValue(tokens.CacheWrite5m);
         cmd.Parameters.AddWithValue(tokens.CacheWrite1h);
@@ -63,7 +63,7 @@ public sealed class UsageRepository(NpgsqlDataSource dataSource) : IUsageStore
             result.Add(new GatewayUsageRecord(
                 r.GetGuid(0), r.GetFieldValue<DateTimeOffset>(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3),
                 r.GetString(4), r.GetString(5), r.GetString(6), r.IsDBNull(7) ? null : r.GetString(7),
-                r.GetString(8) == "native" ? GatewayIdentity.Native : GatewayIdentity.Pooled,
+                GatewayIdentityText.FromText(r.GetString(8)),
                 new GatewayTokenUsage(r.GetInt64(9), r.GetInt64(10), r.GetInt64(11), r.GetInt64(12), r.GetInt64(13), r.GetInt64(14)),
                 r.GetInt64(15),
                 r.GetString(16) switch { "success" => UsageStatus.Success, "error" => UsageStatus.Error, "denied" => UsageStatus.Denied, _ => UsageStatus.Aborted },
