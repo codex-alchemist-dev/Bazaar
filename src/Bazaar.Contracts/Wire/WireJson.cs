@@ -4,6 +4,7 @@ using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Memory;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 using Bazaar.Contracts.Ryusei;
@@ -94,6 +95,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(PrReviewReply))]
 [JsonSerializable(typeof(PrMergeRequest))]
 [JsonSerializable(typeof(PrMergeReply))]
+[JsonSerializable(typeof(MemoryContextRequest))]
+[JsonSerializable(typeof(MemoryContextResult))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]
