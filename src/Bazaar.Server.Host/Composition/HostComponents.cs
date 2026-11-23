@@ -60,6 +60,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.TimeMachine;
@@ -136,6 +137,7 @@ public static class HostComponents
         new MemoryComponent(),
         new HiveComponent(),
         new GeneticMemoryComponent(),
+        new ProjectsComponent(),
         new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),

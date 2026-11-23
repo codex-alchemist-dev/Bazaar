@@ -17,6 +17,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Postgres;
 using Bazaar.Server.TalentPool.Component;
@@ -40,6 +41,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
         new ComponentMigrationSource(typeof(GeneticMemoryComponent).Assembly),
+        new ComponentMigrationSource(typeof(ProjectsComponent).Assembly),
         new ComponentMigrationSource(typeof(HealthServerComponent).Assembly),
         new ComponentMigrationSource(typeof(CompanyMemoryComponent).Assembly),
         new ComponentMigrationSource(typeof(MirrorComponent).Assembly),

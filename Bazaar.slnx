@@ -260,6 +260,8 @@
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.Projects/Bazaar.Server.Projects.csproj" />
+    <Project Path="src/Bazaar.Server.Projects.Abstractions/Bazaar.Server.Projects.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Council.Http/Bazaar.Server.Council.Http.csproj" />
     <Project Path="src/Bazaar.Server.SignIn.Abstractions/Bazaar.Server.SignIn.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.SignIn/Bazaar.Server.SignIn.csproj" />
