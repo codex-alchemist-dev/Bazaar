@@ -77,6 +77,33 @@ public sealed class WireEditorFileSource(IWireRequester requests) : IEditorFileS
         return Map(reply);
     }
 
+    /// <summary>Creates a file in an existing folder. <c>editor.exists</c> is <see cref="CreateOutcome.Exists"/>; every other failure is <see cref="CreateOutcome.Unavailable"/>.</summary>
+    public async Task<CreateOutcome> CreateAsync(EditorDocumentId id, string content, CancellationToken cancellationToken)
+    {
+        ValidateId(id);
+        ArgumentNullException.ThrowIfNull(content);
+        try
+        {
+            var reply = await _requests.RequestAsync<EditorCreateRequest, EditorCreateReply>(
+                WireTypes.EditorCreate, new EditorCreateRequest(id.WorkspaceId, id.Path, content), cancellationToken).ConfigureAwait(false);
+            return reply is null || string.IsNullOrEmpty(reply.Revision)
+                ? new CreateOutcome.Unavailable("The server's answer to editor.create was incomplete.")
+                : new CreateOutcome.Created(reply.Revision);
+        }
+        catch (WireRequestException ex) when (ex.Error.Code == EditorErrorCodes.Exists)
+        {
+            return new CreateOutcome.Exists();
+        }
+        catch (WireRequestException ex)
+        {
+            return new CreateOutcome.Unavailable(Describe(ex.Error));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new CreateOutcome.Unavailable("The server could not be reached.");
+        }
+    }
+
     private static SaveOutcome Map(EditorSaveReply? reply)
     {
         if (reply is null)

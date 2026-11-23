@@ -1,3 +1,4 @@
+using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Athanor.Drafts;
 using Bazaar.Client.Athanor.Hosting;
 using Bazaar.Client.Athanor.Pane;
@@ -193,6 +194,21 @@ public sealed class AthanorCommandTests
             .InvokeAsync(AthanorClientModule.NewCommandId, ct);
         Assert.Equal(AthanorCommandStatus.Failed, created.Status);
         Assert.Contains("fsharp", created.Reason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task New_creates_the_document_through_a_source_that_can_create_and_opens_it()
+    {
+        var pane = new AthanorPaneViewModel("Athanor", new PlainTextFallbackHost(), new InMemoryEditorFileSource(), new InMemoryEditorDraftStore());
+        var ct = TestContext.Current.CancellationToken;
+        var handler = new AthanorCommandHandler(pane, new Prompts(null, new NewDocumentRequest("ws:src/fresh.fs", "fsharp")));
+
+        var first = await handler.InvokeAsync(AthanorClientModule.NewCommandId, ct);
+        var again = await handler.InvokeAsync(AthanorClientModule.NewCommandId, ct);
+
+        Assert.Equal(AthanorCommandStatus.Done, first.Status);
+        Assert.Equal(AthanorCommandStatus.Done, again.Status);
+        Assert.Single(pane.Tabs, t => t.Id == new EditorDocumentId("ws", "src/fresh.fs"));
     }
 
     [Fact]

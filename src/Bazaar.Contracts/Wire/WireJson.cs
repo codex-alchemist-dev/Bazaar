@@ -23,6 +23,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(EditorOpenReply))]
 [JsonSerializable(typeof(EditorSaveRequest))]
 [JsonSerializable(typeof(EditorSaveReply))]
+[JsonSerializable(typeof(EditorCreateRequest))]
+[JsonSerializable(typeof(EditorCreateReply))]
 [JsonSerializable(typeof(Hello))]
 [JsonSerializable(typeof(Welcome))]
 [JsonSerializable(typeof(Subscribe))]

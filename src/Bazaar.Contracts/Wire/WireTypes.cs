@@ -75,12 +75,14 @@ public static class WireTypes
     /// <summary>Editor saves a workspace file against the revision it opened (doc 57 §6, PROPOSED). Answered with an <c>EditorSaveReply</c>.</summary>
     public const string EditorSave = "editor.save";
 
+    /// <summary>Editor creates a new workspace file in an existing folder (doc 57 §8, PROPOSED). Answered with an <c>EditorCreateReply</c>.</summary>
+    public const string EditorCreate = "editor.create";
+
     /// <summary>Owner asks to grant one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
     public const string HiveGrantSet = "hive.grant.set";
 
     /// <summary>Owner asks to revoke one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
     public const string HiveGrantRevoke = "hive.grant.revoke";
-
 
     /// <summary>Owner lists PRs (doc 21, Client PR wire). Answered with a <c>PrListReply</c>.</summary>
     public const string PrList = "pr.list";

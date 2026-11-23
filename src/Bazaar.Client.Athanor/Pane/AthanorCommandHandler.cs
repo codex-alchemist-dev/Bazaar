@@ -98,6 +98,13 @@ public sealed class AthanorCommandHandler(AthanorPaneViewModel pane, IEditorComm
             return new AthanorCommandResult(AthanorCommandStatus.Failed, problem);
         }
 
+        if (isNew)
+        {
+            // A new document is created empty on the server first (doc 57 section 8); an existing file is simply opened.
+            var reason = await pane.CreateAndOpenAsync(id, string.Empty, cancellationToken).ConfigureAwait(true);
+            return reason is null ? AthanorCommandResult.Done : new AthanorCommandResult(AthanorCommandStatus.Failed, $"Could not create the {kind} '{id.Path}': {reason}");
+        }
+
         return await pane.OpenAsync(id, cancellationToken).ConfigureAwait(true)
             ? AthanorCommandResult.Done
             : new AthanorCommandResult(AthanorCommandStatus.Failed, $"The {kind} '{id.Path}' was not found or cannot be shown.");

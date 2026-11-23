@@ -4,6 +4,8 @@ using Bazaar.Server.Athanor;
 using Bazaar.Server.Wire.Connection;
 using WireOpenReply = Bazaar.Contracts.Athanor.EditorOpenReply;
 using WireOpenRequest = Bazaar.Contracts.Athanor.EditorOpenRequest;
+using WireCreateReply = Bazaar.Contracts.Athanor.EditorCreateReply;
+using WireCreateRequest = Bazaar.Contracts.Athanor.EditorCreateRequest;
 using WireSaveReply = Bazaar.Contracts.Athanor.EditorSaveReply;
 using WireSaveRequest = Bazaar.Contracts.Athanor.EditorSaveRequest;
 
@@ -21,8 +23,9 @@ internal static class AthanorWire
     public static EditorCaller? CallerOf(IWireConnection connection)
     {
         var kind = connection.Principal.Kind;
-        return string.Equals(kind, "owner", StringComparison.OrdinalIgnoreCase) || string.Equals(kind, "human", StringComparison.OrdinalIgnoreCase)
-            ? new EditorCaller(connection.Principal.Id.ToString("D"))
+        var owner = string.Equals(kind, "owner", StringComparison.OrdinalIgnoreCase);
+        return owner || string.Equals(kind, "human", StringComparison.OrdinalIgnoreCase)
+            ? new EditorCaller(connection.Principal.Id.ToString("D"), owner)
             : null;
     }
 
@@ -113,5 +116,38 @@ internal sealed class EditorSaveWireHandler(EditorSaveHandler handler, SettingsA
         }
 
         return AthanorWire.Error(result);
+    }
+}
+
+/// <summary><c>editor.create</c> over the wire (doc 57 section 8, PROPOSED). Same caller rules as save.</summary>
+internal sealed class EditorCreateWireHandler(EditorCreateHandler handler, SettingsAthanorLimits limits) : IWireRequestHandler
+{
+    /// <inheritdoc />
+    public string Type => WireTypes.EditorCreate;
+
+    /// <inheritdoc />
+    public async ValueTask<WireReply> HandleAsync(WireRequestContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        if (AthanorWire.CallerOf(context.Connection) is not { } caller)
+        {
+            return AthanorWire.Forbidden();
+        }
+
+        WireCreateRequest request;
+        try
+        {
+            request = context.Payload<WireCreateRequest>();
+        }
+        catch (WireFormatException)
+        {
+            return AthanorWire.BadPayload();
+        }
+
+        await limits.RefreshAsync(cancellationToken).ConfigureAwait(false);
+        var result = await handler.HandleAsync(caller, new EditorCreateRequest(request.WorkspaceId, request.Path, request.Content), cancellationToken).ConfigureAwait(false);
+        return result.IsOk && result.Value is { } v
+            ? WireReply.Ok(context.Connection.Codec, new WireCreateReply(v.Revision))
+            : AthanorWire.Error(result);
     }
 }
