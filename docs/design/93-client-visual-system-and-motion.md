@@ -156,6 +156,9 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 - An unsupported backdrop silently uses the next fallback and logs once.
 - Theme change applies live with a cross-fade (or instantly under reduced motion) and does not restart panes.
 - A gesture started over a text input that selects text does not start a swipe.
+- The four visual settings are read from the head's client settings file (`Bazaar.Client.Settings`, a JSON file with registered keys, safe defaults and change notification) and applied live; an unreadable file gives the defaults. `imported` themes fall back to the default until theme import is wired.
+- The OS reduced-motion flag is read by each head (Windows `SPI_GETCLIENTAREAANIMATION`, Android `animator_duration_scale` of 0, Linux GNOME `enable-animations` through `gsettings` where present, else not reduced) and forces the reduced level. Heads refresh it when the window activates or the app resumes.
+- Frame budget (no graphics settings): the client measures the gaps between frames of running animations only, so measuring costs nothing at rest. When the p95 over a rolling window exceeds 1.5 times the 60 Hz budget it drops blur and caps motion at subtle; past 3 times it caps motion at reduced. It steps back up one level at a time only after several windows under 1.15 times the budget (hysteresis), and after a long pause in animation.
 - Fold and unfold animate between variants with the same Fluid tokens and send nothing on the wire (doc 27); see the unfold transition section.
 
 ## Testing

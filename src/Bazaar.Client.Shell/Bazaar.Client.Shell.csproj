@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Bazaar.Client.Settings.Abstractions\Bazaar.Client.Settings.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Shell.Abstractions\Bazaar.Client.Shell.Abstractions.csproj" />
