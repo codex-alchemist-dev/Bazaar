@@ -173,6 +173,10 @@ public sealed class BridgeTests
 
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken) => throw new NotSupportedException();
 
+        public Task<RepositoryEventsPage> ListRepositoryEventsAsync(RepositoryEventsRequest request, CancellationToken cancellationToken) => throw new NotSupportedException();
+
+        public Task<string> GetRepositoryNodeIdAsync(long installationId, string owner, string repo, CancellationToken cancellationToken) => throw new NotSupportedException();
+
         public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => throw new NotSupportedException();
     }
 }

@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Archive;
 
 /// <summary>
-/// The Archive cold-storage module (doc 25 "Archive cold storage"). Settings: <c>Bazaar:Archive:Root</c> (the bundle directory)
+/// The Archive cold-storage module (doc 25 "Archive cold storage"). Settings: <c>Bazaar:Archive:Root</c> (the bundle directory; defaults to <c>archive</c> under <c>Bazaar:Host:DataRoot</c>)
 /// and <c>Bazaar:Archive:SegmentMaxRecords</c> (default 5000). Sources and restore targets come from the modules that own the data.
 /// </summary>
 public sealed class ArchiveComponent : IBazaarComponent
@@ -27,14 +27,23 @@ public sealed class ArchiveComponent : IBazaarComponent
         services.AddSingleton(new ArchiveOptions(max));
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IArchiveSearchIndex, InMemoryArchiveSearchIndex>();
-        var root = section["Root"];
+        // Default: an "archive" folder under the host data root, which backup (doc 33) and data-folder encryption (doc 63) cover.
+        var dataRoot = configuration["Bazaar:Host:DataRoot"];
+        var root = section["Root"] ?? (string.IsNullOrWhiteSpace(dataRoot) ? null : Path.Combine(dataRoot, "archive"));
         if (!string.IsNullOrWhiteSpace(root))
         {
             services.TryAddSingleton<IArchiveStore>(_ => new DirectoryArchiveStore(root));
         }
 
         services.AddSingleton<ArchiveVerifier>();
-        services.AddSingleton<ColdArchiver>();
+        // A factory, so service validation on build (Development) does not require a single IArchiveSource: the host archives per owner
+        // through IArchiveSourceFactory (ArchiveRoutes), and a source is only required when a caller resolves this singleton directly.
+        services.AddSingleton(sp => new ColdArchiver(
+            sp.GetRequiredService<IArchiveSource>(),
+            sp.GetRequiredService<IArchiveStore>(),
+            sp.GetService<IArchiveSearchIndex>(),
+            sp.GetRequiredService<ArchiveOptions>(),
+            sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ArchiveRestorer>();
     }
 }

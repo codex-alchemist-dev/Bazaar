@@ -176,7 +176,8 @@ public static class BuiltInSettingRegistries
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(SecuritySettings.All);
+            .Concat(SecuritySettings.All)
+            .Concat(SecuritySettings.IdentityKeys);
 
     /// <summary>
     /// The built-in keys plus every module contribution. A contributed name that repeats a built-in or another

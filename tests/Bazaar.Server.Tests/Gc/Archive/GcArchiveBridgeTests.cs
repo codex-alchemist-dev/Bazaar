@@ -123,4 +123,21 @@ public sealed class GcArchiveBridgeTests(GcDb db) : IClassFixture<GcDb>
         Assert.DoesNotContain(other, ids);
         await Assert.ThrowsAsync<ArgumentException>(() => new PgProjectGcLister(db.DataSource).ListGcIdsAsync("not-a-guid", ct));
     }
+
+    [Fact]
+    public async Task Restore_target_finds_live_events_and_refuses_to_reinsert()
+    {
+        GcTestSkip.WithoutDatabase();
+        var ct = TestContext.Current.CancellationToken;
+        var gc = await NewGcAsync("general", "Plans", ct);
+        await PostAsync(gc, "ship it", ct);
+        var bridge = new PgGcArchiveBridge(db.DataSource, Writer(), new PlaintextGcBodyCodec());
+        var target = new PgGcArchiveRestoreTarget(db.DataSource, bridge);
+        var unit = new Bazaar.Archive.ArchiveUnit(Bazaar.Archive.ArchiveUnitKind.GroupChat, gc.ToString("D"));
+
+        Assert.NotNull(await target.GetLiveHashAsync(unit, "seq-1", ct));
+        Assert.Null(await target.GetLiveHashAsync(unit, "seq-99", ct));
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            target.WriteAsync(unit, new Bazaar.Archive.ArchiveRecord("seq-99", "message", DateTimeOffset.UnixEpoch, "x"), ct));
+    }
 }
