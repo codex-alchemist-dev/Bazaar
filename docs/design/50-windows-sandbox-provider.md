@@ -1,6 +1,6 @@
 # Windows Sandbox VM provider and host-compatibility metadata
 
-Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Facts about Windows Sandbox are unverified until spike S-WSB runs on the owner's PC (section 8).
+Status: PROPOSED (owner request, 2026-11-16, via the Windows Sandbox thread). Spike S-WSB has run on the owner's PC and verified start, list, stop, exec and the single-instance refusal (`docs/spikes/S-WSB.md`); facts it did not cover remain unverified (section 8).
 Depends on: `16-agent-vms-and-environments.md` (VM contract, lifecycle, topology), `03-server-host-and-providers.md` (provider roles and selection), `41-client-gui-customization-and-dsl.md` (module manifest, section 8) · Used by: `42-deps-as-modules.md` (install checks), `49-gap-decisions-operations.md`
 
 ## Purpose
@@ -44,7 +44,7 @@ Every restart is a clean boot. "Restore" means boot again, not resume, so doc 16
 
 ## 4. Module shape (platform-neutral)
 - `Bazaar.Server.Vms.WindowsSandbox`: `WindowsSandboxBackend` (implements `IVmBackend` and `IVmProvider`, kind `windows_sandbox`), `WindowsSandboxConfig` (pure XML), `WindowsSandboxOptions`, `WindowsSandboxModule` (identity, requirements, capability report).
-- `IWindowsSandboxHost` is the only seam to the host. The real adapter (`WsbCli/WsbCliSandboxHost`, driving `wsb.exe`) exists since spike S-WSB, which verified start, list, stop, exec and the single-instance refusal on the owner's PC (`docs/spikes/S-WSB.md`). The provider is still not registered in any host composition, so `auto` never selects it, until the owner answers section 7.
+- `IWindowsSandboxHost` is the only seam to the host. The real adapter (`WsbCli/WsbCliSandboxHost`, driving `wsb.exe`) exists since spike S-WSB, which verified start, list, stop, exec and the single-instance refusal on the owner's PC (`docs/spikes/S-WSB.md`). The provider is registered in host composition only when the `Bazaar:Vms:WindowsSandbox` section names `HostBaseImage` and `ConfigDirectory`; the Windows candidate list also includes it with an empty base image, so child creation stays refused. Whether `auto` selects it is not checked here; the owner answers section 7.
 - `IHostFactsSource` reports OS, architecture and features for the requirements check. Its Windows implementation belongs in `Bazaar.Server.Providers.Windows` (Windows-only APIs stay behind a provider).
 - Tests (`Bazaar.Server.Vms.WindowsSandbox.Tests`, 22) use in-memory fakes. Cloud CI makes no Windows Sandbox calls.
 

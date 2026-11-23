@@ -107,6 +107,12 @@ enum PrincipalKind {
   PRINCIPAL_KIND_AGENT = 2; // agent
 }
 
+enum RiskClass {
+  RISK_CLASS_READ = 0; // read
+  RISK_CLASS_WRITE = 1; // write
+  RISK_CLASS_EXEC = 2; // exec
+}
+
 enum ZoomTier {
   ZOOM_TIER_FAR = 0; // far
   ZOOM_TIER_MID = 1; // mid
@@ -157,6 +163,40 @@ message EditorSaveRequest {
   string content = 4;
 }
 
+message EngineGrantVerifyReply {
+  bool covers = 1;
+}
+
+message EngineGrantVerifyRequest {
+  string grant_id = 1;
+  string tool = 2;
+  RiskClass risk_class = 3;
+}
+
+message EngineRelayCallFrame {
+  string grant_id = 1;
+  string studio_id = 2;
+  string tool = 3;
+  string args_json = 4;
+}
+
+message EngineRelayCallResultFrame {
+  string grant_id = 1;
+  bool ok = 2;
+  string payload_json = 3;
+}
+
+message EngineRelayRequestFrame {
+  bytes relay_id = 1;
+  Instant deadline = 2;
+  EngineRelayCallFrame call = 3;
+}
+
+message EngineRelayResultFrame {
+  bytes relay_id = 1;
+  EngineRelayCallResultFrame result = 2;
+}
+
 message FocusRequest {
   string view_id = 1;
   string node_id = 2;
@@ -172,6 +212,26 @@ message GcHistory {
   bytes gc_id = 1;
   int64 before = 2;
   int32 limit = 3;
+}
+
+message GcListItem {
+  bytes gc_id = 1;
+  string title = 2;
+  string kind = 3;
+  int32 member_count = 4;
+  int64 head_seq = 5;
+  Instant last_activity_ts = 6;
+}
+
+message GcListReply {
+  repeated GcListItem items = 1;
+  bool has_more = 2;
+  optional bytes default_gc_id = 3;
+}
+
+message GcListRequest {
+  int32 limit = 1;
+  bool include_thinking = 2;
 }
 
 message GcMemberAdd {
@@ -191,6 +251,27 @@ message GcPage {
   bool has_more = 2;
 }
 
+message GcReact {
+  bytes gc_id = 1;
+  int64 target_n = 2;
+  string emoji = 3;
+  bool add = 4;
+}
+
+message GcReactResult {
+  int64 n = 1;
+  bool changed = 2;
+}
+
+message GcReactionsReply {
+  repeated WireReactionGroup items = 1;
+}
+
+message GcReactionsRequest {
+  bytes gc_id = 1;
+  optional int64 after_n = 2;
+}
+
 message GcRead {
   bytes gc_id = 1;
   int64 up_to_n = 2;
@@ -206,6 +287,15 @@ message GcSend {
 message GcSendResult {
   int64 n = 1;
   int64 ev = 2;
+}
+
+message GcTyping {
+  bytes gc_id = 1;
+  bool typing = 2;
+}
+
+message GcTypingResult {
+  bool accepted = 1;
 }
 
 message GraphEdge {
@@ -262,6 +352,18 @@ message Hello {
   string client_build = 7;
   optional string credential = 8;
   StreamCursorList cursors = 9;
+}
+
+message HiveGrantChangeReply {
+  bool accepted = 1;
+  optional string reason = 2;
+  bool approval_required = 3;
+}
+
+message HiveGrantChangeRequest {
+  string from_project = 1;
+  string to_project = 2;
+  string kind = 3;
 }
 
 message KanbanAssignReply {
@@ -657,6 +759,15 @@ message WireGcMessage {
   bool withdrawn = 11;
 }
 
+message WireGcReaction {
+  bytes gc_id = 1;
+  int64 target_n = 2;
+  string emoji = 3;
+  bytes by = 4;
+  bool add = 5;
+  Instant ts = 6;
+}
+
 message WireLimits {
   int32 max_frame_bytes = 1;
   int32 inflight_requests_max = 2;
@@ -675,4 +786,10 @@ message WirePresenceRow {
   optional string label = 9;
   Instant since = 10;
   Instant updated_at = 11;
+}
+
+message WireReactionGroup {
+  int64 target_n = 1;
+  string emoji = 2;
+  repeated bytes by = 3;
 }

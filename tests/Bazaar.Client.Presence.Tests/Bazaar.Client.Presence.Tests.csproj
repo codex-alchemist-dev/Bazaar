@@ -19,6 +19,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Presence\Bazaar.Client.Presence.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Presence.Abstractions\Bazaar.Client.Presence.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Presence.Sources\Bazaar.Server.Presence.Sources.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

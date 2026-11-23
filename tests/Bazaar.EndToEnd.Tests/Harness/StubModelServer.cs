@@ -22,6 +22,7 @@ public sealed class StubModelServer : IAsyncDisposable
     private readonly WebApplication _app;
     private readonly ConcurrentQueue<StubRequest> _requests = new();
     private readonly ConcurrentQueue<(string Name, string ArgumentsJson)> _toolCalls = new();
+    private readonly ConcurrentDictionary<string, string> _scripts = new();
 
     private StubModelServer(WebApplication app, int port)
     {
@@ -41,6 +42,13 @@ public sealed class StubModelServer : IAsyncDisposable
     /// the tool result, gets the normal reply. One-shot: a test queues one call per tool call it expects.
     /// </summary>
     public void QueueToolCall(string name, string argumentsJson) => _toolCalls.Enqueue((name, argumentsJson));
+
+    /// <summary>
+    /// Scripts the model for one task: when the last user message contains <paramref name="marker"/>, the reply is
+    /// <paramref name="reply"/>. This is how an acceptance test plays "the model decided to fix the bug" while the server, gateway
+    /// and wire stay real. Markers are unique per test, so parallel tests sharing the model do not cross.
+    /// </summary>
+    public void AddScript(string marker, string reply) => _scripts[marker] = reply;
 
     public static async Task<StubModelServer> StartAsync()
     {
@@ -77,7 +85,7 @@ public sealed class StubModelServer : IAsyncDisposable
                 return;
             }
 
-            var reply = ReplyPrefix + lastUser;
+            var reply = holder[0].ScriptedReply(lastUser) ?? ReplyPrefix + lastUser;
 
             http.Response.ContentType = "text/event-stream";
             await WriteAsync(http, new { model = Model, choices = new[] { new { delta = new { content = reply }, finish_reason = (string?)null } } });
@@ -92,6 +100,9 @@ public sealed class StubModelServer : IAsyncDisposable
         holder[0] = stub;
         return stub;
     }
+
+    private string? ScriptedReply(string lastUser) =>
+        _scripts.FirstOrDefault(kv => lastUser.Contains(kv.Key, StringComparison.Ordinal)).Value;
 
     private static async Task WriteAsync(HttpContext http, object chunk)
     {

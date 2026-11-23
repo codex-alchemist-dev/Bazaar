@@ -19,6 +19,12 @@ public interface IValkeyClient : IAsyncDisposable
     /// <summary>Removes the key. Returns without error when it is missing.</summary>
     Task DeleteAsync(string key, CancellationToken ct);
 
+    /// <summary>
+    /// Atomically adds <paramref name="by"/> to the integer at <paramref name="key"/> (a missing key counts as zero) and returns the new value.
+    /// The expiry is set only when the key has none, in the same atomic step. Throws when the server cannot be reached.
+    /// </summary>
+    Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct);
+
     /// <summary>Reads the memory section of the server (used and configured maximum bytes). Used by the health probes.</summary>
     Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct);
 

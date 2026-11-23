@@ -26,7 +26,7 @@ public sealed class HttpApprovalClient(HttpClient http, Func<string?> credential
 
     public async ValueTask<IReadOnlyList<ApprovalCardDto>> ListPendingAsync(CancellationToken cancellationToken)
     {
-        using var request = Authorized(new HttpRequestMessage(HttpMethod.Get, "approvals/pending"));
+        using var request = Authorized(new HttpRequestMessage(HttpMethod.Get, ApprovalRoutes.Pending));
         using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var cards = await response.Content
@@ -38,7 +38,7 @@ public sealed class HttpApprovalClient(HttpClient http, Func<string?> credential
     public async ValueTask SendAsync(ApprovalDecisionDto decision, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(decision);
-        using var request = Authorized(new HttpRequestMessage(HttpMethod.Post, $"approvals/{decision.ApprovalId:D}/decision")
+        using var request = Authorized(new HttpRequestMessage(HttpMethod.Post, ApprovalRoutes.Decision(decision.ApprovalId))
         {
             Content = JsonContent.Create(decision, ApprovalContractsJsonContext.Default.ApprovalDecisionDto),
         });
