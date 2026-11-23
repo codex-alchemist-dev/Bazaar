@@ -25,7 +25,7 @@ public sealed class ProjectsDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 8 }.ConnectionString);
         var source = new CompositeMigrationSource(
-            new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
+            new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
             new ComponentMigrationSource(typeof(ProjectsComponent).Assembly));
         await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "linux", CancellationToken.None);
     }

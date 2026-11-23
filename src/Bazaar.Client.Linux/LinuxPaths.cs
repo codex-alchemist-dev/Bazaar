@@ -7,6 +7,17 @@ public sealed record LinuxPaths(string StateDirectory)
     /// <summary>The replay cursor file.</summary>
     public string CursorFile => Path.Combine(StateDirectory, "cursors.json");
 
+    /// <summary>The client settings file (theme, density, materials, motion level).</summary>
+    public string SettingsFile => Path.Combine(StateDirectory, "client-settings.json");
+    /// <summary>The last group chat the head opened and its server (doc 30), mode 0600.</summary>
+    public string LastGcFile => Path.Combine(StateDirectory, "last-gc.json");
+
+    /// <summary>The per-device preference file the pane host's preference store keeps (doc 41c section 6).</summary>
+    public string PreferencesFile => Path.Combine(StateDirectory, "preferences.json");
+
+    /// <summary>The person's mnemonic remaps (doc 41).</summary>
+    public string MnemonicOverridesFile => Path.Combine(StateDirectory, "mnemonic-overrides.json");
+
     /// <summary>
     /// Uses <c>$XDG_STATE_HOME</c> when it is an absolute path, as the XDG spec requires; otherwise
     /// <c>~/.local/state</c>. Pure: the environment and home directory are passed in.
