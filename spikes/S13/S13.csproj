@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <AssemblyName>S13</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Same page, bridge script, theme goldens and Monaco bundle as S12; nothing is copied into this folder. -->
+    <Content Include="..\S12\web\**\*" Link="web\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,5 @@
 using Bazaar.Fun.Vent;
+using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 using Bazaar.Testing.Secrets;
 
