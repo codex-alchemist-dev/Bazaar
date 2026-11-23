@@ -6,6 +6,8 @@ using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.Constellation;
+using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -112,6 +114,14 @@ public static class HostApplicationExtensions
         services.AddBazaarComponents(configuration, HostComponents.All);
         services.AddBazaarGcForkTarget();
         services.AddBazaarReplayWire();
+
+        // The memory graph (Bazaar.Server.Constellation) is wired here, not in a component: the Constellation component cannot
+        // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
+        if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
+        {
+            services.AddMemoryGraphProjection();
+        }
+
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         services.AddBazaarBackupOffsite();

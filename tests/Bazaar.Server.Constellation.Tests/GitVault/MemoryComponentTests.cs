@@ -129,6 +129,12 @@ public sealed class MemoryComponentTests : IDisposable
         }
 
         new MemoryComponent().AddServices(services, Config(values));
+        if (graph is not null)
+        {
+            // The host wires the graph projection after the components (Bazaar.Server.Host); the test does the same.
+            services.AddMemoryGraphProjection();
+        }
+
         return services.BuildServiceProvider();
     }
 

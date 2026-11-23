@@ -47,11 +47,15 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.ReadAudit\Bazaar.Server.ReadAudit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Blobs\Bazaar.Server.Blobs.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding.Abstractions\Bazaar.Server.Coding.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Secrets.Postgres\Bazaar.Server.Secrets.Postgres.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup\Bazaar.Server.Setup.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Hive\Bazaar.Server.Hive.csproj" />
