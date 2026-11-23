@@ -64,6 +64,7 @@ public class LayeringTests
     [InlineData("Bazaar.Client.Navigation")]
     [InlineData("Bazaar.Client.Preferences")]
     [InlineData("Bazaar.Client.Updates")]
+    [InlineData("Bazaar.Client.Mail")]
     public void Client_feature_module_does_not_reference_client_core(string project)
     {
         Assert.SkipUnless(File.Exists(RepoPaths.ProjectFile(project)), $"{project} does not exist yet.");
@@ -71,6 +72,15 @@ public class LayeringTests
         var declared = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(project));
 
         Assert.DoesNotContain("Bazaar.Client.Core", declared);
+    }
+
+    /// <summary>The mail abstractions are plain records. They reference no server project and no client project (doc 22, WP12).</summary>
+    [Fact]
+    public void Client_mail_abstractions_reference_no_project()
+    {
+        var declared = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile("Bazaar.Client.Mail.Abstractions")).ToArray();
+
+        Assert.Empty(declared);
     }
 
     [Fact]

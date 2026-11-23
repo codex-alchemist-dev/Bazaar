@@ -9,7 +9,7 @@ namespace Bazaar.Server.Mail;
 /// Only external mail uses it: internal agent coordination stays in GCs.
 /// </summary>
 /// <remarks>
-/// No mail services are registered yet: the back ends, the inbound and outbound pipelines and the quarantine store are later
+/// Registered so far: the inbound screening service and its protected-domain source. The back ends, the inbound and outbound pipelines and the quarantine store are later
 /// work packages (doc 22 WP3 to WP12). Add registrations here as they land, so the component stays the single owner of its services.
 /// </remarks>
 public sealed class MailComponent : IBazaarComponent
@@ -27,5 +27,6 @@ public sealed class MailComponent : IBazaarComponent
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+        services.AddBazaarMailScreening();
     }
 }

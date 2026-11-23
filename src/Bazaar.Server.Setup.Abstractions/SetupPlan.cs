@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Bazaar.Server.Setup;
 
@@ -213,6 +214,28 @@ public sealed class SetupEmailSection
     /// plan field: it is a <c>mail_domain</c> row set in the mail panel.
     /// </summary>
     public string Backend { get; init; } = "";
+    // The optional fields below (doc 45 step 11, doc 22 DNS checker) are left out of the canonical form when unset, so a plan
+    // that does not use them keeps the hash it had before they existed.
+
+    /// <summary>The operator's mail domain. Never defaulted; the DNS check is skipped when it is absent.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? Domain { get; init; }
+
+    /// <summary>generic, cloudflare or builtin.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BackendKind { get; init; }
+
+    /// <summary>The DKIM selector the sender provides. DKIM is not checked when absent.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DkimSelector { get; init; }
+
+    /// <summary>The operator's address for DMARC aggregate reports.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? DmarcReportAddress { get; init; }
+
+    /// <summary>True when the operator runs the sending host, so the PTR check applies.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool SelfHosted { get; init; }
 }
 
 public sealed class SetupScamMailSection

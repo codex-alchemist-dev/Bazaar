@@ -5,6 +5,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Npgsql" />
     <PackageReference Include="xunit.v3.mtp-v2" />
   </ItemGroup>
   <ItemGroup>
@@ -12,5 +13,9 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
+    <!-- Test-only: the migration runner (Bazaar.Server) applies the mail files to the test database, as the Council tests do. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

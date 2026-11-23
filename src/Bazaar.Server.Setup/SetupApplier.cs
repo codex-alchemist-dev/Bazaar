@@ -24,6 +24,9 @@ public sealed class SetupApplier
 
     private readonly ISetupInstanceLock _instanceLock;
     private readonly List<ISetupStep> _steps;
+    /// <summary>The most audit counts one step may add to its row.</summary>
+    private const int _maxCountsPerStep = 32;
+
     private readonly IAuditLog _audit;
     private readonly ISetupSettingAudit _settingAudit;
     private readonly TimeProvider _time;
@@ -179,6 +182,7 @@ public sealed class SetupApplier
 
         // d. Steps in order. The first failure (a report or an exception) stops the run and rolls back what completed.
         var applied = new List<ISetupStep>();
+        var stepCounts = new List<JsonObject>();
         foreach (var step in _steps)
         {
             string? failureKind = null;
@@ -188,6 +192,10 @@ public sealed class SetupApplier
                 if (!result.Succeeded)
                 {
                     failureKind = "reported_failure";
+                }
+                else
+                {
+                    stepCounts.AddRange(CountRows(step.Id, result.AuditCounts));
                 }
             }
             catch (Exception exception)
@@ -215,7 +223,7 @@ public sealed class SetupApplier
         var appliedIds = applied.Select(step => step.Id).ToList();
         var projected = SetupSettingProjection.Project(request.Plan).ToDictionary(setting => setting.Key, StringComparer.Ordinal);
         var changedKeys = ChangedSettingKeys(request.Plan, changes, projected);
-        await AppendAppliedRowAsync(request, hash, "applied", changedKeys, appliedIds, null, null, [], [], cancellationToken);
+        await AppendAppliedRowAsync(request, hash, "applied", changedKeys, appliedIds, null, null, [], [], cancellationToken, stepCounts);
 
         foreach (var key in changedKeys)
         {
@@ -312,7 +320,8 @@ public sealed class SetupApplier
         string? failureKind,
         IReadOnlyList<string> rollbackFailures,
         IReadOnlyList<string> unappliedSections,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyList<JsonObject>? stepCounts = null)
     {
         var payload = new JsonObject
         {
@@ -334,9 +343,37 @@ public sealed class SetupApplier
             ["secretReferences"] = SecretReferenceArray(request.Plan),
         };
 
+        // Only present when a step reported counts, so a row without them keeps its earlier shape.
+        if (stepCounts is { Count: > 0 })
+        {
+            var rows = new JsonArray();
+            foreach (var row in stepCounts)
+            {
+                rows.Add((JsonNode)row);
+            }
+
+            payload["stepCounts"] = rows;
+        }
+
         var entry = new AuditEntry(_time.GetUtcNow(), request.OperatorIdentity, AppliedKind, payload.ToJsonString());
         return _audit.AppendAsync(entry, cancellationToken);
     }
+
+    /// <summary>
+    /// One row per valid count: step id, name, value. The name is data, not a key, so the audit payload guard (which refuses
+    /// secret-like keys) is not tripped by names such as <c>pass</c>. Sorted by name; invalid or surplus entries are dropped.
+    /// </summary>
+    private static IEnumerable<JsonObject> CountRows(string stepId, IReadOnlyDictionary<string, int> counts)
+    {
+        return counts
+            .Where(pair => pair.Value >= 0 && IsCountName(pair.Key))
+            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .Take(_maxCountsPerStep)
+            .Select(pair => new JsonObject { ["step"] = stepId, ["name"] = pair.Key, ["count"] = pair.Value });
+    }
+
+    private static bool IsCountName(string? name) =>
+        name is { Length: >= 1 and <= 64 } && name.All(c => c is (>= 'a' and <= 'z') or (>= '0' and <= '9') or '.' or '_' or '-');
 
     private static JsonArray StringArray(IEnumerable<string> values)
     {

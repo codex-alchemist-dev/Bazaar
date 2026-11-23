@@ -6,12 +6,14 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="MimeKit" />
+    <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.Configuration" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail.Abstractions\Bazaar.Server.Mail.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />

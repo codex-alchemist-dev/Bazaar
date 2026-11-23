@@ -143,6 +143,8 @@ public static class HostApplicationExtensions
         services.AddBazaarCouncilSettings();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
         AnthropicDirectComponent.RequireComponentWhenGatewayIsOn(configuration);
+        // External mail (docs/design/22-email-subsystem.md). Off unless Bazaar:Mail:Enabled is true; needs the components above (audit, secrets).
+        services.AddBazaarMail(configuration);
         services.AddBazaarAgentResponder(configuration);
         services.AddBazaarHostAthanor(configuration);
         // Pairing and refresh services (doc 32). Their routes are mapped by MapBazaarHttpSurface in Program.cs.

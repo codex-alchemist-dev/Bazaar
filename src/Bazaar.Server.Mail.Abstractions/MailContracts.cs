@@ -12,8 +12,20 @@ public readonly record struct MailboxRef(string Domain, string LocalPart)
 /// <summary>A message exactly as a back end delivered it, before any parsing or screening.</summary>
 public sealed record RawMail(string BackendId, MailboxRef Mailbox, ReadOnlyMemory<byte> Bytes, DateTimeOffset ReceivedAt);
 
-/// <summary>An outbound message. The server sets From; the model never does (doc 22, account model).</summary>
-public sealed record OutboundMail(string Key, MailboxRef From, IReadOnlyList<string> To, string Subject, string TextBody);
+/// <summary>
+/// An outbound message. The server sets From; the model never does (doc 22, account model).
+/// <paramref name="MessageId"/> is the id of the <c>mail_message</c> row the send path stored before this call (doc 22, durable outbound store);
+/// null for a caller that keeps no store. <paramref name="Footer"/> is the footer the outbound pipeline resolved from the policy; when set, a back
+/// end appends it in place of its own default. Neither is ever model-controlled.
+/// </summary>
+public sealed record OutboundMail(
+    string Key,
+    MailboxRef From,
+    IReadOnlyList<string> To,
+    string Subject,
+    string TextBody,
+    Guid? MessageId = null,
+    string? Footer = null);
 
 /// <summary>Result of a send. A repeated key returns the first receipt without sending again.</summary>
 public sealed record SendReceipt(string IdempotencyKey, string BackendMessageId, bool AlreadySent);

@@ -1,11 +1,21 @@
 using System.Collections.Immutable;
+using Bazaar.Server.Mail.Parsing;
 
 namespace Bazaar.Server.Mail.Quarantine;
 
 /// <summary>One attachment as parsed from a message.</summary>
 /// <param name="FileName">The attachment's file name as sent.</param>
 /// <param name="ContentType">The declared media type, or null when none was given. Not used by the screens yet.</param>
-public sealed record AttachmentInfo(string FileName, string? ContentType);
+/// <param name="Archive">Metadata read from the archive's directory by <see cref="Bazaar.Server.Mail.Parsing.ZipArchiveInspector"/>, or null when the attachment is not an inspected archive.</param>
+public sealed record AttachmentInfo(string FileName, string? ContentType, ArchiveFacts? Archive = null);
+
+/// <summary>What an archive's directory declares. Nothing was unpacked to learn it.</summary>
+/// <param name="EntryCount">Entries the directory declares.</param>
+/// <param name="CompressedBytes">Sum of the declared compressed sizes.</param>
+/// <param name="UncompressedBytes">Sum of the declared uncompressed sizes.</param>
+/// <param name="ContainsArchive">True when an entry name has an archive extension.</param>
+/// <param name="Malformed">True when the directory is inconsistent, truncated, or uses a form the inspector refuses (ZIP64, entry count above the limit).</param>
+public sealed record ArchiveFacts(int EntryCount, long CompressedBytes, long UncompressedBytes, bool ContainsArchive, bool Malformed);
 
 /// <summary>A link in a message body: the text the reader sees and the URL it points to.</summary>
 /// <param name="VisibleText">The link's visible text.</param>
@@ -33,16 +43,16 @@ public sealed record InboundHeaders(
     IReadOnlyList<LinkInfo> Links);
 
 /// <summary>
-/// The thresholds for the size and attachment screens. Defaults are the shipped values of doc 22's settings
-/// (<c>mail.max_message_bytes</c> and <c>mail.max_attachments</c>). Operators may tighten them through settings.
+/// The thresholds for the screens. The size, attachment and archive limits live in one place, <see cref="Limits"/>
+/// (<see cref="MailLimits"/>, doc 22 settings rows); nothing here repeats their defaults. Operators may tighten them through settings.
 /// </summary>
 public sealed record InboundQuarantineOptions
 {
-    /// <summary>The largest message that is screened as normal (<c>mail.max_message_bytes</c>, 10 MiB).</summary>
-    public long MaxMessageBytes { get; init; } = 10_485_760L;
+    /// <summary>Message size, attachment count and archive limits. Defaults are <see cref="MailLimits.Defaults"/>.</summary>
+    public MailLimits Limits { get; init; } = MailLimits.Defaults;
 
-    /// <summary>The most attachments a message may carry (<c>mail.max_attachments</c>).</summary>
-    public int MaxAttachments { get; init; } = 5;
+    /// <summary>Domains a sender must not imitate: the operator's own mail domains plus any extra list. Empty turns the lookalike screen off. Nothing is built in.</summary>
+    public IReadOnlyList<string> ProtectedDomains { get; init; } = [];
 }
 
 /// <summary>
@@ -72,8 +82,9 @@ public static class InboundQuarantineRules
     {
         ArgumentNullException.ThrowIfNull(headers);
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(options.MaxMessageBytes);
-        ArgumentOutOfRangeException.ThrowIfNegative(options.MaxAttachments);
+        ArgumentNullException.ThrowIfNull(options.Limits);
+        options.Limits.Validate();
+        ArgumentNullException.ThrowIfNull(options.ProtectedDomains);
         ArgumentOutOfRangeException.ThrowIfNegative(headers.MessageBytes);
         ArgumentNullException.ThrowIfNull(headers.Attachments);
         ArgumentNullException.ThrowIfNull(headers.Links);
@@ -90,8 +101,20 @@ public static class InboundQuarantineRules
             reasons.Add(QuarantineReason.DisplayNameMismatch);
         }
 
+        if (options.ProtectedDomains.Count > 0
+            && EmailAddressParser.TryParseMailbox(headers.From, out var sender)
+            && LookalikeDomainDetector.IsLookalike(sender!.Address.Domain, options.ProtectedDomains))
+        {
+            reasons.Add(QuarantineReason.LookalikeSenderDomain);
+        }
+
         foreach (var attachment in headers.Attachments)
         {
+            if (attachment.Archive is { } archive && IsArchiveSuspect(archive, options))
+            {
+                reasons.Add(QuarantineReason.NestedArchive);
+            }
+
             var extension = ExtensionOf(attachment.FileName);
             if (extension is null)
             {
@@ -114,12 +137,12 @@ public static class InboundQuarantineRules
             reasons.Add(QuarantineReason.LinkTextMismatch);
         }
 
-        if (headers.MessageBytes > options.MaxMessageBytes)
+        if (headers.MessageBytes > options.Limits.MaxMessageBytes)
         {
             reasons.Add(QuarantineReason.OversizeMessage);
         }
 
-        if (headers.Attachments.Count > options.MaxAttachments)
+        if (headers.Attachments.Count > options.Limits.MaxAttachments)
         {
             reasons.Add(QuarantineReason.TooManyAttachments);
         }
@@ -130,6 +153,20 @@ public static class InboundQuarantineRules
         }
 
         return new QuarantineDecision(QuarantineAction.Quarantine, [.. reasons]);
+    }
+
+    private static bool IsArchiveSuspect(ArchiveFacts archive, InboundQuarantineOptions options)
+    {
+        if (archive.ContainsArchive || archive.Malformed
+            || archive.EntryCount > options.Limits.MaxArchiveEntries
+            || archive.UncompressedBytes > options.Limits.MaxArchiveUncompressedBytes)
+        {
+            return true;
+        }
+
+        // Multiplied, not divided, so a zero compressed size with data declared still trips.
+        return archive.UncompressedBytes > 0
+            && (double)archive.UncompressedBytes > (double)archive.CompressedBytes * options.Limits.MaxArchiveCompressionRatio;
     }
 
     /// <summary>SPF, DKIM and DMARC report "fail" as a failure. Other results (none, neutral, temperror) are not screened here.</summary>

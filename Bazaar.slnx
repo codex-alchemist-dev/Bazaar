@@ -104,6 +104,8 @@
     <Project Path="src/Bazaar.Client.Council/Bazaar.Client.Council.csproj" />
     <Project Path="src/Bazaar.Client.TalentPool.Http/Bazaar.Client.TalentPool.Http.csproj" />
     <Project Path="src/Bazaar.Client.TalentPool.Avalonia/Bazaar.Client.TalentPool.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.Mail/Bazaar.Client.Mail.csproj" />
+    <Project Path="src/Bazaar.Client.Mail.Abstractions/Bazaar.Client.Mail.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Souls/Bazaar.Client.Souls.csproj" />
     <Project Path="src/Bazaar.Client.LayoutHost/Bazaar.Client.LayoutHost.csproj" />
     <Project Path="src/Bazaar.Client.Views/Bazaar.Client.Views.csproj" />
@@ -363,6 +365,16 @@
     <Project Path="src/Bazaar.Client.GeneticMemory.Abstractions/Bazaar.Client.GeneticMemory.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.GeneticMemory.Avalonia/Bazaar.Client.GeneticMemory.Avalonia.csproj" />
     <Project Path="src/Bazaar.Server.MailBackends/Bazaar.Server.MailBackends.csproj" />
+    <Project Path="src/Bazaar.Server.MailDns.Abstractions/Bazaar.Server.MailDns.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailDns/Bazaar.Server.MailDns.csproj" />
+    <Project Path="src/Bazaar.Server.MailInbound.Abstractions/Bazaar.Server.MailInbound.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailInbound/Bazaar.Server.MailInbound.csproj" />
+    <Project Path="src/Bazaar.Server.MailOutbound.Abstractions/Bazaar.Server.MailOutbound.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailOutbound/Bazaar.Server.MailOutbound.csproj" />
+    <Project Path="src/Bazaar.Server.MailOnboarding.Abstractions/Bazaar.Server.MailOnboarding.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailOnboarding/Bazaar.Server.MailOnboarding.csproj" />
+    <Project Path="src/Bazaar.Server.MailRuntime.Abstractions/Bazaar.Server.MailRuntime.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.MailRuntime/Bazaar.Server.MailRuntime.csproj" />
     <Project Path="src/Bazaar.Conduit/Bazaar.Conduit.csproj" />
     <Project Path="src/Bazaar.Updates/Bazaar.Updates.csproj" />
     <Project Path="src/Bazaar.DeviceApproval.Abstractions/Bazaar.DeviceApproval.Abstractions.csproj" />
@@ -708,6 +720,7 @@
     <Project Path="tests/Bazaar.Client.Linux.Tests/Bazaar.Client.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.LayoutHost.Tests/Bazaar.Client.LayoutHost.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Views.Tests/Bazaar.Client.Views.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Mail.Tests/Bazaar.Client.Mail.Tests.csproj" />
     <Project Path="tests/Bazaar.Michi.Tests/Bazaar.Michi.Tests.csproj" />
     <Project Path="tests/Bazaar.Constellation.Bench/Bazaar.Constellation.Bench.csproj" />
     <Project Path="tests/Bazaar.Constellation.Communities.Tests/Bazaar.Constellation.Communities.Tests.csproj" />
@@ -789,6 +802,11 @@
     <Project Path="tests/Bazaar.Client.Portability.Avalonia.Tests/Bazaar.Client.Portability.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.GeneticMemory.Avalonia.Tests/Bazaar.Client.GeneticMemory.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MailBackends.Tests/Bazaar.Server.MailBackends.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailDns.Tests/Bazaar.Server.MailDns.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailInbound.Tests/Bazaar.Server.MailInbound.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailOutbound.Tests/Bazaar.Server.MailOutbound.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailOnboarding.Tests/Bazaar.Server.MailOnboarding.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.MailRuntime.Tests/Bazaar.Server.MailRuntime.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.Tests/Bazaar.Conduit.Tests.csproj" />
     <Project Path="tests/Bazaar.Conduit.LiveTests/Bazaar.Conduit.LiveTests.csproj" />
     <Project Path="tests/Bazaar.PrivacyAudit.Tests/Bazaar.PrivacyAudit.Tests.csproj" />

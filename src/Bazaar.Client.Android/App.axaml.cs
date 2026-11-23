@@ -16,6 +16,7 @@ using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Analytics;
+using Bazaar.Client.Mail;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
@@ -147,6 +148,7 @@ public sealed class App : Avalonia.Application
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
             new AgentAnalyticsPaneModule(),
+            .. MailPanes.Modules,
         ];
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the phone shell exists. Preferences stay on this device until a wire sync is attached.

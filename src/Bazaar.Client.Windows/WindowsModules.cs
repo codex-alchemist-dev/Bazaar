@@ -1,3 +1,4 @@
+using Bazaar.Client.Mail;
 using Bazaar.Client.Analytics;
 using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Calcinato.Panes;
@@ -38,6 +39,7 @@ public static class WindowsModules
         .. InterruptPanes.Modules,
         .. ColdArchivePanes.Modules,
         new EnginePaneModule(),
+        .. MailPanes.Modules,
         athanor,
         .. GitSolarSystemPanes.Modules,
         .. GitGuiPanes.Modules,

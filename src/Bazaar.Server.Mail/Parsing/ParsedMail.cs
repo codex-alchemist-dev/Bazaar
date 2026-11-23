@@ -1,6 +1,9 @@
 namespace Bazaar.Server.Mail.Parsing;
 
-/// <summary>What the screens and the pipeline need from one message. Bodies stay in memory only until encrypted.</summary>
+/// <summary>
+/// What the screens and the pipeline need from one message. Bodies stay in memory only until encrypted.
+/// <c>FromDisplayName</c> is the From display name after <see cref="MailTextCleaner.CleanDisplayName"/> (no control characters, length capped), or null; the display-name screen reads it.
+/// </summary>
 public sealed record ParsedMail(
     string? MessageId,
     string? FromAddress,
@@ -11,7 +14,8 @@ public sealed record ParsedMail(
     bool AutoSubmitted,
     int PartCount,
     int MaxDepthSeen,
-    IReadOnlyDictionary<string, string> AuthenticationResults);
+    IReadOnlyDictionary<string, string> AuthenticationResults,
+    string? FromDisplayName = null);
 
 /// <summary>One attachment as declared by the sender. Content is not decoded here.</summary>
 public sealed record MailAttachment(string? FileName, string MediaType, long SizeBytes);
