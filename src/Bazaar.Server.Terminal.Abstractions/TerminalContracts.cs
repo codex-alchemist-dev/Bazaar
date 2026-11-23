@@ -22,6 +22,14 @@ public interface IGuestPtyChannel
 
     /// <summary>Opens a terminal in the VM for the agent and returns its output and exit.</summary>
     Task<IGuestPty> OpenAsync(string vmId, string terminalId, int cols, int rows, CancellationToken ct);
+
+    /// <summary>
+    /// Opens a terminal in the VM on behalf of <paramref name="agentId"/>. A VM-backed channel must refuse a VM that is not that agent's
+    /// (doc 55, section 4): the broker always calls this overload. The default ignores the agent and calls <see cref="OpenAsync"/>, so a
+    /// channel with no notion of ownership (a fake, a local test shell) keeps working.
+    /// </summary>
+    Task<IGuestPty> OpenForAgentAsync(string agentId, string vmId, string terminalId, int cols, int rows, CancellationToken ct) =>
+        OpenAsync(vmId, terminalId, cols, rows, ct);
 }
 
 /// <summary>One open guest terminal.</summary>

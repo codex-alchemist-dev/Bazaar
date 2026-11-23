@@ -5,11 +5,11 @@ using Bazaar.Server.Twin;
 namespace Bazaar.Server.ReaderSessions;
 
 /// <summary>
-/// The real <see cref="ITwinProseWriter"/> (doc 25 WP4): the Twin prompt runs in a reader session in plain-text mode, with no
-/// tools. The reply is untrusted prose; <see cref="TwinProseStep"/> still parses it and drops every sentence without a valid
+/// The real <see cref="ITwinPromptModel"/> (doc 25 WP4): the Twin prompt runs in a reader session in plain-text mode, with no
+/// tools. The reply is untrusted prose; <see cref="TwinPromptReaderSession"/> still parses it, and a reply that does not parse writes nothing (fail closed). Every sentence needs a valid
 /// source ref. Anything but a completed session throws, which the step reports as a model failure.
 /// </summary>
-public sealed class ReaderTwinProseWriter : ITwinProseWriter
+public sealed class ReaderTwinProseWriter : ITwinPromptModel
 {
     private const string _purpose = "twin-prose";
     private const string _instructions =
@@ -32,7 +32,7 @@ public sealed class ReaderTwinProseWriter : ITwinProseWriter
     }
 
     /// <inheritdoc />
-    public async Task<string> DraftAsync(string prompt, CancellationToken ct)
+    public async Task<string> CompleteAsync(string prompt, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(prompt);
 

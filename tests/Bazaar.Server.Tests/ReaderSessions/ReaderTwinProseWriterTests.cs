@@ -1,24 +1,20 @@
 using System.Text.Json;
-using Bazaar.Server.Knowledge.Twin;
 using Bazaar.Server.ReaderSessions;
 using Bazaar.Server.Security.Readers;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.Twin;
+using Bazaar.Server.Twin.Prose;
 
 namespace Bazaar.Server.Tests.ReaderSessions;
 
 /// <summary>The Twin prose seam running through a reader session (doc 25 WP4 on doc 15 WP5).</summary>
 public sealed class ReaderTwinProseWriterTests
 {
-    private static readonly DateTimeOffset _at = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
-
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    private static TwinFact Fact() => new(
-        "bazaar", TwinFactKinds.Dependency, "Npgsql", "1.0.0", 1.0, TwinFactStatus.Active,
-        [new TwinSourceRef(TwinSourceKinds.RepoFile, "Directory.Packages.props", "abc123")], null, _at);
-
-    private static TwinProseRequest Request() => new("bazaar", "overview", "Bazaar overview", [Fact()]);
+    private static ReaderRequest Request() => new(
+        "Summarise the project.",
+        [new ReaderDataBlock("dependency:Npgsql", "repo_file", TwinTrust.AgentVerified, "Npgsql 1.0.0")]);
 
     private static ReaderTwinProseWriter Writer(ScriptedGateway gateway, RecordingScratchStore scratch) =>
         new(
@@ -37,11 +33,11 @@ public sealed class ReaderTwinProseWriterTests
         var gateway = ScriptedGateway.Replying(reply);
         var scratch = new RecordingScratchStore();
 
-        var text = await Writer(gateway, scratch).DraftAsync(TwinProsePrompt.Build(Request()), Ct);
+        var text = await Writer(gateway, scratch).CompleteAsync(TwinProsePrompt.Build(Request()), Ct);
 
-        var page = TwinRefValidator.Validate(Request(), TwinReplyParser.Parse(text));
-        Assert.Single(page.Sentences);
-        Assert.Equal(1, page.DroppedCount);
+        var draft = TwinReplyParser.Parse(text);
+        Assert.Equal(2, draft.Sentences.Count);
+        Assert.Equal("twin_fact:dependency:Npgsql", draft.Sentences[0].SourceRef);
         var call = Assert.Single(gateway.Requests);
         Assert.Empty(call.Tools);
         Assert.Equal("agent-twin", call.AgentId);
@@ -55,7 +51,7 @@ public sealed class ReaderTwinProseWriterTests
     {
         var recorded = new List<ReaderSessionRequest>();
         var runner = new RecordingRunner(recorded);
-        await new ReaderTwinProseWriter(runner, "agent-twin", "route/cheap").DraftAsync("prompt", Ct);
+        await new ReaderTwinProseWriter(runner, "agent-twin", "route/cheap").CompleteAsync("prompt", Ct);
 
         var request = Assert.Single(recorded);
         Assert.Null(request.HandoverSchemaId);
@@ -71,7 +67,7 @@ public sealed class ReaderTwinProseWriterTests
         var gateway = ScriptedGateway.Events(new Bazaar.Contracts.Gateway.ModelEvent.Failure("quota_exceeded", "no"));
         var writer = Writer(gateway, new RecordingScratchStore());
 
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.DraftAsync("prompt", Ct));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.CompleteAsync("prompt", Ct));
         Assert.Contains("quota_exceeded", ex.Message);
     }
 
@@ -79,7 +75,7 @@ public sealed class ReaderTwinProseWriterTests
     public async Task A_refused_session_throws_and_a_blank_prompt_is_refused()
     {
         var writer = Writer(ScriptedGateway.Replying("x"), new RecordingScratchStore());
-        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.DraftAsync("   ", Ct));
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() => writer.CompleteAsync("   ", Ct));
         Assert.Contains("BlankInput", ex.Message);
     }
 
