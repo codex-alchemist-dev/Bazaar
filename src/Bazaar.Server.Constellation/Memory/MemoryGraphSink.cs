@@ -12,13 +12,19 @@ namespace Bazaar.Server.Constellation.Memory;
 /// <remarks>
 /// The Vault is the source of truth. Nothing on the projection path throws to the caller: a parse failure or a store
 /// failure for one item is logged and the other items still store. The inner result is returned unchanged.
-/// Known limit: wiki-links resolve only to note ids today. Title resolution needs the Vault index, so
-/// <c>noteIdsByTitle</c> is empty and a <c>[[Title]]</c> link produces no edge until that index is wired.
+/// With a Vault index (docs/design/constellation-memory-graph.md, "Convergence design") a note the index already holds is
+/// projected onto its doc node with the links the index resolved. A note the index has not seen yet (the indexer runs after the
+/// commit) is stored without links and without a doc id; the store maps it later, and retrieval reads the doc's Vault links
+/// live, so no link is lost.
 /// </remarks>
-public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraphStore store, ILogger<MemoryGraphSink> logger)
+public sealed partial class MemoryGraphSink(
+    IMemoryBatchSink inner,
+    IMemoryGraphStore store,
+    ILogger<MemoryGraphSink> logger,
+    IVaultDocIndex? index = null)
     : IMemoryBatchSink
 {
-    /// <summary>Title-to-id map passed to the projector. Empty until the Vault index can resolve titles (see the remarks).</summary>
+    /// <summary>Title-to-id map for notes the Vault index does not hold yet. Titles resolve through the index (see the remarks).</summary>
     private static readonly IReadOnlyDictionary<string, string> _noTitles = new Dictionary<string, string>(StringComparer.Ordinal);
 
     private readonly IMemoryBatchSink _inner = inner ?? throw new ArgumentNullException(nameof(inner));
@@ -31,6 +37,14 @@ public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraph
     /// </summary>
     public static IMemoryBatchSink Wrap(IMemoryBatchSink inner, IMemoryGraphStore store, ILogger<MemoryGraphSink> logger) =>
         new MemoryGraphSink(inner, store, logger);
+
+    /// <summary>Wraps the real sink with the graph projection that reads doc ids and resolved links from the Vault index.</summary>
+    public static IMemoryBatchSink Wrap(
+        IMemoryBatchSink inner,
+        IMemoryGraphStore store,
+        ILogger<MemoryGraphSink> logger,
+        IVaultDocIndex index) =>
+        new MemoryGraphSink(inner, store, logger, index ?? throw new ArgumentNullException(nameof(index)));
 
     /// <inheritdoc />
     public async Task<MemoryCommitResult> CommitAsync(MemoryBatch batch, CancellationToken ct)
@@ -92,12 +106,12 @@ public sealed partial class MemoryGraphSink(IMemoryBatchSink inner, IMemoryGraph
             }
 
             var document = parsed.Document!;
-            var revision = MemoryGraphProjector.Project(
-                document.Note,
-                document.Body,
-                vaultPath.Value,
-                batch.AgentId,
-                _noTitles);
+            var indexed = index is null
+                ? null
+                : await index.FindAsync(document.Note.Id, vaultPath.Value, ct).ConfigureAwait(false);
+            var revision = indexed is null
+                ? MemoryGraphProjector.Project(document.Note, document.Body, vaultPath.Value, batch.AgentId, _noTitles)
+                : MemoryGraphProjector.ProjectIndexed(document.Note, vaultPath.Value, batch.AgentId, indexed.DocId, indexed.LinkTargets);
 
             await _store.StoreRevisionAsync(revision, ct).ConfigureAwait(false);
         }

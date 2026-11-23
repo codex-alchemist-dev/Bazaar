@@ -4,11 +4,12 @@ using Bazaar.Server.Calendar;
 using Bazaar.Server.CodingStore.Data;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyMemory;
+using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
-using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
+using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Mail;
@@ -24,7 +25,7 @@ using Bazaar.Server.Walkthrough;
 
 namespace Bazaar.Server.Host.Startup;
 
-/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Health, Talent Pool, Account Approval, Setup, Company, Setup first-run, Agents, Calendar), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Health, Talent Pool, Account Approval, Setup, Company, Setup first-run, Agents, Calendar, Constellation), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
     /// <summary>Server, module manager, Gateway, Vms, Council, Hive, Account Approval, Setup, Agents, Portability, GitHub and Walkthrough migrations, read from their assemblies.</summary>
@@ -56,5 +57,6 @@ public static class HostMigrations
         new EmbeddedMigrationSource(typeof(Bazaar.Server.Engines.EnginesComponent).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly),
-        new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly));
+        new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly),
+        new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly));
 }
