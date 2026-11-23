@@ -224,6 +224,8 @@ public sealed class GcForkTargetProvisionerTests
             throw new NotSupportedException();
 
         public Task<bool> AddMemberAsync(Guid gcId, GcPrincipal member, CancellationToken ct) => throw new NotSupportedException();
+
+        public Task<Guid> EnsureDmAsync(GcPrincipal first, GcPrincipal second, CancellationToken ct) => throw new NotSupportedException();
     }
 
     [Fact]
