@@ -3,19 +3,19 @@ using NpgsqlTypes;
 
 namespace Bazaar.Server.Calendar;
 
-/// <summary>SQL for <c>calendar_event</c> (migration 0017). Transactions belong to the caller, so the service controls locking.</summary>
+/// <summary>SQL for <c>calendar_event</c> (migration 0017, plus `visibility` from the calendar component's migration 0001). Transactions belong to the caller, so the service controls locking.</summary>
 public sealed class CalendarRepository(NpgsqlDataSource dataSource)
 {
     private const string _columns = """
         id, kind, title_key_id, title_ct, title_nonce, starts_at, ends_at, all_day, tz, agent_id, project_id,
-        affects_availability, status, source_gc_id, version
+        affects_availability, status, source_gc_id, version, visibility
         """;
 
     private const string _insertSql = """
         INSERT INTO calendar_event (id, kind, title_key_id, title_ct, title_nonce, starts_at, ends_at, all_day, tz, agent_id,
-                                    project_id, affects_availability, status, source_gc_id, version)
+                                    project_id, affects_availability, status, source_gc_id, version, visibility)
         VALUES (@id, @kind, @title_key_id, @title_ct, @title_nonce, @starts_at, @ends_at, @all_day, @tz, @agent_id,
-                @project_id, @affects_availability, @status, @source_gc_id, @version)
+                @project_id, @affects_availability, @status, @source_gc_id, @version, @visibility)
         """;
 
     private const string _updateSql = """
@@ -23,7 +23,7 @@ public sealed class CalendarRepository(NpgsqlDataSource dataSource)
         SET kind = @kind, title_key_id = @title_key_id, title_ct = @title_ct, title_nonce = @title_nonce,
             starts_at = @starts_at, ends_at = @ends_at, all_day = @all_day, tz = @tz, agent_id = @agent_id,
             project_id = @project_id, affects_availability = @affects_availability, status = @status,
-            source_gc_id = @source_gc_id, version = @version
+            source_gc_id = @source_gc_id, version = @version, visibility = @visibility
         WHERE id = @id AND version = @expected_version
         """;
 
@@ -106,6 +106,7 @@ public sealed class CalendarRepository(NpgsqlDataSource dataSource)
         cmd.Parameters.Add(new NpgsqlParameter<string>("status", CalendarRules.ToSql(r.Status)));
         cmd.Parameters.Add(new NpgsqlParameter<Guid?>("source_gc_id", r.SourceGcId));
         cmd.Parameters.Add(new NpgsqlParameter<long>("version", r.Version));
+        cmd.Parameters.Add(new NpgsqlParameter<string>("visibility", CalendarRules.ToSql(r.Visibility)));
     }
 
     private static CalendarEventRecord Read(NpgsqlDataReader reader) => new()
@@ -125,5 +126,6 @@ public sealed class CalendarRepository(NpgsqlDataSource dataSource)
         Status = CalendarRules.StatusFromSql(reader.GetString(12)),
         SourceGcId = reader.IsDBNull(13) ? null : reader.GetGuid(13),
         Version = reader.GetInt64(14),
+        Visibility = CalendarRules.VisibilityFromSql(reader.GetString(15)),
     };
 }

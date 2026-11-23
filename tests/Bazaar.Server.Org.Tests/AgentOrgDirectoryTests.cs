@@ -21,6 +21,27 @@ public sealed class AgentOrgDirectoryTests
     }
 
     [Fact]
+    public async Task Carries_the_agent_role_into_the_entry_and_the_route_json()
+    {
+        var directory = new AgentOrgDirectory(new FakeAgents([new AgentListing(_alice, "Alice", "Engineer"), new AgentListing(_bob, "Bob")]));
+
+        var agents = await directory.ListAgentsAsync(TestContext.Current.CancellationToken);
+        var json = JsonElement.Parse(OrgReadRoute.WriteModel([], agents, []));
+
+        var rows = json.GetProperty("agents").EnumerateArray().ToArray();
+        Assert.Equal("Engineer", rows[0].GetProperty("role").GetString());
+        Assert.Equal(JsonValueKind.Null, rows[1].GetProperty("role").ValueKind);
+    }
+
+    [Fact]
+    public void Project_entries_carry_no_role_field()
+    {
+        var json = JsonElement.Parse(OrgReadRoute.WriteModel([new OrgDirectoryEntry(_alice, "Board")], [], []));
+
+        Assert.False(json.GetProperty("projects")[0].TryGetProperty("role", out _));
+    }
+
+    [Fact]
     public async Task Lists_no_projects_while_no_project_registry_exists()
     {
         var directory = new AgentOrgDirectory(new FakeAgents([new AgentListing(_alice, "Alice")]));

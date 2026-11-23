@@ -15,6 +15,9 @@ public sealed record EngineDispatchRequest(Guid AgentId, string AdapterId, strin
     /// <summary>The calling session, for the taint check.</summary>
     public Guid? SessionId { get; init; }
 
+    /// <summary>The group chat the agent is working in, where the call is recorded (doc 20 Audit, PROPOSED). Null leaves the call with no GC to record in, so a recorded call is denied.</summary>
+    public Guid? GcId { get; init; }
+
     /// <summary>
     /// True only when the caller verified an owner-signed approval bound to this tool and args hash (doc 15 approval flow).
     /// The dispatcher never validates signatures itself.

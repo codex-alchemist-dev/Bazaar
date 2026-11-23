@@ -52,7 +52,7 @@ public class WindowChromeTests
         var content = new TextBlock { Text = "hi" };
 
         var host = Assert.IsType<Grid>(chrome.Wrap(content));
-        Assert.Contains(content, host.Children);
+        Assert.Same(content, Assert.IsType<LayoutTransformControl>(host.Children[0]).Child);
         Assert.Contains(chrome.Region.Control, host.Children);
         Assert.True(chrome.Region.Announce(AnnouncementCategory.Mention, "you were mentioned"));
         Assert.Equal("you were mentioned", chrome.Region.Control.Text);

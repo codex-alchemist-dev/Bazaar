@@ -1,0 +1,13 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Tile build, pass 0: zero the counts and reset the bounds (min keys to all ones, max keys to zero).
+#include "topology.glsl"
+#include "tile.glsl"
+layout(local_size_x = 256) in;
+void main()
+{
+    uint t = gl_GlobalInvocationID.x;
+    if (t >= TILES) { return; }
+    tileCount[t] = 0u;
+    for (uint c = 0u; c < 3u; c++) { tileBounds[t * 6u + c] = 0xFFFFFFFFu; tileBounds[t * 6u + 3u + c] = 0u; }
+}
