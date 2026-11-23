@@ -18,7 +18,7 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
     private readonly NpgsqlDataSource _dataSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
 
     private const string _docsSql = """
-        SELECT doc_id, path, title, type, frontmatter->>'status'
+        SELECT doc_id, path, title, type, frontmatter->>'status', frontmatter->>'id'
         FROM vault_docs
         WHERE doc_id = ANY($1) AND ($2::uuid IS NULL OR vault_id = $2)
         """;
@@ -40,6 +40,24 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
         SELECT src_doc, target_doc
         FROM vault_links
         WHERE src_doc = ANY($1) AND target_doc IS NOT NULL
+        """;
+
+    /// <summary>Every note id that names each doc: the note ids of all its revisions (any version, active or not).</summary>
+    private const string _docNotesSql = """
+        SELECT DISTINCT doc_id, note_id
+        FROM constellation_memory_revision
+        WHERE doc_id = ANY($1)
+        """;
+
+    /// <summary>
+    /// Incoming supersedes edges: active revisions, mapped to a doc, whose <c>Supersedes</c> edge names one of the keys (a doc id
+    /// string, a note id of the doc, or its front matter id).
+    /// </summary>
+    private const string _supersededBySql = """
+        SELECT e.target_id, r.doc_id
+        FROM constellation_memory_edge e
+        JOIN constellation_memory_revision r ON r.note_id = e.note_id AND r.version = e.version
+        WHERE r.is_active AND r.doc_id IS NOT NULL AND e.kind = 'Supersedes' AND e.target_id = ANY($1)
         """;
 
     /// <summary>Note ids to doc ids: first through the revision table, then through the Vault front matter id.</summary>
@@ -64,7 +82,7 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
         await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(IsolationLevel.RepeatableRead, ct).ConfigureAwait(false);
 
-        var docs = new List<(Guid DocId, string Path, string Title, string Type, string? Status)>();
+        var docs = new List<(Guid DocId, string Path, string Title, string Type, string? Status, string? FrontMatterId)>();
         await using (var cmd = Command(conn, tx, _docsSql, ids))
         {
             cmd.Parameters.Add(MemoryDocIdResolution.VaultIdParameter(vaultId));
@@ -72,7 +90,7 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
                 docs.Add((reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                    reader.IsDBNull(4) ? null : reader.GetString(4)));
+                    reader.IsDBNull(4) ? null : reader.GetString(4), reader.IsDBNull(5) ? null : reader.GetString(5)));
             }
         }
 
@@ -154,6 +172,8 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
             }
         }
 
+        var supersededBy = await ReadSupersededByAsync(conn, tx, docs.Select(d => (d.DocId, d.FrontMatterId)).ToArray(), ct).ConfigureAwait(false);
+
         await tx.CommitAsync(ct).ConfigureAwait(false);
 
         var nodes = new List<ConstellationGraphNode>(docs.Count);
@@ -192,10 +212,64 @@ public sealed class PgConstellationNodeReader(NpgsqlDataSource dataSource, Guid?
                 [.. edges
                     .Select(pair => new ConstellationGraphEdge(pair.Key.Target, pair.Key.Kind, pair.Value))
                     .OrderBy(e => (int)e.Kind)
-                    .ThenBy(e => e.TargetDocId)]));
+                    .ThenBy(e => e.TargetDocId)],
+                supersededBy.TryGetValue(doc.DocId, out var heads) ? [.. heads.Order()] : []));
         }
 
         return nodes;
+    }
+
+    /// <summary>
+    /// The docs that supersede each doc (docs/design/constellation-memory-graph.md, "Supersede-head ranking"). A doc is named by its
+    /// doc id string, by the note ids of its revisions and by its front matter id; a key that names more than one doc is dropped, as
+    /// for outgoing edges. Self edges are dropped.
+    /// </summary>
+    private static async Task<Dictionary<Guid, HashSet<Guid>>> ReadSupersededByAsync(
+        NpgsqlConnection conn, NpgsqlTransaction tx, (Guid DocId, string? FrontMatterId)[] docs, CancellationToken ct)
+    {
+        var docsByKey = new Dictionary<string, HashSet<Guid>>(StringComparer.Ordinal);
+        void AddKey(string key, Guid docId)
+        {
+            if (!docsByKey.TryGetValue(key, out var set))
+                docsByKey[key] = set = [];
+            set.Add(docId);
+        }
+
+        foreach (var (docId, frontMatterId) in docs)
+        {
+            AddKey(docId.ToString("D"), docId);
+            if (!string.IsNullOrEmpty(frontMatterId))
+                AddKey(frontMatterId, docId);
+        }
+
+        await using (var cmd = Command(conn, tx, _docNotesSql, docs.Select(d => d.DocId).ToArray()))
+        {
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+                AddKey(reader.GetString(1), reader.GetGuid(0));
+        }
+
+        var result = new Dictionary<Guid, HashSet<Guid>>();
+        var keys = docsByKey.Where(pair => pair.Value.Count == 1).Select(pair => pair.Key).ToArray();
+        if (keys.Length == 0)
+            return result;
+
+        await using (var cmd = Command(conn, tx, _supersededBySql, keys))
+        {
+            await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+            while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            {
+                var target = docsByKey[reader.GetString(0)].First();
+                var source = reader.GetGuid(1);
+                if (source == target)
+                    continue;
+                if (!result.TryGetValue(target, out var set))
+                    result[target] = set = [];
+                set.Add(source);
+            }
+        }
+
+        return result;
     }
 
     internal static bool IsExpanding(MemoryEdgeKind kind) =>
