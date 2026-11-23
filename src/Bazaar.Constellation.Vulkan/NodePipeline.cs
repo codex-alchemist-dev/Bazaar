@@ -1,3 +1,4 @@
+using Bazaar.Constellation.Rendering.Core;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -11,7 +12,8 @@ public readonly record struct NodeView(float OffsetX, float OffsetY, float Scale
 }
 
 /// <summary>
-/// Graphics pipeline and buffers for drawing node instances as styled discs or rings.
+/// Graphics pipeline and buffers for drawing node instances as styled discs or rings, or as icon glyphs from a signed
+/// distance atlas when icons are on and an instance carries an atlas rectangle (<see cref="NodeIconBuffer"/>).
 /// The render pass, pipeline, descriptor set and corner buffer are built once per swapchain format. The instance
 /// buffer and the style buffer grow on demand and are host-visible, so they are written with a plain copy.
 /// Callers must not overwrite the instance buffer while a frame that reads it is still in flight;
@@ -44,6 +46,18 @@ internal sealed unsafe class NodePipeline : IDisposable
     private ulong _styleCapacity;
     private void* _styleMapped;
     private int _styleCount;
+    private SectionPass? _sections;
+    private readonly VkQueue _queue;
+    private readonly VkCommandPool _commandPool;
+    private readonly bool _iconsEnabled;
+    private VkBuffer _iconBuffer;
+    private VkDeviceMemory _iconMemory;
+    private ulong _iconCapacity;
+    private void* _iconMapped;
+    private VkImage _atlasImage;
+    private VkDeviceMemory _atlasMemory;
+    private VkImageView _atlasView;
+    private VkSampler _atlasSampler;
     private bool _disposed;
 
     /// <param name="finalLayout">Layout the colour target is left in after the pass: present for a swapchain, transfer-source for an offscreen copy.</param>
@@ -51,8 +65,16 @@ internal sealed unsafe class NodePipeline : IDisposable
     /// Adds a reversed-Z depth attachment (<see cref="ReversedZDepth"/>) as attachment 1: the render pass clears it to 0, the pipeline tests
     /// greater-or-equal. Framebuffers must then carry a depth view second. Off by default: the 2D path has no depth.
     /// </param>
-    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout, bool reversedZ = false)
+    /// <param name="queue">Graphics queue and command pool, used once to upload the icon atlas.</param>
+    /// <param name="atlas">Icon atlas whose pixels are uploaded as a single-channel sampled texture.</param>
+    /// <param name="icons">When false, icon rectangles are ignored and every node draws as a dot or ring. The atlas texture still exists so the descriptor stays valid.</param>
+    public NodePipeline(VkInstanceApi instanceApi, VkDeviceApi deviceApi, VkPhysicalDevice physicalDevice, VkFormat format, VkImageLayout finalLayout,
+        VkQueue queue, VkCommandPool commandPool, IconAtlas atlas, bool icons = true, bool reversedZ = false)
     {
+        ArgumentNullException.ThrowIfNull(atlas);
+        _queue = queue;
+        _commandPool = commandPool;
+        _iconsEnabled = icons;
         _instanceApi = instanceApi;
         _deviceApi = deviceApi;
         _physicalDevice = physicalDevice;
@@ -62,14 +84,47 @@ internal sealed unsafe class NodePipeline : IDisposable
         CreateRenderPass();
         CreateDescriptors();
         CreatePipeline();
+        _sections = new SectionPass(instanceApi, deviceApi, physicalDevice, _renderPass, reversedZ);
         CreateCornerBuffer();
         ResizeStyleBuffer(NodeStylePacking.StyleStride);
+        CreateAtlasTexture(atlas);
+    }
+
+    /// <summary>True when icon rectangles are drawn; false when every node is a dot or ring.</summary>
+    public bool IconsEnabled => _iconsEnabled;
+
+    /// <summary>
+    /// Copies packed icon rectangles (<see cref="NodeIconBuffer.Bytes"/>) into the icon stream. Rectangles beyond the bytes
+    /// given are zeroed, so those nodes draw as dots. Ignored when icons are off. Call only when no frame reading the stream is in flight.
+    /// </summary>
+    public void UploadIcons(ReadOnlySpan<byte> iconBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_iconsEnabled)
+        {
+            return;
+        }
+
+        EnsureIconCapacity((ulong)iconBytes.Length);
+        var target = new Span<byte>(_iconMapped, (int)_iconCapacity);
+        iconBytes.CopyTo(target);
+        target[iconBytes.Length..].Clear();
     }
 
     public VkRenderPass RenderPass => _renderPass;
 
     /// <summary>Number of styles uploaded by the last <see cref="UploadStyles"/>. Nodes are drawn only when this is above zero.</summary>
     public int StyleCount => _styleCount;
+
+    /// <summary>Number of section rectangles that will be drawn behind the nodes.</summary>
+    public int SectionCount => _sections?.Count ?? 0;
+
+    /// <summary>Replaces the section rectangles with bytes from <see cref="SectionPacking"/>. Call only when no frame reading them is in flight.</summary>
+    public void UploadSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _sections!.Upload(sectionBytes);
+    }
 
     /// <summary>Copies packed instance bytes into the instance buffer, growing it when needed.</summary>
     public void Upload(ReadOnlySpan<byte> instanceBytes)
@@ -140,6 +195,9 @@ internal sealed unsafe class NodePipeline : IDisposable
         };
         _deviceApi.vkCmdBeginRenderPass(commandBuffer, &begin, VkSubpassContents.Inline);
 
+        // Sections go first so the nodes (and their edges) always draw on top of the backdrop.
+        _sections!.Record(commandBuffer, extent, view);
+
         if (instanceCount > 0 && _styleCount > 0)
         {
             var viewport = new VkViewport
@@ -159,9 +217,11 @@ internal sealed unsafe class NodePipeline : IDisposable
             VkDescriptorSet descriptorSet = _descriptorSet;
             _deviceApi.vkCmdBindDescriptorSets(commandBuffer, VkPipelineBindPoint.Graphics, _layout, 0, 1, &descriptorSet, 0, null);
 
-            VkBuffer* buffers = stackalloc VkBuffer[2] { _cornerBuffer, _instanceBuffer };
-            ulong* offsets = stackalloc ulong[2] { 0, 0 };
-            _deviceApi.vkCmdBindVertexBuffers(commandBuffer, 0, 2, buffers, offsets);
+            // The icon stream is always bound; zeroed rectangles (icons off, or nodes past the uploaded bytes) draw as dots.
+            EnsureIconCapacity((ulong)instanceCount * NodeInstanceVertexLayout.IconStride);
+            VkBuffer* buffers = stackalloc VkBuffer[3] { _cornerBuffer, _instanceBuffer, _iconBuffer };
+            ulong* offsets = stackalloc ulong[3] { 0, 0, 0 };
+            _deviceApi.vkCmdBindVertexBuffers(commandBuffer, 0, 3, buffers, offsets);
 
             float* push = stackalloc float[4] { view.OffsetX, view.OffsetY, view.ScaleX, view.ScaleY };
             _deviceApi.vkCmdPushConstants(commandBuffer, _layout, VkShaderStageFlags.Vertex, 0, _pushConstantBytes, push);
@@ -179,6 +239,8 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
 
         _disposed = true;
+        _sections?.Dispose();
+        _sections = null;
         if (_instanceMapped is not null)
         {
             _deviceApi.vkUnmapMemory(_instanceMemory);
@@ -191,6 +253,33 @@ internal sealed unsafe class NodePipeline : IDisposable
             _styleMapped = null;
         }
 
+        if (_iconMapped is not null)
+        {
+            _deviceApi.vkUnmapMemory(_iconMemory);
+            _iconMapped = null;
+        }
+
+        if (_atlasSampler.Handle != 0)
+        {
+            _deviceApi.vkDestroySampler(_atlasSampler, null);
+        }
+
+        if (_atlasView.Handle != 0)
+        {
+            _deviceApi.vkDestroyImageView(_atlasView, null);
+        }
+
+        if (_atlasImage.Handle != 0)
+        {
+            _deviceApi.vkDestroyImage(_atlasImage, null);
+        }
+
+        if (_atlasMemory.Handle != 0)
+        {
+            _deviceApi.vkFreeMemory(_atlasMemory, null);
+        }
+
+        DestroyBuffer(ref _iconBuffer, ref _iconMemory);
         DestroyBuffer(ref _styleBuffer, ref _styleMemory);
         DestroyBuffer(ref _instanceBuffer, ref _instanceMemory);
         DestroyBuffer(ref _cornerBuffer, ref _cornerMemory);
@@ -271,21 +360,29 @@ internal sealed unsafe class NodePipeline : IDisposable
         }
     }
 
-    /// <summary>One storage buffer at set 0, binding 0, read by both shader stages; the pool holds one set for it.</summary>
+    /// <summary>Set 0: binding 0 the style storage buffer (both stages), binding 1 the icon atlas sampler (fragment); the pool holds one set.</summary>
     private void CreateDescriptors()
     {
-        var binding = new VkDescriptorSetLayoutBinding
+        var bindings = stackalloc VkDescriptorSetLayoutBinding[2];
+        bindings[0] = new VkDescriptorSetLayoutBinding
         {
             binding = 0,
             descriptorType = VkDescriptorType.StorageBuffer,
             descriptorCount = 1,
             stageFlags = VkShaderStageFlags.Vertex | VkShaderStageFlags.Fragment,
         };
+        bindings[1] = new VkDescriptorSetLayoutBinding
+        {
+            binding = 1,
+            descriptorType = VkDescriptorType.CombinedImageSampler,
+            descriptorCount = 1,
+            stageFlags = VkShaderStageFlags.Fragment,
+        };
         var layoutInfo = new VkDescriptorSetLayoutCreateInfo
         {
             sType = VkStructureType.DescriptorSetLayoutCreateInfo,
-            bindingCount = 1,
-            pBindings = &binding,
+            bindingCount = 2,
+            pBindings = bindings,
         };
         VkResult layoutCreated = _deviceApi.vkCreateDescriptorSetLayout(&layoutInfo, null, out _setLayout);
         if (layoutCreated != VkResult.Success)
@@ -293,13 +390,15 @@ internal sealed unsafe class NodePipeline : IDisposable
             throw new InvalidOperationException($"Vulkan style descriptor layout could not be created ({layoutCreated}).");
         }
 
-        var poolSize = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 1 };
+        var poolSizes = stackalloc VkDescriptorPoolSize[2];
+        poolSizes[0] = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 1 };
+        poolSizes[1] = new VkDescriptorPoolSize { type = VkDescriptorType.CombinedImageSampler, descriptorCount = 1 };
         var poolInfo = new VkDescriptorPoolCreateInfo
         {
             sType = VkStructureType.DescriptorPoolCreateInfo,
             maxSets = 1,
-            poolSizeCount = 1,
-            pPoolSizes = &poolSize,
+            poolSizeCount = 2,
+            pPoolSizes = poolSizes,
         };
         VkResult poolCreated = _deviceApi.vkCreateDescriptorPool(&poolInfo, null, out _descriptorPool);
         if (poolCreated != VkResult.Success)
@@ -537,6 +636,207 @@ internal sealed unsafe class NodePipeline : IDisposable
             pBufferInfo = &bufferInfo,
         };
         _deviceApi.vkUpdateDescriptorSets(1, &write, 0, null);
+    }
+
+    /// <summary>Grows the icon stream to at least <paramref name="bytes"/> (zero-filled). A grown stream holds no icons until the next upload.</summary>
+    private void EnsureIconCapacity(ulong bytes)
+    {
+        if (_iconCapacity >= bytes && _iconBuffer.Handle != 0)
+        {
+            return;
+        }
+
+        ulong capacity = Math.Max(Math.Max(bytes, _iconCapacity * 2), 4096UL);
+        if (_iconMapped is not null)
+        {
+            _deviceApi.vkUnmapMemory(_iconMemory);
+            _iconMapped = null;
+        }
+
+        DestroyBuffer(ref _iconBuffer, ref _iconMemory);
+        (_iconBuffer, _iconMemory) = CreateHostBuffer(capacity, VkBufferUsageFlags.VertexBuffer);
+        _iconMapped = Map(_iconMemory, capacity);
+        new Span<byte>(_iconMapped, (int)capacity).Clear();
+        _iconCapacity = capacity;
+    }
+
+    /// <summary>
+    /// Uploads the atlas bytes as an R8_UNORM image (optimal tiling, linear filter, clamp to edge) through a staging buffer and
+    /// a one-time command buffer, waits for it, then points binding 1 of the descriptor set at it.
+    /// </summary>
+    private void CreateAtlasTexture(IconAtlas atlas)
+    {
+        ReadOnlySpan<byte> pixels = atlas.Pixels.Span;
+        ulong bytes = (ulong)pixels.Length;
+        var imageInfo = new VkImageCreateInfo
+        {
+            sType = VkStructureType.ImageCreateInfo,
+            imageType = VkImageType.Image2D,
+            format = VkFormat.R8Unorm,
+            extent = new VkExtent3D { width = (uint)atlas.Width, height = (uint)atlas.Height, depth = 1 },
+            mipLevels = 1,
+            arrayLayers = 1,
+            samples = VkSampleCountFlags.Count1,
+            tiling = VkImageTiling.Optimal,
+            usage = VkImageUsageFlags.Sampled | VkImageUsageFlags.TransferDst,
+            sharingMode = VkSharingMode.Exclusive,
+            initialLayout = VkImageLayout.Undefined,
+        };
+        VkResult created = _deviceApi.vkCreateImage(&imageInfo, null, out _atlasImage);
+        if (created != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan icon atlas image could not be created ({created}).");
+        }
+
+        _deviceApi.vkGetImageMemoryRequirements(_atlasImage, out VkMemoryRequirements requirements);
+        _atlasMemory = VulkanMemory.AllocateDeviceLocal(_instanceApi, _deviceApi, _physicalDevice, requirements);
+        _deviceApi.vkBindImageMemory(_atlasImage, _atlasMemory, 0);
+
+        (VkBuffer staging, VkDeviceMemory stagingMemory) = CreateHostBuffer(bytes, VkBufferUsageFlags.TransferSrc);
+        try
+        {
+            void* mapped = Map(stagingMemory, bytes);
+            pixels.CopyTo(new Span<byte>(mapped, pixels.Length));
+            _deviceApi.vkUnmapMemory(stagingMemory);
+            UploadAtlasPixels(staging, (uint)atlas.Width, (uint)atlas.Height);
+        }
+        finally
+        {
+            DestroyBuffer(ref staging, ref stagingMemory);
+        }
+
+        var viewInfo = new VkImageViewCreateInfo
+        {
+            sType = VkStructureType.ImageViewCreateInfo,
+            image = _atlasImage,
+            viewType = VkImageViewType.Image2D,
+            format = VkFormat.R8Unorm,
+            subresourceRange = AtlasRange(),
+        };
+        VkResult viewCreated = _deviceApi.vkCreateImageView(&viewInfo, null, out _atlasView);
+        if (viewCreated != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan icon atlas view could not be created ({viewCreated}).");
+        }
+
+        var samplerInfo = new VkSamplerCreateInfo
+        {
+            sType = VkStructureType.SamplerCreateInfo,
+            magFilter = VkFilter.Linear,
+            minFilter = VkFilter.Linear,
+            mipmapMode = VkSamplerMipmapMode.Nearest,
+            addressModeU = VkSamplerAddressMode.ClampToEdge,
+            addressModeV = VkSamplerAddressMode.ClampToEdge,
+            addressModeW = VkSamplerAddressMode.ClampToEdge,
+            maxLod = 0f,
+        };
+        VkResult samplerCreated = _deviceApi.vkCreateSampler(&samplerInfo, null, out _atlasSampler);
+        if (samplerCreated != VkResult.Success)
+        {
+            throw new InvalidOperationException($"Vulkan icon atlas sampler could not be created ({samplerCreated}).");
+        }
+
+        var imageDescriptor = new VkDescriptorImageInfo
+        {
+            sampler = _atlasSampler,
+            imageView = _atlasView,
+            imageLayout = VkImageLayout.ShaderReadOnlyOptimal,
+        };
+        var write = new VkWriteDescriptorSet
+        {
+            sType = VkStructureType.WriteDescriptorSet,
+            dstSet = _descriptorSet,
+            dstBinding = 1,
+            descriptorCount = 1,
+            descriptorType = VkDescriptorType.CombinedImageSampler,
+            pImageInfo = &imageDescriptor,
+        };
+        _deviceApi.vkUpdateDescriptorSets(1, &write, 0, null);
+    }
+
+    private static VkImageSubresourceRange AtlasRange() => new()
+    {
+        aspectMask = VkImageAspectFlags.Color,
+        baseMipLevel = 0,
+        levelCount = 1,
+        baseArrayLayer = 0,
+        layerCount = 1,
+    };
+
+    /// <summary>Undefined to transfer-dst, copy the staging buffer, then to shader-read-only, in one submit that is waited on.</summary>
+    private void UploadAtlasPixels(VkBuffer staging, uint width, uint height)
+    {
+        var allocate = new VkCommandBufferAllocateInfo
+        {
+            sType = VkStructureType.CommandBufferAllocateInfo,
+            commandPool = _commandPool,
+            level = VkCommandBufferLevel.Primary,
+            commandBufferCount = 1,
+        };
+        VkCommandBuffer commandBuffer;
+        _deviceApi.vkAllocateCommandBuffers(&allocate, &commandBuffer);
+        try
+        {
+            var begin = new VkCommandBufferBeginInfo
+            {
+                sType = VkStructureType.CommandBufferBeginInfo,
+                flags = VkCommandBufferUsageFlags.OneTimeSubmit,
+            };
+            _deviceApi.vkBeginCommandBuffer(commandBuffer, &begin);
+
+            var toTransfer = new VkImageMemoryBarrier
+            {
+                sType = VkStructureType.ImageMemoryBarrier,
+                srcAccessMask = default,
+                dstAccessMask = VkAccessFlags.TransferWrite,
+                oldLayout = VkImageLayout.Undefined,
+                newLayout = VkImageLayout.TransferDstOptimal,
+                srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                image = _atlasImage,
+                subresourceRange = AtlasRange(),
+            };
+            _deviceApi.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.TopOfPipe, VkPipelineStageFlags.Transfer, default, 0, null, 0, null, 1, &toTransfer);
+
+            var region = new VkBufferImageCopy
+            {
+                bufferOffset = 0,
+                bufferRowLength = 0,
+                bufferImageHeight = 0,
+                imageSubresource = new VkImageSubresourceLayers { aspectMask = VkImageAspectFlags.Color, mipLevel = 0, baseArrayLayer = 0, layerCount = 1 },
+                imageOffset = new VkOffset3D(0, 0, 0),
+                imageExtent = new VkExtent3D { width = width, height = height, depth = 1 },
+            };
+            _deviceApi.vkCmdCopyBufferToImage(commandBuffer, staging, _atlasImage, VkImageLayout.TransferDstOptimal, 1, &region);
+
+            var toRead = new VkImageMemoryBarrier
+            {
+                sType = VkStructureType.ImageMemoryBarrier,
+                srcAccessMask = VkAccessFlags.TransferWrite,
+                dstAccessMask = VkAccessFlags.ShaderRead,
+                oldLayout = VkImageLayout.TransferDstOptimal,
+                newLayout = VkImageLayout.ShaderReadOnlyOptimal,
+                srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                image = _atlasImage,
+                subresourceRange = AtlasRange(),
+            };
+            _deviceApi.vkCmdPipelineBarrier(commandBuffer, VkPipelineStageFlags.Transfer, VkPipelineStageFlags.FragmentShader, default, 0, null, 0, null, 1, &toRead);
+            _deviceApi.vkEndCommandBuffer(commandBuffer);
+
+            var submit = new VkSubmitInfo
+            {
+                sType = VkStructureType.SubmitInfo,
+                commandBufferCount = 1,
+                pCommandBuffers = &commandBuffer,
+            };
+            _deviceApi.vkQueueSubmit(_queue, 1, &submit, default);
+            _deviceApi.vkQueueWaitIdle(_queue);
+        }
+        finally
+        {
+            _deviceApi.vkFreeCommandBuffers(_commandPool, 1, &commandBuffer);
+        }
     }
 
     private void* Map(VkDeviceMemory memory, ulong size)

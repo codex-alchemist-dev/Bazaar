@@ -215,6 +215,8 @@ Registry rows (03 owns the registry; 27 and 32 surface them in the setup wizard 
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
+| `mail.enabled` | bool | false | install | operator | No. Setup (doc 45 step 11) writes it. Mail stays off until the operator turns it on with a back end. [DECIDED 2026-11-20 as a configurable setting with the safest default] |
+| `mail.backend` | enum: none, bazaar_client, imap_smtp, cloudflare, builtin_server | none | install | operator | No. Written by setup only while `mail.enabled` is true (the plan validator and the apply step refuse an enabled mail with no back end, and a back end while off). Choosing `builtin_server` stores a choice only; it opens no inbound listener, and the VPS-only exception stays Q2. The operator domain is not a setting: it is a `mail_domain` row set in the mail panel. |
 | `mail.max_message_bytes` | int | 10485760 (10 MiB) | install | operator | No; cannot exceed the back end's hard cap (25 MiB on Cloudflare, verified) |
 | `mail.max_attachments` | int | 5 | install | operator | No |
 | `mail.new_recipients_per_agent_day` | int | 20 | agent | operator | Raising it needs owner approval [PROPOSED]; a breach pauses the mailbox |
