@@ -8,7 +8,10 @@ namespace Bazaar.Server.Memory.Access;
 /// <item><c>projects/&lt;slug&gt;/**</c> and <c>twin/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents,
 /// cover of a member primary, member humans). Which paths are project areas, and of which project, comes from
 /// <see cref="Vault.Search.VaultProjectAreas.ProjectAreaOf"/>, the same source Vault search, link expansion and moves use.</item>
-/// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover.</item>
+/// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover, except an agent that
+/// <see cref="ICompanyAgentQuarantine"/> reports as quarantined (doc 08, 6.5).</item>
+/// <item><c>company/candidates/**</c>: owner, maintenance and the proposing agent only, as <see cref="ICompanyCandidateProposers"/>
+/// reports it. Without that source every agent is denied (doc 08, 6.5).</item>
 /// <item><c>hive/**</c>: owner and maintenance; an agent or cover only when it is a member of one of the copy's target
 /// projects, as <see cref="IHiveCopyTargets"/> reports them (doc 08, section 6). Without that source every agent is
 /// denied. A copy still in its review window is not in the Vault at all.</item>
@@ -20,16 +23,26 @@ public sealed class VaultPathAccess : IVaultAccess
 {
     private readonly IProjectMembership _membership;
     private readonly IHiveCopyTargets? _hiveTargets;
+    private readonly ICompanyCandidateProposers? _candidateProposers;
+    private readonly ICompanyAgentQuarantine? _quarantine;
 
     /// <param name="membership">Project membership, consulted for project areas and Hive target projects.</param>
     /// <param name="hiveTargets">
     /// The target projects of each Hive copy. Null means no grant data is available, and agents are denied all of <c>hive/**</c>.
     /// </param>
-    public VaultPathAccess(IProjectMembership membership, IHiveCopyTargets? hiveTargets = null)
+    /// <param name="candidateProposers">The proposer of each company candidate. Null means no data, and agents are denied all candidates.</param>
+    /// <param name="quarantine">Quarantine state of agents. Null means none is quarantined, as before the company tier.</param>
+    public VaultPathAccess(
+        IProjectMembership membership,
+        IHiveCopyTargets? hiveTargets = null,
+        ICompanyCandidateProposers? candidateProposers = null,
+        ICompanyAgentQuarantine? quarantine = null)
     {
         ArgumentNullException.ThrowIfNull(membership);
         _membership = membership;
         _hiveTargets = hiveTargets;
+        _candidateProposers = candidateProposers;
+        _quarantine = quarantine;
     }
 
     /// <inheritdoc />
@@ -74,7 +87,8 @@ public sealed class VaultPathAccess : IVaultAccess
         return segments[0] switch
         {
             "agents" when segments.Count >= 3 => ExplainAgentArea(who, segments),
-            "company" when segments.Count >= 3 && segments[1] == "memory" => ExplainSharedArea(who, "company/memory"),
+            "company" when segments.Count >= 3 && segments[1] == "memory" => ExplainCompanyMemory(who),
+            "company" when segments.Count == 3 && segments[1] == "candidates" => ExplainCompanyCandidate(who, path),
             "hive" when segments.Count >= 2 => ExplainHiveArea(who, path),
             _ => AccessDecision.Deny("no rule allows this path; denied by default"),
         };
@@ -153,6 +167,36 @@ public sealed class VaultPathAccess : IVaultAccess
         }
 
         return AccessDecision.Deny("not a member of any target project of this hive copy");
+    }
+
+    private AccessDecision ExplainCompanyMemory(VaultPrincipal who)
+    {
+        if (who.Kind is VaultPrincipalKind.Agent or VaultPrincipalKind.Cover
+            && _quarantine is { } quarantine
+            && (quarantine.IsQuarantined(who.AgentId!) || (who.PrimaryAgentId is { } primary && quarantine.IsQuarantined(primary))))
+        {
+            return AccessDecision.Deny("a quarantined agent reads nothing under company/");
+        }
+
+        return ExplainSharedArea(who, "company/memory");
+    }
+
+    private AccessDecision ExplainCompanyCandidate(VaultPrincipal who, VaultPath path)
+    {
+        if (who.Kind is VaultPrincipalKind.Owner or VaultPrincipalKind.Maintenance)
+        {
+            return AccessDecision.Allow("owner and maintenance read company candidates");
+        }
+
+        if (who.Kind == VaultPrincipalKind.Agent
+            && _candidateProposers?.ProposerOf(path) is { } proposer
+            && string.Equals(proposer, who.AgentId, StringComparison.Ordinal)
+            && _quarantine?.IsQuarantined(who.AgentId!) != true)
+        {
+            return AccessDecision.Allow("the proposing agent reads its own company candidate");
+        }
+
+        return AccessDecision.Deny("company candidates are readable by the owner, maintenance and the proposing agent only");
     }
 
     private static AccessDecision ExplainSharedArea(VaultPrincipal who, string area) =>
