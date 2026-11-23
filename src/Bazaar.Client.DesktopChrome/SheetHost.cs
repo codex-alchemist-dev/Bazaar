@@ -1,4 +1,3 @@
-using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Automation.Peers;
@@ -34,7 +33,7 @@ public sealed class SheetHost
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeLabels _labels;
+    private ChromeLabels _labels;
     private readonly ProgressAnimator _open;
     private readonly ProgressAnimator _drag;
     private readonly Grid _root;
@@ -165,6 +164,19 @@ public sealed class SheetHost
     /// <summary>Says when a sheet opens and closes. Optional; the shell sets it once its live region exists.</summary>
     public ISheetAnnouncer? Announcer { get; set; }
 
+    /// <summary>The names and text in use. Setting it (a locale change) renames the controls at once; an open sheet keeps its title.</summary>
+    public ChromeLabels Labels
+    {
+        get => _labels;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _labels = value;
+            AutomationProperties.SetName(_close, _labels.CloseSheet);
+            AutomationProperties.SetName(_header, _labels.SheetGrip);
+        }
+    }
+
     /// <summary>
     /// The controls behind the sheet. While a sheet is on screen they are disabled (no focus, no Tab, no pointer input) and hidden
     /// from the accessibility tree; their earlier state is restored when it closes.
@@ -198,7 +210,7 @@ public sealed class SheetHost
         if (!wasVisible)
         {
             MakeBackgroundInert();
-            Announcer?.Announce(string.Format(CultureInfo.CurrentCulture, _labels.SheetOpenedFormat, title));
+            Announcer?.Announce(_labels.SheetOpened(title));
         }
 
         _drag.Snap(0);
@@ -231,7 +243,7 @@ public sealed class SheetHost
         _root.IsVisible = false;
         _contentHost.Child = null;
         RestoreBackground();
-        Announcer?.Announce(string.Format(CultureInfo.CurrentCulture, _labels.SheetClosedFormat, _title));
+        Announcer?.Announce(_labels.SheetClosed(_title));
         IInputElement? target = _returnFocus;
         _returnFocus = null;
         target?.Focus();
