@@ -474,6 +474,9 @@
     <Project Path="src/Bazaar.Client.Approvals.Desktop/Bazaar.Client.Approvals.Desktop.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Http/Bazaar.Client.Approvals.Http.csproj" />
     <Project Path="src/Bazaar.Client.Approvals.Phone/Bazaar.Client.Approvals.Phone.csproj" />
+    <Project Path="src/Bazaar.Client.Materials/Bazaar.Client.Materials.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Abstractions/Bazaar.Client.Materials.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.Materials.Avalonia/Bazaar.Client.Materials.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.SignIn.Abstractions/Bazaar.Client.SignIn.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.SignIn/Bazaar.Client.SignIn.csproj" />
     <Project Path="src/Bazaar.Client.SignIn.Avalonia/Bazaar.Client.SignIn.Avalonia.csproj" />
@@ -613,6 +616,7 @@
     <Project Path="tests/Bazaar.Client.Input.Tests/Bazaar.Client.Input.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Commands.Tests/Bazaar.Client.Commands.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Theme.Tests/Bazaar.Client.Theme.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.Materials.Tests/Bazaar.Client.Materials.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Rubedo.Tokens.Tests/Bazaar.Client.Rubedo.Tokens.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Dashboard.Tests/Bazaar.Client.Dashboard.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.DeviceEnrolment.Tests/Bazaar.Client.DeviceEnrolment.Tests.csproj" />
