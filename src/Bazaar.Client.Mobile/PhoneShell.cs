@@ -3,6 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Gestures.Avalonia;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Mobile;
@@ -17,6 +20,7 @@ public sealed class PhoneShell : UserControl
     private readonly PaneRegistry _registry;
     private readonly Func<string, Control?>? _paneBody;
     private readonly Carousel _pager = new();
+    private readonly SpringTranslateAnimator _settle;
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
     private IReadOnlyList<string>? _profileKinds;
 
@@ -25,7 +29,9 @@ public sealed class PhoneShell : UserControl
     /// <param name="gestures">The swipe and hold thresholds. Null uses the doc 93 defaults.</param>
     /// <param name="haptics">Plays the haptic ticks for radial sectors and swipe commits. Null plays none.</param>
     /// <param name="radialSectors">The radial menu's sectors, in order. Null uses the doc 29 default seven.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null)
+    /// <param name="motion">The motion level and tokens; null uses the phone defaults. At the reduced level swipes settle without animation.</param>
+    /// <param name="frames">Animation frames for the spring settle; null uses the pager's top level.</param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null, MotionSettings? motion = null, IFrameDriver? frames = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -36,12 +42,22 @@ public sealed class PhoneShell : UserControl
 
         // The gesture layer wraps the pager and is the last child, so DockPanel gives it the remaining height.
         Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures, haptics);
-        Gestures.SwipeProgressed += (_, dx) => _pager.RenderTransform = new TranslateTransform(dx, 0);
-        Gestures.SwipeCancelled += (_, _) => _pager.RenderTransform = null;
+        // The page follows the finger, then settles with the Fluid spring from the release velocity (doc 93, package 4).
+        _settle = new SpringTranslateAnimator(_pager, frames ?? new TopLevelFrameDriver(_pager), motion ?? new MotionSettings(MotionPlatform.Phone));
+        Gestures.SwipeProgressed += (_, dx) => _settle.Follow(dx);
+        Gestures.SwipeCancelled += (_, _) => _settle.Cancel();
         Gestures.SwipeCommitted += (_, direction) =>
         {
-            _pager.RenderTransform = null;
-            _ = direction == SwipeDirection.Next ? GoToNext() : GoToPrevious();
+            var next = direction == SwipeDirection.Next;
+            if (next ? GoToNext() : GoToPrevious())
+            {
+                // The new page enters from where the old one left.
+                _settle.Commit(_pager.Bounds.Width, next ? 1 : -1);
+            }
+            else
+            {
+                _settle.Cancel();
+            }
         };
         Gestures.DictationChanged += (_, on) => DictationChanged?.Invoke(this, on);
         Gestures.RadialReleased += (_, release) => RadialReleased?.Invoke(this, release);
