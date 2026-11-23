@@ -118,7 +118,7 @@ public sealed class PostgresApplyGateTests
 
         // The CLI registers the same steps as the host, so a CLI apply and a host apply do the same thing.
         Assert.Equal(
-            ["constitution.seed", "firstrun.seed", "install.settings"],
+            ["company.profile", "owner.create", "constitution.seed", "firstrun.seed", "models.sources", "install.settings"],
             provider.GetServices<ISetupStep>().OrderBy(step => step.Order).Select(step => step.Id));
 
         var instanceLock = provider.GetRequiredService<ISetupInstanceLock>();
