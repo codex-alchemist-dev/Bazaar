@@ -1,0 +1,22 @@
+using Bazaar.Server.Wire.Connection;
+using Bazaar.Contracts.Engines;
+
+namespace Bazaar.Server.EngineRelay;
+
+/// <summary>
+/// Who may receive and answer relay requests (doc 02 stream registry, doc 28): the owner's Windows desktop device, subscribed to
+/// <see cref="EngineRelayWire.Stream"/>. One rule, used for finding the target, publishing and answering, so they cannot drift.
+/// </summary>
+internal static class RelayDevicePolicy
+{
+    private const string OwnerKind = "owner";
+    private const string WindowsDeviceClass = "windows";
+
+    /// <summary>True when the connection is the owner's Windows desktop and its subscription to the relay stream was accepted.</summary>
+    public static bool IsTarget(IWireConnection connection) =>
+        !connection.Closed.IsCancellationRequested
+        && string.Equals(connection.Principal.Kind, OwnerKind, StringComparison.Ordinal)
+        && string.Equals(connection.DeviceClass, WindowsDeviceClass, StringComparison.OrdinalIgnoreCase)
+        && connection.Subscriptions is { } session
+        && session.Streams.Contains(EngineRelayWire.Stream, StringComparer.Ordinal);
+}
