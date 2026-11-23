@@ -1,4 +1,5 @@
 using Bazaar.Admin;
+using Bazaar.Server.Setup;
 
 namespace Bazaar.Admin.Tests;
 
@@ -76,7 +77,7 @@ internal static class AdminFixtures
 
     /// <summary>The one plain line an unavailable apply prints (the wording is fixed by the coordinator's decision).</summary>
     public const string ApplyUnavailableLine =
-        "apply is unavailable: this build has no durable audit store (doc 15 audit_log); the Host adapter provides it";
+        "apply is unavailable: no durable audit store is reachable (doc 15 audit_log); set BAZAAR__HOST__DATABASECONNECTIONREFERENCE to an env: or file: reference for a migrated database";
 
     /// <summary>A valid plan with a backup target, so it has no hold.</summary>
     public const string Valid = """

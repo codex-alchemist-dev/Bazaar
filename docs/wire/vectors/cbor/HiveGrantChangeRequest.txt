@@ -1,0 +1,17 @@
+Golden frame: HiveGrantChangeRequest
+Codec: cbor (binary)
+Protocol: 1.0
+Schema hash: sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740
+Payload record: Bazaar.Contracts.Hive.HiveGrantChangeRequest
+Envelope: v=1 t=hive.grant.set k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
+Frame length: 175 bytes
+Payload as JSON: {"fromProject":"project-a","toProject":"project-b","kind":"procedure"}
+Frame hex:
+  A861760161746E686976652E6772616E742E736574616B636576746269646876
+  6563746F722D316173782767633A30313936613666302D303030302D37303030
+  2D383030302D303030303030303030303031616E07627473C07818323032362D
+  31312D31395430353A33363A31322E3334355A6170A36B66726F6D50726F6A65
+  63746970726F6A6563742D6169746F50726F6A6563746970726F6A6563742D62
+  646B696E646970726F636564757265
+
+A foreign client passes when it decodes the .bin file to this envelope and payload, and encodes them back to the same bytes.
