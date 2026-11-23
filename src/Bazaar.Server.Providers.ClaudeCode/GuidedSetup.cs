@@ -60,9 +60,10 @@ public static class ClaudeCodeTermsSummary
 /// <summary>Keeps the operator's terms acceptance with its time (rule T6).</summary>
 public interface IClaudeCodeAcknowledgementStore
 {
-    DateTimeOffset? GetAcknowledgedAt();
+    ValueTask<DateTimeOffset?> GetAcknowledgedAtAsync(CancellationToken cancellationToken);
 
-    void Record(DateTimeOffset acknowledgedAt);
+    /// <summary>Records the first acceptance. A later call does not move the time.</summary>
+    ValueTask RecordAsync(DateTimeOffset acknowledgedAt, CancellationToken cancellationToken);
 }
 
 /// <summary>Process-lifetime store. The durable one rides the admin settings (doc 51) and replaces this.</summary>
@@ -70,14 +71,17 @@ public sealed class InMemoryClaudeCodeAcknowledgementStore : IClaudeCodeAcknowle
 {
     private readonly ConcurrentQueue<DateTimeOffset> _at = new();
 
-    public DateTimeOffset? GetAcknowledgedAt() => _at.TryPeek(out var v) ? v : null;
+    public ValueTask<DateTimeOffset?> GetAcknowledgedAtAsync(CancellationToken cancellationToken) =>
+        ValueTask.FromResult<DateTimeOffset?>(_at.TryPeek(out var v) ? v : null);
 
-    public void Record(DateTimeOffset acknowledgedAt)
+    public ValueTask RecordAsync(DateTimeOffset acknowledgedAt, CancellationToken cancellationToken)
     {
         if (_at.IsEmpty)
         {
             _at.Enqueue(acknowledgedAt);
         }
+
+        return ValueTask.CompletedTask;
     }
 }
 
@@ -96,17 +100,17 @@ public sealed class ClaudeCodeGuidedSetup(IClaudeCodeAcknowledgementStore acknow
             ? $"set CLAUDE_CONFIG_DIR={configDir} && claude"
             : $"CLAUDE_CONFIG_DIR={configDir} claude";
 
-    public ClaudeCodeSetupReport Run(ClaudeCodeSetupRequest request)
+    public async Task<ClaudeCodeSetupReport> RunAsync(ClaudeCodeSetupRequest request, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
         var steps = new List<ClaudeCodeStepResult>();
 
         if (request.AcceptedTerms)
         {
-            acknowledgements.Record(_time.GetUtcNow());
+            await acknowledgements.RecordAsync(_time.GetUtcNow(), cancellationToken).ConfigureAwait(false);
         }
 
-        var acknowledgedAt = acknowledgements.GetAcknowledgedAt();
+        var acknowledgedAt = await acknowledgements.GetAcknowledgedAtAsync(cancellationToken).ConfigureAwait(false);
         if (!Add(steps, acknowledgedAt is null
                 ? Fail(ClaudeCodeSetupStep.Terms, "The terms summary has not been accepted. Setup stops until it is.")
                 : Ok(ClaudeCodeSetupStep.Terms, "The terms summary is accepted.")))

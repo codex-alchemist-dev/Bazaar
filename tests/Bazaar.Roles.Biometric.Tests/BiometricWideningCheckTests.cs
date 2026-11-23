@@ -1,9 +1,9 @@
 using Bazaar.Approvals;
 using Bazaar.Core;
 using Bazaar.Roles.Abstractions;
+using Bazaar.Server.Biometric;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Bazaar.Server.Biometric;
 
 namespace Bazaar.Roles.Biometric.Tests;
 
