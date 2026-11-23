@@ -2,10 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Gestures.Avalonia;
 using Bazaar.Client.Motion;
 using Bazaar.Client.Motion.Avalonia;
-using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.Mobile;

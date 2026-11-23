@@ -502,6 +502,9 @@ public class GatewayChatClientTests
     /// <summary>Forwards to a <see cref="FakeProvider"/> and records what the adapter asked of the gateway.</summary>
     private sealed class RecordingGateway(FakeProvider provider) : IModelGateway
     {
+
+        public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("RecordingGateway does not support embeddings.");
         private readonly List<ModelRequest> _requests = [];
         private readonly List<CancellationToken> _tokens = [];
 
