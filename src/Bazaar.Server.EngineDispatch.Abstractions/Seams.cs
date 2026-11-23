@@ -38,4 +38,8 @@ public sealed record EngineToolCallRecord(
     string? GrantId,
     bool Allowed,
     EngineDispatchReason Reason,
-    string ArgsSha256);
+    string ArgsSha256)
+{
+    /// <summary>The group chat the call is recorded in, or null when the caller named none.</summary>
+    public Guid? GcId { get; init; }
+}

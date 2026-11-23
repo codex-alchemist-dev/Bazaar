@@ -102,9 +102,9 @@ public static partial class NftablesRuleset
         return "\"" + guestInterface + "\"";
     }
 
-    [GeneratedRegex("^[A-Za-z0-9_]{1,32}$")]
+    [GeneratedRegex("\\A[A-Za-z0-9_]{1,32}\\z")]
     private static partial Regex TagPattern();
 
-    [GeneratedRegex("^[A-Za-z0-9_.-]{1,15}$")]
+    [GeneratedRegex("\\A[A-Za-z0-9_.-]{1,15}\\z")]
     private static partial Regex InterfacePattern();
 }
