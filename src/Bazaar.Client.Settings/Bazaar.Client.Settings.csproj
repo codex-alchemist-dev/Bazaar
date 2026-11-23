@@ -2,9 +2,9 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Settings.Abstractions\Bazaar.Client.Settings.Abstractions.csproj" />
   </ItemGroup>
 </Project>

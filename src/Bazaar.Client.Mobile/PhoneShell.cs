@@ -8,9 +8,9 @@ using Bazaar.Client.Gestures;
 using Bazaar.Client.Gestures.Avalonia;
 using Bazaar.Client.Motion;
 using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.PhoneCoach;
 using Bazaar.Client.PhoneCoach.Avalonia;
-using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Settings;
 
 namespace Bazaar.Client.Mobile;
@@ -37,6 +37,7 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
     /// <param name="gestures">The swipe and hold thresholds. Null uses the doc 93 defaults.</param>
+    /// <param name="haptics">Plays the haptic ticks for radial sectors and swipe commits. Null plays none.</param>
     /// <param name="radialSectors">The radial menu's sectors, in order. Null uses the doc 29 default seven.</param>
     /// <param name="motion">The motion level and tokens; null uses the phone defaults. At the reduced level swipes settle without animation.</param>
     /// <param name="frames">Animation frames for the spring settle; null uses the pager's top level.</param>
@@ -48,7 +49,7 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
     /// <param name="pageTitle">The name the top strip shows for a page, from its pane kinds. Null joins the kinds with a comma.</param>
     /// <param name="coachOptions">Strip, peek and coach sizes; null uses the defaults.</param>
     /// <param name="coachSteps">The coach prompts, for localised text; null uses the English defaults.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IClientSettings? settings = null, Func<IReadOnlyList<string>, string>? pageTitle = null, PhoneCoachOptions? coachOptions = null, IReadOnlyList<CoachStep>? coachSteps = null)
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IClientSettings? settings = null, Func<IReadOnlyList<string>, string>? pageTitle = null, PhoneCoachOptions? coachOptions = null, IReadOnlyList<CoachStep>? coachSteps = null, IHaptics? haptics = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -58,7 +59,7 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
         DockPanel.SetDock(title, Dock.Top);
 
         // The gesture layer wraps the pager and is the last child, so DockPanel gives it the remaining height.
-        Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures);
+        Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures, haptics);
         // The page follows the finger, then settles with the Fluid spring from the release velocity (doc 93, package 4).
         var frameDriver = frames ?? new TopLevelFrameDriver(_pager);
         var motionSettings = motion ?? new MotionSettings(MotionPlatform.Phone);

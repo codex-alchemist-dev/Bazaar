@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The ceremony's own fakes (in-memory store, audit, attestors, verifiers), shared so the routes run the real ceremony. -->
+    <Compile Include="..\Bazaar.Server.DeviceEnrolment.Tests\Fakes.cs" Link="Shared\Fakes.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.DeviceEnrolment.Http\Bazaar.Server.DeviceEnrolment.Http.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.DeviceEnrolment\Bazaar.Client.DeviceEnrolment.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.DeviceEnrolment\Bazaar.Server.DeviceEnrolment.csproj" />
+  </ItemGroup>
+</Project>

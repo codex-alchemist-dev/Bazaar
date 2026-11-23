@@ -1,7 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Media;
+using Bazaar.Accessibility;
+using Bazaar.Client.DesktopChrome;
 using Bazaar.Client.Materials;
 using Bazaar.Client.Motion;
 using Bazaar.Client.Motion.Avalonia;
@@ -152,6 +156,109 @@ public class ShellVisualsTests
         window.UpdateLayout();
 
         Assert.Equal(PostureLayoutClass.Book, visuals.Posture.LastFrame.Class);
+    }
+
+    [AvaloniaFact]
+    public void The_desktop_chrome_wraps_the_posture_layout_and_draws_with_the_chrome_materials()
+    {
+        var (window, visuals, chat, pane) = Build(_mica, 1000);
+
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, new ManualFrames());
+
+        Assert.Same(chrome.View, window.Content);
+        Assert.Same(visuals.Posture.Panel, chrome.ContentSlot.Child);
+        Assert.Same(chat, visuals.Posture.ChatSlot.Content);
+        Assert.Same(pane, visuals.Posture.PaneSlot.Content);
+        foreach (Control surface in new Control[] { chrome.Sidebar.View, chrome.Strip.View, chrome.Sheets.Panel })
+        {
+            Assert.True(Assert.IsType<SolidColorBrush>(((Border)surface).Background).Color.A < 255);
+        }
+
+        Assert.Null(chrome.ContentSlot.Background);
+    }
+
+    [AvaloniaFact]
+    public void The_desktop_chrome_falls_back_to_opaque_with_reduce_transparency_and_follows_a_theme_switch()
+    {
+        var (window, visuals, _, _) = Build(_mica with { ReduceTransparency = true }, 1000);
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, new ManualFrames());
+        var sidebar = (Border)chrome.Sidebar.View;
+        Assert.Equal(255, Assert.IsType<SolidColorBrush>(sidebar.Background).Color.A);
+        Color before = ((SolidColorBrush)sidebar.Background!).Color;
+
+        visuals.ApplyTheme(BundledThemes.Load("paper"));
+
+        Assert.NotEqual(before, ((SolidColorBrush)sidebar.Background!).Color);
+    }
+
+    [AvaloniaFact]
+    public void The_desktop_chrome_mounts_once()
+    {
+        var (window, visuals, _, _) = Build(_mica, 1000);
+        visuals.MountDesktopChrome(window, _theme, new ManualFrames());
+
+        Assert.Throws<InvalidOperationException>(() => visuals.MountDesktopChrome(window, _theme, new ManualFrames()));
+    }
+
+    [AvaloniaFact]
+    public void A_sheet_opened_through_the_shell_chrome_closes_with_escape()
+    {
+        var frames = new ManualFrames();
+        var (window, visuals, _, _) = Build(_mica, 1000, frames: frames);
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, frames);
+        var inside = new Button();
+
+        chrome.Sheets.Show(inside, "Details");
+        frames.Settle();
+        window.KeyPress(Key.Escape, RawInputModifiers.None, PhysicalKey.None, null);
+        frames.Settle();
+
+        Assert.False(chrome.Sheets.View.IsVisible);
+    }
+
+    private sealed class RecordingAnnouncer : IShellAnnouncer
+    {
+        public List<(AnnouncementCategory Category, string Text)> Spoken { get; } = [];
+
+        public bool Announce(AnnouncementCategory category, string text)
+        {
+            Spoken.Add((category, text));
+            return true;
+        }
+    }
+
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Sheet_open_and_close_go_through_the_shell_announcer_whichever_is_set_first(bool announcerFirst)
+    {
+        var frames = new ManualFrames();
+        var (window, visuals, _, _) = Build(_mica, 1000, frames: frames);
+        var announcer = new RecordingAnnouncer();
+        if (announcerFirst)
+        {
+            visuals.AnnounceThrough(announcer);
+        }
+
+        DesktopChromeShell chrome = visuals.MountDesktopChrome(window, _theme, frames);
+        if (!announcerFirst)
+        {
+            visuals.AnnounceThrough(announcer);
+        }
+
+        chrome.Sheets.Show(new Button(), "Details");
+        frames.Settle();
+        chrome.Sheets.Dismiss();
+        frames.Settle();
+
+        Assert.Equal(2, announcer.Spoken.Count);
+        Assert.All(announcer.Spoken, a => Assert.Equal(AnnouncementCategory.Dialog, a.Category));
+    }
+
+    [Fact]
+    public void The_dialog_category_is_not_rate_limited()
+    {
+        Assert.Equal(TimeSpan.Zero, AnnouncementCategorySettings.Default(AnnouncementCategory.Dialog).MinimumInterval);
     }
 
     [AvaloniaFact]

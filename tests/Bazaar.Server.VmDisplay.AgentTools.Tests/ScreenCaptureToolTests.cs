@@ -43,6 +43,17 @@ public class ScreenCaptureToolTests
     }
 
     [Fact]
+    public async Task The_call_token_reaches_the_asynchronous_target_lookup()
+    {
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Run("""{"target":"linux"}""", ct: cts.Token));
+
+        Assert.Empty(_display.Captures);
+    }
+
+    [Fact]
     public async Task The_browser_target_uses_the_browser_source_and_session()
     {
         await Run("""{"target":"browser"}""", ct: TestContext.Current.CancellationToken);
