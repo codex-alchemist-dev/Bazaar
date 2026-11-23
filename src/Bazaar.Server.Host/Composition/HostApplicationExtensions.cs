@@ -8,15 +8,19 @@ using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.DevSandbox;
+using Bazaar.Server.DevSandbox.Linux;
+using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
+using Bazaar.Server.DevSandbox.Windows;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
-using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Display;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
@@ -63,6 +67,12 @@ public static class HostApplicationExtensions
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
+        // Developer sandbox (doc 48 section 2.1). The core is always added; each OS provider and engine adds itself only when the launch
+        // plan or module source it needs is registered before this call, so with none every sandbox run is refused.
+        services.AddBazaarDevSandbox();
+        services.AddBazaarDevSandboxLinux();
+        services.AddBazaarDevSandboxWindows();
+        services.AddBazaarDevSandboxWasmtime();
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarHiveGrantApprovals();
