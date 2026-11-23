@@ -121,4 +121,14 @@ public sealed class HostMigrationsTests
         Assert.Contains("mail", source.Namespaces());
         Assert.Contains(source.Load("mail"), f => f.Version == 21 && f.Name == "mail_core");
     }
+
+    [Fact]
+    public void Constellation_namespace_holds_0001_from_the_server_and_0002_from_the_constellation_module()
+    {
+        var files = HostMigrations.Source().Load("constellation");
+
+        Assert.Contains(files, f => f.Version == 1 && f.Name == "memory_graph");
+        Assert.Contains(files, f => f.Version == 2 && f.Name == "memory_doc_id");
+        Assert.Equal(2, files.Count);
+    }
 }
