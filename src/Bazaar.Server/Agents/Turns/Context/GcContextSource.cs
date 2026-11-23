@@ -46,9 +46,7 @@ public sealed class GcContextSource(IGcStreamSource stream, IGcReadAccess access
             return [new ContextSourceItem(gcId.ToString("D"), "0", _denied, ContextSection.GcBackread)];
 
         var tail = await _stream.ReadTailAsync(gcId, _options.BackreadMessages, cancellationToken).ConfigureAwait(false);
-        var visible = grant.ThroughSeq is { } through
-            ? tail.Where(message => message.N <= through).ToList()
-            : tail.ToList();
+        var visible = tail.Where(message => grant.Covers(message.N)).ToList();
 
         var items = new List<ContextSourceItem>();
         var latest = visible.Count > 0 ? visible[^1].N : 0;
@@ -78,7 +76,7 @@ public sealed class GcContextSource(IGcStreamSource stream, IGcReadAccess access
     /// <summary>The trigger message when it is older than the backread tail. Reads from just before it, so one row comes back.</summary>
     private async Task<WireGcMessage?> FindAsync(Guid gcId, long seq, GcReadGrant grant, CancellationToken ct)
     {
-        if (grant.ThroughSeq is { } through && seq > through)
+        if (!grant.Covers(seq))
             return null;
 
         var page = await _stream.ReadAsync(gcId, seq - 1, 0, 0, 1, ct).ConfigureAwait(false);
