@@ -35,7 +35,6 @@ public class PolicyAdversarialTests
     [InlineData("/data/mod/a/b.txt")]
     [InlineData("/data/mod/.hidden")]
     [InlineData("/data/mod/a..b")]
-    [InlineData("/data/mod/")]
     public void Prefix_grant_allows_clean_targets_below_it(string target)
     {
         var p = Policy("fs.read", "/data/mod/*");
@@ -73,14 +72,56 @@ public class PolicyAdversarialTests
         Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/etc/passwd", out _));
     }
 
-    [Fact]
-    public void Root_prefix_grant_allows_clean_absolute_paths_only()
+    [Theory]
+    [InlineData("/data/mod")]
+    [InlineData("/data/mod/")]
+    public void Prefix_grant_does_not_cover_the_prefix_itself(string target)
     {
-        var p = Policy("fs.read", "/*");
+        // The module permission rule (doc 48 section 1): "a/b/*" is everything below a/b, never a/b.
+        var p = Policy("fs.read", "/data/mod/*");
 
-        Assert.Equal(SandboxDecision.Allowed, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/etc/hostname", out _));
-        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "etc/hostname", out _));
-        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/etc/../x", out _));
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", target, out var reason));
+        Assert.Equal("no-grant", reason);
+    }
+
+    [Theory]
+    [InlineData("/*")]
+    [InlineData("//*")]
+    [InlineData("/data/*/*")]
+    [InlineData("/data/mod*")]
+    [InlineData("/data/mod/**")]
+    public void A_grant_that_is_not_a_module_permission_scope_covers_nothing(string grant)
+    {
+        // Doc 48 section 1: "fs:/*" is not a permission, and "*" never stands inside a scope.
+        var p = Policy("fs.read", grant);
+
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/etc/hostname", out _));
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/data/mod/x", out _));
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", "/data/model", out _));
+    }
+
+    [Theory]
+    [InlineData("/data/mod/*")]
+    [InlineData("/data/mod/a*")]
+    [InlineData("*")]
+    [InlineData("/data/mod/\uFFFDname")]
+    public void A_target_with_a_star_or_a_lossy_decode_mark_is_invalid_even_under_the_wildcard(string target)
+    {
+        var p = Policy("fs.read", "*");
+
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", target, out var reason));
+        Assert.Equal("invalid-target", reason);
+    }
+
+    [Fact]
+    public void A_target_over_the_module_length_limit_is_invalid()
+    {
+        var p = Policy("fs.read", "*");
+        var atLimit = "/" + new string('a', Bazaar.ModulePermissions.ModuleTargetRules.MaxTargetLength - 1);
+
+        Assert.Equal(SandboxDecision.Allowed, Decide(p, SandboxActionKind.FileAccess, "fs.read", atLimit, out _));
+        Assert.Equal(SandboxDecision.Denied, Decide(p, SandboxActionKind.FileAccess, "fs.read", atLimit + "a", out var reason));
+        Assert.Equal("invalid-target", reason);
     }
 
     [Fact]
@@ -169,6 +210,8 @@ public class PolicyAdversarialTests
     [InlineData("svc.examplé.test")]
     [InlineData("xn--svc.example.test。")]
     [InlineData("[::1]")]
+    [InlineData("::ffff:10.0.0.1")]
+    [InlineData("::ffff:a00:1")]
     [InlineData("127.1")]
     [InlineData("0x7f.0.0.1")]
     [InlineData("2130706433")]

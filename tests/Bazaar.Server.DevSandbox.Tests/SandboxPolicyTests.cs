@@ -44,7 +44,7 @@ public class SandboxPolicyTests
     {
         var policy = new SandboxPolicy(Spec());
 
-        var denied = policy.Decide(Act(SandboxActionKind.Syscall, "proc.spawn", "*"), out var reason);
+        var denied = policy.Decide(Act(SandboxActionKind.Syscall, "proc.spawn", "git"), out var reason);
         Assert.Equal(SandboxDecision.Denied, denied);
         Assert.Equal("no-grant", reason);
 
@@ -112,7 +112,7 @@ public class SandboxPolicyTests
         var policy = new SandboxPolicy(Spec([new SandboxPermissionGrant("file.read", "/workspace/*")]));
 
         Assert.Equal(SandboxDecision.Allowed, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/workspace/src/a.cs"), out _));
-        Assert.Equal(SandboxDecision.Allowed, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/workspace/"), out _));
+        Assert.Equal(SandboxDecision.Denied, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/workspace/"), out _));
     }
 
     [Fact]
@@ -135,13 +135,14 @@ public class SandboxPolicyTests
     }
 
     [Fact]
-    public void Grant_TargetWithoutTrailingSlashStar_IsExact()
+    public void Grant_TargetWithoutTrailingSlashStar_CoversNothing()
     {
-        // Only "/*" is prefix style. A target ending in a plain "*" is compared exactly.
+        // Only "/*" is prefix style. A grant ending in a plain "*" is not a scope, and a target holding "*" is never clean.
         var policy = new SandboxPolicy(Spec([new SandboxPermissionGrant("file.read", "/work*")]));
 
         Assert.Equal(SandboxDecision.Denied, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/workspace"), out _));
-        Assert.Equal(SandboxDecision.Allowed, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/work*"), out _));
+        Assert.Equal(SandboxDecision.Denied, policy.Decide(Act(SandboxActionKind.FileAccess, "file.read", "/work*"), out var reason));
+        Assert.Equal("invalid-target", reason);
     }
 
     [Fact]
