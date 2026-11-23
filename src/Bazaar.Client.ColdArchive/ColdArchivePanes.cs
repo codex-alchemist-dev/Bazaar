@@ -1,6 +1,6 @@
-using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.ColdArchive.Panes;
+using Bazaar.Client.Panes.Abstractions;
 
 namespace Bazaar.Client.ColdArchive;
 

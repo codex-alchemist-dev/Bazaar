@@ -55,7 +55,7 @@ public sealed class RelayWireTests
 
         public void Close() => _closed.Cancel();
 
-    public void Dispose() => _closed.Dispose();
+        public void Dispose() => _closed.Dispose();
 
         public bool TryEnqueueEvent(Envelope envelope)
         {

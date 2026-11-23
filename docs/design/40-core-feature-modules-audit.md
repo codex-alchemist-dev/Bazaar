@@ -554,6 +554,7 @@ Found by comparing every project touched in the last 24 hours with this doc. Eac
 - **VM transports and mounts:** `Bazaar.Server.VmTransport.Abstractions` and `Bazaar.Server.VmMounts.Abstractions` are named only by "each with `.Abstractions`" above. `Bazaar.Server.VmTransport` and `Bazaar.Server.VmMounts` exist; `Bazaar.Server.VmEgress` does not yet.
 - **Windows Sandbox VM backend (doc 50, PROPOSED):** `Bazaar.Server.Vms.WindowsSandbox` references `Bazaar.Contracts`, `Bazaar.Server.Vms` and `Bazaar.Server.Providers.Abstractions`.
 - **Shared sources:** `src/Shared/VmSockets` has no project; `Bazaar.Guest.Agent` and `Bazaar.Server.VmTransport` link it with `Compile Include`.
+- **Reader sessions (doc 15 WP5):** `Bazaar.Server.ReaderSessions` (runner: scratch, tool-less gateway call, hand-over validation, purge) and `Bazaar.Server.ReaderSessions.Abstractions` (`IReaderSessionRunner`, request, typed result). They reference the Gateway and Security abstractions, not `Bazaar.Server`.
 - **Client and other projects with no entry yet:** `Bazaar.Client.Android`, `.Linux`, `.Windows`, `.Shell` (+Abstractions), `.SignIn` (+Abstractions, +Avalonia), `.CompanySetup` (+Abstractions, +Avalonia), `.GitGui` (+Github, +Gitlab), `.Kodo`, `.Motion` (+Abstractions, +Avalonia), `Bazaar.Accessibility.Avalonia`, `Bazaar.CompanyIdentity`, `Bazaar.Ex`, `Bazaar.Fun`, `Bazaar.Kodo`, `Bazaar.Localisation`, `Bazaar.Guest.PoolSpawn`.
 
 ## Open notes for owning threads (code check, 2026-11-22)

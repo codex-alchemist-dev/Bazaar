@@ -278,6 +278,8 @@
     <Project Path="src/Bazaar.Server.Gc.Archive/Bazaar.Server.Gc.Archive.csproj" />
     <Project Path="src/Bazaar.Server.Mirror.Abstractions/Bazaar.Server.Mirror.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Mirror/Bazaar.Server.Mirror.csproj" />
+    <Project Path="src/Bazaar.Server.ReaderSessions/Bazaar.Server.ReaderSessions.csproj" />
+    <Project Path="src/Bazaar.Server.ReaderSessions.Abstractions/Bazaar.Server.ReaderSessions.Abstractions.csproj" />
     <Project Path="src/Bazaar.Roles.Biometric/Bazaar.Roles.Biometric.csproj" />
     <Project Path="src/Bazaar.Server.Retention.Abstractions/Bazaar.Server.Retention.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Retention/Bazaar.Server.Retention.csproj" />
