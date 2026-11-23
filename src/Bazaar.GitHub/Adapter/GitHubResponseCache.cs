@@ -4,7 +4,17 @@ using System.Diagnostics.CodeAnalysis;
 namespace Bazaar.GitHub.Adapter;
 
 /// <summary>A successful GitHub read body, with the pagination link it carried.</summary>
-internal sealed record GitHubResponse(string Body, Uri? NextLink);
+internal sealed record GitHubResponse(string Body, Uri? NextLink)
+{
+    /// <summary>The ETag GitHub returned. Set only on explicit conditional reads.</summary>
+    public string? ETag { get; init; }
+
+    /// <summary>The <c>X-Poll-Interval</c> GitHub asked for. Set only on explicit conditional reads.</summary>
+    public TimeSpan? PollInterval { get; init; }
+
+    /// <summary>True when GitHub answered 304 to the caller's own ETag. Set only on explicit conditional reads.</summary>
+    public bool NotModified { get; init; }
+}
 
 /// <summary>An ETag and the response it validates. A 304 for this ETag means the stored response is current.</summary>
 internal sealed record CacheEntry(string ETag, GitHubResponse Response);

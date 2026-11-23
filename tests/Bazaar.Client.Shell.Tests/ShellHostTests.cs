@@ -29,7 +29,7 @@ public class ShellHostTests
         window.Content = shell.Content;
 
         Assert.Equal(FlowDirection.RightToLeft, window.FlowDirection);
-        Assert.Contains(content, Assert.IsType<Grid>(shell.Content).Children);
+        Assert.Same(content, Assert.IsType<LayoutTransformControl>(Assert.IsType<Grid>(shell.Content).Children[0]).Child);
         Assert.True(shell.Announcer.Announce(AnnouncementCategory.Mention, "you were mentioned"));
     }
 
@@ -53,7 +53,19 @@ public class ShellHostTests
         IShellAnnouncer announcer = ShellHost.Install(window, new FakeLocale("he"), new AnnouncementGate(TimeProvider.System));
 
         Assert.Equal(FlowDirection.RightToLeft, window.FlowDirection);
-        Assert.Contains(content, Assert.IsType<Grid>(window.Content).Children);
+        Assert.Same(content, Assert.IsType<LayoutTransformControl>(Assert.IsType<Grid>(window.Content).Children[0]).Child);
         Assert.True(announcer.Announce(AnnouncementCategory.ApprovalRequest, "needs you"));
+    }
+
+    [AvaloniaFact]
+    public void Install_works_on_a_plain_content_host_as_on_android()
+    {
+        var content = new TextBlock { Text = "phone" };
+        var host = new ContentControl { Content = content };
+
+        ShellHost.Install(host, new FakeLocale("ar"), new AnnouncementGate(TimeProvider.System));
+
+        Assert.Equal(FlowDirection.RightToLeft, host.FlowDirection);
+        Assert.Same(content, Assert.IsType<LayoutTransformControl>(Assert.IsType<Grid>(host.Content).Children[0]).Child);
     }
 }

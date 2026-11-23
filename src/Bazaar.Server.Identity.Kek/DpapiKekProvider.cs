@@ -17,9 +17,10 @@ public sealed class DpapiKekProvider : AesGcmKekProvider
     {
     }
 
-    /// <summary>Opens the protected key file at <paramref name="keyPath"/>, creating it when absent.</summary>
+    /// <summary>Opens the protected key file at <paramref name="keyPath"/>, creating it when absent and <paramref name="mode"/> allows it.</summary>
+    /// <exception cref="KekMissingException">The file is missing or empty and <paramref name="mode"/> is <see cref="KekOpenMode.OpenExisting"/>.</exception>
     /// <exception cref="InvalidDataException">The file is not a DPAPI blob for this host, or does not hold a 32-byte key.</exception>
-    public static DpapiKekProvider Open(string keyPath, IKeyProtector protector)
+    public static DpapiKekProvider Open(string keyPath, IKeyProtector protector, KekOpenMode mode = KekOpenMode.CreateIfMissing)
     {
         ArgumentNullException.ThrowIfNull(protector);
         var key = KekKeyFile.OpenOrCreate(
@@ -37,7 +38,8 @@ public sealed class DpapiKekProvider : AesGcmKekProvider
                         "The KEK file is not protected by this host's DPAPI. Re-wrap is needed before switching identity.kek_provider (doc 14).",
                         ex);
                 }
-            });
+            },
+            mode);
         return new DpapiKekProvider(key);
     }
 }

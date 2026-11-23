@@ -81,4 +81,198 @@ public class ToolDispatcherTaintTests
         Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
         Assert.Equal(1, tool.RunCount);
     }
+
+    // Result taint (doc 15, "Reads for modules"): the dispatcher saves the engine's TaintAfterResult when it raises the taint.
+
+    private static readonly ToolCapability _capture = new(
+        "screen.capture", ToolTier.Autonomous, CapabilityClass.Read, SessionRoles.Reader | SessionRoles.Actor, ResultTaint: ToolResultTaint.Hard);
+
+    private sealed record Rig(ToolDispatcher Dispatcher, FakeSessionTaintStore Store, FakeAuditLog Audit, FakeInFlightCallStore InFlight);
+
+    private static Rig ResultRig(SessionTaint taint, FakeTool tool, string toolName, params ITaintRaisedListener[] listeners)
+    {
+        var store = new FakeSessionTaintStore(taint);
+        var audit = new FakeAuditLog();
+        var inFlight = new FakeInFlightCallStore();
+        var dispatcher = new ToolDispatcher(
+            new FakeToolRegistry((toolName, tool)),
+            new ToolPolicyEngine(CapabilityRegistry.Create([PolicyFixtures._read, _capture]), new InMemoryRateBucketStore(), PolicyOptions.Default),
+            store,
+            inFlight,
+            audit,
+            new FixedClock(PolicyFixtures._now),
+            taintListeners: listeners);
+        return new Rig(dispatcher, store, audit, inFlight);
+    }
+
+    [Fact]
+    public async Task A_tool_that_declares_hard_result_taint_saves_hard_taint_for_the_session()
+    {
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("""{"frame":1}""")), "screen.capture");
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal("""{"frame":1}""", result.ResultJson);
+        var (sessionId, saved) = Assert.Single(rig.Store.Saved);
+        Assert.Equal(_sessionId, sessionId);
+        Assert.Equal(TaintState.Hard, saved.State);
+        var source = Assert.Single(saved.Sources);
+        Assert.Equal(ContentTrust.External, source.Trust);
+        Assert.Equal(TaintState.Hard, source.Raised);
+        Assert.Contains("\"reason\":\"Autonomous\"", Assert.Single(rig.Audit.Entries).Payload);
+    }
+
+    [Fact]
+    public async Task A_hard_result_in_a_hard_session_adds_its_source_to_the_lineage()
+    {
+        var rig = ResultRig(PolicyFixtures.Hard(), new FakeTool(_ => Task.FromResult("{}")), "screen.capture");
+
+        await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        var (_, saved) = Assert.Single(rig.Store.Saved);
+        Assert.Equal(TaintState.Hard, saved.State);
+        Assert.Equal(2, saved.Sources.Length);
+        Assert.Equal(PolicyFixtures._hardSourceId, saved.Sources[0].SourceId);
+    }
+
+    [Theory]
+    [InlineData(TaintState.Clean)]
+    [InlineData(TaintState.Soft)]
+    [InlineData(TaintState.Hard)]
+    public async Task A_tool_without_a_result_taint_saves_nothing_and_returns_its_result(TaintState state)
+    {
+        var rig = ResultRig(PolicyFixtures.TaintAt(state), new FakeTool(_ => Task.FromResult("""{"ok":true}""")), "gc.read");
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("gc.read"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal("""{"ok":true}""", result.ResultJson);
+        Assert.Empty(rig.Store.Saved);
+        Assert.Contains("\"reason\":\"Autonomous\"", Assert.Single(rig.Audit.Entries).Payload);
+    }
+
+    [Fact]
+    public async Task A_hard_result_tool_that_throws_adds_no_taint()
+    {
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => throw new InvalidOperationException("boom")), "screen.capture");
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Equal("""{"error":"tool failed"}""", result.ResultJson);
+        Assert.Empty(rig.Store.Saved);
+    }
+
+    [Fact]
+    public async Task A_failed_taint_save_withholds_the_result()
+    {
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("""{"frame":"secret"}""")), "screen.capture");
+        rig.Store.SaveFailure = new InvalidOperationException("store down");
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        Assert.Equal("""{"error":"tool failed"}""", result.ResultJson);
+        var entry = Assert.Single(rig.Audit.Entries);
+        Assert.Contains("\"reason\":\"taint_save_failed:InvalidOperationException\"", entry.Payload);
+        Assert.DoesNotContain("store down", entry.Payload);
+        Assert.Equal(0, rig.InFlight.OpenCount);
+    }
+
+    [Fact]
+    public async Task A_cancelled_taint_save_writes_one_audit_record_and_rethrows()
+    {
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("{}")), "screen.capture");
+        rig.Store.SaveFailure = new OperationCanceledException();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken));
+
+        var entry = Assert.Single(rig.Audit.Entries);
+        Assert.Contains("\"outcome\":\"Executed\"", entry.Payload);
+        Assert.Contains("\"reason\":\"cancelled\"", entry.Payload);
+        Assert.Empty(rig.Store.Saved);
+    }
+
+    [Fact]
+    public async Task The_engine_gets_the_evaluated_context_and_a_fresh_result_id()
+    {
+        var engine = new FakePolicyEngine(new PolicyDecision(PolicyOutcome.Allow, PolicyReason.Autonomous));
+        var seen = new List<(DispatchContext Context, Guid ResultId)>();
+        engine.AfterResult = (context, resultId) =>
+        {
+            seen.Add((context, resultId));
+            return context.Taint;
+        };
+        var store = new FakeSessionTaintStore(SessionTaint.Clean);
+        var dispatcher = new ToolDispatcher(
+            new FakeToolRegistry(("gc.read", new FakeTool(_ => Task.FromResult("{}")))),
+            engine,
+            store,
+            new FakeInFlightCallStore(),
+            new FakeAuditLog(),
+            new FixedClock(PolicyFixtures._now));
+
+        await dispatcher.InvokeAsync(Request("gc.read"), TestContext.Current.CancellationToken);
+
+        var (context, resultId) = Assert.Single(seen);
+        Assert.Same(Assert.Single(engine.Seen), context);
+        Assert.NotEqual(Guid.Empty, resultId);
+        Assert.Empty(store.Saved);
+    }
+
+    private sealed class RecordingListener : ITaintRaisedListener
+    {
+        public List<TaintRaised> Seen { get; } = [];
+
+        public Task OnTaintRaisedAsync(TaintRaised raised, CancellationToken cancellationToken = default)
+        {
+            Seen.Add(raised);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class ThrowingListener : ITaintRaisedListener
+    {
+        public Task OnTaintRaisedAsync(TaintRaised raised, CancellationToken cancellationToken = default) => throw new InvalidOperationException("boom");
+    }
+
+    [Fact]
+    public async Task A_clean_session_raised_to_hard_notifies_listeners_with_ids_level_and_time()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("{}")), "screen.capture", new ThrowingListener(), listener);
+
+        var result = await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
+        var raised = Assert.Single(listener.Seen);
+        Assert.Equal(_agentId.ToString("D"), raised.AgentId);
+        Assert.Equal(_sessionId, raised.SessionId);
+        Assert.Equal(TaintState.Hard, raised.Level);
+        Assert.Equal(PolicyFixtures._now, raised.At);
+    }
+
+    [Fact]
+    public async Task A_repeat_at_the_same_level_does_not_notify()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(PolicyFixtures.Hard(), new FakeTool(_ => Task.FromResult("{}")), "screen.capture", listener);
+
+        await rig.Dispatcher.InvokeAsync(Request("screen.capture"), TestContext.Current.CancellationToken);
+
+        Assert.Single(rig.Store.Saved);
+        Assert.Empty(listener.Seen);
+    }
+
+    [Fact]
+    public async Task A_tool_that_adds_no_taint_does_not_notify()
+    {
+        var listener = new RecordingListener();
+        var rig = ResultRig(SessionTaint.Clean, new FakeTool(_ => Task.FromResult("{}")), "gc.read", listener);
+
+        await rig.Dispatcher.InvokeAsync(Request("gc.read"), TestContext.Current.CancellationToken);
+
+        Assert.Empty(listener.Seen);
+    }
 }

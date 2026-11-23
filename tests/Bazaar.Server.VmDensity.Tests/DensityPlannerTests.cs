@@ -55,6 +55,15 @@ public sealed class DensityPlannerTests
     }
 
     [Fact]
+    public void A_vm_whose_activity_is_unknown_is_never_a_victim_and_the_request_waits()
+    {
+        var unknown = new RunningVm(
+            new DensityVm(FakeHost.Id(1), "other", DensityGuestOs.Windows, 4000), VmActivity.Unknown(_now - TimeSpan.FromHours(5)), CanSaveState: true);
+
+        Assert.IsType<AdmissionPlan.Wait>(Plan(Req(1000), 10_000, 500, [unknown]));
+    }
+
+    [Fact]
     public void One_megabyte_short_needs_a_victim()
     {
         var plan = Plan(Req(1000), 10_000, 1999, [Run(1, 500)]);
