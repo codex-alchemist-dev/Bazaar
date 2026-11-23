@@ -26,9 +26,8 @@ public sealed class PostgresSessionTaintStore(NpgsqlDataSource dataSource) : ISe
         return SessionTaintMapping.MapRow(reader.GetString(0), reader.GetString(1));
     }
 
-    /// <summary>
-    /// Appends the session's taint as it stands. The database rejects a level below the session's latest one.
-    /// </summary>
+    /// <inheritdoc />
+    /// <remarks>Appends a snapshot row. The database rejects a level below the session's latest one.</remarks>
     public async Task SaveAsync(Guid sessionId, SessionTaint taint, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(taint);

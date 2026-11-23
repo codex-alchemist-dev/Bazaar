@@ -1,0 +1,127 @@
+using Bazaar.Contracts.Gateway;
+using Bazaar.Server.PsychWard.Abstractions;
+using Bazaar.Server.WorkLife;
+
+namespace Bazaar.Server.Presence.Sources.Abstractions;
+
+// Ports the source modules call to feed presence (docs/design/23, "Event sources and subscription"). Each source module keeps its
+// own model; the adapter in Bazaar.Server.Presence.Sources maps it to an ActivityEvent. A source needs no reference to presence
+// beyond this project. Where a source has no observer seam today, the call site is named in the port's summary.
+
+/// <summary>
+/// Availability transitions (doc 09). Call site, not yet wired: wherever the work-life module applies a submitted
+/// <c>AvailabilityMachine</c> event and keeps the result; call it with every transition whose <c>Applied</c> is true.
+/// </summary>
+public interface IAvailabilityTransitionSink
+{
+    /// <summary>Reports an applied transition. <paramref name="at"/> is the instant the transition took effect.</summary>
+    ValueTask OnTransitionAsync(Guid agentId, AvailabilityTransition transition, DateTimeOffset at, CancellationToken ct);
+}
+
+/// <summary>What a turn or tool lifecycle event reports (doc 06).</summary>
+public enum TurnActivityKind
+{
+    /// <summary>The turn was claimed and began.</summary>
+    TurnStarted,
+
+    /// <summary>A model call is in flight.</summary>
+    ModelCallStarted,
+
+    /// <summary>A tool call started. <see cref="TurnActivity.ToolName"/> names the tool.</summary>
+    ToolStarted,
+
+    /// <summary>A tool call finished; the turn continues with its next step.</summary>
+    ToolFinished,
+
+    /// <summary>The agent is writing its post.</summary>
+    Drafting,
+
+    /// <summary>The turn is waiting on an approval (the dispatcher returned <c>PendingApproval</c>).</summary>
+    ApprovalWaitStarted,
+
+    /// <summary>The approval was decided and the turn goes on.</summary>
+    ApprovalWaitEnded,
+
+    /// <summary>The turn ended, for any reason.</summary>
+    TurnEnded,
+}
+
+/// <summary>The kind of GC a turn runs in, as the runtime knows it.</summary>
+public enum TurnGcKind
+{
+    /// <summary>A project GC (a company or project channel).</summary>
+    Project,
+
+    /// <summary>A council GC.</summary>
+    Council,
+
+    /// <summary>A vote GC.</summary>
+    Vote,
+
+    /// <summary>A DM, a Thinking GC or anything else.</summary>
+    Other,
+}
+
+/// <summary>One turn or tool lifecycle event.</summary>
+/// <param name="AgentId">The agent.</param>
+/// <param name="At">When it happened (UTC).</param>
+/// <param name="Kind">What happened.</param>
+/// <param name="TurnId">The turn.</param>
+/// <param name="GcId">The GC the turn runs in, when known.</param>
+/// <param name="GcKind">The kind of that GC.</param>
+/// <param name="GcProjectId">The project the GC belongs to, for a project GC.</param>
+/// <param name="AgentProjectId">The project the agent is working on now; a project GC of another project reads as "other project".</param>
+/// <param name="ToolName">The tool, for tool events. Classified into research, review or edit-or-build.</param>
+/// <param name="Label">An optional short activity label. Presence scrubs and may drop it.</param>
+public sealed record TurnActivity(
+    Guid AgentId,
+    DateTimeOffset At,
+    TurnActivityKind Kind,
+    Guid TurnId,
+    Guid? GcId = null,
+    TurnGcKind GcKind = TurnGcKind.Other,
+    string? GcProjectId = null,
+    string? AgentProjectId = null,
+    string? ToolName = null,
+    string? Label = null);
+
+/// <summary>
+/// Turn and tool lifecycle (doc 06). Call site, not yet wired: the turn runner (<c>ITurnRunner</c> implementation in
+/// <c>Bazaar.Server.Agents</c>) at claim, before each model call and tool dispatch, after each tool result, before posting and in its
+/// <c>finally</c>; the tool dispatcher for the approval wait.
+/// </summary>
+public interface ITurnActivitySink
+{
+    /// <summary>Reports one lifecycle event.</summary>
+    ValueTask OnTurnActivityAsync(TurnActivity activity, CancellationToken ct);
+}
+
+/// <summary>
+/// Quota and throttle (doc 05, doc 09). The gateway already reports <see cref="AgentCapacityChanged"/> through its
+/// <c>IGatewayEventSink</c>; the host composes that sink with this one.
+/// </summary>
+public interface IQuotaCapacitySink
+{
+    /// <summary>Reports that the agent has, or lost, every allowed candidate.</summary>
+    ValueTask OnCapacityChangedAsync(AgentCapacityChanged capacity, DateTimeOffset at, CancellationToken ct);
+}
+
+/// <summary>
+/// Kanban waits (doc 12). Call site, not yet wired: the Kanban module (no module exists yet) when a card an agent works on becomes
+/// blocked by, or is freed from, an unfinished prerequisite.
+/// </summary>
+public interface IKanbanWaitSink
+{
+    /// <summary>Reports that the agent started or stopped waiting on a prerequisite.</summary>
+    ValueTask OnWaitChangedAsync(Guid agentId, DateTimeOffset at, bool waiting, CancellationToken ct);
+}
+
+/// <summary>
+/// Psych Ward state (doc 26). Call site, not yet wired: <c>IPsychWardService</c> implementation in <c>Bazaar.Server.PsychWard</c>,
+/// after it saves an admitted or discharged stay.
+/// </summary>
+public interface IWardStateSink
+{
+    /// <summary>Reports a saved stay: admitted while <see cref="WardStay.IsAdmitted"/>, otherwise discharged.</summary>
+    ValueTask OnStayChangedAsync(WardStay stay, CancellationToken ct);
+}
