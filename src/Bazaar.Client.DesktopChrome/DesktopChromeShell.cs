@@ -36,6 +36,26 @@ public sealed class DesktopChromeShell
     /// <summary>Where the window's real content goes (the posture panel).</summary>
     public Border ContentSlot { get; }
 
+    /// <summary>
+    /// Renames every control from <paramref name="source"/> now and after each locale change. The chrome lives as long as the window,
+    /// so there is no unsubscribe.
+    /// </summary>
+    public void Follow(ChromeLabelSource source)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        UseLabels(source.Labels);
+        source.Changed += (_, _) => UseLabels(source.Labels);
+    }
+
+    /// <summary>Renames every control with <paramref name="labels"/>.</summary>
+    public void UseLabels(ChromeLabels labels)
+    {
+        ArgumentNullException.ThrowIfNull(labels);
+        Sidebar.Labels = labels;
+        Strip.Labels = labels;
+        Sheets.Labels = labels;
+    }
+
     public static DesktopChromeShell Create(
         ChromeSurface surface,
         ThemeDefinition theme,

@@ -94,6 +94,26 @@ public sealed class MemoryGraphRebuilderTests
     }
 
     [Fact]
+    public async Task With_a_vault_index_notes_it_holds_get_their_doc_and_index_links_and_the_rest_fall_back()
+    {
+        var vault = new InMemoryMemoryVault();
+        vault.Seed(_pathA, NoteFixtures.Text(body: "See [[Second]]."));
+        vault.Seed(_pathB, NoteFixtures.Text(Note(_secondId, "Second")));
+        var docA = Guid.CreateVersion7();
+        var linked = Guid.CreateVersion7();
+        var index = new FakeIndex { [_pathA] = new VaultIndexedDoc(docA, null, [linked]) };
+        var store = new FakeStore();
+
+        await new MemoryGraphRebuilder(vault, store, NullLogger<MemoryGraphRebuilder>.Instance, index)
+            .RebuildAgentAsync("alpha", CancellationToken.None);
+
+        var a = store.Active[NoteFixtures.NoteId];
+        Assert.Equal(docA, a.DocId);
+        Assert.Equal([linked.ToString("D")], a.Edges.Where(e => e.Kind == MemoryEdgeKind.Link).Select(e => e.TargetId));
+        Assert.Null(store.Active[_secondId].DocId);
+    }
+
+    [Fact]
     public async Task An_invalid_agent_id_is_rejected()
     {
         await Assert.ThrowsAsync<ArgumentException>(() =>
@@ -104,6 +124,12 @@ public sealed class MemoryGraphRebuilderTests
         new(vault, store, NullLogger<MemoryGraphRebuilder>.Instance);
 
     private static MemoryNote Note(string id, string title) => NoteFixtures.Note() with { Id = id, Title = title };
+
+    private sealed class FakeIndex : Dictionary<string, VaultIndexedDoc>, IVaultDocIndex
+    {
+        public Task<VaultIndexedDoc?> FindAsync(string noteId, string vaultPath, CancellationToken ct) =>
+            Task.FromResult(TryGetValue(vaultPath, out var doc) ? doc : null);
+    }
 
     private sealed class FakeStore : IMemoryGraphStore
     {
@@ -131,6 +157,9 @@ public sealed class MemoryGraphRebuilderTests
             Task.FromResult<IReadOnlyList<MemoryGraphRevision>>(noteIds.Where(Active.ContainsKey).Select(id => Active[id]).ToList());
 
         public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
+
+        public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
     }
 }

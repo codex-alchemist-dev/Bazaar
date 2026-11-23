@@ -8,6 +8,10 @@
     <PackageReference Include="Avalonia" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Strings\*.json" WithCulture="false" LogicalName="Bazaar.Client.DesktopChrome.Strings.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Motion\Bazaar.Client.Motion.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />

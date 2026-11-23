@@ -71,7 +71,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 {
     private static readonly JsonElement _emptyModel = JsonElement.Parse("{}");
 
-    private const string _athanorFlag = "--athanor";
+    private const string AthanorFlag = "--athanor";
 
     private readonly ContentControl _slot = new();
     private readonly CommandRunner _commands = new();
@@ -103,7 +103,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         Directory.CreateDirectory(options.Paths.StateDirectory);
         // --athanor shows the editor pane (doc 57 section 2.2). The editor is composed only then, so a normal start pays nothing for it.
-        var showAthanor = options.Args.Contains(_athanorFlag, StringComparer.Ordinal);
+        var showAthanor = options.Args.Contains(AthanorFlag, StringComparer.Ordinal);
         _athanorModule = showAthanor ? new AthanorPaneModule() : null;
         var modules = _athanorModule is null ? LinuxModules.Create() : [.. LinuxModules.Create(), _athanorModule];
         Preferences = new PreferenceStore(
@@ -168,12 +168,12 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         // Tinted chrome where the session composites, and a flat desktop posture; the content stays opaque (doc 93).
         // The person's settings, the desktop's animation switch and the frame-budget monitor feed the same state.
-        var clientSettings = new ClientSettingsStore(VisualSettings.Definitions, options.Paths.SettingsFile, log);
+        var visualSettings = new ClientSettingsStore(VisualSettings.Definitions, options.Paths.SettingsFile, log);
         var motion = new MotionSettings(MotionPlatform.Desktop);
         var materials = new LinuxMaterialEnvironmentSource();
-        var visuals = ShellVisuals.Install(Window, Window.Content as Control, null, materials, new FlatPostureSource(), VisualSettings.LoadTheme(clientSettings), motion);
+        var visuals = ShellVisuals.Install(Window, Window.Content as Control, null, materials, new FlatPostureSource(), VisualSettings.LoadTheme(visualSettings), motion);
         var reducedMotion = new LinuxReducedMotion();
-        var binder = VisualSettingsBinder.Start(clientSettings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
+        var binder = VisualSettingsBinder.Start(visualSettings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
         _ = reducedMotion.RefreshAsync();
         Window.Activated += (_, _) => _ = reducedMotion.RefreshAsync();
         Window.Closed += (_, _) => binder.Dispose();
@@ -256,7 +256,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 
     // With dev chat settings the window opens on the GC pane; otherwise on the Dashboard (doc 28). --terminal opens the terminal.
     private static string InitialKind(LinuxHeadOptions options) =>
-        options.Args.Contains(_athanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
+        options.Args.Contains(AthanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
         : options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
         : options.Args.Contains("--cold-archive", StringComparer.Ordinal) ? PaneKinds.ColdArchive
         : options.Settings is not null ? GcPaneViewModel.PaneKind

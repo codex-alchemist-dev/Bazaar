@@ -37,15 +37,16 @@
     <ProjectReference Include="..\Bazaar.Client.Athanor.Bundle\Bazaar.Client.Athanor.Bundle.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
-    <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\Bazaar.Client.DefaultApp.Linux\Bazaar.Client.DefaultApp.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Updater.Linux\Bazaar.Client.Updater.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
@@ -68,6 +69,7 @@
     <ProjectReference Include="..\Bazaar.Client.Calendar\Bazaar.Client.Calendar.csproj" />
     <ProjectReference Include="..\Bazaar.Client.ColdArchive\Bazaar.Client.ColdArchive.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Interrupts\Bazaar.Client.Interrupts.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Settings.Avalonia\Bazaar.Client.Settings.Avalonia.csproj" />

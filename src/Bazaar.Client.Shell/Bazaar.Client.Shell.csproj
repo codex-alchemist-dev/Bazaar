@@ -5,15 +5,16 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\Bazaar.Client.Settings.Abstractions\Bazaar.Client.Settings.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Client.Shell.Abstractions\Bazaar.Client.Shell.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Accessibility.Avalonia\Bazaar.Accessibility.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
     <ProjectReference Include="..\Bazaar.Client.DesktopChrome\Bazaar.Client.DesktopChrome.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Materials.Avalonia\Bazaar.Client.Materials.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Posture.Avalonia\Bazaar.Client.Posture.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
-    <ProjectReference Include="..\Bazaar.Client.Settings.Abstractions\Bazaar.Client.Settings.Abstractions.csproj" />
   </ItemGroup>
 </Project>

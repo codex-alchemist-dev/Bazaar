@@ -43,6 +43,10 @@ Doc 49 asks that text scales to at least 200 percent without loss of function. `
 
 `AccessibilitySettings` (in `Bazaar.Accessibility`) holds the viewer's text scale, reduced-motion flag and per-category announcement switches and gaps, with shipped defaults and `Normalised()` (clamps the scale, removes negative gaps). `AccessibilitySettingsApplier.Apply(settings, chrome, gate)` pushes them to the chrome and the gate and is safe to call again on every change. Persisting the settings belongs to the settings module, not here.
 
+### 2b. Desktop chrome strings
+
+The desktop chrome (`Bazaar.Client.DesktopChrome`, doc 93) keeps no English in code. Its visible text and accessible names are message ids (`ChromeKeys`, `chrome.<part>.<name>`) in an embedded flat JSON catalogue, `Strings/chrome.en.json`, with English as the source locale. Lookup goes through `LocalisedText` (exact tag, then language, then English), and the two sheet announcements are ICU messages with a named `title` argument, never string concatenation. A head passes its `ILocaleSource` (and any translated catalogues in the same JSON shape) to `ShellVisuals.MountDesktopChrome`; `ChromeLabelSource` rebuilds the labels on `LocaleChanged` and the controls rename at once, with no restart. Tests: every key used exists in English and no English key is unused; a locale switch renames the sidebar toggle.
+
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.

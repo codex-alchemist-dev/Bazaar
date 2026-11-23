@@ -49,7 +49,7 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
     /// <param name="pageTitle">The name the top strip shows for a page, from its pane kinds. Null joins the kinds with a comma.</param>
     /// <param name="coachOptions">Strip, peek and coach sizes; null uses the defaults.</param>
     /// <param name="coachSteps">The coach prompts, for localised text; null uses the English defaults.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IClientSettings? settings = null, Func<IReadOnlyList<string>, string>? pageTitle = null, PhoneCoachOptions? coachOptions = null, IReadOnlyList<CoachStep>? coachSteps = null, IHaptics? haptics = null)
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IClientSettings? settings = null, Func<IReadOnlyList<string>, string>? pageTitle = null, PhoneCoachOptions? coachOptions = null, IReadOnlyList<CoachStep>? coachSteps = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;

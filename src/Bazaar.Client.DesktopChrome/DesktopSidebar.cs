@@ -24,7 +24,7 @@ public sealed class DesktopSidebar
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeLabels _labels;
+    private ChromeLabels _labels;
     private readonly ProgressAnimator _progress;
     private readonly Border _surface;
     private readonly Button _toggle;
@@ -80,6 +80,18 @@ public sealed class DesktopSidebar
 
     /// <summary>The control to place in the window.</summary>
     public Control View => _surface;
+
+    /// <summary>The names and text in use. Setting it (a locale change) renames the controls at once.</summary>
+    public ChromeLabels Labels
+    {
+        get => _labels;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _labels = value;
+            ApplyLabels();
+        }
+    }
 
     /// <summary>The slot for the group chat list. Empty until the Gc module's list is mounted.</summary>
     public Border ListSlot { get; }
@@ -155,6 +167,10 @@ public sealed class DesktopSidebar
         ApplyLabels();
     }
 
-    private void ApplyLabels() =>
+    private void ApplyLabels()
+    {
+        AutomationProperties.SetName(ListSlot, _labels.SidebarName);
+        AutomationProperties.SetName(_surface, _labels.SidebarName);
         AutomationProperties.SetName(_toggle, IsExpanded ? _labels.CollapseSidebar : _labels.ExpandSidebar);
+    }
 }
