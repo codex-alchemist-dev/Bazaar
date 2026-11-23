@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bazaar.Server.Portability.Withdrawal</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Portability\Bazaar.Server.Portability.csproj" />
+    <ProjectReference Include="..\Bazaar.RyuseiFuda.Abstractions\Bazaar.RyuseiFuda.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

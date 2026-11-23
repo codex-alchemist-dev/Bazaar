@@ -152,7 +152,7 @@ Entries come from the Consequence sections of the merged spike docs in `docs/spi
 | S14 Graph layout tick | **inconclusive** | Layout stays server-side (C17 unchanged). Cloud 4 vCPU on .NET 11: 10k-node steady tick about 9.7 ms single-threaded and 4.8 ms parallel, against the 8 ms NUC budget. | **OPEN:** the 8 ms gate on the NUC (Wave B runbook step in the doc), the render half (owner Windows), Android, and whether the server ships single-threaded or parallel layout. |
 | S16 SOCKS5 via `SocketsHttpHandler` | **pass** | `socks5://` works on .NET 11 (Linux) and .NET 10 (Windows), including user/pass. The outbound proxy setting is usable and not schema-only. Keep to `socks5://`. | `socks5h://` is rejected on Windows .NET 10 but accepted on Linux .NET 11: re-run on Windows .NET 11. `https://` proxy URIs worked only with validation bypassed: test a trusted chain and credentials. dotnet/runtime#102441 not checked. |
 | S17 FreeLLMAPI surface (read-only half) | **partial** | The source read shows fallback can reach any enabled chain member and there is no caller exclusion list, so the "unpolicied upstream" branch applies. Bazaar.Server's own gateway enforces per-agent model policy and checks the served model and `X-Fallback-Trail`/`X-Fallback-Attempts` after every call (doc 05; no design change). Do not rely on `sk-cp-` profile keys for per-agent scoping until the v0.16.6 conflict is settled. | **OPEN:** the live forced-fallback test with a pinned version and non-Claude free keys (owner-supplied), plus the prompt-logging, usage and health checks. |
-| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **OPEN:** a registered Windows service run (the owner's PC run used a non-admin local account, `docs/spikes/S25.md`); the NUC run is void, the NUC is gone, pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
+| S25 Postgres base backup, WAL archive and restore drill | **pass** (Linux and Windows, PostgreSQL 18.6) | The C10 restore policy (PITR to a timestamp, sequence floor above the surviving head, a `system` recovery entry recording the lost range, no sequence reuse) works on both paths tested: 3 of 3 runs each, P1 to P4 pass, restore to promotion about 2 to 3 s on 400k rows. Doc 04 WP4 and doc 33 WP8/WP9 can rely on this shape. | **Service run done** on the owner's PC: a registered Windows service (`postgres-s25`, NetworkService), four counted runs, all P1 to P4 pass (`docs/spikes/S25.md`). **OPEN:** pgBackRest or WAL-G as the engine (neither tested), a real RTO at realistic volume, an offsite archive for the RPO, and a live-crash loss window (the kill came after the archive caught up). |
 | S23 LibGit2Sharp vs git CLI | **pass** (Windows) | LibGit2Sharp stays the default `IGitProvider` (C12 stands). `IGitProvider` states: one writer per checkout (host lock per worktree and a single merge lane); a startup step aborts unfinished merges and prunes stale worktrees. Engines can be mixed per operation. | **OPEN (design call):** LibGit2Sharp has no sparse checkout, so the `paths` argument of doc 18 `AddWorktreeAsync` needs a decision: CLI for that call, materialise only allowed paths, or enforce privacy at the Vault read layer. Not run on Linux; 10k+ commit histories, SMB shares, submodules, LFS, hooks and push/fetch not covered. |
 | S3 GC log at scale | **pass** (Linux baseline; owner-PC run owed) | On Postgres 18.6 with 1M events and 16 hash partitions, median append p95 is 7.1 ms at 500 appends/s (limit 50 ms); 12 forced listener kills lost 0 of 28,800 events; 200-message page p95 4.4 ms; 10k replay 122 ms and contiguous. **Changes (coordinator, per owner defaults):** (1) NOTIFY is sent after commit by a coalescing notifier (newest seq per GC, one transaction every few ms), not by `pg_notify` inside the append transaction, which gave unstable tails (p95 115 ms in one repeat of three). (2) Consumers treat NOTIFY as a hint and read from a per-GC cursor that advances only over contiguous seq; a periodic head-versus-cursor sweep backs up the reconnect catch-up. (3) Default partition count 16 (64 made page reads about 4x slower). (4) No `(gc_id, created_at)` index by default; time-range reads resolve to a seq. (5) One GC tops out near 400 to 700 appends/s (`head_seq` row lock); bulk writers batch. Thresholds proposed in the doc are accepted. | **OPEN:** the same run on the owner's PC (replaces the NUC); the periodic sweep and multi-server fan-out were not tested. See `docs/spikes/S3.md`. |
 
@@ -311,7 +311,7 @@ Coordinator choices under the safe-defaults rule (the owner may change any of th
 | GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
 | Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
 | Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
-| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Wake loop | ~~Off by default.~~ Superseded by round 32: on by default. The production `ITurnRunner` is registered but built only when something resolves it. | Yes, by operator setting. |
 | Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
 
 ## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
@@ -330,7 +330,7 @@ Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mentio
 | Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
 | Handles for new agents (#443) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
 | Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
-| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. ~~Off by default~~ (on by default since round 32) (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled explicitly without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
 | Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
 | Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
 | Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
@@ -369,6 +369,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Onboarding and portability names | Pilot company is Bazaar.CDAX. Module names: Bazaar.GC, Bazaar.Constellation, Bazaar.RyuseiFuda, Bazaar.Conduit, Bazaar.KODO. CALCINATO is the terminal and ATHANOR is the IDE. | 41, 47 |
 | Extraction | Kodo and Constellation.Renderer stay first-party modules until the owner asks for extraction. | 46, 19 |
 | KEK custody default (doc 14, `identity.kek_provider`) | **DECIDED 2026-11-16 (owner card):** the KEK is protected by DPAPI on a Windows host, tied to the machine or service account. Other OSes use a protected key file (`file`). Supersedes the random key file default in code. | 14, 33 |
+| Kanban fold into RyuseiFuda (owner, 2026-11-16) | Kanban is RyuseiFuda's macro board (layer 1, doc 38), folded under one name. Code moves into the RyuseiFuda module with forward migrations in the `ryusei` namespace. Stored `kanban.*` keys, the `kanban.transition` tool and the `kanban.deadline_scan` job kind are rewritten, and old names stay readable (`kanban.transition` is a read-only alias). The component ID `kanban` stays stable under the component-ID rule. Table names and board rules do not change. | 12, 38 (R4) |
 | Principles | Open source, modern, novel, performant, forward-facing, modular first. Beta 0.x. | 42, 49, FORWARD-FACING.md |
 
 **Open for owner:** the licence pricing (decided later); whether the module exception wording and the CLA mechanism (47, M4) are accepted by counsel; the number of this round.
@@ -398,6 +399,9 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Panel access = any `admin.*` capability or `kodo.view.status`; each section checks its own capability; no new role or capability names | PROPOSED | 51, 48 section 4 |
 | Writes need `X-Bazaar-Admin: 1`, JSON and a matching `Origin`; a write is refused when its audit entry cannot be appended | PROPOSED | 51 |
 | Selection commit and rebuild are separate audited actions; stale revision and concurrent rebuild are 409; rebuild takes an idempotency key | PROPOSED | 51, 37 section 4a |
+| Providers are just modules on Core (owner, 2026-11-19). Core has no provider selector, no per-role one-or-many declaration and no `auto`/`none`/`all` strings. Any number of provider modules can be installed and all load; they are configured in the app; each consuming module decides how to use several. Supersedes the "one provider per role" text in doc 03 (#2, #16). | DECIDED | 03 |
+| Actor attribution uses one `Principal` type (kind agent/user/service/system plus id) in Cdax.Core (no package references; `Scope` lives there too), text form `kind:id`, for audit, settings changes, module and install decisions, secret scopes and callers, approvals and telemetry consent; not AgentId-only (owner, 2026-11-19). Audit keeps its `actor` column and hash chain. | DECIDED | BAZAAR-COMPONENTS 4.2, 15, 14 |
+| Resibo exchange (owner, 2026-11-19): incorporate every Resibo feature that benefits Bazaar as modules; conflicts become separate modules; docs 70 to 84 (ledger in 84) are PROPOSED designs. Resibo's repo is proprietary, so designs only, no code copied. Open owner questions are listed at the end of each doc and in 84 section 8 | PROPOSED | 70-84 |
 | Wire transports and codecs (owner, 2026-11-19) | **DECIDED**: JSON over WebSocket stays as the default and the floor. Every other transport (HTTP/3 over QUIC, native QUIC, WebTransport, gRPC with gRPC-Web) and every other codec (MemoryPack, CBOR, MessagePack, Protobuf, others later) is its own optional module with `.Abstractions`, picked by the installer; transport and codec are negotiated per connection; the C# contract records are the single source, generated for every codec, with a published schema for outside clients. The Protobuf ban of round 15 is lifted for the gRPC and Protobuf codec modules only. Design details are PROPOSED. | `docs/design/90-wire-transports-and-codecs.md`; docs 02, 39; S6; CLAUDE.md |
 
 ## Round 30 (2026-11-19): Spike S2 result (Garnet on Windows)
@@ -407,7 +411,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet on Windows is verified for the cache role. Spike S2 passed three of three runs on the owner's PC (record: `docs/spikes/S2.md`). Tested: Garnet 2.2.13 (official `win-x64-based-readytorun` release) with StackExchange.Redis 3.4.35. All five used checks passed before the kill and after restart (SET with expiry, GET, GET of a missing key, a 64 KiB snapshot, expiry). 1000 of 1000 keys survived `taskkill /F` and restart. Restart to first authenticated connection: median 1566 ms, range 1418 to 3932 ms. | MEASURED (spike result, not a design change) | 03, 11, 23, 35 |
 | Windows persistence needs `--aof --aof-commit-wait`, restarted with `-r`. A control run without `--aof` kept 0 of 1000 keys, so persistence is required for data to survive a kill. Garnet binds loopback only with password authentication. | MEASURED | 03 |
 | Presence over plain PUBLISH/SUBSCRIBE works through StackExchange.Redis, but handler order is not guaranteed (1 of 6 batteries out of order). Presence deltas must carry a sequence number or timestamp (doc 23 to specify). | MEASURED | 23 |
-| Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
+| Garnet stops being "only after S2" in doc 03 (cache provider module, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
 ## Round 30 (2026-11-19): Linux TPM-sealed KEK
@@ -440,6 +444,24 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Binding writers | `ISoulBindingAdmin.BindAsync` is for the hire flow, which does not exist on the server yet; `RetirementCoordinator` ends the binding first. Until a hire flow exists, an unbound agent cannot post with the default setting. | 06, 07 |
 | Not done in this change | Mention depth (needs the wake's depth on the inbox row, which doc 06 owns) and @here/@all agent broadcasts (needs the broadcast rate counter; #438 keeps them ignored). | 06, 01 |
 
+## Round 29 (2026-11-19): Encrypted data folder
+
+The round number is set at merge; other open PRs also add rounds.
+
+| Decision | Status | Docs |
+|---|---|---|
+| The data folder (data root, including the PostgreSQL data directory) is encrypted at the folder level by Bazaar, as a hard install requirement. Owner, 2026-11-19 (message `cmsg_01MC1BkUhiVHzqr38uyxWzeHPuokZJa7aiq87n8BAaMdas`): "Encryption is on the disk data folder level." Operator whole-disk encryption does not satisfy it alone. | DECIDED | 63 |
+| The host refuses to start on a missing, unmounted, unencrypted or foreign data folder, and never creates a key, volume or cluster at start (closes the chaos finding of PR #872, open item 1) | DECIDED as a requirement; mechanics PROPOSED | 63 section 5, 03, 14 |
+| Mechanism: BitLocker-protected VHDX on Windows, LUKS2 container on Linux, volume key wrapped by the KEK provider, privileged volume unit plus unprivileged host guard, boot root beside the data root | PROPOSED (spike D1) | 63 sections 2 to 6 |
+| More columns sealed by default (classes A, B, C) through one `IColumnSealer`; search copies stay plain inside the volume | PROPOSED | 63 section 9 |
+| Modules `Bazaar.Server.DataVolume` (+ `.Abstractions`, `.Windows`, `.Linux`) and `Bazaar.Server.ColumnSeal` (+ `.Abstractions`) | PROPOSED | 63, 40 |
+| Supersedes doc 61's inventory row "Postgres data directory: out of scope" | DECIDED (follows from the owner's message) | 61, 63 |
+
+| The whole data root is inside the encrypted volume, not only the PostgreSQL folder | DECIDED (owner card, 2026-11-19) | 63 section 2 |
+| Unlock after a restart is automatic now; owner unlock is built as the setting `storage.volume.unlock = owner` for later | DECIDED (owner card, 2026-11-19) | 63 section 6 |
+
+**Open for owner:** external database mode (setting, default: refused unless attested); Windows Home hosts (default: not supported).
+
 ## Round 30 (2026-11-20): Claude Code CLI provider
 
 | Decision | Status | Docs |
@@ -450,3 +472,71 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | C14 sentence "no subscription login can be configured" narrowed: the gateway still never holds a subscription credential; the CLI provider is the one exception route (usage identity `subscription`) | PROPOSED | 05, 05b |
 | One model step per CLI process, tools off in the CLI, tools offered as definitions only through a loopback MCP bridge, calls executed by `ToolDispatcher` | PROPOSED | 91 sections 5 and 7 |
 | Modules: `Bazaar.Server.Gateway.Abstractions` (adapter seam extraction), `Bazaar.Server.Providers.ClaudeCode` and `.Abstractions` | PROPOSED | 91 section 4 |
+
+## Round 31 (2026-11-19): browser placement
+
+| Item | Decision | Effect |
+|---|---|---|
+| Anonymous browser placement (refines C22) | **DECIDED (owner card, 2026-11-19): shared browser VM.** Anonymous profiles (no credentials) of all agents run in one light shared browser VM, each in its own OS user, sandbox and profile directory, with egress through the per-agent proxy. Account profiles (Passport cookies) stay in each agent's own VM as C22 decided. Browsers do not run on the server host. | Doc 59 section 7. C22's "third VM only if needed" is used as one shared VM, not one per agent. Site discovery and triage happen in the shared VM; sign-up and logged-in use happen in the agent's own VM under the existing Tier 2 and whitelist rules (docs 14, 15, 36). |
+| Peer vote on a new site | **DECIDED (owner card, 2026-11-19): a unanimous Council vote opens reading only.** Agents triage a site and vote (Council, doc 10). A unanimous vote allowlists it for login-free reading in anonymous profiles without the owner. A split or tied vote, and every new account or logged-in use, still needs the owner's Tier 2 approval, with the vote attached. Sites with unverified terms or terms that forbid automation stay Deny. | Doc 59 section 7. Narrows doc 15's "allowlist change is Tier 2" for the read-only anonymous case only; `vm.egress.allowlist_change_approval` keeps its floor for everything else. The `site_allowlist` motion mechanics are PROPOSED (docs 10, 15 to be updated with the code). |
+| Peer approval of account creation | **DECIDED (owner, 2026-11-19, message cmsg_01MC1BkUhiVHzqr38uyxWzeHDe5fYjGqWyDEGiS58jGvgg):** "agents can get approval from their higher tier peers (claude, gemini, or anything in that frontier end) to approve making an account too. it doesnt always need me." Account creation stays Tier 2; senior peers may give the approval instead of the owner. | Doc 15 "Peer approval of account creation". Deny and Tier 3 limits are unchanged (terms that forbid automation, CAPTCHA, SMS, ID, legal terms). Every peer approval is audited and shown to the owner. Quorum: two senior peers (owner card, 2026-11-19). Legal terms (owner card, 2026-11-19): the agent may accept a site's terms itself as part of a sign-up that two senior peers approved; setting `security.account_approval.agent_accepts_terms`, shipped default false (protective, round 13), true on the owner's install; counsel review before the first public release. |
+
+## Round 32 (2026-11-22): GC reactions and typing signal
+
+| Item | Decision | Docs |
+|---|---|---|
+| Reactions are append-only `reaction` events in the GC log (add or remove one emoji on a message, per-GC seq, never purged); current state is a fold of the log; no-op changes write nothing | PROPOSED (owner direction, 2026-11-22: add to the wire and GC docs as PROPOSED, then build) | 01 "Reactions", 02 "Reactions on the wire" |
+| Reactions never count as approval, vote, mention or wake; only members who may write can react | PROPOSED | 01 |
+| Wire: `gc.react`, `gc.reactions`, `gc.reaction` (live-only push; state refilled by `gc.reactions`) | PROPOSED | 02 |
+| Typing is ephemeral presence: `gc.typing` request and a `presence.update` typing delta to subscribers of that GC; not persisted, expires after `wire.typing_ttl_s` (5 s) without refresh, rate-limited | PROPOSED | 02 "Typing signal" |
+| New settings: `gc.reactions_enabled`, `gc.reaction_emoji_max_bytes`, `gc.reaction_max_distinct_per_message`, `gc.reaction_max_per_person_per_message`, `gc.reaction_rate_per_minute`, `wire.typing_enabled`, `wire.typing_ttl_s`, `wire.typing_min_interval_s` (configurability rule, round 13) | PROPOSED | 01, 02 |
+| Module `Bazaar.Server.GcReactions` (+ `.Abstractions`) carries the feature; nothing new lands in Bazaar.Server | PROPOSED | 01 WP15, 40 |
+
+## Round 33 (2026-11-19): crash install binding
+
+Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so crash reports map to a person?", answered "Approve doc 32 change" by the owner in the project thread on 2026-11-19 at 03:20 UTC (card message id `cmsg_01MC1BkUhiVHzqr38uyxWzeHVPEQ17n7Dx43o6uWME2qzn`).
+
+| Item | Decision | Docs |
+|---|---|---|
+| Crash install binding | DECIDED. A random `install_id` binds to the authenticated device on the first `crash.submit`; a different device presenting a bound id is refused. A person's installs are the installs of their devices, revoked ones included. `shared` installs have no owner and use the company key. The `crash_install` table is owned by the diagnostics module. | 32 "Crash install binding", 43 §12.1 |
+
+
+## Round 34 (2026-11-22): Endpoint selection
+
+| Decision | Status | Docs |
+|---|---|---|
+| Owner request: any agent may have several endpoints selected, and the choice is dynamic, performant and gives the best in general; borrow from open-source routers | DECIDED (owner request, 2026-11-22) | 92, 05 |
+| A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
+| Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
+| Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
+
+## Round 35 (2026-11-19): server TUI
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 58, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 58 |
+| Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 58 |
+
+## Round 36 (2026-11-22): wake loop on by default (overnight plan item 41)
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Wake loop default | On by default (`Bazaar:AgentTurns:Scheduler:Enabled` = `true`), so a fresh company wakes agents on a card or a mention without a flag. Supersedes the "off by default" rows of rounds 23 and 24. Source: the owner's overnight plan item 41. | Yes, by operator setting (`false`). |
+| Guards on the default-on path | Kill switch checked before every wake (`IAgentWakeGate`, answered by `Bazaar.Server.AgentSafety`; fail closed when none is composed). Loop guard asked before every wake, with no setting that disables it and limits validated at 1 or more. Gateway quotas and token budgets still apply to every turn. | No (security invariants). |
+| Default-on with an unrunnable host | Idle with a logged reason; the host still starts. An explicit `Enabled=true` keeps the round 24 rule (the host stops at start). | Yes. |
+| Setting audit | The host logs one line at start with the loop state and whether it came from the default or the operator. Changes go through host configuration, which follows the same change audit as other bootstrap options. | Yes. |
+
+See doc 06 "Wake loop default" and doc 38.
+
+## Round 37 (2026-11-22): shared cache-backed rate limiter
+
+| Item | Decision | Docs |
+|---|---|---|
+| One host `IRateLimiter`, backed by the cache provider so counts are shared and survive a restart | PROPOSED | 15, 03 |
+| `ICacheCounter` (atomic increment, TTL set on a new key) in `Bazaar.Server.Providers.Abstractions`; `ICacheProvider` unchanged; Garnet and Valkey implement it | PROPOSED | 03, 15 |
+| Module `Bazaar.RateLimits.Cache`, component `rate-limits-cache`; sliding-window counter over two fixed buckets, TTL 2x window, window length in the key | PROPOSED | 15 |
+| Increment first, undo on denial (never over-admits; a failed undo over-counts and fails closed) | PROPOSED | 15 |
+| `Bazaar:RateLimits:CacheTimeout` default 150 ms; on timeout, error or no counter fall back to the in-process limiter, warn once per outage, recover automatically; never fail open, never throw | PROPOSED | 15 |
+| The component replaces earlier `IRateLimiter` registrations, so it wins regardless of component order | PROPOSED | 15 |
+| Open: whether a cache flush should fall back to the durable Postgres `rate_bucket`; whether the strictest limits (for example new repositories) should fail closed during an outage instead of using the in-process fallback | OPEN | 15 |

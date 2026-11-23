@@ -16,6 +16,8 @@ namespace Bazaar.Contracts.Wire;
 /// <param name="Edited">True when this is not the first version.</param>
 /// <param name="Mentions">Principals mentioned.</param>
 /// <param name="ReplyToN">Sequence number of the entry this replies to.</param>
+/// <param name="Withdrawn">True when the current version was withdrawn by an import; <paramref name="Text"/> is then a placeholder.</param>
+[WirePayload(WireTypes.GcMessage)]
 public sealed record WireGcMessage(
     Guid GcId,
     long N,
@@ -26,19 +28,22 @@ public sealed record WireGcMessage(
     DateTimeOffset Ts,
     bool Edited,
     IReadOnlyList<Guid> Mentions,
-    long? ReplyToN);
+    long? ReplyToN,
+    bool Withdrawn = false);
 
 /// <summary>Request <c>gc.send</c>. The envelope <c>id</c> is the idempotency key.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="Text">Message text.</param>
 /// <param name="Mentions">Principals mentioned.</param>
 /// <param name="ReplyToN">Sequence number replied to.</param>
+[WirePayload(WireTypes.GcSend)]
 public sealed record GcSend(Guid GcId, string Text, IReadOnlyList<Guid>? Mentions, long? ReplyToN);
 
 /// <summary>Request <c>gc.edit</c>: replaces the text of a message the sender wrote. The envelope <c>id</c> is the idempotency key.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="MessageId">The message to edit.</param>
 /// <param name="Text">The replacement text.</param>
+[WirePayload(WireTypes.GcEdit)]
 public sealed record GcEdit(Guid GcId, Guid MessageId, string Text);
 
 /// <summary>Request <c>gc.member.add</c>: invites a principal. The envelope <c>id</c> is the idempotency key.</summary>
@@ -46,30 +51,36 @@ public sealed record GcEdit(Guid GcId, Guid MessageId, string Text);
 /// <param name="PrincipalId">The principal to add.</param>
 /// <param name="Kind">Human or agent. Owners are not added this way.</param>
 /// <param name="Role">member or observer.</param>
+[WirePayload(WireTypes.GcMemberAdd)]
 public sealed record GcMemberAdd(Guid GcId, Guid PrincipalId, PrincipalKind Kind, string Role);
 
 /// <summary>Request <c>gc.member.remove</c>: removes a principal. The owner may remove anyone; a member may remove only themselves.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="PrincipalId">The principal to remove.</param>
+[WirePayload(WireTypes.GcMemberRemove)]
 public sealed record GcMemberRemove(Guid GcId, Guid PrincipalId);
 
 /// <summary>Response to <c>gc.send</c>.</summary>
 /// <param name="N">The assigned log sequence number.</param>
 /// <param name="Ev">The assigned version counter.</param>
+[WirePayload]
 public sealed record GcSendResult(long N, long Ev);
 
 /// <summary>Request <c>gc.history</c>: older entries.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="Before">Return entries with <c>n</c> below this.</param>
 /// <param name="Limit">Maximum entries.</param>
+[WirePayload(WireTypes.GcHistory)]
 public sealed record GcHistory(Guid GcId, long Before, int Limit);
 
 /// <summary>Response to <c>gc.history</c>.</summary>
 /// <param name="Items">Entries, oldest first.</param>
 /// <param name="HasMore">True when older entries remain.</param>
+[WirePayload]
 public sealed record GcPage(IReadOnlyList<WireGcMessage> Items, bool HasMore);
 
 /// <summary>Request <c>gc.read</c>: mark read.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="UpToN">Read up to and including this <c>n</c>.</param>
+[WirePayload(WireTypes.GcRead)]
 public sealed record GcRead(Guid GcId, long UpToN);

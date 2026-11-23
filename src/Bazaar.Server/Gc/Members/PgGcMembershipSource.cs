@@ -4,14 +4,8 @@ using Npgsql;
 
 namespace Bazaar.Server.Gc.Members;
 
-/// <summary>What a membership plan needs: the header, the head seq the plan is made against, and every current membership row.</summary>
-/// <param name="Gc">The GC header.</param>
-/// <param name="HeadSeq">The head seq read with the header. The writer rejects the write when the head has moved.</param>
-/// <param name="Members">The current membership rows, one per principal.</param>
-public sealed record GcMembershipSnapshot(GcRecord Gc, long HeadSeq, IReadOnlyCollection<GcMemberRecord> Members);
-
 /// <summary>Reads the state a membership change is planned against. Read only; the writer does the append.</summary>
-public sealed class PgGcMembershipSource(NpgsqlDataSource dataSource)
+public sealed class PgGcMembershipSource(NpgsqlDataSource dataSource) : IGcMembershipSource
 {
     private const string _gcSql = "SELECT parent_gc_id, type_key, archived_at, head_seq FROM gc WHERE gc_id = $1";
 
@@ -57,5 +51,44 @@ public sealed class PgGcMembershipSource(NpgsqlDataSource dataSource)
         }
 
         return new GcMembershipSnapshot(gc, head, members);
+    }
+}
+
+/// <summary>Lists a principal's GC memberships from <c>gc_member_current</c> (docs/design/02, GC list).</summary>
+public sealed class PgGcMemberListSource(NpgsqlDataSource dataSource) : IGcMemberListSource
+{
+    // $1 = principal, $2 = include archived. The last-activity time is the created_at of the entry at head_seq.
+    private const string _sql = """
+        SELECT g.gc_id, g.title, g.type_key, g.head_seq, (g.archived_at IS NOT NULL) AS archived,
+               (SELECT count(*) FROM gc_member_current c WHERE c.gc_id = g.gc_id AND c.left_seq IS NULL)::int AS member_count,
+               (SELECT e.created_at FROM gc_event e WHERE e.gc_id = g.gc_id AND e.seq = g.head_seq) AS last_activity
+        FROM gc g
+        JOIN gc_member_current m ON m.gc_id = g.gc_id AND m.principal_id = $1 AND m.left_seq IS NULL
+        WHERE ($2 OR g.archived_at IS NULL)
+        ORDER BY last_activity DESC NULLS LAST, g.gc_id
+        """;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<GcMemberListing>> ListAsync(Guid principalId, bool includeArchived, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand(_sql);
+        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = principalId });
+        cmd.Parameters.Add(new NpgsqlParameter<bool> { TypedValue = includeArchived });
+
+        var items = new List<GcMemberListing>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            items.Add(new GcMemberListing(
+                reader.GetGuid(0),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt64(3),
+                reader.GetBoolean(4),
+                reader.GetInt32(5),
+                reader.IsDBNull(6) ? null : reader.GetFieldValue<DateTimeOffset>(6)));
+        }
+
+        return items;
     }
 }

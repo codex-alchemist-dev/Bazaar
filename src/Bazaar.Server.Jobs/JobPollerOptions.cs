@@ -9,7 +9,7 @@ public sealed record JobPollerOptions
     /// <summary>How long a claimed job is leased before another poller may take it over.</summary>
     public TimeSpan LeaseDuration { get; init; } = TimeSpan.FromMinutes(5);
 
-    /// <summary>Most jobs claimed in one poll.</summary>
+    /// <summary>Most jobs claimed and run in one poll. Each is claimed just before it starts.</summary>
     public int BatchSize { get; init; } = 10;
 
     /// <summary>Claims allowed per job. A job that fails or loses its lease on the last attempt is marked failed.</summary>
