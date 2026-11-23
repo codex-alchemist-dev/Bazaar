@@ -33,6 +33,28 @@ public sealed class InterruptStackTests(InterruptDb db) : IClassFixture<Interrup
     }
 
     [Fact]
+    public async Task The_emergency_tag_is_stored_for_an_owner_frame_and_dropped_for_a_system_frame()
+    {
+        SkipWithoutDatabase();
+        var (stack, _) = NewStack(db.DataSource);
+        var gc = NewGuid();
+        var ownerAgent = NewGuid();
+        var systemAgent = NewGuid();
+        var plainAgent = NewGuid();
+
+        var tagged = await stack.PushAsync(ownerAgent, _author, InterruptSource.Owner, "Now", gc, emergency: true, ct: Ct);
+        var system = await stack.PushAsync(systemAgent, _author, InterruptSource.SystemBuild, "Build", gc, emergency: true, ct: Ct);
+        var plain = await stack.PushAsync(plainAgent, _author, InterruptSource.Owner, "Later", gc, ct: Ct);
+
+        Assert.True(tagged.Emergency);
+        Assert.False(system.Emergency);
+        Assert.False(plain.Emergency);
+        Assert.True(Assert.Single(await stack.GetStackAsync(ownerAgent, Ct)).Emergency);
+        Assert.False(Assert.Single(await stack.GetStackAsync(systemAgent, Ct)).Emergency);
+        Assert.False(Assert.Single(await stack.GetStackAsync(plainAgent, Ct)).Emergency);
+    }
+
+    [Fact]
     public async Task A_first_push_makes_an_active_root_frame()
     {
         SkipWithoutDatabase();

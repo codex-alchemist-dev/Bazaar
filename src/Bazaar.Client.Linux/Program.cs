@@ -4,22 +4,14 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
-using Bazaar.Client.Athanor;
-using Bazaar.Client.Athanor.Hosting;
-using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
-using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Launcher;
 using Bazaar.Client.Linux.Display;
 using Bazaar.Client.Linux.Updates;
-using Bazaar.Client.Modules;
-using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.Preload;
 using Bazaar.Client.Shell;
-using Bazaar.Contracts.Modules;
-using Bazaar.Ex;
 using Bazaar.Ex.Head;
 using Bazaar.Localisation;
 using Bazaar.SupportBundle;
@@ -40,7 +32,14 @@ internal static class Program
         ChatConnectionSettings? settings;
         try
         {
-            settings = ChatConnectionSettings.FromEnvironment(LinuxClientSessions.EnvWithStoredToken(Environment.GetEnvironmentVariable));
+            settings = LinuxChatSettings.Resolve(
+                args,
+                Environment.GetEnvironmentVariable,
+                LinuxPaths.FromEnvironment(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile)),
+                LinuxClientSessions.Store,
+                CurrentEndpoint,
+                TimeProvider.System,
+                LinuxClientSessions.RefreshStore);
         }
         catch (ArgumentException ex)
         {
@@ -67,21 +66,34 @@ internal static class Program
             return 0;
         }
 
-        using var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine);
-        // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
-        using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
-        args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
-        var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
-        AthanorEditorServices? athanor = null;
-        try
+        int exitCode;
+        using (var launcher = LauncherHost.Start(pipeName, Console.Error.WriteLine))
         {
-            return BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates, services => athanor = services), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
-        }
-        finally
-        {
-            athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // One background update check shortly after start; it fails closed without a pinned key (doc 30 section 7).
+            using var updates = UpdateHost.Start(Environment.GetEnvironmentVariable, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), Console.Error.WriteLine);
+            args = [.. LinuxClientSessions.WithAutoSignIn(args, settings is null, preloadStart)];
+            var backend = DisplayBackendSelector.Select(Environment.GetEnvironmentVariable);
+            exitCode = BuildAvaloniaApp(() => { LinuxTheme.ApplyAtStart(args, Environment.GetEnvironmentVariable, Console.Error.WriteLine); return LauncherHost.HideWhenPreloading(CreateMainWindow(settings, paths, args, updates), preloadStart); }, backend).StartWithClassicDesktopLifetime(args);
         }
 
+        // "Restart to apply" (doc 30 section 7): the launcher pipe is released above, so the new process starts as the primary instance.
+        PendingRestart.StartIfScheduled(Console.Error.WriteLine);
+        return exitCode;
+    }
+
+    /// <summary>The endpoint this build was made for (doc 37 section 4a), or null when the build has none (the head then opens no chat).</summary>
+    private static Bazaar.Client.Abstractions.Server.ServerEndpoint? CurrentEndpoint()
+    {
+        try
+        {
+            Bazaar.Client.Abstractions.Server.ClientServer.ConnectToCompanyServer();
+            return Bazaar.Client.Abstractions.Server.ClientServer.Current;
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"Bazaar: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>True when a running instance accepted the request. False when none is listening (start as primary).</summary>
@@ -123,108 +135,19 @@ internal static class Program
         }
     }
 
-    /// <summary>Builds the window. With settings, the window shows the group chat and the session starts; without, it opens empty.</summary>
-    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates, Action<AthanorEditorServices> keepAthanor)
+    /// <summary>
+    /// Builds the window through the pane host (doc 30 section 1). The dev chat settings from the environment still start a chat,
+    /// which the GC pane shows; with none, the window opens on the Dashboard. <c>--terminal</c>, <c>--sign-in</c>,
+    /// <c>--create-company</c> and <c>--first-run</c> keep working.
+    /// </summary>
+    private static MainWindow CreateMainWindow(ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, UpdateHost updates)
     {
         if (settings is null)
         {
-            Console.Error.WriteLine($"Not connected. Set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
-            var plain = new MainWindow();
-            ShowTerminalWhenAsked(plain, args);
-            ShowFirstRun(plain, args);
-            var plainEditor = ShowAthanorWhenAsked(plain, null, paths, args, keepAthanor);
-            InstallShell(plain);
-            if (plainEditor is not null)
-            {
-                AttachMnemonics(plain, paths, plainEditor);
-            }
-
-            return plain;
+            Console.Error.WriteLine($"No chat to open yet. Sign in, then start once with {LinuxChatSettings.DevGcFlag} <group chat id> (it is remembered), or set {ChatConnectionSettings.ServerVariable}, {ChatConnectionSettings.GcVariable} and {ChatConnectionSettings.TokenVariable}.");
         }
 
-        Directory.CreateDirectory(paths.StateDirectory);
-        var chat = ChatHost.Start(settings, new FileCursorStore(paths.CursorFile), "linux", _clientBuild, action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine, updates.OnWelcome);
-        var window = new MainWindow(chat.View);
-        ShowTerminalWhenAsked(window, args);
-        ShowFirstRun(window, args);
-        window.Closed += async (_, _) => await chat.DisposeAsync();
-        var editor = ShowAthanorWhenAsked(window, settings, paths, args, keepAthanor);
-        InstallShell(window);
-        AttachMnemonics(window, paths, editor);
-        return window;
+        var dataDir = ClientDataPaths.DataDir(Environment.GetEnvironmentVariable);
+        return LinuxHead.Create(new LinuxHeadOptions(settings, paths, args, updates, dataDir, _clientBuild, Console.Error.WriteLine)).Window;
     }
-
-    /// <summary>The editor's commands and the dispatcher that carries them out, for the mnemonic host to take.</summary>
-    private sealed record EditorCommands(IReadOnlyList<ClientCommandContribution> Commands, ClientCommandDispatcher Dispatcher);
-
-    /// <summary>
-    /// Shows the editor pane (<c>--athanor</c>). The editor is composed here, on the UI thread, because its hosts are Avalonia
-    /// controls and so that a normal start pays nothing for it (doc 57 section 2.2). Null when the flag is absent.
-    /// </summary>
-    private static EditorCommands? ShowAthanorWhenAsked(MainWindow window, ChatConnectionSettings? settings, LinuxPaths paths, IReadOnlyList<string> args, Action<AthanorEditorServices> keepAthanor)
-    {
-        if (!args.Contains("--athanor", StringComparer.Ordinal))
-        {
-            return null;
-        }
-
-        var athanorModule = new AthanorPaneModule();
-        IClientModule[] modules = [athanorModule];
-        var load = ClientModuleHost.Load(modules, ClientHostFacts.Current(), Console.Error.WriteLine);
-        var options = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, paths.StateDirectory);
-        var athanor = AthanorHeadComposition.Create(options, settings, load.Commands, Console.Error.WriteLine);
-        keepAthanor(athanor);
-        var theme = AthanorHeadComposition.StartTheme(options, athanor, Console.Error.WriteLine);
-        window.Closed += (_, _) => theme.Sync.Dispose();
-        var features = new PaneModuleContext()
-            .With<IEditorHost>(athanor.Host)
-            .With<IEditorFileSource>(athanor.Source)
-            .With<IEditorDraftStore>(athanor.Drafts);
-        var registry = FirstPartyPanes.CreateRegistry(
-            load.Only<IPaneModule>(modules.OfType<IPaneModule>()),
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            features: features);
-        window.ShowPanes([AthanorPaneModule.WindowPane], registry);
-
-        // The editor commands (edopen, ednew, edsave, eddiff) are reached by mnemonic: typed text plus Enter, no Ctrl chord.
-        return new EditorCommands(load.Commands, AthanorHeadComposition.CreateDispatcher(window, athanorModule));
-    }
-
-    // --sign-in, --create-company and --first-run replace the window content with the first-run screens (doc 45 section 2.6).
-    private static void ShowFirstRun(MainWindow window, IReadOnlyList<string> args)
-    {
-        if (FirstRunScreens.TryBuild(args) is { } firstRun)
-        {
-            window.Content = firstRun;
-        }
-    }
-
-    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
-    private static void AttachMnemonics(MainWindow window, LinuxPaths paths, EditorCommands? editor)
-    {
-        Directory.CreateDirectory(paths.StateDirectory);
-        window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(
-            window,
-            Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"),
-            editor?.Commands,
-            dispatcher: editor?.Dispatcher,
-            log: Console.Error.WriteLine);
-    }
-
-    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
-    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
-    {
-        if (!args.Contains("--terminal", StringComparer.Ordinal))
-        {
-            return;
-        }
-
-        var sessions = CalcinatoTerminalPanes.CreateSessions();
-        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
-        window.Closed += async (_, _) => await sessions.DisposeAsync();
-    }
-
-    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
-    private static void InstallShell(MainWindow window) =>
-        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }

@@ -16,4 +16,10 @@ public sealed record VulkanConstellationRendererOptions
 
     /// <summary>Time source for pacing. Null uses a monotonic stopwatch; tests inject a manual clock.</summary>
     public Func<TimeSpan>? Clock { get; init; }
+
+    /// <summary>Draws per-kind icons (signed distance glyphs from the icon atlas) instead of plain dots. On by default; off draws every node as a dot or ring.</summary>
+    public bool NodeIcons { get; init; } = true;
+
+    /// <summary>Edge length in pixels of one icon atlas cell. Larger stays sharper when zoomed in, at more memory.</summary>
+    public int IconCellSize { get; init; } = IconAtlas.DefaultCellSize;
 }

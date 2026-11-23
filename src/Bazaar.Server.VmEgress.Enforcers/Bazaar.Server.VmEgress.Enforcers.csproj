@@ -11,6 +11,8 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.VmEgress\Bazaar.Server.VmEgress.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Abstractions\Bazaar.Server.VmEgress.Abstractions.csproj" />
+    <!-- IAgentVmLookup only (the VM store port); no reference to the transport implementation. -->
+    <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Bazaar.Server.VmEgress.Enforcers.Tests" />

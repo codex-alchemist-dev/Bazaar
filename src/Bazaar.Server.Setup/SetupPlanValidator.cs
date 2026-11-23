@@ -67,6 +67,7 @@ public static partial class SetupPlanValidator
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
         ValidateFirstRun(plan.FirstRun, issues);
+        ValidateStorage(plan, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
@@ -75,6 +76,80 @@ public static partial class SetupPlanValidator
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
+
+    /// <summary>Doc 63 section 10. Shape only: whether the provider exists on this host is checked when the volume is created.</summary>
+    private static void ValidateStorage(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        var storage = plan.Storage;
+        var development = string.Equals(storage.InstanceClass, "development", StringComparison.Ordinal);
+        if (!development && !string.Equals(storage.InstanceClass, "production", StringComparison.Ordinal))
+        {
+            issues.Add(Error("storage.instanceClass", "must be production or development."));
+        }
+
+        var volume = storage.Volume;
+        if (volume.ContainerKind is not ("file" or "device"))
+        {
+            issues.Add(Error("storage.volume.containerKind", "must be file or device."));
+        }
+
+        if (volume.MaxGb is < 1 or > 1_000_000)
+        {
+            issues.Add(Error("storage.volume.maxGb", "must be a whole number of at least 1."));
+        }
+
+        if (IsBlank(volume.Provider))
+        {
+            return;
+        }
+
+        if (volume.Provider is not ("bitlocker-vhdx" or "luks2" or "dev-plain"))
+        {
+            issues.Add(Error("storage.volume.provider", "must be bitlocker-vhdx, luks2 or dev-plain."));
+            return;
+        }
+
+        if (IsBlank(plan.Database.DataRoot) || !IsAbsoluteOnAnyPlatform(plan.Database.DataRoot!))
+        {
+            issues.Add(Error("database.dataRoot", "must be an absolute path when storage.volume.provider is set: the volume is mounted there."));
+        }
+
+        if (volume.Provider == "dev-plain")
+        {
+            if (!development)
+            {
+                issues.Add(Error("storage.volume.provider", "dev-plain is accepted only when storage.instanceClass is development."));
+            }
+
+            return;
+        }
+
+        if (IsBlank(volume.ServiceAccount))
+        {
+            issues.Add(Error("storage.volume.serviceAccount", "is required for an encrypting provider."));
+        }
+
+        if (volume.ContainerKind == "file" && volume.MaxGb is null)
+        {
+            issues.Add(Error("storage.volume.maxGb", "is required for a file container."));
+        }
+
+        if (volume.ContainerKind == "device" && IsBlank(volume.Container))
+        {
+            issues.Add(Error("storage.volume.container", "is required for a device container."));
+        }
+
+        if (!IsBlank(volume.Container) && !IsAbsoluteOnAnyPlatform(volume.Container!))
+        {
+            issues.Add(Error("storage.volume.container", "must be an absolute path."));
+        }
+    }
+
+    // A plan can be checked on another OS than the one it is for, so both path forms count. The host checks again with its own rules.
+    private static bool IsAbsoluteOnAnyPlatform(string path) =>
+        path.StartsWith('/')
+        || path.StartsWith(@"\\", StringComparison.Ordinal)
+        || (path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '\\' or '/');
 
     private static void ValidateFirstRun(SetupFirstRunSection firstRun, List<SetupValidationIssue> issues)
     {
@@ -223,6 +298,11 @@ public static partial class SetupPlanValidator
         if (IsBlank(owner.DisplayName) || owner.DisplayName.Length > _maxNameLength)
         {
             issues.Add(Error("owner.displayName", $"must be 1 to {_maxNameLength} characters."));
+        }
+
+        if (owner.Recovery.BundleRef is not null && !SecretReferences.IsValid(owner.Recovery.BundleRef, SecretReferences.SecretStoreFamilies))
+        {
+            issues.Add(Error("owner.recovery.bundleRef", "must be a secret://bazaar/ reference, or omitted. The bundle itself never goes in a plan."));
         }
 
         for (var i = 0; i < owner.Recovery.BackupOwners.Count; i++)

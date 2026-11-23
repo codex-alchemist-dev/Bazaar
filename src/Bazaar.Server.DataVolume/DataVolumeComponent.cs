@@ -39,8 +39,16 @@ public sealed class DataVolumeComponent : IBazaarComponent
         if (!string.IsNullOrWhiteSpace(rawClass) && !Enum.TryParse(rawClass, ignoreCase: true, out instanceClass))
             throw new InvalidOperationException($"{DataVolumeOptions.InstanceClassKey} must be Production or Development.");
 
+        var rawAtRest = configuration[DataVolumeOptions.ExternalAtRestKey]?.Trim();
+        var attested = string.Equals(rawAtRest, "attested", StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(rawAtRest) && !attested && !string.Equals(rawAtRest, "refuse", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException($"{DataVolumeOptions.ExternalAtRestKey} must be refuse or attested.");
+
         return new DataVolumeOptions
         {
+            DatabaseIsExternal = !string.Equals(configuration[DataVolumeOptions.DatabaseModeKey]?.Trim(), "Managed", StringComparison.OrdinalIgnoreCase),
+            ExternalAtRestAttested = attested,
+            ExternalAtRestMethod = configuration[DataVolumeOptions.ExternalAtRestMethodKey]?.Trim() ?? string.Empty,
             BootRoot = configuration[DataVolumeOptions.BootRootKey] ?? string.Empty,
             DataRoot = configuration[DataVolumeOptions.DataRootKey] ?? string.Empty,
             InstallId = configuration[DataVolumeOptions.InstallIdKey] ?? string.Empty,

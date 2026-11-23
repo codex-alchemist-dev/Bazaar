@@ -92,7 +92,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<ISessionTaintStore>(),
             sp.GetRequiredService<IInFlightCallStore>(),
             sp.GetRequiredService<IAuditLog>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            options: null,
+            taintListeners: sp.GetServices<ITaintRaisedListener>(),
+            logger: sp.GetService<ILogger<ToolDispatcher>>()));
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Modules read session taint through Security.Abstractions (doc 15, "Reads for modules"): the store is the per-session
         // reader, and the directory the runner below registers each run in feeds the per-agent reader.
@@ -147,7 +150,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
                 sp.GetRequiredService<TurnRunner>(),
                 sp.GetRequiredService<ITurnContextAssembler>(),
                 // Every tool definition a component added. A turn is offered only the ones its allowlist names.
-                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())),
+                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>()),
+                // A reply to a wake with no trigger GC (a card assignment) is posted through the GC post sink when the Gc component is present.
+                sp.GetService<IAgentPostSink>(),
+                sp.GetServices<ITurnReplyTarget>()),
             sp.GetRequiredService<IAgentSessionRegistrar>()));
 
         AddScheduler(services, configuration);
