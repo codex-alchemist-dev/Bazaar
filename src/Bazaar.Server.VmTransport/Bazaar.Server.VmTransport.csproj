@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.VmTransport</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <!-- The LibraryImport source generator emits unsafe code for the libc calls in LinuxVsock. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- AF_HYPERV and AF_VSOCK plumbing shared with Bazaar.Guest.Agent (src/Shared/VmSockets). Neither project references the other. -->
+    <Compile Include="..\Shared\VmSockets\HvSocketAddress.cs" Link="Shared\HvSocketAddress.cs" />
+    <Compile Include="..\Shared\VmSockets\LinuxVsock.cs" Link="Shared\LinuxVsock.cs" />
+    <Compile Include="..\Shared\VmSockets\VsockStream.cs" Link="Shared\VsockStream.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.VmTransport.Tests" />
+  </ItemGroup>
+</Project>

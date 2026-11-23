@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup.Verification;
 
@@ -9,8 +11,9 @@ public sealed class SetupPureChecksTests
     private const string _anchorUrl = "https://anchor.example.invalid/bazaar-audit";
 
     /// <summary>A plan that passes every pure check, with the same shape as the fixture.</summary>
-    private static SetupCustodySection ValidCustody() => new()
+    private static SetupCustodySection ValidCustody(string? identityKek = null) => new()
     {
+        IdentityKek = identityKek,
         KekProvider = "dpapi",
         KekRef = "dpapi:C:\\ProgramData\\Bazaar\\kek.bin",
         AuditAnchorTarget = _anchorUrl,
@@ -42,10 +45,33 @@ public sealed class SetupPureChecksTests
 
     private static JsonElement Text(string value) => JsonSerializer.SerializeToElement(value);
 
+    private static SetupPlan TpmPlan(string? identityKek, bool? allowVirtual)
+    {
+        var custody = ValidCustody(identityKek);
+        var settings = new Dictionary<string, JsonElement>();
+        if (allowVirtual is { } allow)
+            settings[IdentityKekCustodyCheck.AllowVirtualKey] = JsonSerializer.SerializeToElement(allow);
+        return PlanWith(custody: custody, settings: settings);
+    }
+
+    [Theory]
+    [InlineData(null, null, SetupCheckStatus.Green)]
+    [InlineData("file", true, SetupCheckStatus.Green)]
+    [InlineData("openbao", null, SetupCheckStatus.Green)]
+    [InlineData("tpm", null, SetupCheckStatus.Green)]
+    [InlineData("tpm", false, SetupCheckStatus.Green)]
+    [InlineData("tpm", true, SetupCheckStatus.Amber)]
+    public async Task Identity_kek_custody_warns_only_for_tpm_with_virtual_allowed(string? kek, bool? allowVirtual, SetupCheckStatus expected)
+    {
+        var result = await Run(new IdentityKekCustodyCheck(), TpmPlan(kek, allowVirtual));
+
+        Assert.Equal(expected, result.Status);
+    }
+
     [Fact]
     public async Task Fixture_plan_passes_every_pure_check()
     {
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
         foreach (var check in SetupVerificationChecks.Pure)
         {
@@ -319,7 +345,7 @@ public sealed class SetupVerificationCatalogueTests
     [
         "schema.migrations", "instance.lock", "database.postgres", "providers.roles", "secrets.resolution",
         "audit.chainHead", "audit.anchorReachable", "backups.reachable", "backups.drill", "host.clock", "host.disk",
-        "models.reachable", "pairing.offer", "server.identity",
+        "host.os", "host.ports", "host.dataRoot", "models.reachable", "pairing.offer", "remote.reachable", "server.identity",
     ];
 
     /// <summary>Every text a report carries, so a leak test can look at all of it.</summary>
@@ -337,7 +363,7 @@ public sealed class SetupVerificationCatalogueTests
             var result = await check.RunAsync(context, CancellationToken.None);
 
             Assert.Equal(SetupCheckStatus.NotEvaluated, result.Status);
-            Assert.Equal("Not evaluated: needs the Host adapter.", result.Message);
+            Assert.StartsWith("Not evaluated: ", result.Message);
         }
     }
 
@@ -360,13 +386,13 @@ public sealed class SetupVerificationCatalogueTests
     public async Task The_fixture_report_is_amber_with_every_placeholder_as_an_amber_item()
     {
         var verifier = new SetupVerifier(SetupVerificationChecks.All);
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
 
         var report = await verifier.VerifyAsync(new SetupVerificationContext(plan), TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupCheckStatus.Amber, report.Overall);
-        // Five pure checks are green (no cost). Fourteen placeholders cost 5 each, so the score is 100 - 70.
-        Assert.Equal(30, report.Score);
+        // Five pure checks are green (no cost). Eighteen placeholders cost 5 each, so the score is 100 - 90.
+        Assert.Equal(10, report.Score);
         Assert.Equal(SetupVerificationChecks.Pure.Count, report.Checks.Count(row => row.Status == SetupCheckStatus.Green));
         Assert.Equal(_placeholderIds, report.AmberItems.Select(item => item.Id));
     }
@@ -375,7 +401,7 @@ public sealed class SetupVerificationCatalogueTests
     public async Task The_fixture_report_completes_only_when_every_amber_item_is_acknowledged()
     {
         var verifier = new SetupVerifier(SetupVerificationChecks.All);
-        var plan = SetupPlanLoader.Load(SetupFixtures.Valid).Plan!;
+        var plan = SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).Plan!;
         var report = await verifier.VerifyAsync(new SetupVerificationContext(plan), TestContext.Current.CancellationToken);
 
         Assert.False(report.CanComplete([]));

@@ -5,7 +5,8 @@
   <ItemGroup>
     <!-- The module is platform-neutral: it talks to Windows Sandbox only through IWindowsSandboxHost (doc 50). -->
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport\Bazaar.Server.VmTransport.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Providers.Abstractions\Bazaar.Server.Providers.Abstractions.csproj" />
   </ItemGroup>
 </Project>
