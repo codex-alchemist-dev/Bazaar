@@ -45,7 +45,8 @@ public sealed class AgentVmMappingTests
 
         var info = AgentVmMapping.ToInfo(record);
 
-        Assert.Equal(new AgentVmInfo(record.Id, record.AgentId, VmGuestOs.Windows, "hyperv-name", VmRunState.Running), info);
+        Assert.Equal(new AgentVmInfo(record.Id, record.AgentId, VmGuestOs.Windows, "hyperv-name", VmRunState.Running, 2048), info);
+        Assert.Null(info!.CanSaveState);
     }
 
     [Theory]
@@ -64,4 +65,18 @@ public sealed class AgentVmMappingTests
     [Fact]
     public void A_saved_record_keeps_a_null_backend_ref_as_null() =>
         Assert.Null(AgentVmMapping.ToInfo(Record(VmState.Saved, null))!.BackendRef);
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void The_memory_comes_from_the_record_and_the_save_fact_is_passed_through(bool canSave)
+    {
+        var record = Record(VmState.Running);
+
+        var info = AgentVmMapping.ToInfo(record, canSave);
+
+        Assert.NotNull(info);
+        Assert.Equal(2048, info.MemoryMb);
+        Assert.Equal(canSave, info.CanSaveState);
+    }
 }

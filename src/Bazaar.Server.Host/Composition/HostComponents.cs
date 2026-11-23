@@ -3,14 +3,17 @@ using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
-using Bazaar.Roles;
 using Bazaar.GitHub;
+using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Orrery;
 using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Analytics;
+using Bazaar.Server.Analytics.Git;
+using Bazaar.Server.Analytics.Postgres;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Audit;
@@ -38,44 +41,48 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
+using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
-using Bazaar.Server.Interrupts;
-using Bazaar.Server.Kodo;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Identity.Kek.OpenBao;
+using Bazaar.Server.Interrupts;
+using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
-using Bazaar.Server.SignIn;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
-using Bazaar.Server.Analytics;
-using Bazaar.Server.Analytics.Git;
-using Bazaar.Server.Analytics.Postgres;
-using Bazaar.Server.ThinkingGc;
+using Bazaar.Server.TimeMachine;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
+using Bazaar.Server.SoulProfile;
 using Bazaar.Server.TalentPool.Component;
+using Bazaar.Server.ThinkingGc;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
-using Bazaar.Server.SoulProfile;
-using Bazaar.Server.Walkthrough;
 using Bazaar.Server.VmDensity;
+using Bazaar.Server.VmDensity.Vms;
 using Bazaar.Server.VmDisplay;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
+using Bazaar.Server.VmDisplay.GuestChannel;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
+using Bazaar.Server.Walkthrough;
 using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Discovery;
 using Microsoft.Extensions.Configuration;
@@ -106,6 +113,7 @@ public static class HostComponents
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
+        new OpenBaoKekComponent(),
         new GcComponent(),
         new GcMetadataComponent(),
         new ThinkingGcComponent(),
@@ -126,9 +134,13 @@ public static class HostComponents
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
+        new TimeMachineComponent(),
         new MemoryComponent(),
         new HiveComponent(),
         new CompanyKnowledgeComponent(),
+        new GeneticMemoryComponent(),
+        new ProjectsComponent(),
+        new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
         new AnalyticsGitComponent(),
@@ -155,6 +167,9 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        // The one host IRateLimiter, counted in the cache provider above and falling back to an in-process limiter (doc 15, PROPOSED). It
+        // replaces the limiters other components register with TryAdd, so it wins whatever the order.
+        new Bazaar.RateLimits.Cache.RateLimitsCacheComponent(),
         new KodoServerComponent(),
         new PresenceComponent(),
         new Bazaar.Server.Engines.EnginesComponent(),
@@ -168,6 +183,8 @@ public static class HostComponents
         // "not supported" off Windows; the KVM adapter is limited to Linux here.
         new VmDisplayComponent(),
         new VmDisplayGateComponent(),
+        // The guest source's only adapter: IDisplayGuestExec over the channel directory. No channel is registered yet, so every guest call fails.
+        new VmDisplayGuestChannelComponent(),
         new VmDisplayAuditComponent(),
         new VmDisplayAgentToolsComponent(),
         // Off unless Bazaar:VmDisplayAgentTargets:Enabled is true; until then it registers nothing and no screen tool is offered. It starts before
@@ -176,6 +193,9 @@ public static class HostComponents
         new HyperVComponent(),
         new OsLimitedComponent(new KvmComponent(), OperatingSystem.IsLinux),
         new VmDensityComponent(),
+        // Gives the governor its VM directory and control over the VM module. Every VM counts as busy until something can read exec, terminal
+        // and browser activity, so it saves nothing; nothing in the host calls the governor yet either.
+        new VmDensityVmsComponent(),
         new BrowserPoolComponent(),
         new BrowserPoolDisplayComponent(),
         new BrowserPoolLinuxHostComponent(),

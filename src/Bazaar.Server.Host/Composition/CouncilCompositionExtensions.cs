@@ -6,10 +6,10 @@ using Bazaar.Server.Host.CouncilAdapters;
 using Bazaar.Server.Host.CouncilVault;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Settings;
-using Npgsql;
 using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -67,6 +67,13 @@ public static class CouncilCompositionExtensions
         services.TryAddSingleton(sp => new SettingsCouncilOptionsProvider(sp.GetRequiredService<ISettingStore>()));
         services.Replace(ServiceDescriptor.Singleton(sp =>
             sp.GetRequiredService<SettingsCouncilOptionsProvider>().LoadAsync().GetAwaiter().GetResult()));
+        // The service builds on first use, so the settings read waits until after the data volume guard (doc 63 section 5).
+        if (services.Any(d => d.ServiceType == typeof(ICouncilService) && d.ImplementationType == typeof(CouncilService)))
+        {
+            services.Replace(ServiceDescriptor.Singleton<ICouncilService>(sp =>
+                new LazyCouncilService(() => ActivatorUtilities.CreateInstance<CouncilService>(sp))));
+        }
+
         services.TryAddSingleton<ICouncilDissentShareSource>(sp => new SettingsCouncilDissentShareSource(sp.GetRequiredService<ISettingStore>()));
         return services;
     }

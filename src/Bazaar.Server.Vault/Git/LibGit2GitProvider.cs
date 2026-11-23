@@ -31,6 +31,39 @@ public sealed class LibGit2GitProvider : IGitProvider
         }, ct).ConfigureAwait(false);
     }
 
+    public async Task<bool> DeleteMergedBranchAsync(string repoPath, string branch, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+        using var _ = await CheckoutLocks.AcquireAsync(repoPath, ct).ConfigureAwait(false);
+        return await Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            var target = repo.Branches[branch];
+            if (target is null || target.IsRemote || target.IsCurrentRepositoryHead || repo.Head.Tip is null)
+            {
+                return false;
+            }
+
+            var mergeBase = repo.ObjectDatabase.FindMergeBase(target.Tip, repo.Head.Tip);
+            if (mergeBase is null || mergeBase.Sha != target.Tip.Sha)
+            {
+                return false;
+            }
+
+            try
+            {
+                repo.Branches.Remove(target);
+            }
+            catch (LibGit2SharpException)
+            {
+                // Still checked out in a worktree: leave it for the next prune.
+                return false;
+            }
+
+            return true;
+        }, ct).ConfigureAwait(false);
+    }
+
     public Task<IReadOnlyList<WorktreeInfo>> ListWorktreesAsync(string repoPath, CancellationToken ct) =>
         Task.Run(() => (IReadOnlyList<WorktreeInfo>)ReadWorktrees(repoPath), ct);
 

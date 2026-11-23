@@ -126,4 +126,11 @@
   <x:Double x:Key="Bazaar.motion.liquid.ripple.size">160</x:Double>
   <x:Double x:Key="Bazaar.motion.liquid.ripple.duration">900</x:Double>
   <x:Double x:Key="Bazaar.motion.liquid.merge.softness">0.6</x:Double>
+  <x:Double x:Key="Bazaar.layout.sidebar.width.expanded">256</x:Double>
+  <x:Double x:Key="Bazaar.layout.sidebar.width.collapsed">48</x:Double>
+  <x:Double x:Key="Bazaar.layout.strip.height">48</x:Double>
+  <x:Double x:Key="Bazaar.layout.sheet.width">448</x:Double>
+  <x:Double x:Key="Bazaar.layout.sheet.side.width">384</x:Double>
+  <x:Double x:Key="Bazaar.material.scrim.opacity">0.4</x:Double>
+  <x:Double x:Key="Bazaar.gesture.sheet.dismiss.fraction">0.3</x:Double>
 </ResourceDictionary>

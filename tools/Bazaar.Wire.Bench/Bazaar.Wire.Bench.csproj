@@ -2,15 +2,24 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net11.0</TargetFramework>
-    <Description>Spike S-WTX codec harness (doc 90 section 10): bytes, encode and decode time and allocations per codec. A measuring tool, not shipped.</Description>
+    <Description>Spike S-WTX harness (doc 90 section 10): bytes, encode and decode time and allocations per codec, and loopback transport timings. A measuring tool, not shipped.</Description>
     <IsPackable>false</IsPackable>
     <RootNamespace>Bazaar.Wire.Bench</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <InternalsVisibleTo Include="Bazaar.Wire.Bench.Tests" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Wire.Codec.Cbor\Bazaar.Wire.Codec.Cbor.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Wire.Codec.MessagePack\Bazaar.Wire.Codec.MessagePack.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Wire.Codec.Protobuf\Bazaar.Wire.Codec.Protobuf.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Wire.Codec.MemoryPack\Bazaar.Wire.Codec.MemoryPack.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Wire.Abstractions\Bazaar.Wire.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Transport.QuicNative\Bazaar.Server.Transport.QuicNative.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Transport.QuicNative\Bazaar.Client.Transport.QuicNative.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Transport.Grpc\Bazaar.Server.Transport.Grpc.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Transport.Grpc\Bazaar.Client.Transport.Grpc.csproj" />
   </ItemGroup>
 </Project>
