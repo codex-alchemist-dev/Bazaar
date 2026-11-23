@@ -41,7 +41,7 @@ Builds the server-side graph over agent memory notes, the path from a note write
 5. A sink decorator: after `IMemoryBatchSink.CommitAsync` succeeds, the batch's notes are projected and stored.
 6. Component wiring in `ConstellationComponent`, and tests for each piece.
 
-Out of this slice (named so nobody assumes they exist): crypto-erase and retention (blocked on the per-person key table, doc 04 and doc 48), legal hold, the Hive and Company areas (doc 08 section 6), vector seeds (the embedding adapter is doc 08 WP6; retriever use is specified in "Vector seeds" below), the owner-audit trail of reads (doc 48; specified in "Owner-read access log" below, not built), HTTP and wire endpoints for the graph (specified in "Retrieval operation" below, not built), and the client view.
+Out of this slice (named so nobody assumes they exist): crypto-erase and retention (blocked on the per-person key table, doc 04 and doc 48), legal hold, the Hive and Company areas (doc 08 section 6), vector seeds (the embedding adapter is doc 08 WP6; retriever use is specified in "Vector seeds" below), the owner-audit trail of reads beyond the retrieval operation (doc 48; the durable log is built for retrieval, see "Owner-read access log" below; `get`, `list_revisions` and `export` are not built), HTTP and wire endpoints for the graph (specified in "Retrieval operation" below, not built), and the client view.
 
 ## Records
 
@@ -165,12 +165,12 @@ Audit: one entry per call, `memory.context.retrieved`, actor `agent:<id>` (or th
 
 - Contracts `MemoryContextRequest`, `MemoryContextResult`, `MemoryContextHitDto` and `MemoryContextErrorCodes` in `Bazaar.Contracts.Memory`, in `WireJsonContext`, with golden files. Hits are a separate record (`MemoryContextHitDto`: the `MemoryHitDto` fields plus `DocId`, `Score`, `Hop`, `ViaNoteId`, `Version`, `IsHistory`, `SupersededBy`) so the `memory_retrieve` shape is unchanged. `Origin` is a provenance label (`agent:<id>` for a memory note, `vault` for another doc). `Kind` is the memory kind name or the Vault doc type. `AlreadyInContext` takes note ids or doc ids.
 - `IMemoryContextService` / `MemoryContextService`. Caller from the session (`MemoryContextCaller.Agent` or `.Owner`); an agent whose body `AgentId` differs is refused `unauthorized`. Scope: `agents/<AgentId>/memory/`, plus `projects/<ProjectScope>/` when given (the turn runtime passes the turn's project; null means the private area only). Lexical seeds come from `vault_blocks.tsv` with the same SQL path filter as the vector query, then `IVaultAccess`. Quarantined (T0) notes are never packed; T1 excerpts are quoted line by line and `Labelled`; excerpts are capped at `MemoryContextOptions.ExcerptChars` (1600). `TokenBudget` and `MaxHits` of 0 take the setting; larger values are clamped. `Truncated` is true when an eligible candidate was left out by the budget or the hit limit.
-- Owner reads: every candidate the owner reads in another agent's private area is passed to `IMemoryAccessLog` when one is registered; a failing log refuses the call with `unavailable`. No durable read log table is built (see "Owner-read access log").
+- Owner reads: every candidate the owner reads in another agent's private area is passed to `IMemoryAccessLog` when one is registered; a failing log refuses the call with `unavailable`. The durable log is `IMemoryReadLog` (see "Owner-read access log"); when registered, an unloggable read is refused with `unavailable` too.
 - Audit: one `memory.context.retrieved` entry per successful call, actor `agent:<id>` or the owner actor, payload `call_id` (returned as `AuditId`), `route`, `session`, `agent_scope`, `project_scope`, `result_count`, `budget_used`, `truncated`, `lexical_only`, `lexical_only_reason`, `taint_tags` (`labelled_quoted_data` when a T1 hit is returned), `doc_ids`, `note_ids`. The key is `budget_used`, not `tokens_used`, because the shared payload guard refuses any key containing "token". A call that cannot be audited is refused with `unavailable`.
 - Settings (`MemoryContextSettings`, contributed to the registry): `memory.context.max_tokens` (2000, hard cap 8000), `memory.context.max_hits` (12, cap 50), `memory.context.max_query_chars` (2000, cap 8000), `memory.context.rate_per_agent_per_minute` (30, cap 600). The caps for query length and rate are this build's values, open for the owner with question 3. Validators refuse a value above the cap and the service clamps again. The rate limit is an in-memory sliding window per caller actor, per server process.
 - Wire command `memory.context` (`MemoryContextWireHandler`): owner principal only, because wire principals carry no agent identity; agents call the service in process. Errors are wire errors with the codes above.
 - `IVaultAccess` defaults to `VaultPathAccess` over the registered `IProjectMembership`. No production membership source exists yet, so until one is registered agents are members of no project and project scopes return nothing for them (deny by default).
-- Not built: the tier, kind, recency and decay adjustments of doc 08 section 8, the drop order of "Agent-turn wiring" item 5 beyond the packer, the turn runtime call, and the durable owner read log.
+- Not built: the tier, kind, recency and decay adjustments of doc 08 section 8, the drop order of "Agent-turn wiring" item 5 beyond the packer, and the turn runtime call.
 
 ### Agent-turn wiring [PROPOSED]
 
@@ -194,7 +194,9 @@ Retrieval scope has three layers:
 
 Nothing in this document gives an agent read access to another project's own notes, a global index of project areas, or a merged graph of project areas. The company tier is a shared area of the one graph, not a merge of projects. The Constellation view of multiple projects is a rendering concern (doc 19) and does not widen retrieval scope.
 
-### Owner-read access log [PROPOSED]
+### Owner-read access log [PROPOSED; built for retrieval as constellation migration 0003]
+
+Built: migration `0003_memory_read_log.sql` (`Bazaar.Server.Constellation`, `Sql/components/constellation`), the port `IMemoryReadLog` (`Bazaar.Constellation.Abstractions`), `PgMemoryReadLog` (INSERT-only role and triggers, `memory.owner_read` hash-chain entry per row), `AddMemoryReadLog` in the host, and `MemoryGraphRetriever`, which records one row per subject agent whose area a non-subject principal read, before the result is returned, and throws `MemoryReadLogException` (mapped to `unavailable` by `MemoryContextService`) when a row cannot be written. Not built: the `get`, `list_revisions` and `export` operations (no such read paths exist yet).
 
 Replaces the "hook" idea (a store-side extension point with no durable record) with an append-only record. Doc 08 section 8 already says every owner read of another agent's private area is logged (Q1, default confirmed by the DECIDED line "the owner reads all"), and doc 19 and doc 48 require provenance and read events in the audit log.
 

@@ -9,6 +9,7 @@ using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Memory.Context;
+using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.DevSandbox;
 using Bazaar.Server.DevSandbox.Linux;
 using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
@@ -136,6 +137,10 @@ public static class HostApplicationExtensions
             // vector seeds through the Vault query embedder when one is registered, the service and the memory.context wire command.
             Guid? constellationVault = Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null;
             services.AddMemoryContext(new MemoryContextHostOptions(constellationVault));
+
+            // The durable owner-read log (constellation/0003): owner reads of another agent's memory are recorded and hash-chained,
+            // and a read that cannot be logged is refused.
+            services.AddMemoryReadLog();
         }
 
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
