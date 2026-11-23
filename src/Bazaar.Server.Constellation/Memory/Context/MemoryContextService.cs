@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Memory;
 using Bazaar.PrivacyAudit;
+using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Retrieval;
 using Bazaar.Server.Memory.Tools;
@@ -239,11 +240,16 @@ public sealed class MemoryContextService : IMemoryContextService
                 budget,
                 new MemoryGraphOptions(MaxHops: _options.MaxHops, TopK: _options.TopK, IncludeHistory: request.IncludeHistory, ScopePrefixes: scope),
                 _options.SeedCandidates,
-                ct).ConfigureAwait(false);
+                ct,
+                new MemoryReadContext(caller.Actor, caller.Session, caller.Route)).ConfigureAwait(false);
         }
         catch (NpgsqlException)
         {
             return MemoryContextOutcome.Fail(MemoryContextErrorCodes.Unavailable, "The memory index is unavailable.");
+        }
+        catch (MemoryReadLogException)
+        {
+            return MemoryContextOutcome.Fail(MemoryContextErrorCodes.Unavailable, "The read could not be logged, so it was refused.");
         }
         catch (MemoryAccessLogException)
         {
