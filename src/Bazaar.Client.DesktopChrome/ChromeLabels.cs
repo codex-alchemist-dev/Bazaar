@@ -1,29 +1,52 @@
+using Bazaar.Localisation;
+
 namespace Bazaar.Client.DesktopChrome;
 
-/// <summary>Accessible names and visible text of the chrome. English defaults; a head passes localised text from its locale source.</summary>
-public sealed record ChromeLabels
+/// <summary>
+/// Accessible names and visible text of the chrome, resolved from message ids (<see cref="ChromeKeys"/>) through a locale's lookup chain.
+/// Immutable: a locale change produces a new instance (see <see cref="ChromeLabelSource"/>). <see cref="Default"/> is English.
+/// </summary>
+public sealed class ChromeLabels
 {
-    public string SidebarName { get; init; } = "Group chats";
+    private readonly LocalisedText _text;
 
-    public string CollapseSidebar { get; init; } = "Collapse sidebar";
+    private ChromeLabels(string locale, LocalisedText text)
+    {
+        Locale = locale;
+        _text = text;
+    }
 
-    public string ExpandSidebar { get; init; } = "Expand sidebar";
+    /// <summary>English, the source locale.</summary>
+    public static ChromeLabels Default { get; } = For("en");
 
-    public string NoGroupChat { get; init; } = "No group chat selected";
+    /// <summary>The locale these labels were resolved for.</summary>
+    public string Locale { get; }
 
-    public string StripName { get; init; } = "Current group chat";
+    public string SidebarName => _text.Resolve(ChromeKeys.SidebarName);
 
-    public string StatusName { get; init; } = "Status";
+    public string CollapseSidebar => _text.Resolve(ChromeKeys.SidebarCollapse);
 
-    public string CloseSheet { get; init; } = "Close";
+    public string ExpandSidebar => _text.Resolve(ChromeKeys.SidebarExpand);
 
-    /// <summary>Spoken when a sheet opens; {0} is its title.</summary>
-    public string SheetOpenedFormat { get; init; } = "{0}, dialog opened";
+    public string NoGroupChat => _text.Resolve(ChromeKeys.StripNoGroupChat);
 
-    /// <summary>Spoken when a sheet closes; {0} is its title.</summary>
-    public string SheetClosedFormat { get; init; } = "{0} closed";
+    public string StripName => _text.Resolve(ChromeKeys.StripName);
 
-    public string SheetGrip { get; init; } = "Drag to dismiss";
+    public string StatusName => _text.Resolve(ChromeKeys.StripStatus);
 
-    public static ChromeLabels Default { get; } = new();
+    public string CloseSheet => _text.Resolve(ChromeKeys.SheetClose);
+
+    public string SheetGrip => _text.Resolve(ChromeKeys.SheetGrip);
+
+    /// <summary>Spoken when a sheet opens.</summary>
+    public string SheetOpened(string title) => _text.ResolveIcu(ChromeKeys.SheetOpened, TitleArgs(title));
+
+    /// <summary>Spoken when a sheet closes.</summary>
+    public string SheetClosed(string title) => _text.ResolveIcu(ChromeKeys.SheetClosed, TitleArgs(title));
+
+    /// <summary>Labels for <paramref name="locale"/>, using any catalogues the head supplies and falling back to English.</summary>
+    public static ChromeLabels For(string locale, IEnumerable<MessageCatalog>? additional = null) =>
+        new(locale, ChromeCatalog.ChainFor(locale, additional));
+
+    private static Dictionary<string, object?> TitleArgs(string title) => new() { [ChromeKeys.TitleArgument] = title };
 }

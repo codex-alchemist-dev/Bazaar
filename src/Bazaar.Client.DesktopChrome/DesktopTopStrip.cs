@@ -18,7 +18,7 @@ public sealed class DesktopTopStrip
 {
     private readonly ChromeTheme _theme;
     private readonly ChromeMotion _motion;
-    private readonly ChromeLabels _labels;
+    private ChromeLabels _labels;
     private readonly ProgressAnimator _fade;
     private readonly Border _surface;
     private readonly TextBlock _title;
@@ -65,6 +65,20 @@ public sealed class DesktopTopStrip
 
     /// <summary>The control to place in the window.</summary>
     public Control View => _surface;
+
+    /// <summary>The names and text in use. Setting it (a locale change) renames the controls and the placeholder at once.</summary>
+    public ChromeLabels Labels
+    {
+        get => _labels;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _labels = value;
+            AutomationProperties.SetName(StatusSlot, _labels.StatusName);
+            AutomationProperties.SetName(_surface, _labels.StripName);
+            ShowTitle();
+        }
+    }
 
     /// <summary>The trailing slot for status chips and indicators.</summary>
     public Border StatusSlot { get; }
