@@ -6,6 +6,9 @@ using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Chat.Abstractions;
@@ -63,6 +66,8 @@ internal sealed class LinuxHead : IAsyncDisposable
 {
     private static readonly JsonElement _emptyModel = JsonElement.Parse("{}");
 
+    private const string AthanorFlag = "--athanor";
+
     private readonly ContentControl _slot = new();
     private readonly CommandRunner _commands = new();
     private readonly LatePaneSurface _surface = new();
@@ -71,6 +76,9 @@ internal sealed class LinuxHead : IAsyncDisposable
     private readonly LinuxHeadOptions _options;
     private readonly UpdateNoticeBanner _banner;
     private readonly UpdateRestart _restart;
+    private readonly AthanorEditorServices? _athanor;
+    private readonly EditorThemeSync? _themeSync;
+    private readonly AthanorPaneModule? _athanorModule;
     private int _disposed;
 
     private LinuxHead(LinuxHeadOptions options)
@@ -89,7 +97,10 @@ internal sealed class LinuxHead : IAsyncDisposable
         }
 
         Directory.CreateDirectory(options.Paths.StateDirectory);
-        var modules = LinuxModules.Create();
+        // --athanor shows the editor pane (doc 57 section 2.2). The editor is composed only then, so a normal start pays nothing for it.
+        var showAthanor = options.Args.Contains(AthanorFlag, StringComparer.Ordinal);
+        _athanorModule = showAthanor ? new AthanorPaneModule() : null;
+        var modules = _athanorModule is null ? LinuxModules.Create() : [.. LinuxModules.Create(), _athanorModule];
         Preferences = new PreferenceStore(
             modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
             new FilePreferenceStorage(options.Paths.PreferencesFile, log));
@@ -116,6 +127,18 @@ internal sealed class LinuxHead : IAsyncDisposable
             modules.OfType<IClientModule>().Append(new LinuxHeadModule()).Append(new SupportBundleClientModule()),
             ClientHostFacts.Current(),
             log);
+        if (showAthanor)
+        {
+            // The hosts are Avalonia controls, so this runs here on the UI thread; the commands the loaded modules contributed build the claimed-key table.
+            var athanorOptions = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, options.Paths.StateDirectory);
+            _athanor = AthanorHeadComposition.Create(athanorOptions, options.Settings, Loaded.Commands, log);
+            _themeSync = AthanorHeadComposition.StartTheme(athanorOptions, _athanor, log).Sync;
+            context = context
+                .With<IEditorHost>(_athanor.Host)
+                .With<IEditorFileSource>(_athanor.Source)
+                .With<IEditorDraftStore>(_athanor.Drafts);
+        }
+
         var loadedIds = Loaded.Loaded.Select(m => m.Id).ToHashSet(StringComparer.Ordinal);
         var shipped = modules.Where(m => m is not IClientModule client || loadedIds.Contains(client.Manifest.Id));
         Registry = CalcinatoTerminalPanes.Compose(PaneViews.Instance, shipped, context, _terminals);
@@ -132,6 +155,7 @@ internal sealed class LinuxHead : IAsyncDisposable
         _banner.Show(options.Updates.Coordinator.Notice);
         options.Updates.Coordinator.NoticeChanged += _banner.Show;
         Show(InitialKind(options));
+        RegisterAthanorCommands();
         if (FirstRunScreens.TryBuild(options.Args) is { } firstRun)
         {
             Window.Content = firstRun;
@@ -199,9 +223,15 @@ internal sealed class LinuxHead : IAsyncDisposable
         }
 
         _options.Updates.Coordinator.NoticeChanged -= _banner.Show;
+        _themeSync?.Dispose();
         if (_chat is not null)
         {
             await _chat.DisposeAsync().ConfigureAwait(false);
+        }
+
+        if (_athanor is not null)
+        {
+            await _athanor.DisposeAsync().ConfigureAwait(false);
         }
 
         await _terminals.DisposeAsync().ConfigureAwait(false);
@@ -209,7 +239,8 @@ internal sealed class LinuxHead : IAsyncDisposable
 
     // With dev chat settings the window opens on the GC pane; otherwise on the Dashboard (doc 28). --terminal opens the terminal.
     private static string InitialKind(LinuxHeadOptions options) =>
-        options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
+        options.Args.Contains(AthanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
+        : options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
         : options.Args.Contains("--cold-archive", StringComparer.Ordinal) ? PaneKinds.ColdArchive
         : options.Settings is not null ? GcPaneViewModel.PaneKind
         : PaneKinds.Dashboard;
@@ -267,6 +298,28 @@ internal sealed class LinuxHead : IAsyncDisposable
         foreach (var command in DefaultTerminalCommands.All)
         {
             _commands.Register(command.Id, ct => ReportAsync(command.Title, id => DefaultTerminalCommands.RunAsync(id, new XdgDefaultTerminalRegistrar(new DefaultTerminalSettings { ExecPath = ExecPath() }, new SystemProcessRunner()), ct), command.Id));
+        }
+    }
+
+    // The editor commands (edopen, ednew, edsave, eddiff) are typed text plus Enter, no Ctrl chord; the dispatcher carries them out and gives the open and new prompts a window.
+    private void RegisterAthanorCommands()
+    {
+        if (_athanorModule is null)
+        {
+            return;
+        }
+
+        var dispatcher = AthanorHeadComposition.CreateDispatcher(Window, _athanorModule);
+        foreach (var command in Loaded.Commands.Where(c => AthanorCommandHandler.Handles(c.Id)))
+        {
+            _commands.Register(command.Id, async ct =>
+            {
+                var result = await dispatcher.DispatchAsync(command.Id, ct).ConfigureAwait(true);
+                if (result.Notice is { } notice)
+                {
+                    _options.Log($"Command {command.Id}: {notice}");
+                }
+            });
         }
     }
 

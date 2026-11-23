@@ -7,6 +7,11 @@ using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Drafts;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
+using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
@@ -94,7 +99,8 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
-        var modules = WindowsModules.Create();
+        var athanorModule = new AthanorPaneModule();
+        var modules = WindowsModules.Create(athanorModule);
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the registry and the window exist; until then a pane cannot be shown. Preferences stay on this device until a wire sync is attached.
         var paneSurface = new LatePaneSurface();
@@ -118,12 +124,11 @@ internal static class Program
         // Every module's manifest is checked the same way (doc 41 section 8); a module that fails adds nothing.
         var loaded = ClientModuleHost.Load(modules.OfType<IClientModule>().Append(new SupportBundleClientModule()), ClientHostFacts.Current(), Console.Error.WriteLine);
         var shipped = loaded.Only(modules);
-        var registry = FirstPartyPanes.CreateRegistry(
-            shipped,
-            report: message => Console.Error.WriteLine($"Bazaar: {message}"),
-            features: features);
-        CalcinatoTerminalPanes.RegisterView(registry);
         var showPanes = args.Contains("--panes", StringComparer.Ordinal);
+        var showAthanor = args.Contains("--athanor", StringComparer.Ordinal);
+        AthanorEditorServices? athanor = null;
+        EditorThemeSync? themeSync = null;
+        var athanorOptions = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, AthanorHeadComposition.DefaultDataDirectory());
         var preloadStart = PreloadArguments.IsPreload(args);
         if (!preloadStart)
         {
@@ -143,6 +148,20 @@ internal static class Program
                 chat = ChatHost.Start(chatSettings, new FileCursorStore(CursorPath()), "windows", "bazaar-windows", action => Dispatcher.UIThread.Post(action), Console.Error.WriteLine);
             }
 
+            // The registry is built here, on the UI thread, because the editor hosts are Avalonia controls (doc 57 section 2.2).
+            // The editor is composed only for --athanor, so a normal start pays nothing for the WebView2 probe (doc 40 budgets).
+            if (showAthanor)
+            {
+                athanor = AthanorHeadComposition.Create(athanorOptions, chatSettings, loaded.Commands, Console.Error.WriteLine);
+                themeSync = AthanorHeadComposition.StartTheme(athanorOptions, athanor, Console.Error.WriteLine).Sync;
+            }
+
+            var registry = FirstPartyPanes.CreateRegistry(
+                shipped,
+                report: message => Console.Error.WriteLine($"Bazaar: {message}"),
+                features: WithEditor(features, athanor));
+            CalcinatoTerminalPanes.RegisterView(registry);
+
             // The warm process (doc 40) builds the window hidden; a forwarded launch shows it.
             var window = LauncherHost.HideWhenPreloading(chat is null ? new MainWindow() : new MainWindow(chat.View), preloadStart);
             if (FirstRunScreens.TryBuild(args) is { } firstRun)
@@ -150,7 +169,11 @@ internal static class Program
                 window.Content = firstRun;
             }
 
-            if (showPanes)
+            if (showAthanor)
+            {
+                window.ShowPanes([AthanorPaneModule.WindowPane], registry);
+            }
+            else if (showPanes)
             {
                 window.ShowPanes([RyuseiFudaPanes.WindowPane, ConstellationPaneModule.WindowPane], registry);
             }
@@ -164,7 +187,14 @@ internal static class Program
             // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
             window.Opened += async (_, _) =>
             {
-                var head = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                // The editor commands (edopen, ednew, edsave, eddiff) are typed text plus Enter, no Ctrl chord; with --athanor they run through the editor's dispatcher.
+                var dispatcher = showAthanor ? AthanorHeadComposition.CreateDispatcher(window, athanorModule) : null;
+                var head = await MnemonicHeadHost.AttachAsync(
+                    window,
+                    Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"),
+                    loaded.Commands,
+                    dispatcher: dispatcher,
+                    log: Console.Error.WriteLine);
                 // "Save support bundle" (doc 37 section 4d): written off the UI thread, then the path goes to the client log.
                 head.Shell.CommandInvoked += (_, id) =>
                 {
@@ -183,7 +213,9 @@ internal static class Program
         }
         finally
         {
+            themeSync?.Dispose();
             chat?.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            athanor?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             studio?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             terminals.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
@@ -210,6 +242,35 @@ internal static class Program
             return features;
         }
     }
+
+    /// <summary>
+    /// The services the head hands the feature modules for the editor. Without <paramref name="athanor"/> the editor is the plain-text
+    /// host over the offline source, which costs nothing at start; with it (<c>--athanor</c>) the editor is what
+    /// <see cref="AthanorHeadComposition"/> chose (doc 57 section 2.2).
+    /// </summary>
+    internal static PaneModuleContext WithEditor(PaneModuleContext context, AthanorEditorServices? athanor) =>
+        athanor is null
+            ? context
+                .With<IEditorHost>(new PlainTextFallbackHost())
+                .With<IEditorFileSource>(new OfflineEditorFileSource())
+                .With<IEditorDraftStore>(new FileEditorDraftStore(AthanorDraftsPath(), TimeProvider.System))
+            : context
+                .With<IEditorHost>(athanor.Host)
+                .With<IEditorFileSource>(athanor.Source)
+                .With<IEditorDraftStore>(athanor.Drafts);
+
+    /// <summary>The services the head hands the feature modules, with the editor services from <see cref="WithEditor"/>.</summary>
+    internal static PaneModuleContext CreateFeatures(IConstellationTileSource? tiles, AthanorEditorServices? athanor = null)
+    {
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var context = WithEditor(new PaneModuleContext(), athanor)
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current);
+        return tiles is null ? context : context.With(tiles);
+    }
+
+    private static string AthanorDraftsPath() =>
+        Path.Combine(AthanorHeadComposition.DefaultDataDirectory(), "athanor-drafts");
 
     /// <summary>
     /// Chat settings from the environment. <c>--dev-gc</c> overrides <c>BAZAAR_GC</c> for this run. Null means no chat is configured.

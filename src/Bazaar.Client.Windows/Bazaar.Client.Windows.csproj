@@ -16,6 +16,9 @@
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Client.Windows.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
@@ -33,6 +36,12 @@
     <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Studio\Bazaar.Client.Studio.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor\Bazaar.Client.Athanor.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.AvaloniaEdit\Bazaar.Client.Athanor.AvaloniaEdit.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.WebView2\Bazaar.Client.Athanor.WebView2.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
+    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Settings.Avalonia\Bazaar.Client.Settings.Avalonia.csproj" />
