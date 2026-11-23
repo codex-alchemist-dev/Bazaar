@@ -15,11 +15,17 @@ public static class WireStreams
     /// <summary>Presence state.</summary>
     public const string Presence = "presence";
 
+    /// <summary>Kodo health state (doc 46, section 15.2).</summary>
+    public const string Kodo = "kodo";
+
     /// <summary>Server-driven UI state.</summary>
     public const string Ui = "ui";
 
     /// <summary>Server-streamed agent terminal panes.</summary>
     public const string Pane = "pane";
+
+    /// <summary>Prefix of a terminal pane stream (<c>pane:&lt;terminalId&gt;</c>).</summary>
+    public const string PanePrefix = "pane:";
 
     /// <summary>Pending owner and Tier 2 decisions.</summary>
     public const string Approvals = "approvals";
@@ -34,6 +40,44 @@ public static class WireStreams
         return stream is not null
             && stream.StartsWith(GcPrefix, StringComparison.Ordinal)
             && Guid.TryParseExact(stream.AsSpan(GcPrefix.Length), "D", out gcId);
+    }
+
+    /// <summary>The stream name for a terminal pane.</summary>
+    /// <exception cref="ArgumentException"><paramref name="terminalId"/> is not a valid terminal id.</exception>
+    public static string Terminal(string terminalId)
+    {
+        if (!IsValidTerminalId(terminalId))
+        {
+            throw new ArgumentException("A terminal id is 1 to 64 characters: letters, digits, '_' or '-'.", nameof(terminalId));
+        }
+
+        return PanePrefix + terminalId;
+    }
+
+    /// <summary>Reads the terminal id out of a <c>pane:&lt;terminalId&gt;</c> stream name.</summary>
+    public static bool TryParseTerminal(string? stream, out string terminalId)
+    {
+        terminalId = string.Empty;
+        if (stream is null || !stream.StartsWith(PanePrefix, StringComparison.Ordinal)) return false;
+
+        var id = stream[PanePrefix.Length..];
+        if (!IsValidTerminalId(id)) return false;
+
+        terminalId = id;
+        return true;
+    }
+
+    /// <summary>True when <paramref name="terminalId"/> is 1 to 64 characters, each an ASCII letter, digit, <c>_</c> or <c>-</c>.</summary>
+    public static bool IsValidTerminalId(string? terminalId)
+    {
+        if (string.IsNullOrEmpty(terminalId) || terminalId.Length > 64) return false;
+
+        foreach (var c in terminalId)
+        {
+            if (!char.IsAsciiLetterOrDigit(c) && c is not ('_' or '-')) return false;
+        }
+
+        return true;
     }
 
     /// <summary>The stream name for a graph.</summary>

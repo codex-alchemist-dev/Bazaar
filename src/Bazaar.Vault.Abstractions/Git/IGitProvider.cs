@@ -42,6 +42,13 @@ public interface IGitProvider
     /// Removes the administrative data of stale worktrees (directory missing, not locked). Returns the names pruned.
     /// Worktree directories that still exist are never touched.
     /// </summary>
+    /// <summary>
+    /// Deletes a local branch that is fully merged into HEAD, so no commit is lost, and returns whether it was deleted. A branch that
+    /// is missing, checked out in a worktree, or not merged is left alone and returns false. The default does nothing, so a fake
+    /// that does not model branches keeps working.
+    /// </summary>
+    Task<bool> DeleteMergedBranchAsync(string repoPath, string branch, CancellationToken ct) => Task.FromResult(false);
+
     Task<IReadOnlyList<string>> PruneWorktreesAsync(string repoPath, CancellationToken ct);
 
     /// <summary>
