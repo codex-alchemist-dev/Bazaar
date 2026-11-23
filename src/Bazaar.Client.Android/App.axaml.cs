@@ -9,6 +9,8 @@ using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Android.Annotation;
 using Bazaar.Client.Android.Approvals;
 using Bazaar.Client.Android.Wire;
+using Bazaar.Client.BackStack;
+using Bazaar.Client.BackStack.Abstractions;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.TalentPool;
@@ -20,6 +22,7 @@ using Bazaar.Client.Analytics;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.PhoneCoach;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
@@ -28,15 +31,15 @@ using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
 using Bazaar.Client.Motion;
 using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Navigation;
 using Bazaar.Client.Navigation.Abstractions;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Org;
-using Bazaar.Client.Panes.Abstractions;
-using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.RyuseiFuda.Phone;
-using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
 using Bazaar.Contracts.Panes;
 using Bazaar.Client.Vault;
@@ -90,6 +93,7 @@ public sealed class App : Avalonia.Application
     public static PolledOsReducedMotionSource? ReducedMotion { get; private set; }
 
     private VisualSettingsBinder? _visual;
+    private ClientSettingsStore? _clientSettings;
 
     // The person's materials and motion level from the client settings file, the animator scale ("Remove animations") as the OS
     // flag, and the frame-budget monitor (doc 93). The phone shell has no window chrome and no theme switch yet, so no chrome binds.
@@ -97,7 +101,9 @@ public sealed class App : Avalonia.Application
     {
         var context = global::Android.App.Application.Context;
         string directory = context.FilesDir?.AbsolutePath ?? Path.GetTempPath();
-        var settings = new ClientSettingsStore(VisualSettings.Definitions, Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        // The coach's seen flag lives in the same file, so it survives restarts with the visual settings (doc 93).
+        var settings = new ClientSettingsStore([.. VisualSettings.Definitions, .. CoachController.Definitions], Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        _clientSettings = settings;
         var materials = new AndroidMaterialEnvironmentSource(context);
         ReducedMotion = AndroidReducedMotion.Create(context);
         _visual?.Dispose();
@@ -212,7 +218,13 @@ public sealed class App : Avalonia.Application
                 kind => GcPaneModule.PhoneBody(kind, registry),
                 kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
-            settings.RadialSectors);
+            settings.RadialSectors,
+            // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
+            // push as their screens land, and back then runs the predictive transition (doc 93).
+            history: new ScreenHistory(new ScreenEntry("chat")),
+            backSource: MainActivity.Current?.BackGestures,
+            settings: _clientSettings);
+        shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
         paneSurface.Bind(
             registry.Contains,
             (kind, _) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

@@ -3,10 +3,15 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.BackStack.Abstractions;
+using Bazaar.Client.Gestures;
 using Bazaar.Client.Gestures.Avalonia;
 using Bazaar.Client.Motion;
 using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.PhoneCoach;
+using Bazaar.Client.PhoneCoach.Avalonia;
+using Bazaar.Client.Settings;
 
 namespace Bazaar.Client.Mobile;
 
@@ -15,7 +20,7 @@ namespace Bazaar.Client.Mobile;
 /// by side per page (doc 29). The pane list comes from the <see cref="PaneRegistry"/> in registration order.
 /// Pane bodies are placeholders that name the pane until the GC and Kanban panes plug in.
 /// </summary>
-public sealed class PhoneShell : UserControl
+public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
 {
     private readonly PaneRegistry _registry;
     private readonly Func<string, Control?>? _paneBody;
@@ -23,6 +28,11 @@ public sealed class PhoneShell : UserControl
     private readonly SpringTranslateAnimator _settle;
     private IReadOnlyList<IReadOnlyList<string>> _pages = [];
     private IReadOnlyList<string>? _profileKinds;
+    private readonly IScreenHistory? _history;
+    private readonly ScreenStackPresenter? _presenter;
+    private readonly ChatNameStrip _strip;
+    private readonly PeekEdges _peek;
+    private readonly Func<IReadOnlyList<string>, string> _pageTitle;
 
     /// <param name="registry">The panes to page through, in order.</param>
     /// <param name="paneBody">Returns the real view for a pane kind, or null to show the kind-name placeholder.</param>
@@ -31,7 +41,15 @@ public sealed class PhoneShell : UserControl
     /// <param name="radialSectors">The radial menu's sectors, in order. Null uses the doc 29 default seven.</param>
     /// <param name="motion">The motion level and tokens; null uses the phone defaults. At the reduced level swipes settle without animation.</param>
     /// <param name="frames">Animation frames for the spring settle; null uses the pager's top level.</param>
-    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null, MotionSettings? motion = null, IFrameDriver? frames = null)
+    /// <param name="history">The back stack. With one, screens pushed on it show over the pager and system back pops them with the predictive transition (doc 93). Null keeps the shell a plain pager.</param>
+    /// <param name="screenView">Returns the view for a pushed stack entry, or null for a placeholder. Used only with <paramref name="history"/>.</param>
+    /// <param name="backSource">The system back gesture. Null wires no system back; <see cref="GoBack"/> still pops.</param>
+    /// <param name="backSettings">Predictive back thresholds; null uses the doc 93 defaults.</param>
+    /// <param name="settings">The client settings. With them the shell shows the first-run coach once and records it as seen (<see cref="CoachSettingKeys.Seen"/>, registered through <see cref="CoachController.Definitions"/>). Null shows no coach.</param>
+    /// <param name="pageTitle">The name the top strip shows for a page, from its pane kinds. Null joins the kinds with a comma.</param>
+    /// <param name="coachOptions">Strip, peek and coach sizes; null uses the defaults.</param>
+    /// <param name="coachSteps">The coach prompts, for localised text; null uses the English defaults.</param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, IHaptics? haptics = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IClientSettings? settings = null, Func<IReadOnlyList<string>, string>? pageTitle = null, PhoneCoachOptions? coachOptions = null, IReadOnlyList<CoachStep>? coachSteps = null)
     {
         ArgumentNullException.ThrowIfNull(registry);
         _registry = registry;
@@ -43,7 +61,9 @@ public sealed class PhoneShell : UserControl
         // The gesture layer wraps the pager and is the last child, so DockPanel gives it the remaining height.
         Gestures = new PhoneGestureLayer(_pager, radialSectors, gestures, haptics);
         // The page follows the finger, then settles with the Fluid spring from the release velocity (doc 93, package 4).
-        _settle = new SpringTranslateAnimator(_pager, frames ?? new TopLevelFrameDriver(_pager), motion ?? new MotionSettings(MotionPlatform.Phone));
+        var frameDriver = frames ?? new TopLevelFrameDriver(_pager);
+        var motionSettings = motion ?? new MotionSettings(MotionPlatform.Phone);
+        _settle = new SpringTranslateAnimator(_pager, frameDriver, motionSettings);
         Gestures.SwipeProgressed += (_, dx) => _settle.Follow(dx);
         Gestures.SwipeCancelled += (_, _) => _settle.Cancel();
         Gestures.SwipeCommitted += (_, direction) =>
@@ -61,8 +81,74 @@ public sealed class PhoneShell : UserControl
         };
         Gestures.DictationChanged += (_, on) => DictationChanged?.Invoke(this, on);
         Gestures.RadialReleased += (_, release) => RadialReleased?.Invoke(this, release);
-        Content = new DockPanel { Children = { title, Gestures } };
+        _pageTitle = pageTitle ?? (kinds => string.Join(", ", kinds));
+        var options = coachOptions ?? PhoneCoachOptions.Default;
+        // The strip names the chats and the peek edges show the neighbours, so a swipe is visible before the finger moves (doc 93).
+        _strip = new ChatNameStrip(options);
+        _strip.Selected += (_, index) => GoToPage(index);
+        DockPanel.SetDock(_strip, Dock.Top);
+        _peek = new PeekEdges(options);
+        var body = new Grid { Children = { Gestures, _peek } };
+        var main = new DockPanel { Children = { title, _strip, body } };
+        var root = new Grid { Children = { main } };
+        if (settings is not null)
+        {
+            Coach = new CoachController(settings, coachSteps);
+            root.Children.Add(new CoachOverlay(Coach, motionSettings, frameDriver, options));
+        }
+
+        Content = root;
+        _pager.SelectionChanged += (_, _) => RefreshStrip();
         BuildPages();
+
+        if (history is not null)
+        {
+            _history = history;
+            _presenter = new ScreenStackPresenter(body, Gestures, history, screenView ?? (_ => null), backSource, frameDriver, motionSettings, backSettings);
+            history.Changed += (_, _) =>
+            {
+                // A pushed screen covers the pager, so the pager's strip and peek edges go with it.
+                _strip.IsVisible = !history.CanPop;
+                _peek.IsVisible = !history.CanPop;
+                CanGoBackChanged?.Invoke(this, history.CanPop);
+            };
+        }
+    }
+
+    /// <summary>The first-run coach state, or null when the shell was built without client settings. The settings screen calls <see cref="CoachController.Replay"/> on it.</summary>
+    public CoachController? Coach { get; }
+
+    /// <summary>The top chat-name strip.</summary>
+    public ChatNameStrip Strip => _strip;
+
+    /// <summary>The peek edges over the pager.</summary>
+    public PeekEdges Peek => _peek;
+
+    /// <summary>
+    /// The pager's custom accessibility actions (Next chat, Previous chat, Open menu), current for the page on screen. The head maps them to TalkBack
+    /// custom actions and refreshes them on <see cref="AccessibilityActionsChanged"/>; each calls the same code a gesture does.
+    /// </summary>
+    public IReadOnlyList<PagerAction> AccessibilityActions => PagerAccessibility.Build(this);
+
+    /// <summary>Raised after the page or the page list changes, so the head can refresh the enabled actions.</summary>
+    public event EventHandler? AccessibilityActionsChanged;
+
+    /// <summary>The "Open menu" action was used (or a head asked for the menu without a hold). The head shows the radial sectors as a standard action list.</summary>
+    public event EventHandler? MenuRequested;
+
+    /// <inheritdoc />
+    int IPagerNavigator.PageCount => _pages.Count;
+
+    /// <inheritdoc />
+    public bool OpenMenu()
+    {
+        if (MenuRequested is not { } handler)
+        {
+            return false;
+        }
+
+        handler(this, EventArgs.Empty);
+        return true;
     }
 
     /// <summary>The swipe and hold layer over the pager. Heads and tests reach the radial overlay through it.</summary>
@@ -73,6 +159,24 @@ public sealed class PhoneShell : UserControl
 
     /// <summary>The radial menu was released: a sector to open, a transcript to place in the composer, or a cancel.</summary>
     public event EventHandler<RadialRelease>? RadialReleased;
+
+    /// <summary>The back stack, or null when the shell was built without one.</summary>
+    public IScreenHistory? History => _history;
+
+    /// <summary>The predictive back host over the top two screens, or null at the root (or without a stack).</summary>
+    public PredictiveBackHost? BackHost => _presenter?.BackHost;
+
+    /// <summary>The view on top: the pager at the root, otherwise the pushed screen's view.</summary>
+    public Control CurrentScreenView => _presenter?.CurrentView ?? Gestures;
+
+    /// <summary>True when back would pop a screen. The head enables its system back callback only while this is true, so back at the root leaves the app.</summary>
+    public bool CanGoBack => _history?.CanPop ?? false;
+
+    /// <summary>Raised with the new <see cref="CanGoBack"/> after the stack changes.</summary>
+    public event EventHandler<bool>? CanGoBackChanged;
+
+    /// <summary>Pops the top screen at once (no transition). Returns false at the root. Also the route for the accessibility back action.</summary>
+    public bool GoBack() => _history?.Pop() ?? false;
 
     public LayoutVariant Layout { get; private set; } = LayoutVariant.Folded;
 
@@ -92,6 +196,9 @@ public sealed class PhoneShell : UserControl
 
     /// <summary>Shows the previous page. Returns false on the first page. Also the route for the accessibility action "Previous chat".</summary>
     public bool GoToPrevious() => Step(-1);
+
+    /// <summary>Stops listening to the back stack and the system back gesture.</summary>
+    public void Dispose() => _presenter?.Dispose();
 
     private bool Step(int delta)
     {
@@ -183,6 +290,7 @@ public sealed class PhoneShell : UserControl
         if (_pages.Count == 0)
         {
             _pager.Items.Add(new TextBlock { Text = "No panes yet", Margin = new Thickness(16), FontSize = 16 });
+            RefreshStrip();
             return;
         }
 
@@ -192,6 +300,15 @@ public sealed class PhoneShell : UserControl
         }
 
         _pager.SelectedIndex = 0;
+        RefreshStrip();
+    }
+
+    private void RefreshStrip()
+    {
+        var state = ChatStrip.From(_pages.Select(_pageTitle).ToList(), SelectedPage);
+        _strip.Update(state);
+        _peek.Update(state);
+        AccessibilityActionsChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private Grid PageView(IReadOnlyList<string> kinds)

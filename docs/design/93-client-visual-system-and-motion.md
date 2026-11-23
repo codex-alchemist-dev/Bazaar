@@ -35,7 +35,8 @@ Owner picks, 2026-11-22 (project thread "Design desktop and mobile GUI in detail
 - Hold empty space for 400 ms: radial, dictation at the centre (doc 29). Hold the composer: dictation. Composer placeholder reads "Hold to dictate".
 - Sheets drag with the finger and snap at half and full height.
 - Top strip: the chat names, current one highlighted, tappable.
-- First run shows two short prompts (swipe, then hold) once; they can be replayed from settings.
+- First run shows two short prompts (swipe, then hold) once; they can be replayed from settings. "Seen" is the client setting `client.phone_coach_seen`; replaying does not clear it. Skip, Escape and "Got it" all dismiss. The card enters by the motion level (a fade of 90 ms or less when reduced, an ease with a slight scale otherwise).
+- The strip lists every chat name sideways-scrollable, so the current one is centred and its neighbours peek in; a chevron toward each neighbour hints the swipe. A few dp of the neighbouring page also shows at the pager's edge (`PeekEdges`). Sizes are options, colours are theme tokens (`Bazaar.Strip.*`, `Bazaar.Coach.*`, `Bazaar.Accent`).
 - **Accessibility:** gestures are never the only route. The pager exposes custom accessibility actions (Next chat, Previous chat, Open menu). Under TalkBack the radial is presented as a standard action list with the same sectors. Swipe recognition ignores the outer 24 dp so the system back gesture wins. This adds to, and does not replace, the doc 29 spike list.
 
 ### Predictive back [PROPOSED; platform support unverified]
@@ -150,6 +151,7 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 | `client.motion_level` | enum liquid, subtle, reduced (OS reduced-motion forces reduced) | liquid on phone, subtle on desktop | person | person | no |
 | `android.haptics` | bool | on | person | person | no |
 | `android.gesture_edge_dp` | int | 24 (floor 16) | install | operator | no |
+| `client.phone_coach_seen` | bool | false | person | person | no |
 
 ## Behaviour and edge cases
 - A window moved between displays keeps its theme and re-evaluates material support.
