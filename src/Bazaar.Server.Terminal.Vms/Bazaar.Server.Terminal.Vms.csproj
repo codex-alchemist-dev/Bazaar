@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- An adapter between two ports: the terminal module's guest PTY seam and the guest transport's channel directory. No Bazaar.Server, no Bazaar.Server.Terminal, no Bazaar.Server.Vms. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Terminal.Abstractions\Bazaar.Server.Terminal.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

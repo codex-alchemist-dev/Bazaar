@@ -4,4 +4,8 @@
     <RootNamespace>Bazaar.Client.Theme</RootNamespace>
     <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="BuiltIn\dark.theme.json" LogicalName="Bazaar.Client.Theme.BuiltIn.dark.theme.json" />
+    <EmbeddedResource Include="Themes\*.theme.json" LogicalName="Bazaar.Client.Theme.Themes.%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

@@ -1,19 +1,28 @@
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
+using Bazaar.Server.Gateway.Catalogue;
+using Bazaar.Server.Gateway.ClaudeLane;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Health;
 using Bazaar.Server.Gateway.Pipeline;
 using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Secrets;
+using Bazaar.Server.Gateway.Selection;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
+using Bazaar.Server.Providers.ClaudeCode;
 using Bazaar.Server.Secrets;
+using Bazaar.Server.Settings;
+using Bazaar.Server.Setup.FirstRun.Gateway;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -53,31 +62,96 @@ public static class GatewayCompositionExtensions
         // TODO(component): the sidecar's hosted service must start before the FreeLLMAPI component's startup key check, so a managed sidecar has written the unified key first.
         services.AddBazaarFreeLlmApiSidecar();
         services.TryAddSingleton<AgentModelPolicyRepository>();
+        services.TryAddSingleton<Bazaar.Server.Skimmer.IGatekeeperPolicySeed, GatekeeperPolicySeedAdapter>();
+
+        // The Claude Code terms acceptance lives in settings when a settings store exists; the component's in-memory store is the fallback.
+        services.TryAddSingleton<IClaudeCodeAcknowledgementStore>(sp =>
+            sp.GetService<Bazaar.Server.Settings.ISettingStore>() is { } store
+                ? new SettingsClaudeCodeAcknowledgementStore(store)
+                : new InMemoryClaudeCodeAcknowledgementStore());
         services.AddHostedService<GatewayProviderRowSync>();
         services.AddHostedService<DevAgentPolicySeed>();
+        services.TryAddSingleton<IClaudeSourceDirectory, GatewayClaudeSourceDirectory>();
+        services.TryAddSingleton<IDefaultAgentPolicyStore, GatewayDefaultAgentPolicyStore>();
+        services.AddFirstRunGatewayRoutes();
+        services.AddSingleton<IAgentDefaultPolicyGrant, AgentDefaultPolicyGrantAdapter>();
+        services.AddSingleton<IAgentPolicyPresence, AgentPolicyPresenceAdapter>();
+        services.AddBazaarAgentGrantRepair();
 
         services.TryAddSingleton(new BreakerOptions());
         services.TryAddSingleton<HttpClient>(_ => new HttpClient());
+        services.TryAddSingleton<ICatalogueSchedule>(sp =>
+            sp.GetService<ISettingStore>() is { } store ? new SettingCatalogueSchedule(store) : new NoCatalogueSchedule());
         services.TryAddSingleton<HealthTracker>(sp =>
             new HealthTracker(sp.GetRequiredService<BreakerOptions>(), sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<UsageRecorder>();
         services.TryAddSingleton<QuotaStateRepository>();
         services.TryAddSingleton<RouteResolver>();
         services.TryAddSingleton<GatewayDirectoryRepository>();
+        services.TryAddSingleton<IEmbeddingProfile, PostgresEmbeddingProfile>();
 
         services.TryAddSingleton<SecretScrubber>();
         services.TryAddSingleton<IProviderSecretSource>(sp => CreateProviderSecretSource(sp));
         services.Replace(ServiceDescriptor.Singleton<IUsageStore, UsageRepository>());
         services.Replace(ServiceDescriptor.Singleton<IAgentPolicyStore, AgentModelPolicyRepository>());
         // Config-defined sources overlay the stored directory: FreeLLMAPI first, then the owner's Anthropic key on top.
-        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp => AnthropicDirectWiring.CreateDirectory(
-            FreeLlmApiWiring.CreateDirectory(
-                sp.GetRequiredService<GatewayDirectoryRepository>(),
-                FreeLlmApiOptionsOf(sp),
-                sp.GetRequiredService<TimeProvider>()),
-            AnthropicDirectOptionsOf(sp),
-            sp.GetRequiredService<TimeProvider>())));
+        // The Claude Code CLI provider (doc 91) goes on top, so its default route can fall back to the owner's key inside the Claude family.
+        services.AddOptions<ClaudeLaneOptions>().BindConfiguration(ClaudeLaneOptions.SectionName).ValidateOnStart();
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IValidateOptions<ClaudeLaneOptions>, ClaudeLaneOptionsValidator>());
+        services.Replace(ServiceDescriptor.Singleton<IGatewayDirectory>(sp =>
+        {
+            var anthropic = AnthropicDirectOptionsOf(sp);
+            IGatewayDirectory directory = AnthropicDirectWiring.CreateDirectory(
+                FreeLlmApiWiring.CreateDirectory(
+                    sp.GetRequiredService<GatewayDirectoryRepository>(),
+                    FreeLlmApiOptionsOf(sp),
+                    sp.GetRequiredService<TimeProvider>()),
+                anthropic,
+                sp.GetRequiredService<TimeProvider>());
+            var lane = sp.GetRequiredService<IOptions<ClaudeLaneOptions>>().Value;
+            IGatewayDirectory routed = lane.Enabled
+                ? new ClaudeLaneGatewayDirectory(directory, lane, anthropic, FreeLlmApiOptionsOf(sp), sp.GetRequiredService<TimeProvider>())
+                : directory;
+            return sp.GetService<IOptions<ClaudeCodeOptions>>()?.Value is { Enabled: true } claudeCode
+                ? new ClaudeCodeGatewayDirectory(routed, claudeCode, anthropic, sp.GetRequiredService<TimeProvider>())
+                : routed;
+        }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
+        // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
+        // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
+        services.TryAddSingleton<EndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IEndpointStatsTracker>(sp => sp.GetRequiredService<EndpointStatsTracker>());
+        services.TryAddSingleton<IPersistentStats>(sp => sp.GetRequiredService<EndpointStatsTracker>());
+        services.TryAddSingleton<SelectionInsights>(sp => new SelectionInsights(sp.GetRequiredService<EndpointStatsTracker>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ISelectionInsights>(sp => sp.GetRequiredService<SelectionInsights>());
+        services.AddHostedService(sp => new SelectionStatsPersistence(
+            sp.GetRequiredService<IPersistentStats>(),
+            sp.GetService<IConfiguration>()?["Bazaar:Gateway:Selection:StatsPath"],
+            TimeSpan.FromSeconds(60)));
+        services.TryAddSingleton(sp => new EndpointSelector(sp.GetRequiredService<IEndpointStatsTracker>(), time: sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ProfileBoundRanker>(sp =>
+        {
+            var ranker = new ProfileBoundRanker(sp.GetRequiredService<EndpointSelector>(), sp.GetRequiredService<SelectionInsights>());
+            foreach (var binding in sp.GetService<IConfiguration>()?.GetSection("Bazaar:Gateway:Selection:Routes").GetChildren() ?? [])
+            {
+                if (!string.IsNullOrWhiteSpace(binding.Value))
+                {
+                    ranker.BindAsync(binding.Key, binding.Value).GetAwaiter().GetResult();
+                }
+            }
+
+            // The Claude lane route is always selection-ordered, with identity as a hard tier (doc 05 Claude lane, doc 92).
+            var lane = sp.GetRequiredService<IOptions<ClaudeLaneOptions>>().Value;
+            if (lane.Enabled)
+            {
+                ranker.BindAsync(lane.RouteName, new SelectionBinding(lane.Profile, IdentityTiers: true, NativeFirst: lane.NativeFirst)).GetAwaiter().GetResult();
+            }
+
+            return ranker;
+        });
+        services.TryAddSingleton<ICandidateRanker>(sp => sp.GetRequiredService<ProfileBoundRanker>());
+        services.TryAddSingleton<IAgentSelectionSetup>(sp => sp.GetRequiredService<ProfileBoundRanker>());
+        services.TryAddSingleton<Bazaar.Server.Setup.FirstRun.IDefaultAgentRoutes, ClaudeLaneDefaultAgentRoutes>();
         services.Replace(ServiceDescriptor.Singleton<IModelGateway>(sp => new ModelGateway(
             sp.GetRequiredService<RouteResolver>(),
             sp.GetRequiredService<IGatewayDirectory>(),
@@ -85,11 +159,27 @@ public static class GatewayCompositionExtensions
             sp.GetRequiredService<IProviderSecretSource>(),
             sp.GetRequiredService<HealthTracker>(),
             sp.GetRequiredService<UsageRecorder>(),
+            prices: LoadPriceTable(sp),
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
             onInternalError: ex => GatewayProviderRowSync.LogInternalError(sp.GetRequiredService<ILoggerFactory>().CreateLogger<ModelGateway>(), ex),
-            scrubber: sp.GetRequiredService<SecretScrubber>())));
+            scrubber: sp.GetRequiredService<SecretScrubber>(),
+            ranker: sp.GetRequiredService<ICandidateRanker>(),
+            selectionStats: sp.GetRequiredService<IEndpointStatsTracker>(),
+
+            embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
+            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
         return services;
+    }
+
+    /// <summary>
+    /// The dated price table from the file named by <c>Bazaar:Gateway:PriceTable:Path</c>, or null when none is set. Used for
+    /// usage cost and as a ranking hint for endpoint selection (docs/design/92). A set but unreadable file fails the start.
+    /// </summary>
+    private static PriceTable? LoadPriceTable(IServiceProvider sp)
+    {
+        var path = sp.GetService<IConfiguration>()?["Bazaar:Gateway:PriceTable:Path"];
+        return string.IsNullOrWhiteSpace(path) ? null : PriceTableLoader.Parse(File.ReadAllText(path));
     }
 
     /// <summary>
@@ -130,4 +220,3 @@ public static class GatewayCompositionExtensions
         return new DictionaryAdapterRegistry(adapters);
     }
 }
-

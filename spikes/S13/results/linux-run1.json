@@ -1,0 +1,82 @@
+{
+  "results": {
+    "loadOfflineFromBundle": {
+      "pass": true,
+      "detail": "ready=1263ms since process start; scheme athanor:// (secure, cors-enabled); missing files="
+    },
+    "coldStartToMonacoReadyMs": 1263,
+    "coldStartToFirstPaintMs": 1300,
+    "jsReadyMs": 382,
+    "webkitgtk": "2.52.6",
+    "webWorkerFromCustomScheme": {
+      "pass": true,
+      "detail": "true"
+    },
+    "themeApplied": {
+      "pass": true,
+      "detail": "editor bg=\u0022rgb(24, 24, 37)\u0022 expected #181825, no reload"
+    },
+    "themeSwapLive": {
+      "pass": true,
+      "detail": "after light theme bg=\u0022rgb(255, 255, 255)\u0022"
+    },
+    "typingAscii": {
+      "pass": true,
+      "detail": "typed=\u0027Hello, Bazaar! 123 x\u0027 got=\u0027Hello, Bazaar! 123 x\u0027 mismatches=0 windowId="
+    },
+    "imeNote": "not tested: no input-method framework in Xvfb/WSLg session (ibus/fcitx). Needs a real desktop session.",
+    "pasteNonAscii": {
+      "pass": true,
+      "detail": "got=\u0027paste: \u00FCn\u00EF\u00A9\u00F6d\u00E9 \u65E5\u672C\u8A9E \uD83D\uDE80\u0027"
+    },
+    "keyHandoffClaimedKey": {
+      "pass": true,
+      "detail": "keyPressed -\u003E GTK focus; handed=True"
+    },
+    "noCtrlChordsClaimed": {
+      "pass": true,
+      "detail": "\u0022[\\u0022Alt\\u002BKeyM\\u0022,\\u0022F6\\u0022]\u0022"
+    },
+    "unclaimedCtrlChordStaysInMonaco": {
+      "pass": true,
+      "detail": "no keyPressed for Ctrl\u002BS"
+    },
+    "seqGuardBothWays": {
+      "pass": true,
+      "detail": "editor rejected stale host seq=True; host rejected stale editor seq=1"
+    },
+    "unknownTypeRejected": {
+      "pass": true,
+      "detail": ""
+    },
+    "diffEditor": {
+      "pass": true,
+      "detail": "diffEditorDom=true changes=2"
+    },
+    "memHostProcessPssMB": 108,
+    "memWebKitChildProcessesPssMB": 386,
+    "memProcesses": "host:108MB WebKitNetworkPr:20MB WebKitWebProces:365MB"
+  },
+  "log": [
+    "PASS loadOfflineFromBundle ready=1263ms since process start; scheme athanor:// (secure, cors-enabled); missing files=",
+    "coldStartToMonacoReadyMs = 1263",
+    "coldStartToFirstPaintMs = 1300",
+    "jsReadyMs = 382",
+    "webkitgtk = 2.52.6",
+    "PASS webWorkerFromCustomScheme true",
+    "PASS themeApplied editor bg=\u0022rgb(24, 24, 37)\u0022 expected #181825, no reload",
+    "PASS themeSwapLive after light theme bg=\u0022rgb(255, 255, 255)\u0022",
+    "PASS typingAscii typed=\u0027Hello, Bazaar! 123 x\u0027 got=\u0027Hello, Bazaar! 123 x\u0027 mismatches=0 windowId=",
+    "imeNote = not tested: no input-method framework in Xvfb/WSLg session (ibus/fcitx). Needs a real desktop session.",
+    "PASS pasteNonAscii got=\u0027paste: \u00FCn\u00EF\u00A9\u00F6d\u00E9 \u65E5\u672C\u8A9E \uD83D\uDE80\u0027",
+    "PASS keyHandoffClaimedKey keyPressed -\u003E GTK focus; handed=True",
+    "PASS noCtrlChordsClaimed \u0022[\\u0022Alt\\u002BKeyM\\u0022,\\u0022F6\\u0022]\u0022",
+    "PASS unclaimedCtrlChordStaysInMonaco no keyPressed for Ctrl\u002BS",
+    "PASS seqGuardBothWays editor rejected stale host seq=True; host rejected stale editor seq=1",
+    "PASS unknownTypeRejected ",
+    "PASS diffEditor diffEditorDom=true changes=2",
+    "memHostProcessPssMB = 108",
+    "memWebKitChildProcessesPssMB = 386",
+    "memProcesses = host:108MB WebKitNetworkPr:20MB WebKitWebProces:365MB"
+  ]
+}

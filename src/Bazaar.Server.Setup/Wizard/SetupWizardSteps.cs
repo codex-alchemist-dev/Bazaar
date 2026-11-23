@@ -30,6 +30,7 @@ public static class SetupWizardSteps
 
     private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
     private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
+    private static readonly string[] _identityKekProviders = ["file", "dpapi", "openbao", "tpm"];
     private static readonly string[] _statusBinds = ["loopback", "lan", "tailscale"];
 
     /// <summary>The modules the operator may add. Bazaar.GC is always present. The full catalogue is not settled.</summary>
@@ -97,6 +98,21 @@ public static class SetupWizardSteps
                 Kind = WizardQuestionKind.Text,
                 PlanPath = "custody.kekRef",
                 Refine = answers => KekRefQuestion(answers),
+            },
+        ]),
+        new("identityKek", "Identity key custody",
+        [
+            new WizardQuestion
+            {
+                Id = "custody.identityKek",
+                Prompt = "Identity KEK provider (file, dpapi, openbao or tpm), or press Enter for the server default",
+                Kind = WizardQuestionKind.Text,
+                PlanPath = "custody.identityKek",
+                Default = string.Empty,
+                Optional = true,
+                Hint = _identityKekMessage,
+                Validate = text => _identityKekProviders.Contains(text, StringComparer.Ordinal) ? null : _identityKekMessage,
+                EmptyMessage = "No identity KEK provider is set. The server default is used.",
             },
         ]),
         new("source", "Company source",
@@ -194,6 +210,7 @@ public static class SetupWizardSteps
                 JoinChoices = JoinModules,
             },
         ]),
+        RemoteAccessStep.Create(),
     ];
 
     /// <summary>The apply question: the operator types the start of the plan hash the review printed, or Enter to stop.</summary>
@@ -229,6 +246,8 @@ public static class SetupWizardSteps
     }
 
     private const string _slugMessage = "The slug must be lower-case letters, digits and dashes, starting with a letter or digit, up to 63 characters.";
+
+    private const string _identityKekMessage = "The provider must be file, dpapi, openbao or tpm.";
 
     private const string _sourceMessage = "The source must be blank, template:<id>@<semver>, or import:<id>.";
 
