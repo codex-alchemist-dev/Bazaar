@@ -43,13 +43,14 @@ public static class StatusEndpoints
         return routes;
     }
 
-    /// <summary>The authenticated API routes that also take writes: blob uploads, the Constellation tile endpoint and recording a Company Memory decision, and community draft decisions.</summary>
+    /// <summary>The authenticated API routes that also take writes: blob uploads, the Constellation tile endpoint and recording a Company Memory decision, and community draft decisions, and the Genetic Memory review routes.</summary>
     private static bool IsApiRoute(PathString path) =>
         path.StartsWithSegments("/blobs")
         || path.Equals("/constellation/tiles", StringComparison.Ordinal)
         || path.Equals("/company-memory/decisions", StringComparison.Ordinal)
         || path.Equals("/company-memory/pages", StringComparison.Ordinal)
-        || path.StartsWithSegments("/community/drafts");
+        || path.StartsWithSegments("/community/drafts")
+        || path.StartsWithSegments("/gmt");
 
     /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");

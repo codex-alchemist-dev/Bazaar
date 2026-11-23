@@ -11,9 +11,12 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
+using Bazaar.Server.Host.Display;
 using Bazaar.Server.Host.Http;
+using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
@@ -53,6 +56,7 @@ public static class HostApplicationExtensions
         services.AddBazaarHostWireDiscovery();
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
+        services.AddBazaarGeneticMemoryHost();
         services.AddBazaarPostgresCredentialLeases();
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
@@ -75,6 +79,7 @@ public static class HostApplicationExtensions
         // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
         // records) must be bound, or the host fails at start naming the port.
         services.AddBazaarCodingHarness(configuration);
+        services.AddBazaarScreenToolPolicy();
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
@@ -105,6 +110,8 @@ public static class HostApplicationExtensions
         // The DM access flow reads gc.dm_access_approvers live from the settings store. Registered first, so the gc-metadata component keeps it.
         services.TryAddSingleton<Bazaar.Server.GcMetadata.IDmAccessOptionsSource, Components.GcMetadata.SettingsDmAccessOptionsSource>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        services.AddBazaarGcForkTarget();
+        services.AddBazaarReplayWire();
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
         services.AddBazaarBackupOffsite();

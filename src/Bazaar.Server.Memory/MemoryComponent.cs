@@ -1,8 +1,10 @@
 using Bazaar.Core;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.GeneticMemory.Abstractions;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
 using Bazaar.Server.Security.Audit;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
 using Bazaar.Server.Vault.Writes;
@@ -49,6 +51,14 @@ public sealed class MemoryComponent : IBazaarComponent
         SoftDependsOn: ["vault", "constellation"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
+
+    /// <summary>The policy entry for <c>gmt.propose_lesson</c>.</summary>
+    public static ToolCapability GmtProposeLessonCapability { get; } = new(
+        GmtToolNames.ProposeLesson,
+        ToolTier.AutonomousWithNotice,
+        CapabilityClass.Exec,
+        SessionRoles.Actor,
+        new RateRule(20, TimeSpan.FromHours(1)));
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -111,6 +121,14 @@ public sealed class MemoryComponent : IBazaarComponent
                 sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : store,
                 sp.GetRequiredService<ILogger<MemoryGraphSink>>())
             : sp.GetRequiredService<IMemoryVault>());
+
+        // Genetic Memory Transfer (doc 25 WP9) writes accepted lessons through the memory sink.
+        services.TryAddSingleton<IGmtSecretScanner, GmtSecretScanner>();
+
+        // Policy entry for the [PROPOSED] gmt.propose_lesson tool (doc 15: a tool with no capability fails closed). It only records a
+        // lesson for review, so it is autonomous with a notice, actor sessions only, and capped per hour.
+        services.AddSingleton(GmtProposeLessonCapability);
+        services.TryAddSingleton<IGmtLessonWriter>(sp => new GmtLessonWriter(sp.GetRequiredService<IMemoryBatchSink>()));
     }
 
     private static string Required(IConfiguration configuration, string key) =>

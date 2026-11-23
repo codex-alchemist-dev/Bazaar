@@ -215,6 +215,27 @@ message GcPage {
   bool has_more = 2;
 }
 
+message GcReact {
+  bytes gc_id = 1;
+  int64 target_n = 2;
+  string emoji = 3;
+  bool add = 4;
+}
+
+message GcReactResult {
+  int64 n = 1;
+  bool changed = 2;
+}
+
+message GcReactionsReply {
+  repeated WireReactionGroup items = 1;
+}
+
+message GcReactionsRequest {
+  bytes gc_id = 1;
+  optional int64 after_n = 2;
+}
+
 message GcRead {
   bytes gc_id = 1;
   int64 up_to_n = 2;
@@ -230,6 +251,15 @@ message GcSend {
 message GcSendResult {
   int64 n = 1;
   int64 ev = 2;
+}
+
+message GcTyping {
+  bytes gc_id = 1;
+  bool typing = 2;
+}
+
+message GcTypingResult {
+  bool accepted = 1;
 }
 
 message GraphEdge {
@@ -693,6 +723,15 @@ message WireGcMessage {
   bool withdrawn = 11;
 }
 
+message WireGcReaction {
+  bytes gc_id = 1;
+  int64 target_n = 2;
+  string emoji = 3;
+  bytes by = 4;
+  bool add = 5;
+  Instant ts = 6;
+}
+
 message WireLimits {
   int32 max_frame_bytes = 1;
   int32 inflight_requests_max = 2;
@@ -711,4 +750,10 @@ message WirePresenceRow {
   optional string label = 9;
   Instant since = 10;
   Instant updated_at = 11;
+}
+
+message WireReactionGroup {
+  int64 target_n = 1;
+  string emoji = 2;
+  repeated bytes by = 3;
 }

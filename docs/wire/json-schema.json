@@ -1,9 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e",
+  "x-schemaHash": "sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740",
   "x-messages": {
     "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
@@ -16,8 +16,12 @@
     "gc.member.add": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberAdd" },
     "gc.member.remove": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberRemove" },
     "gc.message": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" },
+    "gc.react": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcReact" },
+    "gc.reaction": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcReaction" },
+    "gc.reactions": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcReactionsRequest" },
     "gc.read": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcRead" },
     "gc.send": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcSend" },
+    "gc.typing": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcTyping" },
     "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
     "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
     "hive.grant.revoke": { "$ref": "#/$defs/Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
@@ -728,6 +732,43 @@
       "required": ["items", "hasMore"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.GcReact": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "add": { "type": "boolean" }
+      },
+      "required": ["gcId", "targetN", "emoji", "add"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactResult": {
+      "type": "object",
+      "properties": {
+        "n": { "type": "integer" },
+        "changed": { "type": "boolean" }
+      },
+      "required": ["n", "changed"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactionsReply": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireReactionGroup" } }
+      },
+      "required": ["items"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactionsRequest": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "afterN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
+      },
+      "required": ["gcId"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.GcRead": {
       "type": "object",
       "properties": {
@@ -755,6 +796,23 @@
         "ev": { "type": "integer" }
       },
       "required": ["n", "ev"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcTyping": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "typing": { "type": "boolean" }
+      },
+      "required": ["gcId", "typing"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcTypingResult": {
+      "type": "object",
+      "properties": {
+        "accepted": { "type": "boolean" }
+      },
+      "required": ["accepted"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Wire.Hello": {
@@ -956,6 +1014,19 @@
       "required": ["gcId", "n", "ev", "messageId", "authorId", "text", "ts", "edited", "mentions"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.WireGcReaction": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "by": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "add": { "type": "boolean" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "required": ["gcId", "targetN", "emoji", "by", "add", "ts"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.WireLimits": {
       "type": "object",
       "properties": {
@@ -982,6 +1053,16 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["agentId", "revision", "availability", "overlays", "presence", "activityKind", "since", "updatedAt"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WireReactionGroup": {
+      "type": "object",
+      "properties": {
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "by": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } }
+      },
+      "required": ["targetN", "emoji", "by"],
       "additionalProperties": true
     }
   }
