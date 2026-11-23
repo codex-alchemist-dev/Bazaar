@@ -167,6 +167,49 @@ public static class MessageEditPlanner
         return new MessageEditAccepted(new MessageEditPlan(newVersion, editEvent, systemNote));
     }
 
+    /// <summary>
+    /// Plans the version that withdraws an import's message (doc 01 Edits, doc 44 8.8, PROPOSED). It is a system act, so the
+    /// author-only rule does not apply and the edit window, size and unchanged-body checks do not either: the new version is a
+    /// copy of the current text with the job id set. Only the archived-GC check stays. No database access.
+    /// </summary>
+    /// <param name="gc">The GC header, used for the archive check.</param>
+    /// <param name="messageId">The message to withdraw.</param>
+    /// <param name="currentVersion">Highest version number now stored (1 or more).</param>
+    /// <param name="currentBody">Text of the current version, copied into the withdrawal version.</param>
+    /// <param name="jobId">The import job id.</param>
+    /// <param name="now">Time of the withdrawal.</param>
+    public static MessageEditResult PlanWithdrawal(
+        GcRecord gc,
+        Guid messageId,
+        int currentVersion,
+        string currentBody,
+        string jobId,
+        DateTimeOffset now)
+    {
+        ArgumentNullException.ThrowIfNull(gc);
+        ArgumentNullException.ThrowIfNull(currentBody);
+        ArgumentException.ThrowIfNullOrWhiteSpace(jobId);
+        ArgumentOutOfRangeException.ThrowIfLessThan(currentVersion, 1);
+
+        if (gc.ArchivedAt is not null)
+        {
+            return new MessageEditRefused(MessageEditRefusal.ArchivedGc);
+        }
+
+        var nextVersion = currentVersion + 1;
+        var newVersion = new MessageVersionRecord(
+            gc.GcId, messageId, nextVersion, currentBody, SystemAuthorId, Seq: 0, now, WithdrawnByImport: jobId);
+        var editEvent = new GcEventDraft(
+            gc.GcId,
+            GcEventKinds.MessageEdit,
+            AuthorKind.System,
+            SystemAuthorId,
+            SourceTrust.System,
+            MessageId: messageId,
+            Version: nextVersion);
+        return new MessageEditAccepted(new MessageEditPlan(newVersion, editEvent, SystemNote: null));
+    }
+
     /// <summary>Payload of the "source edited after use" note.</summary>
     public const string SystemNotePayloadJson = "{\"note\":\"source edited after use\"}";
 

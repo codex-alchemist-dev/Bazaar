@@ -10,25 +10,9 @@ namespace Bazaar.Server.Settings;
 /// </summary>
 public static class HostSettings
 {
-    public static readonly SettingKey<ServiceHostProvider> ProviderServiceHost = new(
-        "host.provider.service_host", ServiceHostProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Service host: Windows Service or systemd. Auto picks the one for this OS.");
-
-    public static readonly SettingKey<VmProvider> ProviderVm = new(
-        "host.provider.vm", VmProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "VM backend: Hyper-V, QEMU/KVM, or none.");
-
-    public static readonly SettingKey<CacheProvider> ProviderCache = new(
-        "host.provider.cache", CacheProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Cache and presence: Garnet or Valkey. Auto uses Valkey until Garnet passes spike S2 (doc 03).");
-
-    public static readonly SettingKey<SearchProvider> ProviderSearch = new(
-        "host.provider.search", SearchProvider.Auto, SettingScope.Install, SettingRole.Operator,
-        "Search: Postgres full-text or pg_search.");
-
     public static readonly SettingKey<IReadOnlyList<string>> ReadinessRequiredRoles = new(
         "host.readiness.required_roles", ["postgres", "search", "service_host"], SettingScope.Install, SettingRole.Operator,
-        "Readiness roles that must be usable before /health/ready passes. Postgres is always required (floor). " +
+        "Readiness roles that must have at least one usable provider before /health/ready passes (a readiness requirement, not a provider selection). Postgres is always required (floor). " +
         "The default adds postgres to the table's list, because doc 03's floor makes it mandatory.",
         validate: CheckRequiredRoles);
 
@@ -101,10 +85,6 @@ public static class HostSettings
     /// <summary>Every host key, in doc 03 table order.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
-        ProviderServiceHost,
-        ProviderVm,
-        ProviderCache,
-        ProviderSearch,
         ReadinessRequiredRoles,
         ShutdownTimeoutSeconds,
         ServiceRestartDelaysMinutes,
@@ -196,7 +176,8 @@ public static class BuiltInSettingRegistries
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
-            .Concat(SecuritySettings.All);
+            .Concat(SecuritySettings.All)
+            .Concat(SecuritySettings.IdentityKeys);
 
     /// <summary>
     /// The built-in keys plus every module contribution. A contributed name that repeats a built-in or another

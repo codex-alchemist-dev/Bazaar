@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- Raw System.Net.Quic calls in the real-network tests are guarded by the Enabled skip condition. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Transport.QuicNative\Bazaar.Server.Transport.QuicNative.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Transport.QuicNative\Bazaar.Client.Transport.QuicNative.csproj" />
+  </ItemGroup>
+</Project>
