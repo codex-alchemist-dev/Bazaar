@@ -198,6 +198,50 @@ public sealed class ConvergedGraphTests(ConstellationDb db) : IClassFixture<Cons
         Assert.Equal(baseNote, result.Hits[1].NoteId);
     }
 
+    [Fact]
+    public async Task Supersedes_chain_of_three_on_postgres_returns_the_head_first_and_history_only_when_asked()
+    {
+        SkipWithoutDatabase();
+        var g = new GraphSeed(db.DataSource);
+        string pathA = $"agents/agent-a/memory/{g.Tag}-v1.md", pathB = $"agents/agent-a/memory/{g.Tag}-v2.md", pathC = $"agents/agent-a/memory/{g.Tag}-v3.md";
+        var docA = await g.DocAsync(pathA, "memory", $"V1 {g.Tag}", owner: "agent-a");
+        var docB = await g.DocAsync(pathB, "memory", $"V2 {g.Tag}", owner: "agent-a");
+        var docC = await g.DocAsync(pathC, "memory", $"V3 {g.Tag}", owner: "agent-a");
+        string noteA = GraphSeed.NoteId(), noteB = GraphSeed.NoteId(), noteC = GraphSeed.NoteId();
+        var store = Store();
+        await store.StoreRevisionAsync(Revision(noteA, 1, "agent-a", pathA), Ct);
+        await store.StoreRevisionAsync(Revision(noteB, 1, "agent-a", pathB, new MemoryGraphEdge(noteA, MemoryEdgeKind.Supersedes, 0.5)), Ct);
+        await store.StoreRevisionAsync(Revision(noteC, 1, "agent-a", pathC, new MemoryGraphEdge(noteB, MemoryEdgeKind.Supersedes, 0.5)), Ct);
+
+        // Agent B's private note also claims to supersede C; agent A cannot read it, so it is not A's head.
+        var foreignPath = $"agents/agent-b/memory/{g.Tag}-claim.md";
+        await g.DocAsync(foreignPath, "memory", $"Claim {g.Tag}", owner: "agent-b");
+        await store.StoreRevisionAsync(Revision(GraphSeed.NoteId(), 1, "agent-b", foreignPath, new MemoryGraphEdge(noteC, MemoryEdgeKind.Supersedes, 0.5)), Ct);
+
+        var reader = new PgConstellationNodeReader(db.DataSource);
+        var nodes = (await reader.GetNodesAsync([docA, docB, docC], Ct)).ToDictionary(n => n.DocId);
+        Assert.Equal([docB], nodes[docA].SupersededBy);
+        Assert.Equal([docC], nodes[docB].SupersededBy);
+        Assert.Single(nodes[docC].SupersededBy!);
+
+        var access = new VaultPathAccess(new StaticProjectMembership(new Dictionary<string, ProjectMembers>()));
+        var retriever = new MemoryGraphRetriever(reader, access);
+        var counts = new[] { docA, docB, docC }.ToDictionary(Id, _ => 1, StringComparer.Ordinal);
+        RankedHit[] oldestFirst = [new(Id(docA), 3), new(Id(docB), 2), new(Id(docC), 1)];
+
+        var current = await retriever.RetrieveAsync(VaultPrincipal.Agent("agent-a"), oldestFirst, [], counts, 1000, new MemoryGraphOptions(MaxHops: 2), Ct);
+        var head = Assert.Single(current.Hits);
+        Assert.Equal(Id(docC), head.DocId);
+        Assert.Equal(noteC, head.NoteId);
+        Assert.False(head.IsHistory);
+
+        var withHistory = await retriever.RetrieveAsync(
+            VaultPrincipal.Agent("agent-a"), oldestFirst, [], counts, 1000, new MemoryGraphOptions(MaxHops: 2, IncludeHistory: true), Ct);
+        Assert.Equal(Id(docC), withHistory.Hits[0].DocId);
+        Assert.Equal(new[] { docA, docB }.Select(Id).Order(StringComparer.Ordinal), withHistory.Hits.Skip(1).Select(h => h.DocId).Order(StringComparer.Ordinal));
+        Assert.All(withHistory.Hits.Skip(1), h => Assert.True(h.IsHistory && h.SupersededBy == Id(docC) && h.Score <= withHistory.Hits[0].Score));
+    }
+
     private PgMemoryGraphStore Store() => new(db.DataSource);
 
     private static string Id(Guid docId) => docId.ToString("D");

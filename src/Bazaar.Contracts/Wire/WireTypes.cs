@@ -99,6 +99,12 @@ public static class WireTypes
     /// <summary>Owner-signed squash merge (doc 21, Merge request path). Answered with a <c>PrMergeReply</c>.</summary>
     public const string PrMerge = "pr.merge";
 
+    /// <summary>
+    /// Owner asks for packed memory context of one agent (docs/design/constellation-memory-graph.md, "Retrieval operation"). Payload
+    /// <c>MemoryContextRequest</c>; answered with a <c>MemoryContextResult</c>, or an error with a <c>MemoryContextErrorCodes</c> code.
+    /// </summary>
+    public const string MemoryContext = "memory.context";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
