@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Schema hash sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -20,19 +20,38 @@ decimal-fraction = #6.4([exponent: int, mantissa: int])
 float32-array = #6.85(bstr)
 
 ; Message types and the payload rule each carries.
+; board.assign = kanban-assign-request
 ; board.snapshot = kanban-board-request
+; engine.grant.verify = engine-grant-verify-request
+; engine.relay.request = engine-relay-request-frame
+; engine.relay.result = engine-relay-result-frame
 ; gc.edit = gc-edit
 ; gc.history = gc-history
+; gc.list = gc-list-request
 ; gc.member.add = gc-member-add
 ; gc.member.remove = gc-member-remove
 ; gc.message = wire-gc-message
+; gc.react = gc-react
+; gc.reaction = wire-gc-reaction
+; gc.reactions = gc-reactions-request
 ; gc.read = gc-read
 ; gc.send = gc-send
+; gc.typing = gc-typing
 ; graph.lod = graph-lod-frame
 ; hello = hello
+; hive.grant.revoke = hive-grant-change-request
+; hive.grant.set = hive-grant-change-request
 ; lagged = lagged
+; pane.frame = pane-frame
 ; ping = ping
 ; pong = pong
+; pr.hunks = pr-hunks-request
+; pr.list = pr-list-request
+; pr.merge = pr-merge-request
+; pr.review = pr-review-request
+; pr.summary = pr-summary-request
+; presence.snapshot = presence-snapshot-request
+; presence.update = presence-update
 ; resync = resync
 ; ryusei.trigger.list = ryusei-trigger-list-request
 ; ryusei.trigger.pause = ryusei-trigger-change-request
@@ -42,9 +61,167 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-list-item / gc-list-reply / gc-list-request / gc-member-add / gc-member-remove / gc-page / gc-react / gc-react-result / gc-reactions-reply / gc-reactions-request / gc-read / gc-send / gc-send-result / gc-typing / gc-typing-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message / wire-gc-reaction / wire-reaction-group
 
+engine-grant-verify-reply = {
+  covers: bool,  ; 1
+  * tstr => any
+}
+engine-grant-verify-request = {
+  grantId: tstr,  ; 1
+  tool: tstr,  ; 2
+  riskClass: risk-class,  ; 3
+  * tstr => any
+}
+engine-relay-call-frame = {
+  grantId: tstr,  ; 1
+  studioId: tstr,  ; 2
+  tool: tstr,  ; 3
+  argsJson: tstr,  ; 4
+  * tstr => any
+}
+engine-relay-call-result-frame = {
+  grantId: tstr,  ; 1
+  ok: bool,  ; 2
+  payloadJson: tstr,  ; 3
+  * tstr => any
+}
+engine-relay-request-frame = {
+  relayId: uuid-text,  ; 1
+  deadline: #6.0(tstr),  ; 2
+  call: engine-relay-call-frame,  ; 3
+  * tstr => any
+}
+engine-relay-result-frame = {
+  relayId: uuid-text,  ; 1
+  result: engine-relay-call-result-frame,  ; 2
+  * tstr => any
+}
+risk-class = "read" / "write" / "exec"
 principal-kind = "owner" / "human" / "agent"
+pr-author-kind = "agent" / "human"
+pr-changed-file = {
+  path: tstr,  ; 1
+  status: tstr,  ; 2
+  additions: -2147483648..2147483647,  ; 3
+  deletions: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-checks-rollup = "none" / "pending" / "passing" / "failing"
+pr-hunk = {
+  header: tstr,  ; 1
+  oldStart: -2147483648..2147483647,  ; 2
+  oldCount: -2147483648..2147483647,  ; 3
+  newStart: -2147483648..2147483647,  ; 4
+  newCount: -2147483648..2147483647,  ; 5
+  lines: [* tstr],  ; 6
+  * tstr => any
+}
+pr-hunks-reply = {
+  status: pr-hunks-status,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  hunks: [* pr-hunk],  ; 4
+  ? nextCursor: tstr,  ; 5
+  * tstr => any
+}
+pr-hunks-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  ? cursor: tstr,  ; 4
+  * tstr => any
+}
+pr-hunks-status = "ok" / "stale"
+pr-list-reply = {
+  rows: [* pr-list-row],  ; 1
+  ? nextCursor: tstr,  ; 2
+  * tstr => any
+}
+pr-list-request = {
+  ? repo: tstr,  ; 1
+  state: pr-list-state,  ; 2
+  ? cursor: tstr,  ; 3
+  ? limit: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-list-row = {
+  prId: tstr,  ; 1
+  repo: tstr,  ; 2
+  number: -2147483648..2147483647,  ; 3
+  title: tstr,  ; 4
+  author: tstr,  ; 5
+  authorKind: pr-author-kind,  ; 6
+  draft: bool,  ; 7
+  headSha: tstr,  ; 8
+  checks: pr-checks-rollup,  ; 9
+  revision: int,  ; 10
+  ? installationId: int,  ; 11
+  ? owner: tstr,  ; 12
+  ? repoName: tstr,  ; 13
+  * tstr => any
+}
+pr-list-state = "open" / "closed" / "merged" / "all"
+pr-merge-reply = {
+  status: pr-merge-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-merge-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  commitTitle: tstr,  ; 3
+  commitMessage: tstr,  ; 4
+  owner: pr-owner-payload,  ; 5
+  signature: [* 0..255],  ; 6
+  * tstr => any
+}
+pr-merge-status = "merged" / "stale" / "checks_failed" / "bad_signature" / "not_mergeable" / "conflict" / "refused"
+pr-owner-payload = {
+  action: tstr,  ; 1
+  approvalId: uuid-text,  ; 2
+  argsHash: [* 0..255],  ; 3
+  ? headSha: tstr,  ; 4
+  humanId: uuid-text,  ; 5
+  deviceId: tstr,  ; 6
+  issuedAt: #6.0(tstr),  ; 7
+  expiresAt: #6.0(tstr),  ; 8
+  nonce: [* 0..255],  ; 9
+  * tstr => any
+}
+pr-review-reply = {
+  status: pr-review-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-review-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  event: tstr,  ; 3
+  body: tstr,  ; 4
+  * tstr => any
+}
+pr-review-status = "applied" / "stale" / "refused"
+pr-summary-reply = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  summary: tstr,  ; 3
+  files: [* pr-changed-file],  ; 4
+  checks: pr-checks-rollup,  ; 5
+  reviewerApproved: bool,  ; 6
+  ? linkedCardId: uuid-text,  ; 7
+  ? installationId: int,  ; 8
+  ? owner: tstr,  ; 9
+  ? repoName: tstr,  ; 10
+  ? number: -2147483648..2147483647,  ; 11
+  * tstr => any
+}
+pr-summary-request = {
+  prId: tstr,  ; 1
+  * tstr => any
+}
 cluster-glyph = {
   clusterId: tstr,  ; 1
   memberCount: -2147483648..2147483647,  ; 2
@@ -144,6 +321,31 @@ viewport-request = {
   * tstr => any
 }
 zoom-tier = "far" / "mid" / "near"
+hive-grant-change-reply = {
+  accepted: bool,  ; 1
+  ? reason: tstr,  ; 2
+  approvalRequired: bool,  ; 3
+  * tstr => any
+}
+hive-grant-change-request = {
+  fromProject: tstr,  ; 1
+  toProject: tstr,  ; 2
+  kind: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-reply = {
+  status: tstr,  ; 1
+  ? revision: int,  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-request = {
+  projectId: uuid-text,  ; 1
+  cardId: uuid-text,  ; 2
+  ? assigneeAgentId: uuid-text,  ; 3
+  expectedRevision: int,  ; 4
+  * tstr => any
+}
 kanban-board-card = {
   id: uuid-text,  ; 1
   title: tstr,  ; 2
@@ -269,6 +471,26 @@ gc-history = {
   limit: -2147483648..2147483647,  ; 3
   * tstr => any
 }
+gc-list-item = {
+  gcId: uuid-text,  ; 1
+  title: tstr,  ; 2
+  kind: tstr,  ; 3
+  memberCount: -2147483648..2147483647,  ; 4
+  headSeq: int,  ; 5
+  ? lastActivityTs: #6.0(tstr),  ; 6
+  * tstr => any
+}
+gc-list-reply = {
+  items: [* gc-list-item],  ; 1
+  hasMore: bool,  ; 2
+  ? defaultGcId: uuid-text,  ; 3
+  * tstr => any
+}
+gc-list-request = {
+  limit: -2147483648..2147483647,  ; 1
+  ? includeThinking: bool,  ; 2
+  * tstr => any
+}
 gc-member-add = {
   gcId: uuid-text,  ; 1
   principalId: uuid-text,  ; 2
@@ -284,6 +506,27 @@ gc-member-remove = {
 gc-page = {
   items: [* wire-gc-message],  ; 1
   hasMore: bool,  ; 2
+  * tstr => any
+}
+gc-react = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  add: bool,  ; 4
+  * tstr => any
+}
+gc-react-result = {
+  n: int,  ; 1
+  changed: bool,  ; 2
+  * tstr => any
+}
+gc-reactions-reply = {
+  items: [* wire-reaction-group],  ; 1
+  * tstr => any
+}
+gc-reactions-request = {
+  gcId: uuid-text,  ; 1
+  ? afterN: int,  ; 2
   * tstr => any
 }
 gc-read = {
@@ -303,6 +546,15 @@ gc-send-result = {
   ev: int,  ; 2
   * tstr => any
 }
+gc-typing = {
+  gcId: uuid-text,  ; 1
+  typing: bool,  ; 2
+  * tstr => any
+}
+gc-typing-result = {
+  accepted: bool,  ; 1
+  * tstr => any
+}
 hello = {
   versionMin: -2147483648..2147483647,  ; 1
   versionMax: -2147483648..2147483647,  ; 2
@@ -320,12 +572,38 @@ lagged = {
   lastSent: int,  ; 2
   * tstr => any
 }
+pane-frame = {
+  frame: tstr,  ; 1
+  * tstr => any
+}
 ping = {
   ? nonce: tstr,  ; 1
   * tstr => any
 }
 pong = {
   ? nonce: tstr,  ; 1
+  * tstr => any
+}
+presence-snapshot = {
+  rows: [* wire-presence-row],  ; 1
+  * tstr => any
+}
+presence-snapshot-request = {
+  * tstr => any
+}
+presence-typing = {
+  kind: tstr,  ; 1
+  gcId: uuid-text,  ; 2
+  principalId: uuid-text,  ; 3
+  typing: bool,  ; 4
+  ttlMs: -2147483648..2147483647,  ; 5
+  * tstr => any
+}
+presence-update = {
+  kind: tstr,  ; 1
+  agentId: uuid-text,  ; 2
+  revision: int,  ; 3
+  row: wire-presence-row,  ; 4
   * tstr => any
 }
 resync = {
@@ -397,11 +675,41 @@ wire-gc-message = {
   edited: bool,  ; 8
   mentions: [* uuid-text],  ; 9
   ? replyToN: int,  ; 10
+  ? withdrawn: bool,  ; 11
+  * tstr => any
+}
+wire-gc-reaction = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  by: uuid-text,  ; 4
+  add: bool,  ; 5
+  ts: #6.0(tstr),  ; 6
   * tstr => any
 }
 wire-limits = {
   maxFrameBytes: -2147483648..2147483647,  ; 1
   inflightRequestsMax: -2147483648..2147483647,  ; 2
   replayPageSize: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+wire-presence-row = {
+  agentId: uuid-text,  ; 1
+  revision: int,  ; 2
+  availability: tstr,  ; 3
+  overlays: [* tstr],  ; 4
+  presence: tstr,  ; 5
+  activityKind: tstr,  ; 6
+  ? gcId: uuid-text,  ; 7
+  ? turnId: uuid-text,  ; 8
+  ? label: tstr,  ; 9
+  since: #6.0(tstr),  ; 10
+  updatedAt: #6.0(tstr),  ; 11
+  * tstr => any
+}
+wire-reaction-group = {
+  targetN: int,  ; 1
+  emoji: tstr,  ; 2
+  by: [* uuid-text],  ; 3
   * tstr => any
 }

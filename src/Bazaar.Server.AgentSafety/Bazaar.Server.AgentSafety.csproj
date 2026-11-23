@@ -13,6 +13,7 @@
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmEgress.Abstractions\Bazaar.Server.VmEgress.Abstractions.csproj" />
