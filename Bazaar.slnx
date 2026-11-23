@@ -510,6 +510,7 @@
     <Project Path="src/Bazaar.Client.Updates.Abstractions/Bazaar.Client.Updates.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Updater.Linux/Bazaar.Client.Updater.Linux.csproj" />
     <Project Path="src/Bazaar.Client.Updater.Linux.Abstractions/Bazaar.Client.Updater.Linux.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Client.DesktopChrome/Bazaar.Client.DesktopChrome.csproj" />
     <Project Path="src/Bazaar.Client.Shell/Bazaar.Client.Shell.csproj" />
     <Project Path="src/Bazaar.Client.Shell.Abstractions/Bazaar.Client.Shell.Abstractions.csproj" />
     <Project Path="src/Bazaar.Tabula/Bazaar.Tabula.csproj" />
@@ -816,6 +817,7 @@
     <Project Path="tests/Bazaar.Client.Push.Tests/Bazaar.Client.Push.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Updates.Tests/Bazaar.Client.Updates.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Updater.Linux.Tests/Bazaar.Client.Updater.Linux.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.DesktopChrome.Tests/Bazaar.Client.DesktopChrome.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Shell.Tests/Bazaar.Client.Shell.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.Tests/Bazaar.Server.Vms.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Vms.HyperV.Tests/Bazaar.Server.Vms.HyperV.Tests.csproj" />
