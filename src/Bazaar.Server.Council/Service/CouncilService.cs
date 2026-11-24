@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Membership;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -416,12 +417,18 @@ public sealed partial class CouncilService : ICouncilService
                 {
                     VoterId = voterId,
                     Choice = byVoter[voterId].Choice,
-                    Reasoning = byVoter[voterId].Reasoning,
                 }).ToArray(),
             },
             CouncilEventJsonContext.Default.CouncilRevealPayload,
             $"reveal:{revealed.VoteId:D}",
             ct);
+
+        // The reasons follow the summary as one sealed council.reason event per voter, in the stored reveal order. The sealed
+        // bytes are copied as stored; nothing is decrypted here (doc 10, Seal once, copy ciphertext).
+        var sealedByVoter = (await _store.ListSealedReasonsAsync(revealed.VoteId, ct))
+            .Where(reason => reason.Phase == BallotPhase.Independent)
+            .ToDictionary(reason => reason.VoterId, StringComparer.Ordinal);
+        await AppendReasonsAsync(revealed, order.Where(sealedByVoter.ContainsKey).Select(voterId => sealedByVoter[voterId]), "reveal", ct);
 
         await ApplyTallyAsync(revealed, decision, ct);
     }
@@ -598,7 +605,6 @@ public sealed partial class CouncilService : ICouncilService
                     IndependentChoice = independent?.Choice,
                     FollowupChoice = followUp?.Choice,
                     FinalChoice = final?.Choice,
-                    Reasoning = final?.Reasoning,
                 };
             })
             .ToList();
@@ -620,6 +626,12 @@ public sealed partial class CouncilService : ICouncilService
             await _store.SetVaultDecisionNoAsync(decided.VoteId, written, ct);
             vaultNo = written;
         }
+
+        // Follow-up reasons join the log here, sealed as stored; an independent final ballot is referenced by its reveal row.
+        var followUpReasons = (await _store.ListSealedReasonsAsync(decided.VoteId, ct))
+            .Where(reason => reason.Phase == BallotPhase.FollowUp)
+            .OrderBy(reason => reason.VoterId, StringComparer.Ordinal);
+        await AppendReasonsAsync(decided, followUpReasons, "decision", ct);
 
         await AppendAsync(
             decided.GcId,
@@ -763,6 +775,35 @@ public sealed partial class CouncilService : ICouncilService
         string idempotencyKey,
         CancellationToken ct) =>
         await _gcEvents.AppendAsync(gcId, kind, JsonSerializer.Serialize(payload, typeInfo), idempotencyKey, ct);
+
+    private async Task AppendReasonsAsync(
+        CouncilVoteRecord vote,
+        IEnumerable<SealedBallotReason> reasons,
+        string context,
+        CancellationToken ct)
+    {
+        foreach (var reason in reasons)
+        {
+            var phase = Wire(reason.Phase);
+            var payload = new CouncilReasonPayload
+            {
+                VoteId = vote.VoteId,
+                VoterId = reason.VoterId,
+                Phase = phase,
+                Choice = reason.Choice,
+                Context = context,
+                ErasedAtWrite = false,
+            };
+            await _gcEvents.AppendSealedAsync(
+                vote.GcId,
+                "council.reason",
+                JsonSerializer.Serialize(payload, CouncilEventJsonContext.Default.CouncilReasonPayload),
+                CouncilSealedBlob.Pack(reason.Reasoning),
+                reason.Reasoning.KeyId,
+                $"reason:{vote.VoteId:D}:{reason.VoterId}:{phase}:{context}",
+                ct);
+        }
+    }
 
     private static bool AllEligibleCast(CouncilVoteRecord vote, IReadOnlyList<StoredBallot> ballots, BallotPhase phase)
     {

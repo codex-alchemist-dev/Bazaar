@@ -6,6 +6,9 @@ using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Abstractions.Wire;
+using Bazaar.Client.Athanor;
+using Bazaar.Client.Athanor.Hosting;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Calcinato.Session;
 using Bazaar.Client.Chat;
 using Bazaar.Client.Chat.Abstractions;
@@ -16,15 +19,22 @@ using Bazaar.Client.Core;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.DefaultApp.Linux;
 using Bazaar.Client.Gc;
+using Bazaar.Client.GitSolarSystem.Abstractions;
+using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Navigation;
 using Bazaar.Client.Navigation.Abstractions;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
@@ -61,12 +71,19 @@ internal sealed class LinuxHead : IAsyncDisposable
 {
     private static readonly JsonElement _emptyModel = JsonElement.Parse("{}");
 
+    private const string AthanorFlag = "--athanor";
+
     private readonly ContentControl _slot = new();
     private readonly CommandRunner _commands = new();
     private readonly LatePaneSurface _surface = new();
     private readonly TerminalSessionManager _terminals = CalcinatoTerminalPanes.CreateSessions();
     private readonly ChatHost? _chat;
     private readonly LinuxHeadOptions _options;
+    private readonly UpdateNoticeBanner _banner;
+    private readonly UpdateRestart _restart;
+    private readonly AthanorEditorServices? _athanor;
+    private readonly EditorThemeSync? _themeSync;
+    private readonly AthanorPaneModule? _athanorModule;
     private int _disposed;
 
     private LinuxHead(LinuxHeadOptions options)
@@ -85,7 +102,10 @@ internal sealed class LinuxHead : IAsyncDisposable
         }
 
         Directory.CreateDirectory(options.Paths.StateDirectory);
-        var modules = LinuxModules.Create();
+        // --athanor shows the editor pane (doc 57 section 2.2). The editor is composed only then, so a normal start pays nothing for it.
+        var showAthanor = options.Args.Contains(AthanorFlag, StringComparer.Ordinal);
+        _athanorModule = showAthanor ? new AthanorPaneModule() : null;
+        var modules = _athanorModule is null ? LinuxModules.Create() : [.. LinuxModules.Create(), _athanorModule];
         Preferences = new PreferenceStore(
             modules.OfType<IPreferenceDeclarer>().SelectMany(m => m.Preferences),
             new FilePreferenceStorage(options.Paths.PreferencesFile, log));
@@ -99,6 +119,8 @@ internal sealed class LinuxHead : IAsyncDisposable
         var context = new PaneModuleContext(Report: message => log($"Bazaar: {message}"))
             .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
             .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current)
             .WithViewContext(ViewContextServices.CreateDefault(viewActions, ex => log($"Bazaar: view action failed: {ex.Message}")));
         if (_chat is not null)
         {
@@ -110,6 +132,18 @@ internal sealed class LinuxHead : IAsyncDisposable
             modules.OfType<IClientModule>().Append(new LinuxHeadModule()).Append(new SupportBundleClientModule()),
             ClientHostFacts.Current(),
             log);
+        if (showAthanor)
+        {
+            // The hosts are Avalonia controls, so this runs here on the UI thread; the commands the loaded modules contributed build the claimed-key table.
+            var athanorOptions = AthanorHeadOptions.FromEnvironment(Environment.GetEnvironmentVariable, options.Paths.StateDirectory);
+            _athanor = AthanorHeadComposition.Create(athanorOptions, options.Settings, Loaded.Commands, log);
+            _themeSync = AthanorHeadComposition.StartTheme(athanorOptions, _athanor, log).Sync;
+            context = context
+                .With<IEditorHost>(_athanor.Host)
+                .With<IEditorFileSource>(_athanor.Source)
+                .With<IEditorDraftStore>(_athanor.Drafts);
+        }
+
         var loadedIds = Loaded.Loaded.Select(m => m.Id).ToHashSet(StringComparer.Ordinal);
         var shipped = modules.Where(m => m is not IClientModule client || loadedIds.Contains(client.Manifest.Id));
         Registry = CalcinatoTerminalPanes.Compose(PaneViews.Instance, shipped, context, _terminals);
@@ -117,12 +151,32 @@ internal sealed class LinuxHead : IAsyncDisposable
         RegisterCommands();
         _surface.Bind(Registry.Contains, ShowAsync);
 
-        Window = new MainWindow { Content = _slot };
+        // The update notice strip sits above the pane slot, inside the shell chrome (doc 30 section 7).
+        var restart = options.Updates.CreateRestart(options.Args, () => _ = QuitAfterDisposeAsync());
+        _banner = new UpdateNoticeBanner(() => RestartToApply(restart));
+        _restart = restart;
+        DockPanel.SetDock(_banner, Dock.Top);
+        Window = new MainWindow { Content = new DockPanel { Children = { _banner, _slot } } };
+        _banner.Show(options.Updates.Coordinator.Notice);
+        options.Updates.Coordinator.NoticeChanged += _banner.Show;
         Show(InitialKind(options));
+        RegisterAthanorCommands();
         if (FirstRunScreens.TryBuild(options.Args) is { } firstRun)
         {
             Window.Content = firstRun;
         }
+
+        // Tinted chrome where the session composites, and a flat desktop posture; the content stays opaque (doc 93).
+        // The person's settings, the desktop's animation switch and the frame-budget monitor feed the same state.
+        var visualSettings = new ClientSettingsStore(VisualSettings.Definitions, options.Paths.SettingsFile, log);
+        var motion = new MotionSettings(MotionPlatform.Desktop);
+        var materials = new LinuxMaterialEnvironmentSource();
+        var visuals = ShellVisuals.Install(Window, Window.Content as Control, null, materials, new FlatPostureSource(), VisualSettings.LoadTheme(visualSettings), motion);
+        var reducedMotion = new LinuxReducedMotion();
+        var binder = VisualSettingsBinder.Start(visualSettings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
+        _ = reducedMotion.RefreshAsync();
+        Window.Activated += (_, _) => _ = reducedMotion.RefreshAsync();
+        Window.Closed += (_, _) => binder.Dispose();
 
         // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
         ShellHost.Install(Window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
@@ -185,9 +239,16 @@ internal sealed class LinuxHead : IAsyncDisposable
             return;
         }
 
+        _options.Updates.Coordinator.NoticeChanged -= _banner.Show;
+        _themeSync?.Dispose();
         if (_chat is not null)
         {
             await _chat.DisposeAsync().ConfigureAwait(false);
+        }
+
+        if (_athanor is not null)
+        {
+            await _athanor.DisposeAsync().ConfigureAwait(false);
         }
 
         await _terminals.DisposeAsync().ConfigureAwait(false);
@@ -195,7 +256,8 @@ internal sealed class LinuxHead : IAsyncDisposable
 
     // With dev chat settings the window opens on the GC pane; otherwise on the Dashboard (doc 28). --terminal opens the terminal.
     private static string InitialKind(LinuxHeadOptions options) =>
-        options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
+        options.Args.Contains(AthanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
+        : options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
         : options.Args.Contains("--cold-archive", StringComparer.Ordinal) ? PaneKinds.ColdArchive
         : options.Settings is not null ? GcPaneViewModel.PaneKind
         : PaneKinds.Dashboard;
@@ -231,7 +293,13 @@ internal sealed class LinuxHead : IAsyncDisposable
             _commands.Register(paneCommand.Command.Id, ct => ShowAsync(paneCommand.PaneKind, ct));
         }
 
-        _commands.Register(UpdateCoordinator.CheckCommandId, ct => _options.Updates.CreateCheckCommand(() => Window).RunAsync(ct));
+        // The result of a check shows in the notice strip, so the palette command only starts the check.
+        _commands.Register(UpdateCoordinator.CheckCommandId, ct => _options.Updates.Coordinator.CheckNowAsync(ct));
+        _commands.Register(UpdateCoordinator.RestartCommandId, _ =>
+        {
+            RestartToApply(_restart);
+            return Task.CompletedTask;
+        });
         _commands.Register(LinuxHeadModule.QuitCommandId, _ =>
         {
             Quit();
@@ -247,6 +315,28 @@ internal sealed class LinuxHead : IAsyncDisposable
         foreach (var command in DefaultTerminalCommands.All)
         {
             _commands.Register(command.Id, ct => ReportAsync(command.Title, id => DefaultTerminalCommands.RunAsync(id, new XdgDefaultTerminalRegistrar(new DefaultTerminalSettings { ExecPath = ExecPath() }, new SystemProcessRunner()), ct), command.Id));
+        }
+    }
+
+    // The editor commands (edopen, ednew, edsave, eddiff) are typed text plus Enter, no Ctrl chord; the dispatcher carries them out and gives the open and new prompts a window.
+    private void RegisterAthanorCommands()
+    {
+        if (_athanorModule is null)
+        {
+            return;
+        }
+
+        var dispatcher = AthanorHeadComposition.CreateDispatcher(Window, _athanorModule);
+        foreach (var command in Loaded.Commands.Where(c => AthanorCommandHandler.Handles(c.Id)))
+        {
+            _commands.Register(command.Id, async ct =>
+            {
+                var result = await dispatcher.DispatchAsync(command.Id, ct).ConfigureAwait(true);
+                if (result.Notice is { } notice)
+                {
+                    _options.Log($"Command {command.Id}: {notice}");
+                }
+            });
         }
     }
 
@@ -267,6 +357,29 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         _options.Log($"Bazaar: {title}: {text}");
         await Dispatcher.UIThread.InvokeAsync(() => StatusNotice.Show(Window, title, text ?? "Done."));
+    }
+
+    // Only a press of the button or the palette command gets here; a refusal is told to the user, never swallowed.
+    private void RestartToApply(UpdateRestart restart)
+    {
+        if (restart.TryRestart() is { } refusal)
+        {
+            _options.Log($"Bazaar: restart refused: {refusal}");
+            StatusNotice.Show(Window, "Restart to apply", refusal);
+        }
+    }
+
+    // Closes the chat connection first, then shuts the lifetime down; the new process starts after Main has returned.
+    private async Task QuitAfterDisposeAsync()
+    {
+        try
+        {
+            await DisposeAsync().ConfigureAwait(true);
+        }
+        finally
+        {
+            Quit();
+        }
     }
 
     private void Quit()

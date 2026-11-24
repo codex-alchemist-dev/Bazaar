@@ -37,6 +37,7 @@ public sealed class LinuxHeadTests : IDisposable
         [
             PaneKinds.Dashboard, PaneKinds.VaultSearch, PaneKinds.Org, PaneKinds.Calendar,
             PaneKinds.InterruptStack, PaneKinds.ColdArchive, PaneKinds.Terminal,
+            PaneKinds.AgentAnalytics, PaneKinds.Settings, PaneKinds.GitSolarSystem, "git.view", "git.prs", "git.pr", "git.diff",
         ];
         foreach (var kind in expected)
         {
@@ -60,6 +61,31 @@ public sealed class LinuxHeadTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task Navigates_to_the_analytics_solar_system_and_git_panes()
+    {
+        await using var head = Create();
+
+        await head.RunCommandAsync("nav.analytics");
+        Assert.Equal(PaneKinds.AgentAnalytics, head.ShownKind);
+
+        await head.RunCommandAsync("nav.git.solar");
+        Assert.Equal(PaneKinds.GitSolarSystem, head.ShownKind);
+
+        await head.RunCommandAsync("nav.git");
+        Assert.Equal("git.view", head.ShownKind);
+    }
+
+    [AvaloniaFact]
+    public async Task Settings_command_opens_the_settings_pane_and_reports_not_connected()
+    {
+        await using var head = Create();
+
+        await head.RunCommandAsync("nav.settings");
+
+        Assert.Equal(PaneKinds.Settings, head.ShownKind);
+    }
+
+    [AvaloniaFact]
     public async Task Cold_archive_flag_opens_the_cold_archive_pane()
     {
         await using var head = Create("--cold-archive");
@@ -73,7 +99,7 @@ public sealed class LinuxHeadTests : IDisposable
         await using var head = Create();
 
         var ids = head.Loaded.Commands.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
-        foreach (var id in new[] { "nav.dashboard", "nav.org", "update.check", "app.quit", "supportbundle.save" })
+        foreach (var id in new[] { "nav.dashboard", "nav.org", "nav.analytics", "nav.settings", "nav.git.solar", "nav.git", "update.check", "update.restart", "app.quit", "supportbundle.save" })
         {
             Assert.Contains(id, ids);
         }

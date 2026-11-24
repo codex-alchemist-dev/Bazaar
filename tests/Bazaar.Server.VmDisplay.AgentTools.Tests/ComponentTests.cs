@@ -34,7 +34,7 @@ public class ComponentTests
         Assert.Equal("vm-display-agent-tools", m.Id);
         Assert.Equal(ComponentKind.Feature, m.Kind);
         Assert.Empty(m.DependsOn);
-        Assert.Equal(["vm-display"], m.Soft);
+        Assert.Equal(["vm-display", "vm-display-agent-targets"], m.Soft);
     }
 
     [Fact]

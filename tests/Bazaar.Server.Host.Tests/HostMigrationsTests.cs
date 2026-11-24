@@ -113,4 +113,23 @@ public sealed class HostMigrationsTests
         Assert.Contains("account_approval", ordered);
         Assert.True(ordered.ToList().IndexOf("account_approval") > 0);
     }
+
+    [Fact]
+    public void Mail_namespace_is_read_from_the_mail_module_at_version_21()
+    {
+        var source = HostMigrations.Source();
+        Assert.Contains("mail", source.Namespaces());
+        Assert.Contains(source.Load("mail"), f => f.Version == 21 && f.Name == "mail_core");
+    }
+
+    [Fact]
+    public void Constellation_namespace_holds_0001_from_the_server_and_0002_and_0003_from_the_constellation_module()
+    {
+        var files = HostMigrations.Source().Load("constellation");
+
+        Assert.Contains(files, f => f.Version == 1 && f.Name == "memory_graph");
+        Assert.Contains(files, f => f.Version == 2 && f.Name == "memory_doc_id");
+        Assert.Contains(files, f => f.Version == 3 && f.Name == "memory_read_log");
+        Assert.Equal(3, files.Count);
+    }
 }

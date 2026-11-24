@@ -10,7 +10,7 @@ namespace Bazaar.Server.EngineRelay;
 public static class EngineRelayServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the target directory, the publisher and the <c>engine.relay.result</c> handler. The host supplies
+    /// Registers the target directory, the publisher and the <c>engine.relay.result</c> and <c>engine.grant.verify</c> handlers. The host supplies
     /// <see cref="IWireConnectionDirectory"/> (the wire kernel), <see cref="EngineRelayBroker"/> and, optionally, <see cref="SyncOptions"/>.
     /// The publisher reaches the broker lazily to tell it when a device's connection ends; the broker needs the publisher, so
     /// resolving it at construction would loop.
@@ -25,6 +25,7 @@ public static class EngineRelayServiceCollectionExtensions
             sp.GetService<SyncOptions>(),
             sp.GetService<TimeProvider>()));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, EngineRelayResultHandler>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, EngineGrantVerifyHandler>());
         return services;
     }
 }

@@ -1,5 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
-; Schema hash sha256:5a136241d818fb04b745a56a84182ecd350218c1ebd65ec88576ebb4bab27e8c.
+; Schema hash sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
 envelope = {
@@ -22,15 +22,21 @@ float32-array = #6.85(bstr)
 ; Message types and the payload rule each carries.
 ; board.assign = kanban-assign-request
 ; board.snapshot = kanban-board-request
+; engine.grant.verify = engine-grant-verify-request
 ; engine.relay.request = engine-relay-request-frame
 ; engine.relay.result = engine-relay-result-frame
 ; gc.edit = gc-edit
 ; gc.history = gc-history
+; gc.list = gc-list-request
 ; gc.member.add = gc-member-add
 ; gc.member.remove = gc-member-remove
 ; gc.message = wire-gc-message
+; gc.react = gc-react
+; gc.reaction = wire-gc-reaction
+; gc.reactions = gc-reactions-request
 ; gc.read = gc-read
 ; gc.send = gc-send
+; gc.typing = gc-typing
 ; graph.lod = graph-lod-frame
 ; hello = hello
 ; hive.grant.revoke = hive-grant-change-request
@@ -55,8 +61,18 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
-payload = engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+payload = engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-list-item / gc-list-reply / gc-list-request / gc-member-add / gc-member-remove / gc-page / gc-react / gc-react-result / gc-reactions-reply / gc-reactions-request / gc-read / gc-send / gc-send-result / gc-typing / gc-typing-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message / wire-gc-reaction / wire-reaction-group
 
+engine-grant-verify-reply = {
+  covers: bool,  ; 1
+  * tstr => any
+}
+engine-grant-verify-request = {
+  grantId: tstr,  ; 1
+  tool: tstr,  ; 2
+  riskClass: risk-class,  ; 3
+  * tstr => any
+}
 engine-relay-call-frame = {
   grantId: tstr,  ; 1
   studioId: tstr,  ; 2
@@ -81,6 +97,7 @@ engine-relay-result-frame = {
   result: engine-relay-call-result-frame,  ; 2
   * tstr => any
 }
+risk-class = "read" / "write" / "exec"
 principal-kind = "owner" / "human" / "agent"
 pr-author-kind = "agent" / "human"
 pr-changed-file = {
@@ -454,6 +471,26 @@ gc-history = {
   limit: -2147483648..2147483647,  ; 3
   * tstr => any
 }
+gc-list-item = {
+  gcId: uuid-text,  ; 1
+  title: tstr,  ; 2
+  kind: tstr,  ; 3
+  memberCount: -2147483648..2147483647,  ; 4
+  headSeq: int,  ; 5
+  ? lastActivityTs: #6.0(tstr),  ; 6
+  * tstr => any
+}
+gc-list-reply = {
+  items: [* gc-list-item],  ; 1
+  hasMore: bool,  ; 2
+  ? defaultGcId: uuid-text,  ; 3
+  * tstr => any
+}
+gc-list-request = {
+  limit: -2147483648..2147483647,  ; 1
+  ? includeThinking: bool,  ; 2
+  * tstr => any
+}
 gc-member-add = {
   gcId: uuid-text,  ; 1
   principalId: uuid-text,  ; 2
@@ -471,6 +508,27 @@ gc-page = {
   hasMore: bool,  ; 2
   * tstr => any
 }
+gc-react = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  add: bool,  ; 4
+  * tstr => any
+}
+gc-react-result = {
+  n: int,  ; 1
+  changed: bool,  ; 2
+  * tstr => any
+}
+gc-reactions-reply = {
+  items: [* wire-reaction-group],  ; 1
+  * tstr => any
+}
+gc-reactions-request = {
+  gcId: uuid-text,  ; 1
+  ? afterN: int,  ; 2
+  * tstr => any
+}
 gc-read = {
   gcId: uuid-text,  ; 1
   upToN: int,  ; 2
@@ -486,6 +544,15 @@ gc-send = {
 gc-send-result = {
   n: int,  ; 1
   ev: int,  ; 2
+  * tstr => any
+}
+gc-typing = {
+  gcId: uuid-text,  ; 1
+  typing: bool,  ; 2
+  * tstr => any
+}
+gc-typing-result = {
+  accepted: bool,  ; 1
   * tstr => any
 }
 hello = {
@@ -611,6 +678,15 @@ wire-gc-message = {
   ? withdrawn: bool,  ; 11
   * tstr => any
 }
+wire-gc-reaction = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  by: uuid-text,  ; 4
+  add: bool,  ; 5
+  ts: #6.0(tstr),  ; 6
+  * tstr => any
+}
 wire-limits = {
   maxFrameBytes: -2147483648..2147483647,  ; 1
   inflightRequestsMax: -2147483648..2147483647,  ; 2
@@ -629,5 +705,11 @@ wire-presence-row = {
   ? label: tstr,  ; 9
   since: #6.0(tstr),  ; 10
   updatedAt: #6.0(tstr),  ; 11
+  * tstr => any
+}
+wire-reaction-group = {
+  targetN: int,  ; 1
+  emoji: tstr,  ; 2
+  by: [* uuid-text],  ; 3
   * tstr => any
 }

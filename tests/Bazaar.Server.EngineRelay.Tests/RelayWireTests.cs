@@ -55,7 +55,7 @@ public sealed class RelayWireTests
 
         public void Close() => _closed.Cancel();
 
-    public void Dispose() => _closed.Dispose();
+        public void Dispose() => _closed.Dispose();
 
         public bool TryEnqueueEvent(Envelope envelope)
         {
@@ -278,5 +278,49 @@ public sealed class RelayWireTests
         var desktop = new Conn("desktop-1");
         var empty = new WireRequestContext(desktop, new Envelope(1, EngineRelayWire.RequestType, EnvelopeKind.Request, "r2", null, null, null, null, default));
         Assert.False((await handler.HandleAsync(empty, ct)).IsOk);
+    }
+
+    private static WireRequestContext Verify(Conn from, string grant, string tool, RiskClass risk) =>
+        new(from, new Envelope(1, EngineRelayWire.GrantVerifyType, EnvelopeKind.Request, "v1", null, null, null, null,
+            _codec.EncodePayload(new EngineGrantVerifyRequest(grant, tool, risk))));
+
+    private static bool Covers(WireReply reply) =>
+        reply.IsOk && _codec.DecodePayload<EngineGrantVerifyReply>(new Envelope(1, "x", EnvelopeKind.Response, null, "v1", null, null, null, reply.Payload)).Covers;
+
+    private static EngineGrantVerifyHandler VerifyHandler(EngineRelayBroker broker) => new(broker);
+
+    [Fact]
+    public async Task A_live_relay_makes_the_grant_verify_for_its_device_grant_and_tool_only()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var desktop = new Conn("desktop-1");
+        var other = new Conn("desktop-2");
+        var (broker, handler) = Compose(desktop);
+        var verify = VerifyHandler(broker);
+
+        Assert.False(Covers(await verify.HandleAsync(Verify(desktop, "g1", "multi_edit", RiskClass.Write), ct)));
+
+        var call = broker.RelayAsync(Req(), ct);
+        var evt = DecodeEvent(await NextEventAsync(desktop, ct));
+
+        Assert.True(Covers(await verify.HandleAsync(Verify(desktop, "g1", "multi_edit", RiskClass.Write), ct)));
+        Assert.False(Covers(await verify.HandleAsync(Verify(desktop, "g1", "multi_edit", RiskClass.Exec), ct)));
+        Assert.False(Covers(await verify.HandleAsync(Verify(desktop, "g1", "script_read", RiskClass.Read), ct)));
+        Assert.False(Covers(await verify.HandleAsync(Verify(desktop, "other-grant", "multi_edit", RiskClass.Write), ct)));
+        Assert.False(Covers(await verify.HandleAsync(Verify(other, "g1", "multi_edit", RiskClass.Write), ct)));
+
+        Assert.True((await handler.HandleAsync(Answer(desktop, evt.RelayId), ct)).IsOk);
+        await call;
+        Assert.False(Covers(await verify.HandleAsync(Verify(desktop, "g1", "multi_edit", RiskClass.Write), ct)));
+    }
+
+    [Fact]
+    public async Task A_non_target_connection_cannot_verify_a_grant()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var human = new Conn("phone", "human", "android");
+        var (broker, _) = Compose(human);
+
+        Assert.False((await VerifyHandler(broker).HandleAsync(Verify(human, "g1", "multi_edit", RiskClass.Write), ct)).IsOk);
     }
 }
