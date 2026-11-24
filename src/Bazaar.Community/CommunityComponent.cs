@@ -4,6 +4,9 @@ using Bazaar.Community.Drafts;
 using Bazaar.Community.Observatory;
 using Bazaar.Community.Profile;
 using Bazaar.Community.Quotas;
+using Bazaar.Community.Tools;
+using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Core;
 using Bazaar.Server.Community;
 using Microsoft.Extensions.Configuration;
@@ -32,6 +35,17 @@ public sealed class CommunityComponent : IBazaarComponent
         DependsOn: [],
         Provides: ["feature:community"]);
 
+    /// <summary>
+    /// Policy entry for <c>community.propose_post</c> (doc 36 WP8, PROPOSED). The tool only stores a draft; the post needs the sponsor's
+    /// signed approval on a client. Tier 1 from an actor session, hard taint escalates it to owner approval, and the rate caps a runaway agent.
+    /// </summary>
+    public static ToolCapability ProposePostCapability { get; } = new(
+        CommunityProposePostTool.ToolName,
+        ToolTier.AutonomousWithNotice,
+        CapabilityClass.Post,
+        SessionRoles.Actor,
+        new RateRule(10, TimeSpan.FromHours(1)));
+
     public ComponentManifest Manifest => ManifestDefinition;
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
@@ -47,10 +61,10 @@ public sealed class CommunityComponent : IBazaarComponent
 
         // Draft review (doc 36 WP8). The store is lazy over the shared NpgsqlDataSource, like the log reader. The decision handler and
         // the creator are factories: they resolve their dependencies on first use, so a host that has not bound them yet gets an
-        // InvalidOperationException there, which the draft routes answer as 503 "unavailable". Still UNBOUND here, supplied by host
-        // composition: ICommunityPolicySource (over PlatformPolicyLoader), the ICommunityAdapter set, IOwnerKeyRegistry (the owner's
-        // device keys) and CommunityActionStore (needs ICommunityActionSql and IAuditLog). DisclosureOptions and CommunityDraftOptions
-        // default to the shipped values unless the host registers its own.
+        // InvalidOperationException there, which the draft routes answer as 503 "unavailable". Supplied by host composition
+        // (AddBazaarCommunityHost in Bazaar.Server.Host): ICommunityPolicySource (over PlatformPolicyLoader), the ICommunityAdapter
+        // set, IOwnerKeyRegistry (the owner's device keys) and CommunityActionStore (ICommunityActionSql and IAuditLog).
+        // DisclosureOptions and CommunityDraftOptions default to the shipped values unless the host registers its own.
         services.TryAddSingleton<ICommunityDraftStore>(sp => new NpgsqlCommunityDraftStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(new DisclosureOptions());
         services.TryAddSingleton(new CommunityDraftOptions());
@@ -84,5 +98,20 @@ public sealed class CommunityComponent : IBazaarComponent
             sp.GetRequiredService<CommunityDraftOptions>(),
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<CommunityDraftExpiryService>>()));
+        // Agent tool (doc 36 WP8). The agent's sponsor and profile come from ICommunityAgentIdentitySource: by default the operator list in
+        // Bazaar:Community:Profiles, which a host can replace. An unlisted agent gets no_profile. Registered lazily so a host without the binding still starts.
+        services.TryAddSingleton<ICommunityAgentIdentitySource>(_ => ConfiguredCommunityAgentIdentitySource.From(configuration));
+        // Taint lineage for the action log comes from the session taint reader the host registers; without one the tool logs "[]" (the
+        // dispatcher's policy engine still gates on the real taint).
+        services.TryAddSingleton<ICommunityTaintSourceReader>(sp => sp.GetService<Bazaar.Server.Security.Taint.ISessionTaintReader>() is { } r
+            ? new SessionCommunityTaintSourceReader(r)
+            : new EmptyCommunityTaintSourceReader());
+        services.TryAddSingleton(sp => new CommunityProposePostTool(
+            sp.GetRequiredService<ICommunityDraftCreator>(),
+            sp.GetRequiredService<ICommunityAgentIdentitySource>(),
+            sp.GetService<ICommunityTaintSourceReader>()));
+        services.AddSingleton(sp => new ToolRegistration(CommunityProposePostTool.ToolName, sp.GetRequiredService<CommunityProposePostTool>()));
+        services.AddSingleton(ProposePostCapability);
+        services.AddSingleton(CommunityProposePostTool.Definition);
     }
 }

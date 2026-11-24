@@ -83,7 +83,8 @@ public static class TuiHostCommandLine
             host.Terminal,
             TuiInstaller.SharedBackend(host.Variables, wiring.Gate, RegistrySetupSettingCatalog.Known),
             () => new ConsoleSetupPrompter(host.Input, host.Output, host.Secrets),
-            SecretWriter: new UnavailableSecretWriter());
+            SecretWriter: new UnavailableSecretWriter(),
+            FullScreenHostFactory: TuiInstaller.TerminalGuiHostFactory());
         var run = await TuiInstaller.RunAsync(options, ct).ConfigureAwait(false);
         return run.Result.ExitCode;
     }

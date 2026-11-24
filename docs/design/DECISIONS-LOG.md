@@ -424,6 +424,15 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
 | Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |
 
+## Round 30 (2026-11-19): Sealed storage for Soul data and other sensitive on-disk data
+
+| Decision | Status | Docs |
+|---|---|---|
+| Soul data, agent memory working copies, cookie and Passport profiles and host bootstrap values are encrypted on disk with authenticated encryption under the KEK, and edits from outside Bazaar are detected on read and fail closed. Owner message `cmsg_01MC1BkUhiVHzqr38uyxWzeHKwHGpbCxbmcQVzZBXGVhhR` (2026-11-19): "soul data should be encrypted in their folders and shouldn't be able to be manually edited from the outside ... as well as any data that needs security like that." | DECIDED (owner) | 61, 07, 14 |
+| Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 61, 40 |
+| Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 61 |
+| Company Vault git history is sealed too; the KEK key file is sealed with an OS keyring where available (owner standing rules, relayed 2026-11-20) | DECIDED (mechanics PROPOSED) | 61 Q1, Q2 |
+
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
 | Decision | Ruling | Docs |
@@ -519,3 +528,15 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | Setting audit | The host logs one line at start with the loop state and whether it came from the default or the operator. Changes go through host configuration, which follows the same change audit as other bootstrap options. | Yes. |
 
 See doc 06 "Wake loop default" and doc 38.
+
+## Round 37 (2026-11-22): shared cache-backed rate limiter
+
+| Item | Decision | Docs |
+|---|---|---|
+| One host `IRateLimiter`, backed by the cache provider so counts are shared and survive a restart | PROPOSED | 15, 03 |
+| `ICacheCounter` (atomic increment, TTL set on a new key) in `Bazaar.Server.Providers.Abstractions`; `ICacheProvider` unchanged; Garnet and Valkey implement it | PROPOSED | 03, 15 |
+| Module `Bazaar.RateLimits.Cache`, component `rate-limits-cache`; sliding-window counter over two fixed buckets, TTL 2x window, window length in the key | PROPOSED | 15 |
+| Increment first, undo on denial (never over-admits; a failed undo over-counts and fails closed) | PROPOSED | 15 |
+| `Bazaar:RateLimits:CacheTimeout` default 150 ms; on timeout, error or no counter fall back to the in-process limiter, warn once per outage, recover automatically; never fail open, never throw | PROPOSED | 15 |
+| The component replaces earlier `IRateLimiter` registrations, so it wins regardless of component order | PROPOSED | 15 |
+| Open: whether a cache flush should fall back to the durable Postgres `rate_bucket`; whether the strictest limits (for example new repositories) should fail closed during an outage instead of using the in-process fallback | OPEN | 15 |

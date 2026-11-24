@@ -10,16 +10,24 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <TieredPGO>true</TieredPGO>
+    <!-- LibraryImport (battery saver read) generates unsafe marshalling stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(RuntimeIdentifier)' != ''">
     <!-- Publish-only precompilation for the GUI head (doc 40). Needs a RID; ignored by plain builds. -->
     <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Client.Windows.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Community\Bazaar.Client.Community.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Community.Avalonia\Bazaar.Client.Community.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Community.Approvals\Bazaar.Client.Community.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Preload\Bazaar.Client.Preload.csproj" />
     <ProjectReference Include="..\Bazaar.SupportBundle\Bazaar.SupportBundle.csproj" />
     <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
@@ -30,8 +38,19 @@
     <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Studio\Bazaar.Client.Studio.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor\Bazaar.Client.Athanor.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.AvaloniaEdit\Bazaar.Client.Athanor.AvaloniaEdit.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.WebView2\Bazaar.Client.Athanor.WebView2.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings.Avalonia\Bazaar.Client.Settings.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Engines\Bazaar.Client.Engines.csproj" />
@@ -57,6 +76,9 @@
     <ProjectReference Include="..\Bazaar.Client.SignIn\Bazaar.Client.SignIn.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Walkthrough.Avalonia\Bazaar.Client.Walkthrough.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.FirstTask.Avalonia\Bazaar.Client.FirstTask.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Souls\Bazaar.Client.Souls.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
   </ItemGroup>
 </Project>

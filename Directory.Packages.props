@@ -4,6 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.6" />
+    <!-- Core only (no WinForms or WPF controls); hosts the Athanor editor island (doc 57 §3a). Same pin as spike S12. -->
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Wayland" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Android" Version="12.1.6" />
@@ -12,6 +14,7 @@
     <PackageVersion Include="Avalonia.Skia" Version="12.1.6" />
     <PackageVersion Include="Avalonia.HarfBuzz" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="11.0.0" />
@@ -19,7 +22,7 @@
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
     <!-- Repo map C# symbol extraction (doc 17 WP7): syntax trees only, no semantic model. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
@@ -38,6 +41,7 @@
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
     <PackageVersion Include="MimeKit" Version="5.0.0" />
     <PackageVersion Include="MailKit" Version="5.0.0" />
+    <PackageVersion Include="Fido2" Version="4.3.3" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="11.0.0" />
@@ -46,6 +50,7 @@
     <!-- Constellation Vulkan backend (doc 19, WP7; owner direction 2026-10-30). Published 2026-09-29. -->
     <PackageVersion Include="Vortice.Vulkan" Version="3.3.0" />
     <!-- 3.2.x, not 4.0.x: Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.0.2 (MissingMethodException at discovery). -->
+    <PackageVersion Include="Wasmtime" Version="50.0.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <!-- Library-side xUnit v3 for module contract base classes (doc 46 section 10.3). Same version as the test host. -->
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />

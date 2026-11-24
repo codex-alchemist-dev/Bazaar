@@ -1,22 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:a4ce8f40986f8c5db549acc6c126816a226b46c3a3cb8e70e451115ff701c526",
+  "x-schemaHash": "sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842",
   "x-messages": {
     "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    "editor.create": { "$ref": "#/$defs/Bazaar.Contracts.Athanor.EditorCreateRequest" },
+    "editor.open": { "$ref": "#/$defs/Bazaar.Contracts.Athanor.EditorOpenRequest" },
+    "editor.save": { "$ref": "#/$defs/Bazaar.Contracts.Athanor.EditorSaveRequest" },
     "engine.grant.verify": { "$ref": "#/$defs/Bazaar.Contracts.Engines.EngineGrantVerifyRequest" },
     "engine.relay.request": { "$ref": "#/$defs/Bazaar.Contracts.Engines.EngineRelayRequestFrame" },
     "engine.relay.result": { "$ref": "#/$defs/Bazaar.Contracts.Engines.EngineRelayResultFrame" },
     "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
     "gc.history": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcHistory" },
+    "gc.list": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcListRequest" },
     "gc.member.add": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberAdd" },
     "gc.member.remove": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberRemove" },
     "gc.message": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" },
+    "gc.react": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcReact" },
+    "gc.reaction": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcReaction" },
+    "gc.reactions": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcReactionsRequest" },
     "gc.read": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcRead" },
     "gc.send": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcSend" },
+    "gc.typing": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcTyping" },
     "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
     "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
     "hive.grant.revoke": { "$ref": "#/$defs/Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
@@ -32,6 +40,8 @@
     "pr.summary": { "$ref": "#/$defs/Bazaar.Contracts.GitHub.PrSummaryRequest" },
     "presence.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
     "presence.update": { "$ref": "#/$defs/Bazaar.Contracts.Wire.PresenceUpdate" },
+    "replay.fork": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayForkRequest" },
+    "replay.frame": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayFrameRequest" },
     "resync": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Resync" },
     "ryusei.trigger.list": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest" },
     "ryusei.trigger.pause": { "$ref": "#/$defs/Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
@@ -42,6 +52,66 @@
     "welcome": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Welcome" }
   },
   "$defs": {
+    "Bazaar.Contracts.Athanor.EditorCreateReply": {
+      "type": "object",
+      "properties": {
+        "revision": { "type": "string" }
+      },
+      "required": ["revision"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Athanor.EditorCreateRequest": {
+      "type": "object",
+      "properties": {
+        "workspaceId": { "type": "string" },
+        "path": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["workspaceId", "path", "content"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Athanor.EditorOpenReply": {
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "revision": { "type": "string" },
+        "languageHint": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "readOnly": { "type": "boolean" },
+        "sizeBytes": { "type": "integer" }
+      },
+      "required": ["content", "revision", "readOnly", "sizeBytes"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Athanor.EditorOpenRequest": {
+      "type": "object",
+      "properties": {
+        "workspaceId": { "type": "string" },
+        "path": { "type": "string" }
+      },
+      "required": ["workspaceId", "path"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Athanor.EditorSaveReply": {
+      "type": "object",
+      "properties": {
+        "newRevision": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "serverRevision": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "serverContent": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": [],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Athanor.EditorSaveRequest": {
+      "type": "object",
+      "properties": {
+        "workspaceId": { "type": "string" },
+        "path": { "type": "string" },
+        "baseRevision": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["workspaceId", "path", "baseRevision", "content"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Engines.EngineGrantVerifyReply": {
       "type": "object",
       "properties": {
@@ -646,6 +716,159 @@
       "required": ["projectId"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.TimeMachine.ReplayForkRequest": {
+      "type": "object",
+      "properties": {
+        "gc": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "seq": { "type": "integer" },
+        "requestId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }
+      },
+      "required": ["gc", "seq", "requestId"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayForkResult": {
+      "type": "object",
+      "properties": {
+        "newGc": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "vaultCommit": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "created": { "type": "boolean" }
+      },
+      "required": ["newGc", "created"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayFrameRequest": {
+      "type": "object",
+      "properties": {
+        "gc": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "seq": { "type": "integer" },
+        "mode": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["gc", "seq"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayFrameResult": {
+      "type": "object",
+      "properties": {
+        "gc": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "seq": { "type": "integer" },
+        "head": { "type": "integer" },
+        "frame": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayFrameWire" }
+      },
+      "required": ["gc", "seq", "head", "frame"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayFrameWire": {
+      "type": "object",
+      "properties": {
+        "messages": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayMessageWire" } },
+        "kanban": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayTasksPart" },
+        "vault": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayVaultPart" },
+        "souls": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplaySoulsPart" },
+        "reputation": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayReputationPart" }
+      },
+      "required": ["messages", "kanban", "vault", "souls", "reputation"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayMessageWire": {
+      "type": "object",
+      "properties": {
+        "messageId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "authorId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "firstSeq": { "type": "integer" },
+        "versionSeq": { "type": "integer" },
+        "version": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "edited": { "type": "boolean" },
+        "quarantined": { "type": "boolean" },
+        "payloadJson": { "anyOf": [ { "type": "string" }, { "type": "null" } ] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["messageId", "authorId", "firstSeq", "versionSeq", "version", "edited", "quarantined", "createdAt"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayReputationPart": {
+      "type": "object",
+      "properties": {
+        "available": { "type": "boolean" },
+        "value": { "anyOf": [ { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayReputationWire" } }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["available"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayReputationWire": {
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "score": { "type": "number" }
+      },
+      "required": ["agentId", "score"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplaySoulWire": {
+      "type": "object",
+      "properties": {
+        "agentId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "version": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
+      },
+      "required": ["agentId", "version"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplaySoulsPart": {
+      "type": "object",
+      "properties": {
+        "available": { "type": "boolean" },
+        "value": { "anyOf": [ { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplaySoulWire" } }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["available"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayTaskWire": {
+      "type": "object",
+      "properties": {
+        "taskId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "title": { "type": "string" },
+        "column": { "type": "string" }
+      },
+      "required": ["taskId", "title", "column"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayTasksPart": {
+      "type": "object",
+      "properties": {
+        "available": { "type": "boolean" },
+        "value": { "anyOf": [ { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayTaskWire" } }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["available"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayVaultPart": {
+      "type": "object",
+      "properties": {
+        "available": { "type": "boolean" },
+        "value": { "anyOf": [ { "anyOf": [ { "$ref": "#/$defs/Bazaar.Contracts.TimeMachine.ReplayVaultWire" }, { "type": "null" } ] }, { "type": "null" } ] },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["available"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayVaultWire": {
+      "type": "object",
+      "properties": {
+        "commit": { "type": "string" }
+      },
+      "required": ["commit"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.TimeMachine.ReplayVaultWire?": {
+      "type": "object",
+      "properties": {
+        "commit": { "type": "string" }
+      },
+      "required": ["commit"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.GcEdit": {
       "type": "object",
       "properties": {
@@ -664,6 +887,38 @@
         "limit": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }
       },
       "required": ["gcId", "before", "limit"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcListItem": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "title": { "type": "string" },
+        "kind": { "type": "string" },
+        "memberCount": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "headSeq": { "type": "integer" },
+        "lastActivityTs": { "anyOf": [ { "type": "string", "format": "date-time" }, { "type": "null" } ] }
+      },
+      "required": ["gcId", "title", "kind", "memberCount", "headSeq"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcListReply": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcListItem" } },
+        "hasMore": { "type": "boolean" },
+        "defaultGcId": { "anyOf": [ { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" }, { "type": "null" } ] }
+      },
+      "required": ["items", "hasMore"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcListRequest": {
+      "type": "object",
+      "properties": {
+        "limit": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 },
+        "includeThinking": { "type": "boolean" }
+      },
+      "required": ["limit"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Wire.GcMemberAdd": {
@@ -695,6 +950,43 @@
       "required": ["items", "hasMore"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.GcReact": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "add": { "type": "boolean" }
+      },
+      "required": ["gcId", "targetN", "emoji", "add"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactResult": {
+      "type": "object",
+      "properties": {
+        "n": { "type": "integer" },
+        "changed": { "type": "boolean" }
+      },
+      "required": ["n", "changed"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactionsReply": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireReactionGroup" } }
+      },
+      "required": ["items"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcReactionsRequest": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "afterN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
+      },
+      "required": ["gcId"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.GcRead": {
       "type": "object",
       "properties": {
@@ -722,6 +1014,23 @@
         "ev": { "type": "integer" }
       },
       "required": ["n", "ev"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcTyping": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "typing": { "type": "boolean" }
+      },
+      "required": ["gcId", "typing"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.GcTypingResult": {
+      "type": "object",
+      "properties": {
+        "accepted": { "type": "boolean" }
+      },
+      "required": ["accepted"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Wire.Hello": {
@@ -923,6 +1232,19 @@
       "required": ["gcId", "n", "ev", "messageId", "authorId", "text", "ts", "edited", "mentions"],
       "additionalProperties": true
     },
+    "Bazaar.Contracts.Wire.WireGcReaction": {
+      "type": "object",
+      "properties": {
+        "gcId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "by": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "add": { "type": "boolean" },
+        "ts": { "type": "string", "format": "date-time" }
+      },
+      "required": ["gcId", "targetN", "emoji", "by", "add", "ts"],
+      "additionalProperties": true
+    },
     "Bazaar.Contracts.Wire.WireLimits": {
       "type": "object",
       "properties": {
@@ -949,6 +1271,16 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["agentId", "revision", "availability", "overlays", "presence", "activityKind", "since", "updatedAt"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Wire.WireReactionGroup": {
+      "type": "object",
+      "properties": {
+        "targetN": { "type": "integer" },
+        "emoji": { "type": "string" },
+        "by": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } }
+      },
+      "required": ["targetN", "emoji", "by"],
       "additionalProperties": true
     }
   }

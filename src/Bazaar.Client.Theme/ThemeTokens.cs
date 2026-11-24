@@ -88,6 +88,9 @@ public static class ThemeTokens
     /// <summary>WCAG 2.2 AA minimum for body text.</summary>
     public const double MinimumContrastRatio = 4.5;
 
+    /// <summary>Largest accepted layout.* extent (sidebar, strip and sheet sizes), in device-independent pixels.</summary>
+    public const double MaxLayoutExtent = 1024.0;
+
     /// <summary>Largest accepted length token value, in pixels.</summary>
     public const int MaxLength = 256;
 
@@ -163,6 +166,13 @@ public static class ThemeTokens
         new("motion.liquid.ripple.size", TokenKind.Length, 2),
         new("motion.liquid.ripple.duration", TokenKind.Duration, 2),
         new("motion.liquid.merge.softness", TokenKind.Number, 2, 0.0, 1.0),
+        new("layout.sidebar.width.expanded", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
+        new("layout.sidebar.width.collapsed", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
+        new("layout.strip.height", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
+        new("layout.sheet.width", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
+        new("layout.sheet.side.width", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
+        new("material.scrim.opacity", TokenKind.Number, 2, 0.0, 1.0),
+        new("gesture.sheet.dismiss.fraction", TokenKind.Number, 2, 0.05, 0.95),
     ];
 
     private static IEnumerable<TokenSpec> HueSpecs()

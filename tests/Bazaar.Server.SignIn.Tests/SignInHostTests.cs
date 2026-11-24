@@ -234,12 +234,87 @@ public sealed class SignInHostTests
     [Theory]
     [InlineData("/signin/register")]
     [InlineData("/signin/recover")]
-    public async Task Register_and_recover_are_not_implemented(string path)
+    public async Task Bare_register_and_recover_are_not_implemented(string path)
     {
         await using var host = await StartAsync();
 
         Assert.Equal(HttpStatusCode.NotImplemented, (await host.Client.GetAsync(path, TestContext.Current.CancellationToken)).StatusCode);
         Assert.Equal(HttpStatusCode.NotImplemented, (await host.PostAsync(path, "{}")).StatusCode);
+    }
+
+    private sealed class FakeEnrolment : IPasskeyEnrolment
+    {
+        public string? LastToken { get; private set; }
+
+        public Task<string?> BeginAsync(string bearerToken, CancellationToken ct = default)
+        {
+            LastToken = bearerToken;
+            return Task.FromResult<string?>(bearerToken == "good" ? "{\"challenge\":\"abc\"}" : null);
+        }
+
+        public Task<bool> CompleteAsync(string bearerToken, string attestationJson, CancellationToken ct = default) =>
+            Task.FromResult(bearerToken == "good" && attestationJson == "att");
+    }
+
+    private static Task<HttpResponseMessage> RegisterAsync(Host host, string path, string json, string? bearer, bool origin = true)
+    {
+        var req = new HttpRequestMessage(HttpMethod.Post, path) { Content = new StringContent(json, Encoding.UTF8, "application/json") };
+        if (origin)
+        {
+            req.Headers.TryAddWithoutValidation("Origin", host.Origin);
+        }
+
+        if (bearer is not null)
+        {
+            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + bearer);
+        }
+
+        return host.Client.SendAsync(req, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task Register_routes_are_501_without_an_enrolment_service()
+    {
+        await using var host = await StartAsync();
+
+        Assert.Equal(HttpStatusCode.NotImplemented, (await RegisterAsync(host, "/signin/register/options", "{}", "good")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotImplemented, (await RegisterAsync(host, "/signin/register/complete", "{}", "good")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_options_and_complete_run_for_a_valid_token()
+    {
+        await using var host = await StartAsync(configure: s => s.AddSingleton<IPasskeyEnrolment, FakeEnrolment>());
+
+        var options = await RegisterAsync(host, "/signin/register/options", "{}", "good");
+        Assert.Equal(HttpStatusCode.OK, options.StatusCode);
+        Assert.Contains("abc", await options.Content.ReadAsStringAsync(TestContext.Current.CancellationToken), StringComparison.Ordinal);
+
+        var done = await RegisterAsync(host, "/signin/register/complete", "{\"attestation\":\"att\"}", "good");
+        Assert.Equal(HttpStatusCode.OK, done.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("bad", true, "{\"attestation\":\"att\"}")]
+    [InlineData(null, true, "{\"attestation\":\"att\"}")]
+    [InlineData("good", false, "{\"attestation\":\"att\"}")]
+    [InlineData("good", true, "{\"attestation\":\"wrong\"}")]
+    [InlineData("good", true, "{}")]
+    [InlineData("good", true, "not json")]
+    public async Task Register_refusals_are_one_generic_401(string? bearer, bool origin, string body)
+    {
+        await using var host = await StartAsync(configure: s => s.AddSingleton<IPasskeyEnrolment, FakeEnrolment>());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RegisterAsync(host, "/signin/register/complete", body, bearer, origin)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await RegisterAsync(host, "/signin/register/options", "{}", bearer is "good" ? "bad" : bearer, origin)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_routes_take_post_only()
+    {
+        await using var host = await StartAsync(configure: s => s.AddSingleton<IPasskeyEnrolment, FakeEnrolment>());
+
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await host.Client.GetAsync("/signin/register/options", TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Fact]

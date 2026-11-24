@@ -5,6 +5,7 @@ using Bazaar.Client.GitGui;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Panes.Abstractions;
 using Bazaar.Client.RyuseiFuda.Panes;
+using Bazaar.Client.Settings;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
 
@@ -51,6 +52,7 @@ public sealed class LinuxHeadModule : IClientModule
         [GcPaneModule.FirstCommandId] = GcPaneViewModel.PaneKind,
         [GcPaneModule.TopCommandId] = GcPaneViewModel.PaneKind,
         [ConstellationPaneModule.OpenCommandId] = PaneKinds.Constellation,
+        [SettingsPaneModule.OpenCommandId] = PaneKinds.Settings,
         [KanbanPaneModule.OpenCommandId] = PaneKinds.Kanban,
         [RoadmapPaneModule.OpenCommandId] = PaneKinds.Roadmap,
         // The unread list lives on the Dashboard (doc 28, start screen).
@@ -61,6 +63,7 @@ public sealed class LinuxHeadModule : IClientModule
     public static IReadOnlyList<ClientCommandContribution> ActionCommands { get; } =
     [
         new(UpdateCoordinator.CheckCommandId, UpdateCheckCommand.Command.Title, "update"),
+        new(UpdateCoordinator.RestartCommandId, "Restart to apply update", "restart"),
         new(DefaultAppCommands.RegisterId, DefaultAppCommands.All[0].Title, "regapp"),
         new(DefaultAppCommands.StatusId, DefaultAppCommands.All[1].Title, "appstatus"),
         new(DefaultAppCommands.UnregisterId, DefaultAppCommands.All[2].Title, "unregapp"),
