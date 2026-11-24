@@ -1,5 +1,5 @@
-using Bazaar.Server.Wire.Connection;
 using Bazaar.Contracts.Engines;
+using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.EngineRelay;
 

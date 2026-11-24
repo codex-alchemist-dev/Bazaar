@@ -113,8 +113,8 @@ public sealed class BadgeMotion : IDisposable
 /// </summary>
 public sealed class TypingDots : StackPanel
 {
-    private const double DotSize = 6;
-    private const double Gap = 4;
+    internal const double DotSize = 6;
+    internal const double Gap = 4;
 
     private readonly TypingIndicatorAnimator _animator;
 
