@@ -6,7 +6,7 @@ public class HealthSampleBuilderTests
 {
     private static readonly DateOnly _day = new(2026, 11, 22);
     private static readonly DateTimeOffset _at = new(2026, 11, 22, 10, 0, 0, TimeSpan.Zero);
-    private const string Cobertura = """<coverage line-rate="0.8125"></coverage>""";
+    private const string _cobertura = """<coverage line-rate="0.8125"></coverage>""";
 
     [Fact]
     public void No_facts_give_no_samples()
@@ -20,7 +20,7 @@ public class HealthSampleBuilderTests
         var facts = new HealthFacts
         {
             CiRuns = [new("r1", _at, true), new("r2", _at, false)],
-            Coverage = [new("dotnet", Cobertura, "cov:1")],
+            Coverage = [new("dotnet", _cobertura, "cov:1")],
             Analyzer = [new("dotnet", """{"runs":[{"results":[{"level":"warning"}]}]}""", "build:1")],
             PackageAudit = new("""{"projects":[]}""", "audit:1"),
             Reverts = [new("abc", _at)],

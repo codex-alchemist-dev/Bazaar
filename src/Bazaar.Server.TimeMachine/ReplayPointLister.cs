@@ -13,8 +13,8 @@ namespace Bazaar.Server.TimeMachine;
 /// <param name="markers">Audit markers, or null when no audit module is installed.</param>
 public sealed class ReplayPointLister(IGcLogReader reader, IGcReadAccess access, IReplayMarkerSource? markers = null) : IReplayPointLister
 {
-    private const int ScanLimit = 5_000;
-    private const int MarkerLimit = 1_000;
+    private const int _scanLimit = 5_000;
+    private const int _markerLimit = 1_000;
 
     /// <inheritdoc />
     public async Task<ReplayPointPage> ListAsync(Guid gcId, long afterSeq, int limit, TimeSpan? bucket, GcPrincipal viewer, CancellationToken ct)
@@ -40,13 +40,13 @@ public sealed class ReplayPointLister(IGcLogReader reader, IGcReadAccess access,
         }
 
         var events = new List<GcEvent>();
-        await foreach (var e in reader.ReadAsync(gcId, afterSeq, ScanLimit + 1, viewer, ct).ConfigureAwait(false))
+        await foreach (var e in reader.ReadAsync(gcId, afterSeq, _scanLimit + 1, viewer, ct).ConfigureAwait(false))
         {
             events.Add(e);
         }
 
         // One event past the scan limit tells whether more follow; it is dropped from this page.
-        var truncated = events.Count > ScanLimit;
+        var truncated = events.Count > _scanLimit;
         if (truncated)
         {
             events.RemoveAt(events.Count - 1);
@@ -121,7 +121,7 @@ public sealed class ReplayPointLister(IGcLogReader reader, IGcReadAccess access,
             to = events[^1].CreatedAt;
         }
 
-        var found = await markers!.ListAsync(from, to, MarkerLimit, ct).ConfigureAwait(false);
+        var found = await markers!.ListAsync(from, to, _markerLimit, ct).ConfigureAwait(false);
         var merged = new List<ReplayPoint>(points);
         foreach (var m in found)
         {

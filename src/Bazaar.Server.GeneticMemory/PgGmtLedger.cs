@@ -9,14 +9,14 @@ namespace Bazaar.Server.GeneticMemory;
 /// </summary>
 public sealed class PgGmtLedger(NpgsqlDataSource dataSource) : IGmtLedger
 {
-    private const string Columns =
+    private const string _columns =
         "id, child_agent, target_agent, content_class, kind, title, body, trace_ref, tainted, required_reviewer, status, staged_at, accepted_path";
 
     /// <inheritdoc />
     public async Task AddAsync(GmtCandidate candidate, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidate);
-        await using var cmd = dataSource.CreateCommand($"INSERT INTO gmt_candidate ({Columns}) VALUES (@id, @child, @target, @class, @kind, @title, @body, @trace, @tainted, @reviewer, @status, @staged, @path)");
+        await using var cmd = dataSource.CreateCommand($"INSERT INTO gmt_candidate ({_columns}) VALUES (@id, @child, @target, @class, @kind, @title, @body, @trace, @tainted, @reviewer, @status, @staged, @path)");
         Bind(cmd, candidate);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
@@ -24,7 +24,7 @@ public sealed class PgGmtLedger(NpgsqlDataSource dataSource) : IGmtLedger
     /// <inheritdoc />
     public async Task<GmtCandidate?> GetAsync(Guid id, CancellationToken ct)
     {
-        await using var cmd = dataSource.CreateCommand($"SELECT {Columns} FROM gmt_candidate WHERE id = @id");
+        await using var cmd = dataSource.CreateCommand($"SELECT {_columns} FROM gmt_candidate WHERE id = @id");
         cmd.Parameters.AddWithValue("id", id);
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Read(reader) : null;
@@ -48,7 +48,7 @@ public sealed class PgGmtLedger(NpgsqlDataSource dataSource) : IGmtLedger
     /// <inheritdoc />
     public async Task<IReadOnlyList<GmtCandidate>> ListAsync(CancellationToken ct)
     {
-        await using var cmd = dataSource.CreateCommand($"SELECT {Columns} FROM gmt_candidate ORDER BY seq");
+        await using var cmd = dataSource.CreateCommand($"SELECT {_columns} FROM gmt_candidate ORDER BY seq");
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         var items = new List<GmtCandidate>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
