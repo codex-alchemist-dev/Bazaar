@@ -1,7 +1,7 @@
 Golden frame: GcRead
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740
+Schema hash: sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842
 Payload record: Bazaar.Contracts.Wire.GcRead
 Envelope: v=1 t=gc.read k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 161 bytes
