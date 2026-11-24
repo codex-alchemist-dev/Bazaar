@@ -30,7 +30,7 @@ internal static partial class EnrolmentDatabase
 
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource, components: _components).MigrateAsync(
-            new TwoSources(new ServerSubset(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), new ModuleFiles()),
+            new TwoSources(new ServerSubset(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)), new ModuleFiles()),
             MigrateCommand.CurrentProvider(),
             ct);
 
