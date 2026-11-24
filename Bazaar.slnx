@@ -267,6 +267,9 @@
     <Project Path="src/Bazaar.Server.AuditView.Abstractions/Bazaar.Server.AuditView.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.AuditView/Bazaar.Server.AuditView.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.Observatory.Abstractions/Bazaar.Server.Observatory.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Observatory/Bazaar.Server.Observatory.csproj" />
+    <Project Path="src/Bazaar.Server.Observatory.Postgres/Bazaar.Server.Observatory.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Projects/Bazaar.Server.Projects.csproj" />
     <Project Path="src/Bazaar.Server.Projects.Abstractions/Bazaar.Server.Projects.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Council.Http/Bazaar.Server.Council.Http.csproj" />
@@ -694,6 +697,8 @@
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Observatory.Tests/Bazaar.Server.Observatory.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Observatory.Postgres.Tests/Bazaar.Server.Observatory.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Tests/Bazaar.Client.Athanor.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests/Bazaar.Client.Athanor.AvaloniaEdit.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Wire.Tests/Bazaar.Client.Athanor.Wire.Tests.csproj" />
