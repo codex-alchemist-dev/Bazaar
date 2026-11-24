@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json;
 using Bazaar.Contracts.Gc;
 using Bazaar.Core;
 using Bazaar.Server.Council;
@@ -15,7 +16,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using System.Text.Json;
 
 namespace Bazaar.Server.Host.Tests;
 
