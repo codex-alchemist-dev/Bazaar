@@ -46,7 +46,6 @@ using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
 using Bazaar.Client.Theme;
 using Bazaar.Client.SignIn;
-using Bazaar.Client.Theme;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
@@ -178,9 +177,6 @@ internal static class Program
                 window.Content = firstRun;
             }
 
-            // The chat is the first slot of the posture layout and the panes the second, so a window of 600 dp or more shows both (doc 93).
-            var chatView = window.Content as Control;
-            Control? paneView = null;
             if (showAthanor)
             {
                 window.ShowPanes([AthanorPaneModule.WindowPane], registry);
@@ -207,10 +203,6 @@ internal static class Program
             paneSurface.Bind(
                 registry.Contains,
                 (kind, _) => Dispatcher.UIThread.InvokeAsync(() => window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry)).GetTask());
-
-            // Mica or acrylic on the window chrome and a flat desktop posture; the chat and panes are content and stay opaque (doc 93).
-            var motion = new MotionSettings(MotionPlatform.Desktop);
-            ShellVisuals.Install(window, chatView, paneView, new WindowsMaterialEnvironmentSource(), new FlatPostureSource(), BundledThemes.Load("graphite"), motion);
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
