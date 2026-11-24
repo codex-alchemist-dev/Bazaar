@@ -69,6 +69,8 @@ public sealed class ProtectedFileSessionStore : ISessionStore, IDisposable
                 // Write beside the target, then swap, so a crash mid-write never leaves half a file.
                 var temporary = _path + ".tmp";
                 await File.WriteAllBytesAsync(temporary, sealedBytes, cancellationToken).ConfigureAwait(false);
+                // Owner-only where the file system has modes (the bytes are sealed, but nobody else needs to read them).
+                if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary, UnixFileMode.UserRead | UnixFileMode.UserWrite);
                 File.Move(temporary, _path, overwrite: true);
             }
             finally

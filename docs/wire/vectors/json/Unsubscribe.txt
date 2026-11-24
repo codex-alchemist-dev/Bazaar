@@ -1,7 +1,7 @@
 Golden frame: Unsubscribe
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7
+Schema hash: sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842
 Payload record: Bazaar.Contracts.Wire.Unsubscribe
 Envelope: v=1 t=unsubscribe k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 211 bytes

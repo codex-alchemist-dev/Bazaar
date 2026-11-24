@@ -4,6 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.1.6" />
+    <!-- Core only (no WinForms or WPF controls); hosts the Athanor editor island (doc 57 §3a). Same pin as spike S12. -->
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4314.35" />
     <PackageVersion Include="Avalonia.Desktop" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Wayland" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Android" Version="12.1.6" />
@@ -12,16 +14,23 @@
     <PackageVersion Include="Avalonia.Skia" Version="12.1.6" />
     <PackageVersion Include="Avalonia.HarfBuzz" Version="12.1.6" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.1.6" />
+    <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Systemd" Version="11.0.0" />
     <!-- Host options (doc 03 WP1) and bootstrap secrets (WP3): library-side Options, DI, logging and hosted-service abstractions. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="11.0.0" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="11.0.0" />
+    <!-- Repo map C# symbol extraction (doc 17 WP7): syntax trees only, no semantic model. -->
+    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.12.0" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="11.0.0" />
     <!-- Windows provider module (doc 03 WP8): DPAPI bootstrap resolver and Event Log writer. Compiles everywhere; calls are guarded. -->
     <PackageVersion Include="System.Security.Cryptography.ProtectedData" Version="11.0.0" />
     <PackageVersion Include="System.Diagnostics.EventLog" Version="11.0.0" />
+    <!-- Windows client updater (doc 28, Client updater): Velopack, newest stable on nuget.org (2026-11-22). Behind IVelopackAdapter. -->
+    <PackageVersion Include="Velopack" Version="1.2.161" />
+    <!-- Server TUI (doc 58 WP1): Terminal.Gui v2, MIT. Pinned after the spike restored and built it on the net11.0 SDK; only Bazaar.Client.Tui.TerminalGui references it (the shell sits behind IPromptWidgets). -->
+    <PackageVersion Include="Terminal.Gui" Version="2.6.0" />
     <!-- Vault Markdown (doc 18, VLT1): Markdig pipeline and YAML front matter reader. -->
     <PackageVersion Include="Markdig" Version="1.6.0" />
     <PackageVersion Include="YamlDotNet" Version="18.1.0" />
@@ -40,6 +49,7 @@
     <!-- Constellation Vulkan backend (doc 19, WP7; owner direction 2026-10-30). Published 2026-09-29. -->
     <PackageVersion Include="Vortice.Vulkan" Version="3.3.0" />
     <!-- 3.2.x, not 4.0.x: Avalonia.Headless.XUnit 12.1.4 is binary-incompatible with xunit.v3 4.0.2 (MissingMethodException at discovery). -->
+    <PackageVersion Include="Wasmtime" Version="50.0.1" />
     <PackageVersion Include="xunit.v3.mtp-v2" Version="3.2.2" />
     <!-- Library-side xUnit v3 for module contract base classes (doc 46 section 10.3). Same version as the test host. -->
     <PackageVersion Include="xunit.v3.extensibility.core" Version="3.2.2" />
@@ -53,12 +63,13 @@
     <PackageVersion Include="Microsoft.ML.OnnxRuntime" Version="1.32.0" />
     <!-- Android fold posture (doc 29, WP2): Jetpack WindowManager bindings. Pinned, not yet referenced; the mapping in Bazaar.Client.Core is pure. Provisional, pending spike S13. -->
     <PackageVersion Include="Xamarin.AndroidX.Window" Version="1.5.1.3" />
+    <!-- Android approval biometric prompt (doc 29, Approvals): AndroidX BiometricPrompt bindings, newest stable (androidx.biometric 1.1.0). Android head only. -->
+    <PackageVersion Include="Xamarin.AndroidX.Biometric" Version="1.1.0.33" />
     <!-- CBOR codec (doc 90 WP2): RFC 8949 reader and writer from the .NET team. A package, not part of the shared framework, even on .NET 11. -->
     <PackageVersion Include="System.Formats.Cbor" Version="11.0.0" />
     <!-- MessagePack codec (doc 90 WP3): only the low-level MessagePackReader and MessagePackWriter are used, called from generated code. No resolvers, no typeless mode. -->
     <PackageVersion Include="MessagePack" Version="3.1.12" />
     <!-- Wire codec generator (doc 90 WP1): build-time Roslyn only, netstandard2.0 analyzer. 4.14 runs inside every current SDK. -->
-    <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <!-- Reusable codec conformance suite (doc 90 WP1): xunit v3 extensibility and assert, for a library of tests. Same version as xunit.v3.mtp-v2. -->
     <!-- gRPC and gRPC-Web transport modules (doc 90 section 9): Grpc.Tools is allowed in those two modules only. Newest stable as of 2026-11-20. -->
     <PackageVersion Include="Grpc.AspNetCore" Version="2.85.0" />
