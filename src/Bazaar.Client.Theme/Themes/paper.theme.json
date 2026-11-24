@@ -80,6 +80,13 @@
     "motion.liquid.stretch.max": 0.18,
     "motion.liquid.ripple.size": 160,
     "motion.liquid.ripple.duration": 900,
-    "motion.liquid.merge.softness": 0.6
+    "motion.liquid.merge.softness": 0.6,
+    "layout.sidebar.width.expanded": 256,
+    "layout.sidebar.width.collapsed": 48,
+    "layout.strip.height": 48,
+    "layout.sheet.width": 448,
+    "layout.sheet.side.width": 384,
+    "material.scrim.opacity": 0.4,
+    "gesture.sheet.dismiss.fraction": 0.3
   }
 }

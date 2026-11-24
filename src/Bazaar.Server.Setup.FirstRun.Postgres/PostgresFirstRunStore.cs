@@ -34,7 +34,7 @@ public sealed class PostgresFirstRunStore(NpgsqlDataSource dataSource) : IFirstR
         ON CONFLICT (gc_id, principal_id) DO NOTHING
         """;
 
-    private const string _agentInsertSql = "INSERT INTO agent (name, state) VALUES (@name, 'created') RETURNING agent_id";
+    private const string _agentInsertSql = "INSERT INTO agent (name, state, model) VALUES (@name, 'created', @model) RETURNING agent_id";
 
     private const string _policyInsertSql = """
         INSERT INTO agent_model_policy (agent_id, allowed, default_route, version, changed_by, changed_at)
@@ -87,6 +87,7 @@ public sealed class PostgresFirstRunStore(NpgsqlDataSource dataSource) : IFirstR
 
         await using var insert = new NpgsqlCommand(_agentInsertSql, connection, transaction);
         insert.Parameters.AddWithValue("name", name.Trim());
+        insert.Parameters.AddWithValue("model", (object?)ModelBadge.FromRoutes(whitelist) ?? DBNull.Value);
         var agentId = (Guid)(await insert.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false))!;
 
         if (whitelist.Count > 0)

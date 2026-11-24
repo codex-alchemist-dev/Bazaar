@@ -1,4 +1,5 @@
 using Bazaar.Archive.Http;
+using Bazaar.Server.Council.Http;
 using Bazaar.Community.Drafts;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
@@ -8,6 +9,7 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Host.Analytics;
 using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Host.Status;
@@ -46,6 +48,11 @@ if (args.Length > 0 && args[0].Equals("storage", StringComparison.OrdinalIgnoreC
     return await StorageSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("memory-graph", StringComparison.OrdinalIgnoreCase))
+{
+    return await MemoryGraphSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Doc 63 section 10: a setup plan named at start may ask for the data volume, and it must exist before PostgreSQL starts.
@@ -82,8 +89,10 @@ app.MapBazaarStatus();
 app.MapBazaarWebAdmin();
 app.MapBazaarSignIn();
 app.MapBazaarHttpSurface();
+app.MapBazaarGeneticMemoryHost();
 app.MapCompanyMemory((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) => run(h, principal.Id.ToString("N"))));
 app.MapArchive((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) => run(h, principal.Id, principal.Kind)));
+app.MapCouncilEscalations((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, principal) => run(h, principal.Id, principal.Kind)));
 app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();

@@ -251,7 +251,7 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public async Task Enabling_the_agent_targets_registers_the_screen_tools_but_policy_has_no_entry_for_them_and_a_failed_read_gives_no_target()
+    public async Task Enabling_the_agent_targets_registers_the_screen_tools_and_their_policy_entries_and_a_failed_read_gives_no_target()
     {
         using var host = BuildHost(new Dictionary<string, string?>
         {
@@ -264,10 +264,12 @@ public sealed class DisplayCompositionTests
         Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ToolRegistration>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
         Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ModelToolDefinition>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
 
-        // What still stands in the way: the policy engine has no capability for either tool, so it denies a call as an unknown tool.
+        // The policy engine knows both tools (doc 15, "Screen tools"), so a call is no longer denied as an unknown tool.
         var capabilities = host.Services.GetRequiredService<CapabilityRegistry>();
-        Assert.False(capabilities.TryGet("screen.capture", out _));
-        Assert.False(capabilities.TryGet("screen.input", out _));
+        Assert.True(capabilities.TryGet("screen.capture", out var capture));
+        Assert.Equal(ToolResultTaint.Hard, capture!.ResultTaint);
+        Assert.True(capabilities.TryGet("screen.input", out var input));
+        Assert.Equal(ToolTier.AutonomousWithNotice, input!.Tier);
 
         // The test host has no reachable database, so the VM read fails and the agent has no target.
         Assert.Null(await targets.ResolveAsync(Guid.NewGuid(), AgentDisplayKind.Linux, CancellationToken.None));

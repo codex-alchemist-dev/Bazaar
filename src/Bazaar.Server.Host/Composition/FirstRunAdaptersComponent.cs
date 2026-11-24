@@ -67,14 +67,14 @@ public sealed class SoulVersioningVersionReader(SoulVersioningService versions) 
 }
 
 /// <summary>
-/// Reads the agent's display name and role from the agent row (doc 06, doc 24 Org directory). The role is free text and empty when
-/// unset. The row has no model column, so the model badge stays empty until one is stored.
+/// Reads the agent's display name, role and model label from the agent row (doc 06, doc 24 Org directory). Both are free text and
+/// empty when unset; the model label is set when the first agent is seeded.
 /// </summary>
 public sealed class AgentRepositoryIdentityReader(NpgsqlDataSource dataSource) : IAgentIdentityReader
 {
     public async Task<AgentIdentity?> ReadAsync(Guid agentId, CancellationToken cancellationToken = default) =>
         await new AgentRepository(dataSource).GetListingAsync(agentId, cancellationToken).ConfigureAwait(false) is { } agent
-            ? new AgentIdentity(agent.Name, agent.Role ?? "", "")
+            ? new AgentIdentity(agent.Name, agent.Role ?? "", agent.Model ?? "")
             : null;
 }
 
