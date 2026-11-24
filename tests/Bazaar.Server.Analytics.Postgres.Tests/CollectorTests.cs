@@ -16,7 +16,7 @@ public sealed class AnalyticsDb : PgFixture, IAsyncLifetime
 
         await base.InitializeAsync();
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
     }
 }
 

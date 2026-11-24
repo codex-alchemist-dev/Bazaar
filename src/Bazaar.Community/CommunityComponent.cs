@@ -98,9 +98,14 @@ public sealed class CommunityComponent : IBazaarComponent
             sp.GetRequiredService<CommunityDraftOptions>(),
             sp.GetService<TimeProvider>(),
             sp.GetService<ILogger<CommunityDraftExpiryService>>()));
-        // Agent tool (doc 36 WP8). Resolving the agent's sponsor and profile needs ICommunityAgentIdentitySource, which the host binds;
-        // without it the tool refuses with no_profile. Registered lazily so a host without the binding still starts.
-        services.TryAddSingleton<ICommunityAgentIdentitySource, UnboundCommunityAgentIdentitySource>();
+        // Agent tool (doc 36 WP8). The agent's sponsor and profile come from ICommunityAgentIdentitySource: by default the operator list in
+        // Bazaar:Community:Profiles, which a host can replace. An unlisted agent gets no_profile. Registered lazily so a host without the binding still starts.
+        services.TryAddSingleton<ICommunityAgentIdentitySource>(_ => ConfiguredCommunityAgentIdentitySource.From(configuration));
+        // Taint lineage for the action log comes from the session taint reader the host registers; without one the tool logs "[]" (the
+        // dispatcher's policy engine still gates on the real taint).
+        services.TryAddSingleton<ICommunityTaintSourceReader>(sp => sp.GetService<Bazaar.Server.Security.Taint.ISessionTaintReader>() is { } r
+            ? new SessionCommunityTaintSourceReader(r)
+            : new EmptyCommunityTaintSourceReader());
         services.TryAddSingleton(sp => new CommunityProposePostTool(
             sp.GetRequiredService<ICommunityDraftCreator>(),
             sp.GetRequiredService<ICommunityAgentIdentitySource>(),
