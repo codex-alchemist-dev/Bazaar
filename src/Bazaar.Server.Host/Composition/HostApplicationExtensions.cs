@@ -62,6 +62,7 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders();
         services.AddBazaarHostWire(configuration);
         services.AddBazaarHostWireDiscovery();
+        services.AddBazaarHostInterrupts();
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarGeneticMemoryHost();
