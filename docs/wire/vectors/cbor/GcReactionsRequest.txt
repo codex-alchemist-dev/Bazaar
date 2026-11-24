@@ -1,7 +1,7 @@
 Golden frame: GcReactionsRequest
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842
+Schema hash: sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf
 Payload record: Bazaar.Contracts.Wire.GcReactionsRequest
 Envelope: v=1 t=gc.reactions k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 167 bytes

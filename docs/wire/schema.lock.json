@@ -1,8 +1,9 @@
 {
   "protocol": { "major": 1, "minor": 0 },
-  "hash": "sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842",
+  "hash": "sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
+    { "type": "board.move", "payload": "Bazaar.Contracts.Kanban.KanbanMoveRequest" },
     { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     { "type": "editor.create", "payload": "Bazaar.Contracts.Athanor.EditorCreateRequest" },
     { "type": "editor.open", "payload": "Bazaar.Contracts.Athanor.EditorOpenRequest" },
@@ -653,6 +654,29 @@
       "fields": [
         { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
         { "n": 2, "name": "cards", "type": "list<ref:Bazaar.Contracts.Kanban.KanbanBoardCard>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanMoveReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": true, "default": false },
+        { "n": 3, "name": "blockerTitles", "type": "list<string>", "nullable": false, "default": false },
+        { "n": 4, "name": "reason", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanMoveRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "cardId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "toState", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "expectedRevision", "type": "int64", "nullable": false, "default": false },
+        { "n": 5, "name": "reason", "type": "string", "nullable": true, "default": true }
       ]
     },
     {
