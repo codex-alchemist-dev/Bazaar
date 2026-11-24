@@ -24,6 +24,7 @@ The Soul Passport is the credential registry inside a Soul. The Identity Service
 - **Identity Service** [PROPOSED]: a low-privilege host process. It is the only holder of decryption keys (through the KEK provider). It exposes `RequestAccess`, brokered calls, a credential-lease broker and a token minter.
 - **`ISecretStore`** (C05): the one server-side store for every secret that is not a bootstrap value. It holds provider API keys (Anthropic, FreeLLMAPI, other gateway upstreams), GitHub App private keys, OAuth refresh tokens and owner-class credentials. Only the KEK reference and the database credential are bootstrap values, resolved by 03. Consumers are host-side: the gateway (05) and the git provider (`IGitProvider`, C12). No VM, agent tool or browser reads the store. [PROPOSED] Each read names a purpose that policy must allow.
 - **`secret://bazaar/` resolution** [PROPOSED]: `SecretStoreResolver` (in `Bazaar.Secrets`) implements `ISecretResolver` over `ISecretStore`, so setup, gateway and backup references resolve one way. `secret://bazaar/<a>/<b>/...` maps to the installation scope, and the secret name is the segments joined with `.` and lowercased (`secret://bazaar/providers/anthropic/key` reads `providers.anthropic.key`). A path whose name fails `SecretName` is refused. The read is made by host component `secret-reference-resolver` with purpose `secret-reference.resolve`, so policy must hold `SecretGrant("secret-reference-resolver", "installation", null, "secret-reference.resolve")` (narrow it with a name per secret where the operator wants). A missing secret, a denial, an empty value or a store fault all throw `SecretResolutionException` with a fixed reason; no value or inner message is surfaced. Host wiring waits for a durable record repository, audit sink and agent registry.
+- **Leased credential values** [PROPOSED]: the value behind a lease is read from `ISecretStore` in the agent's own scope under the name `credential.<credential id as 32 lowercase hex digits>`, by host component `lease-matcher` for purpose `lease.match` (`SecretStoreLeasedCredentialValueSource` in `Bazaar.Server.Security`). It feeds the leased-credential matcher of doc 15 through `ILeaseObserver`, and nothing else. Default grant [PROPOSED]: `LeaseMatcherSecretPolicy` wraps the operator's policy and allows exactly this read (component `lease-matcher`, purpose `lease.match`, any agent scope, a name of the form `credential.` plus 32 lowercase hex digits) and nothing else; every other request goes to the operator's policy unchanged, so the grant cannot be used to read any other secret. A credential with no such secret (a cookie or OAuth row that lives only in the `credential` table) is not matched; the miss is logged by lease id only. A policy denial throws, and Identity logs it without failing the access decision.
 - **Owner-class credentials:** the owner merge credential, in either form from C25. No agent lease can name an owner-class credential. The server performs merges only on signed owner approval (21, 28).
 - **Owner approval signing key:** the device-held key that signs a merge approval is not defined here. Doc 32 owns that key class (28 flagged the gap). Until 32 defines it, this doc makes no claim about it.
 - **Approvals and audit** are owned by 15 (`approval`, `audit_log`). This doc calls them and defines no tables for either.
@@ -104,6 +105,7 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - Token lifetime: one hour per GitHub's documentation. **Unverified until test T4 (doc 21).** No revocation claim relies on it.
 - Rate limits (verified): 5,000 requests per hour baseline; content-creating requests are limited to 80 per minute and 500 per hour.
 - Git pushes use a minted token inside the host-side git provider. The token never enters a VM.
+- **Commit author** [PROPOSED]: the Identity side implements `IAgentGitIdentity` (doc 17) from the agent's App. Author name is the agent's display name (read through a small name port the host binds). Author email is the App's bot noreply address `<bot user id>+<app slug>[bot]@users.noreply.github.com`, found by `GET /app` (App JWT) for the slug and `GET /users/<slug>[bot]` for the id, then cached per agent for the process lifetime. An agent with no registered App, a refused GitHub call or an unusable name throws, so the commit fails closed; nothing is defaulted. The operator-set `Coding:Harness:Git:AppNoreplyEmail` source stays as the single-App fallback. Messages carry the HTTP status only.
 - Fork-and-PR is built as decided (C13). If GitHub refuses the fork call, the feature degrades to installed repositories only (21).
 
 **Owner merge credential** (C25, round 12): both forms are supported. Either form is stored as owner-class in `ISecretStore`. The choice is `identity.merge_credential`.
@@ -116,6 +118,16 @@ Decisions (owner, 2026-11-19; DECISIONS-LOG round 30):
 - Per agent: revoke all credential leases and App tokens, stop the agent's VMs, mark presence offline, quarantine output.
 - Global: stop all egress and all Tier 1+ tools.
 - Both are tested on a schedule.
+
+## Module layout
+
+Identity is a feature module on `Bazaar.Core` (`docs/design/40-core-feature-modules-audit.md` section 4). Projects:
+
+- `Bazaar.Server.Identity.Abstractions`: `IdentityContracts`, and the lease interfaces and `CredentialLease`. Other modules reference only this project. The KEK contract (`IKekProvider`, `KekUnwrapException`, namespace `Bazaar.Server.Identity.Keys`) stays in `Bazaar.Server` for now; the KEK thread decides its move.
+- `Bazaar.Server.Identity`: the implementation (leases, browser profiles, GitHub App tokens, mount, TOTP). Namespaces stay `Bazaar.Server.Identity.*`.
+- `Bazaar.Server.Identity.Postgres`: the durable lease store.
+
+Security types used here (`ToolTier`, taint) come from `Bazaar.Server.Security.Abstractions`. No Server feature code is added to `Bazaar.Server` or `Bazaar.Core`.
 
 ## Data and interfaces
 
@@ -165,7 +177,7 @@ interface IIdentityService {
 | `identity.signup_whitelist` | list of service IDs | empty | install | owner | yes; needs counsel (platform terms, account creation) |
 | `identity.canary_services` | list of service IDs | every service with a mounted cookie profile | install | owner | yes if reduced |
 | `identity.audit_anchor_target` | text (location the host cannot overwrite) | unset; setup wizard requires one before any mount is enabled | install | owner | yes |
-| `identity.merge_credential` | enum: `owner_app`, `linked_user` | no default; chosen in setup wizard (round 12) | install | owner | yes |
+| `identity.merge_credential` | enum: `owner_app`, `linked_user` | no default; chosen in setup wizard (round 12). Registered 2026-11-20 with the shipped default `linked_user` (the setup plan default) and the companion `identity.merge_credential.app_id_ref` (a `secret://bazaar/` reference, empty for `linked_user`); the setup apply writes both (doc 45 step 10). | install | owner (the setup operator writes it at install) | yes; not enforced by the registry, which cannot see the stored value: the merge flow acts only on a signed owner approval (OPEN) |
 
 ## Behaviour and edge cases
 - **Audit first:** the event is written to 15's `audit_log` before any lease is issued.
@@ -178,6 +190,9 @@ interface IIdentityService {
 - **Replay, restart, quarantine:** approval and lease IDs are single-use. Leases and approvals persist across restarts, so no silent widening. Quarantined agents cannot request leases, and their existing leases are revoked.
 - **Reader sessions** are tool-less and request no leases [PROPOSED].
 - **Secrets in output:** brokered results are scanned for credential patterns before they reach a GC or the Vault.
+
+**Lease observers** [PROPOSED]
+`ILeaseObserver` (in `Bazaar.Server.Identity.Abstractions`) lets another module hear lease changes without Identity depending on it. `IdentityService` calls every registered observer after a lease is stored and audited (`OnIssuedAsync(CredentialLease)`) and after a revocation is stored and audited (`OnRevokedAsync(RevocationScope)`, agent-wide or global, including the revocation done when a quarantined agent asks). The lease carries ids and timing only, never a secret value; an observer that needs the value resolves it itself host-side through `ISecretStore`. The lease id (`lease.Id.Value.ToString()`) is the stable key an observer pairs issue and revoke on. A throwing observer is logged and never changes an access decision or a revocation. The first user is the leased-credential matcher in Security (doc 15).
 
 ## Testing
 - **Real Postgres:** agent-facing roles cannot read the Passport schema. Crypto-shred leaves ciphertext unreadable. The restore drill decrypts from the offline KEK copy.

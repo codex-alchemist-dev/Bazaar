@@ -53,6 +53,14 @@ public sealed class SettingsAuditCompositionTests : IDisposable
     }
 
     [Fact]
+    public void Backup_offsite_keys_reach_the_registry_through_a_contribution()
+    {
+        var registry = BuiltInSettingRegistries.WithContributions([new BackupSettingContribution()]);
+        Assert.True(registry.TryGet("backup.offsite_target", out _));
+        Assert.True(registry.TryGet("backup.offsite_credentials_ref", out _));
+    }
+
+    [Fact]
     public async Task Settings_store_and_registry_resolve()
     {
         await using var sp = Build();

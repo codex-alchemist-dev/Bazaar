@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.ReaderSessions</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Twin\Bazaar.Server.Twin.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.ReaderSessions.Abstractions\Bazaar.Server.ReaderSessions.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

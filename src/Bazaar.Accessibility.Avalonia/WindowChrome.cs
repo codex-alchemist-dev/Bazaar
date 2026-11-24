@@ -48,6 +48,12 @@ public sealed class WindowChrome
     /// <summary>The window's named focus scopes; the head registers them in reading order.</summary>
     public FocusScopes Scopes { get; } = new();
 
+    /// <summary>Scales the wrapped content (doc 49: at least 200 percent); the head sets it from the user's setting.</summary>
+    public TextScaler TextScale { get; } = new();
+
+    /// <summary>The reduced-motion rule for this window; the head sets <see cref="MotionPolicy.Reduced"/> from the theme's reducedMotion flag.</summary>
+    public MotionPolicy Motion { get; } = new();
+
     /// <summary>The live region; modules announce through <see cref="GatedLiveRegion.Announce"/>.</summary>
     public GatedLiveRegion Region { get; }
 
@@ -68,11 +74,8 @@ public sealed class WindowChrome
     public Control Wrap(Control? content)
     {
         var host = new Grid();
-        if (content is not null)
-        {
-            host.Children.Add(content);
-        }
-
+        TextScale.SetContent(content);
+        host.Children.Add(TextScale.Host);
         host.Children.Add(Region.Control);
         return host;
     }

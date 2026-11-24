@@ -271,4 +271,67 @@ public class SubagentRunnerTests
         Assert.Equal(40, options.StepCap);
         Assert.False(options.MayPost);
     }
+
+    private sealed class RecordingHook(Func<SubagentEnded, CancellationToken, Task>? action = null) : ISubagentEndHook
+    {
+        public List<SubagentEnded> Calls { get; } = [];
+
+        public Task OnSubagentEndedAsync(SubagentEnded ended, CancellationToken cancellationToken)
+        {
+            Calls.Add(ended);
+            return action?.Invoke(ended, cancellationToken) ?? Task.CompletedTask;
+        }
+    }
+
+    [Fact]
+    public async Task An_end_hook_sees_the_request_and_result_before_the_parent_gets_it()
+    {
+        var hook = new RecordingHook();
+        var runner = new SubagentRunner(new ScriptedTurnRunner(), new SubagentOptions(), [hook]);
+
+        var request = Request();
+        var result = await runner.SpawnAsync(request, CancellationToken.None);
+
+        var call = Assert.Single(hook.Calls);
+        Assert.Same(request, call.Request);
+        Assert.Equal(result, call.Result);
+    }
+
+    [Fact]
+    public async Task A_throwing_end_hook_does_not_fail_the_parent_and_later_hooks_still_run()
+    {
+        var failing = new RecordingHook((_, _) => throw new InvalidOperationException("boom"));
+        var after = new RecordingHook();
+        var runner = new SubagentRunner(new ScriptedTurnRunner(), new SubagentOptions(), [failing, after]);
+
+        var result = await runner.SpawnAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(TurnEndReason.FinalMessage, result.Reason);
+        Assert.Single(after.Calls);
+    }
+
+    [Fact]
+    public async Task A_rejected_request_runs_no_end_hook()
+    {
+        var hook = new RecordingHook();
+        var runner = new SubagentRunner(new ScriptedTurnRunner(), new SubagentOptions(), [hook]);
+
+        await Assert.ThrowsAsync<SubagentRejectedException>(() => runner.SpawnAsync(Request(parentDepth: 2), CancellationToken.None));
+
+        Assert.Empty(hook.Calls);
+    }
+
+    [Fact]
+    public async Task A_cancelled_end_hook_is_not_swallowed()
+    {
+        using var cts = new CancellationTokenSource();
+        var hook = new RecordingHook((_, _) =>
+        {
+            cts.Cancel();
+            throw new OperationCanceledException(cts.Token);
+        });
+        var runner = new SubagentRunner(new ScriptedTurnRunner(), new SubagentOptions(), [hook]);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runner.SpawnAsync(Request(), cts.Token));
+    }
 }

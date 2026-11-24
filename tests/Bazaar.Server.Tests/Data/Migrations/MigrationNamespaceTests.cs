@@ -163,7 +163,7 @@ public sealed class MigrationNamespaceTests
     [Fact]
     public void Embedded_source_finds_the_common_namespace_with_every_shipped_file()
     {
-        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
         Assert.Contains(MigrationNamespaces.Common, source.Namespaces());
         var common = source.Load(MigrationNamespaces.Common);
@@ -176,7 +176,7 @@ public sealed class MigrationNamespaceTests
     [Fact]
     public void Embedded_source_has_no_namespace_that_breaks_the_name_rule()
     {
-        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
         Assert.All(source.Namespaces(), ns => Assert.True(MigrationNamespaces.IsValid(ns), ns));
     }

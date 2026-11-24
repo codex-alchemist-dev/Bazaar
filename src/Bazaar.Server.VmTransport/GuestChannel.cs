@@ -12,7 +12,7 @@ namespace Bazaar.Server.VmTransport;
 /// frame; writes are serialised. An unknown frame type, a guest frame that only the host may send, or a broken stream ends the channel
 /// (<see cref="GuestChannelState.Faulted"/>). Three silent heartbeat intervals end it as <see cref="GuestChannelState.Lost"/>.
 /// </summary>
-public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
+public sealed class GuestChannel : IGuestChannel, IGuestChannelLifetime, IAsyncDisposable
 {
     private const int _workspaceOpsProtocolVersion = 3;
     private const int _copyBytes = 64 * 1024;
@@ -54,6 +54,9 @@ public sealed class GuestChannel : IGuestChannel, IAsyncDisposable
 
     /// <summary>Where the channel is in its life.</summary>
     public GuestChannelState State => (GuestChannelState)Volatile.Read(ref _state);
+
+    /// <inheritdoc />
+    public bool IsOpen => State == GuestChannelState.Open;
 
     /// <summary>Why the channel ended, or null while it is open.</summary>
     public string? EndReason
