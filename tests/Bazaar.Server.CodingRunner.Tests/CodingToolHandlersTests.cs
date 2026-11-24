@@ -299,6 +299,7 @@ public sealed class CodingToolHandlersTests
         services.AddSingleton<ICheckSubjectSource>(new NoSubjects());
         services.AddSingleton<Bazaar.Server.CodingStore.ICheckRunStore>(new NoStore());
         services.AddBazaarCodingToolHandlers();
+        services.AddBazaarCodingGuestToolHandlers();
 
         using var provider = services.BuildServiceProvider();
         var names = provider.GetServices<ICodingToolHandler>().Select(x => x.Name).Order(StringComparer.Ordinal).ToArray();

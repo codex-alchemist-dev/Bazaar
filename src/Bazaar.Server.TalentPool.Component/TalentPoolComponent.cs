@@ -1,8 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Council.Hiring;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Souls;
-using Bazaar.Server.Council.Hiring;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

@@ -1,9 +1,9 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 using Bazaar.Server.Identity;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Identity.Leases;
 

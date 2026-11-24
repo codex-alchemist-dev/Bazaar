@@ -30,14 +30,38 @@ public sealed class UpdateHost : IDisposable
         Coordinator = coordinator;
         Compatibility = compat;
         _http = http;
-        // No command palette exists in any head yet (only the CommandRegistry/CommandMatcher library in Bazaar.Client.Commands),
-        // so the head owns a registry holding just its local commands. Still missing: a palette view that opens on its mnemonic,
-        // lists Commands.Commands and runs UpdateCheckCommand.RunAsync for update.check; and loading the server's commands.
-        Commands = CommandRegistry.Load([UpdateCheckCommand.Command], []).Registry;
+        // The head owns a registry holding just its local update commands; update.restart is enabled only while a release is staged.
+        // The palette lists the module's commands (LinuxHeadModule); this registry is what its enabled state is read from.
+        RestartCommand = CreateRestartCommand(coordinator);
+        Commands = CommandRegistry.Load([UpdateCheckCommand.Command, RestartCommand], []).Registry;
     }
 
-    /// <summary>The head's local commands (currently only <c>update.check</c>), ready for a palette to list.</summary>
+    /// <summary>The head's local commands (<c>update.check</c> and <c>update.restart</c>), ready for a palette to list.</summary>
     public CommandRegistry Commands { get; }
+
+    /// <summary>The <c>update.restart</c> palette entry; <see cref="Command.IsEnabled()"/> is true only while an update is staged.</summary>
+    public Command RestartCommand { get; }
+
+    /// <summary>The <c>update.restart</c> palette entry for <paramref name="coordinator"/>; enabled only while a release is staged.</summary>
+    public static Command CreateRestartCommand(UpdateCoordinator coordinator)
+    {
+        ArgumentNullException.ThrowIfNull(coordinator);
+        return new Command(
+            UpdateCoordinator.RestartCommandId,
+            "Restart to apply update",
+            "apply update",
+            ["update", "restart", "upgrade"],
+            CommandSource.Local,
+            () => coordinator.IsStaged);
+    }
+
+    /// <summary>
+    /// Builds the restart action for the head. <paramref name="args"/> is the original command line; <paramref name="shutdown"/>
+    /// shuts the application lifetime down cleanly. The new process starts through <see cref="PendingRestart"/> after <c>Main</c>
+    /// has released the single-instance pipe.
+    /// </summary>
+    public UpdateRestart CreateRestart(IReadOnlyList<string> args, Action shutdown) =>
+        new(() => Coordinator.IsStaged, () => Environment.ProcessPath, args, shutdown, PendingRestart.Set);
 
     /// <summary>
     /// Pass to <c>ChatHost.Start</c> as the welcome callback. Records the server's compatibility facts; until the first welcome

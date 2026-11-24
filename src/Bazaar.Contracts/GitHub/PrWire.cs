@@ -63,7 +63,6 @@ public sealed record PrListRequest(string? Repo, PrListState State, string? Curs
 /// <param name="InstallationId">GitHub App installation that reads the repo. Null from a server that predates the identity fields; a client then cannot merge.</param>
 /// <param name="Owner">Repo owner login, the first half of <paramref name="Repo"/>. Null from an older server.</param>
 /// <param name="RepoName">Repo name, the second half of <paramref name="Repo"/>. Null from an older server.</param>
-[WirePayload]
 public sealed record PrListRow(
     string PrId,
     string Repo,
@@ -95,7 +94,6 @@ public sealed record PrSummaryRequest(string PrId);
 /// <param name="Status">GitHub's file status: added, modified, removed, renamed.</param>
 /// <param name="Additions">Added lines.</param>
 /// <param name="Deletions">Removed lines.</param>
-[WirePayload]
 public sealed record PrChangedFile(string Path, string Status, int Additions, int Deletions);
 
 /// <summary>Reply to <c>pr.summary</c>.</summary>
@@ -150,7 +148,6 @@ public sealed record PrHunksRequest(string PrId, string HeadSha, string Path, st
 /// <param name="NewStart">First new line.</param>
 /// <param name="NewCount">New line count.</param>
 /// <param name="Lines">Hunk lines, each with its diff prefix.</param>
-[WirePayload]
 public sealed record PrHunk(string Header, int OldStart, int OldCount, int NewStart, int NewCount, IReadOnlyList<string> Lines);
 
 /// <summary>Reply to <c>pr.hunks</c>.</summary>

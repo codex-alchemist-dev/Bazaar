@@ -8,26 +8,31 @@ namespace Bazaar.Contracts.Wire;
 /// <param name="TargetN">The <c>n</c> of the message reacted to.</param>
 /// <param name="Emoji">One emoji (a single grapheme cluster).</param>
 /// <param name="Add">True to add the reaction, false to remove the sender's own.</param>
+[WirePayload(WireTypes.GcReact)]
 public sealed record GcReact(Guid GcId, long TargetN, string Emoji, bool Add);
 
 /// <summary>Response to <c>gc.react</c>.</summary>
 /// <param name="N">The seq of the reaction event written, or of the event already in effect; 0 when a remove found nothing.</param>
 /// <param name="Changed">True when an event was written; false when the request was a no-op.</param>
+[WirePayload]
 public sealed record GcReactResult(long N, bool Changed);
 
 /// <summary>Request <c>gc.reactions</c>: the folded reaction state of a GC.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="AfterN">When set, only messages with <c>n</c> above this; null for every message.</param>
+[WirePayload(WireTypes.GcReactions)]
 public sealed record GcReactionsRequest(Guid GcId, long? AfterN);
 
 /// <summary>One emoji on one message, with everyone who has it now.</summary>
 /// <param name="TargetN">The message's <c>n</c>.</param>
 /// <param name="Emoji">The emoji.</param>
 /// <param name="By">Principals whose reaction is in effect, in the order they reacted.</param>
+[WirePayload]
 public sealed record WireReactionGroup(long TargetN, string Emoji, IReadOnlyList<Guid> By);
 
 /// <summary>Response to <c>gc.reactions</c>.</summary>
 /// <param name="Items">Groups ordered by message, then by when the emoji first appeared.</param>
+[WirePayload]
 public sealed record GcReactionsReply(IReadOnlyList<WireReactionGroup> Items);
 
 /// <summary>Event <c>gc.reaction</c> on <c>gc:&lt;id&gt;</c>: one reaction changed. The envelope <c>n</c> is the reaction event's seq. Live only.</summary>
@@ -37,15 +42,18 @@ public sealed record GcReactionsReply(IReadOnlyList<WireReactionGroup> Items);
 /// <param name="By">Who reacted or removed.</param>
 /// <param name="Add">True for an added reaction, false for a removed one.</param>
 /// <param name="Ts">When the server wrote the event.</param>
+[WirePayload(WireTypes.GcReaction)]
 public sealed record WireGcReaction(Guid GcId, long TargetN, string Emoji, Guid By, bool Add, DateTimeOffset Ts);
 
 /// <summary>Request <c>gc.typing</c>: the sender starts, refreshes or stops typing. Ephemeral; never written to the log.</summary>
 /// <param name="GcId">The group chat.</param>
 /// <param name="Typing">True to start or refresh, false to stop.</param>
+[WirePayload(WireTypes.GcTyping)]
 public sealed record GcTyping(Guid GcId, bool Typing);
 
 /// <summary>Response to <c>gc.typing</c>.</summary>
 /// <param name="Accepted">False when the signal was dropped for arriving inside the minimum interval, or because typing is off.</param>
+[WirePayload]
 public sealed record GcTypingResult(bool Accepted);
 
 /// <summary>Kinds of an ephemeral <c>presence.update</c> delta.</summary>

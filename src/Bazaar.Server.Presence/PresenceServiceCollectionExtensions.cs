@@ -26,11 +26,13 @@ public static class PresenceServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IPresenceStore>(sp =>
         {
-            var memory = new InMemoryPresenceStore();
+            // A registered durable store (Postgres agent_activity) is the truth; otherwise the in-memory store works until restart.
+            IPresenceStore inner = (IPresenceStore?)sp.GetService<IDurablePresenceStore>() ?? new InMemoryPresenceStore();
             return sp.GetService<ICacheProvider>() is { } cache
-                ? new CacheSnapshotPresenceStore(memory, cache, sp.GetRequiredService<PresenceOptions>())
-                : memory;
+                ? new CacheSnapshotPresenceStore(inner, cache, sp.GetRequiredService<PresenceOptions>())
+                : inner;
         });
+        services.AddSingleton<IStreamGate, PresenceStreamGate>();
         services.TryAddSingleton<IPresencePublisher>(sp => new PresencePublisher(
             sp.GetRequiredService<IPresenceStore>(),
             sp.GetService<IWireConnectionDirectory>(),
