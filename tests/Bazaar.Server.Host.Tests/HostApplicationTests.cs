@@ -107,6 +107,8 @@ public sealed class HostApplicationTests
             if (funEnabled is not null)
             {
                 values["Bazaar:Components:fun-systems:Enabled"] = funEnabled;
+                // Lucky runs also need the sanitizer, so it is switched off with the fun systems.
+                values["Bazaar:Components:" + Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id + ":Enabled"] = funEnabled;
             }
 
             var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();
