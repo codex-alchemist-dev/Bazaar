@@ -11,14 +11,14 @@ public static class MigrateCommand
 
     /// <summary>
     /// Runs the migrations and writes a plain summary. <paramref name="options"/> carries <c>gc.partition_count</c> (default 16).
-    /// <paramref name="components"/> orders the component namespaces. Returns 0 on success, 1 when a migration was refused or failed.
+    /// <paramref name="components"/> orders the component namespaces; <paramref name="isEnabled"/> (null: all on) leaves the migrations of a switched-off component unapplied. Returns 0 on success, 1 when a migration was refused or failed.
     /// </summary>
-    public static async Task<int> RunAsync(string connectionString, IMigrationSource source, string provider, TextWriter output, MigrationOptions? options = null, IEnumerable<ComponentManifest>? components = null, CancellationToken ct = default)
+    public static async Task<int> RunAsync(string connectionString, IMigrationSource source, string provider, TextWriter output, MigrationOptions? options = null, IEnumerable<ComponentManifest>? components = null, Func<ComponentManifest, bool>? isEnabled = null, CancellationToken ct = default)
     {
         await using var dataSource = NpgsqlDataSource.Create(connectionString);
         try
         {
-            var result = await new MigrationRunner(dataSource, options, components).MigrateAsync(source, provider, ct).ConfigureAwait(false);
+            var result = await new MigrationRunner(dataSource, options, components, isEnabled).MigrateAsync(source, provider, ct).ConfigureAwait(false);
             foreach (var m in result.Applied)
                 await output.WriteLineAsync($"applied {m.Namespace}/{m.Version:D4}_{m.Name}", ct).ConfigureAwait(false);
             await output.WriteLineAsync($"done: {result.Applied.Count} applied, {result.AlreadyApplied} already applied", ct).ConfigureAwait(false);

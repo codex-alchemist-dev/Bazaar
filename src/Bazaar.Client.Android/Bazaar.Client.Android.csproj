@@ -31,10 +31,15 @@
   <ItemGroup Condition="'$(BazaarAndroid)' == 'true'">
     <PackageReference Include="Avalonia.Android" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
+    <!-- Approval biometric prompt (doc 29, Approvals): AndroidX BiometricPrompt, newest stable binding. -->
+    <PackageReference Include="Xamarin.AndroidX.Biometric" />
     <!-- No direct Xamarin.AndroidX.Window reference. Its 1.5.1.3 pulls Core 1.19 (Lifecycle 2.11) against the Lifecycle 2.10 pins
          from Activity and Fragment (NU1608). Avalonia.Android brings Window 1.5.1.2 transitively, which resolves cleanly. -->
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Annotation\Bazaar.Client.Annotation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals\Bazaar.Client.Approvals.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Avalonia\Bazaar.Client.Approvals.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Approvals.Http\Bazaar.Client.Approvals.Http.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Approvals.Phone\Bazaar.Client.Approvals.Phone.csproj" />
     <ProjectReference Include="..\Bazaar.Client.TalentPool.Http\Bazaar.Client.TalentPool.Http.csproj" />
@@ -44,7 +49,14 @@
     <ProjectReference Include="..\Bazaar.Client.Preferences\Bazaar.Client.Preferences.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.BackStack\Bazaar.Client.BackStack.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Gestures\Bazaar.Client.Gestures.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Mobile\Bazaar.Client.Mobile.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.PhoneCoach\Bazaar.Client.PhoneCoach.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Vault\Bazaar.Client.Vault.csproj" />

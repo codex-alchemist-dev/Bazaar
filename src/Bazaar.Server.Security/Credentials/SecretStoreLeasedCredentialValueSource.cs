@@ -9,10 +9,10 @@ namespace Bazaar.Server.Security.Credentials;
 /// component <see cref="Component"/> for purpose <see cref="PurposeValue"/>.
 /// </summary>
 /// <remarks>
-/// Returns null when the agent id is not a valid secret agent id or the store holds no such secret, so the observer logs
+/// Returns null when the host has no secret store, the agent id is not a valid secret agent id or the store holds no such secret, so the observer logs
 /// it and tracks nothing. A policy denial throws. Never logs or returns anything beyond the bytes it hands the caller.
 /// </remarks>
-public sealed class SecretStoreLeasedCredentialValueSource(ISecretStore store) : ILeasedCredentialValueSource
+public sealed class SecretStoreLeasedCredentialValueSource(ISecretStore? store = null) : ILeasedCredentialValueSource
 {
     /// <summary>Host component name the read is made under. Policy must grant it a read of the agent scope.</summary>
     public const string Component = "lease-matcher";
@@ -28,6 +28,12 @@ public sealed class SecretStoreLeasedCredentialValueSource(ISecretStore store) :
     public async ValueTask<byte[]?> ResolveAsync(string agentId, CredentialId credentialId, CancellationToken ct)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        if (store is null)
+        {
+            // The host registers a secret store only when the operator picks a KEK (Bazaar:Secrets); without one nothing is matched.
+            return null;
+        }
+
         AgentId agent;
         try
         {
