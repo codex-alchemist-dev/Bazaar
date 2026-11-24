@@ -28,6 +28,7 @@ Every component declares one manifest. In code (first-party) it is a static `Com
 | `settings` | Settings keys it reads, with safe defaults (doc 03 configurability rule). |
 | `trust` | `first-party` (compiled in) or `third-party` (section 8). Default for first-party components. |
 | `process` | `in-process` (default) or `out-of-process` (section 7). |
+| `enabledByDefault` | PROPOSED. `true` (default) or `false`. The state when the operator has set no `Bazaar:Components:<id>:Enabled` value (section 3). A `false` component is optional: shipped in the build, off until switched on. Not allowed on `kind: kernel` or on a component another default-on component depends on. |
 
 ### 2.1 Module sides (owner, 2026-11-16)
 
@@ -62,6 +63,8 @@ Lifecycle, in order, for every enabled component:
 7. **Stop.** Reverse order.
 
 Enablement comes from settings (`Bazaar:Components:<id>:Enabled`). A disabled component is not registered and its migrations are not applied, but its contracts are still validated so that a dependent that needs it fails at startup, not at first use. Core components cannot be disabled.
+
+**Optional components (PROPOSED, 2026-11-22).** When no `Enabled` setting exists for a component, the host uses the manifest's `enabledByDefault` (default `true`). A component with `enabledByDefault: false` is optional: it is not registered, its migrations are not applied and its panes and commands do not appear until the operator (or, for a client module, the company's module list) switches it on. An explicit setting always wins over the manifest, in either direction. The manifest validator rejects `enabledByDefault: false` on a kernel component and on any component that a default-on component lists in `dependsOn` as a hard edge, because the host would otherwise fail to start with the defaults. The same field is read by the client module host (doc 41b, `ClientModuleHost.Load`) so that the Rubedo playground (doc 41d section 7) ships in the build but stays off until a company includes it. Built on the server: `ComponentManifest.EnabledByDefault`, the two validator rules in `ComponentGraph.Order`, and `BazaarComponentRegistration.IsEnabled(configuration, manifest)` (used by `AddBazaarComponents` and the module activation host). `MigrationRunner` takes an `isEnabled` function: the migrations of a component that is off are not applied (the host passes the same rule as registration), and history rows of a component that was on and is now off do not count as "ahead", so the startup gate still passes. Client side: `ModuleManifest.EnabledByDefault`, and `ClientModuleHost.Load(..., enabled)` skips an off module with the quiet code `optional-off`; an explicit entry wins in either direction. No head passes the `enabled` map yet (heads read the company's module list), and the playground is in no head's list.
 
 ## 4. Contracts and dependencies
 
@@ -166,7 +169,8 @@ Until wave 1 lands, new work follows the rule the coordinator relays to running 
 1. Owner: confirm that every base function, including Kanban, GC and gateway, is a first-party component in v1, and that third-party loading is wave 5 (after signing and approval).
 2. Owner: component enable/disable is a setting. Which components an operator may disable is a policy question (for example, may the taint policy be disabled?). Default: core components cannot be disabled.
 3. Schema: the `(component_id, version)` history and the namespace folder layout need one answer before wave 2. Default: as in section 5.
-4. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
+4. Owner: confirm the optional-component rule above (`enabledByDefault`, explicit setting wins). Proposed because the Rubedo playground and other opt-in modules need a manifest-level default, and without one each module invents its own flag.
+5. Doc 03 needs a `DataStore` provider role for managed Postgres (see MODULARITY-AUDIT section 5). It is a component under this model.
 
 ## 13. Standalone Core readiness audit (PROPOSED, 2026-11-19)
 

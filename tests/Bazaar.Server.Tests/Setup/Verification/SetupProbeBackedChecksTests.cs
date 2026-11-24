@@ -181,4 +181,29 @@ public sealed class SetupProbeBackedChecksTests
         Assert.Equal(100, full.Score);
         Assert.Equal(SetupCheckStatus.Amber, noClock.Overall);
     }
+
+    private sealed class NamedCheck(string id) : ISetupVerificationCheck
+    {
+        public string Id { get; } = id;
+
+        public string Title => "replacement";
+
+        public Task<SetupCheckResult> RunAsync(SetupVerificationContext context, CancellationToken cancellationToken) =>
+            Task.FromResult(SetupCheckResult.Green("ok"));
+    }
+
+    [Fact]
+    public void A_replacement_wins_over_the_placeholder_and_keeps_the_order()
+    {
+        var replacement = new NamedCheck("server.identity");
+
+        var checks = SetupVerificationChecks.Create(replacements: [replacement]);
+
+        Assert.Same(replacement, Assert.Single(checks, c => c.Id == "server.identity"));
+        Assert.Equal(SetupVerificationChecks.All.Select(c => c.Id), checks.Select(c => c.Id));
+    }
+
+    [Fact]
+    public void Two_replacements_for_one_check_are_refused() =>
+        Assert.Throws<ArgumentException>(() => SetupVerificationChecks.Create(replacements: [new NamedCheck("server.identity"), new NamedCheck("server.identity")]));
 }

@@ -11,7 +11,7 @@ namespace Bazaar.Client.Linux;
 /// <summary>
 /// Builds the sign-in and create-company screens (doc 45 section 2.6) for the <c>--sign-in</c>, <c>--create-company</c> and
 /// <c>--first-run</c> switches. Both talk to the server this build was made for (<see cref="ClientServer.Current"/>); the session
-/// lives in memory until a protected store exists (libsecret is a later module), so a restart signs out.
+/// is kept sealed by <see cref="LinuxClientSessions"/> (keyring key, or a 0600 key file), so a restart stays signed in.
 /// </summary>
 internal static class FirstRunScreens
 {
@@ -33,7 +33,7 @@ internal static class FirstRunScreens
         if (!signIn && !company) return null;
 
         var http = ClientServer.Current.CreateHttpClient();
-        var store = new InMemorySessionStore();
+        var store = LinuxClientSessions.Store;
         var panel = new StackPanel { Spacing = 24, Margin = new Avalonia.Thickness(16) };
 
         if (signIn)

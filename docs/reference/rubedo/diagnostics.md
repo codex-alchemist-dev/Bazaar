@@ -33,6 +33,10 @@ Codes are stable. The golden corpus asserts them, and tools key on them.
 
 | Code | Meaning |
 |---|---|
+| <a id="code-view-args-count"></a>`view.args_count` | A `button` has more `args` than the limit. |
+| <a id="code-view-args-name"></a>`view.args_name` | An `args` name is not a valid identifier. |
+| <a id="code-view-args-value"></a>`view.args_value` | An `args` value is not a text, number or bool literal, or an expression. |
+| <a id="code-view-args-widget"></a>`view.args_widget` | A node other than a `button` has `args`. |
 | <a id="code-view-bad-data-name"></a>`view.bad_data_name` | A data source name is not a valid identifier. |
 | <a id="code-view-bad-field-name"></a>`view.bad_field_name` | A field of a list source is not a valid identifier. |
 | <a id="code-view-bad-name"></a>`view.bad_name` | The view name is not dotted lower-case segments, such as `bazaar.gc.feed`. |

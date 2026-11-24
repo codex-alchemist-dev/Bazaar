@@ -78,6 +78,8 @@ Release builds (doc 37) keep line tables in a symbol bundle that the company ser
 
 **Module versions.** Every loaded module id with its version and build id, plus the client version string and channel. This is what lets the server tie a crash to one build.
 
+**Support bundle (cross-reference, 2026-11-22).** A person can also write a local, redacted zip of recent logs, the module list and the last crash record with `--support-bundle`. It uses this section's redactor and floors, is never sent by Bazaar, and is specified in doc 37 section 4d.
+
 ### 4.2 Where capture runs
 
 Capture runs in-process. It hooks the unhandled-exception events of the runtime (`AppDomain` and unobserved task exceptions on Windows and Linux; the uncaught-exception handler on Android). Handled exceptions are captured only when the code calls the reporting API with an error code. It does no I/O on the failing thread. It copies the capture into a bounded in-memory structure and writes one file to the local report queue on a background thread at the next safe point. If the process dies before the write, the report is lost; that is accepted, and the crash-on-last-run path (section 7.4) covers what it can.
@@ -348,6 +350,13 @@ Title: error code and type, or type and flagged frame. Body: fingerprint marker,
 **Implementation seams (wave 4c).** The diagnosis role is `CrashDiagnosisRole` (name `diagnosis`, no tools, asserted by a test). The model, the daily token budget and the system App token are interfaces (`ICrashDiagnosisModel`, `ICrashDiagnosisBudget`, `ICrashGitHubTokenSource`); the host binds them to the gateway role policy (doc 05), the quota service (doc 15) and the Identity Service (doc 14). Until bound, the budget denies, so diagnosis stays paused, and the filer fails closed so outbox rows back off. The auto trigger is a durable pass (`RunAutoAsync`) run by the maintenance timer in `auto` mode: it diagnoses each group whose highest reached threshold (1, 10, 100, 1000 occurrences) is above the one its newest diagnosis saw, so a restart loses nothing and no group is diagnosed twice for the same threshold. It stops at the first paused budget. Reading `telemetry.crash.diagnosis` from the settings registry is still a config key (`Diagnostics:Crash:Diagnosis`) until doc 03's registry hook exists.
 
 **Hardening (review of the wave 4 PR).** The dispatcher claims due outbox rows with a five-minute lease (`locked_until`, `FOR UPDATE SKIP LOCKED`), so two server instances do not file the same issue. One window remains: if the process dies after GitHub created the issue and before the group is updated, the retry files a second issue; the issue body carries the fingerprint so an owner can find and close the duplicate. A group whose automatic diagnosis fails waits 10 minutes, then doubling, at most a day (`crash_diagnosis_backoff`), so it cannot starve other groups. The sanitiser also breaks `@name` mentions and `#123` references with a zero-width space, so model output cannot notify people or link issues.
+### 9.1.1 Diagnosis bindings (PROPOSED, 2026-11-22)
+
+Doc 05 has no per-role policy and `ITokenBudgetService` (doc 15) is per agent with spend-only calls, so neither fits the diagnosis seams as written. Proposal, reversible, all operator settings with safe defaults (configurability rule, DECISIONS-LOG round 13):
+
+- **Model.** Diagnosis calls go through `IModelGateway` under one reserved system agent id (a fixed GUID owned by the diagnostics module, never a real agent) with `Tools = []` (asserted by a test). The route comes from the setting `telemetry.crash.diagnosis_route`. It has no default: until the operator sets it, diagnosis stays paused. The gateway's per-agent whitelist still applies, so the route must be whitelisted for that agent id.
+- **Budget.** The diagnostics module keeps its own company-wide daily counter (table `crash_diagnosis_usage`, one row per UTC day, namespace `diagnostics`). `TryReserveAsync` adds the estimate only if the day stays under `telemetry.crash.diagnosis_daily_tokens` (default 200000), and `SettleAsync` replaces the estimate with the real usage, so an over-estimate is refunded. The Security quota contract is not changed. A later move onto doc 15 quotas is possible once they gain reserve and settle.
+- **Host.** `Bazaar.Server.Host` registers both bindings. Nothing in a module references `Bazaar.Server`.
 
 ### 9.2 Who reads it
 

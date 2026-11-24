@@ -3,15 +3,26 @@ namespace Bazaar.Server.Portability;
 /// <summary>
 /// The real target writer: GC entries through <see cref="GcImportTarget"/>, Vault files through <see cref="VaultImportTarget"/>.
 /// </summary>
-public sealed class ImportTargetWriter(GcImportTarget gc, VaultImportTarget vault) : IImportTargetWriter
+public sealed class ImportTargetWriter(GcImportTarget gc, VaultImportTarget vault, IKanbanImportTarget? kanban = null) : IImportTargetWriter
 {
     public async Task<IReadOnlySet<string>> ReadCommittedSourceKeysAsync(string jobId, CancellationToken ct)
     {
         var keys = new HashSet<string>(StringComparer.Ordinal);
         keys.UnionWith(await gc.ReadSourceKeysAsync(jobId, ct));
         keys.UnionWith(await vault.ReadSourceKeysAsync(jobId, ct));
+        keys.UnionWith(await ReadKanbanSourceKeysAsync(jobId, ct));
         return keys;
     }
+
+    public Task AppendKanbanTasksAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct) =>
+        kanban is null
+            ? throw new NotSupportedException("No Kanban import target is wired into this writer.")
+            : kanban.AppendBatchAsync(jobId, batchIndex, items, ct);
+
+    public Task<IReadOnlyList<string>> ReadKanbanSourceKeysAsync(string jobId, CancellationToken ct) =>
+        kanban is null
+            ? Task.FromResult<IReadOnlyList<string>>([])
+            : kanban.ReadSourceKeysAsync(jobId, ct);
 
     public Task AppendGcMessagesAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct) =>
         gc.AppendBatchAsync(jobId, batchIndex, items, ct);
@@ -50,6 +61,7 @@ public static class ImportVerifier
         var committed = new HashSet<string>(commit.CommittedSourceKeys, StringComparer.Ordinal);
         var expectedGc = new HashSet<string>(StringComparer.Ordinal);
         var expectedVault = new HashSet<string>(StringComparer.Ordinal);
+        var expectedKanban = new HashSet<string>(StringComparer.Ordinal);
         var allowed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in newRecords)
         {
@@ -58,20 +70,26 @@ public static class ImportVerifier
             {
                 continue;
             }
-            if (ImportCommitter.TargetFor(record) == ImportTargetKind.GcMessage)
+            switch (ImportCommitter.TargetFor(record))
             {
-                expectedGc.Add(record.SourceKey);
-            }
-            else
-            {
-                expectedVault.Add(record.SourceKey);
+                case ImportTargetKind.GcMessage:
+                    expectedGc.Add(record.SourceKey);
+                    break;
+                case ImportTargetKind.KanbanTask:
+                    expectedKanban.Add(record.SourceKey);
+                    break;
+                default:
+                    expectedVault.Add(record.SourceKey);
+                    break;
             }
         }
 
         var gcRead = await writer.ReadGcSourceKeysAsync(jobId, ct);
         var vaultRead = await writer.ReadVaultSourceKeysAsync(jobId, ct);
+        var kanbanRead = await writer.ReadKanbanSourceKeysAsync(jobId, ct);
         Compare("gc", expectedGc, gcRead, allowed, problems);
         Compare("vault", expectedVault, vaultRead, allowed, problems);
+        Compare("kanban", expectedKanban, kanbanRead, allowed, problems);
         return problems;
     }
 
@@ -102,4 +120,17 @@ public static class ImportVerifier
             }
         }
     }
+}
+
+/// <summary>
+/// Kanban task target for the commit path (doc 44 section 8.2). The Kanban module owns task creation, so the concrete
+/// adapter sits outside this module. A task needs an origin GC message, and the adapter decides which one.
+/// </summary>
+public interface IKanbanImportTarget
+{
+    /// <summary>Creates one batch of tasks. Throws if the batch cannot be written and records nothing for that call.</summary>
+    Task AppendBatchAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct);
+
+    /// <summary>Source keys of tasks this job created.</summary>
+    Task<IReadOnlyList<string>> ReadSourceKeysAsync(string jobId, CancellationToken ct);
 }
