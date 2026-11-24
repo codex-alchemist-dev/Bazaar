@@ -11,7 +11,7 @@ namespace Bazaar.Server.Security.Approvals.Db;
 /// stores rows and makes every status change a compare-and-set. Works under the runtime role (<c>bazaar_app</c>): it
 /// needs INSERT, SELECT and UPDATE, never DELETE.
 /// </summary>
-public sealed class PostgresApprovalStore(NpgsqlDataSource dataSource) : IApprovalStore
+public sealed class PostgresApprovalStore(NpgsqlDataSource dataSource) : IApprovalStore, IPendingApprovalLister
 {
     private const string _columns =
         "id, agent_id, session_id, tool, target, args_hash, payload::text, taint_sources::text, status, requested_at, " +
@@ -37,6 +37,23 @@ public sealed class PostgresApprovalStore(NpgsqlDataSource dataSource) : IApprov
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = id });
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         return await reader.ReadAsync(ct).ConfigureAwait(false) ? Map(reader) : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(
+            $"SELECT {_columns} FROM approval WHERE status = 'pending' AND expires_at > $1 ORDER BY requested_at DESC LIMIT $2");
+        cmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = TruncateToMicroseconds(now) });
+        cmd.Parameters.Add(new NpgsqlParameter<int> { TypedValue = Math.Max(limit, 0) });
+        var rows = new List<ApprovalRequest>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            rows.Add(Map(reader));
+        }
+
+        return rows;
     }
 
     /// <inheritdoc />

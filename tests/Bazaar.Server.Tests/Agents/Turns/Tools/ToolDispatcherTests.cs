@@ -33,8 +33,9 @@ public class ToolDispatcherTests
         TurnRole role = TurnRole.Actor,
         bool idempotent = false,
         string callId = "call-1",
-        int chainDepth = 0) =>
-        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent, chainDepth);
+        int chainDepth = 0,
+        string? gcId = null) =>
+        new(_agentId, _turnId, _sessionId, role, new ModelToolCall(callId, tool, args), idempotent, chainDepth, gcId);
 
     private static string Sha256Hex(string text) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
@@ -124,6 +125,29 @@ public class ToolDispatcherTests
 
         Assert.Equal(ToolDispatchOutcome.Executed, result.Outcome);
         Assert.Equal(new ToolCallContext(_agentId, _sessionId, _turnId, ChainDepth: 2), tool.LastContext);
+    }
+
+    [Fact]
+    public async Task A_contextual_tool_gets_the_working_gc_of_the_request()
+    {
+        var tool = new FakeContextualTool();
+        var gc = Guid.NewGuid();
+
+        await Dispatcher(new FakePolicyEngine(_allow), new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(gcId: gc.ToString("D")), CancellationToken.None);
+
+        Assert.Equal(gc, tool.LastContext!.GcId);
+    }
+
+    [Fact]
+    public async Task A_missing_or_malformed_gc_id_reaches_the_tool_as_null()
+    {
+        var tool = new FakeContextualTool();
+
+        await Dispatcher(new FakePolicyEngine(_allow), new FakeToolRegistry((_tool, tool)), new FakeAuditLog())
+            .InvokeAsync(Request(gcId: "not-a-guid"), CancellationToken.None);
+
+        Assert.Null(tool.LastContext!.GcId);
     }
 
     private sealed class FakeContextualTool : IContextualTool

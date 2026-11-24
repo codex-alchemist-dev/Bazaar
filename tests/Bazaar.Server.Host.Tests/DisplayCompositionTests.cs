@@ -14,11 +14,15 @@ using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Security.Taint;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
+using Bazaar.Server.VmDensity.Vms;
+using Bazaar.Server.Vms.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
+using Bazaar.Server.VmDisplay.GuestChannel;
+using Bazaar.Server.VmTransport;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
 using Microsoft.Extensions.Configuration;
@@ -36,8 +40,8 @@ public sealed class DisplayCompositionTests
 {
     private static readonly string[] _componentIds =
     [
-        "vm-display", "vm-display-gate", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
-        "vm-density", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
+        "vm-display", "vm-display-gate", "vm-display-guest-channel", "vm-display-audit", "vm-display-agent-tools", "vm-display-agent-targets", "vm-display-hyperv", "vm-display-kvm",
+        "vm-density", "vm-density-vms", "browser-pool", "browser-pool-display", "browser-pool-linux-host", "browser-pool-image",
         "browser-pool-gate", "browser-pool-audit", "browser-pool-egress",
     ];
 
@@ -65,6 +69,7 @@ public sealed class DisplayCompositionTests
         var listed = manifests.Select(m => m.Id).ToList();
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-gate"));
         Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-audit"));
+        Assert.True(listed.IndexOf("vm-display") < listed.IndexOf("vm-display-guest-channel"));
         Assert.True(listed.IndexOf("vm-display-agent-tools") < listed.IndexOf("vm-display-agent-targets"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-display"));
         Assert.True(listed.IndexOf("browser-pool") < listed.IndexOf("browser-pool-linux-host"));
@@ -142,9 +147,33 @@ public sealed class DisplayCompositionTests
 
         var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target), CancellationToken.None));
 
-        // The gate said yes; no source serves a VM target that no hypervisor knows (there is no guest source and no browser session).
+        // The gate said yes; no source can serve the VM: no hypervisor knows it, the guest source finds no live channel (none is registered
+        // yet), and there is no browser session.
         Assert.NotEqual(DisplayFailure.Refused, capture.Failure);
         Assert.NotEqual(DisplayFailure.Disabled, capture.Failure);
+    }
+
+    [Fact]
+    public async Task The_guest_source_has_an_adapter_and_with_no_live_channel_a_guest_only_capture_and_input_fail_closed()
+    {
+        using var host = BuildHost(services =>
+        {
+            services.AddSingleton<ILeasedCredentialMatcher>(new InMemoryLeasedCredentialMatcher());
+            services.AddSingleton<IKillSwitchReader>(new FixedKillSwitch(frozen: false));
+        });
+        var display = host.Services.GetRequiredService<IGuestDisplay>();
+
+        // The host's transport module registers a directory; nothing registers a channel in it yet.
+        Assert.NotNull(host.Services.GetService<IGuestChannelDirectory>());
+        Assert.Contains(DisplaySourceKind.Guest, display.AvailableSources(_target));
+        Assert.DoesNotContain(DisplaySourceKind.Guest, display.AvailableSources(_target with { Os = DisplayGuestOs.Windows }));
+
+        var capture = await Assert.ThrowsAsync<DisplayException>(() => display.CaptureAsync(new CaptureRequest(_target, DisplaySourceKind.Guest), CancellationToken.None));
+        Assert.Equal(DisplayFailure.SourceFailed, capture.Failure);
+        Assert.Contains("no live guest channel", capture.InnerException?.Message ?? capture.Message, StringComparison.Ordinal);
+
+        var input = await Assert.ThrowsAsync<DisplayException>(() => display.SendInputAsync(new InputBatch(_target, [new KeyStroke("Enter")]), CancellationToken.None));
+        Assert.NotEqual(DisplayFailure.Refused, input.Failure);
     }
 
     [Fact]
@@ -186,15 +215,18 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public void Hypervisor_adapters_follow_the_operating_system_and_no_guest_exec_or_browser_driver_serves_a_vm_target()
+    public void Hypervisor_adapters_follow_the_operating_system_the_guest_exec_serves_linux_vm_targets_and_no_browser_driver_serves_one()
     {
         using var host = BuildHost();
         var consoles = host.Services.GetServices<IHypervisorConsole>().Select(c => c.GetType()).ToList();
 
         Assert.Contains(typeof(HyperVConsole), consoles);
         Assert.Equal(OperatingSystem.IsLinux(), consoles.Contains(typeof(KvmConsole)));
-        // The guest channel has no host adapter yet, so there is no guest source.
-        Assert.Empty(host.Services.GetServices<IDisplayGuestExec>());
+        // The guest channel adapter is the one guest source; it serves a Linux VM target and never a browser session or a Windows guest.
+        var guestExec = Assert.IsType<GuestChannelDisplayExec>(Assert.Single(host.Services.GetServices<IDisplayGuestExec>()));
+        Assert.True(guestExec.Supports(_target));
+        Assert.False(guestExec.Supports(_target with { BrowserSessionId = "no-such-session" }));
+        Assert.False(guestExec.Supports(_target with { Os = DisplayGuestOs.Windows }));
         // The pool's page driver exists but serves nothing: no session has a DevTools pipe.
         Assert.All(host.Services.GetServices<IBrowserPageDriver>(), driver => Assert.False(driver.Supports(_target with { BrowserSessionId = "no-such-session" })));
     }
@@ -219,7 +251,7 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public async Task Enabling_the_agent_targets_registers_the_screen_tools_but_policy_has_no_entry_for_them_and_a_failed_read_gives_no_target()
+    public async Task Enabling_the_agent_targets_registers_the_screen_tools_and_their_policy_entries_and_a_failed_read_gives_no_target()
     {
         using var host = BuildHost(new Dictionary<string, string?>
         {
@@ -232,10 +264,12 @@ public sealed class DisplayCompositionTests
         Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ToolRegistration>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
         Assert.Equal(["screen.capture", "screen.input"], host.Services.GetServices<ModelToolDefinition>().Select(t => t.Name).Where(n => n.StartsWith("screen.", StringComparison.Ordinal)).Order().ToArray());
 
-        // What still stands in the way: the policy engine has no capability for either tool, so it denies a call as an unknown tool.
+        // The policy engine knows both tools (doc 15, "Screen tools"), so a call is no longer denied as an unknown tool.
         var capabilities = host.Services.GetRequiredService<CapabilityRegistry>();
-        Assert.False(capabilities.TryGet("screen.capture", out _));
-        Assert.False(capabilities.TryGet("screen.input", out _));
+        Assert.True(capabilities.TryGet("screen.capture", out var capture));
+        Assert.Equal(ToolResultTaint.Hard, capture!.ResultTaint);
+        Assert.True(capabilities.TryGet("screen.input", out var input));
+        Assert.Equal(ToolTier.AutonomousWithNotice, input!.Tier);
 
         // The test host has no reachable database, so the VM read fails and the agent has no target.
         Assert.Null(await targets.ResolveAsync(Guid.NewGuid(), AgentDisplayKind.Linux, CancellationToken.None));
@@ -243,16 +277,25 @@ public sealed class DisplayCompositionTests
     }
 
     [Fact]
-    public async Task The_density_governor_resolves_and_admits_everything_until_the_vm_ports_exist()
+    public async Task The_density_governor_has_all_its_ports_but_every_vm_counts_as_busy_and_nothing_is_saved_or_stopped()
     {
         using var host = BuildHost();
         var governor = host.Services.GetRequiredService<IDensityGovernor>();
 
-        Assert.False(Assert.IsType<DensityGovernor>(governor).IsActive);
+        // The adapter and the default activity reader are registered. No VM backend is configured, so there is no control port behind them.
+        Assert.IsType<VmDensityVmAdapter>(host.Services.GetRequiredService<IDensityVmDirectory>());
+        Assert.Same(host.Services.GetRequiredService<IDensityVmDirectory>(), host.Services.GetRequiredService<IDensityVmControl>());
+        Assert.IsType<UnreadableVmActivityReader>(host.Services.GetRequiredService<IVmActivityReader>());
+        Assert.Null(host.Services.GetService<IVmControl>());
+        // The memory probe exists on Windows and Linux, so the governor is active there.
+        Assert.Equal(OperatingSystem.IsLinux() || OperatingSystem.IsWindows(), Assert.IsType<DensityGovernor>(governor).IsActive);
+
+        // The save path is closed: with no control port the adapter refuses to save anything.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => host.Services.GetRequiredService<IDensityVmControl>().SaveAsync(Guid.NewGuid(), CancellationToken.None));
+
+        // Nothing in the host calls the governor; a caller that did would still be admitted, because the unreachable database fails the VM listing.
         await using var ticket = await governor.AdmitAsync(new DensityVm(Guid.NewGuid(), "agent-one", DensityGuestOs.Linux, 2048), CancellationToken.None);
         Assert.Equal(0, governor.Snapshot().Running);
-        // The memory probe is the one density port the host can supply today.
-        Assert.Equal(OperatingSystem.IsLinux() || OperatingSystem.IsWindows(), host.Services.GetService<IHostMemoryProbe>() is not null);
     }
 
     [Fact]

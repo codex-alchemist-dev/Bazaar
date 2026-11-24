@@ -345,7 +345,7 @@ public sealed class SetupVerificationCatalogueTests
     [
         "schema.migrations", "instance.lock", "database.postgres", "providers.roles", "secrets.resolution",
         "audit.chainHead", "audit.anchorReachable", "backups.reachable", "backups.drill", "host.clock", "host.disk",
-        "models.reachable", "pairing.offer", "remote.reachable", "server.identity",
+        "host.os", "host.ports", "host.dataRoot", "models.reachable", "pairing.offer", "remote.reachable", "server.identity",
     ];
 
     /// <summary>Every text a report carries, so a leak test can look at all of it.</summary>
@@ -363,7 +363,7 @@ public sealed class SetupVerificationCatalogueTests
             var result = await check.RunAsync(context, CancellationToken.None);
 
             Assert.Equal(SetupCheckStatus.NotEvaluated, result.Status);
-            Assert.Equal("Not evaluated: needs the Host adapter.", result.Message);
+            Assert.StartsWith("Not evaluated: ", result.Message);
         }
     }
 
@@ -391,8 +391,8 @@ public sealed class SetupVerificationCatalogueTests
         var report = await verifier.VerifyAsync(new SetupVerificationContext(plan), TestContext.Current.CancellationToken);
 
         Assert.Equal(SetupCheckStatus.Amber, report.Overall);
-        // Five pure checks are green (no cost). Fifteen placeholders cost 5 each, so the score is 100 - 75.
-        Assert.Equal(25, report.Score);
+        // Five pure checks are green (no cost). Eighteen placeholders cost 5 each, so the score is 100 - 90.
+        Assert.Equal(10, report.Score);
         Assert.Equal(SetupVerificationChecks.Pure.Count, report.Checks.Count(row => row.Status == SetupCheckStatus.Green));
         Assert.Equal(_placeholderIds, report.AmberItems.Select(item => item.Id));
     }

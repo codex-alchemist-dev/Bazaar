@@ -44,7 +44,7 @@ public class HandlerTests
 
     private GcTypingHandler Typing() => new(_access, _tracker, _broadcaster, _options);
 
-    private static WireRequestContext Context(FakeConnection connection, string type, object payload, string id = "req-1") =>
+    private static WireRequestContext Context<T>(FakeConnection connection, string type, T payload, string id = "req-1") =>
         new(connection, new Envelope(1, type, EnvelopeKind.Request, id, null, null, null, null, _codec.EncodePayload(payload)));
 
     private static T Decode<T>(WireReply reply) =>

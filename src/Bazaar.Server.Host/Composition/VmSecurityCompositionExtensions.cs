@@ -41,9 +41,12 @@ namespace Bazaar.Server.Host.Composition;
 /// directory (<see cref="IGuestChannelDirectory"/>), but nothing registers a channel yet (see the channel directory gap below), so every guest
 /// file operation still reports no channel; the guest protocol has no recursive listing or directory delete, so a Soul
 /// attach rolls back at the profile copy and only workspace mounts complete; SMB canary reads cannot be observed; the guest-side mount is unbuilt.</description></item>
-/// <item><description><b>Channel directory</b>: the transport module registers the registry, the directory and <c>GuestChannelRegistrar</c>; the host
-/// supplies <see cref="IAgentVmLookup"/> over the environment repository. Remaining gap: no code calls <c>GuestChannelFactory.OpenAsync</c> after a VM
-/// starts and then <c>GuestChannelRegistrar.RegisterOpenedAsync</c> (who dials, the nonce, and which listener per OS), so the directory is empty.
+/// <item><description><b>Channel directory and opener</b>: the transport module registers the registry, the directory and <c>GuestChannelRegistrar</c>; the host
+/// supplies <see cref="IAgentVmLookup"/> over the environment repository. <c>GuestChannelOpener</c> (a hosted service) waits for each running VM's guest,
+/// checks its Hello and registers the channel, but it is registered only when an <see cref="IGuestNonceSource"/> is registered, because the open targets
+/// need a Hello nonce per VM. Remaining gaps: <b>no nonce source exists</b> (the VM store has no nonce, no backend issues one at create or delivers it to the
+/// guest, except the Windows Sandbox connector, which makes its own), so the opener is off and the directory is empty; no <c>IGuestPeerIdResolver</c> maps
+/// a backend ref name to the Hyper-V VM GUID or vsock CID the listener reports, so the peer id would be the backend ref and a real listener would refuse it.
 /// The egress target resolver is built from the same lookup inside <c>AddBazaarVmEgressEnforcers</c>, which this host does not call yet; the
 /// lookup has no guest interface, so the nftables enforcer would refuse.</description></item>
 /// <item><description><b>Guest scrubber</b>: the real <c>VmGuestScrubber</c> needs a VM lifecycle service, which exists only when a VM backend is configured
@@ -95,6 +98,17 @@ public static class VmSecurityCompositionExtensions
             ? new RepositoryAgentVmLookup(directory)
             : new NoAgentVmLookup());
         services.AddBazaarVmTransport();
+
+        // The channel opener (doc 16 "Channel opener", PROPOSED) runs only when a nonce source exists: the targets come from the VM store, but the
+        // Hello nonce does not, and no backend issues or delivers one yet. Without a source there are no targets and no hosted service.
+        if (services.Any(d => d.ServiceType == typeof(IGuestNonceSource)) && services.Any(d => d.ServiceType == typeof(EnvironmentRepository)))
+        {
+            services.TryAddSingleton<IGuestOpenTargets>(sp => new RunningVmGuestOpenTargets(
+                new RepositoryRunningVmSource(sp.GetRequiredService<EnvironmentRepository>()),
+                sp.GetRequiredService<IGuestNonceSource>()));
+        }
+
+        services.AddBazaarVmGuestOpener();
         return services;
     }
 

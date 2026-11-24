@@ -92,7 +92,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<ISessionTaintStore>(),
             sp.GetRequiredService<IInFlightCallStore>(),
             sp.GetRequiredService<IAuditLog>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            options: null,
+            taintListeners: sp.GetServices<ITaintRaisedListener>(),
+            logger: sp.GetService<ILogger<ToolDispatcher>>()));
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Modules read session taint through Security.Abstractions (doc 15, "Reads for modules"): the store is the per-session
         // reader, and the directory the runner below registers each run in feeds the per-agent reader.
@@ -107,7 +110,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IDueInboxReader>(),
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
-            sp.GetRequiredService<TurnStarterOptions>()));
+            sp.GetRequiredService<TurnStarterOptions>(),
+            sp.GetServices<ITaskSessionHook>()));
+        // Ends task sessions for the Ryusei card transition (ITaskSessionHook). No hook is registered by default, so this is a no-op.
+        services.TryAddSingleton(sp => new TaskSessionEnder(sp.GetServices<ITaskSessionHook>()));
         services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();

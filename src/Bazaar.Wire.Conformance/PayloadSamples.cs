@@ -1,4 +1,5 @@
 using Bazaar.Contracts.Hive;
+using Bazaar.Contracts.Athanor;
 using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.GitHub;
@@ -6,6 +7,7 @@ using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
+using Bazaar.Contracts.TimeMachine;
 using Bazaar.Contracts.Ryusei;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
@@ -116,6 +118,10 @@ public static class PayloadSamples
         Of(null, new GcPage([_message], true)),
         Of("empty", new GcPage([], false)),
         Of(null, new GcRead(_gc, 12), WireTypes.GcRead),
+        Of(null, new GcListRequest(100, true), WireTypes.GcList),
+        Of(null, new GcListReply([new GcListItem(_gc, "general", "general", 3, 42, DateTimeOffset.Parse("2026-11-18T12:00:00+00:00", System.Globalization.CultureInfo.InvariantCulture))], true, _gc)),
+        Of("empty", new GcListReply([], false, null)),
+        Of(null, new GcListItem(_gc, "general", "general", 3, 42, null)),
         Of(null, new GraphSnapshot(3, [new GraphNode("a", GraphNodeKind.Objective), new GraphNode("b")], [new GraphEdge("a", "b", GraphEdgeKind.DependsOn), new GraphEdge("b", "a")])),
         Of(null, new KanbanBoardSnapshot(_gc, [new KanbanBoardCard(_author, "Build it", "ready", _other, [_gc], ["Other"]), new KanbanBoardCard(_other, "Idle", "backlog", null, [], [])])),
         Of(null, new KanbanBoardRequest(_gc), WireTypes.BoardSnapshot),
@@ -135,6 +141,34 @@ public static class PayloadSamples
         Of(null, new PrReviewReply(PrReviewStatus.Applied, new string('a', 40), null)),
         Of(null, new PrMergeRequest("PR_1", new string('a', 40), "Title", "Message", new PrOwnerPayload("pr.merge", _author, [1, 2, 3], new string('a', 40), _other, "device-1", new DateTimeOffset(2026, 11, 22, 8, 0, 0, TimeSpan.Zero), new DateTimeOffset(2026, 11, 22, 8, 5, 0, TimeSpan.Zero), [4, 5, 6]), [7, 8, 9]), WireTypes.PrMerge),
         Of(null, new PrMergeReply(PrMergeStatus.Merged, new string('a', 40), null)),
+        Of(null, new GcReact(_gc, 12, "\U0001F44D", true), WireTypes.GcReact),
+        Of(null, new GcReactResult(13, true)),
+        Of(null, new GcReactionsRequest(_gc, 10), WireTypes.GcReactions),
+        Of(null, new WireReactionGroup(12, "\U0001F44D", [_author, _other])),
+        Of(null, new GcReactionsReply([new WireReactionGroup(12, "\U0001F44D", [_author])])),
+        Of(null, new WireGcReaction(_gc, 12, "\U0001F44D", _author, true, _at), WireTypes.GcReaction),
+        Of(null, new GcTyping(_gc, true), WireTypes.GcTyping),
+        Of(null, new GcTypingResult(true)),
+        Of(null, new EditorOpenRequest("ws-1", "src/a.cs"), WireTypes.EditorOpen),
+        Of(null, new EditorOpenReply("class A { }", "rev-1", "csharp", false, 11)),
+        Of(null, new EditorSaveRequest("ws-1", "src/a.cs", "rev-1", "class B { }"), WireTypes.EditorSave),
+        Of(null, new EditorSaveReply("rev-2", null, null)),
+        Of(null, new EditorCreateRequest("ws-1", "src/b.cs", ""), WireTypes.EditorCreate),
+        Of(null, new EditorCreateReply("rev-1")),
+        Of(null, new ReplayFrameRequest(_gc, 12, null), WireTypes.ReplayFrame),
+        Of(null, new ReplayFrameResult(_gc, 12, 20, new ReplayFrameWire([], new ReplayTasksPart(true, [new ReplayTaskWire(_other, "Ship", "Review")], null), new ReplayVaultPart(true, new ReplayVaultWire("abc123"), null), new ReplaySoulsPart(false, null, "not installed"), new ReplayReputationPart(true, [new ReplayReputationWire(_author, 0.75m)], null)))),
+        Of(null, new ReplayMessageWire(_other, _author, 3, 5, 2, true, false, "{}", _at)),
+        Of(null, new ReplayFrameWire([], new ReplayTasksPart(false, null, "not installed"), new ReplayVaultPart(false, null, "not installed"), new ReplaySoulsPart(false, null, "not installed"), new ReplayReputationPart(false, null, "not installed"))),
+        Of(null, new ReplayTasksPart(true, [new ReplayTaskWire(_other, "Ship", "Review")], null)),
+        Of(null, new ReplayVaultPart(true, new ReplayVaultWire("abc123"), null)),
+        Of(null, new ReplaySoulsPart(true, [new ReplaySoulWire(_author, 3)], null)),
+        Of(null, new ReplayReputationPart(false, null, "not installed")),
+        Of(null, new ReplayTaskWire(_other, "Ship", "Review")),
+        Of(null, new ReplayVaultWire("abc123")),
+        Of(null, new ReplaySoulWire(_author, 3)),
+        Of(null, new ReplayReputationWire(_author, 0.75m)),
+        Of(null, new ReplayForkRequest(_gc, 12, _other), WireTypes.ReplayFork),
+        Of(null, new ReplayForkResult(_other, "abc123", true)),
         Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
         Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <Description>Desktop chrome controls (doc 93): collapsible sidebar, top strip and sheet host, drawn with the chrome materials and the subtle desktop motion.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Strings\*.json" WithCulture="false" LogicalName="Bazaar.Client.DesktopChrome.Strings.%(Filename)%(Extension)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Localisation\Bazaar.Localisation.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion\Bazaar.Client.Motion.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
+  </ItemGroup>
+</Project>
