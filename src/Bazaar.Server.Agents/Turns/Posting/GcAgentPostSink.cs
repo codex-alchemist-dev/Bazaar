@@ -7,7 +7,6 @@ using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Mentions;
 using Bazaar.Server.Gc.Model;
-using Bazaar.Server.Gc.Wire;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Souls.Abstractions;
 
