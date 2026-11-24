@@ -264,6 +264,8 @@
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.AuditView.Abstractions/Bazaar.Server.AuditView.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.AuditView/Bazaar.Server.AuditView.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
     <Project Path="src/Bazaar.Server.Projects/Bazaar.Server.Projects.csproj" />
     <Project Path="src/Bazaar.Server.Projects.Abstractions/Bazaar.Server.Projects.Abstractions.csproj" />
@@ -667,6 +669,7 @@
     <Project Path="tests/Bazaar.Accessibility.Avalonia.Tests/Bazaar.Accessibility.Avalonia.Tests.csproj" />
     <Project Path="tests/Bazaar.Accessibility.Gate.Tests/Bazaar.Accessibility.Gate.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Tests/Bazaar.Roles.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AuditView.Tests/Bazaar.Server.AuditView.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.SignIn.Tests/Bazaar.Server.SignIn.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WebAdmin.Tests/Bazaar.Server.WebAdmin.Tests.csproj" />
     <Project Path="tests/Bazaar.Roles.Biometric.Tests/Bazaar.Roles.Biometric.Tests.csproj" />
