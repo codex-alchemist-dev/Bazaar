@@ -51,8 +51,9 @@ public static class TimeMachineRegistration
         services.TryAddSingleton<IReplayPointLister>(sp => new ReplayPointLister(
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
-            sp.GetService<IReplayMarkerSource>()));
-        services.TryAddSingleton<IReplayMarkerSource, PostgresReplayMarkerSource>();
+            // A registered source wins; else the audit_log reader when the host has a data source; else GC points only.
+            sp.GetService<IReplayMarkerSource>()
+                ?? (sp.GetService<Npgsql.NpgsqlDataSource>() is { } dataSource ? new PostgresReplayMarkerSource(dataSource) : null)));
         services.TryAddSingleton<IForkService>(sp => new ForkService(
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),
