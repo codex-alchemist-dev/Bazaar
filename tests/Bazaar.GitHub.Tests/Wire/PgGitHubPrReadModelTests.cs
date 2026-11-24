@@ -75,11 +75,17 @@ public sealed class PgGitHubPrReadModelTests
     private static PgGitHubPrReadModel Model(NpgsqlDataSource ds, Adapter adapter, long installation = 99) =>
         new(ds, adapter, new AgentDirectory("bot-bazaar[bot]"), installation);
 
+    private static Task<PgTestDatabase> CreateDbAsync(string name, Func<NpgsqlDataSource, CancellationToken, Task> migrate, CancellationToken ct)
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        return PgTestDatabase.CreateAsync(name, migrate, ct);
+    }
+
     [Fact]
     public async Task List_pages_newest_first_and_names_the_repo_installation_and_author_kind()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadlist", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadlist", MigrateAsync, ct);
         var now = DateTimeOffset.UtcNow;
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 1, "open", "bot-bazaar[bot]", now.AddMinutes(-3), ct);
         await AddAsync(db.DataSource, "PR_2", "acme/bazaar", 2, "open", "alice", now.AddMinutes(-2), ct);
@@ -106,7 +112,7 @@ public sealed class PgGitHubPrReadModelTests
     public async Task List_filters_by_state_and_repo_and_skips_rows_the_PR_service_has_not_named()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadfilter", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadfilter", MigrateAsync, ct);
         var now = DateTimeOffset.UtcNow;
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 1, "open", "alice", now, ct);
         await AddAsync(db.DataSource, "PR_2", "acme/other", 2, "open", "alice", now, ct);
@@ -127,7 +133,7 @@ public sealed class PgGitHubPrReadModelTests
     public async Task A_garbage_cursor_is_the_first_page_and_the_limit_is_clamped()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadcursor", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadcursor", MigrateAsync, ct);
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 1, "open", "alice", DateTimeOffset.UtcNow, ct);
         var model = Model(db.DataSource, new Adapter());
 
@@ -142,7 +148,7 @@ public sealed class PgGitHubPrReadModelTests
     public async Task Resolve_and_summary_use_the_stored_head_and_card_and_unknown_PRs_are_null()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadsummary", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadsummary", MigrateAsync, ct);
         var card = Guid.NewGuid();
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 7, "open", "alice", DateTimeOffset.UtcNow, ct, card);
         var adapter = new Adapter { Checks = PrChecksState.Failing };
@@ -166,7 +172,7 @@ public sealed class PgGitHubPrReadModelTests
     public async Task Without_an_installation_or_a_repo_name_a_PR_cannot_be_resolved()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadnoinst", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadnoinst", MigrateAsync, ct);
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 1, "open", "alice", DateTimeOffset.UtcNow, ct);
         await AddAsync(db.DataSource, "PR_2", null, 2, "open", "alice", DateTimeOffset.UtcNow, ct);
 
@@ -178,7 +184,7 @@ public sealed class PgGitHubPrReadModelTests
     public async Task The_revision_rises_only_when_a_row_changes()
     {
         var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("ghreadrev", MigrateAsync, ct);
+        await using var db = await CreateDbAsync("ghreadrev", MigrateAsync, ct);
         await AddAsync(db.DataSource, "PR_1", "acme/bazaar", 1, "open", "alice", DateTimeOffset.UtcNow, ct);
 
         async Task<long> RevisionAsync()

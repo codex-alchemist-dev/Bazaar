@@ -126,6 +126,7 @@ public sealed class ModuleProcessRunnerTests : IDisposable
     [Fact]
     public async Task Arguments_reach_the_program_one_by_one_and_are_never_read_by_a_shell()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         // The catalog program here is the shell itself, so only its own argument parsing applies: the hostile text is one
         // argument of "echo" and must come back as text, not run.
         var hostile = OperatingSystem.IsWindows() ? "a b\" & echo injected > ran.txt & \"" : "a b'; echo injected > ran.txt; '";
@@ -195,6 +196,7 @@ public sealed class ModuleProcessRunnerTests : IDisposable
     [Fact]
     public async Task Input_is_given_to_the_program_and_then_closed()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var result = await Granted().RunAsync(_shell, Script("cat", "findstr \"^\""), "first\nsecond\n", Ct);
 
         Assert.Contains("first", result.StandardOutput, StringComparison.Ordinal);
