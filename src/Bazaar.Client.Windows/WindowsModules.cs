@@ -1,13 +1,14 @@
 using Bazaar.Client.Analytics;
+using Bazaar.Client.Athanor.Pane;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
+using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
 using Bazaar.Client.GitGui;
 using Bazaar.Client.GitSolarSystem.Panes;
-using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Org;
 using Bazaar.Client.Panes.Abstractions;
@@ -21,7 +22,10 @@ namespace Bazaar.Client.Windows;
 public static class WindowsModules
 {
     /// <summary>The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).</summary>
-    public static IPaneModule[] Create() =>
+    public static IPaneModule[] Create() => Create(new AthanorPaneModule());
+
+    /// <summary>The same list with the given editor pane module, so the head can reach the instance that runs the editor commands.</summary>
+    public static IPaneModule[] Create(AthanorPaneModule athanor) =>
     [
         RyuseiFudaPanes.Board,
         new DashboardPaneModule(),
@@ -34,6 +38,7 @@ public static class WindowsModules
         .. InterruptPanes.Modules,
         .. ColdArchivePanes.Modules,
         new EnginePaneModule(),
+        athanor,
         .. GitSolarSystemPanes.Modules,
         .. GitGuiPanes.Modules,
         .. CommunityPanes.Modules(),

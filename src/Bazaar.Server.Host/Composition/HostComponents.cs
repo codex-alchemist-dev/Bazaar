@@ -26,6 +26,7 @@ using Bazaar.Server.Calendar;
 using Bazaar.Server.Community.GitHub;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyKnowledge;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
@@ -40,6 +41,7 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
+using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
@@ -49,6 +51,7 @@ using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Identity.Kek;
+using Bazaar.Server.Identity.Kek.OpenBao;
 using Bazaar.Server.Interrupts;
 using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
@@ -58,8 +61,10 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TimeMachine;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.SoulProfile;
@@ -108,6 +113,7 @@ public static class HostComponents
         new GatewayRetentionComponent(),
         new CatalogueComponent(),
         new KekComponent(),
+        new OpenBaoKekComponent(),
         new GcComponent(),
         new GcMetadataComponent(),
         new ThinkingGcComponent(),
@@ -128,8 +134,12 @@ public static class HostComponents
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),
+        new TimeMachineComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CompanyKnowledgeComponent(),
+        new GeneticMemoryComponent(),
+        new ProjectsComponent(),
         new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),

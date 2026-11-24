@@ -11,7 +11,7 @@ public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource, IAgentDefa
 {
     private readonly IAgentDefaultPolicyGrant _defaultPolicyGrant = defaultPolicyGrant ?? NoAgentDefaultPolicyGrant.Instance;
 
-    private const string UniqueViolation = "23505";
+    private const string _uniqueViolation = "23505";
 
     /// <inheritdoc />
     public async Task<Guid> CreateHeldAsync(string name, string marker, Guid? soulVersionId = null, CancellationToken ct = default)
@@ -32,7 +32,7 @@ public sealed class PgAgentFirstRunSeeds(NpgsqlDataSource dataSource, IAgentDefa
         {
             agentId = (Guid)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false))!;
         }
-        catch (PostgresException ex) when (ex.SqlState == UniqueViolation && ex.ConstraintName == "agent_first_run_marker_key")
+        catch (PostgresException ex) when (ex.SqlState == _uniqueViolation && ex.ConstraintName == "agent_first_run_marker_key")
         {
             throw new InvalidOperationException("An agent with this first-run marker already exists. Use FindByMarkerAsync.", ex);
         }
