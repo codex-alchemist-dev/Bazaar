@@ -36,7 +36,7 @@ internal static partial class FirstRunDatabase
 
     private sealed class Sources : IMigrationSource
     {
-        private static readonly EmbeddedMigrationSource _server = new(typeof(MigrationRunner).Assembly);
+        private static readonly EmbeddedMigrationSource _server = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
         public IReadOnlyList<string> Namespaces() => [MigrationNamespaces.Common, "remote", "setup_firstrun"];
 
