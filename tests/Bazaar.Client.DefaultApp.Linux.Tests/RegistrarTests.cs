@@ -64,6 +64,7 @@ public sealed class RegistrarTests : IDisposable
     [Fact]
     public async Task Register_writes_entry_runs_tools_and_reports_registered()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var reg = Make();
         var status = await reg.RegisterAsync(TestContext.Current.CancellationToken);
 
@@ -79,6 +80,7 @@ public sealed class RegistrarTests : IDisposable
     [Fact]
     public async Task Register_is_idempotent()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var reg = Make();
         await reg.RegisterAsync(TestContext.Current.CancellationToken);
         string file = reg.DesktopFilePath;
@@ -161,6 +163,7 @@ public sealed class RegistrarTests : IDisposable
     [Fact]
     public void Data_home_falls_back_to_home_local_share()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var reg = new XdgDefaultAppRegistrar(
             new DefaultAppSettings { ExecPath = "/opt/b" },
             _runner,

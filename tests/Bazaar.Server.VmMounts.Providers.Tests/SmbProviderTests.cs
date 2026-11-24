@@ -51,6 +51,8 @@ public sealed class SmbProviderTests : IDisposable
     [Fact]
     public async Task By_default_a_path_without_a_drive_letter_never_reaches_a_script()
     {
+        // Windows temp and agent roots always carry a drive letter, so the no-drive-letter case cannot be built there. Linux checks it.
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         using var strict = new SmbMountProvider(_env.Options, _runner, _identity, _endpoint, NullLogger<SmbMountProvider>.Instance);
 
         await Assert.ThrowsAsync<ArgumentException>(
