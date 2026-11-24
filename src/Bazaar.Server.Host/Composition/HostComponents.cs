@@ -3,6 +3,7 @@ using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.Lucky;
 using Bazaar.GitHub;
 using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
@@ -47,6 +48,8 @@ using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Observatory;
+using Bazaar.Server.Observatory.Postgres;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
@@ -106,6 +109,9 @@ public static class HostComponents
         new SoulProfileComponent(),
         new FirstRunAdaptersComponent(),
         new RetentionComponent(),
+        new ObservatoryComponent(),
+        new ObservatoryPostgresComponent(),
+        new ObservatoryBridgeComponent(),
         new ArchiveComponent(),
         new SkimmerComponent(),
         new GcSkimmerComponent(),
@@ -123,6 +129,7 @@ public static class HostComponents
         new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
+        new LuckyComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),

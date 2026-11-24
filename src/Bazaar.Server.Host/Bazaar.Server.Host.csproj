@@ -129,6 +129,7 @@
     <ProjectReference Include="..\Bazaar.Server.Org\Bazaar.Server.Org.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Backup\Bazaar.Server.Components.Backup.csproj" />
     <ProjectReference Include="..\Bazaar.Fun\Bazaar.Fun.csproj" />
+    <ProjectReference Include="..\Bazaar.Lucky\Bazaar.Lucky.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
@@ -152,6 +153,8 @@
     <ProjectReference Include="..\Bazaar.Server.Providers.Linux\Bazaar.Server.Providers.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Erasure\Bazaar.Erasure.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Retention\Bazaar.Server.Retention.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Observatory\Bazaar.Server.Observatory.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Observatory.Postgres\Bazaar.Server.Observatory.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics\Bazaar.Server.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics.Postgres\Bazaar.Server.Analytics.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Analytics.Git\Bazaar.Server.Analytics.Git.csproj" />

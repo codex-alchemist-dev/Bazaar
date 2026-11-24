@@ -66,6 +66,18 @@ public static class WireTypes
     /// <summary>Owner resumes one paused RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
     public const string RyuseiResume = "ryusei.trigger.resume";
 
+    /// <summary>Owner starts a Lucky run (docs/design/26-fun-systems.md, section 6). Answered with a <c>LuckyStartReply</c>.</summary>
+    public const string LuckyStart = "lucky.start";
+
+    /// <summary>An agent records one idea in a Lucky run (docs/design/26-fun-systems.md, section 6). Answered with a <c>LuckyIdeaReply</c>.</summary>
+    public const string LuckyIdea = "lucky.idea";
+
+    /// <summary>Owner marks a kept idea for a Backlog card. Answered with a <c>LuckyMarkReply</c>.</summary>
+    public const string LuckyMark = "lucky.mark";
+
+    /// <summary>Owner sets an agent's Lucky opt-in. Answered with a <c>LuckyOptInReply</c>.</summary>
+    public const string LuckyOptIn = "lucky.opt_in";
+
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
