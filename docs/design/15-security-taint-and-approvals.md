@@ -115,6 +115,17 @@ This table holds shared defaults; each subsystem owns its specific limits. Every
 
 Runtime counters for side-effecting capabilities are `rate_bucket`, owned here. Breach: deny; freeze and notify on repeat. These are quotas, not money budgets (Resource Economy is rejected).
 
+#### Shared cache-backed limiter [PROPOSED] (DECISIONS-LOG round 37)
+The host registers one `IRateLimiter` (`Bazaar.RateLimits.Cache`, component `rate-limits-cache`) so counts are shared by every caller and survive a server restart while the cache provider (Garnet on Windows, Valkey on Linux) keeps its data. The cache is not durable and the platform works with it down (doc 03), so the limiter degrades instead of failing.
+- **Counter seam.** A narrow optional interface `ICacheCounter` in `Bazaar.Server.Providers.Abstractions` (`IncrementAsync(key, by, ttl, ct)` returns the new count). It is atomic: `INCRBY` and `EXPIRE ... NX` run in one transaction, so a key never lives without a TTL. The Garnet and Valkey providers implement it; a provider that cannot does not. `ICacheProvider` is unchanged. Unlike the cache calls, counter calls throw on failure, so the limiter can see an outage.
+- **Algorithm.** Sliding-window counter: two fixed buckets (current and previous) per policy and scope key, the previous one weighted by the share of the window still ahead: `floor(previous x (1 - f)) + current`, where `f` is how far into the current bucket the clock is. The key is `ratelimit:v1:<policy>:<window ms>:<scope key>:<bucket index>` (parts URL-escaped), TTL 2x the window. The window is in the key so a changed window never reads counts bucketed for another length. The previous bucket is read with `by = 0`.
+- **Denied calls are not counted.** The limiter increments first and compares after, which never over-admits under concurrency. A denied call undoes its increment with `by = -1`. If the undo fails the bucket is over-counted by one for at most two windows (fails closed).
+- **Sync over async.** `IRateLimiter` is synchronous, so each call waits at most `Bazaar:RateLimits:CacheTimeout` (default 150 ms; must be above 0 and at most 10 s) for the cache, and at most one more such wait for an undo.
+- **Fallback.** On timeout, exception or no `ICacheCounter` the call is decided by an in-process `InMemoryRateLimiter`. It never throws and never fails open. One Warning per outage (no key, scope or policy material; exception type only), one Information on recovery; every call retries the cache first, so recovery is automatic.
+- **Accepted approximations.** The sliding-window counter is approximate: it assumes the previous bucket's events were spread evenly, so near a bucket edge it can admit slightly more or fewer than an exact log would. Counts taken on the in-memory path are lost when the cache returns, and counts taken on the cache path are not seen by the fallback, so during an outage the effective limit is per process and may be exceeded across the switch. `RetryAfter` is a hint (a lower bound). Bucket indexes come from the server clock, so one clock (one server) must own a cache.
+- **Registration.** The component replaces any earlier `IRateLimiter` registration (the in-memory one `AddBazaarRateLimits` adds for setup, the GitHub module's private fallback) and those use `TryAdd`, so the cache limiter wins whatever the component order. Disabling the component leaves the in-memory limiter.
+- The Postgres `rate_bucket` table below stays the durable store for any limit that must survive a cache flush; nothing uses it yet.
+
 ### Settings [PROPOSED] (DECISIONS-LOG round 13)
 Registry owned by doc 03. Changes are audited; surfaced in the setup wizard and advanced settings (docs 27, 32).
 
@@ -183,7 +194,7 @@ Fake gateway with scripted injection payloads; real Postgres (testcontainers) fo
 2. Capability registry, `ToolPolicyEngine`, rate buckets. Deps: 1.
 3. Approval service, tables, signature and expiry; card contracts and GC, Android and Windows UI. Deps: 1.
 4. Audit log: hash chain, verifier, export. No deps.
-5. Reader primitive: scratch space, schema registry, validator, quarantine; actor hand-over and fresh-session summary path. Deps: 1, 2, 3.
+5. Reader primitive: scratch space, schema registry, validator, quarantine; actor hand-over and fresh-session summary path. Deps: 1, 2, 3. Status: scratch store, schema registry, validator, quarantine state and fresh-session seed exist in `Bazaar.Server.Security.Readers`; the reader SESSION (tool-less gateway call under the agent's model policy, validation, purge on every path, typed result with `source_refs` lineage) is `Bazaar.Server.ReaderSessions`. Not yet built: tool-bearing readers (fetch, anonymous browser), the actor hand-over delivery path, persisted `handover` rows and audit.
 6. Credential broker and GitHub App lease provider. Deps: 2, 4.
 7. Egress provider and Hyper-V and Linux implementations. Dep: doc 16 backend.
 8. Mount manager: metadata and cookie profile, detach on taint, canaries. Deps: 1, 7.

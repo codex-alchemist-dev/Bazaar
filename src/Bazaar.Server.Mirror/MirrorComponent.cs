@@ -1,8 +1,8 @@
 using Bazaar.Core;
+using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Bazaar.Server.Identity.Kek;
 using Npgsql;
 
 namespace Bazaar.Server.Mirror;

@@ -69,6 +69,15 @@ public static class WireTypes
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
 
+    /// <summary>Editor opens a workspace file (doc 57 §6, PROPOSED). Answered with an <c>EditorOpenReply</c>.</summary>
+    public const string EditorOpen = "editor.open";
+
+    /// <summary>Editor saves a workspace file against the revision it opened (doc 57 §6, PROPOSED). Answered with an <c>EditorSaveReply</c>.</summary>
+    public const string EditorSave = "editor.save";
+
+    /// <summary>Editor creates a new workspace file in an existing folder (doc 57 §8, PROPOSED). Answered with an <c>EditorCreateReply</c>.</summary>
+    public const string EditorCreate = "editor.create";
+
     /// <summary>Owner asks to grant one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
     public const string HiveGrantSet = "hive.grant.set";
 
@@ -90,11 +99,26 @@ public static class WireTypes
     /// <summary>Owner-signed squash merge (doc 21, Merge request path). Answered with a <c>PrMergeReply</c>.</summary>
     public const string PrMerge = "pr.merge";
 
+    /// <summary>
+    /// Owner asks for packed memory context of one agent (docs/design/constellation-memory-graph.md, "Retrieval operation"). Payload
+    /// <c>MemoryContextRequest</c>; answered with a <c>MemoryContextResult</c>, or an error with a <c>MemoryContextErrorCodes</c> code.
+    /// </summary>
+    public const string MemoryContext = "memory.context";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
+    /// <summary>Client asks for a GC rendered at a seq (doc 02, replay and fork requests). Answered with a <c>ReplayFrameResult</c>.</summary>
+    public const string ReplayFrame = "replay.frame";
+
+    /// <summary>Client forks a project GC at a seq. Answered with a <c>ReplayForkResult</c>.</summary>
+    public const string ReplayFork = "replay.fork";
+
     /// <summary>Client marks a GC read up to a sequence.</summary>
     public const string GcRead = "gc.read";
+
+    /// <summary>Client lists the GCs it is a member of (doc 02, GC list). Answered with a <c>GcListReply</c>.</summary>
+    public const string GcList = "gc.list";
 
     /// <summary>Replay gap too large; the client resyncs from the tail.</summary>
     public const string Resync = "resync";

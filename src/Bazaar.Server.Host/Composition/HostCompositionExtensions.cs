@@ -52,6 +52,7 @@ public static class HostCompositionExtensions
         services.TryAddSingleton(sp => sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
         services.TryAddSingleton<IInstanceLock, PostgresInstanceLock>();
         services.TryAddSingleton<ISchemaGate, MigrationSchemaGate>();
+        services.AddSetupVerificationSeams();
         services.AddSingleton<IReadinessCheck, DatabaseReadinessCheck>();
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();

@@ -75,6 +75,10 @@ public interface ICacheProvider : IProvider {      // cache and presence only; n
     Task<ReadOnlyMemory<byte>?> GetAsync(string key, CancellationToken ct);
     Task DeleteAsync(string key, CancellationToken ct);   // PROPOSED (doc 40 section 4c.4): matches ValkeyCacheProvider; entries also expire by TTL
 }
+// PROPOSED (DECISIONS-LOG round 37): optional and separate from ICacheProvider; implemented by the Garnet and Valkey providers only.
+public interface ICacheCounter {                   // throws on failure (the caller must see an outage); atomic INCRBY + EXPIRE NX
+    Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct);
+}
 public interface ISearchProvider : IProvider {
     Task IndexAsync(SearchDocument doc, CancellationToken ct);
     Task<IReadOnlyList<SearchHit>> QueryAsync(SearchQuery q, CancellationToken ct);

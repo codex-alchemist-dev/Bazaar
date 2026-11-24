@@ -7,7 +7,7 @@ namespace Bazaar.Server.Constellation.GitDag;
 /// work package 6). It never shells out to git. Each commit becomes a node. Each parent link becomes an edge. For a merge
 /// commit, every parent after the first is a merged branch tip and becomes a comet edge to the merge commit.
 /// </summary>
-public sealed class ConstellationGitDagIndexer
+public sealed class ConstellationGitDagIndexer : IGitDagIndexer
 {
     private readonly IGitProvider _git;
 
