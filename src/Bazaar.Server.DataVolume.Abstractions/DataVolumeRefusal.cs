@@ -23,6 +23,9 @@ public enum DataVolumeRefusal
 
     /// <summary>Setup only: a descriptor, a container or data already exists where <c>storage init</c> would create one. Nothing is overwritten.</summary>
     AlreadyInitialised,
+
+    /// <summary>The database is on a server Bazaar cannot inspect and no at-rest attestation is recorded (doc 63 section 5).</summary>
+    ExternalDatabaseNotAttested,
 }
 
 /// <summary>Thrown when a data volume check fails. The host logs one line and exits with <see cref="ExitCode"/>.</summary>
@@ -49,6 +52,7 @@ public sealed class DataVolumeRefusedException : Exception
         DataVolumeRefusal.MarkerInvalid => "data_volume_marker_invalid",
         DataVolumeRefusal.PostgresFilesOutsideVolume => "postgres_files_outside_volume",
         DataVolumeRefusal.AlreadyInitialised => "data_volume_already_initialised",
+        DataVolumeRefusal.ExternalDatabaseNotAttested => "external_database_not_attested",
         _ => "data_volume_refused",
     };
 }

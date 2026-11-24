@@ -67,6 +67,20 @@ public sealed class TaskRepository(NpgsqlDataSource dataSource)
         return result;
     }
 
+    /// <summary>The ids of every project that has at least one task, in id order. Used by project health (doc 25).</summary>
+    public async Task<IReadOnlyList<Guid>> ListProjectIdsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT DISTINCT project_id FROM tasks ORDER BY project_id");
+        var result = new List<Guid>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            result.Add(reader.GetGuid(0));
+        }
+
+        return result;
+    }
+
     /// <summary>The GCs that hold a message (one in practice, since message ids are uuidv7). Empty when the message is unknown.</summary>
     public async Task<IReadOnlyList<Guid>> FindMessageGcIdsAsync(Guid messageId, CancellationToken ct = default)
     {

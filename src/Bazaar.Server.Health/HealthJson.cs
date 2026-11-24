@@ -9,4 +9,5 @@ namespace Bazaar.Server.Health;
     UseStringEnumConverter = true,
     DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
 [JsonSerializable(typeof(ProjectHealthReport))]
+[JsonSerializable(typeof(HealthReportRequest))]
 internal sealed partial class HealthJsonContext : JsonSerializerContext;

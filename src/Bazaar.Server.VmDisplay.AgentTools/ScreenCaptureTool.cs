@@ -64,7 +64,7 @@ public sealed class ScreenCaptureTool(IGuestDisplay display, IAgentDisplayTarget
             return ScreenToolSupport.Refusal("invalid_arguments", problem.Message);
         }
 
-        DisplayTarget? target = ScreenToolSupport.ResolveOwn(_targets, context.AgentId, kind, out string? refusal);
+        (DisplayTarget? target, string? refusal) = await ScreenToolSupport.ResolveOwnAsync(_targets, context.AgentId, kind, cancellationToken).ConfigureAwait(false);
         if (target is null)
             return refusal!;
 

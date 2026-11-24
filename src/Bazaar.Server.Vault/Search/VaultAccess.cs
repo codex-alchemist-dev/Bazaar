@@ -17,7 +17,7 @@ public static class VaultAccess
     /// <c>projects/&lt;slug&gt;/**</c> and the Digital Twin's <c>twin/&lt;project&gt;/**</c> (doc 25). No other area is
     /// project-scoped by path, so <c>decisions/</c>, <c>drafts/</c>, <c>archive/</c>, <c>hive/</c> and root files are not.
     /// </summary>
-    public static IReadOnlyList<string> ProjectAreaRoots { get; } = ["projects/", "twin/"];
+    public static IReadOnlyList<string> ProjectAreaRoots => VaultProjectAreas.Roots;
 
     private const string _agentOwnerPrefix = "agent:";
 
@@ -69,23 +69,7 @@ public static class VaultAccess
     /// The project slug of a project-scoped path: the second segment of a path under one of <see cref="ProjectAreaRoots"/>,
     /// when the path has a non-empty slug and something after it. Null for every other path. Matching is ordinal.
     /// </summary>
-    public static string? ProjectAreaOf(string path)
-    {
-        ArgumentNullException.ThrowIfNull(path);
-        foreach (var root in ProjectAreaRoots)
-        {
-            if (!path.StartsWith(root, StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var rest = path.AsSpan(root.Length);
-            var slash = rest.IndexOf('/');
-            return slash > 0 && slash < rest.Length - 1 ? rest[..slash].ToString() : null;
-        }
-
-        return null;
-    }
+    public static string? ProjectAreaOf(string path) => VaultProjectAreas.ProjectAreaOf(path);
 
     /// <summary>
     /// The caller for an agent reading with its own identity. Its projects are resolved now from

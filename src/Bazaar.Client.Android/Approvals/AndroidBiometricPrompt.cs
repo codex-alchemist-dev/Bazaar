@@ -23,7 +23,7 @@ public sealed class AndroidBiometricPrompt(Func<Activity?> activity) : IBiometri
         }
 
         var manager = (BiometricManager?)current.GetSystemService(Context.BiometricService);
-        if (manager is null || manager.CanAuthenticate((int)BiometricManager.Authenticators.BiometricStrong) != (int)BiometricCode.Success)
+        if (manager is null || manager.CanAuthenticate((int)BiometricManagerAuthenticators.BiometricStrong) != (int)BiometricCode.Success)
         {
             return BiometricOutcome.Unavailable;
         }
@@ -34,7 +34,7 @@ public sealed class AndroidBiometricPrompt(Func<Activity?> activity) : IBiometri
         var prompt = new BiometricPrompt.Builder(current)
             .SetTitle(request.Title)!
             .SetSubtitle(request.Subtitle)!
-            .SetAllowedAuthenticators((int)BiometricManager.Authenticators.BiometricStrong)!
+            .SetAllowedAuthenticators((int)BiometricManagerAuthenticators.BiometricStrong)!
             .SetNegativeButton("Cancel", executor, new CancelListener(done))!
             .Build()!;
 

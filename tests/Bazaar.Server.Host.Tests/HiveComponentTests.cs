@@ -65,7 +65,7 @@ public sealed class HiveComponentTests
         var source = HostMigrations.Source();
 
         Assert.Contains("hive", source.Namespaces());
-        Assert.Equal([1], source.Load("hive").Select(f => f.Version).ToList());
+        Assert.Equal([1, 2], source.Load("hive").Select(f => f.Version).ToList());
     }
 
     [Fact]
