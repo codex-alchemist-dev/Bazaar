@@ -8,15 +8,21 @@ using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.Constellation.Memory.Context;
+using Bazaar.Server.Constellation.Memory.ReadLog;
+using Bazaar.Server.DevSandbox;
+using Bazaar.Server.DevSandbox.Linux;
+using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
+using Bazaar.Server.DevSandbox.Windows;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
-using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Display;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
@@ -63,6 +69,12 @@ public static class HostApplicationExtensions
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
+        // Developer sandbox (doc 48 section 2.1). The core is always added; each OS provider and engine adds itself only when the launch
+        // plan or module source it needs is registered before this call, so with none every sandbox run is refused.
+        services.AddBazaarDevSandbox();
+        services.AddBazaarDevSandboxLinux();
+        services.AddBazaarDevSandboxWindows();
+        services.AddBazaarDevSandboxWasmtime();
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarHiveGrantApprovals();
@@ -120,6 +132,15 @@ public static class HostApplicationExtensions
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
             services.AddMemoryGraphProjection();
+
+            // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
+            // vector seeds through the Vault query embedder when one is registered, the service and the memory.context wire command.
+            Guid? constellationVault = Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null;
+            services.AddMemoryContext(new MemoryContextHostOptions(constellationVault));
+
+            // The durable owner-read log (constellation/0003): owner reads of another agent's memory are recorded and hash-chained,
+            // and a read that cannot be logged is refused.
+            services.AddMemoryReadLog();
         }
 
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).

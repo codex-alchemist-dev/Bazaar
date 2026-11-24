@@ -9,8 +9,9 @@ public sealed class EditorOpenHandler
     private readonly IEditorWorkspaceStore _store;
     private readonly IEditorAuthorizer _authorizer;
     private readonly IAthanorLimits _limits;
+    private readonly IEditorPathPolicy _policy;
 
-    public EditorOpenHandler(IEditorWorkspaceStore store, IEditorAuthorizer authorizer, IAthanorLimits limits)
+    public EditorOpenHandler(IEditorWorkspaceStore store, IEditorAuthorizer authorizer, IAthanorLimits limits, IEditorPathPolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authorizer);
@@ -18,6 +19,7 @@ public sealed class EditorOpenHandler
         _store = store;
         _authorizer = authorizer;
         _limits = limits;
+        _policy = policy ?? AllowAllEditorPathPolicy.Instance;
     }
 
     public const string Type = EditorWireTypes.Open;
@@ -50,6 +52,11 @@ public sealed class EditorOpenHandler
                 return EditorResult.Fail<EditorOpenReply>(EditorErrorCodes.Forbidden, "You may not open files in this workspace.");
             }
 
+            if (!await _policy.IsAllowedAsync(caller, workspace, path, EditorAccess.Read, cancellationToken).ConfigureAwait(false))
+            {
+                return EditorResult.Fail<EditorOpenReply>(EditorErrorCodes.Forbidden, "That path may not be opened.");
+            }
+
             var read = await _store.ReadAsync(workspace.Id, path, _limits.MaxOpenBytes, cancellationToken).ConfigureAwait(false);
             switch (read.Status)
             {
@@ -73,6 +80,7 @@ public sealed class EditorOpenHandler
             }
 
             var canWrite = !workspace.ReadOnly
+                && await _policy.IsAllowedAsync(caller, workspace, path, EditorAccess.Write, cancellationToken).ConfigureAwait(false)
                 && await _authorizer.IsAllowedAsync(caller, workspace, EditorAccess.Write, cancellationToken).ConfigureAwait(false);
             return EditorResult.Ok<EditorOpenReply>(new EditorOpenReply(
                 EditorText.Decode(bytes), read.Revision ?? string.Empty, EditorText.LanguageHint(path), !canWrite, bytes.LongLength));

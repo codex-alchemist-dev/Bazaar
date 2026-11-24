@@ -20,9 +20,11 @@ public sealed class EditorSaveHandler
     private readonly SaveRateLimiter _rate;
     private readonly IAuditLog _audit;
     private readonly TimeProvider _time;
+    private readonly IEditorPathPolicy _policy;
 
     public EditorSaveHandler(
-        IEditorWorkspaceStore store, IEditorAuthorizer authorizer, IAthanorLimits limits, SaveRateLimiter rate, IAuditLog audit, TimeProvider time)
+        IEditorWorkspaceStore store, IEditorAuthorizer authorizer, IAthanorLimits limits, SaveRateLimiter rate, IAuditLog audit, TimeProvider time,
+        IEditorPathPolicy? policy = null)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(authorizer);
@@ -36,6 +38,7 @@ public sealed class EditorSaveHandler
         _rate = rate;
         _audit = audit;
         _time = time;
+        _policy = policy ?? AllowAllEditorPathPolicy.Instance;
     }
 
     public const string Type = EditorWireTypes.Save;
@@ -71,6 +74,11 @@ public sealed class EditorSaveHandler
             if (!await _authorizer.IsAllowedAsync(caller, workspace, EditorAccess.Write, cancellationToken).ConfigureAwait(false))
             {
                 return EditorResult.Fail<EditorSaveReply>(EditorErrorCodes.Forbidden, "You may not save files in this workspace.");
+            }
+
+            if (!await _policy.IsAllowedAsync(caller, workspace, path, EditorAccess.Write, cancellationToken).ConfigureAwait(false))
+            {
+                return EditorResult.Fail<EditorSaveReply>(EditorErrorCodes.Forbidden, "That path may not be saved.");
             }
 
             if (!_rate.TryAcquire(caller.UserId, out var retryAfterMs))

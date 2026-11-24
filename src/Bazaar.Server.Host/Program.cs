@@ -48,6 +48,11 @@ if (args.Length > 0 && args[0].Equals("storage", StringComparison.OrdinalIgnoreC
     return await StorageSubcommand.RunAsync(args[1..], Console.Out);
 }
 
+if (args.Length > 0 && args[0].Equals("memory-graph", StringComparison.OrdinalIgnoreCase))
+{
+    return await MemoryGraphSubcommand.RunAsync(args[1..], Console.Out);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Doc 63 section 10: a setup plan named at start may ask for the data volume, and it must exist before PostgreSQL starts.

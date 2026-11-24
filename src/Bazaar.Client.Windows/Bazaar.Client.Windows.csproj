@@ -10,6 +10,8 @@
     <ServerGarbageCollection>false</ServerGarbageCollection>
     <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
     <TieredPGO>true</TieredPGO>
+    <!-- LibraryImport (battery saver read) generates unsafe marshalling stubs. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release' And '$(RuntimeIdentifier)' != ''">
     <!-- Publish-only precompilation for the GUI head (doc 40). Needs a RID; ignored by plain builds. -->
@@ -41,8 +43,12 @@
     <ProjectReference Include="..\Bazaar.Client.Athanor.WebView2\Bazaar.Client.Athanor.WebView2.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
-    <ProjectReference Include="..\Bazaar.Ex\Bazaar.Ex.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Analytics\Bazaar.Client.Analytics.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Settings.Avalonia\Bazaar.Client.Settings.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Dashboard\Bazaar.Client.Dashboard.csproj" />

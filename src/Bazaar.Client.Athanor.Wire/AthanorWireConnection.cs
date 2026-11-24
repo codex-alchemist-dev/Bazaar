@@ -135,5 +135,20 @@ public sealed class AthanorWireConnection : IAsyncDisposable
                 return new SaveOutcome.Unavailable("The server did not answer in time.");
             }
         }
+
+        public async Task<CreateOutcome> CreateAsync(EditorDocumentId id, string content, CancellationToken cancellationToken)
+        {
+            start.Touch();
+            using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            limit.CancelAfter(timeout);
+            try
+            {
+                return await inner.CreateAsync(id, content, limit.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                return new CreateOutcome.Unavailable("The server did not answer in time.");
+            }
+        }
     }
 }

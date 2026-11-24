@@ -23,13 +23,18 @@ using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.Linux.Updates;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
 using Bazaar.Client.Navigation;
 using Bazaar.Client.Navigation.Abstractions;
 using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.Posture;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
 using Bazaar.Contracts.Panes;
@@ -160,6 +165,18 @@ internal sealed class LinuxHead : IAsyncDisposable
         {
             Window.Content = firstRun;
         }
+
+        // Tinted chrome where the session composites, and a flat desktop posture; the content stays opaque (doc 93).
+        // The person's settings, the desktop's animation switch and the frame-budget monitor feed the same state.
+        var visualSettings = new ClientSettingsStore(VisualSettings.Definitions, options.Paths.SettingsFile, log);
+        var motion = new MotionSettings(MotionPlatform.Desktop);
+        var materials = new LinuxMaterialEnvironmentSource();
+        var visuals = ShellVisuals.Install(Window, Window.Content as Control, null, materials, new FlatPostureSource(), VisualSettings.LoadTheme(visualSettings), motion);
+        var reducedMotion = new LinuxReducedMotion();
+        var binder = VisualSettingsBinder.Start(visualSettings, materials.Settings, motion, reducedMotion, visuals.Materials, action => Dispatcher.UIThread.Post(action));
+        _ = reducedMotion.RefreshAsync();
+        Window.Activated += (_, _) => _ = reducedMotion.RefreshAsync();
+        Window.Closed += (_, _) => binder.Dispose();
 
         // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
         ShellHost.Install(Window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));

@@ -11,6 +11,9 @@ public static class EditorErrorCodes
     public const string ReadOnlyWorkspace = "editor.read_only_workspace";
     public const string Unavailable = "editor.unavailable";
 
+    /// <summary>PROPOSED (doc 57 §8): a create over a file that already exists.</summary>
+    public const string Exists = "editor.exists";
+
     /// <summary>Not a server code: the answer could not be understood (doc 57 §6, PROPOSED).</summary>
     public const string Malformed = "editor.malformed";
 }

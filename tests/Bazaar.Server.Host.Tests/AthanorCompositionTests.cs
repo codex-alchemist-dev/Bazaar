@@ -73,10 +73,40 @@ public sealed class AthanorCompositionTests : IDisposable
         var types = sp.GetServices<IWireRequestHandler>().Select(h => h.Type).ToList();
         Assert.Contains(WireTypes.EditorOpen, types);
         Assert.Contains(WireTypes.EditorSave, types);
+        Assert.Contains(WireTypes.EditorCreate, types);
         Assert.IsType<SettingsAthanorLimits>(sp.GetRequiredService<IAthanorLimits>());
         Assert.IsType<DirectoryEditorWorkspaceStore>(sp.GetRequiredService<IEditorWorkspaceStore>());
         Assert.IsType<RolesEditorAuthorizer>(sp.GetRequiredService<IEditorAuthorizer>());
         Assert.Contains(sp.GetServices<ISettingContribution>().SelectMany(c => c.Settings).Select(s => s.Name), n => n == "athanor.save_rate_per_min");
+    }
+
+    [Fact]
+    public async Task A_configured_vault_repo_becomes_the_vault_workspace_saved_through_the_vault_writer()
+    {
+        var repo = Path.Combine(_root, "vault-repo");
+        Directory.CreateDirectory(repo);
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Memory:Vault:RepoPath"] = repo,
+            ["Memory:Vault:WriterName"] = "Vault",
+            ["Memory:Vault:WriterEmail"] = "vault@example.test",
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddSingleton<ISettingStore>(_settings);
+        services.AddSingleton<IPermissionChecker>(_checker);
+        services.AddSingleton<IAuditLog>(_audit);
+        services.AddSingleton<Bazaar.Server.Vault.Git.IGitProvider, Bazaar.Server.Vault.Git.LibGit2GitProvider>();
+        services.AddSingleton<Bazaar.Server.Vault.Writes.IVaultWriter>(sp => new Bazaar.Server.Vault.Writes.VaultWriter(
+            sp.GetRequiredService<Bazaar.Server.Vault.Git.IGitProvider>(), repo, new Bazaar.Server.Vault.Git.GitIdentity("Vault", "vault@example.test")));
+        services.AddBazaarHostAthanor(configuration);
+        using var sp = services.BuildServiceProvider(validateScopes: true);
+
+        var store = sp.GetRequiredService<IEditorWorkspaceStore>();
+        var info = await store.GetWorkspaceAsync("vault", Ct);
+
+        Assert.IsType<Bazaar.Server.Athanor.Vault.VaultEditorWorkspaceStore>(store);
+        Assert.Equal(EditorWorkspaceKind.Vault, info!.Kind);
+        Assert.False(info.ReadOnly);
     }
 
     [Fact]
@@ -109,6 +139,25 @@ public sealed class AthanorCompositionTests : IDisposable
         var denied = await open.HandleAsync(Request(Human(), WireTypes.EditorOpen, new AthanorOpenRequest("vault", "notes/a.md")), Ct);
         Assert.False(denied.IsOk);
         Assert.Equal("editor.forbidden", denied.Error!.Code);
+    }
+
+    [Fact]
+    public async Task Create_over_the_wire_makes_the_file_and_a_second_create_is_editor_exists()
+    {
+        using var sp = Build();
+        _checker.Allow("read", "vault.write");
+        var create = Handler<EditorCreateWireHandler>(sp);
+
+        var first = await create.HandleAsync(Request(Human(), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/new.md", "# new")), Ct);
+        var second = await create.HandleAsync(Request(Human(), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/new.md", "again")), Ct);
+        var agent = await create.HandleAsync(Request(Human("agent"), WireTypes.EditorCreate, new Bazaar.Contracts.Athanor.EditorCreateRequest("vault", "notes/x.md", "x")), Ct);
+
+        Assert.True(first.IsOk);
+        Assert.Equal(Rev("# new"), Decode<Bazaar.Contracts.Athanor.EditorCreateReply>(first).Revision);
+        Assert.Equal("# new", await File.ReadAllTextAsync(Path.Combine(_root, "notes", "new.md"), Ct));
+        Assert.Equal("editor.exists", second.Error!.Code);
+        Assert.Equal("editor.forbidden", agent.Error!.Code);
+        Assert.False(File.Exists(Path.Combine(_root, "notes", "x.md")));
     }
 
     [Fact]
@@ -216,7 +265,7 @@ public sealed class AthanorCompositionTests : IDisposable
     public async Task A_payload_that_does_not_fit_is_a_bad_request()
     {
         using var sp = Build();
-        var context = new WireRequestContext(Human(), new Envelope(1, WireTypes.EditorOpen, EnvelopeKind.Request, "req-1", null, null, null, null, _codec.EncodePayload("nope")));
+        var context = new WireRequestContext(Human(), new Envelope(1, WireTypes.EditorOpen, EnvelopeKind.Request, "req-1", null, null, null, null, _codec.EncodePayload(new Bazaar.Contracts.Athanor.EditorCreateReply("nope"))));
 
         var reply = await Handler<EditorOpenWireHandler>(sp).HandleAsync(context, Ct);
 
@@ -264,7 +313,7 @@ public sealed class AthanorCompositionTests : IDisposable
         public string DeviceClass => "test";
         public IWireCodec Codec => _codec;
         public IReadOnlyList<StreamCursor> HelloCursors => [];
-        public Bazaar.Server.Wire.Sync.SubscriptionSession? Subscriptions => null;
+        public Bazaar.Server.Wire.Sync.ISubscriptionSession? Subscriptions => null;
         public CancellationToken Closed => CancellationToken.None;
         public bool TryEnqueueEvent(Envelope envelope) => true;
         public bool TryEnqueueLagged(Lagged lagged) => true;

@@ -128,6 +128,66 @@ public sealed class DirectoryEditorWorkspaceStore : IEditorWorkspaceStore
         }
     }
 
+    public async ValueTask<EditorCreateResult> CreateAsync(string workspaceId, string path, byte[] content, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        var root = await RequireRootAsync(workspaceId, cancellationToken).ConfigureAwait(false);
+        if (root.ReadOnly)
+        {
+            return new EditorCreateResult(EditorCreateStatus.Blocked);
+        }
+
+        var target = Locate(root, path);
+        if (target is null)
+        {
+            return new EditorCreateResult(EditorCreateStatus.Blocked);
+        }
+
+        var gate = _locks.GetOrAdd(target, static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (File.Exists(target) || Directory.Exists(target))
+            {
+                return new EditorCreateResult(EditorCreateStatus.Exists);
+            }
+
+            if (!Directory.Exists(Path.GetDirectoryName(target)))
+            {
+                return new EditorCreateResult(EditorCreateStatus.ParentMissing);
+            }
+
+            try
+            {
+                await using var output = new FileStream(
+                    target,
+                    new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write, Share = FileShare.None, Options = FileOptions.Asynchronous | FileOptions.WriteThrough });
+                await output.WriteAsync(content, cancellationToken).ConfigureAwait(false);
+                await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (IOException) when (File.Exists(target))
+            {
+                return new EditorCreateResult(EditorCreateStatus.Exists);
+            }
+
+            if (!ChainIsClean(root, path))
+            {
+                File.Delete(target);
+                return new EditorCreateResult(EditorCreateStatus.Blocked);
+            }
+
+            return new EditorCreateResult(EditorCreateStatus.Created, RevisionOf(content));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            throw new EditorStoreUnavailableException("The file could not be created.", e);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     private async Task<EditorWriteResult> WriteLockedAsync(
         EditorWorkspaceRoot root, string path, string target, string baseRevision, byte[] content, CancellationToken cancellationToken)
     {

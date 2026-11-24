@@ -26,6 +26,7 @@ using Bazaar.Server.Calendar;
 using Bazaar.Server.Community.GitHub;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
+using Bazaar.Server.CompanyKnowledge;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
@@ -60,6 +61,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
+using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.TimeMachine;
@@ -135,7 +137,9 @@ public static class HostComponents
         new TimeMachineComponent(),
         new MemoryComponent(),
         new HiveComponent(),
+        new CompanyKnowledgeComponent(),
         new GeneticMemoryComponent(),
+        new ProjectsComponent(),
         new HealthServerComponent(),
         new AnalyticsComponent(),
         new AnalyticsPostgresComponent(),
