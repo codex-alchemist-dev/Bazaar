@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.Athanor.AvaloniaEdit</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Abstractions\Bazaar.Client.Athanor.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor\Bazaar.Client.Athanor.csproj" />
+  </ItemGroup>
+</Project>

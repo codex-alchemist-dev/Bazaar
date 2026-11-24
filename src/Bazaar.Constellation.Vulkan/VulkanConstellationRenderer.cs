@@ -53,7 +53,9 @@ public sealed class VulkanConstellationRenderer : IConstellationRenderer
         _pacer = new FramePacer(options.DisplayRefreshHz, _clock, options.Pacer);
         _pacer.Wake(); // the first frame after construction is always due
         _probe = new Lazy<VulkanProbeResult>(probe ?? VulkanProbe.Run);
-        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface));
+        // One atlas for the renderer's life; each swapchain uploads its own copy to the GPU.
+        IconAtlas? atlas = options.NodeIcons ? IconAtlas.Create(options.IconCellSize) : null;
+        _createSwapchain = createSwapchain ?? (surface => VulkanSwapchain.TryCreate(surface, nodeIcons: options.NodeIcons, iconAtlas: atlas));
         _interpolator = new FrameInterpolator(frameBlendSeconds);
     }
 
