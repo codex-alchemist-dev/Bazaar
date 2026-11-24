@@ -18,7 +18,7 @@ public sealed class RemotePairingSchemaTests : PgFixture, IAsyncLifetime
 
     private static string ReadMigration()
     {
-        var assembly = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly;
+        var assembly = typeof(Bazaar.Server.AssemblyMarker).Assembly;
         using var stream = assembly.GetManifestResourceStream("Bazaar.Server.Data.Sql.remote.0001_pairing_auth.sql")
             ?? throw new InvalidOperationException("remote/0001_pairing_auth.sql is not embedded.");
         using var reader = new StreamReader(stream);

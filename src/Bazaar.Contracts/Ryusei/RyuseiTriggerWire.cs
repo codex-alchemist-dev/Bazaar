@@ -1,16 +1,22 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Ryusei;
 
 /// <summary>Payload of the <c>ryusei.trigger.pause</c> and <c>ryusei.trigger.resume</c> requests: the trigger to change.</summary>
 /// <param name="TriggerId">Trigger id.</param>
+[WirePayload(WireTypes.RyuseiPause)]
+[WirePayload(WireTypes.RyuseiResume)]
 public sealed record RyuseiTriggerChangeRequest(Guid TriggerId);
 
 /// <summary>Reply to a pause or resume: the trigger and its version after the change.</summary>
 /// <param name="TriggerId">Trigger id.</param>
 /// <param name="Version">Row version after the change. A client keeps it for a later change.</param>
+[WirePayload]
 public sealed record RyuseiTriggerChangeReply(Guid TriggerId, long Version);
 
 /// <summary>Payload of the <c>ryusei.trigger.list</c> request: the project whose triggers the owner wants.</summary>
 /// <param name="ProjectId">Project id.</param>
+[WirePayload(WireTypes.RyuseiList)]
 public sealed record RyuseiTriggerListRequest(Guid ProjectId);
 
 /// <summary>One trigger as a board chip. <see cref="TaskId"/> is the card it sits on, or null for a trigger with no task.</summary>
@@ -33,4 +39,5 @@ public sealed record RyuseiTriggerChip(
 /// <summary>Reply to <c>ryusei.trigger.list</c>: the project's triggers, oldest first.</summary>
 /// <param name="ProjectId">Project id.</param>
 /// <param name="Triggers">Triggers in creation order.</param>
+[WirePayload]
 public sealed record RyuseiTriggerListReply(Guid ProjectId, IReadOnlyList<RyuseiTriggerChip> Triggers);

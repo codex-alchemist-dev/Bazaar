@@ -21,7 +21,7 @@ namespace Bazaar.Server.Gc.Wire;
 public sealed class GcEditHandler(
     IGcLogWriter writer,
     IGcBodyCodec bodies,
-    GcReadAccess access,
+    IGcWriteAccess access,
     PgGcEditSource source,
     Bazaar.Server.Settings.ISettingStore settings,
     TimeProvider? timeProvider = null) : IWireRequestHandler
