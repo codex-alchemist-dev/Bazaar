@@ -1,5 +1,3 @@
-using System.Diagnostics;
-
 namespace Bazaar.Server.CompanyBuild;
 
 /// <summary>
@@ -39,35 +37,10 @@ public static class DotnetPublishBuildStep
         string? runtimeIdentifier = null,
         IReadOnlyList<string>? extraArguments = null)
     {
-        var start = new ProcessStartInfo("dotnet")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-        foreach (var argument in BuildArguments(projectPath, outputDirectory, configuration, runtimeIdentifier, extraArguments))
-        {
-            start.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(start)
-            ?? throw new InvalidOperationException("The dotnet command could not be started.");
-        using var stop = cancellationToken.Register(() =>
-        {
-            try { process.Kill(entireProcessTree: true); }
-            catch (InvalidOperationException) { /* already exited */ }
-        });
-
-        var stdout = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var stderr = process.StandardError.ReadToEndAsync(cancellationToken);
-        await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
-        await stdout.ConfigureAwait(false);
-        var errorText = (await stderr.ConfigureAwait(false)).Trim();
-
-        if (process.ExitCode != 0)
-        {
-            var tail = errorText.Length <= 500 ? errorText : errorText[^500..];
-            throw new InvalidOperationException($"dotnet publish exited with code {process.ExitCode}: {tail}");
-        }
+        await ProcessRunner.RunAsync(
+            "dotnet",
+            BuildArguments(projectPath, outputDirectory, configuration, runtimeIdentifier, extraArguments),
+            workingDirectory: null,
+            cancellationToken).ConfigureAwait(false);
     }
 }

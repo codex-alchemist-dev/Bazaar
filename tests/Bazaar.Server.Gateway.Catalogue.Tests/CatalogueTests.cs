@@ -167,7 +167,7 @@ public sealed class CatalogueTests
     public async Task Lister_answers_null_for_other_adapters_missing_secrets_errors_and_bad_bodies()
     {
         var ct = TestContext.Current.CancellationToken;
-        var store = new FakeStore([Provider("p"), Provider("g", adapter: "gemini_generate_content")], []);
+        var store = new FakeStore([Provider("p"), Provider("g", adapter: "unknown_family")], []);
 
         Assert.Null(await new HttpProviderModelLister(store, new FakeSecrets("k"), new HttpClient(new FakeHandler(HttpStatusCode.OK, "{\"data\":[]}"))).ListModelIdsAsync("g", ct));
         Assert.Null(await new HttpProviderModelLister(store, new FakeSecrets(null), new HttpClient(new FakeHandler(HttpStatusCode.OK, "{\"data\":[]}"))).ListModelIdsAsync("p", ct));

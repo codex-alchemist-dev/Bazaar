@@ -311,7 +311,7 @@ Coordinator choices under the safe-defaults rule (the owner may change any of th
 | GC backread bounds | Last 20 messages of the trigger GC, each cut to 1000 characters. The trigger message is always included. | Yes. |
 | Inbox section | The trigger message, verbatim, read at its GC seq. Inbox items are GC-backed in this build. | Yes. |
 | Route | `Bazaar:Turns:Route`, default `claude-haiku-5-5`. The operator's gateway must resolve it. | Yes. |
-| Wake loop | Off by default. The production `ITurnRunner` is registered but built only when something resolves it, so nothing starts until the wake loop is turned on. | Yes, by operator setting. |
+| Wake loop | ~~Off by default.~~ Superseded by round 32: on by default. The production `ITurnRunner` is registered but built only when something resolves it. | Yes, by operator setting. |
 | Tool offers | None. The runner's tool catalogue is empty, so no tools are offered to a turn yet (doc 06 dispatch is not wired). | Yes, when dispatch lands. |
 
 ## Round 24 (2026-11-11): turn starter, post guards, mention handles and the wake loop
@@ -330,7 +330,7 @@ Defaults taken by PRs #436, #438, #442 and #443. This round replaces the "Mentio
 | Agent default handle (#443) | A slug of the agent's name: ASCII lowercased, other characters collapsed to `-`, trimmed, cut to 32. A taken slug gets `-2`, `-3`, and so on. Existing agents are backfilled by the migration, oldest first, including retired ones. | Yes. |
 | Handles for new agents (#443) | Assigned at creation: `AgentRepository.CreateAsync` calls `IAgentHandleAssigner` after the insert. The two writes are not one transaction; if the handle write fails, the agent exists without a handle and `EnsureAgentHandleAsync` repairs it. | Yes. |
 | Removing a handle (#443) | Not possible: no method and no DELETE grant. A handle can be changed. | Yes. |
-| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. Off by default (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
+| Wake loop (#442) | Behind `IAgentScheduler`; the first implementation is `InboxAgentScheduler`, a plain pass over the Postgres inbox. ~~Off by default~~ (on by default since round 32) (`Bazaar:AgentTurns:Scheduler:Enabled`). Enabled explicitly without a loop guard, or without what the turn runner needs (a model gateway), stops the host at start. | Default off: yes. Fail at start: no. |
 | Wake loop limits (#442) | Poll every 2 s (minimum 100 ms), 20 agents per pass, 4 turns at once, 10 items per turn. Only `active` agents wake. A pass waits for all its turns. | Yes. |
 | Wake loop and the guard (#442) | The guard is asked before each wake. A tripped agent is skipped and held for 5 minutes (`GuardTripBackoff`, in memory) before the guard is asked again; its items stay pending. | Yes. |
 | Session per turn (#442) | Each woken turn gets a new session id, so taint does not carry from one turn to the next. Interim, until a session model exists (doc 06, doc 15). | Follow-up. |
@@ -411,7 +411,7 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Garnet on Windows is verified for the cache role. Spike S2 passed three of three runs on the owner's PC (record: `docs/spikes/S2.md`). Tested: Garnet 2.2.13 (official `win-x64-based-readytorun` release) with StackExchange.Redis 3.4.35. All five used checks passed before the kill and after restart (SET with expiry, GET, GET of a missing key, a 64 KiB snapshot, expiry). 1000 of 1000 keys survived `taskkill /F` and restart. Restart to first authenticated connection: median 1566 ms, range 1418 to 3932 ms. | MEASURED (spike result, not a design change) | 03, 11, 23, 35 |
 | Windows persistence needs `--aof --aof-commit-wait`, restarted with `-r`. A control run without `--aof` kept 0 of 1000 keys, so persistence is required for data to survive a kill. Garnet binds loopback only with password authentication. | MEASURED | 03 |
 | Presence over plain PUBLISH/SUBSCRIBE works through StackExchange.Redis, but handler order is not guaranteed (1 of 6 batteries out of order). Presence deltas must carry a sequence number or timestamp (doc 23 to specify). | MEASURED | 23 |
-| Garnet stops being "only after S2" in doc 03 (`host.provider.cache`, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
+| Garnet stops being "only after S2" in doc 03 (cache provider module, work package 12): it is now a tested candidate at the versions above. The Windows Garnet provider reuses the Valkey module's StackExchange client, as both speak RESP. | follows from the measured result | 03, 40 |
 | Not tested: power cut, concurrent clients, large data sets, checkpoint-only persistence, cluster mode. The latency figures are indicative only because the PC was shared with other agents. | NOTE | 35 |
 
 ## Round 30 (2026-11-19): Linux TPM-sealed KEK
@@ -423,6 +423,15 @@ Note: this round is numbered 23 as the owner asked. Rounds 23 (2026-11-11) and 2
 | Sealing path: `systemd-creds` where systemd is present; direct tpm2-tools only on non-systemd hosts | **DECIDED 2026-11-19 (owner card)** | 14 |
 | vTPM (swtpm, Hyper-V, QEMU) accepted as weaker custody: setup warning, custody class in the audit log, never counts as hardware custody for the doc 48 floors | **DECIDED 2026-11-19 (owner card)** | 14, 48 |
 | Linux host that is itself a VM: default `file`, unless a vTPM is present and the operator opts in to `tpm` with the weaker-custody warning | **DECIDED 2026-11-19 (owner card)** | 14 |
+
+## Round 30 (2026-11-19): Sealed storage for Soul data and other sensitive on-disk data
+
+| Decision | Status | Docs |
+|---|---|---|
+| Soul data, agent memory working copies, cookie and Passport profiles and host bootstrap values are encrypted on disk with authenticated encryption under the KEK, and edits from outside Bazaar are detected on read and fail closed. Owner message `cmsg_01MC1BkUhiVHzqr38uyxWzeHKwHGpbCxbmcQVzZBXGVhhR` (2026-11-19): "soul data should be encrypted in their folders and shouldn't be able to be manually edited from the outside ... as well as any data that needs security like that." | DECIDED (owner) | 61, 07, 14 |
+| Module `Bazaar.Server.SealedStorage` + `.Abstractions` (component id `sealed-storage`), reusing `IKekProvider`; not a new KEK, secret store or Vault. Security floor, not a setting. | DECIDED (follows the requirement) | 61, 40 |
+| Format and manifest mechanics (AES-256-GCM, path and generation in the AAD, sealed manifest, anchor) | PROPOSED | 61 |
+| Company Vault git history is sealed too; the KEK key file is sealed with an OS keyring where available (owner standing rules, relayed 2026-11-20) | DECIDED (mechanics PROPOSED) | 61 Q1, Q2 |
 
 ## Round 28 (2026-11-17): Soul binding and the agent post path (PR #605)
 
@@ -500,3 +509,34 @@ Owner decision card "Approve doc 32 crash install binding (PR 751, PROPOSED) so 
 | A selector ranks the endpoints policy already allowed; the ranking is the fallback chain; filters, tiers, peak-EWMA latency, reliability, quota headroom, cost as a ranking signal only, affinity, strategies best, power_of_two, thompson, weighted_random | PROPOSED | 92 |
 | Same-family fallback rule (doc 05) kept: the ranker only reorders or omits resolved candidates and never adds one | PROPOSED (no change to a DECIDED item) | 92, 05 |
 | Modules: `Bazaar.Server.Gateway.Selection` and `.Abstractions`; no `gw_route.strategy` migration yet (routes are bound to profiles by settings) | PROPOSED | 92 |
+
+## Round 35 (2026-11-19): server TUI
+
+| Decision | Owner ruling | Docs |
+|---|---|---|
+| Server TUI | **DECIDED** (owner decision card, 2026-11-19 02:13 Manila, "Install wizard + live ops"): a full-screen terminal app, run over SSH or on the box, that runs the setup wizard headless and afterwards gives status, logs, Kodo health, modules, users and rebuilds. Supersedes the OPEN TUI status client in CLAUDE.md, doc 03 Q2, Bazaar.Server.md and the roadmaps. | 58, 03, 45, 40, CLAUDE.md, ROADMAP |
+| Shape | A separate client module, never in the server process. One wizard engine, two prompters (plain `bazaar-admin` and the TUI). Terminal.Gui v2 proposed, pin checked in the spike. | 58 |
+| Open | Ops-mode authentication for non-owner admins; remote use beyond SSH. | 58 |
+
+## Round 36 (2026-11-22): wake loop on by default (overnight plan item 41)
+
+| Item | Decision | Owner may change |
+|---|---|---|
+| Wake loop default | On by default (`Bazaar:AgentTurns:Scheduler:Enabled` = `true`), so a fresh company wakes agents on a card or a mention without a flag. Supersedes the "off by default" rows of rounds 23 and 24. Source: the owner's overnight plan item 41. | Yes, by operator setting (`false`). |
+| Guards on the default-on path | Kill switch checked before every wake (`IAgentWakeGate`, answered by `Bazaar.Server.AgentSafety`; fail closed when none is composed). Loop guard asked before every wake, with no setting that disables it and limits validated at 1 or more. Gateway quotas and token budgets still apply to every turn. | No (security invariants). |
+| Default-on with an unrunnable host | Idle with a logged reason; the host still starts. An explicit `Enabled=true` keeps the round 24 rule (the host stops at start). | Yes. |
+| Setting audit | The host logs one line at start with the loop state and whether it came from the default or the operator. Changes go through host configuration, which follows the same change audit as other bootstrap options. | Yes. |
+
+See doc 06 "Wake loop default" and doc 38.
+
+## Round 37 (2026-11-22): shared cache-backed rate limiter
+
+| Item | Decision | Docs |
+|---|---|---|
+| One host `IRateLimiter`, backed by the cache provider so counts are shared and survive a restart | PROPOSED | 15, 03 |
+| `ICacheCounter` (atomic increment, TTL set on a new key) in `Bazaar.Server.Providers.Abstractions`; `ICacheProvider` unchanged; Garnet and Valkey implement it | PROPOSED | 03, 15 |
+| Module `Bazaar.RateLimits.Cache`, component `rate-limits-cache`; sliding-window counter over two fixed buckets, TTL 2x window, window length in the key | PROPOSED | 15 |
+| Increment first, undo on denial (never over-admits; a failed undo over-counts and fails closed) | PROPOSED | 15 |
+| `Bazaar:RateLimits:CacheTimeout` default 150 ms; on timeout, error or no counter fall back to the in-process limiter, warn once per outage, recover automatically; never fail open, never throw | PROPOSED | 15 |
+| The component replaces earlier `IRateLimiter` registrations, so it wins regardless of component order | PROPOSED | 15 |
+| Open: whether a cache flush should fall back to the durable Postgres `rate_bucket`; whether the strictest limits (for example new repositories) should fail closed during an outage instead of using the in-process fallback | OPEN | 15 |

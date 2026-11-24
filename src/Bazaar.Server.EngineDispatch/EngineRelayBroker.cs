@@ -73,7 +73,7 @@ public sealed class EngineRelayBroker
         }
 
         var relayId = Guid.NewGuid();
-        var pending = new Pending(device, request.GrantId ?? "");
+        var pending = new Pending(device, request.GrantId ?? "", request.Tool);
         _pending[relayId] = pending;
         try
         {
@@ -139,6 +139,31 @@ public sealed class EngineRelayBroker
         return EngineRelaySubmitStatus.Accepted;
     }
 
+    /// <summary>
+    /// True while a relay is pending on <paramref name="deviceId"/> for exactly this grant and tool. The dispatcher authorised that call
+    /// before it was published, so this is the server's answer to the client's <c>engine.grant.verify</c> (doc 02, doc 20): the grant
+    /// covers the call only for as long as the call it was issued for is live, on the device it went to. Fails closed.
+    /// </summary>
+    public bool IsLiveCall(string deviceId, string grantId, string tool)
+    {
+        if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(grantId) || string.IsNullOrEmpty(tool))
+        {
+            return false;
+        }
+
+        foreach (var pending in _pending.Values)
+        {
+            if (string.Equals(pending.DeviceId, deviceId, StringComparison.Ordinal)
+                && string.Equals(pending.GrantId, grantId, StringComparison.Ordinal)
+                && string.Equals(pending.Tool, tool, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Fails every relay pending on a closed connection with <see cref="EngineRelayStatus.Unavailable"/>. Returns how many.</summary>
     public int DeviceClosed(string deviceId)
     {
@@ -156,11 +181,13 @@ public sealed class EngineRelayBroker
         return failed;
     }
 
-    private sealed class Pending(string deviceId, string grantId)
+    private sealed class Pending(string deviceId, string grantId, string tool)
     {
         public string DeviceId { get; } = deviceId;
 
         public string GrantId { get; } = grantId;
+
+        public string Tool { get; } = tool;
 
         public TaskCompletionSource<EngineRelayOutcome> Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     }

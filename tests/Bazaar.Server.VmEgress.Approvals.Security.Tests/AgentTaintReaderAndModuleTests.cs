@@ -16,7 +16,7 @@ public sealed class AgentTaintReaderAndModuleTests
     [InlineData(TaintState.Hard, true)]
     public async Task Only_hard_taint_counts(TaintState state, bool expected)
     {
-        var reader = new AgentTaintReader(new FixedLookup(new SessionTaint(state, ImmutableArray<TaintSource>.Empty)));
+        var reader = new AgentTaintReader(new FixedLookup(state));
 
         Assert.Equal(expected, await reader.IsHardTaintedAsync("agent-1", Ct));
     }
@@ -44,7 +44,7 @@ public sealed class AgentTaintReaderAndModuleTests
         {
             var services = new ServiceCollection();
             services.AddSingleton<IAuditLog>(new NullAudit());
-            services.AddSingleton<IAgentSessionTaintLookup>(new FixedLookup(SessionTaint.Clean));
+            services.AddSingleton<IAgentSessionTaintReader>(new FixedLookup(TaintState.Clean));
             services.AddSingleton<IApprovalStore>(new InMemoryApprovalStore());
             if (adaptersFirst)
             {
@@ -79,14 +79,14 @@ public sealed class AgentTaintReaderAndModuleTests
         Assert.Equal(EgressApprovalState.Denied, state);
     }
 
-    private sealed class FixedLookup(SessionTaint taint) : IAgentSessionTaintLookup
+    private sealed class FixedLookup(TaintState state) : IAgentSessionTaintReader
     {
-        public ValueTask<SessionTaint> GetAgentTaintAsync(string agentId, CancellationToken ct) => ValueTask.FromResult(taint);
+        public ValueTask<TaintState> GetActiveTaintAsync(string agentId, CancellationToken ct = default) => ValueTask.FromResult(state);
     }
 
-    private sealed class ThrowingLookup : IAgentSessionTaintLookup
+    private sealed class ThrowingLookup : IAgentSessionTaintReader
     {
-        public ValueTask<SessionTaint> GetAgentTaintAsync(string agentId, CancellationToken ct) => throw new TimeoutException();
+        public ValueTask<TaintState> GetActiveTaintAsync(string agentId, CancellationToken ct = default) => throw new TimeoutException();
     }
 
     private sealed class NullAudit : IAuditLog

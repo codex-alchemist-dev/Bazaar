@@ -54,6 +54,15 @@ internal sealed class TestGarnetClient : IValkeyClient
         return Task.FromResult(Memory);
     }
 
+    public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
+
+    public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct)
+    {
+        ThrowIfFailing();
+        Counters[key] = Counters.GetValueOrDefault(key) + by;
+        return Task.FromResult(Counters[key]);
+    }
+
     public Task<string?> GetConfigAsync(string parameter, CancellationToken ct)
     {
         ThrowIfFailing();
