@@ -114,6 +114,9 @@ public static class WireTypes
     /// <summary>Client forks a project GC at a seq. Answered with a <c>ReplayForkResult</c>.</summary>
     public const string ReplayFork = "replay.fork";
 
+    /// <summary>Client lists the points in time a GC can be replayed at. Answered with a <c>ReplayPointsResult</c>.</summary>
+    public const string ReplayPoints = "replay.points";
+
     /// <summary>Client marks a GC read up to a sequence.</summary>
     public const string GcRead = "gc.read";
 

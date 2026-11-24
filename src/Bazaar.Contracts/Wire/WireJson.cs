@@ -66,6 +66,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcListReply))]
 [JsonSerializable(typeof(PrefsSet))]
 [JsonSerializable(typeof(PrefsSetResult))]
+[JsonSerializable(typeof(ReplayPointsRequest))]
+[JsonSerializable(typeof(ReplayPointsResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]

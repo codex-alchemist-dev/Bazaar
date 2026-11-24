@@ -48,6 +48,11 @@ public static class TimeMachineRegistration
             sp.GetService<IVaultReplaySource>(),
             sp.GetService<ISoulReplaySource>(),
             sp.GetService<IReputationReplaySource>()));
+        services.TryAddSingleton<IReplayPointLister>(sp => new ReplayPointLister(
+            sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),
+            sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
+            sp.GetService<IReplayMarkerSource>()));
+        services.TryAddSingleton<IReplayMarkerSource, PostgresReplayMarkerSource>();
         services.TryAddSingleton<IForkService>(sp => new ForkService(
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcReadAccess>(),
             sp.GetRequiredService<Bazaar.Server.Gc.Read.IGcLogReader>(),

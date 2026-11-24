@@ -71,6 +71,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 
 **Replay and fork requests [PROPOSED, doc 26 section 4].** Request and reply pairs, no stream and no live splice. Both are read-only on the log.
 - `replay.frame { gc, seq, mode? }` returns `replay.frame.result { gc, seq, head, frame }`. `seq` above the viewer's grant is clamped to the grant and the reply carries the clamped `seq`; the head reported is the viewer's visible head, never the true head. `frame` mirrors the server's `ReplayFrame`: messages at their latest version at or below `seq` (viewer-filtered), and the Kanban, Vault, Soul and reputation parts, each `available { value }` or `unavailable { reason }`. A GC the viewer cannot read returns `err not_found`, the same as `gc.history` (the wire has no `denied` code).
+- `replay.points { gc, afterSeq?, limit?, bucketSeconds? }` [PROPOSED] returns `replay.points.result { gc, points, next?, head }`, where each point is `{ seq, at, kind, label }` and `seq` is what `replay.frame` takes. Kinds: `message`, `edit`, `quarantine`, `event`, and `audit` (owner only). With `bucketSeconds` the list is thinned to the last event of each bucket. `next` is the `afterSeq` for the next page. Labels never carry payloads. Same `not_found` rule as `replay.frame`.
 - `replay.fork { gc, seq, requestId }` returns `replay.fork.result { newGc, vaultCommit?, created }`. It is idempotent on `(gc, effective seq, requestId)`; a repeat returns the first result with `created: false`. No messages are copied. Needs the viewer's right to create a project GC.
 - A replay request counts against the `gc.history` rate bucket. Unknown fields are ignored (versioning rule above).
 
@@ -156,7 +157,7 @@ Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transpo
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
-Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `replay.frame`, `replay.fork`, `gc.read`, `gc.list`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `board.assign` [PROPOSED, shape in doc 12, Assign authority and command], `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `replay.frame`, `replay.fork`, `replay.points`, `gc.read`, `gc.list`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `board.assign` [PROPOSED, shape in doc 12, Assign authority and command], `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]
 Registered in doc 03's settings registry. Operator-set, install scope. Values live in Postgres; the defaults ship in this table. Every change is audited (doc 15 `audit_log`). Settings may tighten the wire floors and never loosen them below the shipped defaults.

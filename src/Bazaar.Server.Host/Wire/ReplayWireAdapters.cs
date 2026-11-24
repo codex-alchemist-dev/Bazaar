@@ -71,6 +71,23 @@ public sealed class ReplayForkWireAdapter(IServiceProvider services) : IWireRequ
     }
 }
 
+/// <summary><c>replay.points</c>: the points in time a GC can be replayed at.</summary>
+public sealed class ReplayPointsWireAdapter(IServiceProvider services) : IWireRequestHandler
+{
+    /// <inheritdoc />
+    public string Type => WireTypes.ReplayPoints;
+
+    /// <inheritdoc />
+    public async ValueTask<WireReply> HandleAsync(WireRequestContext context, CancellationToken cancellationToken)
+    {
+        var request = context.Payload<ReplayPointsRequest>();
+        var handler = services.GetRequiredService<ReplayWireHandler>();
+        var reply = await handler.PointsAsync(ReplayWireMapping.PrincipalOf(context.Connection.Principal), request, cancellationToken)
+            .ConfigureAwait(false);
+        return ReplayWireMapping.ToReply(context, reply);
+    }
+}
+
 /// <summary>Registers the replay wire adapters.</summary>
 public static class ReplayWireServiceCollectionExtensions
 {
@@ -86,9 +103,11 @@ public static class ReplayWireServiceCollectionExtensions
             // The fork service needs a provisioner; without one the fork adapter answers before it would be used.
             sp.GetService<IForkTargetProvisioner>() is null ? new UnboundForkService() : sp.GetRequiredService<IForkService>(),
             sp.GetRequiredService<IGcReadAccess>(),
-            sp.GetRequiredService<IGcLogReader>()));
+            sp.GetRequiredService<IGcLogReader>(),
+            sp.GetService<IReplayPointLister>()));
         services.AddSingleton<IWireRequestHandler>(sp => new ReplayFrameWireAdapter(RequireBindings(sp)));
         services.AddSingleton<IWireRequestHandler>(sp => new ReplayForkWireAdapter(RequireBindings(sp)));
+        services.AddSingleton<IWireRequestHandler>(sp => new ReplayPointsWireAdapter(RequireBindings(sp)));
         return services;
     }
 
