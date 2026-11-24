@@ -1,12 +1,12 @@
 using Bazaar.Lucky;
+using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Sanitization;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Host.Lucky;
-using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Sanitization;
 using Bazaar.Testing.Postgres;
 using Npgsql;

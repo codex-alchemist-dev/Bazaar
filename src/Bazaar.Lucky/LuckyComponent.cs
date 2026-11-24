@@ -1,7 +1,7 @@
 using Bazaar.Core;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Lucky;
