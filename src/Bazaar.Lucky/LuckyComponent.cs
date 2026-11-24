@@ -1,6 +1,7 @@
 using Bazaar.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Lucky;
@@ -26,5 +27,14 @@ public sealed class LuckyComponent : IBazaarComponent
         luckySettings.Validate();
         services.TryAddSingleton(luckySettings);
         services.TryAddSingleton<LuckyController>();
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<LuckyStartService>();
+        services.TryAddSingleton<LuckyIdeaService>();
+        services.AddSingleton<IWireRequestHandler>(sp => new LuckyStartWireHandler(
+            sp.GetRequiredService<LuckyStartService>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IWireRequestHandler>(sp => new LuckyIdeaWireHandler(
+            sp.GetRequiredService<LuckyIdeaService>(), sp.GetRequiredService<TimeProvider>()));
+        services.AddSingleton<IWireRequestHandler>(sp => new LuckyMarkWireHandler(sp.GetRequiredService<LuckyIdeaService>()));
+        services.AddSingleton<IWireRequestHandler>(sp => new LuckyOptInWireHandler(sp.GetRequiredService<ILuckyOptInStore>()));
     }
 }

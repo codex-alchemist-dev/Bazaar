@@ -60,5 +60,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly),
-        new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly));
+        new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly));
 }

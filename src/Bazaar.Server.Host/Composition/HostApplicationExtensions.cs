@@ -42,6 +42,7 @@ using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -102,6 +103,28 @@ public static class HostApplicationExtensions
             || BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
+        }
+
+        // Lucky runs (docs/design/26-fun-systems.md, section 6): the host supplies the run store and the side-effect sink.
+        if (BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
+        {
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyRunStore>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyRunStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyOptInStore>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyOptInStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyCandidateSource>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyCandidateSource(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyRunSink>(sp =>
+            {
+                var ds = sp.GetRequiredService<NpgsqlDataSource>();
+                return new Bazaar.Server.Host.Lucky.PgLuckyRunSink(
+                    ds,
+                    new Bazaar.Server.Gc.Create.GcCreateService(ds),
+                    sp.GetRequiredService<Bazaar.Server.Gc.Write.IGcLogWriter>(),
+                    sp.GetRequiredService<Bazaar.Server.Gc.Body.IGcBodyCodec>(),
+                    sp.GetRequiredService<Bazaar.Server.Agents.Data.InboxRepository>(),
+                    sp.GetRequiredService<Bazaar.RyuseiFuda.Kanban.TaskService>());
+            });
         }
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
