@@ -18,6 +18,9 @@ public sealed record RefreshCredentialRecord(
     DateTimeOffset ExpiresAt,
     DateTimeOffset ChainStartedAt);
 
+/// <summary>What suspending a person changed (doc 32, person suspension; PROPOSED). <paramref name="RevokedDevices"/> are the devices revoked by this call, not ones that were already revoked.</summary>
+public sealed record SuspendResult(bool Changed, IReadOnlyList<Guid> RevokedDevices);
+
 /// <summary>
 /// Storage for devices and their refresh credentials (doc 32 section 5 and the <c>device</c> and <c>refresh_credential</c> tables).
 /// Each write that must be atomic is one method, so the rotation and revocation rules hold in every implementation.
@@ -59,4 +62,16 @@ public interface IRefreshCredentialStore
     /// Sets <c>revoked_at</c> and bumps <c>revision</c> when the device is not yet revoked. Returns false when it already was.
     /// </summary>
     Task<bool> RevokeDeviceAsync(Guid deviceId, DateTimeOffset now, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets the person <c>suspended</c> (only from <c>active</c>, and never an owner) and, in the same transaction, revokes every device of
+    /// the person that is not yet revoked and every approval key of the person. Returns <c>Changed = false</c> and writes nothing otherwise.
+    /// </summary>
+    Task<SuspendResult> SuspendHumanAsync(Guid humanId, DateTimeOffset now, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets a <c>suspended</c> person back to <c>active</c>. Returns false when the person is not suspended (removed stays removed).
+    /// Revoked devices and approval keys stay revoked: the person pairs again.
+    /// </summary>
+    Task<bool> UnsuspendHumanAsync(Guid humanId, CancellationToken ct = default);
 }

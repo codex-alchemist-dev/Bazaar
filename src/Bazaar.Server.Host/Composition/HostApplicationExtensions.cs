@@ -32,6 +32,8 @@ using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.CompanyBuild.Postgres;
+using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -80,6 +82,8 @@ public static class HostApplicationExtensions
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
+        // The owner queue as the web admin approvals section (doc 51 section 5).
+        services.AddBazaarAdminApprovalSource();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarSecretStore(configuration);
@@ -87,6 +91,7 @@ public static class HostApplicationExtensions
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarPresencePostgres();
+        services.AddBazaarSignInPostgres();
         services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
@@ -146,6 +151,8 @@ public static class HostApplicationExtensions
 
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
+        // Module selection, the rebuild queue and the catalogue snapshot the TUI reads (doc 37 section 4a, PROPOSED).
+        services.AddBazaarModuleSelectionPostgres(HostComponents.All.Select(c => c.Manifest));
         services.AddBazaarBackupOffsite();
         // The community draft seams: policy source, GitHub adapter and its bridge, owner keys, action store (doc 36 WP7 and WP8).
         services.AddBazaarCommunityHost();
