@@ -247,4 +247,37 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
         Assert.Equal(version, v);
         Assert.Equal(name, n);
     }
+
+    [Fact]
+    public async Task A_component_that_was_on_and_is_now_off_does_not_leave_the_schema_ahead()
+    {
+        var ds = await FreshAsync(db);
+        var files = new[] { Common(1, "one", "CREATE TABLE t_one (id int)"), new MigrationFile("playground", 1, "pg", "CREATE TABLE t_pg (id int)") };
+        var manifests = new[] { new Bazaar.Core.ComponentManifest("playground", "0.1.0", Bazaar.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
+        var ct = TestContext.Current.CancellationToken;
+
+        var on = new MigrationRunner(ds, components: manifests, isEnabled: _ => true);
+        await on.MigrateAsync(Source(files), "linux", ct);
+        var off = new MigrationRunner(ds, components: manifests, isEnabled: _ => false);
+
+        Assert.Equal(SchemaState.Current, await off.GetStateAsync(Source(files), "linux", ct));
+        Assert.Empty((await off.MigrateAsync(Source(files), "linux", ct)).Applied);
+    }
+
+    [Fact]
+    public async Task A_switched_off_component_is_not_migrated_until_it_is_switched_on()
+    {
+        var ds = await FreshAsync(db);
+        var files = new[] { Common(1, "one", "CREATE TABLE t_one (id int)"), new MigrationFile("playground", 1, "pg", "CREATE TABLE t_pg (id int)") };
+        var manifests = new[] { new Bazaar.Core.ComponentManifest("playground", "0.1.0", Bazaar.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
+        var ct = TestContext.Current.CancellationToken;
+
+        var off = await new MigrationRunner(ds, components: manifests, isEnabled: _ => false).MigrateAsync(Source(files), "linux", ct);
+        Assert.Equal(0, await ScalarAsync(ds, "SELECT count(*) FROM pg_tables WHERE tablename = 't_pg'"));
+
+        var on = await new MigrationRunner(ds, components: manifests, isEnabled: _ => true).MigrateAsync(Source(files), "linux", ct);
+
+        Assert.Equal(["common", "playground"], off.Applied.Concat(on.Applied).Select(a => a.Namespace));
+        Assert.Equal(1, await ScalarAsync(ds, "SELECT count(*) FROM pg_tables WHERE tablename = 't_pg'"));
+    }
 }

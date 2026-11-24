@@ -32,7 +32,10 @@ public sealed record TaskRecord(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
-/// <summary>Values for a new task. The caller supplies the id so tests and retries can know it before the insert.</summary>
+/// <summary>
+/// Values for a new task. The caller supplies the id so tests and retries can know it before the insert.
+/// <paramref name="ImportJobId"/> is the portability import job that created the task (doc 44 section 8.8), or null.
+/// </summary>
 public sealed record NewTask(
     Guid Id,
     Guid ProjectId,
@@ -42,7 +45,8 @@ public sealed record NewTask(
     TaskGate Gate,
     Guid OriginGcId,
     Guid? OriginMessageId,
-    DateTimeOffset? DueAt);
+    DateTimeOffset? DueAt,
+    string? ImportJobId = null);
 
 /// <summary>A link from a task to something outside it (PR, commit, GC, Vault document).</summary>
 public sealed record TaskLink(Guid TaskId, TaskLinkKind Kind, string Ref);
@@ -58,3 +62,6 @@ public sealed record TaskEventRecord(
     string Actor,
     string PayloadJson,
     DateTimeOffset At);
+
+/// <summary>One column move read from <c>task_events</c>: the task, the SQL state names it left and entered, and when (doc 12, Events).</summary>
+public sealed record TaskTransitionFact(Guid TaskId, string From, string To, DateTimeOffset At);

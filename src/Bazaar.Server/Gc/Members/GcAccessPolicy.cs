@@ -4,6 +4,9 @@ using Bazaar.Server.Gc.Model;
 
 namespace Bazaar.Server.Gc.Members;
 
+/// <summary>The events a viewer may read: from <see cref="From"/> (null: the start) through <see cref="Through"/> (<see cref="GcAccessPolicy.AllEvents"/>: no limit).</summary>
+public readonly record struct GcReadWindow(long? From, long Through);
+
 /// <summary>
 /// Read and write rules for one GC (docs/design/01-gc-data-model.md: Membership and permissions, Thinking GCs,
 /// Access loss). Pure: callers load the header, the membership rows and the approved access principals, then ask here.
@@ -11,7 +14,7 @@ namespace Bazaar.Server.Gc.Members;
 /// <remarks>
 /// Approved access principals are the principals whose access request for this GC is approved and not
 /// revoked. Only DM and Thinking GCs take requests, so the set is consulted only for those types. An approval
-/// grants read of the whole log (<see cref="AllEvents"/>), not a window from the approval onward. An approval
+/// grants read forward from the grant seq (docs/design/32, Per-GC; <see cref="ReadableWindow"/>). An approval
 /// never grants write.
 /// </remarks>
 public static class GcAccessPolicy
@@ -20,7 +23,8 @@ public static class GcAccessPolicy
     public const long AllEvents = long.MaxValue;
 
     /// <summary>
-    /// The highest event seq the viewer may read, or null when the viewer has no read access.
+    /// The highest event seq the viewer may read, or null when the viewer has no read access. Approved principals read from the
+    /// start; use <see cref="ReadableWindow"/> when the grant seq matters.
     /// A former member gets its <see cref="GcMemberRecord.LeftSeq"/>: the removal event is readable, later events are not.
     /// </summary>
     public static long? ReadableUpToSeq(
@@ -29,14 +33,38 @@ public static class GcAccessPolicy
         GcViewer viewer,
         IReadOnlySet<Guid> approvedAccessPrincipals)
     {
+        ArgumentNullException.ThrowIfNull(approvedAccessPrincipals);
+        return Window(gc, members, viewer, p => approvedAccessPrincipals.Contains(p) ? 0 : null)?.Through;
+    }
+
+    /// <summary>
+    /// The window of events the viewer may read, or null when the viewer has no read access. A DM or Thinking GC access grant
+    /// reads forward from the grant seq only (docs/design/32, Per-GC), so <see cref="GcReadWindow.From"/> is that seq for such a
+    /// viewer and null for everyone else. <paramref name="grantSeqs"/> maps each approved principal to the seq of its grant.
+    /// </summary>
+    public static GcReadWindow? ReadableWindow(
+        GcRecord gc,
+        IReadOnlyCollection<GcMemberRecord> members,
+        GcViewer viewer,
+        IReadOnlyDictionary<Guid, long> grantSeqs)
+    {
+        ArgumentNullException.ThrowIfNull(grantSeqs);
+        return Window(gc, members, viewer, p => grantSeqs.TryGetValue(p, out var seq) ? seq : null);
+    }
+
+    private static GcReadWindow? Window(
+        GcRecord gc,
+        IReadOnlyCollection<GcMemberRecord> members,
+        GcViewer viewer,
+        Func<Guid, long?> grantSeq)
+    {
         ArgumentNullException.ThrowIfNull(gc);
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(viewer);
-        ArgumentNullException.ThrowIfNull(approvedAccessPrincipals);
 
         if (viewer.Kind == PrincipalKind.Owner)
         {
-            return AllEvents;
+            return new GcReadWindow(null, AllEvents);
         }
 
         if (GcTypeKeys.IsThinking(gc))
@@ -44,18 +72,32 @@ public static class GcAccessPolicy
             // The owning agent reads its own Thinking GC by its member row; everyone else needs an approval.
             if (ThinkingGcRules.OwningAgentId(gc, members) == viewer.PrincipalId)
             {
-                return MemberReadUpTo(gc, members, viewer.PrincipalId);
+                return MemberWindow(gc, members, viewer.PrincipalId);
             }
 
-            return approvedAccessPrincipals.Contains(viewer.PrincipalId) ? AllEvents : null;
+            return GrantWindow(grantSeq(viewer.PrincipalId));
         }
 
-        if (GcTypeKeys.IsDm(gc) && approvedAccessPrincipals.Contains(viewer.PrincipalId))
+        if (GcTypeKeys.IsDm(gc) && grantSeq(viewer.PrincipalId) is { } granted)
         {
-            return AllEvents;
+            // A former member who is granted access again keeps the history they saw when the two windows meet.
+            var member = MemberWindow(gc, members, viewer.PrincipalId);
+            if (member is { } m && (m.Through == AllEvents || granted <= m.Through + 1))
+            {
+                return new GcReadWindow(null, AllEvents);
+            }
+
+            return GrantWindow(granted);
         }
 
-        return MemberReadUpTo(gc, members, viewer.PrincipalId);
+        return MemberWindow(gc, members, viewer.PrincipalId);
+    }
+
+    private static GcReadWindow? GrantWindow(long? seq) => seq is { } from ? new GcReadWindow(from == 0 ? null : from, AllEvents) : null;
+
+    private static GcReadWindow? MemberWindow(GcRecord gc, IReadOnlyCollection<GcMemberRecord> members, Guid principalId)
+    {
+        return MemberReadUpTo(gc, members, principalId) is { } through ? new GcReadWindow(null, through) : null;
     }
 
     /// <summary>

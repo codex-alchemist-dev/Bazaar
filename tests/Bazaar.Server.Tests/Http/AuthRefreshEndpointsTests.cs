@@ -159,6 +159,9 @@ public sealed class AuthRefreshEndpointsTests : IAsyncLifetime
             return Task.FromResult(Next ?? throw new InvalidOperationException("No pair configured."));
         }
 
+        public Task<TokenPair> IssueAsync(Guid deviceId, Guid humanId, DeviceInfo device, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task RevokeDeviceAsync(Guid deviceId, PrincipalRef by, CancellationToken ct = default) =>
             throw new NotSupportedException();
     }
