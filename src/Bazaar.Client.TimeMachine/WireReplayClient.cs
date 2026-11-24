@@ -31,10 +31,10 @@ public sealed class WireReplayClient(IWireRequester requester) : IReplayClient
             Clamped: result.Seq < seq,
             [.. frame.Messages.Select(ToView)],
             [
-                Part("Kanban", frame.Kanban, v => $"{v.Count} task(s)"),
-                Part("Vault", frame.Vault, v => $"commit {v.Commit}"),
-                Part("Souls", frame.Souls, v => $"{v.Count} agent(s)"),
-                Part("Reputation", frame.Reputation, v => $"{v.Count} agent(s)"),
+                Part("Kanban", frame.Kanban.Available, frame.Kanban.Value, frame.Kanban.Reason, v => $"{v.Count} task(s)"),
+                Part("Vault", frame.Vault.Available, frame.Vault.Value, frame.Vault.Reason, v => $"commit {v.Commit}"),
+                Part("Souls", frame.Souls.Available, frame.Souls.Value, frame.Souls.Reason, v => $"{v.Count} agent(s)"),
+                Part("Reputation", frame.Reputation.Available, frame.Reputation.Value, frame.Reputation.Reason, v => $"{v.Count} agent(s)"),
             ]);
     }
 
@@ -69,8 +69,8 @@ public sealed class WireReplayClient(IWireRequester requester) : IReplayClient
     private static ReplayMessageView ToView(ReplayMessageWire m) =>
         new(m.MessageId, m.AuthorId.ToString("N")[..8], m.VersionSeq, m.Version, m.Edited, m.Quarantined, ReplayMessageText.Decode(kind: null, m.PayloadJson));
 
-    private static ReplayPartView Part<T>(string name, ReplayPartWire<T> part, Func<T, string> summary) =>
-        part.Available && part.Value is { } value
-            ? ReplayPartView.Available(name, summary(value))
-            : ReplayPartView.Unavailable(name, part.Reason ?? "unavailable");
+    private static ReplayPartView Part<T>(string name, bool available, T? value, string? reason, Func<T, string> summary) =>
+        available && value is { } present
+            ? ReplayPartView.Available(name, summary(present))
+            : ReplayPartView.Unavailable(name, reason ?? "unavailable");
 }

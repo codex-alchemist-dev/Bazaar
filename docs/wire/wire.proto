@@ -43,6 +43,18 @@ message BytesList {
   repeated bytes items = 1;
 }
 
+message ReplayReputationWireList {
+  repeated ReplayReputationWire items = 1;
+}
+
+message ReplaySoulWireList {
+  repeated ReplaySoulWire items = 1;
+}
+
+message ReplayTaskWireList {
+  repeated ReplayTaskWire items = 1;
+}
+
 message StreamCursorList {
   repeated StreamCursor items = 1;
 }
@@ -581,6 +593,95 @@ message ReleaseManifest {
   string schema_version = 5;
   string signing_key_fingerprint = 6;
   repeated ReleaseArtifact artifacts = 7;
+}
+
+message ReplayForkRequest {
+  bytes gc = 1;
+  int64 seq = 2;
+  bytes request_id = 3;
+}
+
+message ReplayForkResult {
+  bytes new_gc = 1;
+  optional string vault_commit = 2;
+  bool created = 3;
+}
+
+message ReplayFrameRequest {
+  bytes gc = 1;
+  int64 seq = 2;
+  optional string mode = 3;
+}
+
+message ReplayFrameResult {
+  bytes gc = 1;
+  int64 seq = 2;
+  int64 head = 3;
+  ReplayFrameWire frame = 4;
+}
+
+message ReplayFrameWire {
+  repeated ReplayMessageWire messages = 1;
+  ReplayTasksPart kanban = 2;
+  ReplayVaultPart vault = 3;
+  ReplaySoulsPart souls = 4;
+  ReplayReputationPart reputation = 5;
+}
+
+message ReplayMessageWire {
+  bytes message_id = 1;
+  bytes author_id = 2;
+  int64 first_seq = 3;
+  int64 version_seq = 4;
+  int32 version = 5;
+  bool edited = 6;
+  bool quarantined = 7;
+  optional string payload_json = 8;
+  Instant created_at = 9;
+}
+
+message ReplayReputationPart {
+  bool available = 1;
+  ReplayReputationWireList value = 2;
+  optional string reason = 3;
+}
+
+message ReplayReputationWire {
+  bytes agent_id = 1;
+  string score = 2;
+}
+
+message ReplaySoulWire {
+  bytes agent_id = 1;
+  int32 version = 2;
+}
+
+message ReplaySoulsPart {
+  bool available = 1;
+  ReplaySoulWireList value = 2;
+  optional string reason = 3;
+}
+
+message ReplayTaskWire {
+  bytes task_id = 1;
+  string title = 2;
+  string column = 3;
+}
+
+message ReplayTasksPart {
+  bool available = 1;
+  ReplayTaskWireList value = 2;
+  optional string reason = 3;
+}
+
+message ReplayVaultPart {
+  bool available = 1;
+  ReplayVaultWire value = 2;
+  optional string reason = 3;
+}
+
+message ReplayVaultWire {
+  string commit = 1;
 }
 
 message Resync {
