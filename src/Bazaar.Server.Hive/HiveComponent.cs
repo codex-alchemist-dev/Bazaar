@@ -1,5 +1,5 @@
-using Bazaar.Contracts.Wire;
 using System.Data.Common;
+using Bazaar.Contracts.Wire;
 using Bazaar.Core;
 using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.Hive.Settings;

@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Escalation;
 using Bazaar.Server.Council.Http;
-using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

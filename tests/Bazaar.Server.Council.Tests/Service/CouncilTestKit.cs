@@ -1,8 +1,8 @@
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Data;
-using Bazaar.Server.Council.Tests.Data;
 using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
+using Bazaar.Server.Council.Tests.Data;
 
 namespace Bazaar.Server.Council.Tests.Service;
 
