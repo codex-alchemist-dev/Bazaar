@@ -36,7 +36,7 @@ public static class HealthServiceCollectionExtensions
     /// Registers <see cref="IProjectHealthService"/>, the metric store and the recurring collection job. The store is Postgres when the
     /// host registered an <see cref="NpgsqlDataSource"/> (the <c>health</c> migration creates <c>metric_samples</c>), otherwise in memory.
     /// Settings read <c>Bazaar:Health</c> (<c>CoverageDropPoints</c>, <c>BuildFailureStreak</c>, <c>WindowDays</c>, <c>MoraleSignals</c>,
-    /// <c>CollectIntervalMinutes</c>, default 60). Bound by hand, no reflection. Every registration is TryAdd, so a host or test can
+    /// <c>CollectIntervalMinutes</c>, default 60; <c>RawRetentionDays</c>, default 90, replaced by the host's setting; <c>RetentionIntervalMinutes</c>, default 1440). Bound by hand, no reflection. Every registration is TryAdd, so a host or test can
     /// substitute first. The collection job needs the host's job poller and does nothing until a module registers an
     /// <see cref="IHealthProjectSource"/>.
     /// </summary>
@@ -68,6 +68,13 @@ public static class HealthServiceCollectionExtensions
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<HealthCollectJobHandler>());
         var minutes = Math.Clamp(Int(s, "CollectIntervalMinutes", 60), 1, 24 * 60);
         services.AddSingleton(new RecurringJob(HealthCollectJobHandler.JobKind, TimeSpan.FromMinutes(minutes)));
+
+        services.TryAddSingleton<IRawRetentionSource>(new FixedRawRetentionSource(
+            Math.Clamp(Int(s, "RawRetentionDays", RawRetention.DefaultDays), RawRetention.MinDays, RawRetention.MaxDays)));
+        services.TryAddSingleton<HealthRetentionJobHandler>();
+        services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<HealthRetentionJobHandler>());
+        var sweepMinutes = Math.Clamp(Int(s, "RetentionIntervalMinutes", 24 * 60), 5, 7 * 24 * 60);
+        services.AddSingleton(new RecurringJob(HealthRetentionJobHandler.JobKind, TimeSpan.FromMinutes(sweepMinutes)));
         return services;
     }
 

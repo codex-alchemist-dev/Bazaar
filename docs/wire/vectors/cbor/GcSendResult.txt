@@ -1,7 +1,7 @@
 Golden frame: GcSendResult
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e
+Schema hash: sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740
 Payload record: Bazaar.Contracts.Wire.GcSendResult
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 125 bytes

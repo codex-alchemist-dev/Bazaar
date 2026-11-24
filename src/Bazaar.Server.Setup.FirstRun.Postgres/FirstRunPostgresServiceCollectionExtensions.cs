@@ -6,12 +6,13 @@ namespace Bazaar.Server.Setup.FirstRun.Postgres;
 /// <summary>Registers the Postgres stores behind the first-run seed ports. The caller registers the shared <c>NpgsqlDataSource</c> and an <c>IAuditLog</c> first.</summary>
 public static class FirstRunPostgresServiceCollectionExtensions
 {
-    /// <summary>Adds the five port implementations (TryAdd, so a caller's own wins).</summary>
+    /// <summary>Adds the six port implementations (TryAdd, so a caller's own wins).</summary>
     public static IServiceCollection AddFirstRunPostgres(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<IFirstRunOwner, PostgresFirstRunOwner>();
         services.TryAddSingleton<IFirstRunStore, PostgresFirstRunStore>();
+        services.TryAddSingleton<IGeneralGcReader, PostgresGeneralGcReader>();
         services.TryAddSingleton<IConstitutionAcceptance, PostgresConstitutionAcceptance>();
         services.TryAddSingleton<IDefaultAgentRoutes, PostgresDefaultAgentRoutes>();
         services.TryAddSingleton<IFirstRunAudit>(sp => new AuditLogFirstRunAudit(
