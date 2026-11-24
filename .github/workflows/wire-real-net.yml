@@ -65,7 +65,7 @@ jobs:
           if ($failed) { throw "Tests failed in: $($failed -join ', ')" }
 
       # Spike S-WTX (doc 90 section 10): the codec benchmark, three process runs per row.
-      # Results go to the job log and an artifact; transport rows join this step when the harness grows them.
+      # Results go to the job log and an artifact.
       - name: Run the S-WTX codec benchmark
         if: ${{ !cancelled() }}
         shell: pwsh
@@ -81,3 +81,111 @@ jobs:
         with:
           name: wire-bench-windows
           path: ${{ runner.temp }}/wire-bench.*
+
+      # Spike S-WTX transport rows (doc 90 section 10): each transport that has a server and a client module on main, over
+      # loopback by IP, JSON codec, three process runs per row. Loss and RTT cannot be injected on hosted Windows.
+      - name: Run the S-WTX transport benchmark
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          dotnet run --project tools/Bazaar.Wire.Bench --configuration Release -- --transports --runs 3 --condition clean --out "$env:RUNNER_TEMP/wire-transport-bench.tsv" --md "$env:RUNNER_TEMP/wire-transport-bench.md"
+          if ($LASTEXITCODE -ne 0) { throw 'Wire transport benchmark failed' }
+          Get-Content "$env:RUNNER_TEMP/wire-transport-bench.md"
+          Get-Content "$env:RUNNER_TEMP/wire-transport-bench.md" | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload the transport benchmark results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wire-transport-bench-windows
+          path: ${{ runner.temp }}/wire-transport-bench.*
+
+  # The same transport harness on hosted Linux, where `tc netem` can add 50 ms RTT and 1% or 5% loss on the loopback
+  # interface. MsQuic comes from the Microsoft package repository; if it or netem cannot be set up, the rows say so.
+  transports-linux:
+    name: Wire transport benchmark (Linux, tc netem)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET SDK from global.json
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - name: Install MsQuic
+        if: ${{ !cancelled() }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/ms-prod.deb" "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb" || true
+          sudo dpkg -i "$RUNNER_TEMP/ms-prod.deb" || true
+          sudo apt-get update || true
+          sudo apt-get install -y libmsquic || echo "::warning::libmsquic could not be installed; quic and HTTP/3 rows will say so"
+          ls -l /usr/lib/x86_64-linux-gnu | grep -i msquic || true
+
+      - name: Check that tc netem works
+        if: ${{ !cancelled() }}
+        run: |
+          sudo apt-get install -y iproute2 "linux-modules-extra-$(uname -r)" || true
+          sudo modprobe sch_netem || true
+          if sudo tc qdisc replace dev lo root netem delay 25ms loss 1% && tc qdisc show dev lo; then
+            echo "NETEM_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "::warning::tc netem is not available on this runner; the loss and RTT conditions are skipped"
+          fi
+          sudo tc qdisc del dev lo root || true
+
+      - name: Build the harness
+        run: dotnet build tools/Bazaar.Wire.Bench --configuration Release
+
+      - name: Run the transport benchmark, clean loopback
+        if: ${{ !cancelled() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          dotnet tools/Bazaar.Wire.Bench/bin/Release/net11.0/Bazaar.Wire.Bench.dll --transports --runs 3 --condition clean --out "$RUNNER_TEMP/out/clean.tsv" --md "$RUNNER_TEMP/out/clean.md"
+          cat "$RUNNER_TEMP/out/clean.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # 50 ms RTT is 25 ms of netem delay on each pass over lo (the request and the answer each cross it once).
+      - name: Run the transport benchmark, 50 ms RTT
+        if: ${{ !cancelled() && env.NETEM_OK == '1' }}
+        run: |
+          sudo tc qdisc replace dev lo root netem delay 25ms
+          dotnet tools/Bazaar.Wire.Bench/bin/Release/net11.0/Bazaar.Wire.Bench.dll --transports --runs 3 --condition rtt50 --out "$RUNNER_TEMP/out/rtt50.tsv" --md "$RUNNER_TEMP/out/rtt50.md"
+          sudo tc qdisc del dev lo root
+          cat "$RUNNER_TEMP/out/rtt50.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the transport benchmark, 1% loss and 50 ms RTT
+        if: ${{ !cancelled() && env.NETEM_OK == '1' }}
+        run: |
+          sudo tc qdisc replace dev lo root netem delay 25ms loss 1%
+          dotnet tools/Bazaar.Wire.Bench/bin/Release/net11.0/Bazaar.Wire.Bench.dll --transports --runs 3 --condition loss1-rtt50 --out "$RUNNER_TEMP/out/loss1-rtt50.tsv" --md "$RUNNER_TEMP/out/loss1-rtt50.md"
+          sudo tc qdisc del dev lo root
+          cat "$RUNNER_TEMP/out/loss1-rtt50.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the transport benchmark, 5% loss and 50 ms RTT
+        if: ${{ !cancelled() && env.NETEM_OK == '1' }}
+        run: |
+          sudo tc qdisc replace dev lo root netem delay 25ms loss 5%
+          dotnet tools/Bazaar.Wire.Bench/bin/Release/net11.0/Bazaar.Wire.Bench.dll --transports --runs 3 --condition loss5-rtt50 --out "$RUNNER_TEMP/out/loss5-rtt50.tsv" --md "$RUNNER_TEMP/out/loss5-rtt50.md"
+          sudo tc qdisc del dev lo root
+          cat "$RUNNER_TEMP/out/loss5-rtt50.md" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the netem qdisc
+        if: ${{ always() }}
+        run: sudo tc qdisc del dev lo root || true
+
+      - name: Upload the transport benchmark results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: wire-transport-bench-linux
+          path: ${{ runner.temp }}/out/*

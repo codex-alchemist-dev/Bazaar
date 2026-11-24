@@ -1,7 +1,7 @@
 Golden frame: PrListReply
 Codec: json (text)
 Protocol: 1.0
-Schema hash: sha256:b5561bea42bd0aa7094cf4ce6deefccc6b7439ad01cf23acd598df9e6c558b3e
+Schema hash: sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842
 Payload record: Bazaar.Contracts.GitHub.PrListReply
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 376 bytes
