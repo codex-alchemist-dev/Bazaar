@@ -24,13 +24,15 @@ public static class FirstPartyManifest
     /// <param name="capabilities">The capability classes the module needs, from <see cref="ModuleManifestValidator.KnownCapabilities"/>.</param>
     /// <param name="commands">Command ids the module contributes. Null for none.</param>
     /// <param name="settingKeys">Setting keys the module reads. Null for none.</param>
+    /// <param name="enabledByDefault">False for an optional module that loads only when the head enables it.</param>
     public static ModuleManifest Create(
         Type moduleType,
         string id,
         IReadOnlyList<string> paneKinds,
         IReadOnlyList<string> capabilities,
         IReadOnlyList<string>? commands = null,
-        IReadOnlyList<string>? settingKeys = null)
+        IReadOnlyList<string>? settingKeys = null,
+        bool enabledByDefault = true)
     {
         ArgumentNullException.ThrowIfNull(moduleType);
 
@@ -47,7 +49,8 @@ public static class FirstPartyManifest
                 HostRequirements.CurrentSchemaVersion,
                 HostCompatibility.KnownOperatingSystems.Order(StringComparer.Ordinal).ToArray(),
                 HostCompatibility.KnownArchitectures.Order(StringComparer.Ordinal).ToArray(),
-                []));
+                []),
+            EnabledByDefault: enabledByDefault);
     }
 
     private static string VersionOf(Assembly assembly)

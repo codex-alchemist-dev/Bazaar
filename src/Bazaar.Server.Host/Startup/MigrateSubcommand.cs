@@ -1,3 +1,4 @@
+using Bazaar.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Hosting;
@@ -56,6 +57,7 @@ public static class MigrateSubcommand
             MigrateCommand.CurrentProvider(),
             output,
             components: HostComponents.All.Select(c => c.Manifest),
+            isEnabled: manifest => BazaarComponentRegistration.IsEnabled(configuration, manifest),
             ct: ct);
     }
 

@@ -114,13 +114,13 @@ public sealed class ReplayWireHandler(
     private static ReplayFrameWire Map(ReplayFrame frame) => new(
         [.. frame.Messages.Select(m => new ReplayMessageWire(
             m.MessageId, m.AuthorId, m.FirstSeq, m.VersionSeq, m.Version, m.Edited, m.Quarantined, m.PayloadJson, m.CreatedAt))],
-        MapPart(frame.Kanban, v => (IReadOnlyList<ReplayTaskWire>)[.. v.Select(t => new ReplayTaskWire(t.TaskId, t.Title, t.Column))]),
-        MapPart(frame.Vault, v => new ReplayVaultWire(v.Commit)),
-        MapPart(frame.Souls, v => (IReadOnlyList<ReplaySoulWire>)[.. v.Select(s => new ReplaySoulWire(s.AgentId, s.Version))]),
-        MapPart(frame.Reputation, v => (IReadOnlyList<ReplayReputationWire>)[.. v.Select(r => new ReplayReputationWire(r.AgentId, r.Score))]));
+        MapPart(frame.Kanban, (a, v, r) => new ReplayTasksPart(a, v, r), v => (IReadOnlyList<ReplayTaskWire>)[.. v.Select(t => new ReplayTaskWire(t.TaskId, t.Title, t.Column))]),
+        MapPart(frame.Vault, (a, v, r) => new ReplayVaultPart(a, v, r), v => new ReplayVaultWire(v.Commit)),
+        MapPart(frame.Souls, (a, v, r) => new ReplaySoulsPart(a, v, r), v => (IReadOnlyList<ReplaySoulWire>)[.. v.Select(s => new ReplaySoulWire(s.AgentId, s.Version))]),
+        MapPart(frame.Reputation, (a, v, r) => new ReplayReputationPart(a, v, r), v => (IReadOnlyList<ReplayReputationWire>)[.. v.Select(r => new ReplayReputationWire(r.AgentId, r.Score))]));
 
-    private static ReplayPartWire<TWire> MapPart<TSource, TWire>(ReplayPart<TSource> part, Func<TSource, TWire> map) =>
+    private static TPart MapPart<TSource, TWire, TPart>(ReplayPart<TSource> part, Func<bool, TWire?, string?, TPart> make, Func<TSource, TWire> map) =>
         part.IsAvailable && part.Value is { } value
-            ? new ReplayPartWire<TWire>(true, map(value), null)
-            : new ReplayPartWire<TWire>(false, default, part.Reason ?? "unavailable");
+            ? make(true, map(value), null)
+            : make(false, default, part.Reason ?? "unavailable");
 }
