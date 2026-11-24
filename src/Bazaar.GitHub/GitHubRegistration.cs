@@ -1,11 +1,11 @@
 using Bazaar.GitHub.Adapter;
 using Bazaar.GitHub.Auth;
 using Bazaar.GitHub.Ingress;
-using Bazaar.GitHub.Wire;
-using Bazaar.Server.Wire.Connection;
 using Bazaar.GitHub.Issues;
 using Bazaar.GitHub.Pr;
 using Bazaar.GitHub.Processing;
+using Bazaar.GitHub.Wire;
+using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

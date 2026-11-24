@@ -77,11 +77,12 @@ public sealed class CouncilComponentTests
                 ["Bazaar:DevAuth:TokenSecret"] = "env:" + tokenEnv,
             });
             builder.Services.AddBazaarHostApplication(builder.Configuration);
-            // The options provider reads council.* when the service is first resolved; the graph test has no database, so it reads defaults.
+            // The options provider reads council.* when the service is first used; the graph test has no database, so it reads defaults.
             builder.Services.Replace(ServiceDescriptor.Singleton<ISettingStore>(new DefaultsSettingStore()));
             using var host = builder.Build();
 
-            Assert.IsType<CouncilService>(host.Services.GetRequiredService<ICouncilService>());
+            // The service builds on first use (the settings read waits for the data volume guard), so the graph holds a lazy wrapper.
+            Assert.NotNull(host.Services.GetRequiredService<ICouncilService>());
             Assert.IsType<CouncilStore>(host.Services.GetRequiredService<ICouncilStore>());
             Assert.IsType<CouncilGcEventsAdapter>(host.Services.GetRequiredService<ICouncilGcEvents>());
             Assert.IsType<PgGcMembershipAdapter>(host.Services.GetRequiredService<IGcMembership>());
