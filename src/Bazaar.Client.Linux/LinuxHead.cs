@@ -71,7 +71,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 {
     private static readonly JsonElement _emptyModel = JsonElement.Parse("{}");
 
-    private const string AthanorFlag = "--athanor";
+    private const string _athanorFlag = "--athanor";
 
     private readonly ContentControl _slot = new();
     private readonly CommandRunner _commands = new();
@@ -103,7 +103,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 
         Directory.CreateDirectory(options.Paths.StateDirectory);
         // --athanor shows the editor pane (doc 57 section 2.2). The editor is composed only then, so a normal start pays nothing for it.
-        var showAthanor = options.Args.Contains(AthanorFlag, StringComparer.Ordinal);
+        var showAthanor = options.Args.Contains(_athanorFlag, StringComparer.Ordinal);
         _athanorModule = showAthanor ? new AthanorPaneModule() : null;
         var modules = _athanorModule is null ? LinuxModules.Create() : [.. LinuxModules.Create(), _athanorModule];
         Preferences = new PreferenceStore(
@@ -256,7 +256,7 @@ internal sealed class LinuxHead : IAsyncDisposable
 
     // With dev chat settings the window opens on the GC pane; otherwise on the Dashboard (doc 28). --terminal opens the terminal.
     private static string InitialKind(LinuxHeadOptions options) =>
-        options.Args.Contains(AthanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
+        options.Args.Contains(_athanorFlag, StringComparer.Ordinal) ? AthanorPaneKinds.Editor
         : options.Args.Contains("--terminal", StringComparer.Ordinal) ? PaneKinds.Terminal
         : options.Args.Contains("--cold-archive", StringComparer.Ordinal) ? PaneKinds.ColdArchive
         : options.Settings is not null ? GcPaneViewModel.PaneKind

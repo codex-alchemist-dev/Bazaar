@@ -27,7 +27,7 @@ public sealed class LuckyDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 8 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
     }
 
     public new async ValueTask DisposeAsync()
