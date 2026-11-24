@@ -20,8 +20,16 @@ public class ProductVersionTests
         Assert.Equal(expected, ProductVersion.Major(version));
 
     [Fact]
-    public void Running_build_carries_the_repo_version_prefix() =>
-        Assert.StartsWith("0.1.0", ProductVersion.Informational, StringComparison.Ordinal);
+    public void Running_build_carries_the_repo_version_prefix()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "Directory.Build.props"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+        var match = System.Text.RegularExpressions.Regex.Match(
+            File.ReadAllText(Path.Combine(dir.FullName, "Directory.Build.props")), "<VersionPrefix>([^<]+)</VersionPrefix>");
+        Assert.True(match.Success);
+        Assert.StartsWith(match.Groups[1].Value, ProductVersion.Informational, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void Pre_release_builds_show_the_beta_codename() => Assert.Equal("Beta", ProductVersion.CurrentCodename);

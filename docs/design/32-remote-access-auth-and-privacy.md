@@ -57,6 +57,16 @@ Purpose: sign a human in from a new device with a passkey, then hand off to a na
 - No session cookie beyond the ceremony, with one exception: `audience=admin` (doc 51 section 5, PROPOSED) redirects to `/admin/session/redeem`, which sets the admin panel's own short-lived cookie. The panel is the only place a browser renders Bazaar content, and only for accounts holding an admin capability.
 - Off by default; operator enables it and sets the bind address.
 
+**Handoff store and audience binding [PROPOSED].** `Bazaar.Server.SignIn` (doc 40 section 4) holds the handoff codes: 256-bit random, 60 s, single use, stored only as a SHA-256 hash, in a bounded in-memory store. Each code is bound to an audience, `admin` (the panel, redeemed at `/admin/session/redeem`) or `native` (redeemed at `/auth/handoff`). Redeeming for the wrong audience fails and burns the code. `POST /signin/assert` takes `audience` (query or body) and answers `{"redirect": ...}`: `/admin/session/redeem?code=...` or `bazaar://signin?code=...`. Passkey verification is a port (`IPasskeyAssertionVerifier`); until an adapter is registered every assertion fails. Settings: `signin:enabled` (native, default off) and `signin:adminEnabled` (admin audience, default on while the panel is on); the routes are served when either is on. Every failure answers the same 401 body. `/signin/register` and `/signin/recover` return 501 until their own work packages land. The rate-limit bucket name is `signin`; enforcement belongs to the rate-limit module.
+
+**`POST /auth/handoff` request and reply [DECIDED-in-code by the PR that built it; owner review at merge].** The native client redeems the handoff code it received at `bazaar://signin?code=...` here. The route lives in `Bazaar.Server.SignIn` and reaches the token service through `ITokenService.IssueAsync` (doc 32 section 5, `Bazaar.Server.Remote.Abstractions`).
+- Request: `POST /auth/handoff`, JSON `{ "code", "device_class", "client_build" }`. `code` and `device_class` are required; `client_build` is optional. A missing field, an empty field or a body that is not JSON answers 400 `{"error":"malformed_request"}`; the body is capped at 4 KiB.
+- Reply 200: the same body as `POST /auth/refresh`: `{ "access_token", "token_type": "Bearer", "expires_in", "refresh_token" }`. The device the pair is issued for is the `DeviceId` in the identity bound to the code, and the human is its `PrincipalId`; the client does not choose either. `device_class` comes from the request.
+- Every refusal of the code (unknown, already used, expired, issued for the `admin` audience, over-long or otherwise malformed) answers one identical 401 `{"error":"invalid_grant"}`. The reason goes to the server log only, and the code is never logged. The code is burned on the first redeem and when it is redeemed for the wrong audience. A device that already holds credentials is refused the same way, after the code is burned (open: Question 5 below).
+- 503 `{"error":"unavailable"}` when no token service or no access-token issuer is registered. With no token service the code is not touched, so the client can retry.
+- Transport: the same rule as `/auth/refresh`: 403 `{"error":"forbidden"}` for plaintext off the machine unless `wire.allow_plaintext_overlay` is set. The route answers 404 unless `signin:enabled` is on, and POST only otherwise.
+- Rate-limit bucket `signin`; enforcement belongs to the rate-limit module.
+
 ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped to authentication scenarios", "isn't intended as a general-purpose WebAuthn library", needs a WebAuthn browser. So passkeys serve only this page, not native clients. Set the RP ID explicitly (`IdentityPasskeyOptions.ServerDomain`) rather than inferring it from the Host header; passkeys work only on the registered domain, so a hostname change breaks them (recovery codes cover it). Attestation state is unsigned JSON, so keep it server-side. Exact .NET 10 API names are unverified; confirm in a spike.
 
 ### 5. Tokens, revocation, WebSocket auth [PROPOSED]
@@ -67,6 +77,18 @@ ASP.NET Core Identity passkeys (page updated 2026-10-13): "deliberately scoped t
 | Handoff code | 60 s, single use | server hash |
 
 Reuse of a retired refresh credential revokes the device and audits it. Lifetimes are settings (`auth.*`, Settings table). Revocation is immediate: live sockets close 4403, a device revision is checked on connect and `auth.refresh`, and the device's approval key (5a) is revoked with it. The owner revokes any device; a coworker revokes their own.
+
+**HTTP auth routes (access-token side).** Both routes carry the same transport rule: plaintext off the machine answers 403 `forbidden` unless the operator allowed an overlay (`wire.allow_plaintext_overlay`).
+
+| Route | Purpose | Status |
+|---|---|---|
+| `POST /auth/refresh` | Exchanges a live refresh secret for a new access token and refresh secret; any refusal answers 401 `invalid_grant`, reason in the server log only; 503 `unavailable` with no token issuer | BUILT (code merged) |
+| `GET /auth/whoami` | Reads the signed-in person from an access token (below) | PROPOSED, built in PR #1145; not merged until the PR lands |
+| `POST /auth/signout` | Signs the calling device out: revokes that one device so its refresh secret stops working at once (below) | PROPOSED, drafted on top of the whoami PR |
+
+`GET /auth/whoami` takes `Authorization: Bearer <access token>` and answers 200 `{ "human_id": "<guid>", "display_name": "...", "role": "owner" | "coworker", "device_id": "<guid>" }`. A missing, malformed, expired or badly signed token, a revoked device, and a suspended or removed human all answer the same 401 `{"error":"invalid_token"}`, byte for byte; the reason goes to the server log only and the token is never logged. 403 `forbidden` for plaintext off the machine (as above); 503 `unavailable` when no access-token verifier is registered. It is read-only and writes no audit entry. The token proves signature and expiry only, so the route also reads the `device` and `human` rows: that is what makes revocation and removal immediate here. GET only; `/auth/whoami` needs no change to the method guard in the host.
+
+`POST /auth/signout` takes `Authorization: Bearer <access token>` and no body. It revokes the device named in the token through `ITokenService.RevokeDeviceAsync` (the same revocation path as an owner revoking a device; audited by that path, with the signed-in human as actor) and answers 204. Signing out twice is not an error: a device that is already revoked is left unchanged. Every token refusal answers the same 401 `{"error":"invalid_token"}` as `/auth/whoami`; 403 `forbidden` for plaintext off the machine; 503 `unavailable` when no access-token verifier or token service is registered. It signs out this device only; other devices of the same person stay signed in. The client discards its stored credentials after a 204 or a 401.
 
 **Access token signing key** [PROPOSED]
 - **Algorithm and key.** The access token is signed with HMAC-SHA256 under a 256-bit signing key. The key is an install-scope data key: one row in `soul_dek` with scope `access-token` (one live row per scope). It is wrapped by the host KEK (doc 14, envelope encryption). The Identity Service holds it. No other module sees the key; they get only a verifier or an issuer, behind one interface.
@@ -99,6 +121,7 @@ Status: DECIDED for the Windows head, by the owner's delegation of 2026-11-18. I
 - **Presence.** Each approval signature needs a fresh Windows Hello verification (the platform's user consent verifier). Cancelled, unavailable or failed verification refuses the approval and signs nothing. A signature cannot be produced without presence, and the key is never used for anything else.
 - **Refusals are explicit.** No TPM, no Hello, a cancelled prompt and a software-only key each produce a named refusal. None of them falls back to a weaker path.
 - **Linux.** Unchanged here. It stays under the platform store question in the storage floor above.
+- **Desktop adapters [PROPOSED, 2026-11-22].** `Bazaar.Client.Approvals.Desktop` adapts the TPM signer and Hello presence to the client approval gate's `IDeviceApprovalSigner` and `IBiometricPrompt` (doc 52, merge button).
 
 ### 5b. Owner device enrolment [PROPOSED]
 
@@ -247,6 +270,7 @@ Real Postgres, fake clock, in-memory WebSocket host, Avalonia.Headless for the A
 2. May the other DM member approve an access request alone? Default: no; the owner approves, and the other member is notified and can object (matches 01 Q4). This touches the owner-reads-all DM rule.
 3. The decided sign-in scope has three routes, one of them "pairing approval" (`/signin/register`). With device pairing removed (owner 2026-11-16), should that route be passkey enrolment for an already signed-in owner, with no approval step? Default: yes, and the scope wording changes with it. This changes a DECIDED item (C42), so it needs the owner's word.
 4. How is the owner approval key (5a) enrolled, and how is a new client sign-in approved, now that pairing is removed? Options: during owner sign-in on the device, with a second factor; or only at the server console. Default until decided: owner sign-in plus second factor on the device. Designed in section 5b (PROPOSED): a console enrolment code for the first device, an owner-signed approval from an enrolled device for further ones.
+5. What does `POST /auth/handoff` do when the code's `DeviceId` already holds credentials (a second sign-in on the same device)? Built default: the redeem is refused with the generic 401 and the person signs in again after the device is revoked or re-enrolled. Alternative: retire the old chain and issue a fresh one for the same device. Needs the owner's word, because it decides whether one passkey device can hold one client install or many.
 
 MOVED TO SETTINGS: auth.access_token_minutes, auth.refresh_sliding_days, auth.refresh_absolute_days, approval.coworker_scopes, tls.certificate_source, recovery.printed_codes_enabled, privacy.overlays, privacy.owner_dm_read_marker (DECISIONS-LOG round 13)
 

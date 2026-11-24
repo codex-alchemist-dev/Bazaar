@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.DevSandbox.Wasm.Wasmtime</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Wasmtime" />
+    <ProjectReference Include="..\Bazaar.Server.DevSandbox.Wasm\Bazaar.Server.DevSandbox.Wasm.csproj" />
+  </ItemGroup>
+</Project>

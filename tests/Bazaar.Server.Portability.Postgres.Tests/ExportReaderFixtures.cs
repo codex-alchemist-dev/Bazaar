@@ -22,7 +22,7 @@ internal sealed class ExportReaderDb : IAsyncDisposable
         var db = await PgTestDatabase.CreateAsync(
             "export",
             async (ds, token) => await new MigrationRunner(ds, new MigrationOptions(16)).MigrateAsync(
-                new CoreSubsetSource(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), MigrateCommand.CurrentProvider(), token),
+                new CoreSubsetSource(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly)), MigrateCommand.CurrentProvider(), token),
             ct);
         return new ExportReaderDb(db);
     }
@@ -67,15 +67,21 @@ internal sealed class ExportReaderDb : IAsyncDisposable
 }
 
 /// <summary>
-/// Only the core migrations the readers read from: <c>common/0001</c> (gc tables) and <c>common/0012</c> (tasks). The rest of the core
+/// Only the core migrations the readers read from: <c>common/0001</c> (gc tables), <c>common/0012</c> (tasks) and <c>kanban/0001</c> and <c>0002</c> (gate table, import link). The rest of the core
 /// schema needs extensions (pgvector) these tests do not use, and the readers depend on nothing else.
 /// </summary>
-internal sealed class CoreSubsetSource(IMigrationSource inner) : IMigrationSource
+internal sealed class CoreSubsetSource(IMigrationSource inner, IMigrationSource portability) : IMigrationSource
 {
-    public IReadOnlyList<string> Namespaces() => ["common"];
+    // kanban/0001 and 0002 add the gate table and the import link on tasks.
+    public IReadOnlyList<string> Namespaces() => ["common", "kanban", "portability"];
 
-    public IReadOnlyList<MigrationFile> Load(string ns) =>
-        ns == "common" ? [.. inner.Load(ns).Where(f => f.Version is 1 or 12)] : [];
+    public IReadOnlyList<MigrationFile> Load(string ns) => ns switch
+    {
+        "common" => [.. inner.Load(ns).Where(f => f.Version is 1 or 12)],
+        "kanban" => [.. inner.Load(ns).Where(f => f.Version is 1 or 2)],
+        "portability" => portability.Load(ns),
+        _ => [],
+    };
 }
 
 /// <summary>A grant source with one fixed answer.</summary>

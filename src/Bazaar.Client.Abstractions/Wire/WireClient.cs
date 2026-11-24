@@ -5,6 +5,10 @@ using Bazaar.Contracts.Wire.Codec;
 
 namespace Bazaar.Client.Abstractions.Wire;
 
+/// <summary>Handler for an event on a stream family registered with <see cref="WireClient.RegisterStreamSink"/>.</summary>
+/// <param name="envelope">The event envelope: type <c>t</c>, stream <c>s</c> and the still-encoded payload <c>p</c>.</param>
+public delegate void WireStreamSink(Envelope envelope);
+
 /// <summary>
 /// Client side of the socket protocol (docs/design/02-wire-protocol-and-sync.md): hello/welcome, subscribe with
 /// cursors, in-order delivery with de-duplication by <c>(n, ev)</c>, <c>lagged</c> and <c>resync</c> handling,
@@ -22,6 +26,7 @@ public sealed class WireClient(
     private readonly Lock _gate = new();
     private readonly HashSet<string> _streams = [];
     private readonly Dictionary<string, Pending> _pending = [];
+    private readonly Dictionary<string, WireStreamSink> _sinks = [];
     private IWireConnection? _connection;
     private readonly string _idPrefix = Guid.NewGuid().ToString("N");
     private int _nextId;
@@ -41,6 +46,9 @@ public sealed class WireClient(
 
     /// <summary>Raised on the receive loop for each typing delta (<c>presence.update</c> of kind <c>typing</c>). The same rules apply to handlers.</summary>
     public event Action<PresenceTyping>? TypingReceived;
+
+    /// <summary>Raised on the receive loop for each agent presence delta (<c>presence.update</c> of kind <c>agent</c>). The same rules apply to handlers.</summary>
+    public event Action<PresenceUpdate>? PresenceUpdateReceived;
 
     /// <summary>
     /// Raised on the receive loop after each connection is established and its streams are subscribed, the first one included. State
@@ -70,6 +78,43 @@ public sealed class WireClient(
         if (conn is not null) await SendSubscribeAsync(conn, [stream], cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>Stops a stream: it is no longer resubscribed on reconnect, and the server is told when connected.</summary>
+    public async Task UnsubscribeAsync(string stream, CancellationToken cancellationToken = default)
+    {
+        IWireConnection? conn;
+        lock (_gate)
+        {
+            _streams.Remove(stream);
+            conn = _connection;
+        }
+
+        if (conn is null) return;
+        var unsubscribe = new Unsubscribe([stream]);
+        await TrySendAsync(conn, Frame(new Envelope(options.ProtocolMajor, WireTypes.Unsubscribe, EnvelopeKind.Request,
+            NextId(), null, null, null, null, codec.EncodePayload(unsubscribe))), cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Registers the one handler for events on streams that start with <paramref name="prefix"/> (for example <c>pane:</c>), for
+    /// features that own a stream family outside this class. Only events this client has no built-in handling for reach a sink, so a
+    /// sink cannot take over <c>gc.message</c> and the other built-in types. Streams with no sink are ignored as before.
+    /// </summary>
+    /// <param name="prefix">The stream prefix, ending in the separator.</param>
+    /// <param name="sink">Raised on the receive loop. It must not block or await a request inline.</param>
+    /// <returns>A handle that removes the registration.</returns>
+    /// <exception cref="InvalidOperationException">The prefix already has a handler.</exception>
+    public IDisposable RegisterStreamSink(string prefix, WireStreamSink sink)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(prefix);
+        ArgumentNullException.ThrowIfNull(sink);
+        lock (_gate)
+        {
+            if (!_sinks.TryAdd(prefix, sink)) throw new InvalidOperationException($"Stream prefix '{prefix}' already has a handler.");
+        }
+
+        return new SinkRegistration(this, prefix, sink);
+    }
+
     /// <summary>
     /// Sends a request and waits for its answer. Unanswered requests are resent with the same id after a reconnect,
     /// which the server answers once (doc 02, idempotency).
@@ -77,8 +122,22 @@ public sealed class WireClient(
     /// <exception cref="WireRequestException">The server answered with an error.</exception>
     public async Task<TResponse> RequestAsync<TRequest, TResponse>(string type, TRequest payload, CancellationToken cancellationToken = default)
     {
+        var answer = await RequestCoreAsync(type, null, codec.EncodePayload(payload), cancellationToken).ConfigureAwait(false);
+        return codec.DecodePayload<TResponse>(answer);
+    }
+
+    /// <summary>
+    /// Sends a request on a stream and waits for the <c>ok</c> (the answer's payload, if any, is not read), for messages whose answer
+    /// carries nothing. Resend and idempotency are as for <see cref="RequestAsync{TRequest, TResponse}"/>.
+    /// </summary>
+    /// <exception cref="WireRequestException">The server answered with an error.</exception>
+    public async Task SendRequestAsync<TRequest>(string type, string? stream, TRequest payload, CancellationToken cancellationToken = default) =>
+        await RequestCoreAsync(type, stream, codec.EncodePayload(payload), cancellationToken).ConfigureAwait(false);
+
+    private async Task<Envelope> RequestCoreAsync(string type, string? stream, ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+    {
         string id = NextId();
-        var env = new Envelope(options.ProtocolMajor, type, EnvelopeKind.Request, id, null, null, null, null, codec.EncodePayload(payload));
+        var env = new Envelope(options.ProtocolMajor, type, EnvelopeKind.Request, id, null, stream, null, null, payload);
         var pending = new Pending(Frame(env));
         IWireConnection? conn;
         lock (_gate)
@@ -93,7 +152,7 @@ public sealed class WireClient(
             if (conn is not null) await TrySendAsync(conn, pending.Frame, cancellationToken).ConfigureAwait(false);
             var answer = await pending.Completion.Task.ConfigureAwait(false);
             if (answer.K == EnvelopeKind.Error) throw new WireRequestException(codec.DecodePayload<WireError>(answer));
-            return codec.DecodePayload<TResponse>(answer);
+            return answer;
         }
         finally
         {
@@ -264,8 +323,9 @@ public sealed class WireClient(
                 break;
             case (EnvelopeKind.Event, WireTypes.PresenceUpdate):
                 var presence = codec.DecodePayload<PresenceTyping>(env);
-                // Other kinds of presence delta share this type; only typing is read here, the rest are ignored.
+                // Other kinds of presence delta share this type; typing and agent rows are read here, the rest are ignored.
                 if (presence.Kind == PresenceKinds.Typing) TypingReceived?.Invoke(presence);
+                else if (presence.Kind == PresenceKinds.Agent) PresenceUpdateReceived?.Invoke(codec.DecodePayload<PresenceUpdate>(env));
                 break;
             case (EnvelopeKind.Event, WireTypes.Lagged):
                 // Live delivery stopped for this stream; resubscribe from the cursor so nothing is lost.
@@ -282,7 +342,35 @@ public sealed class WireClient(
                 lock (_gate) _streams.Remove(codec.DecodePayload<StreamRevoked>(env).S);
                 break;
             default:
-                break; // unknown events are ignored (minor versions add them)
+                DispatchToSink(env); // other events go to a registered stream sink; with none they are ignored (minor versions add them)
+                break;
+        }
+    }
+
+    private void DispatchToSink(Envelope env)
+    {
+        if (env.K != EnvelopeKind.Event || env.S is null) return;
+        WireStreamSink? sink = null;
+        lock (_gate)
+        {
+            foreach (var (prefix, candidate) in _sinks)
+            {
+                if (env.S.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    sink = candidate;
+                    break;
+                }
+            }
+        }
+
+        if (sink is null) return;
+        try
+        {
+            sink(env);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A faulty sink must not break the connection.
         }
     }
 
@@ -328,6 +416,17 @@ public sealed class WireClient(
         var w = new ArrayBufferWriter<byte>();
         codec.Encode(env, w);
         return w.WrittenSpan.ToArray();
+    }
+
+    private sealed class SinkRegistration(WireClient owner, string prefix, WireStreamSink sink) : IDisposable
+    {
+        public void Dispose()
+        {
+            lock (owner._gate)
+            {
+                if (owner._sinks.TryGetValue(prefix, out var current) && current == sink) owner._sinks.Remove(prefix);
+            }
+        }
     }
 
     private sealed class Pending(byte[] frame)

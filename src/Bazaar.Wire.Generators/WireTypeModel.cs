@@ -172,7 +172,7 @@ internal sealed class RecordShape
             var value = p.ExplicitDefaultValue;
             if (value is null) return "default";
             if (field.ReadType.Kind == WireKind.Enum) return $"({field.ReadType.NonNull.Display()}){Convert.ToString(value, CultureInfo.InvariantCulture)}";
-            return SymbolDisplay.FormatPrimitive(value, true, false);
+            return SymbolDisplay.FormatPrimitive(value, true, false)!;
         }
 
         return field.ReadType.Nullable || field.ReadType.Symbol.IsValueType ? "default" : "default!";
