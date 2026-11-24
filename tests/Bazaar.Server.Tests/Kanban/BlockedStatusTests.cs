@@ -133,4 +133,28 @@ public class BlockedStatusTests
 
         Assert.Empty(BlockedStatus.DependentsBecomingReady(Id(1), edges, states, autoReadyEnabled: true));
     }
+
+    [Fact]
+    public void A_withdrawn_blocker_does_not_block()
+    {
+        var edges = new[] { Edge(1, 2), Edge(3, 2) };
+        var states = States((1, TaskState.Withdrawn), (3, TaskState.InProgress), (2, TaskState.Ready));
+
+        Assert.True(BlockedStatus.IsBlocked(Id(2), edges, states));
+        Assert.Equal([Id(3)], BlockedStatus.UnfinishedBlockers(Id(2), edges, states));
+
+        var onlyWithdrawn = States((1, TaskState.Withdrawn), (3, TaskState.Withdrawn), (2, TaskState.Ready));
+        Assert.False(BlockedStatus.IsBlocked(Id(2), edges, onlyWithdrawn));
+        Assert.True(BlockedStatus.CheckStart(Id(2), edges, onlyWithdrawn).Allowed);
+    }
+
+    [Fact]
+    public void A_withdrawn_task_is_never_blocked()
+    {
+        var edges = new[] { Edge(1, 2) };
+        var states = States((1, TaskState.InProgress), (2, TaskState.Withdrawn));
+
+        Assert.False(BlockedStatus.IsBlocked(Id(2), edges, states));
+        Assert.Empty(BlockedStatus.UnfinishedBlockers(Id(2), edges, states));
+    }
 }
