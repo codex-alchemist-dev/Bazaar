@@ -258,6 +258,9 @@
     <Project Path="src/Bazaar.Server.Setup.IdentityKek/Bazaar.Server.Setup.IdentityKek.csproj" />
     <Project Path="src/Bazaar.Fun/Bazaar.Fun.csproj" />
     <Project Path="tests/Bazaar.Fun.Tests/Bazaar.Fun.Tests.csproj" />
+    <Project Path="src/Bazaar.Lucky.Abstractions/Bazaar.Lucky.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Lucky/Bazaar.Lucky.csproj" />
+    <Project Path="tests/Bazaar.Lucky.Tests/Bazaar.Lucky.Tests.csproj" />
     <Project Path="src/Bazaar.Erasure.Abstractions/Bazaar.Erasure.Abstractions.csproj" />
     <Project Path="src/Bazaar.Erasure/Bazaar.Erasure.csproj" />
     <Project Path="src/Bazaar.Roles.Abstractions/Bazaar.Roles.Abstractions.csproj" />

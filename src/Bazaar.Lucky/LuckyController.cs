@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using Bazaar.Sanitization;
 
-namespace Bazaar.Fun.Lucky;
+namespace Bazaar.Lucky;
 
 /// <summary>
 /// The I'm Feeling Lucky run controller (doc 26, section 6). Pure logic: the caller supplies the clock, the seed source,
@@ -148,6 +148,48 @@ public sealed class LuckyController
         }
 
         return LuckyResult.Accept(run with { Ideas = run.Ideas.SetItem(ideaIndex, idea with { OwnerMarked = true }) });
+    }
+
+    /// <summary>The GC type key for a run's ephemeral brainstorm GC (doc 01 registry; doc 26, section 6).</summary>
+    public const string GcTypeKey = "brainstorm";
+
+    /// <summary>The card title limit in characters, so a long idea still makes a readable Backlog line.</summary>
+    public const int CardTitleLimit = 120;
+
+    /// <summary>
+    /// Plans a run's side effects. Wakes go to opted-in participants only. Kept ideas become GC entries; quarantined ideas never
+    /// do. Cards come only from owner-marked, kept ideas, and only under <c>lucky.cards_from_ideas = owner_marked</c>.
+    /// </summary>
+    public LuckyRunPlan Plan(LuckyRun run)
+    {
+        ArgumentNullException.ThrowIfNull(run);
+
+        var wakes = run.Participants
+            .Where(p => p.OptedIn)
+            .Select(p => new LuckyWake(p.AgentId, "brainstorm", $"lucky:{run.RunId}:{p.AgentId}"))
+            .ToImmutableArray();
+
+        var kept = run.Ideas
+            .Select((idea, index) => (idea, index))
+            .Where(pair => pair.idea.Status == LuckyIdeaStatus.Kept)
+            .ToList();
+
+        var entries = kept
+            .Select(pair => new LuckyGcEntry("idea", LuckyIdea.SourceTrust, pair.idea.AgentId, pair.idea.Text, pair.index))
+            .ToImmutableArray();
+
+        var cards = _settings.CardsFromIdeas == LuckyCardsFromIdeas.OwnerMarked
+            ? kept
+                .Where(pair => pair.idea.OwnerMarked)
+                .Select(pair => new LuckyCardRequest(
+                    run.RunId,
+                    pair.index,
+                    pair.idea.Text.Length <= CardTitleLimit ? pair.idea.Text : pair.idea.Text[..CardTitleLimit],
+                    "backlog"))
+                .ToImmutableArray()
+            : ImmutableArray<LuckyCardRequest>.Empty;
+
+        return new LuckyRunPlan(run.RunId, GcTypeKey, Ephemeral: true, run.Prompt, wakes, entries, cards, $"lucky:{run.RunId}");
     }
 
     /// <summary>

@@ -1,8 +1,8 @@
-using Bazaar.Fun.Lucky;
+using Bazaar.Lucky;
 using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 
-namespace Bazaar.Fun.Tests;
+namespace Bazaar.Lucky.Tests;
 
 /// <summary>
 /// Pins the fixed Lucky rules from doc 26, section 6 that no setting may override: owner-only trigger, the time box,

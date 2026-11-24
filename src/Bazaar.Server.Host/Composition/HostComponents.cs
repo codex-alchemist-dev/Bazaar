@@ -3,6 +3,7 @@ using Bazaar.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
 using Bazaar.Fun;
+using Bazaar.Lucky;
 using Bazaar.GitHub;
 using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
@@ -123,6 +124,7 @@ public static class HostComponents
         new OrgComponent(),
         new CompanyBuildComponent(),
         new FunComponent(),
+        new LuckyComponent(),
         new KanbanComponent(),
         new RyuseiScheduleComponent(),
         new RoadmapComponent(),
