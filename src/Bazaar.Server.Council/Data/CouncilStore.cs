@@ -16,7 +16,7 @@ namespace Bazaar.Server.Council.Data;
 /// TODO(component): DI registration (for example <c>AddBazaarCouncilStore</c>) and the cipher's wiring belong to the host;
 /// nothing here is registered in a host yet.
 /// </remarks>
-public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningCipher cipher) : ICouncilStore
+public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningCipher cipher) : ICouncilStore, Bazaar.Server.Council.Escalation.ICouncilEscalationSource
 {
     private const string _voteColumns = """
         vote_id, gc_id, subject_ref, kind, motion_class, state, version, options::text, deadline_at, extensions,
@@ -69,6 +69,13 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         SELECT t.vote_id FROM council_transition t
         WHERE t.to_state = 'decided' AND t.at >= @since
         ORDER BY t.at, t.vote_id
+        LIMIT @limit
+        """;
+
+    private const string _escalatedSql = """
+        SELECT v.vote_id FROM council_vote v
+        WHERE v.state = 'escalated'
+        ORDER BY (SELECT max(t.at) FROM council_transition t WHERE t.vote_id = v.vote_id AND t.to_state = 'escalated'), v.vote_id
         LIMIT @limit
         """;
 
@@ -292,6 +299,15 @@ public sealed class CouncilStore(NpgsqlDataSource dataSource, ICouncilReasoningC
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         await using var cmd = dataSource.CreateCommand(_decidedSinceSql);
         cmd.Parameters.AddWithValue("since", since);
+        cmd.Parameters.AddWithValue("limit", limit);
+        return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Guid>> ListEscalatedAsync(int limit, CancellationToken ct)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        await using var cmd = dataSource.CreateCommand(_escalatedSql);
         cmd.Parameters.AddWithValue("limit", limit);
         return await ReadVoteIdsAsync(cmd, ct).ConfigureAwait(false);
     }

@@ -13,6 +13,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Settings.Avalonia\Bazaar.Client.Settings.Avalonia.csproj" />
   </ItemGroup>
 </Project>
