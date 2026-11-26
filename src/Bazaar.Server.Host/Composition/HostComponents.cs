@@ -67,6 +67,10 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
+using Bazaar.Server.SignIn;
+using Bazaar.Server.SignIn.WebAuthn;
+using Bazaar.Server.Vault;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.SignIn.Passkeys;
@@ -138,6 +142,8 @@ public static class HostComponents
         new CommunityComponent(),
         new RolesComponent(),
         new SignInComponent(),
+        new SignInWebAuthnComponent(),
+        new WebAdminComponent(),
         new PasskeysComponent(),
         new WebAdminComponent(),
         new CommunityGitHubComponent(),

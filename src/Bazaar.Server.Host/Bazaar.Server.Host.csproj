@@ -114,6 +114,9 @@
     <ProjectReference Include="..\Bazaar.Server.Valkey\Bazaar.Server.Valkey.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn\Bazaar.Server.SignIn.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SignIn.WebAuthn\Bazaar.Server.SignIn.WebAuthn.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Athanor\Bazaar.Server.Athanor.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Athanor.Vault\Bazaar.Server.Athanor.Vault.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Athanor.Abstractions\Bazaar.Server.Athanor.Abstractions.csproj" />
