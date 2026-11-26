@@ -1,5 +1,20 @@
 {
   "protocol": { "major": 1, "minor": 0 },
+  "hash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
+  "messages": [
+    { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
+    { "type": "gc.history", "payload": "Bazaar.Contracts.Wire.GcHistory" },
+    { "type": "gc.member.add", "payload": "Bazaar.Contracts.Wire.GcMemberAdd" },
+    { "type": "gc.member.remove", "payload": "Bazaar.Contracts.Wire.GcMemberRemove" },
+    { "type": "gc.message", "payload": "Bazaar.Contracts.Wire.WireGcMessage" },
+    { "type": "gc.read", "payload": "Bazaar.Contracts.Wire.GcRead" },
+    { "type": "gc.send", "payload": "Bazaar.Contracts.Wire.GcSend" },
+    { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
+    { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
+    { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
+    { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
+    { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
   "hash": "sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf",
   "messages": [
     { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
@@ -1324,6 +1339,7 @@
         { "n": 7, "name": "ts", "type": "datetime", "nullable": false, "default": false },
         { "n": 8, "name": "edited", "type": "bool", "nullable": false, "default": false },
         { "n": 9, "name": "mentions", "type": "list<guid>", "nullable": false, "default": false },
+        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false }
         { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false },
         { "n": 11, "name": "withdrawn", "type": "bool", "nullable": false, "default": true }
       ]

@@ -17,6 +17,7 @@ public sealed class SetupWizardEngineTests
 
     private static readonly string[] _mainAnswers =
     [
+        "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", _anchor, _backup, "", "", "", "", "",
         "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", "", "", "", "",
     ];
 
@@ -112,6 +113,7 @@ public sealed class SetupWizardEngineTests
     public async Task A_held_plan_offers_no_apply()
     {
         var answers = _mainAnswers.ToArray();
+        answers[10] = "lan";
         answers[11] = "lan";
         var prompter = new ScriptedWizardPrompter(answers);
         var backend = new FakeBackend();

@@ -132,6 +132,7 @@ public class KodoStreamTrackerTests
     {
         const string json = """
             {"revision":7,"type":"snapshot","at":"2026-11-18T12:00:00+00:00","stateChange":null,"snapshot":
+            {"schemaVersion":1,"revision":7,"generatedAt":"2026-11-18T12:00:00+00:00","state":"degraded","underlying":"degraded","score":71,"journalHead":null,
             {"schemaVersion":1,"revision":7,"status":{"state":"degraded","underlyingState":null,"score":71,"asOf":"2026-11-18T12:00:00+00:00","controls":[]},"journalHead":null,
             "components":[{"id":"host.disk.free","state":"amber","cause":"disk_low","since":"2026-11-18T11:00:00+00:00"}]}}
             """;

@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- An adapter between two ports. The two port projects and Bazaar.Core (for the component): no Bazaar.Server, no concrete pool, no host. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />

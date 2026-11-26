@@ -8,6 +8,7 @@ public class TrelloMappingImporterTests
         var importer = new TrelloMappingImporter();
         Assert.Equal("trello.json", importer.FormatId);
         Assert.Equal(["staging-input"], importer.Declaration.Reads);
+        Assert.Equal([ImportTargetKind.VaultFile], importer.Declaration.Targets);
         Assert.Equal([ImportTargetKind.KanbanTask], importer.Declaration.Targets);
     }
 
@@ -33,6 +34,7 @@ public class TrelloMappingImporterTests
     }
 
     [Fact]
+    public void Map_proposes_each_card_as_a_vault_file_and_keeps_its_content()
     public void Map_proposes_each_card_as_a_kanban_task_and_keeps_its_content()
     {
         var importer = new TrelloMappingImporter();
@@ -43,6 +45,9 @@ public class TrelloMappingImporterTests
         {
             var result = importer.Map(record, MappingRules.Default);
             Assert.False(result.IsSkipped);
+            Assert.Equal(ImportTargetKind.VaultFile, result.Target);
+            Assert.NotNull(result.Record);
+            Assert.Equal(record.SourceKey, result.Record!.SourceKey);
             Assert.Equal(ImportTargetKind.KanbanTask, result.Target);
             Assert.NotNull(result.Record);
             Assert.Equal(ImportCommitter.KanbanTaskKind, result.Record!.Kind);

@@ -107,6 +107,10 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
+| `host.provider.service_host` | `auto`, `windows_service`, `systemd` | `auto` | install | operator | no |
+| `host.provider.vm` | `auto`, `hyperv`, `qemu_kvm`, `none` | `auto` | install | operator | no |
+| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet on Windows, Valkey on Linux) | install | operator | no |
+| `host.provider.search` | `auto`, `postgres_fts`, `pg_search` | `auto` | install | operator | no |
 | `host.readiness.required_roles` | list of roles | `search`, `service_host` | install | operator | no |
 | `host.shutdown_timeout_seconds` | int, 5 to 120 | 20 | install | operator | no |
 | `host.service.restart_delays_minutes` | list of int | 1, 1, 5 | install | operator | no |
@@ -160,6 +164,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 9. Linux module: systemd, journald, systemd-creds. [2, 3]
 10. Postgres FTS search (OS-neutral). [2, 04]
 11. Kill and stop rig; soak harness. [5, 6, 06]
+12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2] Status: PROPOSED (2026-11-18) for the Valkey part. Valkey becomes the `valkey` dependency module (doc 40 section 4c, doc 42 section 11.1): `Bazaar.Server.Valkey.Abstractions` and `Bazaar.Server.Valkey`. `ICacheProvider` moves to `Bazaar.Server.Providers.Abstractions` with the same namespace and gains `DeleteAsync` (PROPOSED). The `host.provider.cache` setting is unchanged.
 12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2] Status: PROPOSED (2026-11-18) for the Valkey part. Valkey becomes the `valkey` dependency module (doc 40 section 4c, doc 42 section 11.1): `Bazaar.Server.Valkey.Abstractions` and `Bazaar.Server.Valkey`. `ICacheProvider` moves to `Bazaar.Server.Providers.Abstractions` with the same namespace and gains `DeleteAsync` (PROPOSED). There is no `host.provider.cache` setting: the cache modules are installed and configured like any other module.
 13. `Vm` provider registration against doc 16's contract; S8 sizing. [2, 16]. Unblocked by C03.
 14. `pg_search` provider. Blocked on counsel review.

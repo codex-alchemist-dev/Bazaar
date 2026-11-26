@@ -2,6 +2,10 @@ namespace Bazaar.Server.AuditAnomaly.Tests;
 
 public class ContainmentTests
 {
+    private static readonly Requester Owner = new("owner", true);
+    private static readonly Requester Reviewer = new("rev", false);
+    private static readonly ContainmentTarget Agent = new(ContainmentScope.Agent, "agent-1");
+    private static readonly ContainmentTarget Global = new(ContainmentScope.Global, null);
     private static readonly Requester _owner = new("owner", true);
     private static readonly Requester _reviewer = new("rev", false);
     private static readonly ContainmentTarget _agent = new(ContainmentScope.Agent, "agent-1");
@@ -19,6 +23,7 @@ public class ContainmentTests
     public async Task Contain_RecordsWindowAtFloor_AndAudits()
     {
         var rig = new Rig { Settings = new AnomalySettings { UndoWindow = TimeSpan.Zero } };
+        var r = await rig.Containment().ContainAsync(Agent, ContainmentActions.BlockEgress | ContainmentActions.PauseSessions, "why", Reviewer, TestContext.Current.CancellationToken);
         var r = await rig.Containment().ContainAsync(_agent, ContainmentActions.BlockEgress | ContainmentActions.PauseSessions, "why", _reviewer, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.Done, r.Outcome);
         Assert.Equal(rig.Clock.GetUtcNow() + AnomalySettings.UndoWindowFloor, r.Record!.UndoableUntil);
@@ -30,6 +35,7 @@ public class ContainmentTests
     public async Task GlobalFreeze_RefusedForNonOwner_AndAudited()
     {
         var rig = new Rig();
+        var r = await rig.Containment().ContainAsync(Global, ContainmentActions.FreezeWrites, "x", Reviewer, TestContext.Current.CancellationToken);
         var r = await rig.Containment().ContainAsync(_global, ContainmentActions.FreezeWrites, "x", _reviewer, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.RefusedNotOwner, r.Outcome);
         Assert.Empty(rig.Port.Calls);
@@ -40,6 +46,7 @@ public class ContainmentTests
     public async Task GlobalFreeze_AllowedForOwner()
     {
         var rig = new Rig();
+        var r = await rig.Containment().ContainAsync(Global, ContainmentActions.FreezeWrites, "x", Owner, TestContext.Current.CancellationToken);
         var r = await rig.Containment().ContainAsync(_global, ContainmentActions.FreezeWrites, "x", _owner, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.Done, r.Outcome);
     }
@@ -50,6 +57,7 @@ public class ContainmentTests
     public async Task InvalidAgentRequests_Refused(ContainmentActions actions)
     {
         var rig = new Rig();
+        var r = await rig.Containment().ContainAsync(Agent, actions, "x", Owner, TestContext.Current.CancellationToken);
         var r = await rig.Containment().ContainAsync(_agent, actions, "x", _owner, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.RefusedInvalid, r.Outcome);
         Assert.Empty(rig.Port.Calls);
@@ -60,6 +68,8 @@ public class ContainmentTests
     {
         var rig = new Rig();
         var svc = rig.Containment();
+        var c = await svc.ContainAsync(Agent, ContainmentActions.PauseSessions, "x", Reviewer, TestContext.Current.CancellationToken);
+        var u = await svc.UndoAsync(c.Record!.Id, Owner, TestContext.Current.CancellationToken);
         var c = await svc.ContainAsync(_agent, ContainmentActions.PauseSessions, "x", _reviewer, TestContext.Current.CancellationToken);
         var u = await svc.UndoAsync(c.Record!.Id, _owner, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.Done, u.Outcome);
@@ -76,6 +86,8 @@ public class ContainmentTests
         {
             var rig = new Rig { Biometric = bio };
             var svc = rig.Containment();
+            var c = await svc.ContainAsync(Agent, ContainmentActions.PauseSessions, "x", Reviewer, TestContext.Current.CancellationToken);
+            var u = await svc.UndoAsync(c.Record!.Id, Owner, TestContext.Current.CancellationToken);
             var c = await svc.ContainAsync(_agent, ContainmentActions.PauseSessions, "x", _reviewer, TestContext.Current.CancellationToken);
             var u = await svc.UndoAsync(c.Record!.Id, _owner, TestContext.Current.CancellationToken);
             Assert.Equal(ContainmentOutcome.RefusedBiometric, u.Outcome);
@@ -90,6 +102,8 @@ public class ContainmentTests
         var bio = new FakeBiometric(true);
         var rig = new Rig { Biometric = bio };
         var svc = rig.Containment();
+        var c = await svc.ContainAsync(Agent, ContainmentActions.PauseSessions, "x", Reviewer, TestContext.Current.CancellationToken);
+        var u = await svc.UndoAsync(c.Record!.Id, Reviewer, TestContext.Current.CancellationToken);
         var c = await svc.ContainAsync(_agent, ContainmentActions.PauseSessions, "x", _reviewer, TestContext.Current.CancellationToken);
         var u = await svc.UndoAsync(c.Record!.Id, _reviewer, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.RefusedBiometric, u.Outcome);
@@ -101,6 +115,9 @@ public class ContainmentTests
     {
         var rig = new Rig { Settings = new AnomalySettings { UndoWindow = TimeSpan.FromMinutes(5) } };
         var svc = rig.Containment();
+        var c = await svc.ContainAsync(Agent, ContainmentActions.PauseSessions, "x", Reviewer, TestContext.Current.CancellationToken);
+        rig.Clock.Advance(TimeSpan.FromMinutes(6));
+        Assert.Equal(ContainmentOutcome.RefusedUndoWindowElapsed, (await svc.UndoAsync(c.Record!.Id, Owner, TestContext.Current.CancellationToken)).Outcome);
         var c = await svc.ContainAsync(_agent, ContainmentActions.PauseSessions, "x", _reviewer, TestContext.Current.CancellationToken);
         rig.Clock.Advance(TimeSpan.FromMinutes(6));
         Assert.Equal(ContainmentOutcome.RefusedUndoWindowElapsed, (await svc.UndoAsync(c.Record!.Id, _owner, TestContext.Current.CancellationToken)).Outcome);
@@ -111,6 +128,10 @@ public class ContainmentTests
     {
         var rig = new Rig();
         var svc = rig.Containment();
+        var c = await svc.ContainAsync(Agent, ContainmentActions.PauseSessions, "x", Reviewer, TestContext.Current.CancellationToken);
+        await svc.UndoAsync(c.Record!.Id, Owner, TestContext.Current.CancellationToken);
+        Assert.Equal(ContainmentOutcome.RefusedAlreadyUndone, (await svc.UndoAsync(c.Record.Id, Owner, TestContext.Current.CancellationToken)).Outcome);
+        Assert.Equal(ContainmentOutcome.RefusedUnknown, (await svc.UndoAsync(Guid.NewGuid(), Owner, TestContext.Current.CancellationToken)).Outcome);
         var c = await svc.ContainAsync(_agent, ContainmentActions.PauseSessions, "x", _reviewer, TestContext.Current.CancellationToken);
         await svc.UndoAsync(c.Record!.Id, _owner, TestContext.Current.CancellationToken);
         Assert.Equal(ContainmentOutcome.RefusedAlreadyUndone, (await svc.UndoAsync(c.Record.Id, _owner, TestContext.Current.CancellationToken)).Outcome);

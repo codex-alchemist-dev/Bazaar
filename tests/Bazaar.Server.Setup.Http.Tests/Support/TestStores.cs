@@ -138,6 +138,7 @@ public sealed class FakeSettingAudit : ISetupSettingAudit
 }
 
 /// <summary>
+/// A three-key settings catalog: the keys the fixture plans use. Values are checked by type and range only, and a status bind
 /// A four-key settings catalog: the keys the fixture plans use. Values are checked by type and range only, and a status bind
 /// other than <c>loopback</c> is held, like the real registry.
 /// </summary>

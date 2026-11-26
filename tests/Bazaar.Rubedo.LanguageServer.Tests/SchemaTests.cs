@@ -7,6 +7,8 @@ namespace Bazaar.Rubedo.LanguageServer.Tests;
 
 public sealed class SchemaTests
 {
+    private const string Uri = "file:///a.rubedo";
+    private const string SchemaJson = """{"unreadCount":"number","isMuted":"bool","roomName":"text"}""";
     private const string _uri = "file:///a.rubedo";
     private const string _schemaJson = """{"unreadCount":"number","isMuted":"bool","roomName":"text"}""";
 
@@ -23,6 +25,7 @@ public sealed class SchemaTests
     {
         ["jsonrpc"] = "2.0",
         ["method"] = "textDocument/didOpen",
+        ["params"] = new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = Uri, ["languageId"] = "rubedo", ["version"] = 1, ["text"] = text } },
         ["params"] = new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = _uri, ["languageId"] = "rubedo", ["version"] = 1, ["text"] = text } },
     }.ToJsonString())));
 
@@ -33,6 +36,7 @@ public sealed class SchemaTests
         ["method"] = method,
         ["params"] = new JsonObject
         {
+            ["textDocument"] = new JsonObject { ["uri"] = Uri },
             ["textDocument"] = new JsonObject { ["uri"] = _uri },
             ["position"] = new JsonObject { ["line"] = 0, ["character"] = character },
         },
@@ -40,6 +44,7 @@ public sealed class SchemaTests
 
     private static RubedoSchema Custom()
     {
+        Assert.True(ServerOptions.TryParseSchema(SchemaJson, out RubedoSchema? schema, out _));
         Assert.True(ServerOptions.TryParseSchema(_schemaJson, out RubedoSchema? schema, out _));
         return schema!;
     }
@@ -74,6 +79,7 @@ public sealed class SchemaTests
     [Fact]
     public void Schema_file_is_parsed_with_all_three_types()
     {
+        Assert.True(ServerOptions.TryParseSchema(SchemaJson, out RubedoSchema? schema, out string? problem));
         Assert.True(ServerOptions.TryParseSchema(_schemaJson, out RubedoSchema? schema, out string? problem));
         Assert.Null(problem);
         Assert.Equal(RubedoType.Number, schema!.Identifiers["unreadCount"]);
@@ -118,6 +124,7 @@ public sealed class SchemaTests
         string bad = Path.GetTempFileName();
         try
         {
+            File.WriteAllText(good, SchemaJson);
             File.WriteAllText(good, _schemaJson);
             File.WriteAllText(bad, """{"a":"nope"}""");
             Assert.True(ServerOptions.TryParse(["--schema", good], out ServerOptions loaded, out _));

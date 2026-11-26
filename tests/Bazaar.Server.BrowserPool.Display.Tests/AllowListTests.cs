@@ -92,6 +92,7 @@ public sealed class AllowListTests
     {
         var refs = typeof(PoolBrowserPageDriver).Assembly.GetReferencedAssemblies().Select(a => a.Name!).Where(n => n.StartsWith("Bazaar.", StringComparison.Ordinal)).Order(StringComparer.Ordinal).ToArray();
 
+        Assert.Equal(["Bazaar.Core", "Bazaar.Server.BrowserPool.Abstractions", "Bazaar.Server.VmDisplay.Abstractions"], refs);
         Assert.Equal(["Bazaar.Core", "Bazaar.Core.Hosting", "Bazaar.Server.BrowserPool.Abstractions", "Bazaar.Server.VmDisplay.Abstractions"], refs);
     }
 }

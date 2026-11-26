@@ -24,6 +24,7 @@ public enum UpdateNoticeKind
 /// <summary>One short notice about updates.</summary>
 /// <param name="Kind">The outcome.</param>
 /// <param name="Text">The line to show.</param>
+public sealed record UpdateNotice(UpdateNoticeKind Kind, string Text)
 /// <param name="Version">The staged version for <see cref="UpdateNoticeKind.ReadyAfterRestart"/>, else null.</param>
 public sealed record UpdateNotice(UpdateNoticeKind Kind, string Text, string? Version = null)
 {
@@ -33,6 +34,7 @@ public sealed record UpdateNotice(UpdateNoticeKind Kind, string Text, string? Ve
         ArgumentNullException.ThrowIfNull(result);
         return result.Status switch
         {
+            UpdateStatus.Installed => new UpdateNotice(UpdateNoticeKind.ReadyAfterRestart, $"Update {result.Version} is ready. It applies the next time you restart Bazaar."),
             UpdateStatus.Installed => new UpdateNotice(UpdateNoticeKind.ReadyAfterRestart, $"Update {result.Version} is ready. It applies the next time you restart Bazaar.", result.Version),
             UpdateStatus.UpToDate => new UpdateNotice(UpdateNoticeKind.UpToDate, "Bazaar is up to date."),
             UpdateStatus.NoManifest => new UpdateNotice(UpdateNoticeKind.UpToDate, "Your company server offers no update."),

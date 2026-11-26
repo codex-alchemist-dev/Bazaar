@@ -53,6 +53,10 @@ internal sealed class GatewayModelPolicyWriter(AgentModelPolicyRepository policy
 /// agent-created lifecycle step. Tool grants are recorded as preferences only; they take effect through the Tier 2 approval flow.
 /// </summary>
 public sealed class SoulTalentInstantiator(
+    AgentRepository agents,
+    SoulVersioningService souls,
+    ISoulBindingAdmin bindings,
+    AgentModelPolicyRepository modelPolicy) : ITalentInstantiator
     IAgentCreator agents,
     ISoulVersionAppender souls,
     ISoulBindingAdmin bindings,
@@ -62,6 +66,7 @@ public sealed class SoulTalentInstantiator(
     public async Task<string> CreateAgentAsync(TalentTemplate candidate, string actorId, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(candidate);
+        var agentId = await agents.CreateAsync(candidate.Manifest.Name, soulVersionId: null, ct).ConfigureAwait(false);
         var agentId = await agents.CreateAsync(candidate.Manifest.Name, ct).ConfigureAwait(false);
         var soulId = Guid.NewGuid();
         var charterSha = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(candidate.Manifest.Prompt)));
@@ -73,6 +78,7 @@ public sealed class SoulTalentInstantiator(
             new SoulVersionAppend(soulId, 0, charterSha, preferences, actorId, $"Hired from Talent Pool template {candidate.HireKey}", candidate.HireKey),
             ct).ConfigureAwait(false);
         await bindings.BindAsync(agentId, soulId, $"Talent Pool hire {candidate.HireKey}", ct).ConfigureAwait(false);
+        await modelPolicy.SaveAsync(agentId.ToString(), candidate.Manifest.ModelWhitelist, defaultRoute: null, changedBy: actorId, ct).ConfigureAwait(false);
         await modelPolicy.SaveAsync(agentId, candidate.Manifest.ModelWhitelist, actorId, ct).ConfigureAwait(false);
         return agentId.ToString();
     }

@@ -43,6 +43,14 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         "AND has_table_privilege('audit_log', 'SELECT') AND has_table_privilege('audit_log', 'INSERT')";
 
     private NpgsqlDataSource? _dataSource;
+
+    private PostgresApplyGate(NpgsqlDataSource? dataSource)
+    {
+        _dataSource = dataSource;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> CoveredSections => InstallSettingsStep.CoveredSections;
     private readonly IReadOnlyDictionary<string, string?> _variables;
 
     private PostgresApplyGate(NpgsqlDataSource? dataSource, IReadOnlyDictionary<string, string?>? variables = null)
@@ -89,6 +97,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
 
             var connectionString = await resolver.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
             dataSource = NpgsqlDataSource.Create(connectionString);
+            return await ProbeAsync(dataSource, cancellationToken).ConfigureAwait(false);
             return await ProbeAsync(dataSource, cancellationToken, variables).ConfigureAwait(false);
         }
         catch (Exception exception) when (IsConnectionFailure(exception, cancellationToken))
@@ -106,6 +115,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     /// Checks that <paramref name="dataSource"/> reaches an audit store this role can write. Open on success, with the gate taking
     /// ownership of the data source. Closed on failure, with the data source disposed.
     /// </summary>
+    public static async Task<PostgresApplyGate> ProbeAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken)
     public static async Task<PostgresApplyGate> ProbeAsync(
         NpgsqlDataSource dataSource,
         CancellationToken cancellationToken,
@@ -120,6 +130,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
             var ready = await cmd.ExecuteScalarAsync(timeout.Token).ConfigureAwait(false);
             if (ready is true)
             {
+                return new PostgresApplyGate(dataSource);
                 return new PostgresApplyGate(dataSource, variables);
             }
         }

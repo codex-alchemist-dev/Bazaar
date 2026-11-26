@@ -57,6 +57,9 @@ public static class StatusEndpoints
     /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
 
+    /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
+    private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");
+
     /// <summary>
     /// The refresh, sign-out and handoff routes (<c>/auth/refresh</c>, <c>/auth/signout</c> and <c>/auth/handoff</c>, doc 32 sections 4 and 5). They take POST and
     /// nothing else; any other method on these paths is a 405.

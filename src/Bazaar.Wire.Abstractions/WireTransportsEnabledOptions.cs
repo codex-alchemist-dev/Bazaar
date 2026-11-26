@@ -10,6 +10,10 @@ public sealed class WireTransportsEnabledOptions
     /// <summary>The settings key this class reads.</summary>
     public const string SettingKey = "wire.transports.enabled";
 
+    private static readonly string[] OffByDefaultNames = [WireNames.GrpcWeb, WireNames.WebTransport];
+
+    /// <summary>Transports that are off until an operator lists them.</summary>
+    public static IReadOnlyList<string> OffByDefault => OffByDefaultNames;
     private static readonly string[] _offByDefaultNames = [WireNames.GrpcWeb, WireNames.WebTransport];
 
     /// <summary>Transports that are off until an operator lists them.</summary>
@@ -22,6 +26,7 @@ public sealed class WireTransportsEnabledOptions
     public bool IsEnabled(string transport)
     {
         ArgumentException.ThrowIfNullOrEmpty(transport);
+        if (Enabled is null) return !OffByDefaultNames.Contains(transport, StringComparer.Ordinal);
         if (Enabled is null) return !_offByDefaultNames.Contains(transport, StringComparer.Ordinal);
         return Enabled.Contains(transport, StringComparer.Ordinal);
     }

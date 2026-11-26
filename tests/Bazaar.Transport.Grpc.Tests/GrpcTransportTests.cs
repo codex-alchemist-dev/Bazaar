@@ -10,6 +10,9 @@ namespace Bazaar.Transport.Grpc.Tests;
 
 public class GrpcTransportTests
 {
+    private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
+
+    private static CancellationToken Token() => new CancellationTokenSource(Wait).Token;
     private static readonly TimeSpan _wait = TimeSpan.FromSeconds(20);
 
     private static CancellationToken Token() => new CancellationTokenSource(_wait).Token;

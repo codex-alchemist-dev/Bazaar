@@ -18,6 +18,7 @@ public sealed class PostgresApplyGateTests
 
     /// <summary>common 0004 only (audit_log, which also creates bazaar_app), so the test needs no pgvector.</summary>
     private static Task MigrateAuditAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
+        new MigrationRunner(dataSource).MigrateAsync(new AuditOnly(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), MigrateCommand.CurrentProvider(), ct);
         new MigrationRunner(dataSource).MigrateAsync(new AuditOnly(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)), MigrateCommand.CurrentProvider(), ct);
 
     private static Task NoMigrationAsync(NpgsqlDataSource dataSource, CancellationToken ct) => Task.CompletedTask;
@@ -112,6 +113,9 @@ public sealed class PostgresApplyGateTests
         Assert.True(gate.DurableAuditStoreAvailable);
 
         var services = new ServiceCollection();
+        gate.RegisterApplyServices(services);
+        using var provider = services.BuildServiceProvider();
+
         services.AddSingleton<ISetupSettingCatalog>(RegistrySetupSettingCatalog.Known);
         gate.RegisterApplyServices(services);
         using var provider = services.BuildServiceProvider();

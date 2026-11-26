@@ -9,6 +9,7 @@ public sealed class MotionSettings
 {
     private MotionLevel? _setting;
     private bool _osReducedMotion;
+    private MotionTokens _tokens = MotionTokens.Default;
     private MotionLevel? _budgetCap;
     private MotionTokens _tokens = MotionTokens.Default;
     private InteractionPresets _presets = InteractionPresets.Default;
@@ -48,6 +49,8 @@ public sealed class MotionSettings
         set => Set(ref _tokens, value.Clamped());
     }
 
+    /// <summary>The level views use now.</summary>
+    public MotionLevel Effective => MotionLevelResolver.Resolve(_setting, _osReducedMotion, Platform);
     /// <summary>The micro-interaction presets in force (doc 93: <c>motion.interaction.*</c>); a motion document may replace or turn off rows.</summary>
     public InteractionPresets Presets
     {

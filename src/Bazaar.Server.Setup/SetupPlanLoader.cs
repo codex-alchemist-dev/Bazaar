@@ -25,6 +25,7 @@ public static class SetupPlanLoader
     {
         [""] =
         [
+            "schemaVersion", "install", "database", "custody", "owner", "privacy", "backups", "models", "email",
             "schemaVersion", "install", "storage", "database", "custody", "owner", "privacy", "backups", "models", "email",
             "scamMailProtocol", "company", "modules", "network", "firstRun", "settings",
         ],

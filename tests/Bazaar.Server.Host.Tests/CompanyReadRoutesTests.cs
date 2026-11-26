@@ -1,6 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Bazaar.Server.Calendar;
+using Bazaar.Server.Host.Http;
+using Bazaar.Server.Http;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Host.Http;
@@ -22,6 +25,9 @@ public sealed class CompanyReadRoutesTests
     private sealed class OneToken : IConnectionAuthenticator
     {
         public ValueTask<AuthResult> AuthenticateAsync(HelloCredential? credential, DeviceInfo device, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(credential?.Value == "good"
+                ? AuthResult.Success(new PrincipalRef(Guid.NewGuid(), "human"))
+                : AuthResult.Fail("unknown"));
             ValueTask.FromResult(credential?.Value switch
             {
                 "good" => AuthResult.Success(new PrincipalRef(Guid.NewGuid(), "human")),
@@ -104,6 +110,7 @@ public sealed class CompanyReadRoutesTests
         public Task<SettingWriteResult> SetJsonAsync(string key, JsonElement value, SettingActor actor, string scopeId = "", CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
+    private static async Task<(WebApplication App, HttpClient Client)> StartAsync()
     private static async Task<(WebApplication App, HttpClient Client)> StartAsync(CountingStack? stack = null)
     {
         var builder = WebApplication.CreateSlimBuilder();

@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Server.Council.Hiring;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Council.Hiring;
 using Bazaar.Server.Gateway.Data;
@@ -36,6 +37,9 @@ public sealed class TalentPoolComponent : IBazaarComponent
         services.TryAddSingleton<ITalentTemplateStore>(sp => new PostgresTalentTemplateStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IHireDecisionStore>(sp => new PostgresHireDecisionStore(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton(sp => new PostgresToolGrantApproval(sp.GetRequiredService<NpgsqlDataSource>(), sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<ITalentToolGrantApproval>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
+        services.TryAddSingleton<ITalentModelWhitelist, GatewayTalentModelWhitelist>();
+        services.TryAddSingleton<ITalentInstantiator, SoulTalentInstantiator>();
         services.TryAddSingleton<IToolGrantRecorder>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
         services.TryAddSingleton<ITalentToolGrantApproval>(sp => sp.GetRequiredService<PostgresToolGrantApproval>());
         services.TryAddSingleton<ITalentModelWhitelist, GatewayTalentModelWhitelist>();

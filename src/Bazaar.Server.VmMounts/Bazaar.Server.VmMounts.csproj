@@ -12,6 +12,8 @@
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
   <ItemGroup>
+    <!-- No reference to Bazaar.Server: the module meets the rest only through abstractions and the vms tables (doc 16 WP8). -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <!-- The provider module re-checks host paths with the same guard the manager uses. -->
     <InternalsVisibleTo Include="Bazaar.Server.VmMounts.Providers" />
   </ItemGroup>

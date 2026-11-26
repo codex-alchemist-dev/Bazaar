@@ -90,6 +90,7 @@ public enum AlertSendOutcome
 }
 
 /// <summary>
+/// One alert channel behind an interface (section 16.1): in-client, push provider, email, webhook, GC post, report. The implementation does
 /// One alert channel behind an interface (section 16.1): in-client, push provider, email, webhook, group-chat post, report. The implementation does
 /// the I/O. It never throws for a delivery failure; it returns <see cref="AlertSendOutcome.Failed"/>.
 /// </summary>

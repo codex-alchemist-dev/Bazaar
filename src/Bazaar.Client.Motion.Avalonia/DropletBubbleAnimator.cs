@@ -10,6 +10,7 @@ namespace Bazaar.Client.Motion.Avalonia;
 /// The merge (goo) effect is optional and behind <see cref="IGooMergeEffect"/>; the default draws nothing and the squash and stretch
 /// of the plan is the fallback that is always applied.
 /// </summary>
+public sealed class DropletBubbleAnimator
 public sealed class DropletBubbleAnimator : IDisposable
 {
     private readonly Control _bubble;

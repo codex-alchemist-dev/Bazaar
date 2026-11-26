@@ -1,6 +1,23 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "x-protocol": { "major": 1, "minor": 0 },
+  "x-schemaHash": "sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7",
+  "x-messages": {
+    "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    "gc.edit": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcEdit" },
+    "gc.history": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcHistory" },
+    "gc.member.add": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberAdd" },
+    "gc.member.remove": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcMemberRemove" },
+    "gc.message": { "$ref": "#/$defs/Bazaar.Contracts.Wire.WireGcMessage" },
+    "gc.read": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcRead" },
+    "gc.send": { "$ref": "#/$defs/Bazaar.Contracts.Wire.GcSend" },
+    "graph.lod": { "$ref": "#/$defs/Bazaar.Contracts.Graph.GraphLodFrame" },
+    "hello": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Hello" },
+    "lagged": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Lagged" },
+    "ping": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Ping" },
+    "pong": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Pong" },
   "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
   "x-schemaHash": "sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf",
@@ -53,6 +70,7 @@
     "welcome": { "$ref": "#/$defs/Bazaar.Contracts.Wire.Welcome" }
   },
   "$defs": {
+    "Bazaar.Contracts.Gc.PrincipalKind": { "anyOf": [ { "type": "string", "enum": ["owner", "human", "agent"] }, { "type": "integer", "enum": [0, 1, 2] } ] },
     "Bazaar.Contracts.Athanor.EditorCreateReply": {
       "type": "object",
       "properties": {
@@ -1250,6 +1268,7 @@
         "ts": { "type": "string", "format": "date-time" },
         "edited": { "type": "boolean" },
         "mentions": { "type": "array", "items": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" } },
+        "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] }
         "replyToN": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
         "withdrawn": { "type": "boolean" }
       },

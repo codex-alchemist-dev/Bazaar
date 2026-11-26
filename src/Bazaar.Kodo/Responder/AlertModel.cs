@@ -27,6 +27,7 @@ public enum AlertChannelKind
     /// <summary>A signed webhook (section 15.3).</summary>
     Webhook,
 
+    /// <summary>An optional post in a GC the owner chooses.</summary>
     /// <summary>An optional post in a group chat the owner chooses.</summary>
     GcPost,
 

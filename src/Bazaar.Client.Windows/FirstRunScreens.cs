@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.CompanySetup;
 using Bazaar.Client.CompanySetup.Avalonia;
+using Bazaar.Client.SignIn;
+using Bazaar.Client.SignIn.Avalonia;
 using Bazaar.Client.FirstTask;
 using Bazaar.Client.FirstTask.Avalonia;
 using Bazaar.Client.SignIn;
@@ -34,6 +36,7 @@ internal static class FirstRunScreens
         if (!signIn && !company) return null;
 
         var http = ClientServer.Current.CreateHttpClient();
+        var store = SessionStores.Create();
         var store = ClientSessions.Store;
         var panel = new StackPanel { Spacing = 24, Margin = new Avalonia.Thickness(16) };
 

@@ -354,6 +354,7 @@ public class LinuxUpdaterTests
         Assert.Equal(UpdateStatus.SignatureToolFailed, (await rig.Updater.ApplyAsync(_ct)).Status);
     }
 
+    [Fact]
     [LinuxFact]
     public async Task Gpg_runs_with_an_isolated_owner_only_home_and_an_argument_list()
     {

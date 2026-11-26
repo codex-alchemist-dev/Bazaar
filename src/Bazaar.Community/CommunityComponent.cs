@@ -1,3 +1,4 @@
+using Bazaar.Community.Observatory;
 using Bazaar.Approvals;
 using Bazaar.Community.Actions;
 using Bazaar.Community.Drafts;

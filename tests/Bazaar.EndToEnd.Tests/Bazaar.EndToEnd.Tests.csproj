@@ -14,6 +14,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <!-- The server is run as a real process, not loaded: build it first, reference none of its types. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.Host\Bazaar.Server.Host.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.GitHub\Bazaar.GitHub.csproj" />

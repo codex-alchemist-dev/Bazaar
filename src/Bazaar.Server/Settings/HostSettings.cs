@@ -176,6 +176,7 @@ public static class BuiltInSettingRegistries
             .Concat(Gc.GcSettings.All)
             .Concat(Knowledge.KnowledgeSettings.All)
             .Concat(ConstellationSettings.All)
+            .Concat(SecuritySettings.All);
             .Concat(SecuritySettings.All)
             .Concat(SecuritySettings.IdentityKeys);
 

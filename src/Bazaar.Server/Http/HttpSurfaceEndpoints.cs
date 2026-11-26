@@ -47,6 +47,22 @@ public static class HttpSurfaceEndpoints
     }
 
     /// <summary>
+    /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
+    /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
+    /// </summary>
+    public static async ValueTask<IResult?> GuardAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var passed = false;
+        var refused = await Guarded(http, (_, _) =>
+        {
+            passed = true;
+            return Task.FromResult(Results.Empty);
+        });
+        return passed ? null : refused;
+    }
+
+    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     /// The HTTP surface guard for routes that live in a module (bearer, rate bucket). Host composition passes it as the <c>guard</c>
     /// of a module's route mapper, so the module never references this project. The filter authenticates first (401), spends a
     /// token of the HTTP bucket (429), then runs the route.

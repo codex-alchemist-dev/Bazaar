@@ -73,6 +73,7 @@ public sealed record PrListRow(
     bool Draft,
     string HeadSha,
     PrChecksRollup Checks,
+    long Revision);
     long Revision,
     long? InstallationId = null,
     string? Owner = null,
@@ -116,6 +117,7 @@ public sealed record PrSummaryReply(
     IReadOnlyList<PrChangedFile> Files,
     PrChecksRollup Checks,
     bool ReviewerApproved,
+    Guid? LinkedCardId);
     Guid? LinkedCardId,
     long? InstallationId = null,
     string? Owner = null,

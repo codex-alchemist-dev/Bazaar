@@ -66,6 +66,7 @@ public class ShellHostTests
         ShellHost.Install(host, new FakeLocale("ar"), new AnnouncementGate(TimeProvider.System));
 
         Assert.Equal(FlowDirection.RightToLeft, host.FlowDirection);
+        Assert.Contains(content, Assert.IsType<Grid>(host.Content).Children);
         Assert.Same(content, Assert.IsType<LayoutTransformControl>(Assert.IsType<Grid>(host.Content).Children[0]).Child);
     }
 }

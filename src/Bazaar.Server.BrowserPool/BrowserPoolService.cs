@@ -39,6 +39,7 @@ public sealed class BrowserPoolService : IBrowserPool, IDisposable
         IPoolGate gate,
         IPoolAuditSink audit,
         TimeProvider time,
+        IEnumerable<IPoolReadinessCheck>? readiness = null)
         IEnumerable<IPoolReadinessCheck>? readiness = null,
         IAsyncPoolGate? asyncGate = null)
     {

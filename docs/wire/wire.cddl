@@ -1,4 +1,5 @@
 ; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
+; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
 ; Schema hash sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf.
 ; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
 
@@ -20,6 +21,19 @@ decimal-fraction = #6.4([exponent: int, mantissa: int])
 float32-array = #6.85(bstr)
 
 ; Message types and the payload rule each carries.
+; board.snapshot = kanban-board-request
+; gc.edit = gc-edit
+; gc.history = gc-history
+; gc.member.add = gc-member-add
+; gc.member.remove = gc-member-remove
+; gc.message = wire-gc-message
+; gc.read = gc-read
+; gc.send = gc-send
+; graph.lod = graph-lod-frame
+; hello = hello
+; lagged = lagged
+; ping = ping
+; pong = pong
 ; board.assign = kanban-assign-request
 ; board.move = kanban-move-request
 ; board.snapshot = kanban-board-request
@@ -67,6 +81,9 @@ float32-array = #6.85(bstr)
 ; unsubscribe = unsubscribe
 ; welcome = welcome
 
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+
+principal-kind = "owner" / "human" / "agent"
 payload = editor-create-reply / editor-create-request / editor-open-reply / editor-open-request / editor-save-reply / editor-save-request / engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / kanban-move-reply / kanban-move-request / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / replay-fork-request / replay-fork-result / replay-frame-request / replay-frame-result / replay-frame-wire / replay-message-wire / replay-reputation-part / replay-reputation-wire / replay-soul-wire / replay-souls-part / replay-task-wire / replay-tasks-part / replay-vault-part / replay-vault-wire / gc-edit / gc-history / gc-list-item / gc-list-reply / gc-list-request / gc-member-add / gc-member-remove / gc-page / gc-react / gc-react-result / gc-reactions-reply / gc-reactions-request / gc-read / gc-send / gc-send-result / gc-typing / gc-typing-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message / wire-gc-reaction / wire-reaction-group
 
 editor-create-reply = {

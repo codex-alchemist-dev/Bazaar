@@ -19,6 +19,10 @@ public sealed class MnemonicHeadHost : IDisposable
     private readonly Action<Control> _show;
     private readonly Action<Control> _hide;
     private readonly bool _actorIsOwner;
+    private MnemonicRemapScreen? _remap;
+
+    private MnemonicHeadHost(MnemonicRuntime runtime, MnemonicShell shell, Action<Control> show, Action<Control> hide, bool actorIsOwner)
+    {
     private readonly IReadOnlyList<MnemonicAssignment> _assignments;
     private readonly ClientCommandDispatcher? _dispatcher;
     private readonly IMnemonicAnnouncer _announcer;
@@ -80,6 +84,8 @@ public sealed class MnemonicHeadHost : IDisposable
         ArgumentNullException.ThrowIfNull(show);
         ArgumentNullException.ThrowIfNull(hide);
 
+        var runtime = await MnemonicRuntime.CreateAsync(
+            NavigationDefaults.Assignments,
         var assignments = MnemonicHeadSetup.Combine(moduleCommands ?? []);
         var runtime = await MnemonicRuntime.CreateAsync(
             assignments,
@@ -89,11 +95,15 @@ public sealed class MnemonicHeadHost : IDisposable
             actorIsOwner,
             ct: ct).ConfigureAwait(true);
         var shell = new MnemonicShell(top, runtime, announcer, view => show(view), view => hide(view));
+        return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner);
         return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner, assignments, dispatcher, announcer, log);
     }
 
     /// <summary>
     /// Starts mnemonics on a head window. The person's overrides live in <paramref name="overridesPath"/>, and overlays open as
+    /// child windows of <paramref name="window"/>. Heads call this once the window is opened.
+    /// </summary>
+    public static Task<MnemonicHeadHost> AttachAsync(Window window, string overridesPath, CancellationToken ct = default)
     /// child windows of <paramref name="window"/>. Heads call this once the window is opened. When <paramref name="dispatcher"/> is
     /// given, each command the shell reports (<see cref="MnemonicShell.CommandInvoked"/>) is carried out through it, and a notice it
     /// returns goes to <paramref name="log"/> and the announcer.
@@ -110,6 +120,7 @@ public sealed class MnemonicHeadHost : IDisposable
         ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
 
         var overlay = new MnemonicOverlay(window);
+        return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, ct: ct);
         return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, moduleCommands: moduleCommands, dispatcher: dispatcher, log: log, ct: ct);
     }
 
@@ -138,6 +149,7 @@ public sealed class MnemonicHeadHost : IDisposable
             return;
         }
 
+        var screen = new MnemonicRemapScreen(NavigationDefaults.Assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
         var screen = new MnemonicRemapScreen(_assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
         screen.DocumentChanged += (_, next) => _ = ApplyAsync(_runtime.Document, next, CancellationToken.None);
         screen.Closed += (_, _) => CloseRemap();

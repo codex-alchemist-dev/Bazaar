@@ -1,6 +1,7 @@
 namespace Bazaar.Server.Valkey;
 
 /// <summary>
+/// Settings for the Valkey cache provider (doc 03 <c>host.provider.cache</c> = <c>valkey</c>). Bound from <see cref="SectionName"/>.
 /// Settings for the Valkey cache provider (doc 03, Provider modules). Bound from <see cref="SectionName"/>.
 /// Unmanaged: set exactly one of <see cref="Endpoint"/> or <see cref="SecretReference"/>. Managed (<see cref="Managed"/>): the host runs
 /// its own loopback server with a generated password, so neither may be set.

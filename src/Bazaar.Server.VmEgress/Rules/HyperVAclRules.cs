@@ -100,6 +100,7 @@ public static partial class HyperVAclRules
             ? address.ToString()
             : throw new ArgumentException("The proxy address must be IPv4 or IPv6.", nameof(address));
 
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._ -]{0,99}$")]
     [GeneratedRegex("\\A[A-Za-z0-9][A-Za-z0-9._ -]{0,99}\\z")]
     private static partial Regex VmNamePattern();
 }

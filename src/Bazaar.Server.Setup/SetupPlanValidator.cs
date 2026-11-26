@@ -67,6 +67,9 @@ public static partial class SetupPlanValidator
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
         ValidateFirstRun(plan.FirstRun, issues);
+        NormalizeModules(plan, issues);
+        ValidateNetwork(plan, registry, issues);
+        ValidateReleaseChannel(plan, registry, issues);
         ValidateStorage(plan, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);

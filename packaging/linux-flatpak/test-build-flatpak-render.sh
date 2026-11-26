@@ -15,6 +15,14 @@ echo stand-in > "$tmp/Bazaar-0.0.0-linux-x86_64/Bazaar.Client.Linux"
 tar -C "$tmp" -czf "$tmp/Bazaar-0.0.0-linux-x86_64.tar.gz" Bazaar-0.0.0-linux-x86_64
 expected="$(sha256sum "$tmp/Bazaar-0.0.0-linux-x86_64.tar.gz" | cut -d' ' -f1)"
 
+before="$(sha256sum "$here/TheBazaarAuthors.BazaarClient.yml" | cut -d' ' -f1)"
+BAZAAR_FLATPAK_WORK="$tmp/work" BAZAAR_FLATPAK_TARBALL="$tmp/Bazaar-0.0.0-linux-x86_64.tar.gz" \
+  "$here/build-flatpak.sh" --arch x86_64 --render-only > "$tmp/out.log"
+after="$(sha256sum "$here/TheBazaarAuthors.BazaarClient.yml" | cut -d' ' -f1)"
+[ "$before" = "$after" ] || fail "the checked-in manifest was modified"
+
+stage="$tmp/work/stage"
+rendered="$stage/TheBazaarAuthors.BazaarClient.yml"
 before="$(sha256sum "$here/io.github.codex_alchemist_dev.BazaarClient.yml" | cut -d' ' -f1)"
 BAZAAR_FLATPAK_WORK="$tmp/work" BAZAAR_FLATPAK_TARBALL="$tmp/Bazaar-0.0.0-linux-x86_64.tar.gz" \
   "$here/build-flatpak.sh" --arch x86_64 --render-only > "$tmp/out.log"
@@ -27,6 +35,7 @@ rendered="$stage/io.github.codex_alchemist_dev.BazaarClient.yml"
 grep -q "sha256: '$expected'" "$rendered" || fail "rendered manifest lacks the tarball sha256"
 grep -q "path: 'bazaar-client.tar.gz'" "$rendered" || fail "rendered manifest lacks the tarball path"
 if grep -q '@[A-Z0-9_]*@' "$rendered"; then fail "placeholder left in the rendered manifest"; fi
+for f in bazaar-client.tar.gz bazaar-client.svg TheBazaarAuthors.BazaarClient.desktop TheBazaarAuthors.BazaarClient.metainfo.xml; do
 for f in bazaar-client.tar.gz bazaar-client.svg io.github.codex_alchemist_dev.BazaarClient.desktop io.github.codex_alchemist_dev.BazaarClient.metainfo.xml; do
   [ -f "$stage/$f" ] || fail "staged file missing: $f"
 done

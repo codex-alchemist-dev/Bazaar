@@ -12,6 +12,7 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.Calendar;
 using Bazaar.Server.AuditReader;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Analytics.Git;
@@ -64,6 +65,11 @@ using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
+using Bazaar.Server.Org;
+using Bazaar.Server.Retention;
+using Bazaar.Server.TalentPool.Component;
+using Bazaar.Server.Setup.Host;
+using Bazaar.Server.Valkey;
 using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Observatory;
 using Bazaar.Server.Observatory.Postgres;
@@ -118,6 +124,8 @@ public static class HostComponents
         new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
+        new RetentionComponent(),
+        new GatewayRetentionComponent(),
         new WalkthroughComponent(),
         new SoulProfileComponent(),
         new FirstRunAdaptersComponent(),
@@ -134,6 +142,7 @@ public static class HostComponents
         new KekComponent(),
         new OpenBaoKekComponent(),
         new GcComponent(),
+        new CalendarComponent(),
         new GcMetadataComponent(),
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
@@ -189,6 +198,8 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
+        new ValkeyComponent(),
+        new GarnetComponent(),
         new Bazaar.Server.Providers.ClaudeCode.ClaudeCodeComponent(),
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),

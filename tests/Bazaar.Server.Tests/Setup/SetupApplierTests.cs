@@ -178,6 +178,12 @@ public sealed class SetupApplierTests
         Assert.Equal("1.0.0", payload["templateVersion"]!.GetValue<string>());
         Assert.Null(payload["kodoResult"]);
         Assert.Equal("applied", payload["outcome"]!.GetValue<string>());
+        // The settings map plus the plan fields that map to one registry key each (network block, release channel).
+        Assert.Equal(
+            new List<string> { "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel" },
+            payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.Equal(4, harness.SettingAudit.Entries.Count);
+        Assert.Equal(["\"loopback\"", "8443", "\"beta\""], harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
         // The settings map plus the plan fields that map to registry keys (backups, email, network block, release channel, update policy).
         Assert.Equal(
             new List<string>

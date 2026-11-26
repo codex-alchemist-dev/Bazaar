@@ -80,6 +80,7 @@ public sealed class ModelGateway : IModelGateway
         IRouteSuspender? suspender = null,
         TimeProvider? time = null,
         Action<Exception>? onInternalError = null,
+        SecretScrubber? scrubber = null)
         SecretScrubber? scrubber = null,
         ICandidateRanker? ranker = null,
         IEndpointStatsTracker? selectionStats = null,
@@ -135,6 +136,9 @@ public sealed class ModelGateway : IModelGateway
         var skips = new List<Skip>();
         ModelEvent.Failure? lastFailure = null;
 
+        while (route.Next(tried, excluded) is { } candidate)
+        {
+            var (ready, skip) = await PrepareAsync(candidate, cancellationToken).ConfigureAwait(false);
         var order = await OrderCandidatesAsync(route, request, cancellationToken).ConfigureAwait(false);
         while (NextCandidate(order, tried, excluded) is { } candidate)
         {
@@ -228,6 +232,7 @@ public sealed class ModelGateway : IModelGateway
                         yield break;
                     }
 
+                    contentSent |= IsContent(e);
                     if (IsContent(e))
                     {
                         firstEvent ??= _time.GetElapsedTime(attemptStart);
@@ -730,6 +735,7 @@ public sealed class ModelGateway : IModelGateway
             : Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null);
     }
 
+    private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, CancellationToken ct)
     private async ValueTask<(Ready? Ready, Skip? Skip)> PrepareAsync(RouteCandidate candidate, bool requireEmbedding, CancellationToken ct)
     {
         var model = candidate.Model;
@@ -772,6 +778,9 @@ public sealed class ModelGateway : IModelGateway
         }
 
         var key = new ProviderKey(model.ProviderId, provider.SecretRef ?? "none");
+        if (_quota.BlockedState(key, candidate.Family) is { } blocked)
+        {
+            return (null, Skip.Blocked(SkipKind.Quota, model, blocked, _quota.BlockedUntil(key, candidate.Family)));
         var scope = requireEmbedding ? key with { KeyRef = key.KeyRef + _embeddingScopeSuffix } : key;
         var quotaClass = requireEmbedding ? _embeddingQuotaPrefix + candidate.Family : candidate.Family;
         if (_quota.BlockedState(scope, quotaClass) is { } blocked)
@@ -800,11 +809,13 @@ public sealed class ModelGateway : IModelGateway
             _scrubber.Track(apiKey);
         }
 
+        if (!_health.TryAcquire(key))
         if (!_health.TryAcquire(scope))
         {
             return (null, Skip.Blocked(SkipKind.Health, model, QuotaState.Down, null));
         }
 
+        return (new Ready(adapter, new ProviderEndpoint(provider.BaseUrl, model.ModelId, apiKey, headers), key, identity), null);
         return (new Ready(adapter, new ProviderEndpoint(provider.BaseUrl, model.ModelId, apiKey, headers), key, identity, scope, quotaClass), null);
     }
 
@@ -1010,6 +1021,7 @@ public sealed class ModelGateway : IModelGateway
         }
     }
 
+    private sealed record Ready(IModelAdapter Adapter, ProviderEndpoint Endpoint, ProviderKey Key, GatewayIdentity Identity);
     /// <summary>
     /// <c>Key</c> is the provider key that usage rows name. <c>Scope</c> is the key that health is tracked under and
     /// <c>QuotaClass</c> the class quota is tracked under; both are separate for embedding, so a failing embedding endpoint does

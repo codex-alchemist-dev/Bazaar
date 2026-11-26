@@ -40,6 +40,8 @@ public sealed class HostMigrationsTests
         var source = HostMigrations.Source();
 
         Assert.Contains("portability", source.Namespaces());
+        var file = Assert.Single(source.Load("portability"));
+        Assert.Equal(1, file.Version);
         var file = Assert.Single(source.Load("portability"), f => f.Version == 1);
         Assert.Equal("import_job", file.Name);
     }
@@ -68,6 +70,10 @@ public sealed class HostMigrationsTests
         var plan = MigrationRunner.Plan(HostMigrations.Source(), MigrateCommand.CurrentProvider(), []);
 
         var common = plan.Select((f, i) => (f, i)).Where(x => x.f.Namespace == MigrationRunner.Common).Select(x => x.i).ToList();
+        var portability = plan.Select((f, i) => (f, i)).Single(x => x.f.Namespace == "portability").i;
+        Assert.NotEmpty(common);
+        Assert.True(common.Max() < portability);
+    }
         var portability = plan.Select((f, i) => (f, i)).First(x => x.f.Namespace == "portability").i;
         Assert.NotEmpty(common);
         Assert.True(common.Max() < portability);

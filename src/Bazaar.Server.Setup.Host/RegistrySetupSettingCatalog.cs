@@ -20,6 +20,10 @@ public sealed class RegistrySetupSettingCatalog : ISetupSettingCatalog
     private readonly Dictionary<string, ISetupSettingDefinition> _byName;
 
     /// <summary>
+    /// The catalog of the keys this build ships: the built-in registry plus the module manager's contribution (<c>update.channel</c>),
+    /// the same composition the host's settings component builds, for roots that run without the host's service graph.
+    /// </summary>
+    public static RegistrySetupSettingCatalog Known { get; } = new(BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]));
     /// The catalog of the keys this build ships: the built-in registry plus the contributions of the modules whose keys a plan can set
     /// (the module manager's, the backup policy's, the mail policy's, Conduit's and the gateway's, for the wizard's remote access keys), the same set the host
     /// composes, for roots that run without the host's service graph.

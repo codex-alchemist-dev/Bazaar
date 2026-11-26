@@ -98,6 +98,7 @@ Requests get exactly one `res` or `err`. A retried request with the same `id` re
 | `GET /blobs/{hash}` | Range-capable download; a non-viewer gets "not found" | 01 |
 | `GET /vault/search` | Paged search over Vault blocks, filtered to the viewer | 18 |
 | `GET /community/log` | Owner-only keyset-paged community action log (agentId, platform, limit, cursor); never returns body text [PROPOSED] | 36 |
+| `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED, server route not built yet] | 36 |
 | `GET /community/drafts/{id}` | Owner-only review card (`DraftReviewCardDto`) of one community draft [PROPOSED] | 36 |
 | `GET /community/drafts?status=pending` | Owner-only list of open pending drafts as review cards, newest first (`limit` 1 to 100) [PROPOSED] | 36 |
 | `POST /community/drafts/{id}/decision` | Signed owner decision on a community draft-review card [PROPOSED] | 36 |
@@ -157,6 +158,7 @@ Codec is chosen in `hello`/`welcome`: text frames JSON; other codecs and transpo
 
 Close codes: 4400 bad frame, 4401 auth failed or expired, 4403 revoked, 4408 hello timeout, 4426 upgrade required, 4429 rate limited.
 
+Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `gc.read`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 Message types (v1 sketch): `hello`, `welcome`, `subscribe`, `unsubscribe`, `gc.message`, `gc.send`, `gc.history`, `replay.frame`, `replay.fork`, `replay.points`, `gc.read`, `gc.list`, `gc.react`, `gc.reactions`, `gc.reaction`, `gc.typing`, `board.snapshot`, `board.move`, `board.assign` [PROPOSED, shape in doc 12, Assign authority and command], `resync`, `lagged`, `stream.revoked`, `presence.update`, `ui.get`, `ui.changed`, `prefs.set`, `auth.refresh`, `device.registerPush`, `ping`/`pong`.
 
 ### Settings [PROPOSED, DECISIONS-LOG round 13]

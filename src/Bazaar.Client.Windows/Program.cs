@@ -22,6 +22,7 @@ using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core;
+using Bazaar.Ex.Head;
 using Bazaar.Client.Core.Panes;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
@@ -105,6 +106,26 @@ internal static class Program
         // Panes come from the first-party registry; the Constellation tiles come from the company server this build was made for (doc 37 section 4a).
         ClientServer.ConnectToCompanyServer();
         // The Dashboard comes first, then Constellation, then the GC pane, then Vault, then the rest of RyuseiFuda, then Git Solar System (pager order).
+        IPaneModule[] modules =
+        [
+            RyuseiFudaPanes.Board,
+            new DashboardPaneModule(),
+            new ConstellationPaneModule(),
+            new GcPaneModule(),
+            new VaultSearchPaneModule(),
+            .. RyuseiFudaPanes.Modules,
+            .. OrgPanes.Modules,
+            .. CalendarPanes.Modules,
+            .. InterruptPanes.Modules,
+            new EnginePaneModule(),
+            .. GitSolarSystemPanes.Modules,
+            .. GitGuiPanes.Modules,
+        ];
+        // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var features = new PaneModuleContext()
+            .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
+            .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
+            .WithGitGui(ClientServer.Current);
         var athanorModule = new AthanorPaneModule();
         var modules = WindowsModules.Create(athanorModule);
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
@@ -182,6 +203,7 @@ internal static class Program
                 window.Content = firstRun;
             }
 
+            if (showPanes)
             if (showAthanor)
             {
                 window.ShowPanes([AthanorPaneModule.WindowPane], registry);
@@ -211,6 +233,9 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+
+            // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
+            window.Opened += async (_, _) => await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"));
             // A mnemonic command that opens a pane shows that pane in this window (the same view --panes builds).
             navigator.Bind(kind =>
             {
