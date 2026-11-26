@@ -35,13 +35,14 @@ Not found anywhere in docs: a module manifest, a module lifecycle, a capability 
 - All platform logic is one assembly, `src/Bazaar.Server`, split into folders for Gc, Kanban, Vault, Agents, Gateway, Security, Interrupts, Calendar, WorkLife, Council, Skimmer, Org, Souls, Settings and Memory. The repo has about 400 C# files across all projects. Feature boundaries are folders, not projects.
 
 **Infrastructure providers (real seam, mostly empty).**
-- `src/Bazaar.Server/Providers/` has `IProvider`, `ProviderRole` (ServiceHost, Vm, Cache, Search), `ProviderSelector` and `ProviderCapabilityReport`. Selection follows doc 03.
+- `src/Bazaar.Server.Providers.Abstractions/` and `src/Bazaar.Server.Providers/` have `IProvider`, `ProviderRole` (ServiceHost, Vm, Cache, Search), `ProviderSelector` and `ProviderCapabilityReport`. Selection follows doc 03.
+- `src/Bazaar.Server.Providers.Abstractions/` and `src/Bazaar.Server.Providers/` have `IProvider`, `ProviderRole` (ServiceHost, Vm, Cache, Search), and `ProviderCapabilityReport`. Providers are plain modules (doc 03, Provider modules); the old `ProviderSelector` is removed.
 - Only ServiceHost has OS implementations: `WindowsServiceHostProvider` and `SystemdServiceHostProvider`. Vm, Cache and Search pass empty candidate lists, so they resolve to none. `Providers/Fakes/` holds test doubles.
-- OS code is split across assemblies for Windows (`src/Bazaar.Server.Providers.Windows`) but not for Linux. `src/Bazaar.Server/Providers/Linux/` lives inside the platform-neutral core assembly. This departs from doc 03's project split.
+- OS code is split across assemblies for Windows (`src/Bazaar.Server.Providers.Windows`) and for Linux (`src/Bazaar.Server.Providers.Linux`, split out of the core assembly, matching doc 03).
 
 **Model gateway (real adapter seam).**
-- `src/Bazaar.Server/Gateway/Adapters/IModelAdapter.cs` is one interface per wire family, with implementations for Anthropic, OpenAI and Gemini. `IAdapterRegistry` and `ModelGateway` select among them.
-- FreeLLMAPI is in `src/Bazaar.Server/Gateway/FreeLlmApi/` (11 files, including its own wiring, routing adapter and health probe) inside the core assembly. It is not a separate module project and not a sidecar. It does plug into the adapter seam.
+- `src/Bazaar.Server.Gateway/Adapters/IModelAdapter.cs` is one interface per wire family, with implementations for Anthropic, OpenAI and Gemini. `IAdapterRegistry` and `ModelGateway` select among them.
+- FreeLLMAPI is in `src/Bazaar.Server.Gateway/FreeLlmApi/` (11 files, including its own wiring, routing adapter and health probe) inside the core assembly. It is not a separate module project and not a sidecar. It does plug into the adapter seam.
 
 **Wire and GC (interfaces exist for extension points).**
 - `IWireRequestHandler` is one handler per request type; its comment says "W4 and later modules add theirs". This is a real registration point.
@@ -94,7 +95,7 @@ Principle: keep the owner's "fully modular" goal as a **boundary and contract** 
 **How the new work plugs in:**
 
 - **FreeLLMAPI sidecar or module:** a gateway adapter in its own project, behind `IModelAdapter`. Core sees only the gateway contract. Operators can replace it with another proxy without core changes.
-- **Postgres packaging:** a new provider role (for example `DataStore`), with managed child-process implementations in the Windows and Linux provider assemblies, chosen by `ProviderSelector` like the others. Core sees only a connection string. Doc 03 needs this role added; it is PROPOSED, so the change is in scope for the doc.
+- **Postgres packaging:** a new provider role (for example `DataStore`), with managed child-process implementations in the Windows and Linux provider assemblies, registered as providers and consumed by the data module. Core sees only a connection string. Doc 03 needs this role added; it is PROPOSED, so the change is in scope for the doc.
 - **Constellation:** a feature module `Bazaar.Server.Constellation` with its own migration namespace, reading the Vault graph through the Vault contract. Its client pane is a first-party pane from step 7. Doc 19 owns the design.
 - **Windows client:** `Bazaar.Client.Windows` stays a head that supplies platform services (tray, service host, dictation). Screens (start dashboard, GC, Kanban, agents) are feature views in `Bazaar.Client.Core`, so Linux and Terminal get them for free. Avalonia.Headless tests per CLAUDE.md.
 

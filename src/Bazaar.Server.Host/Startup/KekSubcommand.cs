@@ -23,6 +23,7 @@ public static class KekSubcommand
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true)
             .AddEnvironmentVariables("BAZAAR__")
+            .AddKekHostConfig()
             .Build();
 
         if (args.Length == 0 || !args[0].Equals("rewrap", StringComparison.OrdinalIgnoreCase))
@@ -52,7 +53,7 @@ public static class KekSubcommand
                     source,
                     target,
                     [new PostgresKekRewrapStore(dataSource), new PostgresSoulDekRewrapStore(dataSource)],
-                    new AuditLogSink(new PostgresAuditLog(dataSource)),
+                    new AuditLogKekSink(new PostgresAuditLog(dataSource), "kek-rewrap"),
                     ct: ct);
 
                 await output.WriteLineAsync(
@@ -90,12 +91,5 @@ public static class KekSubcommand
         }
 
         return null;
-    }
-
-    /// <summary>Adapts the host audit log to the re-wrap audit seam. Each entry records the event kind and counts only.</summary>
-    private sealed class AuditLogSink(IAuditLog log) : IKekAuditSink
-    {
-        public Task RecordAsync(string kind, string payloadJson, CancellationToken ct) =>
-            log.AppendAsync(new AuditEntry(DateTimeOffset.UtcNow, "kek-rewrap", kind, payloadJson), ct);
     }
 }

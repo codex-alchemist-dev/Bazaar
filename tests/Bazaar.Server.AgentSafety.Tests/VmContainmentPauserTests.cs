@@ -49,6 +49,12 @@ public sealed class VmContainmentPauserTests
         public List<string> Calls { get; } = [];
         public bool SupportsSaveState { get; } = supportsSaveState;
 
+        /// <summary>VMs whose save or stop throws.</summary>
+        public HashSet<Guid> FailFor { get; } = [];
+
+        /// <summary>What the backend itself reports for a VM; a VM not listed throws, as before.</summary>
+        public Dictionary<Guid, VmState> Reported { get; } = [];
+
         public Task<VmHandle> CreateChildAsync(ImageVersionId parent, VmSpec spec, CancellationToken ct) => throw new NotSupportedException();
 
         public Task StartAsync(VmHandle vm, CancellationToken ct)
@@ -60,19 +66,20 @@ public sealed class VmContainmentPauserTests
         public Task StopAsync(VmHandle vm, StopMode mode, CancellationToken ct)
         {
             Calls.Add($"stop-{mode}:{vm.VmId}");
-            return Task.CompletedTask;
+            return FailFor.Contains(vm.VmId) ? throw new InvalidOperationException("stop failed") : Task.CompletedTask;
         }
 
         public Task SaveStateAsync(VmHandle vm, CancellationToken ct)
         {
             Calls.Add($"save:{vm.VmId}");
-            return Task.CompletedTask;
+            return FailFor.Contains(vm.VmId) ? throw new InvalidOperationException("save failed") : Task.CompletedTask;
         }
 
         public Task<CheckpointId> CheckpointAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
         public Task RestoreAsync(VmHandle vm, CheckpointId id, CancellationToken ct) => throw new NotSupportedException();
         public Task RetireAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
-        public Task<VmState> GetStateAsync(VmHandle vm, CancellationToken ct) => throw new NotSupportedException();
+        public Task<VmState> GetStateAsync(VmHandle vm, CancellationToken ct) =>
+            Reported.TryGetValue(vm.VmId, out var state) ? Task.FromResult(state) : throw new NotSupportedException();
     }
 
     private sealed class FakeDirectory(IReadOnlyList<EnvironmentVmRecord> vms) : IAgentVmDirectory
@@ -126,6 +133,67 @@ public sealed class VmContainmentPauserTests
     }
 
     [Fact]
+    public async Task A_vm_that_cannot_be_paused_does_not_leave_the_agents_other_vm_running()
+    {
+        var agent = Guid.NewGuid();
+        var broken = Vm(agent, VmState.Running);
+        var healthy = Vm(agent, VmState.Running);
+        var (pauser, store, backend) = Build(supportsSaveState: true, [broken, healthy]);
+        backend.FailFor.Add(broken.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken));
+
+        Assert.Equal(VmState.Running, store.Vms[broken.Id].State);
+        Assert.Equal(VmState.Saved, store.Vms[healthy.Id].State);
+    }
+
+    [Fact]
+    public async Task Every_failed_vm_is_reported_when_more_than_one_fails()
+    {
+        var agent = Guid.NewGuid();
+        var first = Vm(agent, VmState.Running);
+        var second = Vm(agent, VmState.Running);
+        var (pauser, _, backend) = Build(supportsSaveState: true, [first, second]);
+        backend.FailFor.Add(first.Id);
+        backend.FailFor.Add(second.Id);
+
+        var error = await Assert.ThrowsAsync<AggregateException>(() => pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken));
+
+        Assert.Equal(2, error.InnerExceptions.Count);
+    }
+
+    [Fact]
+    public async Task A_restored_vm_that_the_backend_runs_is_power_cut_and_one_that_is_off_is_left_alone()
+    {
+        var agent = Guid.NewGuid();
+        var live = Vm(agent, VmState.Restored);
+        var off = Vm(agent, VmState.Restored);
+        var (pauser, store, backend) = Build(supportsSaveState: true, [live, off]);
+        backend.Reported[live.Id] = VmState.Running;
+        backend.Reported[off.Id] = VmState.Stopped;
+
+        await pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken);
+
+        Assert.Equal([$"stop-Force:{live.Id}"], backend.Calls);
+        Assert.Equal(VmState.Stopped, store.Vms[live.Id].State);
+        Assert.Equal(VmState.Restored, store.Vms[off.Id].State);
+    }
+
+    [Fact]
+    public async Task A_vm_that_stopped_running_before_its_turn_counts_as_paused()
+    {
+        var agent = Guid.NewGuid();
+        var listedRunning = Vm(agent, VmState.Running);
+        var (pauser, store, backend) = Build(supportsSaveState: true, [listedRunning]);
+        // The directory still lists it as running, but an idle save got there first.
+        store.Vms[listedRunning.Id] = listedRunning with { State = VmState.Saved };
+
+        await pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken);
+
+        Assert.Empty(backend.Calls);
+    }
+
+    [Fact]
     public async Task Resume_starts_the_saved_and_stopped_vms_and_skips_retired_ones()
     {
         var agent = Guid.NewGuid();
@@ -148,5 +216,23 @@ public sealed class VmContainmentPauserTests
         var (pauser, _, _) = Build(supportsSaveState: false, []);
 
         await Assert.ThrowsAsync<ArgumentException>(() => pauser.PauseAsync("agent-a", TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task A_directory_that_returns_another_agents_vm_does_not_get_it_paused_or_resumed()
+    {
+        var agent = Guid.NewGuid();
+        var own = Vm(agent, VmState.Running);
+        var foreign = Vm(Guid.NewGuid(), VmState.Running);
+        var foreignSaved = Vm(Guid.NewGuid(), VmState.Saved);
+        var (pauser, store, backend) = Build(supportsSaveState: true, [own, foreign, foreignSaved]);
+
+        await pauser.PauseAsync(agent.ToString(), TestContext.Current.CancellationToken);
+        await pauser.ResumeAsync(agent.ToString(), TestContext.Current.CancellationToken);
+
+        Assert.Equal(VmState.Running, store.Vms[foreign.Id].State);
+        Assert.Equal(VmState.Saved, store.Vms[foreignSaved.Id].State);
+        Assert.DoesNotContain(backend.Calls, c => c.EndsWith(foreign.Id.ToString(), StringComparison.Ordinal));
+        Assert.DoesNotContain(backend.Calls, c => c.EndsWith(foreignSaved.Id.ToString(), StringComparison.Ordinal));
     }
 }

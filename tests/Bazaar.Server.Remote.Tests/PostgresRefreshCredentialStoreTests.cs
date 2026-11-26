@@ -1,5 +1,5 @@
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Options;
@@ -55,6 +55,19 @@ public sealed class PostgresRefreshCredentialStoreTests(RemoteAuthDb db) : IClas
         insert.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
         await insert.ExecuteNonQueryAsync(Ct);
         return humanId;
+    }
+
+    [Fact]
+    public async Task FindHuman_reads_the_human_row_on_postgres()
+    {
+        Assert.SkipUnless(RemoteAuthDb.Enabled, "BAZAAR_TEST_PG is not set: no test PostgreSQL available.");
+        var humanId = await InsertCoworkerAsync();
+        var store = new PostgresRefreshCredentialStore(db.DataSource);
+
+        var human = await store.FindHumanAsync(humanId, Ct);
+
+        Assert.Equal(new HumanRecord(humanId, "Test coworker", "coworker", "active"), human);
+        Assert.Null(await store.FindHumanAsync(Guid.NewGuid(), Ct));
     }
 
     [Fact]

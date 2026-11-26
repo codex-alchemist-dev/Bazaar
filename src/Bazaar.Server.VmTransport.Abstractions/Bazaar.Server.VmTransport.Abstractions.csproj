@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.VmTransport</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- GuestOs only: the one enum for a VM's guest OS, from a leaf project with no dependencies. -->
+    <ProjectReference Include="..\Bazaar.Server.VmMounts.Abstractions\Bazaar.Server.VmMounts.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

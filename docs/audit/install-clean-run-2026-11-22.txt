@@ -1,0 +1,185 @@
+2026-11-22T18:10:18Z === step 1: preflight
+2026-11-22T18:10:18Z os=Ubuntu 24.04.5 LTS kernel=6.18.44-fc-v726 arch=x86_64 cpus=4 mem_mb=16087
+2026-11-22T18:10:18Z disk_free_mb=29342 repo=/home/user/Bazaar commit=0a6228b1
+2026-11-22T18:10:18Z --- ok: preflight (0s)
+2026-11-22T18:10:18Z === step 2: prerequisites (PostgreSQL 18 + pgvector, .NET SDK)
+2026-11-22T18:10:18Z $ apt-get update -qq
+2026-11-22T18:10:21Z   exit=0
+2026-11-22T18:10:21Z $ apt-get install -y -qq curl ca-certificates gnupg openssl lsb-release python3
+2026-11-22T18:10:23Z   exit=0
+2026-11-22T18:10:24Z $ install -d /usr/share/postgresql-common/pgdg
+2026-11-22T18:10:24Z   exit=0
+2026-11-22T18:10:24Z $ curl -fsS -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
+2026-11-22T18:10:24Z   exit=0
+2026-11-22T18:10:24Z $ apt-get update -qq
+2026-11-22T18:10:26Z   exit=0
+2026-11-22T18:10:26Z $ apt-get install -y -qq postgresql-18 postgresql-18-pgvector
+2026-11-22T18:10:31Z   debconf: delaying package configuration, since apt-utils is not installed
+2026-11-22T18:10:31Z   Selecting previously unselected package postgresql-18.
+2026-11-22T18:10:31Z   (Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 56794 files and directories currently installed.)
+2026-11-22T18:10:31Z   Preparing to unpack .../postgresql-18_18.7-1.pgdg24.04+5_amd64.deb ...
+2026-11-22T18:10:31Z   Unpacking postgresql-18 (18.7-1.pgdg24.04+5) ...
+2026-11-22T18:10:31Z   Selecting previously unselected package postgresql-18-jit.
+2026-11-22T18:10:31Z   Preparing to unpack .../postgresql-18-jit_18.7-1.pgdg24.04+5_amd64.deb ...
+2026-11-22T18:10:31Z   Unpacking postgresql-18-jit (18.7-1.pgdg24.04+5) ...
+2026-11-22T18:10:31Z   Selecting previously unselected package postgresql-18-pgvector.
+2026-11-22T18:10:31Z   Preparing to unpack .../postgresql-18-pgvector_0.8.7-1.pgdg24.04+2_amd64.deb ...
+2026-11-22T18:10:31Z   Unpacking postgresql-18-pgvector (0.8.7-1.pgdg24.04+2) ...
+2026-11-22T18:10:31Z   Setting up postgresql-18 (18.7-1.pgdg24.04+5) ...
+2026-11-22T18:10:31Z   update-alternatives: warning: forcing reinstallation of alternative /usr/share/postgresql/18/man/man1/psql.1.gz because link group psql.1.gz is broken
+2026-11-22T18:10:31Z   invoke-rc.d: could not determine current runlevel
+2026-11-22T18:10:31Z   invoke-rc.d: policy-rc.d denied execution of start.
+2026-11-22T18:10:31Z   Setting up postgresql-18-jit (18.7-1.pgdg24.04+5) ...
+2026-11-22T18:10:31Z   Setting up postgresql-18-pgvector (0.8.7-1.pgdg24.04+2) ...
+2026-11-22T18:10:31Z   Processing triggers for postgresql-common (297.pgdg24.04+1) ...
+2026-11-22T18:10:31Z   Building PostgreSQL dictionaries from installed myspell/hunspell packages...
+2026-11-22T18:10:31Z   Removing obsolete dictionary files:
+2026-11-22T18:10:31Z   exit=0
+2026-11-22T18:10:31Z $ curl -fsSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
+2026-11-22T18:10:32Z   exit=0
+2026-11-22T18:10:32Z $ bash /tmp/dotnet-install.sh --version 11.0.100 --install-dir /root/.dotnet
+2026-11-22T18:10:45Z   dotnet-install: Attempting to download using primary link https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100/dotnet-sdk-11.0.100-linux-x64.tar.gz
+2026-11-22T18:10:45Z   dotnet-install: Remote file https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100/dotnet-sdk-11.0.100-linux-x64.tar.gz size is 211463422 bytes.
+2026-11-22T18:10:45Z   dotnet-install: Extracting archive from https://builds.dotnet.microsoft.com/dotnet/Sdk/11.0.100/dotnet-sdk-11.0.100-linux-x64.tar.gz
+2026-11-22T18:10:45Z   dotnet-install: Downloaded file size is 211463422 bytes.
+2026-11-22T18:10:45Z   dotnet-install: The remote and local file sizes are equal.
+2026-11-22T18:10:45Z   dotnet-install: Installed version is 11.0.100
+2026-11-22T18:10:45Z   dotnet-install: Adding to current process PATH: `/root/.dotnet`. Note: This change will be visible only when sourcing script.
+2026-11-22T18:10:45Z   dotnet-install: Note that the script does not resolve dependencies during installation.
+2026-11-22T18:10:45Z   dotnet-install: To check the list of dependencies, go to https://learn.microsoft.com/dotnet/core/install, select your operating system and check the "Dependencies" section.
+2026-11-22T18:10:45Z   dotnet-install: Installation finished successfully.
+2026-11-22T18:10:45Z   exit=0
+2026-11-22T18:10:45Z $ dotnet --version
+2026-11-22T18:10:45Z   11.0.100
+2026-11-22T18:10:45Z   exit=0
+2026-11-22T18:10:45Z --- ok: prerequisites (PostgreSQL 18 + pgvector, .NET SDK) (27s)
+2026-11-22T18:10:45Z === step 3: PostgreSQL cluster, role, database, pgvector
+2026-11-22T18:10:45Z $ pg_createcluster 18 main
+2026-11-22T18:10:46Z   Creating new PostgreSQL cluster 18/main ...
+2026-11-22T18:10:46Z   /usr/lib/postgresql/18/bin/initdb -D /var/lib/postgresql/18/main --auth-local peer --auth-host scram-sha-256 --no-instructions
+2026-11-22T18:10:46Z   The files belonging to this database system will be owned by user "postgres".
+2026-11-22T18:10:46Z   This user must also own the server process.
+2026-11-22T18:10:46Z   
+2026-11-22T18:10:46Z   The database cluster will be initialized with locale "C".
+2026-11-22T18:10:46Z   The default database encoding has accordingly been set to "SQL_ASCII".
+2026-11-22T18:10:46Z   The default text search configuration will be set to "english".
+2026-11-22T18:10:46Z   
+2026-11-22T18:10:46Z   Data page checksums are enabled.
+2026-11-22T18:10:46Z   
+2026-11-22T18:10:46Z   fixing permissions on existing directory /var/lib/postgresql/18/main ... ok
+2026-11-22T18:10:46Z   creating subdirectories ... ok
+2026-11-22T18:10:46Z   selecting dynamic shared memory implementation ... posix
+2026-11-22T18:10:46Z   selecting default "max_connections" ... 100
+2026-11-22T18:10:46Z   selecting default "shared_buffers" ... 128MB
+2026-11-22T18:10:46Z   selecting default time zone ... Etc/UTC
+2026-11-22T18:10:46Z   creating configuration files ... ok
+2026-11-22T18:10:46Z   running bootstrap script ... ok
+2026-11-22T18:10:46Z   performing post-bootstrap initialization ... ok
+2026-11-22T18:10:46Z   syncing data to disk ... ok
+2026-11-22T18:10:46Z   Ver Cluster Port Status Owner    Data directory              Log file
+2026-11-22T18:10:46Z   18  main    5433 down   postgres /var/lib/postgresql/18/main /var/log/postgresql/postgresql-18-main.log
+2026-11-22T18:10:46Z   exit=0
+2026-11-22T18:10:46Z $ pg_ctlcluster 18 main start
+2026-11-22T18:10:47Z   Error: cluster_port_ready: could not find psql binary
+2026-11-22T18:10:47Z   exit=1
+2026-11-22T18:10:47Z $ pgsu psql -X -q -p 5433 -d bazaar -v ON_ERROR_STOP=1 -c CREATE EXTENSION IF NOT EXISTS vector
+2026-11-22T18:10:47Z   exit=0
+2026-11-22T18:10:47Z $ pgsu psql -X -At -p 5433 -d bazaar -c select version(), (select extversion from pg_extension where extname='vector'), uuidv7() is not null
+2026-11-22T18:10:47Z   PostgreSQL 18.7 (Ubuntu 18.7-1.pgdg24.04+5) on x86_64-pc-linux-gnu, compiled by gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0, 64-bit|0.8.7|t
+2026-11-22T18:10:47Z   exit=0
+2026-11-22T18:10:47Z --- ok: PostgreSQL cluster, role, database, pgvector (2s)
+2026-11-22T18:10:47Z === step 4: publish Bazaar.Server.Host
+2026-11-22T18:10:47Z $ dotnet publish /home/user/Bazaar/src/Bazaar.Server.Host/Bazaar.Server.Host.csproj -c Release --self-contained false -o /opt/bazaar/app -v:m -nologo -clp:ErrorsOnly;Summary
+2026-11-22T18:10:48Z   exit=1
+2026-11-22T18:10:48Z $ dotnet publish /home/user/Bazaar/src/Bazaar.Server.Host/Bazaar.Server.Host.csproj -c Release --self-contained false -o /opt/bazaar/app -v:m -nologo -clp:ErrorsOnly;Summary
+2026-11-22T18:11:13Z   
+2026-11-22T18:11:14Z   Build succeeded.
+2026-11-22T18:11:14Z       0 Warning(s)
+2026-11-22T18:11:14Z       0 Error(s)
+2026-11-22T18:11:14Z   
+2026-11-22T18:11:14Z   Time Elapsed 00:00:25.66
+2026-11-22T18:11:14Z   exit=0
+2026-11-22T18:11:14Z --- ok: publish Bazaar.Server.Host (27s)
+2026-11-22T18:11:14Z === step 5: migrate the schema
+2026-11-22T18:11:14Z $ dotnet /opt/bazaar/app/Bazaar.Server.Host.dll migrate --Bazaar:Host:DataRoot=/opt/bazaar/data --Bazaar:Host:DatabaseConnectionReference=env:BAZAAR_DB
+2026-11-22T18:11:15Z   applied common/0001_core_schema
+2026-11-22T18:11:15Z   applied common/0002_gateway
+2026-11-22T18:11:15Z   applied common/0003_settings
+2026-11-22T18:11:15Z   applied common/0004_audit_log
+2026-11-22T18:11:15Z   applied common/0006_job
+2026-11-22T18:11:15Z   applied common/0007_search_document
+2026-11-22T18:11:15Z   applied common/0008_gc_support_tables
+2026-11-22T18:11:15Z   applied common/0009_vault
+2026-11-22T18:11:15Z   applied common/0010_agent_runtime
+2026-11-22T18:11:15Z   applied common/0011_approval
+2026-11-22T18:11:15Z   applied common/0012_kanban
+2026-11-22T18:11:15Z   applied common/0013_reputation_ledger
+2026-11-22T18:11:15Z   applied common/0014_soul_versions
+2026-11-22T18:11:15Z   applied common/0015_interrupt_frame
+2026-11-22T18:11:15Z   applied common/0016_skimmer_gate
+2026-11-22T18:11:15Z   applied common/0017_calendar
+2026-11-22T18:11:15Z   applied common/0018_org
+2026-11-22T18:11:15Z   applied common/0019_identity_keys
+2026-11-22T18:11:15Z   applied common/0020_constellation_views
+2026-11-22T18:11:15Z   applied agent_turns/0001_session_taint
+2026-11-22T18:11:15Z   applied agent_turns/0002_agent_tool_grant
+2026-11-22T18:11:15Z   applied audit/0001_audit_checkpoints
+2026-11-22T18:11:15Z   applied audit/0002_audit_checkpoint_anchors
+2026-11-22T18:11:15Z   applied community/0001_platform_policy
+2026-11-22T18:11:15Z   applied community/0002_bot_profile
+2026-11-22T18:11:15Z   applied community/0003_community_action
+2026-11-22T18:11:15Z   applied community/0004_target_blocklist
+2026-11-22T18:11:15Z   applied constellation/0001_memory_graph
+2026-11-22T18:11:15Z   applied gc/0001_soul_binding
+2026-11-22T18:11:15Z   applied gc/0002_sealed_payload_pair
+2026-11-22T18:11:15Z   applied hive/0001_hive_tables
+2026-11-22T18:11:15Z   applied kanban/0001_kanban_gates
+2026-11-22T18:11:15Z   applied mail/0021_mail_core
+2026-11-22T18:11:15Z   applied remote/0001_pairing_auth
+2026-11-22T18:11:15Z   applied remote/0002_pairing_device_request
+2026-11-22T18:11:15Z   applied remote/0003_drop_pairing_offer
+2026-11-22T18:11:15Z   applied remote/0004_owner_nonce
+2026-11-22T18:11:15Z   applied roles/0001_roles
+2026-11-22T18:11:15Z   applied ryusei/0001_triggers
+2026-11-22T18:11:15Z   applied ryusei/0002_guard_event
+2026-11-22T18:11:15Z   applied setup/0001_apply_result
+2026-11-22T18:11:15Z   applied setup/0002_bootstrap_code
+2026-11-22T18:11:15Z   applied agent_safety/0001_token_budget
+2026-11-22T18:11:15Z   applied agent_safety/0002_token_budget_prune_index
+2026-11-22T18:11:15Z   applied agent_safety/0003_kill_switch_state
+2026-11-22T18:11:15Z   applied agent_safety/0004_release_nonces
+2026-11-22T18:11:15Z   applied company_memory/0001_decision_links
+2026-11-22T18:11:15Z   applied council/0001_council
+2026-11-22T18:11:15Z   applied council/0002_council_high_impact
+2026-11-22T18:11:15Z   applied erasure/0001_legal_hold
+2026-11-22T18:11:15Z   applied identity/0001_lease_approval
+2026-11-22T18:11:15Z   applied interrupts/0001_interrupt_reason_sealed
+2026-11-22T18:11:15Z   applied mentions/0001_principal_handle
+2026-11-22T18:11:15Z   applied modules/0001_module_manager
+2026-11-22T18:11:15Z   applied modules/0002_permission_approval
+2026-11-22T18:11:15Z   applied roadmap/0001_roadmap_views
+2026-11-22T18:11:15Z   applied souls/0001_soul_retirement
+2026-11-22T18:11:15Z   applied souls/0002_soul_agent_binding
+2026-11-22T18:11:15Z   applied turns_inflight/0001_in_flight_call
+2026-11-22T18:11:15Z   applied vms/0001_vm_environment
+2026-11-22T18:11:15Z   done: 60 applied, 0 already applied
+2026-11-22T18:11:15Z   exit=0
+2026-11-22T18:11:15Z --- ok: migrate the schema (1s)
+2026-11-22T18:11:15Z === step 6: start the host
+2026-11-22T18:11:15Z host pid=30350 (attempt 1), output in /opt/bazaar/host.log
+2026-11-22T18:11:16Z --- ok: start the host (1s)
+2026-11-22T18:11:16Z === step 7: non-interactive setup through the provisioning API (doc 45 section 1.5 and 1.9)
+2026-11-22T18:11:17Z plan written to /opt/bazaar/bazaar-setup.json (references only, no secret values)
+2026-11-22T18:11:17Z POST /setup/plans -> HTTP 200: {"exitCode":0,"planHash":"a201bd6e97643813ae97dbba7dac46e7704090f4385de4ed677c9f084f0c3a2d","issues":[]}
+2026-11-22T18:11:17Z plan is valid, hash a201bd6e97643813ae97dbba7dac46e7704090f4385de4ed677c9f084f0c3a2d; restarting the host for a fresh bootstrap code
+2026-11-22T18:11:19Z host pid=30426 (attempt 1), output in /opt/bazaar/host.log
+2026-11-22T18:11:21Z POST /setup/plans/a201bd6e97643813ae97dbba7dac46e7704090f4385de4ed677c9f084f0c3a2d/apply -> HTTP 500: {"exitCode":3,"planHash":"a201bd6e97643813ae97dbba7dac46e7704090f4385de4ed677c9f084f0c3a2d","appliedSteps":[],"issues":[{"severity":"error","path":"backups.acknowledgeNoTarget","message":"no step implementation for backups.acknowledgeNoTarget"}],"replayed":false}
+2026-11-22T18:11:21Z NOTE: apply did not complete; doc 45 section 1.9 says no apply step is registered on main yet, so exit 3 is expected until the setup wizard apply steps land
+2026-11-22T18:11:21Z --- ok: non-interactive setup through the provisioning API (doc 45 section 1.5 and 1.9) (5s)
+2026-11-22T18:11:21Z === step 8: smoke checks
+2026-11-22T18:11:21Z health/live: HTTP 200 live
+2026-11-22T18:11:21Z health/ready: HTTP 200 {"ready":true,"checks":[{"name":"startup","ok":true,"detail":null},{"name":"postgres","ok":true,"detail":null},{"name":"instance_lock","ok":true,"detail":null},{"name":"providers","ok":true,"detail":null},{"name":"lease_recovery","ok":true,"detail":null}]}
+2026-11-22T18:11:21Z status: HTTP 200 {"version":"0.1.0+0a6228b10d6685957b8081b688b085a167baf25d","codename":"Beta","started_at":"2026-11-22T18:11:19.5434361+00:00","uptime_seconds":2,"providers":["provider service_host: no usable provider (requested auto); unusable: systemd (systemd is not running)","provider vm: none (disabled by setting)","provider cache: none (disabled by setting)","provider search: none (disabled by setting)"]}
+2026-11-22T18:11:21Z host log lines: 75
+2026-11-22T18:11:21Z --- ok: smoke checks (0s)
+2026-11-22T18:11:21Z === SUMMARY: install ok in 63s; setup: valid, apply HTTP 500; host log /opt/bazaar/host.log; install log /tmp/claude-0/runs/clean-run.log

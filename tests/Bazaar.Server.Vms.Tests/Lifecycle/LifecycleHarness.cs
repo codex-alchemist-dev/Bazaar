@@ -17,9 +17,9 @@ internal sealed class LifecycleHarness
 
     public VmLifecycleService Service { get; }
 
-    public LifecycleHarness()
+    public LifecycleHarness(IAgentContainmentCheck? containment = null)
     {
-        Service = new VmLifecycleService(Store, Backend, Locks, TimeProvider.System);
+        Service = new VmLifecycleService(Store, Backend, Locks, TimeProvider.System, containment);
     }
 
     /// <summary>Seeds a VM in <paramref name="state"/> with a backend ref. Its id is new on every call.</summary>
