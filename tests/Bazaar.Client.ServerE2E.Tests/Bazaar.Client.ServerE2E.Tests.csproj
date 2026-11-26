@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.SignIn\Bazaar.Client.SignIn.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <!-- Built so the host's output folder exists. The tests start it as a separate process, never in this one. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.Host\Bazaar.Server.Host.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+</Project>

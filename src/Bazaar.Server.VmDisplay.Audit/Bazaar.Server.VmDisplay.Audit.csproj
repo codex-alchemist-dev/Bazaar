@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- An adapter between two ports. The display and audit abstractions, the payload guard and Bazaar.Core (for the component): no Bazaar.Server. -->
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.VmDisplay.Audit.Tests" />
+  </ItemGroup>
+</Project>

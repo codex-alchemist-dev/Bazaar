@@ -41,7 +41,7 @@ public class CouncilEventPayloadTests
         var payload = h.Events.OfKind("council.open").Single().PayloadJson;
 
         Assert.Equal(
-            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"subject_ref\":\"task/42\",\"kind\":\"approve_reject\",\"motion_class\":\"ordinary\",\"options\":[],\"proposer_id\":\"ada\",\"subject_author_id\":null,\"eligible_voter_ids\":[\"cal\"],\"deadline_at\":\"2026-11-02T09:00:00+00:00\",\"reveal_seed\":SEED}",
+            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"subject_ref\":\"task/42\",\"kind\":\"approve_reject\",\"motion_class\":\"ordinary\",\"high_impact\":false,\"options\":[],\"proposer_id\":\"ada\",\"subject_author_id\":null,\"eligible_voter_ids\":[\"cal\"],\"deadline_at\":\"2026-11-02T09:00:00+00:00\",\"reveal_seed\":SEED}",
             Normalise(payload, id, h.GcId));
     }
 
@@ -75,10 +75,10 @@ public class CouncilEventPayloadTests
         var decision = h.Events.OfKind("council.decision").Single().PayloadJson;
 
         Assert.Equal(
-            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"reveal_seed\":SEED,\"reason_order\":[\"cal\",\"dot\",\"eve\"],\"tally\":{\"outcome\":\"decided\",\"choice\":\"yes\",\"escalation_reason\":null,\"counts\":{\"yes\":2,\"no\":1,\"abstain\":0}},\"reasons\":[{\"voter_id\":\"cal\",\"choice\":\"yes\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"},{\"voter_id\":\"dot\",\"choice\":\"yes\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"},{\"voter_id\":\"eve\",\"choice\":\"no\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"}]}",
+            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"reveal_seed\":SEED,\"reason_order\":[\"cal\",\"dot\",\"eve\"],\"tally\":{\"outcome\":\"decided\",\"choice\":\"yes\",\"escalation_reason\":null,\"counts\":{\"yes\":2,\"no\":1,\"abstain\":0}},\"reasons\":[{\"voter_id\":\"cal\",\"choice\":\"yes\"},{\"voter_id\":\"dot\",\"choice\":\"yes\"},{\"voter_id\":\"eve\",\"choice\":\"no\"}]}",
             Normalise(reveal, id, h.GcId));
         Assert.Equal(
-            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"decided_by\":\"tally\",\"choice\":\"yes\",\"owner_reasoning\":null,\"vault_decision_no\":1,\"final_counts\":{\"yes\":2,\"no\":1},\"voters\":[{\"voter_id\":\"cal\",\"independent_choice\":\"yes\",\"followup_choice\":null,\"final_choice\":\"yes\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"},{\"voter_id\":\"dot\",\"independent_choice\":\"yes\",\"followup_choice\":null,\"final_choice\":\"yes\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"},{\"voter_id\":\"eve\",\"independent_choice\":\"no\",\"followup_choice\":null,\"final_choice\":\"no\",\"reasoning\":\"The evidence points this way. The cost is acceptable.\"}]}",
+            "{\"vote_id\":\"VOTE_ID\",\"gc_id\":\"GC_ID\",\"decided_by\":\"tally\",\"choice\":\"yes\",\"owner_reasoning\":null,\"vault_decision_no\":1,\"final_counts\":{\"yes\":2,\"no\":1},\"voters\":[{\"voter_id\":\"cal\",\"independent_choice\":\"yes\",\"followup_choice\":null,\"final_choice\":\"yes\"},{\"voter_id\":\"dot\",\"independent_choice\":\"yes\",\"followup_choice\":null,\"final_choice\":\"yes\"},{\"voter_id\":\"eve\",\"independent_choice\":\"no\",\"followup_choice\":null,\"final_choice\":\"no\"}]}",
             Normalise(decision, id, h.GcId));
     }
 

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The provider module re-checks host paths with the same guard the manager uses. -->
+    <InternalsVisibleTo Include="Bazaar.Server.VmMounts.Providers" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- No reference to Bazaar.Server: the module meets the rest only through abstractions and the vms tables (doc 16 WP8). -->
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmMounts.Abstractions\Bazaar.Server.VmMounts.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

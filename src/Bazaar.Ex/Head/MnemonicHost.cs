@@ -31,6 +31,9 @@ public sealed class MnemonicHost : IDisposable
     /// <summary>A palette or focus action the router asked for. Subscribed by the palette view.</summary>
     public event EventHandler<RouterAction>? ActionRaised;
 
+    /// <summary>Shift+Enter asked for AI suggestions for the typed text. The suggestions are proposals only; the shell shows them and the user confirms.</summary>
+    public event EventHandler<string>? AiSuggestRequested;
+
     /// <summary>The expansion to show beside the typed text before Enter runs it. Null when nothing matches yet.</summary>
     public event EventHandler<string?>? OverlayChanged;
 
@@ -56,7 +59,11 @@ public sealed class MnemonicHost : IDisposable
             _announcer.Announce(speech, step.Priority);
         }
 
-        if (step.Action is { } action)
+        if (step.AiSuggestFor is { } typed)
+        {
+            AiSuggestRequested?.Invoke(this, typed);
+        }
+        else if (step.Action is { } action)
         {
             RunAction(action);
         }

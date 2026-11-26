@@ -48,6 +48,7 @@ Capture, then `ISpeechToText` (Whisper-Small on QNN, Tiny as fallback), then `IT
 - Card: agent, action, target, exact payload (diff summary or arguments), taint sources collapsed with quoted excerpts, expiry (default 24 h), link to the GC. The action's tier follows doc 15's ladder.
 - Actions: Approve once, Deny, Approve for this task (1 h, scope shown). No "always allow".
 - Approve requires a fresh biometric prompt. The response is signed by a device key in the Android Keystore (signing unverified; spike).
+- Phone pane `bazaar.approvals` (module `Bazaar.Client.Approvals.Phone`): pending approvals as cards with Approve, Reject (the card's Deny) and Detail; Detail opens the full card. Decisions go through the biometric gate only. Server routes [PROPOSED]: `GET /approvals/pending` returns the pending cards, `POST /approvals/{id}/decision` takes one signed decision (client module `Bazaar.Client.Approvals.Http`, server module `Bazaar.Server.Approvals.Http`, owner-only, the decision route only maps to `ApprovalService.DecideAsync`, which verifies the signature; answers 204 recorded, 400 malformed or unsigned, 403 bad signature or not the owner, 404 unknown, 409 opposite decision, 410 expired). The server host adds the routes with `MapBazaarApprovalRoutes`. The phone uses the platform BiometricPrompt with a strong biometric only and no device-credential fallback, and an ECDSA P-256 Keystore key whose DER signature is converted to the 64-byte P1363 form; signing never creates a key (enrolment is doc 32 Question 4). The head supplies the gate and the pending-approval source; without them the pane says what is missing and decides nothing. [PROPOSED]
 - Edit-then-approve is desktop-only.
 - A changed payload invalidates the card. Offline, the request waits; nothing auto-approves.
 
@@ -128,7 +129,7 @@ Registry rules per doc 03 (DECISIONS-LOG round 13). Every change is written to t
 11. Screenshot annotation over the HTTP blob channel. Depends on the doc 02 HTTP surface.
 12. Device spike checklist run; results recorded in doc 35.
 13. Play closed-test track and signing setup. Blocked on the owner's tester list.
-14. PR review and merge pane (summary, full diff, request changes, merge request after signed approval). Depends on 8, doc 21 and doc 12.
+14. PR review and merge pane (summary, full diff, request changes, merge request after signed approval). Depends on 8, doc 21 (Client PR wire [PROPOSED]) and doc 12. Merge signs the shared owner payload, not a doc 15 card decision.
 
 ## Conflicts
 1. Hold-anywhere vs platform gestures: long-press selects text in the composer, TalkBack uses long-press, and Android 16 edge gestures can clash at screen edges. The radial must ignore edge bands.

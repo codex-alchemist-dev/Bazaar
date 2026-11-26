@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Description>MemoryPack wire codec, name "memorypack" (doc 90). Binary, .NET to .NET only. Serialisation code is generated, no reflection.</Description>
+    <IsAotCompatible>true</IsAotCompatible>
+    <RootNamespace>Bazaar.Wire.Codec.MemoryPack</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Wire.Generators\Bazaar.Wire.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The runtime only. MemoryPack's own source generator is not used here: generator output never feeds another generator (doc 90 section 3.2). -->
+    <PackageReference Include="MemoryPack.Core" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Wire.Codec.MemoryPack.Tests" />
+  </ItemGroup>
+</Project>

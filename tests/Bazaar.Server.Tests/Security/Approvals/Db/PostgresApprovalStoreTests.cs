@@ -221,4 +221,24 @@ public sealed class PostgresApprovalStoreTests
         var ex = await Assert.ThrowsAsync<PostgresException>(() => store.InsertAsync(bad, Ct));
         Assert.Equal("23514", ex.SqlState);
     }
+
+    [Fact]
+    public async Task ListPending_returns_only_pending_unexpired_rows_oldest_first()
+    {
+        SkipWithoutDatabase();
+        await using var db = await ApprovalTestDb.CreateAsync(Ct);
+        var store = new PostgresApprovalStore(db.DataSource);
+        var older = NewPending(Guid.NewGuid());
+        var newer = NewPending(Guid.NewGuid()) with { RequestedAt = _t0.AddMinutes(1) };
+        var decided = Approved(NewPending(Guid.NewGuid()), signatureSeed: 1);
+        var expired = NewPending(Guid.NewGuid()) with { ExpiresAt = _t0.AddMinutes(10) };
+        foreach (var row in new[] { newer, older, decided, expired })
+            await store.InsertAsync(row, Ct);
+
+        var now = _t0.AddMinutes(30);
+        var pending = await store.ListPendingAsync(now, 10, Ct);
+
+        Assert.Equal([older.Id, newer.Id], pending.Select(r => r.Id).ToArray());
+        Assert.Single(await store.ListPendingAsync(now, 1, Ct));
+    }
 }
