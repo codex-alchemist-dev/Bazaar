@@ -45,9 +45,6 @@ public class UpdateHostTests
     {
         using var host = NewHost();
 
-        var command = Assert.Single(host.Commands.Commands);
-        Assert.Equal("update.check", command.Id);
-        Assert.Same(UpdateCheckCommand.Command, command);
         Assert.Equal(["update.check", "update.restart"], host.Commands.Commands.Select(c => c.Id));
         Assert.Same(UpdateCheckCommand.Command, host.Commands.FindById("update.check"));
     }

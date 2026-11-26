@@ -1,7 +1,6 @@
 using Bazaar.Core;
-using Bazaar.Server.RateLimits;
-using Bazaar.Server.Settings;
 using Bazaar.Server.Company;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.Constitution;
 using Bazaar.Server.Setup.FirstRun;
@@ -25,7 +24,6 @@ namespace Bazaar.Server.Setup.Host;
 /// adapters bind <c>Bazaar.Server</c> types to the setup seams; the setup libraries themselves never reference the server.
 /// </summary>
 /// <remarks>
-/// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings). A host or test
 /// The component registers the real apply steps: <see cref="InstallSettingsStep"/> (the plan's install-scope settings), <see cref="CompanyProfileStep"/> (the company profile), <see cref="OwnerStep"/> (the owner) and
 /// <see cref="ConstitutionSeedStep"/> (the default Constitution in the Vault) and <see cref="FirstRunSeedStep"/> (the first GC and default agent, over the Postgres stores in <c>Bazaar.Server.Setup.FirstRun.Postgres</c>). A host or test
 /// can pass its own steps to the constructor instead, and those replace the defaults. A step whose backing store is not in the tree
@@ -76,8 +74,6 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         // The setup rate bucket needs a limiter; this registers the in-process one unless the host already has a limiter.
         services.AddBazaarRateLimits();
 
-        services.AddBazaarSetupPostgres();
-        RegisterSteps(services);
         // The verifier (doc 45 section 1.12). Probes answer infrastructure checks by id. Any ISetupVerificationCheck a module registers
         // replaces the placeholder with the same id, so a module owns its own check without Setup referencing it.
         services.TryAddSingleton<ISetupVerifier>(sp => new SetupVerifier(SetupVerificationChecks.Create(
@@ -90,7 +86,6 @@ public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBaz
         services.AddSetupHttp();
     }
 
-    private void RegisterSteps(IServiceCollection services)
     private void RegisterSteps(IServiceCollection services, IConfiguration configuration)
     {
         if (Steps.Count > 0)

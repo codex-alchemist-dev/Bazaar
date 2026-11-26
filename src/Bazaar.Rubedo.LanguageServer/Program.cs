@@ -21,7 +21,6 @@ if (!socket)
 {
     using Stream stdin = Console.OpenStandardInput();
     using Stream stdout = Console.OpenStandardOutput();
-    return await LanguageServerHost.RunAsync(stdin, stdout, options.Schema, cts.Token).ConfigureAwait(false);
     return await LanguageServerHost.RunAsync(stdin, stdout, options.Schema, options.Tokens, cts.Token).ConfigureAwait(false);
 }
 
@@ -33,7 +32,6 @@ try
 {
     using TcpClient client = await listener.AcceptTcpClientAsync(cts.Token).ConfigureAwait(false);
     using NetworkStream stream = client.GetStream();
-    return await LanguageServerHost.RunAsync(stream, stream, options.Schema, cts.Token).ConfigureAwait(false);
     return await LanguageServerHost.RunAsync(stream, stream, options.Schema, options.Tokens, cts.Token).ConfigureAwait(false);
 }
 catch (OperationCanceledException)

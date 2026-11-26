@@ -17,7 +17,6 @@ public sealed class SetupWizardBackendTests
 
     private static readonly string[] _answers =
     [
-        "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", _anchor, _backup, "", "", "", "", "",
         "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", "", "", "", "",
     ];
 

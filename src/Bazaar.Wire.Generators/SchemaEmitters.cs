@@ -7,7 +7,6 @@ namespace Bazaar.Wire.Generators;
 /// <summary>Renders the published schema artifacts (doc 90 section 5) as deterministic text with LF line ends.</summary>
 internal static class SchemaEmitters
 {
-    private const string UuidPattern = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
     private const string _uuidPattern = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
 
     /// <summary>Computes the schema hash: SHA-256 of <c>schema.json</c> rendered with an empty hash value.</summary>
@@ -187,7 +186,6 @@ internal static class SchemaEmitters
             case "float32":
             case "float64":
             case "decimal": return "{ \"type\": \"number\" }";
-            case "guid": return "{ \"type\": \"string\", \"format\": \"uuid\", \"pattern\": " + Quote(UuidPattern) + " }";
             case "guid": return "{ \"type\": \"string\", \"format\": \"uuid\", \"pattern\": " + Quote(_uuidPattern) + " }";
             case "datetime": return "{ \"type\": \"string\", \"format\": \"date-time\" }";
             case "float32[]": return "{ \"type\": \"array\", \"items\": { \"type\": \"number\" } }";
@@ -208,7 +206,6 @@ internal static class SchemaEmitters
         sb.Append("; Schema hash ").Append(hash).Append(".\n");
         sb.Append("; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.\n\n");
         sb.Append("envelope = {\n  v: uint,\n  t: tstr,\n  k: \"req\" / \"res\" / \"evt\" / \"err\",\n  ? id: tstr,\n  ? re: tstr,\n  ? s: tstr,\n  ? n: int,\n  ? ts: #6.0(tstr),\n  ? p: any,\n  * tstr => any\n}\n\n");
-        sb.Append("uuid-text = tstr .regexp ").Append(Quote(UuidPattern.Substring(1, UuidPattern.Length - 2))).Append('\n');
         sb.Append("uuid-text = tstr .regexp ").Append(Quote(_uuidPattern.Substring(1, _uuidPattern.Length - 2))).Append('\n');
         sb.Append("decimal-fraction = #6.4([exponent: int, mantissa: int])\n");
         sb.Append("float32-array = #6.85(bstr)\n\n");

@@ -15,9 +15,6 @@ public sealed class SetupSettingProjectionTests
         var projected = SetupSettingProjection.Project(ValidPlan());
 
         Assert.Equal(
-            ["host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "update.channel"],
-            projected.Select(s => s.Key));
-        Assert.Equal(["settings.host.shutdown_timeout_seconds", "network.statusBind", "network.statusPort", "install.releaseChannel"], projected.Select(s => s.PlanPath));
             [
                 "backup.drill_interval_days", "backup.no_target_acknowledged", "backup.target", "company.source", "deps.update.autoSecurityPatches",
                 "gateway.default_preset", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "identity.merge_credential",
@@ -61,12 +58,6 @@ public sealed class SetupSettingProjectionTests
     [InlineData("network.statusPort", "host.status.port")]
     [InlineData("scamMailProtocol.enabled", "security.scam_mail.protocol_enabled")]
     [InlineData("install.releaseChannel", "update.channel")]
-    public void Each_mapped_plan_path_names_its_registry_key(string path, string key) =>
-        Assert.Equal(key, SetupSettingProjection.DerivedKeyForPath(path));
-
-    [Fact]
-    public void An_unmapped_path_names_no_key() =>
-        Assert.Null(SetupSettingProjection.DerivedKeyForPath("install.companyName"));
     [InlineData("install.updatePolicy.security", "deps.update.autoSecurityPatches")]
     [InlineData("custody.mergeCredential.kind", "identity.merge_credential")]
     [InlineData("custody.mergeCredential.appIdRef", "identity.merge_credential.app_id_ref")]

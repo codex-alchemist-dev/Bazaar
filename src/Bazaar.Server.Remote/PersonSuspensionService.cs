@@ -1,4 +1,4 @@
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Components.Remote;

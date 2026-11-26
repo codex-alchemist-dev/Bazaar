@@ -1,12 +1,12 @@
 using Bazaar.Contracts.GitHub;
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Events;
-using Bazaar.GitHub.Ingress;
-using Bazaar.GitHub.Wire;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Events;
+using Bazaar.Server.GitHub.Ingress;
+using Bazaar.Server.GitHub.Wire;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
-namespace Bazaar.GitHub.Tests.Wire;
+namespace Bazaar.Server.GitHub.Tests.Wire;
 
 /// <summary>The PR read model behind <c>pr.list</c> and <c>pr.summary</c> (doc 21, Client PR wire) against a real <c>github_pr</c> table.</summary>
 public sealed class PgGitHubPrReadModelTests

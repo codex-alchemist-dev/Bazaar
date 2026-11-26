@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
-using Bazaar.GitHub.Adapter;
+using Bazaar.Server.GitHub.Adapter;
 
-namespace Bazaar.GitHub.Events;
+namespace Bazaar.Server.GitHub.Events;
 
 /// <summary>
 /// Turns an Events API page (<c>GET /repos/{owner}/{repo}/events</c>) into <see cref="GitHubEvent"/> values (doc 21, Event mapping).

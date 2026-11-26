@@ -30,15 +30,6 @@ public sealed class UpdateHost : IDisposable
         Coordinator = coordinator;
         Compatibility = compat;
         _http = http;
-        // No command palette exists in any head yet (only the CommandRegistry/CommandMatcher library in Bazaar.Client.Commands),
-        // so the head owns a registry holding just its local commands. Still missing: a palette view that opens on its mnemonic,
-        // lists Commands.Commands and runs UpdateCheckCommand.RunAsync for update.check; and loading the server's commands.
-        Commands = CommandRegistry.Load([UpdateCheckCommand.Command], []).Registry;
-    }
-
-    /// <summary>The head's local commands (currently only <c>update.check</c>), ready for a palette to list.</summary>
-    public CommandRegistry Commands { get; }
-
         // The head owns a registry holding just its local update commands; update.restart is enabled only while a release is staged.
         // The palette lists the module's commands (LinuxHeadModule); this registry is what its enabled state is read from.
         RestartCommand = CreateRestartCommand(coordinator);

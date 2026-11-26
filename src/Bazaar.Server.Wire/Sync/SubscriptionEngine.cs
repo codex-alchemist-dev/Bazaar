@@ -23,7 +23,6 @@ public sealed class SubscriptionEngine(
 
     /// <summary>Creates the per-connection state. Dispose it when the socket closes.</summary>
     public SubscriptionSession CreateSession(Guid principalId, PrincipalKind principalKind, IWireCodec codec, IConnectionOutbound outbound) =>
-        new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod);
         new(principalId, principalKind, source, access, dispatcher, options, new SyncFrames(codec, options, _time), outbound, graphLod, _gates);
 }
 

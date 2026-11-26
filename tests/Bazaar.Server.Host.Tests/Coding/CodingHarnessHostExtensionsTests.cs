@@ -1,8 +1,8 @@
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
 using Bazaar.Server.CodingEdit;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Subagents;

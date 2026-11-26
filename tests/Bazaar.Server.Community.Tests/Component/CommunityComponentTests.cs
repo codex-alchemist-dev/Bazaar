@@ -1,7 +1,6 @@
-using Bazaar.Community.Drafts;
-using Bazaar.Community.Profile;
-using Bazaar.Community.Quotas;
 using Bazaar.Core;
+using Bazaar.Server.Community.Drafts;
+using Bazaar.Server.Community.Profile;
 using Bazaar.Server.Community.Quotas;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

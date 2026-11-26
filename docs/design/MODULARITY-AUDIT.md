@@ -35,7 +35,6 @@ Not found anywhere in docs: a module manifest, a module lifecycle, a capability 
 - All platform logic is one assembly, `src/Bazaar.Server`, split into folders for Gc, Kanban, Vault, Agents, Gateway, Security, Interrupts, Calendar, WorkLife, Council, Skimmer, Org, Souls, Settings and Memory. The repo has about 400 C# files across all projects. Feature boundaries are folders, not projects.
 
 **Infrastructure providers (real seam, mostly empty).**
-- `src/Bazaar.Server.Providers.Abstractions/` and `src/Bazaar.Server.Providers/` have `IProvider`, `ProviderRole` (ServiceHost, Vm, Cache, Search), `ProviderSelector` and `ProviderCapabilityReport`. Selection follows doc 03.
 - `src/Bazaar.Server.Providers.Abstractions/` and `src/Bazaar.Server.Providers/` have `IProvider`, `ProviderRole` (ServiceHost, Vm, Cache, Search), and `ProviderCapabilityReport`. Providers are plain modules (doc 03, Provider modules); the old `ProviderSelector` is removed.
 - Only ServiceHost has OS implementations: `WindowsServiceHostProvider` and `SystemdServiceHostProvider`. Vm, Cache and Search pass empty candidate lists, so they resolve to none. `Providers/Fakes/` holds test doubles.
 - OS code is split across assemblies for Windows (`src/Bazaar.Server.Providers.Windows`) and for Linux (`src/Bazaar.Server.Providers.Linux`, split out of the core assembly, matching doc 03).

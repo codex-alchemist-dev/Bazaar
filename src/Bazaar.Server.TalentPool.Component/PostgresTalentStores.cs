@@ -107,7 +107,6 @@ public sealed class PostgresHireDecisionStore(NpgsqlDataSource dataSource) : IHi
 /// Tier 2 tool-grant approvals (<c>talent_tool_grant_approval</c>). The owner's approval flow calls <see cref="RecordAsync"/>;
 /// the Talent Pool only reads. A hire vote never records one.
 /// </summary>
-public sealed class PostgresToolGrantApproval(NpgsqlDataSource dataSource, TimeProvider time) : ITalentToolGrantApproval
 public sealed class PostgresToolGrantApproval(NpgsqlDataSource dataSource, TimeProvider time) : ITalentToolGrantApproval, IToolGrantRecorder
 {
     /// <summary>Lowercase hex SHA-256 of the sorted tool list, so order does not matter and any change needs a new approval.</summary>

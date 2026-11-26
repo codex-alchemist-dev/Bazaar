@@ -16,7 +16,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Engines\Bazaar.Engines.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Engines\Bazaar.Server.Engines.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Engines.Abstractions\Bazaar.Server.Engines.Abstractions.csproj" />
     <ProjectReference Include="FakeAdapter\FakeAdapter.csproj" />

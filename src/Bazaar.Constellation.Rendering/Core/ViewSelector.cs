@@ -19,7 +19,6 @@ public sealed record ViewSelection(IReadOnlyList<SelectedTile> Tiles, long Total
 /// </summary>
 public static class ViewSelector
 {
-    public static ViewSelection Select(ITileTree tree, ViewVolume view, ViewSelectorOptions? options = null)
     /// <param name="isOccluded">
     /// Optional occlusion test (for example <see cref="OcclusionCuller.AsTest"/> from last frame's Hi-Z pyramid). Tiles it
     /// rejects are skipped like off-screen tiles, so they never consume the instance or tile budget. It must be conservative.
@@ -39,7 +38,6 @@ public static class ViewSelector
         TileKey root = TileKey.Root;
         TileInfo rootInfo = tree.GetInfo(root);
         visited++;
-        if (!view.Intersects(rootInfo.Bounds))
         if (!view.Intersects(rootInfo.Bounds) || (isOccluded?.Invoke(rootInfo.Bounds) ?? false))
         {
             return new ViewSelection(done, 0, visited);
@@ -63,7 +61,6 @@ public static class ViewSelector
                 {
                     TileInfo info = tree.GetInfo(kids[i]);
                     visited++;
-                    if (!view.Intersects(info.Bounds))
                     if (!view.Intersects(info.Bounds) || (isOccluded?.Invoke(info.Bounds) ?? false))
                     {
                         continue;

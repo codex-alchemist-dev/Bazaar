@@ -14,7 +14,6 @@ public static partial class RubedoAnalyzer
     /// with its own code. Validator problems are placed on the widget name of the node they name when the node can be found,
     /// else on the first character. An empty list means the document is valid.
     /// </summary>
-    public static IReadOnlyList<AnalysisDiagnostic> DiagnoseView(string? json)
     public static IReadOnlyList<AnalysisDiagnostic> DiagnoseView(string? json) => DiagnoseView(json, null);
 
     /// <summary>As <see cref="DiagnoseView(string?)"/>, also checking token references against <paramref name="tokens"/> (doc 41c section 5.1).</summary>
@@ -41,7 +40,6 @@ public static partial class RubedoAnalyzer
             return [new AnalysisDiagnostic("view.shape", ex.Message, 0, Math.Min(json.Length, 1))];
         }
 
-        IReadOnlyList<RubedoDiagnostic> problems = ViewValidator.Validate(document);
         IReadOnlyList<RubedoDiagnostic> problems = ViewValidator.Validate(document, tokens);
         if (problems.Count == 0)
         {
@@ -64,7 +62,6 @@ public static partial class RubedoAnalyzer
     /// <c>tabs</c>), prop names (narrowed by the node's widget when it is already written), action ids in a button's
     /// <c>action</c>, action kinds, data types and the document's own keys. Nothing outside a string.
     /// </summary>
-    public static CompletionList CompleteView(string? json, int offset)
     public static CompletionList CompleteView(string? json, int offset) => CompleteView(json, offset, null);
 
     /// <summary>
@@ -80,7 +77,6 @@ public static partial class RubedoAnalyzer
             return new CompletionList(offset, offset, []);
         }
 
-        return ViewCompleter.Complete(json, offset);
         return ViewCompleter.Complete(json, offset, tokens);
     }
 

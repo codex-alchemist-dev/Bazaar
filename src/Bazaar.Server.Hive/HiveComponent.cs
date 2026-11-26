@@ -7,7 +7,6 @@ using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Trust;
 using Bazaar.Server.Memory.Write;
-using Bazaar.Server.Settings;
 using Bazaar.Server.ReadAudit.Npgsql;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Connection;
@@ -62,7 +61,6 @@ public sealed class HiveComponent : IBazaarComponent
         services.TryAddSingleton<IHiveGrantStore>(sp =>
             sp.GetService<ISettingStore>() is { } settings
                 ? new SettingsHiveGrantStore(settings)
-                : sp.GetService<NpgsqlDataSource>() is { } dataSource
                 : ReadSource(sp) is { } dataSource
                     ? new PgHiveGrantStore(dataSource)
                     : new InMemoryHiveGrantStore());

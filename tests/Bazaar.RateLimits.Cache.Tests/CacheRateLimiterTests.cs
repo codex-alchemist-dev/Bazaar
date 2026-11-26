@@ -1,4 +1,5 @@
 using Bazaar.Server.Providers;
+using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 

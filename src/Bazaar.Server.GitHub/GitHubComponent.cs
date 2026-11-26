@@ -1,5 +1,5 @@
 using Bazaar.Core;
-using Bazaar.GitHub.Tools;
+using Bazaar.Server.GitHub.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

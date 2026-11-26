@@ -2,12 +2,12 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
 using Bazaar.Contracts.Memory;
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.Constellation.Memory.ReadLog;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Retrieval;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Trust;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 using Npgsql;
 

@@ -1,7 +1,7 @@
-using Bazaar.GitHub.Ingress;
-using Bazaar.GitHub.Pr;
-using Bazaar.GitHub.Processing;
-using Bazaar.GitHub.Webhooks;
+using Bazaar.Server.GitHub.Ingress;
+using Bazaar.Server.GitHub.Pr;
+using Bazaar.Server.GitHub.Processing;
+using Bazaar.Server.GitHub.Webhooks;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Testing.Postgres;
@@ -47,7 +47,7 @@ public sealed class GitHubWakeHostEndToEndTests
     }
 
     private static async Task StoreAsync(NpgsqlDataSource ds, string id, string eventType, string payload, CancellationToken ct) =>
-        Assert.True(await new Bazaar.GitHub.Webhooks.PgGitHubDeliveryStore(ds).TryRecordAsync(GitHubWebhookEndpoint.Source, id, eventType, DateTimeOffset.UtcNow, payload, ct));
+        Assert.True(await new Bazaar.Server.GitHub.Webhooks.PgGitHubDeliveryStore(ds).TryRecordAsync(GitHubWebhookEndpoint.Source, id, eventType, DateTimeOffset.UtcNow, payload, ct));
 
     [Fact]
     public async Task Stored_webhook_deliveries_wake_the_mentioned_agent_through_the_real_host_composition()

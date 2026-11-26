@@ -1,7 +1,3 @@
-using Bazaar.Server.Calendar;
-using Bazaar.Server.Http;
-using Bazaar.Server.Org;
-using Bazaar.Server.Settings;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Calendar;
 using Bazaar.Server.Health;
@@ -21,7 +17,6 @@ namespace Bazaar.Server.Host.Http;
 
 /// <summary>
 /// Maps the Company pane read routes (doc 24 section 5) behind the HTTP surface guard (bearer, rate bucket).
-/// <c>IOrgDirectory</c> is not registered: no registry here lists agent or project names yet, so the Org model carries edges only.
 /// The Org directory lists agent names from the Agents module; no project registry exists yet, so no project names are listed.
 /// </summary>
 internal static class CompanyReadRoutes
@@ -47,11 +42,6 @@ internal static class CompanyReadRoutes
     public static IServiceCollection AddBazaarCompanyReadOptions(this IServiceCollection services)
     {
         services.AddHttpContextAccessor();
-        services.AddScoped(sp =>
-            sp.GetRequiredService<IHttpContextAccessor>().HttpContext?.Items[_timezoneItem] as CalendarReadOptions ?? new CalendarReadOptions());
-        return services;
-    }
-
         // The retention sweep reads metrics.raw_retention_days; the last registration wins over the module's configuration default.
         services.AddSingleton<IRawRetentionSource>(sp => sp.GetService<ISettingStore>() is { } store
             ? new SettingRawRetentionSource(store)
@@ -103,8 +93,6 @@ internal static class CompanyReadRoutes
         var mode = await http.RequestServices.GetRequiredService<ISettingStore>()
             .GetAsync(CalendarSettings.DisplayTimezoneKey, cancellationToken: http.RequestAborted);
         http.Items[_timezoneItem] = new CalendarReadOptions(mode);
-        return null;
-    }
         http.Items[_viewerItem] = await ViewerAsync(http);
         return null;
     }

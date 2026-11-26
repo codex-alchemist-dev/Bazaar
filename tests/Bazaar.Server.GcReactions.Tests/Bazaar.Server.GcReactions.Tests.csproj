@@ -21,7 +21,5 @@
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Wire\Bazaar.Server.Wire.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
   </ItemGroup>
 </Project>

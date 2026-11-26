@@ -37,7 +37,6 @@ internal sealed class TypeResolver
             case SpecialType.System_Single: return new TypeRef(symbol, nullable, WireKind.Single, null);
             case SpecialType.System_Double: return new TypeRef(symbol, nullable, WireKind.Double, null);
             case SpecialType.System_Decimal: return new TypeRef(symbol, nullable, WireKind.Decimal, null);
-            case SpecialType.System_DateTime: return Unsupported(symbol);
             case SpecialType.System_DateTime:
             case SpecialType.System_Object: return Unsupported(symbol);
         }
@@ -70,7 +69,6 @@ internal sealed class TypeResolver
                     }
             }
 
-            if (named.TypeParameters.Length == 0 && named.TypeKind is TypeKind.Class or TypeKind.Struct && named.DeclaredAccessibility == Accessibility.Public)
             if (named.TypeParameters.Length == 0 && !named.IsAbstract && named.TypeKind is TypeKind.Class or TypeKind.Struct && named.DeclaredAccessibility == Accessibility.Public)
             {
                 return new TypeRef(symbol, nullable, WireKind.Record, null);
@@ -174,7 +172,6 @@ internal sealed class RecordShape
             var value = p.ExplicitDefaultValue;
             if (value is null) return "default";
             if (field.ReadType.Kind == WireKind.Enum) return $"({field.ReadType.NonNull.Display()}){Convert.ToString(value, CultureInfo.InvariantCulture)}";
-            return SymbolDisplay.FormatPrimitive(value, true, false);
             return SymbolDisplay.FormatPrimitive(value, true, false)!;
         }
 

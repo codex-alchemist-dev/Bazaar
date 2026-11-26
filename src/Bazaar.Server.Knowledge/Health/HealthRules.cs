@@ -24,14 +24,6 @@ public sealed record HealthThresholds
     /// <summary>Consecutive failing CI days that raise an alert.</summary>
     public int BuildFailureStreak { get; }
 
-    /// <summary>Shipped default for <see cref="CoverageDropPoints"/>. <c>KnowledgeSettings</c> in Bazaar.Server must declare the same default; a test guards the pair.</summary>
-    public const int DefaultCoverageDropPoints = 2;
-
-    /// <summary>Shipped default for <see cref="BuildFailureStreak"/>. <c>KnowledgeSettings</c> in Bazaar.Server must declare the same default; a test guards the pair.</summary>
-    public const int DefaultBuildFailureStreak = 3;
-
-    /// <summary>The shipped defaults (doc 25: 2 points and 3 days).</summary>
-    public static HealthThresholds Defaults { get; } = new(DefaultCoverageDropPoints, DefaultBuildFailureStreak);
     /// <summary>The shipped defaults from <see cref="HealthDefaults"/>.</summary>
     public static HealthThresholds Defaults { get; } = new(
         HealthDefaults.CoverageDropPoints,

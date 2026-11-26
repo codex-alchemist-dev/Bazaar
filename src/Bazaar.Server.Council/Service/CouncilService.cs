@@ -2,9 +2,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using Bazaar.Server.Mirror;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Membership;
+using Bazaar.Server.Mirror;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -69,7 +69,7 @@ public sealed partial class CouncilService : ICouncilService
         TimeProvider clock,
         ICouncilDecisionWriter? decisionWriter = null,
         ICouncilDissentShareSource? dissentShare = null,
-        IMirrorFeed? mirror = null)
+        IMirrorFeed? mirror = null,
         IEnumerable<IMembershipOutcomeSink>? membershipSinks = null,
         ILogger<CouncilService>? logger = null)
     {

@@ -1,7 +1,7 @@
 using Npgsql;
 using NpgsqlTypes;
 
-namespace Bazaar.GitHub.Webhooks;
+namespace Bazaar.Server.GitHub.Webhooks;
 
 /// <summary>Postgres <see cref="IGitHubDeliveryStore"/>: one insert, <c>on conflict do nothing</c> on the table's primary key.</summary>
 public sealed class PgGitHubDeliveryStore(NpgsqlDataSource dataSource) : IGitHubDeliveryStore

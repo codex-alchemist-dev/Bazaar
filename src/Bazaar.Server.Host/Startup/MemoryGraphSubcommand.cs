@@ -1,10 +1,10 @@
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Hosting;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
