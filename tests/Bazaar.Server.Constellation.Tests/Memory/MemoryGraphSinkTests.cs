@@ -32,6 +32,34 @@ public sealed class MemoryGraphSinkTests
     }
 
     [Fact]
+    public async Task With_a_vault_index_the_note_is_projected_onto_its_doc_with_the_index_links()
+    {
+        var docId = Guid.CreateVersion7();
+        var target = Guid.CreateVersion7();
+        var store = new FakeStore();
+        var index = new FakeIndex { [_pathA] = new VaultIndexedDoc(docId, NoteFixtures.NoteId, [target]) };
+        var sink = new MemoryGraphSink(new FakeSink(MemoryCommitResult.Success("sha-1")), store, new CapturingLogger(), index);
+
+        await sink.CommitAsync(Batch(Item(_pathA, NoteFixtures.Text(body: "See [[Some Title]]."))), CancellationToken.None);
+
+        var revision = Assert.Single(store.Stored);
+        Assert.Equal(docId, revision.DocId);
+        Assert.Equal([target.ToString("D")], revision.Edges.Where(e => e.Kind == MemoryEdgeKind.Link).Select(e => e.TargetId));
+        Assert.Equal([(NoteFixtures.NoteId, _pathA)], index.Lookups);
+    }
+
+    [Fact]
+    public async Task A_note_the_vault_index_has_not_seen_is_stored_without_a_doc_id()
+    {
+        var store = new FakeStore();
+        var sink = new MemoryGraphSink(new FakeSink(MemoryCommitResult.Success("sha-1")), store, new CapturingLogger(), new FakeIndex());
+
+        await sink.CommitAsync(Batch(Item(_pathA, NoteFixtures.Text())), CancellationToken.None);
+
+        Assert.Null(Assert.Single(store.Stored).DocId);
+    }
+
+    [Fact]
     public async Task Inner_result_is_returned_unchanged()
     {
         var expected = MemoryCommitResult.Success("sha-2");
@@ -186,6 +214,17 @@ public sealed class MemoryGraphSinkTests
         }
     }
 
+    private sealed class FakeIndex : Dictionary<string, VaultIndexedDoc>, IVaultDocIndex
+    {
+        public List<(string NoteId, string Path)> Lookups { get; } = [];
+
+        public Task<VaultIndexedDoc?> FindAsync(string noteId, string vaultPath, CancellationToken ct)
+        {
+            Lookups.Add((noteId, vaultPath));
+            return Task.FromResult(TryGetValue(vaultPath, out var doc) ? doc : null);
+        }
+    }
+
     private sealed class FakeStore : IMemoryGraphStore
     {
         public List<MemoryGraphRevision> Stored { get; } = [];
@@ -207,6 +246,9 @@ public sealed class MemoryGraphSinkTests
             throw new NotSupportedException();
 
         public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
             throw new NotSupportedException();
     }
 

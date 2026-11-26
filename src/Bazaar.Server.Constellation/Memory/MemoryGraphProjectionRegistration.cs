@@ -29,6 +29,21 @@ public static class MemoryGraphProjectionRegistration
         ArgumentNullException.ThrowIfNull(services);
 
         services.TryAddSingleton<IMemoryGraphStore>(sp => new PgMemoryGraphStore(sp.GetRequiredService<NpgsqlDataSource>()));
+    /// Adds the graph store, the audited store, the Vault doc index and node reader of the converged graph, and the graph sink
+    /// decorator. Call it once, after the component registration.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <param name="vaultId">The Vault whose docs are the graph nodes (<c>Constellation:VaultId</c>), or null for any Vault.</param>
+    public static IServiceCollection AddMemoryGraphProjection(this IServiceCollection services, Guid? vaultId = null)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+
+        services.TryAddSingleton<IMemoryGraphStore>(sp => new PgMemoryGraphStore(sp.GetRequiredService<NpgsqlDataSource>(), vaultId));
+
+        // The converged graph (docs/design/constellation-memory-graph.md, "Convergence design"): nodes are Vault docs.
+        services.TryAddSingleton<IVaultDocIndex>(sp => new PgVaultDocIndex(sp.GetRequiredService<NpgsqlDataSource>(), vaultId));
+        services.TryAddSingleton<IConstellationNodeReader>(sp => new PgConstellationNodeReader(sp.GetRequiredService<NpgsqlDataSource>(), vaultId));
+        services.TryAddSingleton(sp => new MemoryGraphDocIdMigrator(sp.GetRequiredService<NpgsqlDataSource>(), vaultId));
 
         // Every graph change made through the memory path is audited (doc 19) when an audit log exists. Callers that roll a note
         // back take this store so the rollback is audited too.
@@ -43,6 +58,12 @@ public static class MemoryGraphProjectionRegistration
             sp.GetRequiredService<IMemoryVault>(),
             sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : sp.GetRequiredService<IMemoryGraphStore>(),
             sp.GetRequiredService<ILogger<MemoryGraphSink>>())));
+        // The Vault index is used when a database is registered; without one (tests, tools) the sink projects without it.
+        services.Replace(ServiceDescriptor.Singleton<IMemoryBatchSink>(sp => new MemoryGraphSink(
+            sp.GetRequiredService<IMemoryVault>(),
+            sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : sp.GetRequiredService<IMemoryGraphStore>(),
+            sp.GetRequiredService<ILogger<MemoryGraphSink>>(),
+            sp.GetService<NpgsqlDataSource>() is not null ? sp.GetRequiredService<IVaultDocIndex>() : null)));
         return services;
     }
 }

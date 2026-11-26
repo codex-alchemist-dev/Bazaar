@@ -95,6 +95,21 @@ public sealed class PrivacyAuditRecorder
             ["new_role"] = Label(newRole, nameof(newRole)),
         }, ct);
 
+    /// <summary>A person was suspended; <paramref name="devicesRevoked"/> devices were revoked with it (doc 32 section 8, PROPOSED).</summary>
+    public Task PersonSuspendedAsync(string actorId, string humanId, int devicesRevoked, CancellationToken ct = default) =>
+        AppendAsync(actorId, PrivacyAuditKinds.PersonSuspended, new JsonObject
+        {
+            ["human_id"] = Id(humanId, nameof(humanId)),
+            ["devices_revoked"] = devicesRevoked,
+        }, ct);
+
+    /// <summary>A suspended person was set active again (doc 32 section 8, PROPOSED).</summary>
+    public Task PersonUnsuspendedAsync(string actorId, string humanId, CancellationToken ct = default) =>
+        AppendAsync(actorId, PrivacyAuditKinds.PersonUnsuspended, new JsonObject
+        {
+            ["human_id"] = Id(humanId, nameof(humanId)),
+        }, ct);
+
     /// <summary>The owner read a DM, from <paramref name="fromSeq"/> (doc 32 sections 6 and 8).</summary>
     public Task OwnerDmReadAsync(string actorId, string gcId, long fromSeq, CancellationToken ct = default)
     {

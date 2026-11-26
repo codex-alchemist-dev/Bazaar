@@ -8,19 +8,22 @@ public sealed class SubagentRunner
 {
     private readonly ITurnRunner _turns;
     private readonly SubagentOptions _options;
+    private readonly IReadOnlyList<ISubagentEndHook> _hooks;
     private readonly Lock _gate = new();
     private readonly Dictionary<Guid, int> _running = [];
 
     /// <param name="turns">The parent turn loop that runs each child.</param>
     /// <param name="options">The limits. Validated once here.</param>
+    /// <param name="hooks">Hooks run when a child ends, in order. Best effort: see <see cref="ISubagentEndHook"/>.</param>
     /// <exception cref="ArgumentOutOfRangeException">A limit in <paramref name="options"/> is below 1.</exception>
-    public SubagentRunner(ITurnRunner turns, SubagentOptions options)
+    public SubagentRunner(ITurnRunner turns, SubagentOptions options, IEnumerable<ISubagentEndHook>? hooks = null)
     {
         ArgumentNullException.ThrowIfNull(turns);
         ArgumentNullException.ThrowIfNull(options);
         options.Validate();
         _turns = turns;
         _options = options;
+        _hooks = hooks is null ? [] : [.. hooks];
     }
 
     /// <summary>
@@ -79,11 +82,32 @@ public sealed class SubagentRunner
                 StepCapOverride: stepCap);
 
             var outcome = await _turns.RunAsync(runRequest, cancellationToken);
-            return new SubagentResult(outcome.TurnId, outcome.Reason, outcome.Summary, outcome.StepCount);
+            var result = new SubagentResult(outcome.TurnId, outcome.Reason, outcome.Summary, outcome.StepCount);
+            await RunHooksAsync(new SubagentEnded(request, result), cancellationToken);
+            return result;
         }
         finally
         {
             ReleaseSlot(request.ParentTurnId);
+        }
+    }
+
+    private async Task RunHooksAsync(SubagentEnded ended, CancellationToken cancellationToken)
+    {
+        foreach (var hook in _hooks)
+        {
+            try
+            {
+                await hook.OnSubagentEndedAsync(ended, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                // Best effort: the child already ended and its result is valid, so a failing hook must not fail the parent.
+            }
         }
     }
 
