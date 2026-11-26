@@ -13,10 +13,11 @@ using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
-using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
+using Bazaar.Server.Host.Components.SealedStorage;
 using Bazaar.Server.Host.Display;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
@@ -26,6 +27,7 @@ using Bazaar.Server.Jobs;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.SealedStorage;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -77,18 +79,13 @@ public static class HostApplicationExtensions
         services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
+        // The sealed-storage components (doc 61) need an audit sink from the host; there is no silent default.
+        services.TryAddSingleton<ISealAuditSink, HostSealAuditSink>();
         // Coding harness (doc 17). Off unless Coding:Harness:Enabled is true. When on, the ports with no production source yet
         // (repo directory, work-share layout, worktree allocator, git identity, parent-turn directory, agent state, push session
         // records) must be bound, or the host fails at start naming the port.
         services.AddBazaarCodingHarness(configuration);
         services.AddBazaarScreenToolPolicy();
-
-        // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
-        // implementation, and only when the fun-systems component is enabled, as before the split.
-        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
-        {
-            services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
-        }
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.

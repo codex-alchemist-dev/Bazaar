@@ -40,10 +40,10 @@ using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
 using Bazaar.Server.Gc;
-using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
+using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Host.Components.Audit;
@@ -61,13 +61,16 @@ using Bazaar.Server.Modules;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Retention;
+using Bazaar.Server.SealedGit;
+using Bazaar.Server.SealedStorage;
+using Bazaar.Server.SealedVault;
 using Bazaar.Server.Setup.Host;
-using Bazaar.Server.TimeMachine;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.SoulProfile;
 using Bazaar.Server.TalentPool.Component;
 using Bazaar.Server.ThinkingGc;
+using Bazaar.Server.TimeMachine;
 using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.VmDensity;
@@ -134,6 +137,11 @@ public static class HostComponents
         new VaultComponent(),
         new TimeMachineComponent(),
         new MemoryComponent(),
+        // Sealed storage (doc 61). The kernel orders them: sealed-storage, then sealed-git, then sealed-vault (after memory). sealed-vault
+        // changes nothing unless Bazaar:SealedVault:Enabled is true.
+        new SealedStorageComponent(),
+        new SealedGitComponent(),
+        new SealedVaultComponent(),
         new HiveComponent(),
         new GeneticMemoryComponent(),
         new HealthServerComponent(),
