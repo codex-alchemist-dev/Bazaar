@@ -214,6 +214,8 @@
     <Project Path="src/Bazaar.Server.Gateway.Catalogue.Abstractions/Bazaar.Server.Gateway.Catalogue.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Gateway.Catalogue/Bazaar.Server.Gateway.Catalogue.csproj" />
     <Project Path="src/Bazaar.Server.Gateway/Bazaar.Server.Gateway.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.SystemPolicy.Abstractions/Bazaar.Server.Gateway.SystemPolicy.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Gateway.SystemPolicy/Bazaar.Server.Gateway.SystemPolicy.csproj" />
     <Project Path="src/Bazaar.Secrets.Abstractions/Bazaar.Secrets.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Secrets.Postgres/Bazaar.Server.Secrets.Postgres.csproj" />
     <Project Path="src/Bazaar.Server.Settings.Abstractions/Bazaar.Server.Settings.Abstractions.csproj" />
@@ -844,6 +846,7 @@
     <Project Path="tests/Bazaar.Server.Providers.Linux.Tests/Bazaar.Server.Providers.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.Tests/Bazaar.Server.Gateway.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Garnet.Tests/Bazaar.Server.Garnet.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Gateway.SystemPolicy.Tests/Bazaar.Server.Gateway.SystemPolicy.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Presence.Tests/Bazaar.Server.Presence.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Presence.Postgres.Tests/Bazaar.Server.Presence.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Presence.Sources.Tests/Bazaar.Server.Presence.Sources.Tests.csproj" />

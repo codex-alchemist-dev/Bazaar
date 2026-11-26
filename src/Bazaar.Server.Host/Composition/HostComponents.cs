@@ -41,6 +41,7 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
+using Bazaar.Server.Gateway.SystemPolicy;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
@@ -183,6 +184,7 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        new SystemPolicyComponent(),
         // The one host IRateLimiter, counted in the cache provider above and falling back to an in-process limiter (doc 15, PROPOSED). It
         // replaces the limiters other components register with TryAdd, so it wins whatever the order.
         new Bazaar.RateLimits.Cache.RateLimitsCacheComponent(),

@@ -45,6 +45,7 @@
     <ProjectReference Include="..\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Company\Bazaar.Server.Company.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Gateway\Bazaar.Server.Setup.FirstRun.Gateway.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.SystemPolicy\Bazaar.Server.Gateway.SystemPolicy.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.DeviceEnrolment.Postgres\Bazaar.Server.DeviceEnrolment.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Mail\Bazaar.Server.Mail.csproj" />
