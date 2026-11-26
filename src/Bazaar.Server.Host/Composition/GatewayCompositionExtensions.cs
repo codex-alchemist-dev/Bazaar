@@ -117,6 +117,8 @@ public static class GatewayCompositionExtensions
                 : routed;
         }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
+        services.TryAddSingleton<IEmbeddingRouteSource>(sp =>
+            sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : new UnsetEmbeddingRouteSource());
         // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
         // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
         services.TryAddSingleton<EndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
@@ -166,11 +168,31 @@ public static class GatewayCompositionExtensions
             scrubber: sp.GetRequiredService<SecretScrubber>(),
             ranker: sp.GetRequiredService<ICandidateRanker>(),
             selectionStats: sp.GetRequiredService<IEndpointStatsTracker>(),
+            events: ComposeQuotaEvents(sp),
 
             embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
-            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
+            embeddingRoute: sp.GetService<IEmbeddingRouteSource>())));
         return services;
     }
+
+    /// <summary>
+    /// The gateway's quota event sink: any registered <see cref="IGatewayEventSink"/> plus, when the presence sources module is loaded,
+    /// its quota source (docs/design/23). Null when neither exists, so the gateway keeps its default.
+    /// </summary>
+    private static IGatewayEventSink? ComposeQuotaEvents(IServiceProvider sp) =>
+        CompositeGatewayEventSink.Compose(
+            [
+                sp.GetService<IGatewayEventSink>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.QuotaPresenceSource>() is { } quota ? new QuotaPresenceGatewayEventSink(quota) : null,
+            ],
+            ex =>
+            {
+                if (sp.GetService<ILoggerFactory>() is { } loggers)
+                {
+                    var log = loggers.CreateLogger<ModelGateway>();
+                    GatewayEventSinkLog.SinkFailed(log, ex);
+                }
+            });
 
     /// <summary>
     /// The dated price table from the file named by <c>Bazaar:Gateway:PriceTable:Path</c>, or null when none is set. Used for

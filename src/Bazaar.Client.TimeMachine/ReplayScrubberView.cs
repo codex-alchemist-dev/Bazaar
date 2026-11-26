@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
@@ -25,6 +26,8 @@ public static class ReplayScrubberView
     public const string ModeName = "ReplayMode";
     public const string ErrorName = "ReplayError";
     public const string NoticeName = "ReplayNotice";
+    public const string PointsName = "ReplayPoints";
+    public const string MorePointsName = "ReplayMorePoints";
 
     private const string _borderToken = "Bazaar.brush.color.border.default";
     private const string _secondaryTextToken = "Bazaar.brush.color.text.secondary";
@@ -68,6 +71,9 @@ public static class ReplayScrubberView
         SetThemeBrush(notice, TextBlock.ForegroundProperty, _secondaryTextToken);
         var messages = new StackPanel { Name = MessagesName, Spacing = 4 };
         var parts = new StackPanel { Name = PartsName, Spacing = 2 };
+        var pointList = new StackPanel { Name = PointsName, Spacing = 2 };
+        var morePoints = MakeButton(MorePointsName, "Load more points", "Load more points in time");
+        var pointsHeading = SectionHeading("Points in time");
 
         var updating = false;
 
@@ -97,6 +103,20 @@ public static class ReplayScrubberView
                 error.Text = vm.ErrorText;
                 notice.IsVisible = vm.ForkNotice is not null;
                 notice.Text = vm.ForkNotice;
+
+                pointsHeading.IsVisible = vm.HasPoints;
+                pointList.IsVisible = vm.HasPoints;
+                morePoints.IsVisible = vm.HasPoints;
+                morePoints.IsEnabled = vm.CanLoadMorePoints;
+                pointList.Children.Clear();
+                foreach (var point in vm.Points)
+                {
+                    var item = new Button { Content = point.Line, HorizontalContentAlignment = HorizontalAlignment.Left, Tag = point };
+                    AutomationProperties.SetName(item, $"Jump to {point.Label}, seq {point.Seq}");
+                    SetThemeBrush(item, TemplatedControl.ForegroundProperty, point.IsAudit ? _accentTextToken : _secondaryTextToken);
+                    item.Click += (_, _) => _ = vm.JumpToAsync(point);
+                    pointList.Children.Add(item);
+                }
 
                 messages.Children.Clear();
                 parts.Children.Clear();
@@ -157,6 +177,7 @@ public static class ReplayScrubberView
             }
         };
         fork.Click += (_, _) => _ = vm.ForkAsync();
+        morePoints.Click += (_, _) => _ = vm.LoadPointsAsync();
         mode.Click += (_, _) =>
             vm.SetViewerOverride(vm.Mode == ReplayViewMode.History ? ReplayViewMode.Current : ReplayViewMode.History);
         vm.Changed += Render;
@@ -166,10 +187,15 @@ public static class ReplayScrubberView
             _ = vm.LoadAsync();
         }
 
+        if (vm.HasPoints && vm.Points.Count == 0)
+        {
+            _ = vm.LoadPointsAsync();
+        }
+
         return new StackPanel
         {
             Spacing = 8,
-            Children = { bannerBox, cursorText, slider, controls, error, notice, SectionHeading("Messages"), messages, SectionHeading("State then"), parts },
+            Children = { bannerBox, cursorText, slider, controls, error, notice, SectionHeading("Messages"), messages, SectionHeading("State then"), parts, pointsHeading, pointList, morePoints },
         };
     }
 

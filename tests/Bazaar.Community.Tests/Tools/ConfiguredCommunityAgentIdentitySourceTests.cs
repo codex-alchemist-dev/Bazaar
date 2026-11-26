@@ -10,8 +10,13 @@ public sealed class ConfiguredCommunityAgentIdentitySourceTests
 
     private static CommunityProfileEntry Entry() => new()
     {
-        AgentId = _agent.ToString("D"), Platform = "GitHub", SponsorId = "sponsor-1", DisplayName = "Sage",
-        SponsorName = "Dom", Contact = "dom@example.org", DisclosureUrl = "https://example.org/bots",
+        AgentId = _agent.ToString("D"),
+        Platform = "GitHub",
+        SponsorId = "sponsor-1",
+        DisplayName = "Sage",
+        SponsorName = "Dom",
+        Contact = "dom@example.org",
+        DisclosureUrl = "https://example.org/bots",
     };
 
     [Fact]

@@ -311,6 +311,7 @@
       note(container, label || httpFailure(res), true);
       return;
     }
+    renderData(container, res.data);
     renderData(container, unwrapEnvelope(res.data));
   }
 
@@ -493,6 +494,15 @@
         note(t.body, httpFailure(res), true);
         return;
       }
+      if (isPlainObject(res.data) && res.data.available === false) {
+        note(t.body, TEXT.unavailable);
+        return;
+      }
+      if (!isPlainObject(res.data) || !Array.isArray(res.data.modules)) {
+        note(t.body, "The module list has an unexpected shape.", true);
+        return;
+      }
+      renderModules(t, res.data);
       var catalogue = unwrapEnvelope(res.data);
       if (isPlainObject(catalogue) && catalogue.available === false) {
         note(t.body, TEXT.unavailable);

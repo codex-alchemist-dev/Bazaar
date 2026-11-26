@@ -16,7 +16,7 @@ public sealed class NpgsqlCommunityDraftStoreTests
     // Applies migration community/0005 as shipped. The role grants are dropped: the test role setup is not part of this check.
     private static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
-        var assembly = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly;
+        var assembly = typeof(Bazaar.Server.AssemblyMarker).Assembly;
         var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("0005_community_draft.sql", StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(name)!;
         var sql = await new StreamReader(stream).ReadToEndAsync(ct);
@@ -277,7 +277,7 @@ public sealed class NpgsqlCommunityDraftStoreTests
     [Fact]
     public void Migration_0005_grants_no_delete_and_keeps_the_status_check()
     {
-        var assembly = typeof(Bazaar.Server.Data.Migrations.MigrationRunner).Assembly;
+        var assembly = typeof(Bazaar.Server.AssemblyMarker).Assembly;
         var name = assembly.GetManifestResourceNames().Single(n => n.EndsWith("0005_community_draft.sql", StringComparison.Ordinal));
         using var stream = assembly.GetManifestResourceStream(name)!;
         var text = new StreamReader(stream).ReadToEnd();

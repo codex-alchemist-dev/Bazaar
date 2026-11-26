@@ -1,12 +1,12 @@
 using Bazaar.Lucky;
+using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Sanitization;
+using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Write;
-using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Host.Lucky;
-using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Sanitization;
 using Bazaar.Testing.Postgres;
 using Npgsql;
@@ -27,7 +27,7 @@ public sealed class LuckyDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 8 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", CancellationToken.None);
     }
 
     public new async ValueTask DisposeAsync()

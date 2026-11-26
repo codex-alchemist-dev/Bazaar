@@ -11,7 +11,7 @@ namespace Bazaar.Server.EngineTool.Tests;
 public sealed class EngineCallToolTests
 {
     private static readonly Guid _agent = Guid.NewGuid();
-    private const string Device = "dev-1";
+    private const string _device = "dev-1";
 
     private sealed class Grants(bool covers) : IEngineGrantReader
     {
@@ -56,7 +56,7 @@ public sealed class EngineCallToolTests
         }
     }
 
-    private static (EngineCallTool Tool, EngineRelayBroker Broker, Recorder Recorder, Publisher Publisher) Rig(bool covers = true, string? device = Device)
+    private static (EngineCallTool Tool, EngineRelayBroker Broker, Recorder Recorder, Publisher Publisher) Rig(bool covers = true, string? device = _device)
     {
         var recorder = new Recorder();
         var publisher = new Publisher();
@@ -101,7 +101,7 @@ public sealed class EngineCallToolTests
         EngineRelayRequestEvent evt;
         while (!rig.Publisher.Sent.TryDequeue(out evt!))
             await Task.Delay(5, ct);
-        rig.Broker.SubmitResult(Device, evt.RelayId, new EngineRelayCallResult("g1", true, Json("""{"done":true}""")));
+        rig.Broker.SubmitResult(_device, evt.RelayId, new EngineRelayCallResult("g1", true, Json("""{"done":true}""")));
         var result = await call;
 
         var record = Assert.Single(rig.Recorder.Records);

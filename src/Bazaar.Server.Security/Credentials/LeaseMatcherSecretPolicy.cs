@@ -10,9 +10,9 @@ namespace Bazaar.Server.Security.Credentials;
 /// </summary>
 public sealed class LeaseMatcherSecretPolicy(ISecretPolicy inner) : ISecretPolicy
 {
-    private const string AgentScopePrefix = "agent:";
-    private const string NamePrefix = "credential.";
-    private const int HexLength = 32;
+    private const string _agentScopePrefix = "agent:";
+    private const string _namePrefix = "credential.";
+    private const int _hexLength = 32;
 
     /// <inheritdoc />
     public Task<bool> AllowsAsync(string component, SecretScope scope, SecretName? name, SecretPurpose purpose, CancellationToken ct)
@@ -27,15 +27,15 @@ public sealed class LeaseMatcherSecretPolicy(ISecretPolicy inner) : ISecretPolic
     {
         if (component != SecretStoreLeasedCredentialValueSource.Component
             || purpose.Value != SecretStoreLeasedCredentialValueSource.PurposeValue
-            || !scope.Key.StartsWith(AgentScopePrefix, StringComparison.Ordinal)
+            || !scope.Key.StartsWith(_agentScopePrefix, StringComparison.Ordinal)
             || name is null
-            || !name.Value.StartsWith(NamePrefix, StringComparison.Ordinal))
+            || !name.Value.StartsWith(_namePrefix, StringComparison.Ordinal))
         {
             return false;
         }
 
-        var hex = name.Value.AsSpan(NamePrefix.Length);
-        if (hex.Length != HexLength)
+        var hex = name.Value.AsSpan(_namePrefix.Length);
+        if (hex.Length != _hexLength)
         {
             return false;
         }

@@ -1,6 +1,6 @@
 using System.Data.Common;
-using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Hive.Abstractions;
 
 namespace Bazaar.Server.Hive.Approvals;
 

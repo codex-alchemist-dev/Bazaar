@@ -222,6 +222,7 @@ Implementation notes (in force):
 
 - The approval capability is named `approve`. It sits in the owner template at instance scope. Only a human who holds it grants it, never to themselves, and never to an agent or service. This is how "no role can grant itself or another principal an approval capability" is read: the capability passes only from a human approver to another human.
 - The owner role keeps `admin.roles` and `approve` at instance scope, cannot be deleted, and always has at least one human holder (the removal check and the delete are one locked step in the store). The first human owner is set once, atomically.
+- A change that widens a human's grants goes through `IGrantWideningGate`. The shipped gate refuses everything until the approval and biometric modules plug in (fail closed).
 - A change that widens a human's grants goes through `IGrantWideningGate`. With no `IOwnerSignatureVerifier` registered the gate refuses everything (fail closed). With one, `OwnerSignedWideningGate` approves only a human actor who carries the owner's signed approval (`RoleActor.Approval`): action `roles.widen`, signed by that same person, with an args hash that binds the actor, role, person and sorted grant set (`WideningArgs.Hash`), accepted by the shared verifier (key, owner, expiry, single-use nonce). The biometric check (section 8) is the `IWideningBiometricCheck` port. Until the biometric module registers one the signature alone decides, the same layering as the legal-hold decision (owner card 2026-11-16); once one is registered every registered check must pass.
 - Templates are inserted only when missing, so owner edits survive a restart.
 
@@ -259,6 +260,7 @@ OPEN: the default external target set and the public transparency log choice. Th
 
 - Multi-sink. The primary sink is an append-only Postgres table (`audit_log`, `15`) under a role with no UPDATE or DELETE. Secondary sinks are optional: a signed daily file export (`15`), a syslog or OpenTelemetry stream, and an optional encrypted offsite replica. The replica is encrypted with a key held by the owner (`33` recovery bundle key class).
 - The replica is write-only from the server. The server cannot read back from the offsite copy except through the verifier.
+- Built in part (module `Bazaar.Server.AuditSinks`, doc 40): the sink ports, the four sinks and the fan-out dispatcher with cursors, backoff and failure audit. The host adapters (cursor table, chain reader, transports, offsite uploader) are not built.
 - Role-scoped views. The audit viewer shows only the rows the viewer's role grants (section 4). Security reviewers see security events; the owner sees all; agents see nothing. A view never changes the chain.
 
 ### 5.5 Field encryption and per-subject keys

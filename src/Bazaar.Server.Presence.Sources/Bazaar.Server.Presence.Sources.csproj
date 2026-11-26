@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.GcMetadata.Abstractions\Bazaar.Server.GcMetadata.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Abstractions\Bazaar.Server.Presence.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Sources.Abstractions\Bazaar.Server.Presence.Sources.Abstractions.csproj" />
   </ItemGroup>

@@ -100,6 +100,21 @@ public static class SignInEndpoints
             case "/signin/register":
             case "/signin/recover":
                 // Pairing approval and recovery-code sign-in are separate work packages; the route is reserved and says nothing else.
+            case "/signin/register/options":
+            case "/signin/register/complete":
+                if (HttpMethods.IsPost(method))
+                {
+                    await RegisterAsync(ctx, path.EndsWith("/options", StringComparison.OrdinalIgnoreCase));
+                }
+                else
+                {
+                    MethodNotAllowed(ctx, "POST");
+                }
+
+                return;
+            case "/signin/register":
+            case "/signin/recover":
+                // Recovery-code sign-in is a separate work package; the routes are reserved and say nothing else.
                 await ErrorAsync(ctx, StatusCodes.Status501NotImplemented, "Not available.");
                 return;
             default:
@@ -224,6 +239,86 @@ public static class SignInEndpoints
         ctx.Response.StatusCode = StatusCodes.Status200OK;
         ctx.Response.ContentType = "application/json; charset=utf-8";
         await ctx.Response.Body.WriteAsync(JsonSerializer.SerializeToUtf8Bytes(new RedirectResponse(redirect), SignInJson.Default.RedirectResponse), ctx.RequestAborted);
+    }
+
+    /// <summary>
+    /// Passkey enrolment for an already signed-in person. Same write protection as the sign-in routes; the person is named by the access
+    /// token alone. With no <see cref="IPasskeyEnrolment"/> registered the route is 501; every refusal is the one generic 401.
+    /// </summary>
+    private static async Task RegisterAsync(HttpContext ctx, bool options)
+    {
+        var enrolment = ctx.RequestServices.GetService<IPasskeyEnrolment>();
+        if (enrolment is null)
+        {
+            await ErrorAsync(ctx, StatusCodes.Status501NotImplemented, "Not available.");
+            return;
+        }
+
+        var header = ctx.Request.Headers.Authorization.ToString();
+        const string prefix = "Bearer ";
+        var token = header.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? header[prefix.Length..].Trim() : string.Empty;
+        if (!PassesWriteProtection(ctx.Request) || token.Length == 0)
+        {
+            await GenericFailureAsync(ctx);
+            return;
+        }
+
+        ctx.Response.ContentType = "application/json; charset=utf-8";
+        if (options)
+        {
+            var json = await enrolment.BeginAsync(token, ctx.RequestAborted);
+            if (json is null)
+            {
+                await GenericFailureAsync(ctx);
+                return;
+            }
+
+            ctx.Response.StatusCode = StatusCodes.Status200OK;
+            await ctx.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(json), ctx.RequestAborted);
+            return;
+        }
+
+        var body = await ReadJsonAsync(ctx, SignInJson.Default.RegisterRequest);
+        if (body?.Attestation is not { Length: > 0 } attestation || !await enrolment.CompleteAsync(token, attestation, ctx.RequestAborted))
+        {
+            await GenericFailureAsync(ctx);
+            return;
+        }
+
+        ctx.Response.StatusCode = StatusCodes.Status200OK;
+        await ctx.Response.Body.WriteAsync(JsonSerializer.SerializeToUtf8Bytes(new RegisterResponse(true), SignInJson.Default.RegisterResponse), ctx.RequestAborted);
+    }
+
+    private static async Task<T?> ReadJsonAsync<T>(HttpContext ctx, System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> info)
+        where T : class
+    {
+        if (ctx.Request.ContentLength is > _maxBodyBytes)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var ms = new MemoryStream();
+            var buffer = new byte[4096];
+            int n;
+            while ((n = await ctx.Request.Body.ReadAsync(buffer, ctx.RequestAborted)) > 0)
+            {
+                if (ms.Length + n > _maxBodyBytes)
+                {
+                    return null;
+                }
+
+                ms.Write(buffer, 0, n);
+            }
+
+            ms.Position = 0;
+            return await JsonSerializer.DeserializeAsync(ms, info, ctx.RequestAborted);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     private static async Task<AssertRequest?> ReadBodyAsync(HttpContext ctx)
