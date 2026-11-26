@@ -22,6 +22,11 @@ public sealed record CrashIntakeAccepted(Guid ReportId, string GroupKey, bool Du
 /// <param name="Code">The refusal code.</param>
 public sealed record CrashIntakeRefused(IngestionStep Step, IngestionRefusalCode Code) : CrashIntakeResult;
 
+/// <summary>The outcome of <see cref="CrashIntakeService.AttachLateAsync"/>: attached, or dropped with the code that says why.</summary>
+/// <param name="Attached">True when the screenshot is stored with its report.</param>
+/// <param name="Code">The refusal code when it was dropped, or null when attached.</param>
+public sealed record CrashLateAttachmentResult(bool Attached, IngestionRefusalCode? Code);
+
 /// <summary>Intake could not commit because the group kept changing. The caller retries the submission; nothing was stored.</summary>
 public sealed class CrashIntakeContentionException : Exception
 {
@@ -166,6 +171,46 @@ public sealed class CrashIntakeService
         }
 
         throw new CrashIntakeContentionException(accepted.Fingerprint);
+    }
+
+    /// <summary>
+    /// Attaches a screenshot that finished after its report was stored (doc 43 section 5.2). It runs the same step-4 checks as an
+    /// attachment that came with the report, seals the bytes for the same install, and stores them only if the report still has none.
+    /// </summary>
+    /// <param name="installId">The install the report belongs to.</param>
+    /// <param name="reportId">The stored report the screenshot names.</param>
+    /// <param name="upload">The assembled screenshot.</param>
+    /// <param name="ct">Cancels the call.</param>
+    /// <returns>Attached, or the refusal code the screenshot was dropped with.</returns>
+    public async Task<CrashLateAttachmentResult> AttachLateAsync(Guid installId, Guid reportId, IngestionAttachment upload, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(upload);
+        var now = _clock.GetUtcNow();
+        var attachmentId = upload.Begin.AttachmentId;
+
+        var decision = CrashIngestionPipeline.CheckAttachment(reportId, attachmentId, upload);
+        if (!decision.Kept)
+        {
+            var code = decision.DropReason!.Value;
+            await _audit.AppendAsync(CrashAudit.AttachmentDropped(now, reportId, code.ToWireName()), ct).ConfigureAwait(false);
+            return new CrashLateAttachmentResult(false, code);
+        }
+
+        var stored = new StoredCrashAttachment(
+            attachmentId,
+            reportId,
+            upload.Begin.ContentType,
+            upload.End.Sha256,
+            await _sealer.SealAsync(installId, SealedPayloadKind.Attachment, attachmentId, upload.Data, ct).ConfigureAwait(false));
+
+        if (!await _store.AttachLateAsync(stored, ct).ConfigureAwait(false))
+        {
+            await _audit.AppendAsync(CrashAudit.AttachmentDropped(now, reportId, IngestionRefusalCode.AttachmentNotReferenced.ToWireName()), ct).ConfigureAwait(false);
+            return new CrashLateAttachmentResult(false, IngestionRefusalCode.AttachmentNotReferenced);
+        }
+
+        await _audit.AppendAsync(CrashAudit.AttachmentAttached(now, reportId, attachmentId), ct).ConfigureAwait(false);
+        return new CrashLateAttachmentResult(true, null);
     }
 
     private async Task AuditCommittedAsync(

@@ -20,6 +20,12 @@ public interface ICrashIntakeStore
 
     /// <summary>Applies one change atomically. See <see cref="CrashCommitStatus"/> for the outcomes.</summary>
     Task<CrashCommitStatus> CommitAsync(CrashCommit commit, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stores a screenshot for a report that is already stored and has none (doc 43 section 5.2: the screenshot may finish after its
+    /// report). Returns false when the report does not exist or already has a screenshot; nothing is written then.
+    /// </summary>
+    Task<bool> AttachLateAsync(StoredCrashAttachment attachment, CancellationToken ct = default);
 }
 
 /// <summary>The filing outbox. A row is leased, carried out, then completed, or failed with a retry time.</summary>
@@ -116,4 +122,14 @@ public interface ICrashErasure
 {
     /// <summary>Deletes every report, with its screenshots, that the installs sent. Safe to run twice.</summary>
     Task<CrashEraseResult> EraseInstallsAsync(IReadOnlyCollection<Guid> installIds, CancellationToken ct = default);
+}
+
+/// <summary>Binds an install id to the authenticated device on first sight (doc 32 "Crash install binding", DECIDED, owner card 2026-11-19).</summary>
+public interface ICrashInstallRegistry
+{
+    /// <summary>
+    /// Binds <paramref name="installId"/> to <paramref name="deviceId"/> when it is new, and returns true. Returns true when it is
+    /// already bound to the same device, and false when it is bound to another one. <paramref name="isShared"/> only applies to a new binding.
+    /// </summary>
+    Task<bool> TryBindAsync(Guid installId, Guid deviceId, bool isShared, CancellationToken ct = default);
 }

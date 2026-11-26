@@ -80,7 +80,9 @@ public static class DiagnosticsModule
         services.TryAddSingleton<ISymbolicator, NoSymbolsSymbolicator>();
         services.TryAddSingleton(TimeProvider.System);
 
-        services.TryAddSingleton<ICrashInstallDirectory, UnavailableCrashInstallDirectory>();
+        services.TryAddSingleton<PostgresCrashInstallDirectory>();
+        services.TryAddSingleton<ICrashInstallDirectory>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
+        services.TryAddSingleton<ICrashInstallRegistry>(sp => sp.GetRequiredService<PostgresCrashInstallDirectory>());
         services.TryAddSingleton<PostgresCrashStore>();
         services.TryAddSingleton<ICrashIntakeStore>(sp => sp.GetRequiredService<PostgresCrashStore>());
         services.TryAddSingleton<ICrashActionOutbox>(sp => sp.GetRequiredService<PostgresCrashStore>());
@@ -112,6 +114,21 @@ public static class DiagnosticsModule
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<CrashDiagnosisOptions>()));
         services.AddSingleton<IErasureParticipant, CrashErasureParticipant>();
+        services.TryAddSingleton(new AttachmentUploadOptions
+        {
+            SessionLifetime = TimeSpan.FromMinutes(section.GetValue("AttachmentSessionMinutes", 10)),
+        });
+        services.TryAddSingleton(new PendingAttachmentOptions
+        {
+            Lifetime = TimeSpan.FromMinutes(section.GetValue("PendingAttachmentMinutes", 10)),
+        });
+        services.TryAddSingleton<AttachmentUploadAssembler>();
+        services.TryAddSingleton<ICrashConnectionRelease, CrashConnectionRelease>();
+        services.TryAddSingleton<IPendingAttachmentStore, InMemoryPendingAttachmentStore>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashSubmitHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentBeginHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentChunkHandler>();
+        services.AddSingleton<Bazaar.Server.Wire.Connection.IWireRequestHandler, CrashAttachmentEndHandler>();
         services.AddHostedService<CrashMaintenanceService>();
         return services;
     }
