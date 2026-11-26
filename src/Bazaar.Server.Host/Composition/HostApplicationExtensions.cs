@@ -14,12 +14,15 @@ using Bazaar.Server.DevSandbox;
 using Bazaar.Server.DevSandbox.Linux;
 using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
 using Bazaar.Server.DevSandbox.Windows;
+using Bazaar.Server.Diagnostics;
+using Bazaar.Server.Diagnostics.Adapters;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
+using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Components.OfflineSync;
@@ -85,6 +88,9 @@ public static class HostApplicationExtensions
         services.AddBazaarDevSandboxWasmtime();
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
+        services.TryAddSingleton<PersonKeyStore>();
+        services.TryAddSingleton<ICrashKeyStore, PersonKeyStoreCrashKeys>();
+        services.AddBazaarDiagnosticsModule(configuration);
         services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
         // The owner queue as the web admin approvals section (doc 51 section 5).

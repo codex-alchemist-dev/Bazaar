@@ -8,6 +8,7 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.Diagnostics.Persistence;
 using Bazaar.Server.DeviceEnrolment.Postgres;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
@@ -72,5 +73,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly),
         new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly),
         new ComponentMigrationSource(OfflineSyncPostgresServiceCollectionExtensions.MigrationAssembly),
-        new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly));
+        new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly),
+        new EmbeddedMigrationSource(typeof(PostgresCrashStore).Assembly));
 }
