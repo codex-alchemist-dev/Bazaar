@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:src/Bazaar.Server.Fun/Lucky/LuckySettings.cs
+namespace Bazaar.Server.Fun.Lucky;
+========
 namespace Bazaar.Lucky;
+>>>>>>>> origin/main:src/Bazaar.Lucky.Abstractions/LuckySettings.cs
 
 /// <summary><c>lucky.participation</c> values.</summary>
 public enum LuckyParticipation

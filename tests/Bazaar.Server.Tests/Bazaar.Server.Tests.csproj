@@ -72,12 +72,12 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Setup.Probes\Bazaar.Server.Setup.Probes.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Admin\Bazaar.Admin.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Install\Bazaar.Install.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Tls\Bazaar.Tls.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Tls\Bazaar.Server.Tls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Erasure\Bazaar.Erasure.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Fun\Bazaar.Server.Fun.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Roles\Bazaar.Roles.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Fun\Bazaar.Fun.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers.Windows\Bazaar.Server.Providers.Windows.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />

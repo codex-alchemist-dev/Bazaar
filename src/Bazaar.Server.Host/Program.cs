@@ -1,3 +1,6 @@
+using Bazaar.Server.Community.Observatory;
+using Bazaar.Server.Host.Auth;
+using Bazaar.Server.GitHub;
 using Bazaar.Community.Observatory;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Archive.Http;

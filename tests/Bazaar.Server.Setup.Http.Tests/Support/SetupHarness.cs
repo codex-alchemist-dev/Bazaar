@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Http;

@@ -80,6 +80,8 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(PostgresToolCallStore).Assembly),
         new ComponentMigrationSource(typeof(PgAgentFirstRunSeeds).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Server.GitHub.GitHubComponent).Assembly),
+        new ComponentMigrationSource(typeof(CalendarComponent).Assembly));
         new EmbeddedMigrationSource(typeof(PgPresenceStore).Assembly),
         new EmbeddedMigrationSource(typeof(Bazaar.Server.Engines.EnginesComponent).Assembly),
         new EmbeddedMigrationSource(typeof(PostgresHandoffCodeStore).Assembly),

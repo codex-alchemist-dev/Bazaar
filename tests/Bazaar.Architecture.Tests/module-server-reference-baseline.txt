@@ -1,5 +1,5 @@
 Bazaar.Admin
-Bazaar.Community
+Bazaar.Server.Community
 Bazaar.RyuseiFuda
 Bazaar.Server.AgentSafety
 Bazaar.Server.Components.Backup

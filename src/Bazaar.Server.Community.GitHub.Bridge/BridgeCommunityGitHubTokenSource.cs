@@ -1,8 +1,8 @@
-using Bazaar.GitHub.Auth;
+using Bazaar.Server.GitHub.Auth;
 
 namespace Bazaar.Server.Community.GitHub.Bridge;
 
-/// <summary>Binds <see cref="ICommunityGitHubTokenSource"/> to Bazaar.GitHub's <see cref="IGitHubTokenProvider"/> (doc 21, Tokens).</summary>
+/// <summary>Binds <see cref="ICommunityGitHubTokenSource"/> to Bazaar.Server.GitHub's <see cref="IGitHubTokenProvider"/> (doc 21, Tokens).</summary>
 public sealed class BridgeCommunityGitHubTokenSource(IGitHubTokenProvider tokens, ICommunityInstallationResolver installations) : ICommunityGitHubTokenSource
 {
     // The adapter files issues, comments and draft PRs; nothing else.

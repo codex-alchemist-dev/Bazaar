@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
+using Bazaar.Server.RateLimits;
 using System.Text.Json;
-using Bazaar.RateLimits;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Http;

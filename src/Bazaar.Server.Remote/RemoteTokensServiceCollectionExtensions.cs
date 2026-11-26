@@ -1,3 +1,4 @@
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.DependencyInjection;

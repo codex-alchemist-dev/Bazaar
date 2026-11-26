@@ -1,5 +1,5 @@
 using System.Globalization;
-using Bazaar.GitHub.Adapter;
+using Bazaar.Server.GitHub.Adapter;
 
 namespace Bazaar.Server.Community.GitHub.Bridge;
 

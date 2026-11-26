@@ -1,5 +1,5 @@
 using Bazaar.Core;
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Company;
 using Bazaar.Server.Settings;

@@ -1,6 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Erasure;
-using Bazaar.Fun;
+using Bazaar.Server.Fun;
 using Bazaar.Sanitization;
 using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;

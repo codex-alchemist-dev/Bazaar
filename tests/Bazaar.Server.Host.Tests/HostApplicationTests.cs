@@ -1,5 +1,5 @@
 using Bazaar.Approvals;
-using Bazaar.GitHub.Adapter;
+using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Sanitization;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.Abstractions;

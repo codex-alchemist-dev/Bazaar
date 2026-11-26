@@ -4,7 +4,7 @@ namespace Bazaar.Server.Community.GitHub;
 public sealed record CommunityGitHubItem(string ExternalId, Uri Url);
 
 /// <summary>
-/// The GitHub REST calls for issues and comments (Bazaar.GitHub has no issue or comment writes). Pull requests go through
+/// The GitHub REST calls for issues and comments (Bazaar.Server.GitHub has no issue or comment writes). Pull requests go through
 /// <see cref="ICommunityPullRequestOpener"/>. Failures surface as <see cref="CommunityPostException"/> with the right
 /// <see cref="CommunityPostException.Retryable"/> flag.
 /// </summary>
