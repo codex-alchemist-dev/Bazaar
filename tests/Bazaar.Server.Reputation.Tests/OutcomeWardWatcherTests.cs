@@ -4,7 +4,7 @@ using Npgsql;
 
 namespace Bazaar.Server.Reputation.Tests;
 
-/// <summary>A throwaway database with the two ledger tables the watcher reads (columns as in common/0013).</summary>
+/// <summary>A throwaway database with the ledger tables the watcher and projection read (columns as in common/0013).</summary>
 public sealed class LedgerDb : IAsyncLifetime
 {
     private PgSource? _source;
@@ -31,6 +31,9 @@ public sealed class LedgerDb : IAsyncLifetime
             CREATE TABLE outcome_attribution (
                 outcome_id uuid NOT NULL REFERENCES outcome_event (id), agent_id text NOT NULL, role text NOT NULL,
                 tag text NOT NULL, w numeric NOT NULL, PRIMARY KEY (outcome_id, agent_id, tag));
+            CREATE TABLE review (
+                id uuid PRIMARY KEY, pr_ref text NOT NULL, reviewer_agent_id text NOT NULL, author_agent_id text NOT NULL, tag text NOT NULL,
+                overall smallint NOT NULL, supersedes_id uuid, created_at timestamptz NOT NULL DEFAULT now());
             """);
         await tables.ExecuteNonQueryAsync();
     }
