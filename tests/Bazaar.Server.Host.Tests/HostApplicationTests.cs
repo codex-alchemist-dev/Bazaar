@@ -1,8 +1,17 @@
 using Bazaar.Approvals;
 using Bazaar.GitHub.Adapter;
 using Bazaar.Sanitization;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.Abstractions;
+using Bazaar.Server.AccountApproval.OwnerQueue;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
+using Bazaar.Server.Portability;
+using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Approvals.Db;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -40,10 +49,31 @@ public sealed class HostApplicationTests
 
             Assert.NotNull(sp.GetRequiredService<IGcNotificationSource>());
             Assert.NotNull(sp.GetRequiredService<AgentResponder>());
+            Assert.IsType<PostgresImportJobStore>(sp.GetRequiredService<IImportJobStore>());
             // The owner-signed merge gate and the one verifier it shares with the kill switch are live in the host graph (doc 21, C25).
             Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
             Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
+
+            // Account approval: the owner hand-off reaches the durable approval store and the shared request cap.
+            Assert.IsType<PostgresAccountApprovalStore>(sp.GetRequiredService<IAccountApprovalStore>());
+            Assert.IsType<PostgresApprovalStore>(sp.GetRequiredService<IApprovalStore>());
+            Assert.IsType<OwnerApprovalEnqueuer>(sp.GetRequiredService<IOwnerApprovalEnqueuer>());
+            Assert.IsType<OwnerQueueApprovalHandOff>(sp.GetRequiredService<IOwnerApprovalHandOff>());
+            Assert.NotNull(sp.GetRequiredService<ApprovalService>());
+            Assert.NotNull(sp.GetRequiredService<AccountApprovalService>());
+            Assert.NotNull(sp.GetRequiredService<SiteAccessService>());
+            Assert.Same(sp.GetRequiredService<IRateBucketStore>(), sp.GetRequiredService<IRateBucketStore>());
+
+            // The module host (doc 48 section 1) is in the graph and fails closed: nothing is packaged, so nothing is in force.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.ModuleHost.ModuleActivationHost>());
+            Assert.IsType<DenyAllOwnerApprovalVerifier>(sp.GetRequiredService<Bazaar.Install.Abstractions.IOwnerApprovalVerifier>());
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleActivationHostedService);
+            Assert.Contains(sp.GetServices<IHostedService>(), service => service is Bazaar.Server.ModuleHost.ModuleHealthPoller);
+            // The display, density and browser pool components (doc 59) are in the graph; DisplayCompositionTests proves they refuse by default.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDisplay.Abstractions.IGuestDisplay>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.VmDensity.Abstractions.IDensityGovernor>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.BrowserPool.Abstractions.IBrowserPool>());
         }
         finally
         {
@@ -77,6 +107,8 @@ public sealed class HostApplicationTests
             if (funEnabled is not null)
             {
                 values["Bazaar:Components:fun-systems:Enabled"] = funEnabled;
+                // Lucky runs also need the sanitizer, so it is switched off with the fun systems.
+                values["Bazaar:Components:" + Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id + ":Enabled"] = funEnabled;
             }
 
             var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();

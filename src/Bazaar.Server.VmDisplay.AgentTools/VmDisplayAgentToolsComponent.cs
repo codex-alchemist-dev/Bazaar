@@ -22,8 +22,10 @@ public sealed class VmDisplayAgentToolsComponent : IBazaarComponent
         Kind: ComponentKind.Feature,
         DependsOn: [],
         Provides: ["feature:vm-display-agent-tools"],
-        // Soft: vm-display provides the display service. Without it this component offers nothing and the rest of the server is unaffected.
-        SoftDependsOn: ["vm-display"]);
+        // Soft: vm-display provides the display service and the host (for example vm-display-agent-targets) the agent display targets. Without
+        // them this component offers nothing and the rest of the server is unaffected. Soft edges never set start order, so a provider of
+        // IAgentDisplayTargets must register before this component runs; the host's composition test pins that order.
+        SoftDependsOn: ["vm-display", "vm-display-agent-targets"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
 
@@ -50,7 +52,8 @@ public sealed class VmDisplayAgentToolsComponent : IBazaarComponent
             sp.GetRequiredService<IGuestDisplay>(),
             sp.GetRequiredService<IAgentDisplayTargets>(),
             sp.GetRequiredService<ScreenToolsOptions>(),
-            sp.GetService<IDisplayNativeSize>()));
+            // A native size port the host registered wins; otherwise the display module's reader is used when it is there.
+            sp.GetService<IDisplayNativeSize>() ?? (sp.GetService<IDisplayNativeSizeReader>() is { } reader ? new ReaderNativeSize(reader) : null)));
 
         services.AddSingleton(sp => new ToolRegistration(ScreenCaptureTool.ToolName, sp.GetRequiredService<ScreenCaptureTool>()));
         services.AddSingleton(sp => new ToolRegistration(ScreenInputTool.ToolName, sp.GetRequiredService<ScreenInputTool>()));

@@ -1,3 +1,5 @@
+using Bazaar.Contracts.Wire;
+
 namespace Bazaar.Contracts.Kanban;
 
 /// <summary>Payload of the <c>board.move</c> request: one card, the column to move it to, and the revision the client last read (doc 12).</summary>
@@ -6,6 +8,7 @@ namespace Bazaar.Contracts.Kanban;
 /// <param name="ToState">Target column: "backlog", "ready", "in_progress", "review" or "done".</param>
 /// <param name="ExpectedRevision">The card's revision as the client last read it. The move applies only if it still matches. Must be 1 or more.</param>
 /// <param name="Reason">Why the card moves. Needed only for the moves the transition table says need one.</param>
+[WirePayload(WireTypes.BoardMove)]
 public sealed record KanbanMoveRequest(Guid ProjectId, Guid CardId, string ToState, long ExpectedRevision, string? Reason = null);
 
 /// <summary>The wire spelling of <see cref="KanbanMoveReply.Status"/>.</summary>
@@ -29,4 +32,5 @@ public static class KanbanMoveStatuses
 /// <param name="Revision">New revision when applied, current revision on a conflict, otherwise null.</param>
 /// <param name="BlockerTitles">Titles of the unfinished prerequisites when a refusal is caused by them, otherwise empty.</param>
 /// <param name="Reason">Why the move was refused or invalid, in words the owner can read. Null when applied or in conflict.</param>
+[WirePayload]
 public sealed record KanbanMoveReply(string Status, long? Revision, IReadOnlyList<string> BlockerTitles, string? Reason = null);

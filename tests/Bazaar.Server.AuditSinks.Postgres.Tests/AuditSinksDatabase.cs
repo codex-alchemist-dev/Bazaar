@@ -19,7 +19,7 @@ internal static partial class AuditSinksDatabase
 
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new TwoSources(new ChainOnly(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), new SinkFiles()),
+            new TwoSources(new ChainOnly(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)), new SinkFiles()),
             MigrateCommand.CurrentProvider(),
             ct);
 

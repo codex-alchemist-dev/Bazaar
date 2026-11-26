@@ -15,4 +15,5 @@ namespace Bazaar.Contracts.Git;
 [JsonSerializable(typeof(GitMergeRequestDto))]
 [JsonSerializable(typeof(GitMergedDto))]
 [JsonSerializable(typeof(GitRateLimitedDto))]
+[JsonSerializable(typeof(GitRepoDto[]))]
 public sealed partial class GitReadContractsJsonContext : JsonSerializerContext;
