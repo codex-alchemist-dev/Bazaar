@@ -33,6 +33,13 @@ internal static class CrashAudit
             w.WriteString("code", code);
         });
 
+    public static AuditEntry AttachmentAttached(DateTimeOffset now, Guid reportId, Guid attachmentId) =>
+        Entry(now, "crash.attachment.attached", w =>
+        {
+            w.WriteString("report_id", reportId);
+            w.WriteString("attachment_id", attachmentId);
+        });
+
     public static AuditEntry AttachmentDropped(DateTimeOffset now, Guid reportId, string code) =>
         Entry(now, "crash.attachment.dropped", w =>
         {

@@ -56,7 +56,9 @@ public sealed class CrashIngestionPipeline
             return Refuse(IngestionStep.Redaction, redactionRefusal, redaction.Detail!);
         }
 
-        var attachment = submission.Attachment is null ? null : CheckAttachment(report, submission.Attachment);
+        var attachment = submission.Attachment is null
+            ? null
+            : CheckAttachment(report.ReportId, report.Screen.AttachmentId, submission.Attachment);
 
         var fingerprint = Fingerprint.Compute(CrashReportMapping.ToFingerprintInput(report));
         var mismatch = report.Fingerprint is { } hint && !string.Equals(hint, fingerprint, StringComparison.Ordinal);
@@ -157,11 +159,19 @@ public sealed class CrashIngestionPipeline
         }
     }
 
-    private static AttachmentDecision CheckAttachment(CrashReport report, IngestionAttachment attachment)
+    /// <summary>
+    /// The attachment checks of step 4 for a report that names <paramref name="referencedAttachmentId"/>. The intake uses it both when
+    /// the attachment came with the report and when it finished after the report was stored, so both paths run the same checks.
+    /// </summary>
+    /// <param name="reportId">The id of the report the attachment belongs to.</param>
+    /// <param name="referencedAttachmentId">The attachment id the report names, or null when it names none.</param>
+    /// <param name="attachment">The assembled attachment.</param>
+    public static AttachmentDecision CheckAttachment(Guid reportId, Guid? referencedAttachmentId, IngestionAttachment attachment)
     {
+        ArgumentNullException.ThrowIfNull(attachment);
         var begin = attachment.Begin;
-        if (report.Screen.AttachmentId != begin.AttachmentId
-            || begin.ReportId != report.ReportId
+        if (referencedAttachmentId != begin.AttachmentId
+            || begin.ReportId != reportId
             || attachment.End.AttachmentId != begin.AttachmentId)
         {
             return AttachmentDecision.Drop(IngestionRefusalCode.AttachmentNotReferenced, "The attachment ids do not match the report.");

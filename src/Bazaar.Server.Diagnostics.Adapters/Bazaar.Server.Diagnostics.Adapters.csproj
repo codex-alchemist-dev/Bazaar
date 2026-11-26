@@ -10,6 +10,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Erasure.Abstractions\Bazaar.Erasure.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Wire.Abstractions\Bazaar.Server.Wire.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Diagnostics\Bazaar.Server.Diagnostics.csproj" />
   </ItemGroup>
   <ItemGroup>
