@@ -8,6 +8,8 @@ namespace Bazaar.Server.AgentSafety.Containment;
 /// The real <see cref="IVmPauser"/>, over the Vms lifecycle contract. Pause stops every running VM of the agent so it cannot act:
 /// it saves the state when the VM's own backend supports saving (<see cref="IVmBackend.SupportsSaveState"/>, asked per VM through
 /// <see cref="VmLifecycleService.SupportsSaveStateAsync"/>, doc 62 section 9.2), and force-stops otherwise.
+/// it saves the state when the backend supports saving (<see cref="IVmBackend.SupportsSaveState"/>), and force-stops otherwise.
+/// A VM in <see cref="VmState.Restored"/> that the backend reports as running is force-stopped. Every VM is tried even when one fails.
 /// Resume starts every saved or stopped VM. Both are idempotent: a VM already in the target state is skipped.
 /// </summary>
 /// <remarks>
@@ -20,23 +22,66 @@ public sealed class VmContainmentPauser(IAgentVmDirectory vms, VmLifecycleServic
     /// <inheritdoc />
     /// <exception cref="ArgumentException"><paramref name="agentId"/> is not a GUID, so its VMs cannot be found.</exception>
     /// <exception cref="InvalidOperationException">A VM could not be paused.</exception>
+    /// <exception cref="AggregateException">More than one VM could not be paused.</exception>
     public async Task PauseAsync(string agentId, CancellationToken ct = default)
     {
+        // Every VM is tried, even after one fails: an agent has two VMs, and a refusal on the first must not leave the second running.
+        List<Exception>? failures = null;
         foreach (var vm in await LiveVmsAsync(agentId, ct).ConfigureAwait(false))
         {
-            if (vm.State != VmState.Running)
+            try
             {
-                continue;
+                await PauseOneAsync(vm, ct).ConfigureAwait(false);
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                (failures ??= []).Add(ex);
+            }
+        }
 
             var save = await lifecycle.SupportsSaveStateAsync(vm.Id, ct).ConfigureAwait(false) ?? false;
             var result = save
+        if (failures is [var only])
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(only).Throw();
+        }
+
+        if (failures is not null)
+        {
+            throw new AggregateException("More than one VM could not be paused.", failures);
+        }
+    }
+
+    private async Task PauseOneAsync(EnvironmentVmRecord vm, CancellationToken ct)
+    {
+        VmOperationResult result;
+        if (vm.State == VmState.Running)
+        {
+            result = backend.SupportsSaveState
                 ? await lifecycle.SaveAsync(vm.Id, ct).ConfigureAwait(false)
                 : await lifecycle.StopAsync(vm.Id, StopMode.Force, ct).ConfigureAwait(false);
-            if (result is VmOperationResult.Refused refused)
+        }
+        else if (vm.State == VmState.Restored && vm.BackendRef is { } backendRef)
+        {
+            // The backend decides the power state after a restore, so a Restored VM may be running. Ask it, and cut the power if so
+            // (the transition table allows Restored to Stopped, not to Saved).
+            if (await backend.GetStateAsync(new VmHandle(vm.Id, backendRef), ct).ConfigureAwait(false) != VmState.Running)
             {
-                throw new InvalidOperationException($"VM {vm.Id} could not be paused: {refused.Refusal.Reason}.");
+                return;
             }
+
+            result = await lifecycle.StopAsync(vm.Id, StopMode.Force, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            return;
+        }
+
+        // A VM that reached a state where it does not run while this call waited (an idle save, a stop) is paused all the same.
+        if (result is VmOperationResult.Refused refused
+            && refused.Refusal.CurrentState is not (VmState.Saved or VmState.Stopped or VmState.Checkpointed or VmState.Retired or VmState.Absent))
+        {
+            throw new InvalidOperationException($"VM {vm.Id} could not be paused: {refused.Refusal.Reason}.");
         }
     }
 
@@ -52,7 +97,7 @@ public sealed class VmContainmentPauser(IAgentVmDirectory vms, VmLifecycleServic
                 continue;
             }
 
-            var result = await lifecycle.StartAsync(vm.Id, ct).ConfigureAwait(false);
+            var result = await lifecycle.StartForReleaseAsync(vm.Id, ct).ConfigureAwait(false);
             if (result is VmOperationResult.Refused refused)
             {
                 throw new InvalidOperationException($"VM {vm.Id} could not be resumed: {refused.Refusal.Reason}.");
@@ -69,6 +114,9 @@ public sealed class VmContainmentPauser(IAgentVmDirectory vms, VmLifecycleServic
         }
 
         var all = await vms.ListAsync(agent, ct).ConfigureAwait(false);
-        return all.Where(vm => vm.State != VmState.Retired).ToList();
+
+        // The directory is asked for this agent's VMs, and the answer is checked: a directory that returns another agent's VM
+        // (a bad query, a stale cache) must never get that VM paused or resumed by this agent's containment.
+        return all.Where(vm => vm.AgentId == agent && vm.State != VmState.Retired).ToList();
     }
 }

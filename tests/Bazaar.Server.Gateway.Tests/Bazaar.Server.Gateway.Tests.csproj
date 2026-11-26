@@ -21,13 +21,17 @@
     <None Update="Gateway\FreeLlmApi\Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Gateway.Selection\Bazaar.Server.Gateway.Selection.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>

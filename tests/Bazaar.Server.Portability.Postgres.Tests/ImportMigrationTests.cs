@@ -19,6 +19,7 @@ public class ImportMigrationTests
     {
         Assert.Contains("portability", _source.Namespaces());
         var file = Assert.Single(_source.Load("portability"));
+        var file = Assert.Single(_source.Load("portability"), f => f.Version == 1);
 
         Assert.Equal("portability", file.Namespace);
         Assert.Equal(1, file.Version);

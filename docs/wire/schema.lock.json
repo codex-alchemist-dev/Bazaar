@@ -15,6 +15,46 @@
     { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
     { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
     { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
+  "hash": "sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf",
+  "messages": [
+    { "type": "board.assign", "payload": "Bazaar.Contracts.Kanban.KanbanAssignRequest" },
+    { "type": "board.move", "payload": "Bazaar.Contracts.Kanban.KanbanMoveRequest" },
+    { "type": "board.snapshot", "payload": "Bazaar.Contracts.Kanban.KanbanBoardRequest" },
+    { "type": "editor.create", "payload": "Bazaar.Contracts.Athanor.EditorCreateRequest" },
+    { "type": "editor.open", "payload": "Bazaar.Contracts.Athanor.EditorOpenRequest" },
+    { "type": "editor.save", "payload": "Bazaar.Contracts.Athanor.EditorSaveRequest" },
+    { "type": "engine.grant.verify", "payload": "Bazaar.Contracts.Engines.EngineGrantVerifyRequest" },
+    { "type": "engine.relay.request", "payload": "Bazaar.Contracts.Engines.EngineRelayRequestFrame" },
+    { "type": "engine.relay.result", "payload": "Bazaar.Contracts.Engines.EngineRelayResultFrame" },
+    { "type": "gc.edit", "payload": "Bazaar.Contracts.Wire.GcEdit" },
+    { "type": "gc.history", "payload": "Bazaar.Contracts.Wire.GcHistory" },
+    { "type": "gc.list", "payload": "Bazaar.Contracts.Wire.GcListRequest" },
+    { "type": "gc.member.add", "payload": "Bazaar.Contracts.Wire.GcMemberAdd" },
+    { "type": "gc.member.remove", "payload": "Bazaar.Contracts.Wire.GcMemberRemove" },
+    { "type": "gc.message", "payload": "Bazaar.Contracts.Wire.WireGcMessage" },
+    { "type": "gc.react", "payload": "Bazaar.Contracts.Wire.GcReact" },
+    { "type": "gc.reaction", "payload": "Bazaar.Contracts.Wire.WireGcReaction" },
+    { "type": "gc.reactions", "payload": "Bazaar.Contracts.Wire.GcReactionsRequest" },
+    { "type": "gc.read", "payload": "Bazaar.Contracts.Wire.GcRead" },
+    { "type": "gc.send", "payload": "Bazaar.Contracts.Wire.GcSend" },
+    { "type": "gc.typing", "payload": "Bazaar.Contracts.Wire.GcTyping" },
+    { "type": "graph.lod", "payload": "Bazaar.Contracts.Graph.GraphLodFrame" },
+    { "type": "hello", "payload": "Bazaar.Contracts.Wire.Hello" },
+    { "type": "hive.grant.revoke", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
+    { "type": "hive.grant.set", "payload": "Bazaar.Contracts.Hive.HiveGrantChangeRequest" },
+    { "type": "lagged", "payload": "Bazaar.Contracts.Wire.Lagged" },
+    { "type": "pane.frame", "payload": "Bazaar.Contracts.Wire.PaneFrame" },
+    { "type": "ping", "payload": "Bazaar.Contracts.Wire.Ping" },
+    { "type": "pong", "payload": "Bazaar.Contracts.Wire.Pong" },
+    { "type": "pr.hunks", "payload": "Bazaar.Contracts.GitHub.PrHunksRequest" },
+    { "type": "pr.list", "payload": "Bazaar.Contracts.GitHub.PrListRequest" },
+    { "type": "pr.merge", "payload": "Bazaar.Contracts.GitHub.PrMergeRequest" },
+    { "type": "pr.review", "payload": "Bazaar.Contracts.GitHub.PrReviewRequest" },
+    { "type": "pr.summary", "payload": "Bazaar.Contracts.GitHub.PrSummaryRequest" },
+    { "type": "presence.snapshot", "payload": "Bazaar.Contracts.Wire.PresenceSnapshotRequest" },
+    { "type": "presence.update", "payload": "Bazaar.Contracts.Wire.PresenceUpdate" },
+    { "type": "replay.fork", "payload": "Bazaar.Contracts.TimeMachine.ReplayForkRequest" },
+    { "type": "replay.frame", "payload": "Bazaar.Contracts.TimeMachine.ReplayFrameRequest" },
     { "type": "resync", "payload": "Bazaar.Contracts.Wire.Resync" },
     { "type": "ryusei.trigger.list", "payload": "Bazaar.Contracts.Ryusei.RyuseiTriggerListRequest" },
     { "type": "ryusei.trigger.pause", "payload": "Bazaar.Contracts.Ryusei.RyuseiTriggerChangeRequest" },
@@ -26,12 +66,364 @@
   ],
   "types": [
     {
+      "name": "Bazaar.Contracts.Athanor.EditorCreateReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "revision", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Athanor.EditorCreateRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "workspaceId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "path", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "content", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Athanor.EditorOpenReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "content", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "languageHint", "type": "string", "nullable": true, "default": false },
+        { "n": 4, "name": "readOnly", "type": "bool", "nullable": false, "default": false },
+        { "n": 5, "name": "sizeBytes", "type": "int64", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Athanor.EditorOpenRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "workspaceId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "path", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Athanor.EditorSaveReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "newRevision", "type": "string", "nullable": true, "default": false },
+        { "n": 2, "name": "serverRevision", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "serverContent", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Athanor.EditorSaveRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "workspaceId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "path", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "baseRevision", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "content", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineGrantVerifyReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "covers", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineGrantVerifyRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "tool", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "riskClass", "type": "ref:Bazaar.Contracts.Engines.RiskClass", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayCallFrame",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "studioId", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "tool", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "argsJson", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayCallResultFrame",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "grantId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "ok", "type": "bool", "nullable": false, "default": false },
+        { "n": 3, "name": "payloadJson", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayRequestFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "relayId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "deadline", "type": "datetime", "nullable": false, "default": false },
+        { "n": 3, "name": "call", "type": "ref:Bazaar.Contracts.Engines.EngineRelayCallFrame", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.EngineRelayResultFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "relayId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "result", "type": "ref:Bazaar.Contracts.Engines.EngineRelayCallResultFrame", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Engines.RiskClass",
+      "kind": "enum",
+      "members": [
+        { "name": "read", "value": 0 },
+        { "name": "write", "value": 1 },
+        { "name": "exec", "value": 2 }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Gc.PrincipalKind",
       "kind": "enum",
       "members": [
         { "name": "owner", "value": 0 },
         { "name": "human", "value": 1 },
         { "name": "agent", "value": 2 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrAuthorKind",
+      "kind": "enum",
+      "members": [
+        { "name": "agent", "value": 0 },
+        { "name": "human", "value": 1 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrChangedFile",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "path", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "status", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "additions", "type": "int32", "nullable": false, "default": false },
+        { "n": 4, "name": "deletions", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrChecksRollup",
+      "kind": "enum",
+      "members": [
+        { "name": "none", "value": 0 },
+        { "name": "pending", "value": 1 },
+        { "name": "passing", "value": 2 },
+        { "name": "failing", "value": 3 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrHunk",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "header", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "oldStart", "type": "int32", "nullable": false, "default": false },
+        { "n": 3, "name": "oldCount", "type": "int32", "nullable": false, "default": false },
+        { "n": 4, "name": "newStart", "type": "int32", "nullable": false, "default": false },
+        { "n": 5, "name": "newCount", "type": "int32", "nullable": false, "default": false },
+        { "n": 6, "name": "lines", "type": "list<string>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrHunksReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "ref:Bazaar.Contracts.GitHub.PrHunksStatus", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "path", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "hunks", "type": "list<ref:Bazaar.Contracts.GitHub.PrHunk>", "nullable": false, "default": false },
+        { "n": 5, "name": "nextCursor", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrHunksRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "path", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "cursor", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrHunksStatus",
+      "kind": "enum",
+      "members": [
+        { "name": "ok", "value": 0 },
+        { "name": "stale", "value": 1 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrListReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "rows", "type": "list<ref:Bazaar.Contracts.GitHub.PrListRow>", "nullable": false, "default": false },
+        { "n": 2, "name": "nextCursor", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrListRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "repo", "type": "string", "nullable": true, "default": false },
+        { "n": 2, "name": "state", "type": "ref:Bazaar.Contracts.GitHub.PrListState", "nullable": false, "default": false },
+        { "n": 3, "name": "cursor", "type": "string", "nullable": true, "default": false },
+        { "n": 4, "name": "limit", "type": "int32", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrListRow",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "repo", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "number", "type": "int32", "nullable": false, "default": false },
+        { "n": 4, "name": "title", "type": "string", "nullable": false, "default": false },
+        { "n": 5, "name": "author", "type": "string", "nullable": false, "default": false },
+        { "n": 6, "name": "authorKind", "type": "ref:Bazaar.Contracts.GitHub.PrAuthorKind", "nullable": false, "default": false },
+        { "n": 7, "name": "draft", "type": "bool", "nullable": false, "default": false },
+        { "n": 8, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 9, "name": "checks", "type": "ref:Bazaar.Contracts.GitHub.PrChecksRollup", "nullable": false, "default": false },
+        { "n": 10, "name": "revision", "type": "int64", "nullable": false, "default": false },
+        { "n": 11, "name": "installationId", "type": "int64", "nullable": true, "default": true },
+        { "n": 12, "name": "owner", "type": "string", "nullable": true, "default": true },
+        { "n": 13, "name": "repoName", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrListState",
+      "kind": "enum",
+      "members": [
+        { "name": "open", "value": 0 },
+        { "name": "closed", "value": 1 },
+        { "name": "merged", "value": 2 },
+        { "name": "all", "value": 3 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrMergeReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "ref:Bazaar.Contracts.GitHub.PrMergeStatus", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "message", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrMergeRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "commitTitle", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "commitMessage", "type": "string", "nullable": false, "default": false },
+        { "n": 5, "name": "owner", "type": "ref:Bazaar.Contracts.GitHub.PrOwnerPayload", "nullable": false, "default": false },
+        { "n": 6, "name": "signature", "type": "list<uint8>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrMergeStatus",
+      "kind": "enum",
+      "members": [
+        { "name": "merged", "value": 0 },
+        { "name": "stale", "value": 1 },
+        { "name": "checks_failed", "value": 2 },
+        { "name": "bad_signature", "value": 3 },
+        { "name": "not_mergeable", "value": 4 },
+        { "name": "conflict", "value": 5 },
+        { "name": "refused", "value": 6 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrOwnerPayload",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "action", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "approvalId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "argsHash", "type": "list<uint8>", "nullable": false, "default": false },
+        { "n": 4, "name": "headSha", "type": "string", "nullable": true, "default": false },
+        { "n": 5, "name": "humanId", "type": "guid", "nullable": false, "default": false },
+        { "n": 6, "name": "deviceId", "type": "string", "nullable": false, "default": false },
+        { "n": 7, "name": "issuedAt", "type": "datetime", "nullable": false, "default": false },
+        { "n": 8, "name": "expiresAt", "type": "datetime", "nullable": false, "default": false },
+        { "n": 9, "name": "nonce", "type": "list<uint8>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrReviewReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "ref:Bazaar.Contracts.GitHub.PrReviewStatus", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "message", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrReviewRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "event", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "body", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrReviewStatus",
+      "kind": "enum",
+      "members": [
+        { "name": "applied", "value": 0 },
+        { "name": "stale", "value": 1 },
+        { "name": "refused", "value": 2 }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrSummaryReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "headSha", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "summary", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "files", "type": "list<ref:Bazaar.Contracts.GitHub.PrChangedFile>", "nullable": false, "default": false },
+        { "n": 5, "name": "checks", "type": "ref:Bazaar.Contracts.GitHub.PrChecksRollup", "nullable": false, "default": false },
+        { "n": 6, "name": "reviewerApproved", "type": "bool", "nullable": false, "default": false },
+        { "n": 7, "name": "linkedCardId", "type": "guid", "nullable": true, "default": false },
+        { "n": 8, "name": "installationId", "type": "int64", "nullable": true, "default": true },
+        { "n": 9, "name": "owner", "type": "string", "nullable": true, "default": true },
+        { "n": 10, "name": "repoName", "type": "string", "nullable": true, "default": true },
+        { "n": 11, "name": "number", "type": "int32", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.GitHub.PrSummaryRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "prId", "type": "string", "nullable": false, "default": false }
       ]
     },
     {
@@ -209,6 +601,47 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "accepted", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "reason", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "approvalRequired", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Hive.HiveGrantChangeRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "fromProject", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "toProject", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "kind", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanAssignReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanAssignRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "cardId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "assigneeAgentId", "type": "guid", "nullable": true, "default": false },
+        { "n": 4, "name": "expectedRevision", "type": "int64", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Kanban.KanbanBoardCard",
       "kind": "record",
       "fields": [
@@ -236,6 +669,29 @@
       "fields": [
         { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
         { "n": 2, "name": "cards", "type": "list<ref:Bazaar.Contracts.Kanban.KanbanBoardCard>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanMoveReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "status", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": true, "default": false },
+        { "n": 3, "name": "blockerTitles", "type": "list<string>", "nullable": false, "default": false },
+        { "n": 4, "name": "reason", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Kanban.KanbanMoveRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "projectId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "cardId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "toState", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "expectedRevision", "type": "int64", "nullable": false, "default": false },
+        { "n": 5, "name": "reason", "type": "string", "nullable": true, "default": true }
       ]
     },
     {
@@ -375,6 +831,158 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayForkRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gc", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "seq", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "requestId", "type": "guid", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayForkResult",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "newGc", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "vaultCommit", "type": "string", "nullable": true, "default": false },
+        { "n": 3, "name": "created", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayFrameRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gc", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "seq", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "mode", "type": "string", "nullable": true, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayFrameResult",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gc", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "seq", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "head", "type": "int64", "nullable": false, "default": false },
+        { "n": 4, "name": "frame", "type": "ref:Bazaar.Contracts.TimeMachine.ReplayFrameWire", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayFrameWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "messages", "type": "list<ref:Bazaar.Contracts.TimeMachine.ReplayMessageWire>", "nullable": false, "default": false },
+        { "n": 2, "name": "kanban", "type": "ref:Bazaar.Contracts.TimeMachine.ReplayTasksPart", "nullable": false, "default": false },
+        { "n": 3, "name": "vault", "type": "ref:Bazaar.Contracts.TimeMachine.ReplayVaultPart", "nullable": false, "default": false },
+        { "n": 4, "name": "souls", "type": "ref:Bazaar.Contracts.TimeMachine.ReplaySoulsPart", "nullable": false, "default": false },
+        { "n": 5, "name": "reputation", "type": "ref:Bazaar.Contracts.TimeMachine.ReplayReputationPart", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayMessageWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "messageId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "authorId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "firstSeq", "type": "int64", "nullable": false, "default": false },
+        { "n": 4, "name": "versionSeq", "type": "int64", "nullable": false, "default": false },
+        { "n": 5, "name": "version", "type": "int32", "nullable": false, "default": false },
+        { "n": 6, "name": "edited", "type": "bool", "nullable": false, "default": false },
+        { "n": 7, "name": "quarantined", "type": "bool", "nullable": false, "default": false },
+        { "n": 8, "name": "payloadJson", "type": "string", "nullable": true, "default": false },
+        { "n": 9, "name": "createdAt", "type": "datetime", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayReputationPart",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "available", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "value", "type": "list<ref:Bazaar.Contracts.TimeMachine.ReplayReputationWire>", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayReputationWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "score", "type": "decimal", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplaySoulWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "version", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplaySoulsPart",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "available", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "value", "type": "list<ref:Bazaar.Contracts.TimeMachine.ReplaySoulWire>", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayTaskWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "taskId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "title", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "column", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayTasksPart",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "available", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "value", "type": "list<ref:Bazaar.Contracts.TimeMachine.ReplayTaskWire>", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayVaultPart",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "available", "type": "bool", "nullable": false, "default": false },
+        { "n": 2, "name": "value", "type": "ref:Bazaar.Contracts.TimeMachine.ReplayVaultWire?", "nullable": true, "default": false },
+        { "n": 3, "name": "reason", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayVaultWire",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "commit", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.TimeMachine.ReplayVaultWire?",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "commit", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.GcEdit",
       "kind": "record",
       "payload": true,
@@ -392,6 +1000,38 @@
         { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
         { "n": 2, "name": "before", "type": "int64", "nullable": false, "default": false },
         { "n": 3, "name": "limit", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListItem",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "title", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "memberCount", "type": "int32", "nullable": false, "default": false },
+        { "n": 5, "name": "headSeq", "type": "int64", "nullable": false, "default": false },
+        { "n": 6, "name": "lastActivityTs", "type": "datetime", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "items", "type": "list<ref:Bazaar.Contracts.Wire.GcListItem>", "nullable": false, "default": false },
+        { "n": 2, "name": "hasMore", "type": "bool", "nullable": false, "default": false },
+        { "n": 3, "name": "defaultGcId", "type": "guid", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcListRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "limit", "type": "int32", "nullable": false, "default": false },
+        { "n": 2, "name": "includeThinking", "type": "bool", "nullable": false, "default": true }
       ]
     },
     {
@@ -424,6 +1064,43 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Wire.GcReact",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "targetN", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "emoji", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "add", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcReactResult",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "n", "type": "int64", "nullable": false, "default": false },
+        { "n": 2, "name": "changed", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcReactionsReply",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "items", "type": "list<ref:Bazaar.Contracts.Wire.WireReactionGroup>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcReactionsRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "afterN", "type": "int64", "nullable": true, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.GcRead",
       "kind": "record",
       "payload": true,
@@ -453,6 +1130,23 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Wire.GcTyping",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "typing", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.GcTypingResult",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "accepted", "type": "bool", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.Hello",
       "kind": "record",
       "payload": true,
@@ -478,6 +1172,14 @@
       ]
     },
     {
+      "name": "Bazaar.Contracts.Wire.PaneFrame",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "frame", "type": "string", "nullable": false, "default": false }
+      ]
+    },
+    {
       "name": "Bazaar.Contracts.Wire.Ping",
       "kind": "record",
       "payload": true,
@@ -491,6 +1193,44 @@
       "payload": true,
       "fields": [
         { "n": 1, "name": "nonce", "type": "string", "nullable": true, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceSnapshot",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "rows", "type": "list<ref:Bazaar.Contracts.Wire.WirePresenceRow>", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceSnapshotRequest",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceTyping",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "principalId", "type": "guid", "nullable": false, "default": false },
+        { "n": 4, "name": "typing", "type": "bool", "nullable": false, "default": false },
+        { "n": 5, "name": "ttlMs", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.PresenceUpdate",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "kind", "type": "string", "nullable": false, "default": false },
+        { "n": 2, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 3, "name": "revision", "type": "int64", "nullable": false, "default": false },
+        { "n": 4, "name": "row", "type": "ref:Bazaar.Contracts.Wire.WirePresenceRow", "nullable": false, "default": false }
       ]
     },
     {
@@ -600,6 +1340,21 @@
         { "n": 8, "name": "edited", "type": "bool", "nullable": false, "default": false },
         { "n": 9, "name": "mentions", "type": "list<guid>", "nullable": false, "default": false },
         { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false }
+        { "n": 10, "name": "replyToN", "type": "int64", "nullable": true, "default": false },
+        { "n": 11, "name": "withdrawn", "type": "bool", "nullable": false, "default": true }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.WireGcReaction",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "gcId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "targetN", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "emoji", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "by", "type": "guid", "nullable": false, "default": false },
+        { "n": 5, "name": "add", "type": "bool", "nullable": false, "default": false },
+        { "n": 6, "name": "ts", "type": "datetime", "nullable": false, "default": false }
       ]
     },
     {
@@ -609,6 +1364,33 @@
         { "n": 1, "name": "maxFrameBytes", "type": "int32", "nullable": false, "default": false },
         { "n": 2, "name": "inflightRequestsMax", "type": "int32", "nullable": false, "default": false },
         { "n": 3, "name": "replayPageSize", "type": "int32", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.WirePresenceRow",
+      "kind": "record",
+      "fields": [
+        { "n": 1, "name": "agentId", "type": "guid", "nullable": false, "default": false },
+        { "n": 2, "name": "revision", "type": "int64", "nullable": false, "default": false },
+        { "n": 3, "name": "availability", "type": "string", "nullable": false, "default": false },
+        { "n": 4, "name": "overlays", "type": "list<string>", "nullable": false, "default": false },
+        { "n": 5, "name": "presence", "type": "string", "nullable": false, "default": false },
+        { "n": 6, "name": "activityKind", "type": "string", "nullable": false, "default": false },
+        { "n": 7, "name": "gcId", "type": "guid", "nullable": true, "default": false },
+        { "n": 8, "name": "turnId", "type": "guid", "nullable": true, "default": false },
+        { "n": 9, "name": "label", "type": "string", "nullable": true, "default": false },
+        { "n": 10, "name": "since", "type": "datetime", "nullable": false, "default": false },
+        { "n": 11, "name": "updatedAt", "type": "datetime", "nullable": false, "default": false }
+      ]
+    },
+    {
+      "name": "Bazaar.Contracts.Wire.WireReactionGroup",
+      "kind": "record",
+      "payload": true,
+      "fields": [
+        { "n": 1, "name": "targetN", "type": "int64", "nullable": false, "default": false },
+        { "n": 2, "name": "emoji", "type": "string", "nullable": false, "default": false },
+        { "n": 3, "name": "by", "type": "list<guid>", "nullable": false, "default": false }
       ]
     }
   ]

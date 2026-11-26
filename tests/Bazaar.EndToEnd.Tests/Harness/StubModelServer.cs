@@ -21,6 +21,8 @@ public sealed class StubModelServer : IAsyncDisposable
 
     private readonly WebApplication _app;
     private readonly ConcurrentQueue<StubRequest> _requests = new();
+    private readonly ConcurrentQueue<(string Name, string ArgumentsJson)> _toolCalls = new();
+    private readonly ConcurrentDictionary<string, string> _scripts = new();
 
     private StubModelServer(WebApplication app, int port)
     {
@@ -34,6 +36,19 @@ public sealed class StubModelServer : IAsyncDisposable
     public string BaseUrl => $"http://127.0.0.1:{Port}/v1";
 
     public IReadOnlyCollection<StubRequest> Requests => _requests.ToArray();
+
+    /// <summary>
+    /// Makes the next model call that is offered tools answer with this one tool call instead of text. The call after it, which carries
+    /// the tool result, gets the normal reply. One-shot: a test queues one call per tool call it expects.
+    /// </summary>
+    public void QueueToolCall(string name, string argumentsJson) => _toolCalls.Enqueue((name, argumentsJson));
+
+    /// <summary>
+    /// Scripts the model for one task: when the last user message contains <paramref name="marker"/>, the reply is
+    /// <paramref name="reply"/>. This is how an acceptance test plays "the model decided to fix the bug" while the server, gateway
+    /// and wire stay real. Markers are unique per test, so parallel tests sharing the model do not cross.
+    /// </summary>
+    public void AddScript(string marker, string reply) => _scripts[marker] = reply;
 
     public static async Task<StubModelServer> StartAsync()
     {
@@ -60,6 +75,18 @@ public sealed class StubModelServer : IAsyncDisposable
 
             holder[0]._requests.Enqueue(new StubRequest(http.Request.Headers.Authorization.ToString(), doc.RootElement.GetRawText(), lastUser));
             var reply = ReplyPrefix + lastUser;
+            var offeredTools = doc.RootElement.TryGetProperty("tools", out var tools) && tools.ValueKind == JsonValueKind.Array && tools.GetArrayLength() > 0;
+            if (offeredTools && holder[0]._toolCalls.TryDequeue(out var call))
+            {
+                http.Response.ContentType = "text/event-stream";
+                await WriteAsync(http, new { model = Model, choices = new[] { new { delta = new { tool_calls = new[] { new { index = 0, id = "call_stub_1", type = "function", function = new { name = call.Name, arguments = call.ArgumentsJson } } } }, finish_reason = (string?)null } } });
+                await WriteAsync(http, new { model = Model, choices = new[] { new { delta = new { content = (string?)null }, finish_reason = "tool_calls" } } });
+                await WriteAsync(http, new { model = Model, choices = Array.Empty<object>(), usage = new { prompt_tokens = 12, completion_tokens = 7, total_tokens = 19 } });
+                await http.Response.WriteAsync("data: [DONE]\n\n");
+                return;
+            }
+
+            var reply = holder[0].ScriptedReply(lastUser) ?? ReplyPrefix + lastUser;
 
             http.Response.ContentType = "text/event-stream";
             await WriteAsync(http, new { model = Model, choices = new[] { new { delta = new { content = reply }, finish_reason = (string?)null } } });
@@ -74,6 +101,9 @@ public sealed class StubModelServer : IAsyncDisposable
         holder[0] = stub;
         return stub;
     }
+
+    private string? ScriptedReply(string lastUser) =>
+        _scripts.FirstOrDefault(kv => lastUser.Contains(kv.Key, StringComparison.Ordinal)).Value;
 
     private static async Task WriteAsync(HttpContext http, object chunk)
     {

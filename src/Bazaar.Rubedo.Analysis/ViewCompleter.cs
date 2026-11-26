@@ -63,12 +63,17 @@ internal static class ViewCompleter
     {
         List<JsonToken> tokens = Scan(json);
         int cursor = tokens.FindIndex(t => t.Kind == JsonKind.String && t.Start < offset && (t.Terminated ? offset < t.End : offset <= t.End));
+    public static CompletionList Complete(string json, int offset, IViewTokenCatalog? tokens = null)
+    {
+        List<JsonToken> tokens_ = Scan(json);
+        int cursor = tokens_.FindIndex(t => t.Kind == JsonKind.String && t.Start < offset && (t.Terminated ? offset < t.End : offset <= t.End));
         if (cursor < 0)
         {
             return new CompletionList(offset, offset, []);
         }
 
         JsonToken current = tokens[cursor];
+        JsonToken current = tokens_[cursor];
         int contentStart = current.Start + 1;
         int contentEnd = current.Terminated ? current.End - 1 : current.End;
         string prefix = json[contentStart..offset];
@@ -77,6 +82,7 @@ internal static class ViewCompleter
         List<Level>? snapshot = null;
         var actionIds = new List<string>();
         for (int i = 0; i < tokens.Count; i++)
+        for (int i = 0; i < tokens_.Count; i++)
         {
             if (i == cursor)
             {
@@ -87,6 +93,10 @@ internal static class ViewCompleter
         }
 
         var (kind, candidates) = Candidates(snapshot ?? [], actionIds);
+            Apply(json, tokens_[i], stack, i == cursor ? null : actionIds);
+        }
+
+        var (kind, candidates) = Candidates(snapshot ?? [], actionIds, tokens);
         IEnumerable<CompletionItem> items = candidates
             .Where(c => c.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
             .Order(StringComparer.Ordinal)
@@ -95,6 +105,7 @@ internal static class ViewCompleter
     }
 
     private static (CompletionKind Kind, IEnumerable<string> Items) Candidates(List<Level> stack, List<string> actionIds)
+    private static (CompletionKind Kind, IEnumerable<string> Items) Candidates(List<Level> stack, List<string> actionIds, IViewTokenCatalog? tokens)
     {
         if (stack.Count == 0)
         {
@@ -148,6 +159,8 @@ internal static class ViewCompleter
                 return (CompletionKind.Widget, underTabs ? widgets.Append("tab") : widgets);
             case "action" when top.Name == "props":
                 return (CompletionKind.Action, actionIds.Distinct(StringComparer.Ordinal));
+            case "token" when parent?.Name == "props" && tokens is not null:
+                return (CompletionKind.Token, TokensFor(top.Name, tokens));
             case "kind" when parent?.Name == "actions":
                 return (CompletionKind.ActionKind, _actionKinds);
             case "type" when parent?.Name == "data":
@@ -158,6 +171,21 @@ internal static class ViewCompleter
                 return (CompletionKind.DocumentKey, []);
         }
     }
+
+    /// <summary>The prop names whose token must be of one kind (doc 41c section 5.1); every other prop takes any value token.</summary>
+    private static readonly Dictionary<string, TokenKind> _propTokenKinds = new(StringComparer.Ordinal)
+    {
+        ["color"] = TokenKind.Colour,
+        ["background"] = TokenKind.Colour,
+        ["borderColor"] = TokenKind.Colour,
+        ["duration"] = TokenKind.Duration,
+        ["motion"] = TokenKind.Interaction,
+        ["opacity"] = TokenKind.Number,
+    };
+
+    private static IEnumerable<string> TokensFor(string prop, IViewTokenCatalog tokens) =>
+        tokens.Names.Where(name => tokens.KindOf(name) is { } kind &&
+            (_propTokenKinds.TryGetValue(prop, out TokenKind wanted) ? kind == wanted : kind != TokenKind.Interaction));
 
     private static IEnumerable<string> PropsFor(string? widget)
     {

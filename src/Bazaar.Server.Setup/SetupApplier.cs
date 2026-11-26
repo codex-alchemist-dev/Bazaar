@@ -276,6 +276,11 @@ public sealed class SetupApplier
             {
                 // A mapped plan field that writes no key (the scam-mail protocol when off) is not a setting change.
                 if (projected.ContainsKey(derivedKey))
+            var derivedKeys = SetupSettingProjection.DerivedKeysForPath(change.Path);
+            if (derivedKeys.Count > 0)
+            {
+                // A mapped plan field that writes no key (the scam-mail protocol when off) is not a setting change.
+                foreach (var derivedKey in derivedKeys.Where(projected.ContainsKey))
                 {
                     keys.Add(derivedKey);
                 }

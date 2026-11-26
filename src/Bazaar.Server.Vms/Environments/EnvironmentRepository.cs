@@ -7,7 +7,7 @@ namespace Bazaar.Server.Vms.Environments;
 /// and <c>exec_log</c> tables (migrations components/vms/0001 to 0003, doc 16). Ids and timestamps come from the caller. The methods that change a
 /// row return whether a row matched, so callers see a stale state or a missing row without a second read.
 /// </summary>
-public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
+public sealed class EnvironmentRepository(NpgsqlDataSource dataSource) : IEnvironmentVmReader
 {
     private const string _imageColumns = "id, os, version, sha256, guest_agent_version, state, created_at";
     private const string _vmColumns = "id, agent_id, os, parent_image_id, backend_ref, state, vcpu, memory_mb, disk_cap_gb, created_at, updated_at, provider_kind";
@@ -97,6 +97,15 @@ public sealed class EnvironmentRepository(NpgsqlDataSource dataSource)
         await using var cmd = dataSource.CreateCommand(
             $"SELECT {_vmColumns} FROM environment_vm WHERE agent_id = @agent_id ORDER BY created_at, id");
         cmd.Parameters.AddWithValue("agent_id", agentId);
+        return await ReadVmsAsync(cmd, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>Lists every VM recorded as Running, of any agent, oldest first.</summary>
+    public async Task<IReadOnlyList<EnvironmentVmRecord>> ListRunningVmsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(
+            $"SELECT {_vmColumns} FROM environment_vm WHERE state = @state ORDER BY created_at, id");
+        cmd.Parameters.AddWithValue("state", EnvironmentText.ToDb(VmState.Running));
         return await ReadVmsAsync(cmd, ct).ConfigureAwait(false);
     }
 

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- An adapter between two ports. The pool's abstractions, the Security read contracts and Bazaar.Core (for the component): no Bazaar.Server, no Bazaar.Server.Security. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.BrowserPool.Gate.Tests" />
+  </ItemGroup>
+</Project>

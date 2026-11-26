@@ -9,6 +9,10 @@ namespace Bazaar.Server.Setup.Postgres;
 /// <c>setting</c> table). The settings are the plan's <c>settings</c> map and the four plan fields that map to one registry key each
 /// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 12 (scam-mail
 /// protocol) and 15 (status bind and port).
+/// (see <see cref="SetupSettingProjection"/>). It covers the settings part of doc 45 steps 1 (release channel), 2 (the security half of the update policy), 8 (backup target,
+/// drill interval and the no-target acknowledgement), 10 (the merge credential choice and its secret reference), 11 (mail enabled flag and back end), 12 (scam-mail protocol),
+/// 13 (the company source reference) and 15 (status bind and port). The default routing preset of step 9 is written here too, but the <c>models</c> section is covered by
+/// <see cref="GatewaySourcesStep"/>, which stores the sources.
 /// </summary>
 /// <remarks>
 /// Every value goes through the registry first (<see cref="ISetupSettingDefinition.Evaluate"/>), and only an accepted value is written; a
@@ -29,6 +33,8 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
 
     /// <summary>The plan sections this step applies: the four settings-backed parts of the plan (doc 45 steps 1, 12 and 15, plus the settings map).</summary>
     public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "scamMailProtocol", "network", "settings"];
+    /// <summary>The plan sections this step applies: the settings-backed parts of the plan (doc 45 steps 1, 2, 8, 10, 11, 12, 13 and 15, plus the settings map).</summary>
+    public static readonly IReadOnlyList<string> CoveredSections = ["install.releaseChannel", "install.updatePolicy", "git", "backups", "email", "scamMailProtocol", "company", "network", "settings"];
 
     private const string _selectSql = "SELECT value::text, updated_by FROM setting WHERE key = @key AND scope = 'install' AND scope_id = ''";
 
@@ -131,6 +137,20 @@ public sealed class InstallSettingsStep(NpgsqlDataSource dataSource, ISetupSetti
     {
         desired = [];
         failure = null;
+        if (!SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
+        {
+            // Defence in depth: the validator already refuses this, but a step must not report success for what it cannot store.
+            failure = "'install.updatePolicy.other' can only be manual: no setting stores an automatic choice.";
+            return false;
+        }
+
+        if (!SetupSettingProjection.IsEmailChoiceCoherent(plan))
+        {
+            // Defence in depth: the validator refuses this, but a step must not store an enabled mail with no back end.
+            failure = "'email.backend' must name a back end exactly when email is enabled.";
+            return false;
+        }
+
         foreach (var setting in SetupSettingProjection.Project(plan))
         {
             if (!_catalog.TryGet(setting.Key, out var definition) || definition is null || !definition.IsInstallScope)

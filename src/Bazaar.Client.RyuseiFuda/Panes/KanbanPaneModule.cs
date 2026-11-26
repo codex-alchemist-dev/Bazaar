@@ -39,6 +39,7 @@ public sealed class KanbanPaneModule : IPaneModule, IClientModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
+        PaneCommandBindings.Open(context, OpenCommandId, PaneKinds.Kanban);
         registry.Register(PaneKinds.Kanban, descriptor => new KanbanPaneViewModel(descriptor));
         registry.RegisterView<KanbanPaneViewModel>(RyuseiFudaPaneViews.KanbanBoard);
     }

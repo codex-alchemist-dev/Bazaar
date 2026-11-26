@@ -25,6 +25,8 @@ internal sealed partial class GrpcSessionService : Session.SessionBase
 {
     private const int MinSessionIdLength = 16;
     private const int MaxSessionIdLength = 128;
+    private const int _minSessionIdLength = 16;
+    private const int _maxSessionIdLength = 128;
 
     private readonly IWireTransportAuthenticator _authenticator;
     private readonly IWireConnectionHandoff _handoff;
@@ -172,6 +174,7 @@ internal sealed partial class GrpcSessionService : Session.SessionBase
 
     private static bool IsValidSessionId(string? id) =>
         id is { Length: >= MinSessionIdLength and <= MaxSessionIdLength } && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
+        id is { Length: >= _minSessionIdLength and <= _maxSessionIdLength } && id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
     private static bool SameCredential(string? presented, string expected)
     {

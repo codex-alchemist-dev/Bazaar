@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- An adapter for the IPoolVmHost port. The component renders the ruleset with the pool module's NftablesRules and reads its options, so it references the pool: no Bazaar.Server, no other feature module. -->
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
   </ItemGroup>

@@ -100,6 +100,9 @@ public sealed class GcMentionsBundleSource : IBundleSource
                 w.WriteNumber("seq", mention.Seq);
                 w.WriteString("targetPrincipalId", mention.TargetPrincipalId.ToString("D"));
             });
+        await foreach (var mention in ReadPagedAsync(_mentions, gcId, head, _pageSize, _viewer, ct))
+        {
+            var line = GcJsonlFormat.Seal(prevHash, w => WriteMention(w, mention));
             await stream.WriteAsync(line.Bytes, ct);
             prevHash = line.Hash;
             count++;
@@ -111,6 +114,16 @@ public sealed class GcMentionsBundleSource : IBundleSource
 
     /// <summary>Mentions up to the head, read in pages. The reader's order is checked, since the export depends on it.</summary>
     private async IAsyncEnumerable<GcMentionRecord> ReadAsync(Guid gcId, long head, [EnumeratorCancellation] CancellationToken ct)
+    /// <summary>The fields of one mention line, shared with <see cref="GcJsonlExporter"/>.</summary>
+    internal static void WriteMention(System.Text.Json.Utf8JsonWriter w, GcMentionRecord mention)
+    {
+        w.WriteNumber("seq", mention.Seq);
+        w.WriteString("targetPrincipalId", mention.TargetPrincipalId.ToString("D"));
+    }
+
+    /// <summary>Mentions up to the head, read in pages. The reader's order is checked, since the export depends on it.</summary>
+    internal static async IAsyncEnumerable<GcMentionRecord> ReadPagedAsync(
+        IGcMentionSource mentions, Guid gcId, long head, int pageSize, GcPrincipal viewer, [EnumeratorCancellation] CancellationToken ct)
     {
         var afterSeq = 0L;
         var afterTarget = Guid.Empty;
@@ -120,6 +133,7 @@ public sealed class GcMentionsBundleSource : IBundleSource
         {
             var read = 0;
             await foreach (var row in _mentions.ReadAsync(gcId, afterSeq, afterTarget, _pageSize, _viewer, ct))
+            await foreach (var row in mentions.ReadAsync(gcId, afterSeq, afterTarget, pageSize, viewer, ct))
             {
                 read++;
                 if (row.Seq > head)
@@ -142,6 +156,7 @@ public sealed class GcMentionsBundleSource : IBundleSource
 
             // A short page means the viewer's grant or the rows end here.
             if (read < _pageSize)
+            if (read < pageSize)
             {
                 yield break;
             }
