@@ -222,6 +222,7 @@ public sealed class App : Avalonia.Application
             // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
             // push as their screens land, and back then runs the predictive transition (doc 93).
             history: new ScreenHistory(new ScreenEntry("chat")),
+            backSource: MainActivity.Current?.BackGestures);
             backSource: MainActivity.Current?.BackGestures,
             settings: _clientSettings);
         shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
