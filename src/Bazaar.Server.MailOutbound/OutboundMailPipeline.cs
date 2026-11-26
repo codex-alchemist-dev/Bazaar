@@ -23,12 +23,14 @@ public sealed class OutboundMailPipeline(
     IMailBackendResolver backends,
     IAuditLog audit,
     OutboundPipelineOptions? options = null,
-    TimeProvider? timeProvider = null) : IOutboundMailPipeline
+    TimeProvider? timeProvider = null,
+    IOutboundMailNotices? notices = null) : IOutboundMailPipeline
 {
     public const string AuditActor = "mail.outbound";
 
     private readonly OutboundPipelineOptions _options = options ?? new OutboundPipelineOptions();
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
+    private readonly IOutboundMailNotices _notices = notices ?? new NoOutboundMailNotices();
 
     public async Task<OutboundSendResult> SendAsync(OutboundRequest request, CancellationToken ct)
     {
@@ -163,11 +165,21 @@ public sealed class OutboundMailPipeline(
         if (approvalId is null)
         {
             var request = record.Request;
-            var raised = await approvals.RequestAsync(
-                new MailApprovalRequest(
-                    request.AgentId, record.IdempotencyKey, record.Tier, record.Reason, request.From, request.Recipients, request.Subject, request.TextBody,
-                    record.Footer, request.AttachmentCount),
-                ct).ConfigureAwait(false);
+            Guid raised;
+            try
+            {
+                raised = await approvals.RequestAsync(
+                    new MailApprovalRequest(
+                        request.AgentId, record.IdempotencyKey, record.Tier, record.Reason, request.From, request.Recipients, request.Subject, request.TextBody,
+                        record.Footer, request.AttachmentCount),
+                    ct).ConfigureAwait(false);
+            }
+            catch (MailApprovalRefusedException refused)
+            {
+                // The store will not take this request, so asking again cannot help: end the send for good.
+                return await FailTerminalAsync(record, OutboundStatus.Failed, ct, refused.ReasonCode).ConfigureAwait(false);
+            }
+
             var withApproval = record with { ApprovalId = raised, UpdatedAt = _time.GetUtcNow() };
             if (!await store.TryUpdateAsync(record, withApproval, ct).ConfigureAwait(false))
             {
@@ -269,7 +281,8 @@ public sealed class OutboundMailPipeline(
         return Result(pending, OutboundSendStatus.RetryScheduled) with { RetryAfter = delay };
     }
 
-    private async Task<OutboundSendResult> FailTerminalAsync(StoredOutbound record, OutboundStatus terminal, CancellationToken ct)
+    private async Task<OutboundSendResult> FailTerminalAsync(
+        StoredOutbound record, OutboundStatus terminal, CancellationToken ct, string? reasonCode = null)
     {
         var updated = record with { Status = terminal, NextAttemptAt = null, UpdatedAt = _time.GetUtcNow() };
         if (await store.TryUpdateAsync(record, updated, ct).ConfigureAwait(false))
@@ -281,10 +294,40 @@ public sealed class OutboundMailPipeline(
                 _ => "failed",
             };
             await AuditAsync(kind, record.Request?.AgentId ?? string.Empty, record.IdempotencyKey, record.MessageId, record.ApprovalId, record.Reason,
-                record.Attempts, record.Request, ct).ConfigureAwait(false);
+                record.Attempts, record.Request, ct, reasonCode).ConfigureAwait(false);
+            if (reasonCode is not null && record.Request is { } request)
+            {
+                await NotifyRefusalAsync(record, request, reasonCode, updated.UpdatedAt, ct).ConfigureAwait(false);
+            }
         }
 
         return Result(updated, StatusFor(updated));
+    }
+
+    /// <summary>
+    /// Tells the owner once, right after the row moved to Failed (the compare-and-set makes a repeat impossible). A failing notice never
+    /// undoes the terminal state: it is caught and counted as a <c>mail.outbound.notice_failed</c> audit row with the exception type only.
+    /// </summary>
+    private async Task NotifyRefusalAsync(StoredOutbound record, OutboundRequest request, string reasonCode, DateTimeOffset at, CancellationToken ct)
+    {
+        try
+        {
+            await _notices.PostApprovalRefusedAsync(
+                new OutboundRefusalNotice(request.AgentId, record.MessageId, reasonCode, request.From.Domain, request.Recipients.Count, at), ct)
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            try
+            {
+                await AuditAsync("notice_failed", request.AgentId, record.IdempotencyKey, record.MessageId, record.ApprovalId, record.Reason, record.Attempts,
+                    request, ct, ex.GetType().Name.ToLowerInvariant()).ConfigureAwait(false);
+            }
+            catch (Exception audit) when (audit is not OperationCanceledException)
+            {
+                // The send is already failed and audited; nothing more can be said about the notice.
+            }
+        }
     }
 
     private static OutboundSendStatus StatusFor(StoredOutbound record) => record.Status switch
@@ -303,7 +346,8 @@ public sealed class OutboundMailPipeline(
 
     /// <summary>Appends one audit row. The payload holds ids, counts and reason codes; a subject, body or address never enters it.</summary>
     private async Task AuditAsync(
-        string state, string agentId, string key, Guid? messageId, Guid? approvalId, OutboundReason? reason, int attempts, OutboundRequest? request, CancellationToken ct)
+        string state, string agentId, string key, Guid? messageId, Guid? approvalId, OutboundReason? reason, int attempts, OutboundRequest? request, CancellationToken ct,
+        string? reasonCode = null)
     {
         using var stream = new MemoryStream();
         using (var writer = new Utf8JsonWriter(stream))
@@ -314,6 +358,7 @@ public sealed class OutboundMailPipeline(
             if (messageId is { } message) writer.WriteString("message_id", message);
             if (approvalId is { } approval) writer.WriteString("approval_id", approval);
             if (reason is { } code) writer.WriteString("reason", code.ToString());
+            if (reasonCode is not null) writer.WriteString("reason_code", reasonCode);
             writer.WriteNumber("attempts", attempts);
             if (request is not null)
             {

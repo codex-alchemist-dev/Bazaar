@@ -21,6 +21,7 @@ public sealed class OutboundMailPipelineTests
         public InMemoryOutboundMailStore Store { get; } = new();
         public OutboundPipelineOptions Options { get; init; } = new(MaxAttempts: 3, RetryBaseDelay: TimeSpan.FromSeconds(10));
         public CountingPolicy Policy { get; }
+        public RecordingNotices Notices { get; } = new();
 
         public Rig(IRateLimiter? limiter = null, FakeSettings? settings = null, FakeDirectory? directory = null)
         {
@@ -31,7 +32,7 @@ public sealed class OutboundMailPipelineTests
 
         /// <summary>A pipeline instance over this rig's store, as a restarted process would build one.</summary>
         public OutboundMailPipeline Pipeline(IOutboundMailStore? store = null, IMailBackend? backend = null) =>
-            new(Policy, store ?? Store, Approvals, new FakeResolver(backend ?? Backend), Audit, Options, Clock);
+            new(Policy, store ?? Store, Approvals, new FakeResolver(backend ?? Backend), Audit, Options, Clock, Notices);
     }
 
     private static OutboundRequest Request(
@@ -164,6 +165,106 @@ public sealed class OutboundMailPipelineTests
         Assert.NotEqual(first.ApprovalId, second.ApprovalId);
         Assert.Equal(2, rig.Approvals.Requests.Count);
         Assert.Equal(1, rig.Backend.Delivered);
+    }
+
+    [Fact]
+    public async Task A_refused_approval_request_ends_the_send_for_good()
+    {
+        var rig = new Rig();
+        rig.Approvals.RefuseWith = "approval_refused:not_permitted";
+        var pipeline = rig.Pipeline();
+
+        var first = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+        var resumed = await pipeline.ResumeAsync(first.IdempotencyKey, Ct);
+        var due = await pipeline.ResumeDueAsync(10, Ct);
+        var repeated = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+
+        Assert.Equal(OutboundSendStatus.Failed, first.Status);
+        Assert.Equal(OutboundSendStatus.Failed, resumed!.Status);
+        Assert.Equal(OutboundSendStatus.Failed, repeated.Status);
+        Assert.Equal(0, due);
+        Assert.Equal(1, rig.Approvals.RequestCalls);
+        Assert.Equal(0, rig.Backend.Calls);
+        Assert.Equal(1, rig.Policy.Evaluations);
+        Assert.Equal(OutboundStatus.Failed, (await rig.Store.FindAsync(first.IdempotencyKey, Ct))!.Status);
+        var failed = Assert.Single(rig.Audit.Entries, e => e.Kind == "mail.outbound.failed");
+        Assert.Contains("approval_refused:not_permitted", failed.Payload, StringComparison.Ordinal);
+        Assert.DoesNotContain(_secretBody, failed.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_refused_approval_posts_one_content_free_notice()
+    {
+        var rig = new Rig();
+        rig.Approvals.RefuseWith = "approval_refused:not_permitted";
+        var pipeline = rig.Pipeline();
+
+        var first = await pipeline.SendAsync(Request(MailTaint.Hard, to: ["friend@example.org", "other@example.org"]), Ct);
+        await pipeline.ResumeAsync(first.IdempotencyKey, Ct);
+        await pipeline.SendAsync(Request(MailTaint.Hard, to: ["friend@example.org", "other@example.org"]), Ct);
+
+        var notice = Assert.Single(rig.Notices.Posted);
+        Assert.Equal("approval_refused:not_permitted", notice.ReasonCode);
+        Assert.Equal("mail.test", notice.SenderDomain);
+        Assert.Equal(2, notice.RecipientCount);
+        Assert.Equal(first.MessageId, notice.MessageId);
+        Assert.Equal(_t0, notice.At);
+        var text = notice.ToString();
+        Assert.DoesNotContain(_secretBody, text, StringComparison.Ordinal);
+        Assert.DoesNotContain(_subject, text, StringComparison.Ordinal);
+        Assert.DoesNotContain("friend", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("charles", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_denied_or_expired_approval_posts_no_refusal_notice()
+    {
+        var rig = new Rig();
+        var pipeline = rig.Pipeline();
+        var sent = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+        rig.Approvals.Set(rig.Approvals.Requests[0].Id, MailApprovalStatus.Denied);
+        await pipeline.ResumeAsync(sent.IdempotencyKey, Ct);
+
+        Assert.Empty(rig.Notices.Posted);
+    }
+
+    [Fact]
+    public async Task A_failing_notice_does_not_undo_the_failed_state()
+    {
+        var rig = new Rig();
+        rig.Approvals.RefuseWith = "approval_refused:not_permitted";
+        rig.Notices.Throw = true;
+        var pipeline = rig.Pipeline();
+
+        var result = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+        var again = await pipeline.ResumeAsync(result.IdempotencyKey, Ct);
+
+        Assert.Equal(OutboundSendStatus.Failed, result.Status);
+        Assert.Equal(OutboundSendStatus.Failed, again!.Status);
+        Assert.Equal(OutboundStatus.Failed, (await rig.Store.FindAsync(result.IdempotencyKey, Ct))!.Status);
+        Assert.Single(rig.Audit.Entries, e => e.Kind == "mail.outbound.failed");
+        var failedNotice = Assert.Single(rig.Audit.Entries, e => e.Kind == "mail.outbound.notice_failed");
+        Assert.DoesNotContain(_secretBody, failedNotice.Payload, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task The_default_pipeline_without_a_notice_port_still_fails_the_send()
+    {
+        var rig = new Rig();
+        rig.Approvals.RefuseWith = "approval_refused:not_permitted";
+        var pipeline = new OutboundMailPipeline(rig.Policy, rig.Store, rig.Approvals, new FakeResolver(rig.Backend), rig.Audit, rig.Options, rig.Clock);
+
+        var result = await pipeline.SendAsync(Request(MailTaint.Hard), Ct);
+
+        Assert.Equal(OutboundSendStatus.Failed, result.Status);
+    }
+
+    [Fact]
+    public void The_refusal_code_is_bounded_and_plain()
+    {
+        Assert.Equal(MailApprovalRefusedException.DefaultReasonCode, new MailApprovalRefusedException("has spaces and a@b.example").ReasonCode);
+        Assert.Equal(MailApprovalRefusedException.DefaultReasonCode, new MailApprovalRefusedException("").ReasonCode);
+        Assert.Equal(MailApprovalRefusedException.MaxReasonCodeLength, new MailApprovalRefusedException(new string('a', 500)).ReasonCode.Length);
     }
 
     [Theory]

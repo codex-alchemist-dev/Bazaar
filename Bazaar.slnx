@@ -429,6 +429,7 @@
     <Project Path="src/Bazaar.Server.Sanitization/Bazaar.Server.Sanitization.csproj" />
     <Project Path="src/Bazaar.Server.Verification/Bazaar.Server.Verification.csproj" />
     <Project Path="src/Bazaar.PrivacyAudit/Bazaar.PrivacyAudit.csproj" />
+    <Project Path="src/Bazaar.Server.ApprovalQueue.Abstractions/Bazaar.Server.ApprovalQueue.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs.Abstractions/Bazaar.Server.Jobs.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Jobs/Bazaar.Server.Jobs.csproj" />
     <Project Path="src/Bazaar.Server.SchemaIdentity.Abstractions/Bazaar.Server.SchemaIdentity.Abstractions.csproj" />

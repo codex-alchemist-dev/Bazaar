@@ -115,6 +115,70 @@ public sealed class FailClosedTests
     }
 }
 
+public sealed class OutboundMailNoticesTests
+{
+    private static readonly Guid _gc = Guid.NewGuid();
+    private static readonly DateTimeOffset _at = new(2026, 11, 20, 9, 30, 0, TimeSpan.Zero);
+
+    private static OutboundRefusalNotice Notice(Guid id) => new("agent-1", id, "approval_refused:not_permitted", "mail.example", 3, _at);
+
+    [Fact]
+    public async Task The_notice_is_a_system_event_with_only_the_allowed_fields()
+    {
+        var appender = new RecordingAppender();
+        var id = Guid.NewGuid();
+        var notices = new OutboundMailNotices(appender, new StaticMailRuntimeOptionsSource(new MailRuntimeOptions { NoticesGcId = _gc }));
+
+        await notices.PostApprovalRefusedAsync(Notice(id), CancellationToken.None);
+        await notices.PostApprovalRefusedAsync(Notice(id), CancellationToken.None);
+
+        Assert.Equal(2, appender.Requests.Count);
+        var request = appender.Requests[0];
+        Assert.Equal(_gc, request.GcId);
+        Assert.Equal(GcEventKinds.System, request.Kind);
+        Assert.Equal(AuthorKind.System, request.AuthorKind);
+        Assert.Equal(SourceTrust.System, request.SourceTrust);
+        Assert.Equal(appender.Requests[0].ClientMsgId, appender.Requests[1].ClientMsgId);
+        using var doc = JsonDocument.Parse(request.PayloadJson!);
+        var names = doc.RootElement.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(["agent_id", "at", "message_id", "notice", "reason_code", "recipient_count", "sender_domain"], names);
+        Assert.Equal(OutboundMailNotices.ApprovalRefusedKind, doc.RootElement.GetProperty("notice").GetString());
+        Assert.Equal("mail.example", doc.RootElement.GetProperty("sender_domain").GetString());
+        Assert.Equal(3, doc.RootElement.GetProperty("recipient_count").GetInt32());
+        Assert.Equal(id, doc.RootElement.GetProperty("message_id").GetGuid());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task An_unset_target_gc_skips_the_notice_and_counts_it(bool empty)
+    {
+        var appender = new RecordingAppender();
+        var options = new MailRuntimeOptions { NoticesGcId = empty ? Guid.Empty : null };
+        var notices = new OutboundMailNotices(appender, new StaticMailRuntimeOptionsSource(options), NullLogger<OutboundMailNotices>.Instance);
+
+        await notices.PostApprovalRefusedAsync(Notice(Guid.NewGuid()), CancellationToken.None);
+
+        Assert.Empty(appender.Requests);
+        Assert.Equal(1, notices.SkippedCount);
+    }
+
+    [Fact]
+    public void The_runtime_registers_the_notice_adapter_and_a_host_port_wins()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IMailGcAppender>(new RecordingAppender());
+        services.AddBazaarMailRuntime();
+        Assert.Contains(services, d => d.ServiceType == typeof(IOutboundMailNotices));
+
+        var own = new NoOutboundMailNotices();
+        var hosted = new ServiceCollection();
+        hosted.AddSingleton<IOutboundMailNotices>(own);
+        hosted.AddBazaarMailRuntime();
+        Assert.Single(hosted, d => d.ServiceType == typeof(IOutboundMailNotices));
+    }
+}
+
 public sealed class InboxGcPosterTests
 {
     private static readonly Guid _gc = Guid.NewGuid();

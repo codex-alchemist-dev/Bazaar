@@ -14,6 +14,7 @@
     <ProjectReference Include="..\Bazaar.Server.MailInbound\Bazaar.Server.MailInbound.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MailOutbound\Bazaar.Server.MailOutbound.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MailBackends\Bazaar.Server.MailBackends.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.ApprovalQueue.Abstractions\Bazaar.Server.ApprovalQueue.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
   </ItemGroup>
 </Project>
