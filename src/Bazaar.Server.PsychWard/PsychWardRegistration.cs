@@ -28,8 +28,10 @@ public static class PsychWardRegistration
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgWardStayStore(dataSource) : new InMemoryWardStayStore());
         services.TryAddSingleton<IVentStore>(sp =>
             sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgVentStore(dataSource) : new InMemoryVentStore());
+        services.TryAddSingleton<IWardOwnerSource>(sp =>
+            sp.GetService<NpgsqlDataSource>() is { } dataSource ? new PgWardOwnerSource(dataSource) : new NoWardOwnerSource());
         services.TryAddSingleton<IWardPrincipalDirectory>(sp =>
-            sp.GetService<NpgsqlDataSource>() is { } dataSource && sp.GetService<IWardOwnerSource>() is { } owners
+            sp.GetService<NpgsqlDataSource>() is { } dataSource && sp.GetRequiredService<IWardOwnerSource>() is { } owners and not NoWardOwnerSource
                 ? new PgWardPrincipalDirectory(dataSource, owners)
                 : new NoWardPrincipalDirectory());
         services.TryAddSingleton<IWardJournal>(sp =>
@@ -40,6 +42,7 @@ public static class PsychWardRegistration
                 : new NoOpWardJournal());
         services.TryAddSingleton<IPsychWardService, PsychWardService>();
         services.TryAddSingleton<IVentService, VentService>();
+        services.TryAddSingleton<IWardTriggerIntake, WardTriggerIntake>();
         services.TryAddSingleton<IPsychWardGate, PsychWardGate>();
         return services;
     }

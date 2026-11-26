@@ -5,6 +5,8 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Server.Reputation.Abstractions\Bazaar.Server.Reputation.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.PsychWard.Abstractions\Bazaar.Server.PsychWard.Abstractions.csproj" />
   </ItemGroup>
 </Project>

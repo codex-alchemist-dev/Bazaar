@@ -122,4 +122,21 @@ public class PgStoreTests(PsychWardDb db) : IClassFixture<PsychWardDb>
         Assert.Null(await directory.GetAgentAsync(Guid.CreateVersion7(), CancellationToken.None));
         Assert.Equal(owner, await directory.GetOwnerAsync(CancellationToken.None));
     }
+
+    [Fact]
+    public async Task The_owner_source_reads_the_one_active_owner_and_ignores_coworkers()
+    {
+        var ownerId = Guid.CreateVersion7();
+        await using (var insert = db.DataSource.CreateCommand(
+            "INSERT INTO human (id, display_name, role, status) VALUES (@owner, 'Boss', 'owner', 'active'), (@cow, 'Dana', 'coworker', 'active')"))
+        {
+            insert.Parameters.AddWithValue("owner", ownerId);
+            insert.Parameters.AddWithValue("cow", Guid.CreateVersion7());
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var owner = await new PgWardOwnerSource(db.DataSource).GetOwnerAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new GcPrincipal(ownerId, PrincipalKind.Owner, "Boss"), owner);
+    }
 }
