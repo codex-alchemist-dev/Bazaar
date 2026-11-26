@@ -9,7 +9,9 @@ namespace Bazaar.Server.Gc.Create;
 /// <param name="Title">The display title. Trimmed, and at most <see cref="GcCreateService.MaxTitleLength"/> characters.</param>
 /// <param name="CreatedBy">The creator's id, stored on the GC.</param>
 /// <param name="Members">The members to add. Distinct, and at most the service's member cap.</param>
-public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members);
+/// <param name="TypeKey">The GC type key. Defaults to <see cref="GcCreateService.TypeKey"/> (general).</param>
+/// <param name="Metadata">String metadata stored on the GC, or null for none.</param>
+public sealed record GcCreateRequest(Guid GcId, string Title, Guid CreatedBy, IReadOnlyList<Guid> Members, string TypeKey = GcCreateService.TypeKey, IReadOnlyDictionary<string, string>? Metadata = null);
 
 /// <summary>Raised when a create request breaks a rule. The message names the rule, never the title.</summary>
 public sealed class GcCreateRefusedException(string message) : Exception(message);
@@ -19,7 +21,7 @@ public sealed class GcCreateRefusedException(string message) : Exception(message
 /// idempotent on the GC id: a second call with the same id changes nothing, so a retried fire lands on the same GC. The member
 /// cap bounds the fan-out of one create. Lines go through the GC log, not here.
 /// </summary>
-public sealed class GcCreateService
+public sealed class GcCreateService : Bazaar.Server.Gc.Write.IGcProvisioner
 {
     /// <summary>The longest title stored, in characters.</summary>
     public const int MaxTitleLength = 120;
@@ -29,6 +31,12 @@ public sealed class GcCreateService
 
     /// <summary>The GC type every trigger-created GC uses (doc 01 seed, <c>general</c>).</summary>
     public const string TypeKey = "general";
+
+    /// <summary>The GC type a provisioned project GC uses (seeded in the core schema).</summary>
+    public const string ProjectTypeKey = "project";
+
+    /// <summary>The GC type a direct message uses (seeded in the core schema).</summary>
+    public const string DmTypeKey = "dm";
 
     private readonly NpgsqlDataSource _dataSource;
     private readonly int _maxMembers;
@@ -72,16 +80,20 @@ public sealed class GcCreateService
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
         const string insertGc = """
-            INSERT INTO gc (gc_id, type_key, title, created_by)
-            VALUES (@gc_id, @type_key, @title, @created_by)
+            INSERT INTO gc (gc_id, type_key, title, created_by, metadata)
+            VALUES (@gc_id, @type_key, @title, @created_by, @metadata)
             ON CONFLICT (gc_id) DO NOTHING
             """;
         await using (var cmd = new NpgsqlCommand(insertGc, conn, tx))
         {
             cmd.Parameters.AddWithValue("gc_id", request.GcId);
-            cmd.Parameters.AddWithValue("type_key", TypeKey);
+            cmd.Parameters.AddWithValue("type_key", request.TypeKey);
             cmd.Parameters.AddWithValue("title", title);
             cmd.Parameters.AddWithValue("created_by", request.CreatedBy);
+            cmd.Parameters.Add(new NpgsqlParameter("metadata", NpgsqlTypes.NpgsqlDbType.Jsonb)
+            {
+                Value = System.Text.Json.JsonSerializer.Serialize(request.Metadata ?? new Dictionary<string, string>()),
+            });
             var created = await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 1;
             if (!created)
             {
@@ -107,6 +119,129 @@ public sealed class GcCreateService
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
         return true;
+    }
+
+    /// <inheritdoc />
+    public Task<bool> CreateProjectGcAsync(Guid gcId, string title, Bazaar.Contracts.Gc.GcPrincipal owner, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return EnsureAsync(new GcCreateRequest(gcId, title, owner.Id, [owner.Id], ProjectTypeKey), ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> CreateAsync(
+        Guid gcId,
+        string typeKey,
+        string title,
+        Bazaar.Contracts.Gc.GcPrincipal owner,
+        IReadOnlyDictionary<string, string>? metadata,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeKey);
+        try
+        {
+            return await EnsureAsync(new GcCreateRequest(gcId, title, owner.Id, [owner.Id], typeKey, metadata), ct).ConfigureAwait(false);
+        }
+        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ForeignKeyViolation)
+        {
+            throw new GcCreateRefusedException("The GC type is not known.");
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid?> FindAsync(string typeKey, Guid ownerId, string metadataKey, string metadataValue, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(typeKey);
+        ArgumentException.ThrowIfNullOrWhiteSpace(metadataKey);
+        ArgumentNullException.ThrowIfNull(metadataValue);
+
+        const string sql = """
+            SELECT gc_id FROM gc
+            WHERE type_key = @type_key AND created_by = @owner AND metadata ->> @key = @value
+            ORDER BY created_at, gc_id
+            LIMIT 1
+            """;
+        await using var cmd = _dataSource.CreateCommand(sql);
+        cmd.Parameters.AddWithValue("type_key", typeKey);
+        cmd.Parameters.AddWithValue("owner", ownerId);
+        cmd.Parameters.AddWithValue("key", metadataKey);
+        cmd.Parameters.AddWithValue("value", metadataValue);
+        var result = await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+        return result is Guid id ? id : null;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> AddMemberAsync(Guid gcId, Bazaar.Contracts.Gc.GcPrincipal member, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+
+        // The GC row lock serialises this with appends and with a concurrent add of the same member.
+        long head;
+        await using (var lockCmd = new NpgsqlCommand("SELECT head_seq FROM gc WHERE gc_id = @gc_id FOR UPDATE", conn, tx))
+        {
+            lockCmd.Parameters.AddWithValue("gc_id", gcId);
+            var value = await lockCmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+            if (value is not long headSeq)
+            {
+                throw new GcCreateRefusedException("The GC does not exist.");
+            }
+
+            head = headSeq;
+        }
+
+        await using (var current = new NpgsqlCommand(
+            "SELECT 1 FROM gc_member_current WHERE gc_id = @gc_id AND principal_id = @p AND left_seq IS NULL", conn, tx))
+        {
+            current.Parameters.AddWithValue("gc_id", gcId);
+            current.Parameters.AddWithValue("p", member.Id);
+            if (await current.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null)
+            {
+                await tx.RollbackAsync(ct).ConfigureAwait(false);
+                return false;
+            }
+        }
+
+        await using (var insert = new NpgsqlCommand(
+            "INSERT INTO gc_member (gc_id, principal_id, role, joined_seq) VALUES (@gc_id, @p, 'member', @seq)", conn, tx))
+        {
+            insert.Parameters.AddWithValue("gc_id", gcId);
+            insert.Parameters.AddWithValue("p", member.Id);
+            insert.Parameters.AddWithValue("seq", head);
+            await insert.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
+
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async Task<Guid> EnsureDmAsync(Bazaar.Contracts.Gc.GcPrincipal first, Bazaar.Contracts.Gc.GcPrincipal second, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(first);
+        ArgumentNullException.ThrowIfNull(second);
+        if (first.Id == Guid.Empty || second.Id == Guid.Empty)
+        {
+            throw new GcCreateRefusedException("A DM needs two principals with ids.");
+        }
+
+        if (first.Id == second.Id)
+        {
+            throw new GcCreateRefusedException("A DM needs two different principals.");
+        }
+
+        var (low, high) = first.Id.CompareTo(second.Id) < 0 ? (first, second) : (second, first);
+        var gcId = DeterministicGcId($"dm:{low.Id:D}:{high.Id:D}");
+        var title = $"{low.DisplayName} and {high.DisplayName}".Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            title = "Direct message";
+        }
+
+        await EnsureAsync(new GcCreateRequest(gcId, title, low.Id, [low.Id, high.Id], DmTypeKey), ct).ConfigureAwait(false);
+        return gcId;
     }
 
     private string Validate(GcCreateRequest request)

@@ -1,5 +1,7 @@
 using System.Text;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup;
 
@@ -40,7 +42,7 @@ internal static class TemplateFixtures
 
     /// <summary>Loads a template from <paramref name="source"/> with the test's cancellation token and the shipped registry.</summary>
     public static Task<TemplateLoadResult> Load(ITemplateSource source) =>
-        TemplateLoader.LoadAsync(source, null, TestContext.Current.CancellationToken);
+        TemplateLoader.LoadAsync(source, RegistrySetupSettingCatalog.Known, TestContext.Current.CancellationToken);
 
     /// <summary>The source that holds <see cref="Manifest"/> and its three seeds.</summary>
     public static InMemoryTemplateSource Starter() => Source(Manifest);

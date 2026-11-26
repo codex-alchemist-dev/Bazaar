@@ -1,4 +1,5 @@
 using Bazaar.Server.Secrets;
+using Bazaar.Server.SignIn;
 using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Host.Composition;
@@ -43,6 +44,14 @@ public static class DevAuthCompositionExtensions
             }
 
             return new DevTokenAuthenticator(token, options.PrincipalId);
+        });
+        // Registered before the sign-in component, whose deny-all verifier is a TryAdd, so it wins only while dev auth is on.
+        services.AddSingleton<IPasskeyAssertionVerifier>(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<DevAuthOptions>>();
+            var resolver = sp.GetRequiredService<ISecretResolver>();
+            var token = resolver.ResolveAsync(options.Value.TokenSecret!, CancellationToken.None).AsTask().GetAwaiter().GetResult();
+            return new DevPasskeyAssertionVerifier(options, () => token ?? string.Empty);
         });
         services.AddHostedService<DevAuthStartupCheck>();
         return services;

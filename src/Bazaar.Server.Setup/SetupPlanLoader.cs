@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -27,30 +26,39 @@ public static class SetupPlanLoader
         [""] =
         [
             "schemaVersion", "install", "database", "custody", "owner", "privacy", "backups", "models", "email",
-            "scamMailProtocol", "company", "modules", "network", "settings",
+            "schemaVersion", "install", "storage", "database", "custody", "owner", "privacy", "backups", "models", "email",
+            "scamMailProtocol", "company", "modules", "network", "firstRun", "settings",
         ],
         ["install"] = ["companyName", "companySlug", "locale", "timezone", "releaseChannel", "updatePolicy"],
         ["install.updatePolicy"] = ["security", "other"],
+        ["storage"] = ["instanceClass", "volume"],
+        ["storage.volume"] = ["provider", "container", "containerKind", "maxGb", "serviceAccount"],
         ["database"] = ["postgresMajor", "dataRoot", "gcPartitionCount"],
-        ["custody"] = ["kekProvider", "kekRef", "auditAnchorTarget", "mergeCredential"],
+        ["custody"] = ["kekProvider", "kekRef", "identityKek", "auditAnchorTarget", "mergeCredential"],
         ["custody.mergeCredential"] = ["kind", "appIdRef"],
         ["owner"] = ["displayName", "requireSecondFactor", "recovery"],
-        ["owner.recovery"] = ["printedCodes", "backupOwners"],
+        ["owner.recovery"] = ["printedCodes", "bundleRef", "backupOwners"],
         ["privacy"] = ["profile"],
         ["backups"] = ["target", "drillIntervalDays", "acknowledgeNoTarget"],
         ["models"] = ["sources", "defaultPreset"],
         ["models.sources[]"] = ["id", "keyRef"],
-        ["email"] = ["enabled"],
+        ["email"] = ["enabled", "backend"],
         ["scamMailProtocol"] = ["enabled"],
         ["company"] = ["source"],
         ["network"] = ["statusBind", "statusPort"],
+        ["firstRun"] = ["seedGeneralGc", "generalGcTitle", "seedDefaultAgent", "defaultAgentName", "defaultAgentPurpose", "defaultAgentSources", "defaultAgentProfile", "acceptConstitution"],
     };
 
     /// <summary>Paths whose value may be JSON null (the typed plan's nullable properties). Every other null is an error.</summary>
     internal static readonly HashSet<string> NullablePaths = new(StringComparer.Ordinal)
     {
+        "storage.volume.container",
+        "storage.volume.maxGb",
+        "storage.volume.serviceAccount",
         "database.dataRoot",
         "custody.auditAnchorTarget",
+        "custody.identityKek",
+        "owner.recovery.bundleRef",
         "custody.mergeCredential.appIdRef",
         "backups.target",
         "models.sources[].keyRef",
@@ -63,11 +71,10 @@ public static class SetupPlanLoader
         "custody", "custody.kekProvider", "custody.kekRef", "company", "company.source",
     ];
 
-    /// <summary>Loads and validates a setup file. <paramref name="registry"/> defaults to the registry this build ships.</summary>
-    public static SetupLoadResult Load(string json, SettingRegistry? registry = null)
+    /// <summary>Loads and validates a setup file.</summary>
+    public static SetupLoadResult Load(string json, ISetupSettingCatalog registry)
     {
         ArgumentNullException.ThrowIfNull(json);
-        registry ??= SettingRegistry.Known;
 
         var issues = new List<SetupValidationIssue>();
         JsonDocument document;

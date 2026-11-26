@@ -6,7 +6,7 @@ namespace Bazaar.Server.Agents.Data;
 public sealed class AgentRepository(
     NpgsqlDataSource dataSource,
     IAgentLifecycleObserver? lifecycleObserver = null,
-    IAgentHandleAssigner? handles = null)
+    IAgentHandleAssigner? handles = null) : IAgentDirectoryReader
 {
     /// <summary>
     /// Creates an agent in <see cref="AgentState.Created"/>. Returns its id. With an <see cref="IAgentHandleAssigner"/>, the new
@@ -30,6 +30,17 @@ public sealed class AgentRepository(
         if (handles is not null)
             await handles.EnsureAgentHandleAsync(agentId, name, ct).ConfigureAwait(false);
         return agentId;
+    }
+
+    /// <summary>Returns the id of every agent. Used by the default policy grant repair (doc 45, section 1.15).</summary>
+    public async Task<IReadOnlyList<Guid>> ListIdsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT agent_id FROM agent");
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var ids = new List<Guid>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            ids.Add(reader.GetGuid(0));
+        return ids;
     }
 
     public async Task<AgentRecord?> GetAsync(Guid agentId, CancellationToken ct = default)
@@ -68,5 +79,28 @@ public sealed class AgentRepository(
         if (changed && to == AgentState.Retired && lifecycleObserver is not null)
             await lifecycleObserver.AgentRetiredAsync(agentId, ct).ConfigureAwait(false);
         return changed;
+    }
+
+    /// <summary>One agent's id, name, free-text role and model label (each null when unset), or null when there is no such agent. Retired agents are included.</summary>
+    public async Task<AgentListing?> GetListingAsync(Guid agentId, CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand("SELECT agent_id, name, role, model FROM agent WHERE agent_id = @agent_id");
+        cmd.Parameters.AddWithValue("agent_id", agentId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        return await reader.ReadAsync(ct).ConfigureAwait(false)
+            ? new AgentListing(
+                reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2), reader.IsDBNull(3) ? null : reader.GetString(3))
+            : null;
+    }
+
+    public async Task<IReadOnlyList<AgentListing>> ListActiveAgentsAsync(CancellationToken ct = default)
+    {
+        await using var cmd = dataSource.CreateCommand(
+            "SELECT agent_id, name, role FROM agent WHERE state <> 'retired' ORDER BY name, agent_id");
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var agents = new List<AgentListing>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+            agents.Add(new AgentListing(reader.GetGuid(0), reader.GetString(1), reader.IsDBNull(2) ? null : reader.GetString(2)));
+        return agents;
     }
 }

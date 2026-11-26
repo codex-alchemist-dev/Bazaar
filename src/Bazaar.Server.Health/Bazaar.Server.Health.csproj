@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Npgsql" />
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health.Abstractions\Bazaar.Server.Health.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Jobs.Abstractions\Bazaar.Server.Jobs.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge\Bazaar.Server.Knowledge.csproj" />
+  </ItemGroup>
+</Project>

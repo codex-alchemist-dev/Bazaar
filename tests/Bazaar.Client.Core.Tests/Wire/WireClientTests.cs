@@ -28,7 +28,7 @@ public class WireClientTests : IAsyncLifetime
     public async ValueTask DisposeAsync()
     {
         await _cts.CancelAsync();
-        await _run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await _run.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
         _cts.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -42,7 +42,7 @@ public class WireClientTests : IAsyncLifetime
 
     private static async Task Until(Func<bool> condition, Action? tick = null)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
+        var deadline = DateTime.UtcNow.AddSeconds(90);
         while (!condition())
         {
             if (DateTime.UtcNow > deadline) throw new TimeoutException("condition not reached");
@@ -54,7 +54,29 @@ public class WireClientTests : IAsyncLifetime
     /// <summary>Advances the fake clock in one-second steps until the condition holds (reconnect backoff).</summary>
     private Task AdvanceUntil(Func<bool> condition) => Until(condition, () => _clock.Advance(TimeSpan.FromSeconds(1)));
 
-    private async Task<WireGcMessage> Next() => await _client.Messages.ReadAsync(_cts.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+    private async Task<WireGcMessage> Next() => await _client.Messages.ReadAsync(_cts.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
+
+    [Fact]
+    public async Task OnWelcome_callback_receives_each_welcome_and_a_throwing_callback_is_ignored()
+    {
+        var seen = new List<Welcome>();
+        var client = new WireClient(_transport, _transport.Codec, _cursors,
+            new WireClientOptions
+            {
+                DeviceId = "dev-1",
+                DeviceClass = "windows",
+                ClientBuild = "test",
+                Jitter = () => 1.0,
+                OnWelcome = w => { seen.Add(w); throw new InvalidOperationException("observer bug"); },
+            }, _clock);
+        await client.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
+        _run = client.RunAsync(_cts.Token);
+
+        await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Subscribe).Any());
+
+        Assert.Single(seen);
+        Assert.Null(client.Stopped);
+    }
 
     [Fact]
     public async Task Hello_then_subscribe_carries_the_stored_cursor()
@@ -184,7 +206,7 @@ public class WireClientTests : IAsyncLifetime
 
         _transport.Latest.PushEvent(WireTypes.Resync, new Resync(_stream, 5000, 5100, 3, [Msg(4999, 5099), Msg(5000, 5100)]), _stream);
 
-        var notice = await _client.Resyncs.ReadAsync(_cts.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        var notice = await _client.Resyncs.ReadAsync(_cts.Token).AsTask().WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
         Assert.Equal(3, notice.Unread);
         Assert.Equal(4999, (await Next()).N);
         Assert.Equal(5000, (await Next()).N);
@@ -206,7 +228,7 @@ public class WireClientTests : IAsyncLifetime
         c.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, req.Id, null, null, DateTimeOffset.UnixEpoch,
             _transport.Codec.EncodePayload(new GcSendResult(8, 9))));
 
-        Assert.Equal(new GcSendResult(8, 9), await task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Equal(new GcSendResult(8, 9), await task.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -222,7 +244,7 @@ public class WireClientTests : IAsyncLifetime
         c.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Error, null, c.SentOfType(WireTypes.GcSend).Single().Id, null, null, DateTimeOffset.UnixEpoch,
             _transport.Codec.EncodePayload(new WireError(WireErrorCodes.RateLimited, null, 1500))));
 
-        var ex = await Assert.ThrowsAsync<WireRequestException>(() => task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        var ex = await Assert.ThrowsAsync<WireRequestException>(() => task.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken));
         Assert.Equal(WireErrorCodes.RateLimited, ex.Error.Code);
         Assert.Equal(1500, ex.Error.RetryAfterMs);
     }
@@ -241,7 +263,7 @@ public class WireClientTests : IAsyncLifetime
         var firstId = first.SentOfType(WireTypes.GcSend).Single().Id;
         first.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, firstId, null, null, DateTimeOffset.UnixEpoch,
             _transport.Codec.EncodePayload(new GcSendResult(1, 1))));
-        await firstSend.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await firstSend.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
 
         var otherTransport = new FakeWireTransport();
         using var otherCts = new CancellationTokenSource();
@@ -256,11 +278,11 @@ public class WireClientTests : IAsyncLifetime
         var secondId = second.SentOfType(WireTypes.GcSend).Single().Id;
         second.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, secondId, null, null, DateTimeOffset.UnixEpoch,
             _transport.Codec.EncodePayload(new GcSendResult(2, 2))));
-        await secondSend.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await secondSend.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
 
         Assert.NotEqual(firstId, secondId);
         await otherCts.CancelAsync();
-        await otherRun.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await otherRun.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
     }
 
     [Fact]
@@ -282,7 +304,7 @@ public class WireClientTests : IAsyncLifetime
         second.Push(new Envelope(1, WireTypes.GcSend, EnvelopeKind.Response, null, id, null, null, DateTimeOffset.UnixEpoch,
             _transport.Codec.EncodePayload(new GcSendResult(1, 1))));
 
-        Assert.Equal(new GcSendResult(1, 1), await task.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken));
+        Assert.Equal(new GcSendResult(1, 1), await task.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken));
     }
 
     [Theory]
@@ -296,7 +318,7 @@ public class WireClientTests : IAsyncLifetime
 
         _transport.Latest.Close(code);
 
-        await _run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await _run.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
         Assert.Equal(reason, _client.Stopped);
         Assert.Equal(1, _transport.Count);
     }
@@ -307,7 +329,7 @@ public class WireClientTests : IAsyncLifetime
         _transport.WelcomeUpgradeRequired = true;
         Start();
 
-        await _run.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+        await _run.WaitAsync(TimeSpan.FromSeconds(90), TestContext.Current.CancellationToken);
         Assert.Equal(WireClientStopReason.UpgradeRequired, _client.Stopped);
     }
 

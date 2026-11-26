@@ -25,4 +25,10 @@ namespace Bazaar.Contracts.Vms;
 [JsonSerializable(typeof(GetFileError))]
 [JsonSerializable(typeof(PtyExit))]
 [JsonSerializable(typeof(ExecError))]
+[JsonSerializable(typeof(DeleteFile))]
+[JsonSerializable(typeof(DeleteFileResult))]
+[JsonSerializable(typeof(ListFiles))]
+[JsonSerializable(typeof(ListFilesResult))]
+[JsonSerializable(typeof(ResolveRealPath))]
+[JsonSerializable(typeof(ResolveRealPathResult))]
 public sealed partial class GuestJsonContext : JsonSerializerContext;

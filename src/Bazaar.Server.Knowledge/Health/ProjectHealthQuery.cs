@@ -2,22 +2,6 @@ using Bazaar.Server.Knowledge.Metrics;
 
 namespace Bazaar.Server.Knowledge.Health;
 
-/// <summary>Health status of one project for the project panel.</summary>
-public enum HealthStatus
-{
-    /// <summary>Data exists and no rule fired.</summary>
-    Healthy,
-
-    /// <summary>At least one rule fired; see the reasons.</summary>
-    Alert,
-
-    /// <summary>No coverage or CI samples fall in the window, so nothing can be judged.</summary>
-    NoData,
-}
-
-/// <summary>The project panel's health block.</summary>
-public sealed record ProjectHealthPanel(string ProjectId, DateOnly AsOf, HealthStatus Status, IReadOnlyList<HealthReason> Reasons);
-
 /// <summary>Builds the project health panel from the metric store. Reads the clock only through <see cref="TimeProvider"/>.</summary>
 public static class ProjectHealthQuery
 {

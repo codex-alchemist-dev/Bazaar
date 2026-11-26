@@ -312,6 +312,15 @@
       return;
     }
     renderData(container, res.data);
+    renderData(container, unwrapEnvelope(res.data));
+  }
+
+  // Read routes reply {"available":true,"data":...} or {"available":false}; hand back the payload.
+  function unwrapEnvelope(body) {
+    if (isPlainObject(body) && typeof body.available === "boolean") {
+      return body.available ? body.data : body;
+    }
+    return body;
   }
 
   function loadSection(t) {
@@ -494,6 +503,16 @@
         return;
       }
       renderModules(t, res.data);
+      var catalogue = unwrapEnvelope(res.data);
+      if (isPlainObject(catalogue) && catalogue.available === false) {
+        note(t.body, TEXT.unavailable);
+        return;
+      }
+      if (!isPlainObject(catalogue) || !Array.isArray(catalogue.modules)) {
+        note(t.body, "The module list has an unexpected shape.", true);
+        return;
+      }
+      renderModules(t, catalogue);
     }).catch(function () {
       setBusy(t.body, false);
       clear(t.body);
@@ -569,6 +588,57 @@
     t.buildsBox = make("div", "builds");
     t.body.appendChild(t.buildsBox);
     refreshBuilds(t);
+    renderCatalogue(t);
+  }
+
+  /* Gateway model catalogue: "check for newer catalogue" (doc 05). Shows ids and counts only. */
+  function renderCatalogue(t) {
+    t.body.appendChild(make("h3", "builds-head", "Gateway model catalogue"));
+    var box = make("div", "catalogue");
+    box.setAttribute("aria-live", "polite");
+    var checkBtn = makeButton("Check for newer catalogue", function () {
+      checkCatalogue(box, checkBtn);
+    });
+    t.body.appendChild(checkBtn);
+    t.body.appendChild(box);
+    request("GET", API + "gateway/catalogue").then(function (res) {
+      if (res.status === 401) {
+        expire();
+        return;
+      }
+      fillFromResponse(box, res);
+    }).catch(function () {
+      clear(box);
+      note(box, TEXT.network, true);
+    });
+  }
+
+  function checkCatalogue(box, button) {
+    button.disabled = true;
+    clear(box);
+    box.appendChild(make("p", "meta", TEXT.loading));
+    request("POST", API + "gateway/catalogue/refresh", {}).then(function (res) {
+      button.disabled = false;
+      if (res.status === 401) {
+        expire();
+        return;
+      }
+      clear(box);
+      if (res.status === 403) {
+        note(box, TEXT.forbidden, true);
+        return;
+      }
+      if (!res.ok) {
+        note(box, failureMessage(res), true);
+        return;
+      }
+      renderData(box, res.data);
+      announce("Catalogue check finished.");
+    }).catch(function () {
+      button.disabled = false;
+      clear(box);
+      note(box, TEXT.network, true);
+    });
   }
 
   function showResult(t, heading, data) {
