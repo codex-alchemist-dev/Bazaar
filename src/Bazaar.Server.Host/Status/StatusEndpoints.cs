@@ -51,7 +51,8 @@ public static class StatusEndpoints
         || path.Equals("/company-memory/decisions", StringComparison.Ordinal)
         || path.Equals("/company-memory/pages", StringComparison.Ordinal)
         || path.StartsWithSegments("/community/drafts")
-        || path.StartsWithSegments("/gmt");
+        || path.StartsWithSegments("/gmt")
+        || path.Equals("/offline-sync/batch", StringComparison.Ordinal);
 
     /// <summary>The provisioning API (doc 45 section 1.9): <c>POST /setup/plans</c>, <c>POST /setup/plans/{hash}/apply</c>, <c>GET /setup/status</c>. Each route runs its own access gate.</summary>
     private static bool IsSetupRoute(PathString path) => path.StartsWithSegments("/setup");

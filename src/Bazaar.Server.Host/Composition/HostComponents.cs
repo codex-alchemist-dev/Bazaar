@@ -64,6 +64,7 @@ using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Observatory;
 using Bazaar.Server.Observatory.Postgres;
 using Bazaar.Server.Org;
@@ -181,6 +182,7 @@ public static class HostComponents
         new ConduitComponent(),
         new WireDiscoveryComponent(),
         new RemoteComponent(),
+        new OfflineSyncComponent(),
         new GitHubComponent(),
         new OpenAiChatAdapterComponent(),
         new AnthropicMessagesAdapterComponent(),

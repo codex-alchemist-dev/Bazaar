@@ -133,6 +133,8 @@ No models or displays needed. Real Postgres via an xUnit v3 fixture; `Avalonia.H
 12. PR-merged Done hook and reviewer-approval flag, consuming doc 21's `pr_event`. Depends on 4 and doc 21.
 
 ## Conflicts
+
+Offline edits merge by the rules in doc 49 section 4, implemented per doc 56.
 1. **Automatic moves vs talk-first.** Auto Ready and reopen change state without an agent acting. A GC line on each move mitigates it; the owner should confirm that reading.
 2. **Board vs work.** The guard stops the board lying, not agents writing code early. Only the harness guard (doc 17) mitigates this.
 3. **Unrecorded decisions.** Talk-first and pinning are not in `Bazaar.md`; the owner should add them so the doc set agrees.

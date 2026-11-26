@@ -315,6 +315,10 @@
     <Project Path="src/Bazaar.Server.Security.Abstractions/Bazaar.Server.Security.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Security/Bazaar.Server.Security.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
+    <Project Path="src/Bazaar.OfflineSync.Abstractions/Bazaar.OfflineSync.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.OfflineSync/Bazaar.Server.OfflineSync.csproj" />
+    <Project Path="src/Bazaar.Server.OfflineSync.Postgres/Bazaar.Server.OfflineSync.Postgres.csproj" />
+    <Project Path="src/Bazaar.Client.OfflineSync/Bazaar.Client.OfflineSync.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety.Drill/Bazaar.Server.AgentSafety.Drill.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox.Abstractions/Bazaar.Server.DevSandbox.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox/Bazaar.Server.DevSandbox.csproj" />
@@ -331,6 +335,7 @@
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode.Abstractions/Bazaar.Server.Providers.ClaudeCode.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode/Bazaar.Server.Providers.ClaudeCode.csproj" />
     <Project Path="src/Bazaar.Server.Providers.ClaudeCode.Windows/Bazaar.Server.Providers.ClaudeCode.Windows.csproj" />
+    <Project Path="src/Bazaar.Client.OfflineSync.PlatformKeys/Bazaar.Client.OfflineSync.PlatformKeys.csproj" />
     <Project Path="src/Bazaar.Server.WorkLife/Bazaar.Server.WorkLife.csproj" />
     <Project Path="src/Bazaar.Server.WorkLife.Scheduler/Bazaar.Server.WorkLife.Scheduler.csproj" />
     <Project Path="src/Bazaar.Server.WorkLife.Scheduler.Abstractions/Bazaar.Server.WorkLife.Scheduler.Abstractions.csproj" />
@@ -802,6 +807,12 @@
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Drill.Tests/Bazaar.Server.AgentSafety.Drill.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
+    <Project Path="tests/Bazaar.OfflineSync.Abstractions.Tests/Bazaar.OfflineSync.Abstractions.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.OfflineSync.Tests/Bazaar.Server.OfflineSync.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.OfflineSync.Postgres.Tests/Bazaar.Server.OfflineSync.Postgres.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.OfflineSync.Tests/Bazaar.Client.OfflineSync.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Security.Tests/Bazaar.Server.Security.Tests.csproj" />
+    <Project Path="tests/Bazaar.Client.OfflineSync.PlatformKeys.Tests/Bazaar.Client.OfflineSync.PlatformKeys.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Tests/Bazaar.Server.DevSandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Linux.Tests/Bazaar.Server.DevSandbox.Linux.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Linux.Helper.Tests/Bazaar.Server.DevSandbox.Linux.Helper.Tests.csproj" />
@@ -812,7 +823,6 @@
     <Project Path="tests/Bazaar.Server.TimeMachine.Tests/Bazaar.Server.TimeMachine.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Playtest.Tests/Bazaar.Server.Playtest.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WhatIf.Tests/Bazaar.Server.WhatIf.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Security.Tests/Bazaar.Server.Security.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Memory.Tests/Bazaar.Server.Memory.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constellation.Tests/Bazaar.Server.Constellation.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.GraphRetrieval.Tests/Bazaar.Server.GraphRetrieval.Tests.csproj" />

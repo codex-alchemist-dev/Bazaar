@@ -17,6 +17,7 @@ using Bazaar.Server.Kodo.Postgres;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
+using Bazaar.Server.OfflineSync.Postgres;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Projects;
@@ -76,5 +77,6 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly),
         new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly),
+        new ComponentMigrationSource(OfflineSyncPostgresServiceCollectionExtensions.MigrationAssembly));
         new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly));
 }
