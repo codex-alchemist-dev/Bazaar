@@ -33,8 +33,7 @@ public sealed class HireMotionDraftBuilder(HireMotionClassifier classifier)
             ProposerId: request.ProposerId,
             SubjectAuthorId: request.SubjectAuthorId,
             Deadline: request.Deadline,
-            MembershipSubjectId: request.TemplateId,
-            MembershipKind: MembershipMotionKind.Hire);
+            MembershipSubjectId: request.TemplateId);
 
         return new HireMotion(draft, MembershipMotionKind.Hire);
     }

@@ -4,7 +4,7 @@ using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Tests.Settings;
 
-/// <summary>Doc 05 "Settings": the 13 doc 05 <c>gateway.*</c> keys plus <c>gateway.embedding.route</c> and <c>gateway.default_preset</c> (doc 45 step 9), their defaults, types and approval rules. Pure: no database.</summary>
+/// <summary>Doc 05 "Settings": the 13 <c>gateway.*</c> keys, their defaults, types and approval rules. Pure: no database.</summary>
 public sealed class GatewaySettingsTests
 {
     private static readonly SettingActor _operator = new("operator:dom", SettingRole.Operator);
@@ -29,7 +29,7 @@ public sealed class GatewaySettingsTests
     }
 
     [Fact]
-    public void Known_registry_holds_the_gateway_keys_once_each()
+    public void Known_registry_holds_the_thirteen_gateway_keys_from_doc_05_once_each()
     {
         string[] expected =
         [
@@ -37,7 +37,6 @@ public sealed class GatewaySettingsTests
             "gateway.gemini.order", "gateway.outbound_proxy.ui", "gateway.multi_key.ui", "gateway.free_tier.ack_mode",
             "gateway.multi_account.enabled", "gateway.catalogue.refresh_hours", "gateway.long_prompt.warn_tokens",
             "gateway.long_prompt.hard_cap_tokens", "gateway.freellmapi.warn_on_version_change", "gateway.usage.retention_days",
-            "gateway.embedding.route", "gateway.default_preset",
         ];
 
         var gateway = _registry.Definitions
@@ -45,7 +44,7 @@ public sealed class GatewaySettingsTests
             .Select(d => d.Name)
             .ToList();
 
-        Assert.Equal(15, gateway.Count);
+        Assert.Equal(13, gateway.Count);
         Assert.Equal(expected.OrderBy(n => n, StringComparer.Ordinal), gateway.OrderBy(n => n, StringComparer.Ordinal));
         Assert.Equal(gateway.Count, gateway.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(GatewaySettings.All.Count, gateway.Count);

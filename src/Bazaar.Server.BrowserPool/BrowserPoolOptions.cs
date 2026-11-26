@@ -53,12 +53,6 @@ public sealed class BrowserPoolOptions
     /// <summary>The <c>setpriv</c> binary (util-linux) in the pool VM.</summary>
     public string SetprivPath { get; set; } = "/usr/bin/setpriv";
 
-    /// <summary>The <c>mount</c> binary (util-linux), used to put a size-limited tmpfs on a slot directory when <see cref="DiskMaxMb"/> is above 0.</summary>
-    public string MountPath { get; set; } = "/usr/bin/mount";
-
-    /// <summary>The <c>umount</c> binary (util-linux) that removes that tmpfs at cleanup.</summary>
-    public string UmountPath { get; set; } = "/usr/bin/umount";
-
     /// <summary>The <c>cage</c> kiosk compositor binary, used for headed sessions.</summary>
     public string CagePath { get; set; } = "/usr/bin/cage";
 
@@ -102,26 +96,7 @@ public sealed class BrowserPoolOptions
     /// <summary>Memory ceiling per session in MB through a cgroup scope; 0 means no cgroup limit.</summary>
     public int MemoryMaxMb { get; set; } = 1024;
 
-    /// <summary>
-    /// Processor ceiling per session through the same cgroup scope, as a percentage of one core: 200 means two cores' worth of time.
-    /// 0 means no limit. One busy page can then not starve the other sessions on the pool VM.
-    /// </summary>
-    public int CpuQuotaPercent { get; set; } = 200;
-
-    /// <summary>The most processes and threads one session may have, through the same cgroup scope. Stops a fork bomb inside a slot.</summary>
-    public int TasksMax { get; set; } = 512;
-
-    /// <summary>
-    /// Disk ceiling per slot in MB: the slot directory (profile and runtime directory) is a tmpfs of this size, so one session cannot
-    /// fill the pool VM's disk. 0 means no cap (the directory is plain disk, as before); otherwise 16 to 65536. tmpfs pages are
-    /// charged to the memory cgroup of the process that writes them, so while <see cref="MemoryMaxMb"/> is on this must be smaller than it.
-    /// </summary>
-    public int DiskMaxMb { get; set; } = 256;
-
-    /// <summary>The most files and directories the slot tmpfs may hold (its <c>nr_inodes</c>). Used only when <see cref="DiskMaxMb"/> is above 0; 1024 to 16777216.</summary>
-    public int DiskMaxInodes { get; set; } = 65_536;
-
-    /// <summary>Wrap the launch in <c>systemd-run --scope</c> so the memory, processor and task limits apply.</summary>
+    /// <summary>Wrap the launch in <c>systemd-run --scope</c> so the memory and task limits apply.</summary>
     public bool UseSystemdRun { get; set; } = true;
 
     /// <summary>
@@ -197,11 +172,6 @@ public sealed partial class BrowserPoolOptionsValidator : IValidateOptions<Brows
         CheckPath(errors, nameof(options.BwrapPath), options.BwrapPath);
         CheckPath(errors, nameof(options.SetprivPath), options.SetprivPath);
         CheckPath(errors, nameof(options.CagePath), options.CagePath);
-        if (options.DiskMaxMb != 0)
-        {
-            CheckPath(errors, nameof(options.MountPath), options.MountPath);
-            CheckPath(errors, nameof(options.UmountPath), options.UmountPath);
-        }
 
         if (!Enum.IsDefined(options.NetworkIsolation))
         {
@@ -256,31 +226,6 @@ public sealed partial class BrowserPoolOptionsValidator : IValidateOptions<Brows
         if (options.MemoryMaxMb != 0 && options.MemoryMaxMb is < 128 or > 1_048_576)
         {
             errors.Add("MemoryMaxMb must be 0 (no limit) or 128 to 1048576.");
-        }
-
-        if (options.CpuQuotaPercent != 0 && options.CpuQuotaPercent is < 10 or > 100_000)
-        {
-            errors.Add("CpuQuotaPercent must be 0 (no limit) or 10 to 100000.");
-        }
-
-        if (options.TasksMax is < 64 or > 65_536)
-        {
-            errors.Add("TasksMax must be 64 to 65536.");
-        }
-
-        if (options.DiskMaxMb != 0 && options.DiskMaxMb is < 16 or > 65_536)
-        {
-            errors.Add("DiskMaxMb must be 0 (no cap) or 16 to 65536.");
-        }
-
-        if (options.DiskMaxMb != 0 && options.DiskMaxInodes is < 1024 or > 16_777_216)
-        {
-            errors.Add("DiskMaxInodes must be 1024 to 16777216 when DiskMaxMb is above 0.");
-        }
-
-        if (options.DiskMaxMb > 0 && options.MemoryMaxMb > 0 && options.UseSystemdRun && options.DiskMaxMb >= options.MemoryMaxMb)
-        {
-            errors.Add("DiskMaxMb must be smaller than MemoryMaxMb: tmpfs pages count toward the session's memory cap, so the disk cap could never be reached before the memory cap kills the session.");
         }
 
         CheckExtraBinds(errors, options);

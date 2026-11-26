@@ -40,7 +40,7 @@ public sealed class InstanceLockReadinessCheck(IInstanceLock instanceLock) : IRe
         Task.FromResult(new ReadinessResult(Name, instanceLock.IsHeld, instanceLock.IsHeld ? null : "not held"));
 }
 
-/// <summary>Ready only when every required provider role has at least one usable provider (a readiness requirement, not a selection). The role list is empty until the settings registry (ST1) supplies <c>host.readiness.required_roles</c>.</summary>
+/// <summary>Ready only when every required provider role has a usable provider. The role list is empty until the settings registry (ST1) supplies <c>host.readiness.required_roles</c>.</summary>
 public sealed class ProviderReadinessCheck(ProviderCapabilityReport report, IOptions<BazaarReadinessOptions> options) : IReadinessCheck
 {
     public string Name => "providers";

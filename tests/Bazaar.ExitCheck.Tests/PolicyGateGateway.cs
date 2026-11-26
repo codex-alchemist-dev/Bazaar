@@ -14,9 +14,6 @@ namespace Bazaar.ExitCheck.Tests;
 /// </summary>
 public sealed class PolicyGateGateway(RouteResolver resolver, FakeProvider provider) : IModelGateway
 {
-
-    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("PolicyGateGateway does not support embeddings.");
     /// <inheritdoc />
     public async IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, [EnumeratorCancellation] CancellationToken cancellationToken)
     {

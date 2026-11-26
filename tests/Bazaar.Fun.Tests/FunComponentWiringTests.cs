@@ -1,4 +1,5 @@
 using Bazaar.Fun;
+using Bazaar.Fun.Lucky;
 using Bazaar.Fun.Sidewalk;
 using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;

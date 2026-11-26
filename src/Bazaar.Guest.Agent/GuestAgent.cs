@@ -19,7 +19,6 @@ public sealed class GuestAgent
     private readonly OutboundQueue _outbound = new();
     private readonly PathGuard _paths;
     private readonly FileTransfer _files;
-    private readonly WorkspaceFileOps _workspace;
     private readonly Lock _gate = new();
     private readonly Dictionary<string, ExecSession> _execs = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IPtySession> _ptys = new(StringComparer.Ordinal);
@@ -35,7 +34,6 @@ public sealed class GuestAgent
         _log = log ?? TextWriter.Null;
         _paths = new PathGuard(options.AllowedRoots);
         _files = new FileTransfer(_paths, _log);
-        _workspace = new WorkspaceFileOps(_paths, _log);
     }
 
     /// <summary>Runs until the host closes the channel or a protocol error closes it. Returns the exit code.</summary>
@@ -49,7 +47,7 @@ public sealed class GuestAgent
 
         try
         {
-            await _outbound.SendAsync(new Hello(_options.AgentVersion, _options.VmId, _options.Nonce, GuestFrameCodec.Version), token);
+            await _outbound.SendAsync(new Hello(_options.AgentVersion, _options.VmId, _options.Nonce), token);
             exitCode = await ReadLoopAsync(token);
         }
         catch (ChannelClosedException)
@@ -121,15 +119,6 @@ public sealed class GuestAgent
                 return await _files.ReceiveAsync(put, _transport.FromHost, _outbound, ct);
             case GetFile get:
                 await _files.QueueSendAsync(get.Path, _outbound, ct);
-                return true;
-            case DeleteFile delete:
-                await _workspace.DeleteAsync(delete, _outbound, ct);
-                return true;
-            case ListFiles list:
-                await _workspace.ListAsync(list, _outbound, ct);
-                return true;
-            case ResolveRealPath resolve:
-                await _workspace.ResolveAsync(resolve, _outbound, ct);
                 return true;
             case PtyOpen open:
                 OpenPty(open);

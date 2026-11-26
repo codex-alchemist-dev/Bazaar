@@ -14,9 +14,6 @@ public enum AnnouncementCategory
 
     /// <summary>A Kodo incident.</summary>
     KodoIncident,
-
-    /// <summary>A sheet or dialog opened or closed by the viewer's own action. Never rate-limited: it answers a keypress.</summary>
-    Dialog,
 }
 
 /// <summary>Per-category settings: whether it speaks at all, and the shortest gap between two announcements.</summary>
@@ -29,7 +26,6 @@ public sealed record AnnouncementCategorySettings(bool Enabled, TimeSpan Minimum
         AnnouncementCategory.Mention => new(true, TimeSpan.FromSeconds(2)),
         AnnouncementCategory.ApprovalRequest => new(true, TimeSpan.FromSeconds(1)),
         AnnouncementCategory.KodoIncident => new(true, TimeSpan.FromSeconds(1)),
-        AnnouncementCategory.Dialog => new(true, TimeSpan.Zero),
         _ => new(true, TimeSpan.FromSeconds(4)),
     };
 }

@@ -163,8 +163,8 @@ internal sealed class Rig : IDisposable
 {
     public Rig(Action<BrowserPoolOptions>? configure = null)
     {
-        // The legacy tests were written for the shared namespace; per-slot behaviour is covered by the Netns tests. DiskMaxMb = 0 keeps their prepare and cleanup lists as they were before the disk cap; the cap has its own tests.
-        Options = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule, DiskMaxMb = 0 };
+        // The legacy tests were written for the shared namespace; per-slot behaviour is covered by the Netns tests.
+        Options = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
         configure?.Invoke(Options);
         Pool = new BrowserPoolService(Microsoft.Extensions.Options.Options.Create(Options), Host, Egress, Gate, Audit, Time);
     }

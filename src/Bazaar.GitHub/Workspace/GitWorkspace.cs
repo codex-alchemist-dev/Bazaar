@@ -32,12 +32,11 @@ public sealed class GitWorkspace
 
     private readonly IGitProvider _git;
     private readonly string _rootPath;
-    private readonly IWorkShareRootResolver? _roots;
     private readonly HashSet<string> _gitHubHosts;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, string> _repoPaths = new(StringComparer.Ordinal);
 
-    public GitWorkspace(IGitProvider git, GitWorkspaceOptions options, IWorkShareRootResolver? roots = null)
+    public GitWorkspace(IGitProvider git, GitWorkspaceOptions options)
     {
         ArgumentNullException.ThrowIfNull(git);
         ArgumentNullException.ThrowIfNull(options);
@@ -45,7 +44,6 @@ public sealed class GitWorkspace
 
         _git = git;
         _rootPath = Path.GetFullPath(options.RootPath);
-        _roots = roots;
         _gitHubHosts = new HashSet<string>(options.GitHubHosts, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -53,74 +51,21 @@ public sealed class GitWorkspace
     /// Creates the worktree for a task at <c>&lt;RootPath&gt;/&lt;repoId&gt;/&lt;taskId&gt;</c> on branch <c>agent/&lt;taskId&gt;</c>.
     /// The branch is created from HEAD of the repository when it does not exist.
     /// </summary>
-    public Task<TaskWorktree> CreateTaskWorktreeAsync(string repoId, string repoPath, string taskId, CancellationToken ct) =>
-        CreateTaskWorktreeAsync(null, repoId, repoPath, taskId, ct);
-
-    /// <summary>
-    /// Creates the worktree under the agent's own work-share root (from <see cref="IWorkShareRootResolver"/>), or the global
-    /// root when the agent id is null or the resolver has none.
-    /// </summary>
-    public async Task<TaskWorktree> CreateTaskWorktreeAsync(string? agentId, string repoId, string repoPath, string taskId, CancellationToken ct)
+    public async Task<TaskWorktree> CreateTaskWorktreeAsync(string repoId, string repoPath, string taskId, CancellationToken ct)
     {
         ValidateSegment(repoId, nameof(repoId));
         ValidateSegment(taskId, nameof(taskId));
         ArgumentException.ThrowIfNullOrWhiteSpace(repoPath);
 
         var branch = _agentBranchPrefix + taskId;
-        var worktreePath = Path.Combine(RootFor(agentId), repoId, taskId);
+        var worktreePath = Path.Combine(_rootPath, repoId, taskId);
         var fullRepoPath = Path.GetFullPath(repoPath);
 
         using var _ = await LockRepoAsync(repoId, ct, fullRepoPath, KnownRepoPath(repoId)).ConfigureAwait(false);
         Directory.CreateDirectory(Path.GetDirectoryName(worktreePath)!);
         var fullPath = await _git.AddWorktreeAsync(repoPath, branch, worktreePath, ct).ConfigureAwait(false);
         _repoPaths[repoId] = fullRepoPath;
-        return new TaskWorktree(repoId, taskId, branch, fullPath, agentId);
-    }
-
-    /// <summary>
-    /// Returns the per-file unified diff of the worktree (committed, staged, unstaged and untracked changes) against
-    /// <paramref name="baseRef"/>, a branch, tag or commit SHA. Read-only.
-    /// </summary>
-    public async Task<IReadOnlyList<FileDiff>> DiffAsync(TaskWorktree worktree, string baseRef, CancellationToken ct)
-    {
-        ArgumentNullException.ThrowIfNull(worktree);
-        ArgumentException.ThrowIfNullOrWhiteSpace(baseRef);
-        ValidateWorktree(worktree);
-
-        using var _ = await LockRepoAsync(worktree.RepoId, ct, KnownRepoPath(worktree.RepoId)).ConfigureAwait(false);
-        return await Task.Run(() =>
-        {
-            using var repo = new Repository(worktree.Path);
-            var baseCommit = repo.Lookup<Commit>(baseRef)
-                ?? repo.Branches[baseRef]?.Tip
-                ?? throw new GitWorkspaceException($"The base ref '{baseRef}' was not found.");
-            var patch = repo.Diff.Compare<Patch>(baseCommit.Tree, DiffTargets.Index | DiffTargets.WorkingDirectory);
-            return (IReadOnlyList<FileDiff>)patch
-                .Where(p => p.Status != ChangeKind.Unmodified)
-                .Select(p => new FileDiff(
-                    p.Path.Replace('\\', '/'),
-                    p.Status is ChangeKind.Renamed or ChangeKind.Copied ? p.OldPath.Replace('\\', '/') : null,
-                    MapKind(p.Status),
-                    p.Patch))
-                .OrderBy(f => f.Path, StringComparer.Ordinal)
-                .ToList();
-        }, ct).ConfigureAwait(false);
-    }
-
-    private static DiffChangeKind MapKind(ChangeKind kind) => kind switch
-    {
-        ChangeKind.Added or ChangeKind.Untracked => DiffChangeKind.Added,
-        ChangeKind.Deleted => DiffChangeKind.Deleted,
-        ChangeKind.Renamed => DiffChangeKind.Renamed,
-        ChangeKind.Copied => DiffChangeKind.Copied,
-        ChangeKind.TypeChanged => DiffChangeKind.TypeChanged,
-        _ => DiffChangeKind.Modified,
-    };
-
-    private string RootFor(string? agentId)
-    {
-        var root = agentId is null ? null : _roots?.GetRoot(agentId);
-        return string.IsNullOrWhiteSpace(root) ? _rootPath : Path.GetFullPath(root);
+        return new TaskWorktree(repoId, taskId, branch, fullPath);
     }
 
     /// <summary>Commits every change in the task worktree and returns the new commit SHA.</summary>
@@ -270,7 +215,7 @@ public sealed class GitWorkspace
             || !IsValidSegment(worktree.TaskId)
             || worktree.Branch != _agentBranchPrefix + worktree.TaskId
             || string.IsNullOrWhiteSpace(worktree.Path)
-            || !PathsEqual(worktree.Path, Path.Combine(RootFor(worktree.AgentId), worktree.RepoId, worktree.TaskId)))
+            || !PathsEqual(worktree.Path, Path.Combine(_rootPath, worktree.RepoId, worktree.TaskId)))
         {
             throw new GitWorkspaceException("The worktree does not belong to this workspace.");
         }

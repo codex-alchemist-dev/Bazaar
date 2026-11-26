@@ -7,18 +7,8 @@ namespace Bazaar.Server.Components.Remote;
 /// Tables come from <c>remote/0001_pairing_auth.sql</c>. Hash lookups use the unique index on
 /// <c>refresh_credential.hash</c>. Rotation is one transaction, and the partial unique index allows only one live row per device.
 /// </summary>
-public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) : IRefreshCredentialStore, IIdentityDirectoryStore
+public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) : IRefreshCredentialStore
 {
-    private const string _listHumansSql = "SELECT id, display_name, role, status FROM human ORDER BY display_name, id";
-
-    // Last activity is the newest refresh credential's issue time; a device with none yet falls back to its creation time.
-    private const string _listDevicesSql = """
-        SELECT d.id, d.human_id, d.label, d.class, d.revision, d.revoked_at,
-               COALESCE((SELECT max(rc.issued_at) FROM refresh_credential rc WHERE rc.device_id = d.id), d.created_at)
-        FROM device d
-        ORDER BY d.label, d.id
-        """;
-
     private const string _findCredentialSql = """
         SELECT rc.id, rc.device_id, rc.issued_at, rc.retired_at, rc.expires_at,
                (SELECT min(oldest.issued_at) FROM refresh_credential oldest WHERE oldest.device_id = rc.device_id)
@@ -27,8 +17,6 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
         """;
 
     private const string _findDeviceSql = "SELECT id, human_id, label, class, revision, revoked_at FROM device WHERE id = $1";
-
-    private const string _findHumanSql = "SELECT id, display_name, role, status FROM human WHERE id = $1";
 
     private const string _insertDeviceSql =
         "INSERT INTO device (id, human_id, label, class, revision, created_at) VALUES ($1, $2, $3, $4, $5, $6)";
@@ -44,46 +32,6 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
         """;
 
     private const string _revokeSql = "UPDATE device SET revoked_at = $2, revision = revision + 1 WHERE id = $1 AND revoked_at IS NULL";
-
-    // Only an active non-owner can be suspended; only a suspended person can come back. A removed person is never touched.
-    private const string _suspendSql = "UPDATE human SET status = 'suspended' WHERE id = $1 AND status = 'active' AND role <> 'owner'";
-
-    private const string _revokeHumanDevicesSql =
-        "UPDATE device SET revoked_at = $2, revision = revision + 1 WHERE human_id = $1 AND revoked_at IS NULL RETURNING id";
-
-    private const string _revokeHumanApprovalKeysSql = "UPDATE approval_key SET revoked_at = $2 WHERE human_id = $1 AND revoked_at IS NULL";
-
-    private const string _unsuspendSql = "UPDATE human SET status = 'active' WHERE id = $1 AND status = 'suspended'";
-
-    public async Task<IReadOnlyList<HumanRecord>> ListHumansAsync(CancellationToken ct = default)
-    {
-        await using var cmd = dataSource.CreateCommand(_listHumansSql);
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        var rows = new List<HumanRecord>();
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            rows.Add(new HumanRecord(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3)));
-        return rows;
-    }
-
-    public async Task<IReadOnlyList<DeviceDirectoryEntry>> ListDevicesAsync(CancellationToken ct = default)
-    {
-        await using var cmd = dataSource.CreateCommand(_listDevicesSql);
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        var rows = new List<DeviceDirectoryEntry>();
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            var device = new DeviceRecord(
-                Id: reader.GetGuid(0),
-                HumanId: reader.GetGuid(1),
-                Label: reader.GetString(2),
-                Class: reader.GetString(3),
-                Revision: reader.GetInt32(4),
-                RevokedAt: reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5));
-            rows.Add(new DeviceDirectoryEntry(device, reader.GetFieldValue<DateTimeOffset>(6)));
-        }
-
-        return rows;
-    }
 
     public async Task<RefreshCredentialRecord?> FindByHashAsync(byte[] hash, CancellationToken ct = default)
     {
@@ -116,16 +64,6 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
             Class: reader.GetString(3),
             Revision: reader.GetInt32(4),
             RevokedAt: reader.IsDBNull(5) ? null : reader.GetFieldValue<DateTimeOffset>(5));
-    }
-
-    public async Task<HumanRecord?> FindHumanAsync(Guid humanId, CancellationToken ct = default)
-    {
-        await using var cmd = dataSource.CreateCommand(_findHumanSql);
-        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
-            return null;
-        return new HumanRecord(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3));
     }
 
     public async Task CreateDeviceAsync(
@@ -195,46 +133,6 @@ public sealed class PostgresRefreshCredentialStore(NpgsqlDataSource dataSource) 
         await using var cmd = dataSource.CreateCommand(_revokeSql);
         cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = deviceId });
         cmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
-        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) > 0;
-    }
-
-    public async Task<SuspendResult> SuspendHumanAsync(Guid humanId, DateTimeOffset now, CancellationToken ct = default)
-    {
-        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-
-        await using (var suspend = new NpgsqlCommand(_suspendSql, conn, tx))
-        {
-            suspend.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
-            if (await suspend.ExecuteNonQueryAsync(ct).ConfigureAwait(false) == 0)
-                return new SuspendResult(false, []);
-        }
-
-        var revoked = new List<Guid>();
-        await using (var devices = new NpgsqlCommand(_revokeHumanDevicesSql, conn, tx))
-        {
-            devices.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
-            devices.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
-            await using var reader = await devices.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            while (await reader.ReadAsync(ct).ConfigureAwait(false))
-                revoked.Add(reader.GetGuid(0));
-        }
-
-        await using (var keys = new NpgsqlCommand(_revokeHumanApprovalKeysSql, conn, tx))
-        {
-            keys.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
-            keys.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = now });
-            await keys.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
-
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-        return new SuspendResult(true, revoked);
-    }
-
-    public async Task<bool> UnsuspendHumanAsync(Guid humanId, CancellationToken ct = default)
-    {
-        await using var cmd = dataSource.CreateCommand(_unsuspendSql);
-        cmd.Parameters.Add(new NpgsqlParameter<Guid> { TypedValue = humanId });
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) > 0;
     }
 

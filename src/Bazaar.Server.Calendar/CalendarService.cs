@@ -82,7 +82,7 @@ public sealed class CalendarService(
             if (draft.Kind != seen.Kind)
                 return new CalendarResult(CalendarOutcome.Invalid, seen, "An event keeps its kind.");
 
-            next = await BuildRecord(id, draft, actor.PrincipalId, seen.Version + 1, seen.Status, ct, seen.Visibility);
+            next = await BuildRecord(id, draft, actor.PrincipalId, seen.Version + 1, seen.Status, ct);
             if (!await CalendarRepository.UpdateAsync(conn, tx, next, expectedVersion, ct).ConfigureAwait(false))
                 return new CalendarResult(CalendarOutcome.Conflict, seen, "Stored version changed during the update.");
             await tx.CommitAsync(ct).ConfigureAwait(false);
@@ -200,7 +200,7 @@ public sealed class CalendarService(
         _ = CalendarRules.SourceTrustFor(actor.Kind);
     }
 
-    private async Task<CalendarEventRecord> BuildRecord(Guid id, CalendarDraft draft, Guid authorId, long version, CalendarStatus status, CancellationToken ct, CalendarVisibility? keep = null)
+    private async Task<CalendarEventRecord> BuildRecord(Guid id, CalendarDraft draft, Guid authorId, long version, CalendarStatus status, CancellationToken ct)
     {
         var sealedTitle = await bodies.SealAsync(authorId, draft.Title.Trim(), ct).ConfigureAwait(false);
         return new CalendarEventRecord
@@ -220,7 +220,6 @@ public sealed class CalendarService(
             Status = status,
             SourceGcId = draft.SourceGcId,
             Version = version,
-            Visibility = draft.Visibility ?? keep ?? CalendarRules.DefaultVisibility(draft.Kind),
         };
     }
 }

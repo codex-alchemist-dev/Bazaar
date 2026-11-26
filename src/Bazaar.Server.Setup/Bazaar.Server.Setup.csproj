@@ -10,7 +10,5 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
-    <!-- Bazaar-free Kodo core (doc 46 section 19): its probes and IHostReadings seam. No reference to Bazaar.Server. -->
-    <ProjectReference Include="..\Bazaar.Kodo\Bazaar.Kodo.csproj" />
   </ItemGroup>
 </Project>

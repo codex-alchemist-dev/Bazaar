@@ -61,9 +61,6 @@ internal sealed class FakePostSink : IAgentPostSink
 /// </summary>
 internal sealed class RunnerGateway(FakeProvider provider, Action? onCall = null) : IModelGateway
 {
-
-    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("RunnerGateway does not support embeddings.");
     public IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, CancellationToken cancellationToken)
     {
         onCall?.Invoke();

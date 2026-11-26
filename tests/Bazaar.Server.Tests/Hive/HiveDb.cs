@@ -45,7 +45,7 @@ public sealed class HiveDb : PgFixture, IAsyncLifetime
     /// <summary>Removes every hive row so each test starts empty.</summary>
     public async Task ClearAsync()
     {
-        await using var cmd = DataSource.CreateCommand("TRUNCATE hive_grant, hive_held_copy, hive_copy, hive_pending_change");
+        await using var cmd = DataSource.CreateCommand("TRUNCATE hive_grant, hive_held_copy, hive_copy");
         await cmd.ExecuteNonQueryAsync();
     }
 }

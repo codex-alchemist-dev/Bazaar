@@ -1,5 +1,5 @@
-using System.Data.Common;
 using Bazaar.Server.Hive.Abstractions;
+using Npgsql;
 
 namespace Bazaar.Server.Hive;
 
@@ -8,7 +8,7 @@ namespace Bazaar.Server.Hive;
 /// <see cref="InMemoryHiveCopyLedger"/>: recording a copy for the same path, target and origin replaces the earlier record, and
 /// revoking returns the records as they were before. Revoking never deletes rows.
 /// </summary>
-public sealed class PgHiveLedger(DbDataSource dataSource) : IHiveCopyLedger
+public sealed class PgHiveLedger(NpgsqlDataSource dataSource) : IHiveCopyLedger
 {
     /// <inheritdoc />
     public async Task AddPendingAsync(HivePendingCopy pending, CancellationToken ct)
@@ -20,27 +20,27 @@ public sealed class PgHiveLedger(DbDataSource dataSource) : IHiveCopyLedger
             VALUES (@id, @origin_project, @origin_note, @kind, @target_project, @slug, @title, @body, @origin_tier,
                     @submitted_at, @release_at)
             """);
-        HiveCommands.Add(cmd, "id", pending.Id);
-        HiveCommands.Add(cmd, "origin_project", pending.Lesson.OriginProject);
-        HiveCommands.Add(cmd, "origin_note", pending.Lesson.OriginNote);
-        HiveCommands.Add(cmd, "kind", HiveKinds.Name(pending.Lesson.Kind));
-        HiveCommands.Add(cmd, "target_project", pending.TargetProject);
-        HiveCommands.Add(cmd, "slug", pending.Slug);
-        HiveCommands.Add(cmd, "title", pending.Title);
-        HiveCommands.Add(cmd, "body", pending.Body);
-        HiveCommands.Add(cmd, "origin_tier", pending.OriginTier);
-        HiveCommands.Add(cmd, "submitted_at", pending.SubmittedAt.ToUniversalTime());
-        HiveCommands.AddTimestamp(cmd, "release_at", pending.ReleaseAt?.ToUniversalTime());
+        cmd.Parameters.AddWithValue("id", pending.Id);
+        cmd.Parameters.AddWithValue("origin_project", pending.Lesson.OriginProject);
+        cmd.Parameters.AddWithValue("origin_note", pending.Lesson.OriginNote);
+        cmd.Parameters.AddWithValue("kind", HiveKinds.Name(pending.Lesson.Kind));
+        cmd.Parameters.AddWithValue("target_project", pending.TargetProject);
+        cmd.Parameters.AddWithValue("slug", pending.Slug);
+        cmd.Parameters.AddWithValue("title", pending.Title);
+        cmd.Parameters.AddWithValue("body", pending.Body);
+        cmd.Parameters.AddWithValue("origin_tier", pending.OriginTier);
+        cmd.Parameters.AddWithValue("submitted_at", pending.SubmittedAt.ToUniversalTime());
+        cmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset?>("release_at", pending.ReleaseAt?.ToUniversalTime()));
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<HivePendingCopy>> ListPendingAsync(CancellationToken ct)
     {
-        await using var cmd = HiveCommands.Read(dataSource, """
+        await using var cmd = dataSource.CreateCommand("""
             SELECT id, origin_project, origin_note, kind, target_project, slug, title, body, origin_tier, submitted_at, release_at
             FROM hive_held_copy ORDER BY seq
-            """, "hive_held_copy");
+            """);
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         var held = new List<HivePendingCopy>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
@@ -65,7 +65,7 @@ public sealed class PgHiveLedger(DbDataSource dataSource) : IHiveCopyLedger
     public async Task<bool> RemovePendingAsync(Guid id, CancellationToken ct)
     {
         await using var cmd = dataSource.CreateCommand("DELETE FROM hive_held_copy WHERE id = @id");
-        HiveCommands.Add(cmd, "id", id);
+        cmd.Parameters.AddWithValue("id", id);
         return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false) > 0;
     }
 
@@ -80,20 +80,20 @@ public sealed class PgHiveLedger(DbDataSource dataSource) : IHiveCopyLedger
             ON CONFLICT (path, target_project, origin_project, origin_note)
             DO UPDATE SET kind = EXCLUDED.kind, revoked = EXCLUDED.revoked, seq = nextval('hive_copy_seq')
             """);
-        HiveCommands.Add(cmd, "path", record.Path);
-        HiveCommands.Add(cmd, "origin_project", record.Lesson.OriginProject);
-        HiveCommands.Add(cmd, "origin_note", record.Lesson.OriginNote);
-        HiveCommands.Add(cmd, "kind", HiveKinds.Name(record.Lesson.Kind));
-        HiveCommands.Add(cmd, "target_project", record.TargetProject);
-        HiveCommands.Add(cmd, "revoked", record.Revoked);
+        cmd.Parameters.AddWithValue("path", record.Path);
+        cmd.Parameters.AddWithValue("origin_project", record.Lesson.OriginProject);
+        cmd.Parameters.AddWithValue("origin_note", record.Lesson.OriginNote);
+        cmd.Parameters.AddWithValue("kind", HiveKinds.Name(record.Lesson.Kind));
+        cmd.Parameters.AddWithValue("target_project", record.TargetProject);
+        cmd.Parameters.AddWithValue("revoked", record.Revoked);
         await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<HiveCopyRecord>> ListCopiesAsync(CancellationToken ct)
     {
-        await using var cmd = HiveCommands.Read(
-            dataSource, "SELECT path, origin_project, origin_note, kind, target_project, revoked, seq FROM hive_copy", "hive_copy");
+        await using var cmd = dataSource.CreateCommand(
+            "SELECT path, origin_project, origin_note, kind, target_project, revoked, seq FROM hive_copy");
         return await ReadCopiesAsync(cmd, ct).ConfigureAwait(false);
     }
 
@@ -107,15 +107,15 @@ public sealed class PgHiveLedger(DbDataSource dataSource) : IHiveCopyLedger
             WHERE NOT revoked AND origin_project = @from AND target_project = @to AND kind = @kind
             RETURNING path, origin_project, origin_note, kind, target_project, false AS revoked, seq
             """);
-        HiveCommands.Add(cmd, "from", fromProject);
-        HiveCommands.Add(cmd, "to", toProject);
-        HiveCommands.Add(cmd, "kind", HiveKinds.Name(kind));
+        cmd.Parameters.AddWithValue("from", fromProject);
+        cmd.Parameters.AddWithValue("to", toProject);
+        cmd.Parameters.AddWithValue("kind", HiveKinds.Name(kind));
         return await ReadCopiesAsync(cmd, ct).ConfigureAwait(false);
     }
 
     // Column 6 is seq. Rows are sorted on it because UPDATE ... RETURNING has no defined order and a plain SELECT is not
     // guaranteed one either.
-    private static async Task<IReadOnlyList<HiveCopyRecord>> ReadCopiesAsync(DbCommand cmd, CancellationToken ct)
+    private static async Task<IReadOnlyList<HiveCopyRecord>> ReadCopiesAsync(NpgsqlCommand cmd, CancellationToken ct)
     {
         await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
         var rows = new List<(long Seq, HiveCopyRecord Record)>();

@@ -11,9 +11,9 @@ internal sealed class AllowAllDisplayGate : IDisplayGate
 
     public bool Throw { get; set; }
 
-    public ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct) => ValueTask.FromResult(Verdict());
+    public DisplayVerdict CheckCapture(DisplayTarget target) => Verdict();
 
-    public ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct) => ValueTask.FromResult(Verdict());
+    public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => Verdict();
 
     private DisplayVerdict Verdict()
     {
@@ -106,17 +106,6 @@ internal sealed class FakeGuestExec : IDisplayGuestExec
     }
 }
 
-/// <summary>Wraps the fake as a driver whose screenshot pixels are its input coordinates.</summary>
-internal sealed class PixelExactBrowser(FakeBrowser inner) : IPixelExactBrowserPageDriver
-{
-    public bool Supports(DisplayTarget target) => inner.Supports(target);
-
-    public Task<byte[]> CaptureScreenshotPngAsync(string sessionId, CancellationToken ct) => inner.CaptureScreenshotPngAsync(sessionId, ct);
-
-    public Task DispatchInputAsync(string sessionId, IReadOnlyList<InputAction> actions, CancellationToken ct) =>
-        inner.DispatchInputAsync(sessionId, actions, ct);
-}
-
 internal sealed class FakeBrowser : IBrowserPageDriver
 {
     public bool Supported { get; set; } = true;
@@ -170,8 +159,6 @@ internal sealed class Rig
 
     public bool UseBrowser { get; set; } = true;
 
-    public bool PixelExactBrowser { get; set; }
-
     public GuestDisplayService Build() => new(
         Options,
         Gate,
@@ -179,7 +166,7 @@ internal sealed class Rig
         Time,
         UseHypervisor ? [Hypervisor] : [],
         UseGuest ? [Guest] : [],
-        UseBrowser ? [PixelExactBrowser ? new PixelExactBrowser(Browser) : Browser] : []);
+        UseBrowser ? [Browser] : []);
 
     public static DisplayTarget Linux(string? browserSession = null, string agent = "agent-1") =>
         new(agent, Guid.Parse("11111111-1111-1111-1111-111111111111"), DisplayGuestOs.Linux, "vm-linux", browserSession);

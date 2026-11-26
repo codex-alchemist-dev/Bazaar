@@ -5,11 +5,7 @@ using Bazaar.Contracts.Panes;
 namespace Bazaar.Client.Dashboard;
 
 /// <summary>A labelled figure on the dashboard, for example "Unread GCs" with "3".</summary>
-public sealed record DashboardItem(string Label, string Value)
-{
-    /// <summary>The value as a count when it is a whole number of zero or more, for example "3"; otherwise null. A count shows as a badge.</summary>
-    public int? Count => int.TryParse(Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
-}
+public sealed record DashboardItem(string Label, string Value);
 
 /// <summary>A titled group of items, for example "Awaiting you".</summary>
 public sealed record DashboardSection(string Title, IReadOnlyList<DashboardItem> Items);
@@ -37,37 +33,7 @@ public sealed class DashboardPaneViewModel : IPaneViewModel
 
     public string Title { get; }
 
-    public IReadOnlyList<DashboardSection> Sections { get; private set; }
-
-    /// <summary>Raised after <see cref="Update"/> changed a figure, with the section title and the item label.</summary>
-    public event EventHandler<DashboardItemChanged>? ItemChanged;
-
-    /// <summary>
-    /// Sets one figure to a new value, for example when the server's "since last seen" figures move. Returns false when the section or
-    /// item is not on the dashboard or the value is the same. Call on the UI thread.
-    /// </summary>
-    public bool Update(string sectionTitle, string label, string value)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        var sections = Sections.ToArray();
-        for (var s = 0; s < sections.Length; s++)
-        {
-            if (sections[s].Title != sectionTitle) continue;
-            var items = sections[s].Items.ToArray();
-            for (var i = 0; i < items.Length; i++)
-            {
-                if (items[i].Label != label) continue;
-                if (items[i].Value == value) return false;
-                items[i] = items[i] with { Value = value };
-                sections[s] = sections[s] with { Items = items };
-                Sections = sections;
-                ItemChanged?.Invoke(this, new DashboardItemChanged(sectionTitle, items[i]));
-                return true;
-            }
-        }
-
-        return false;
-    }
+    public IReadOnlyList<DashboardSection> Sections { get; }
 
     private static DashboardSection ReadSection(JsonElement section)
     {
@@ -86,8 +52,3 @@ public sealed class DashboardPaneViewModel : IPaneViewModel
         return new DashboardSection(PaneValues.RequiredString(section, "title"), items);
     }
 }
-
-/// <summary>A dashboard figure that changed after the dashboard was built.</summary>
-/// <param name="SectionTitle">Title of the section holding the item.</param>
-/// <param name="Item">The item with its new value.</param>
-public sealed record DashboardItemChanged(string SectionTitle, DashboardItem Item);

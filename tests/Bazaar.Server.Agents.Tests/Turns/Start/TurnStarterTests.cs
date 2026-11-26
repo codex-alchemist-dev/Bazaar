@@ -26,87 +26,6 @@ public sealed class TurnStarterTests
         int unknownRyuseiDepth = 3) =>
         new(reader, depths, runner, new TurnStarterOptions { UnknownRyuseiDepth = unknownRyuseiDepth });
 
-    private static TurnStarter Starter(
-        IDueInboxReader reader,
-        IWakeChainDepthSource depths,
-        ITurnRunner runner,
-        IEnumerable<ITaskSessionHook> hooks) =>
-        new(reader, depths, runner, new TurnStarterOptions(), hooks);
-
-    [Fact]
-    public async Task A_task_wake_starts_each_hook_once_with_the_ids_before_the_runner()
-    {
-        var taskId = Guid.CreateVersion7();
-        var gc = Guid.CreateVersion7();
-        var log = new List<string>();
-        var hook = new RecordingHook("hook", log);
-        var runner = new RecordingRunner(log);
-        var reader = new FakeDueReader([Row("assignment", gc: gc, seq: 4, sourceRef: taskId.ToString("D"))]);
-
-        await Starter(reader, new FakeDepths(_ => null), runner, [hook]).StartAsync(Request(), Ct);
-
-        var start = Assert.Single(hook.Starts);
-        Assert.Equal(_session, start.SessionId);
-        Assert.Equal(_agent, start.AgentId);
-        Assert.Equal(gc, start.GcId);
-        Assert.Equal(taskId, start.TaskId);
-        Assert.Null(start.RepoRef);
-        Assert.Null(start.TaskSlug);
-        Assert.Equal(["start:hook", "runner"], log);
-    }
-
-    [Fact]
-    public async Task A_non_task_wake_calls_no_hook()
-    {
-        var hook = new RecordingHook("hook", []);
-        var runner = new RecordingRunner([]);
-        var reader = new FakeDueReader([Row("mention", sourceRef: Guid.CreateVersion7().ToString("D"))]);
-
-        await Starter(reader, new FakeDepths(_ => null), runner, [hook]).StartAsync(Request(), Ct);
-
-        Assert.Empty(hook.Starts);
-        Assert.Single(runner.Requests);
-    }
-
-    [Fact]
-    public async Task An_assignment_whose_source_is_not_a_guid_is_not_a_task_wake()
-    {
-        var hook = new RecordingHook("hook", []);
-        var reader = new FakeDueReader([Row("assignment", sourceRef: "pr-42")]);
-
-        await Starter(reader, new FakeDepths(_ => null), new RecordingRunner([]), [hook]).StartAsync(Request(), Ct);
-
-        Assert.Empty(hook.Starts);
-    }
-
-    [Fact]
-    public async Task An_invalid_operation_from_a_start_hook_is_tolerated_and_the_turn_still_runs()
-    {
-        var log = new List<string>();
-        var throwing = new RecordingHook("throwing", log) { StartFailure = new InvalidOperationException("worktree held") };
-        var after = new RecordingHook("after", log);
-        var runner = new RecordingRunner(log);
-        var reader = new FakeDueReader([Row("assignment", sourceRef: Guid.CreateVersion7().ToString("D"))]);
-
-        var result = await Starter(reader, new FakeDepths(_ => null), runner, [throwing, after]).StartAsync(Request(), Ct);
-
-        Assert.True(result.Started);
-        Assert.Equal(["start:throwing", "start:after", "runner"], log);
-    }
-
-    [Fact]
-    public async Task Other_exceptions_from_a_start_hook_propagate_and_no_turn_runs()
-    {
-        var hook = new RecordingHook("hook", []) { StartFailure = new IOException("disk") };
-        var runner = new RecordingRunner([]);
-        var reader = new FakeDueReader([Row("assignment", sourceRef: Guid.CreateVersion7().ToString("D"))]);
-
-        await Assert.ThrowsAsync<IOException>(() =>
-            Starter(reader, new FakeDepths(_ => null), runner, [hook]).StartAsync(Request(), Ct));
-
-        Assert.Empty(runner.Requests);
-    }
-
     [Fact]
     public async Task Nothing_due_calls_no_runner_and_reads_no_depth()
     {
@@ -289,40 +208,6 @@ public sealed class TurnStarterTests
         var request = Request() with { Holder = " " };
 
         await Assert.ThrowsAsync<ArgumentException>(() => starter.StartAsync(request, Ct));
-    }
-
-    /// <summary>Records start and end calls into a shared log, and can fail on start.</summary>
-    private sealed class RecordingHook(string name, List<string> log) : ITaskSessionHook
-    {
-        public List<TaskSessionStart> Starts { get; } = [];
-
-        public Exception? StartFailure { get; init; }
-
-        public Task StartAsync(TaskSessionStart start, CancellationToken cancellationToken)
-        {
-            Starts.Add(start);
-            log.Add($"start:{name}");
-            return StartFailure is { } failure ? Task.FromException(failure) : Task.CompletedTask;
-        }
-
-        public Task EndAsync(Guid sessionId, CancellationToken cancellationToken)
-        {
-            log.Add($"end:{name}");
-            return Task.CompletedTask;
-        }
-    }
-
-    /// <summary>Logs "runner" when it runs, and records requests.</summary>
-    private sealed class RecordingRunner(List<string> log) : ITurnRunner
-    {
-        public List<TurnRunRequest> Requests { get; } = [];
-
-        public Task<TurnRunOutcome> RunAsync(TurnRunRequest request, CancellationToken cancellationToken)
-        {
-            Requests.Add(request);
-            log.Add("runner");
-            return Task.FromResult(new TurnRunOutcome(Guid.CreateVersion7(), TurnEndReason.FinalMessage, "done", 1));
-        }
     }
 
     /// <summary>Returns a fixed batch and records the limit it was asked for.</summary>

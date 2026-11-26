@@ -34,14 +34,5 @@ public sealed class VmDisplayComponent : IBazaarComponent
         services.TryAddSingleton<IDisplayGate, UnconfiguredDisplayGate>();
         services.TryAddSingleton<IDisplayAuditSink, NoopDisplayAuditSink>();
         services.TryAddSingleton<IGuestDisplay, GuestDisplayService>();
-        // The same instance answers the native size read, so pointer input can be scaled from a downscaled frame.
-        services.TryAddSingleton<IDisplayNativeSizeReader>(sp => sp.GetRequiredService<IGuestDisplay>() as IDisplayNativeSizeReader ?? NoNativeSize.Instance);
     }
-}
-
-internal sealed class NoNativeSize : IDisplayNativeSizeReader
-{
-    public static NoNativeSize Instance { get; } = new();
-
-    public (int Width, int Height)? TryGetNativeSize(DisplayTarget target) => null;
 }

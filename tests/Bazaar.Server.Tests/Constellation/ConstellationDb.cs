@@ -1,14 +1,10 @@
-using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Testing.Postgres;
 using Npgsql;
 
 namespace Bazaar.Server.Tests.Constellation;
 
-/// <summary>
-/// A cloned test database migrated with every embedded migration, so the Constellation views (0020) exist, plus the
-/// constellation files the Constellation module embeds (constellation/0002), as the host composes them.
-/// </summary>
+/// <summary>A cloned test database migrated with every embedded migration, so the Constellation views (0020) exist.</summary>
 public sealed class ConstellationDb : PgFixture, IAsyncLifetime
 {
     private NpgsqlDataSource? _pool;
@@ -23,14 +19,7 @@ public sealed class ConstellationDb : PgFixture, IAsyncLifetime
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
         await new MigrationRunner(DataSource, new MigrationOptions(16))
-            .MigrateAsync(Source(), "linux", CancellationToken.None);
-    }
-
-    /// <summary>The server's embedded files and the Constellation module's component files, in one source.</summary>
-    public static IMigrationSource Source()
-    {
-        var server = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
-        return new InMemoryMigrationSource(server.Namespaces().SelectMany(server.Load).Concat(ConstellationMigrations.Files()));
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", CancellationToken.None);
     }
 }
 

@@ -54,8 +54,7 @@ public static class VmTransportRegistration
     /// <summary>
     /// Registers the channel factory with default limits and the listener for this OS: Hyper-V sockets on Windows, vsock on Linux.
     /// Neither binds a socket until the first wait. Every registration is TryAdd, so a host or a test can substitute its own before this call.
-    /// On any other OS no listener is registered. Also registers the channel registry, directory and registrar, and the fail-closed
-    /// <see cref="IAgentVmLookup"/> default.
+    /// On any other OS no listener is registered.
     /// </summary>
     public static IServiceCollection AddBazaarVmTransport(this IServiceCollection services)
     {
@@ -64,15 +63,6 @@ public static class VmTransportRegistration
         services.TryAddSingleton(new GuestChannelOptions());
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<GuestChannelFactory>();
-
-        // The channel directory (doc 16 "Channel directory", PROPOSED). The VM store port defaults to "no VMs", so the directory serves nothing
-        // until the host supplies IAgentVmLookup.
-        services.TryAddSingleton<IAgentVmLookup, NoAgentVmLookup>();
-        services.TryAddSingleton<GuestChannelRegistry>();
-        services.TryAddSingleton<IGuestChannelRegistry>(sp => sp.GetRequiredService<GuestChannelRegistry>());
-        services.TryAddSingleton<IGuestChannelDirectory>(sp => new GuestChannelDirectory(
-            sp.GetRequiredService<GuestChannelRegistry>(), sp.GetRequiredService<IAgentVmLookup>()));
-        services.TryAddSingleton<GuestChannelRegistrar>();
         if (OperatingSystem.IsWindows())
         {
             services.TryAddSingleton<IGuestConnectionListener>(_ => new HvSocketListener());

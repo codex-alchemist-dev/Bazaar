@@ -20,9 +20,7 @@ public sealed record GcExportHead(
     string EventHeadHash,
     string MessageHeadHash,
     string VersionHeadHash,
-    IReadOnlyList<ExportedFile> Files,
-    long? MentionCount = null,
-    string? MentionHeadHash = null)
+    IReadOnlyList<ExportedFile> Files)
 {
     /// <summary>Canonical head.json bytes: fixed field order, compact, LF at the end.</summary>
     public byte[] ToBytes()
@@ -41,13 +39,6 @@ public sealed record GcExportHead(
             writer.WriteString("eventHeadHash", EventHeadHash);
             writer.WriteString("messageHeadHash", MessageHeadHash);
             writer.WriteString("versionHeadHash", VersionHeadHash);
-            if (MentionCount is { } mentions)
-            {
-                // Only when mentions.jsonl is part of this export, so a head without mentions keeps its bytes.
-                writer.WriteNumber("mentionCount", mentions);
-                writer.WriteString("mentionHeadHash", MentionHeadHash ?? GcJsonlFormat.GenesisHash);
-            }
-
             writer.WriteStartObject("files");
             foreach (var file in Files.OrderBy(f => f.Path, StringComparer.Ordinal))
             {
@@ -96,9 +87,7 @@ public sealed record GcExportHead(
                 Text(root, "eventHeadHash"),
                 Text(root, "messageHeadHash"),
                 Text(root, "versionHeadHash"),
-                files,
-                root.TryGetProperty("mentionCount", out var mentionCount) ? mentionCount.GetInt64() : null,
-                root.TryGetProperty("mentionHeadHash", out var mentionHash) ? mentionHash.GetString() : null);
+                files);
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException or FormatException)
         {

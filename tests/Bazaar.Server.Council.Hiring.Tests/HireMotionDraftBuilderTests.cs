@@ -18,7 +18,6 @@ public class HireMotionDraftBuilderTests
         Assert.Equal(VoteKind.ApproveReject, motion.Draft.Kind);
         Assert.Equal("talent-analyst-v2", motion.Draft.SubjectRef);
         Assert.Equal("talent-analyst-v2", motion.Draft.MembershipSubjectId);
-        Assert.Equal(MembershipMotionKind.Hire, motion.Draft.MembershipKind);
         Assert.Empty(motion.Draft.Options);
         Assert.Equal(Samples.GcId, motion.Draft.GcId);
         Assert.Equal("agent-proposer", motion.Draft.ProposerId);

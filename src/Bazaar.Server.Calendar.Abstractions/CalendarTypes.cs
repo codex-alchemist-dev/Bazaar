@@ -12,35 +12,6 @@ public enum CalendarKind
     Milestone,
 }
 
-/// <summary>
-/// Who may read an event's title (docs/design/24, "Calendar event visibility"). The time block is shown to everyone at every level.
-/// The stored text is the lower-case name.
-/// </summary>
-public enum CalendarVisibility
-{
-    /// <summary>Everyone sees the title.</summary>
-    Public,
-
-    /// <summary>Only the event's attendees, its owner and the company owner see the title.</summary>
-    Attendees,
-
-    /// <summary>Only the event's owner and the company owner see the title.</summary>
-    Owner,
-}
-
-/// <summary>
-/// Who reads the calendar. The host builds it from the authenticated session, never from client input.
-/// <see cref="IsCompanyOwner"/> is true for the company owner principal. An agent is its events' owner and attendee
-/// (<see cref="CalendarEventRecord.AgentId"/>); the calendar stores no other attendee list yet.
-/// </summary>
-/// <param name="Id">The viewer's principal id.</param>
-/// <param name="IsCompanyOwner">True when the viewer is the company owner.</param>
-public sealed record CalendarViewer(Guid Id, bool IsCompanyOwner)
-{
-    /// <summary>The least-privileged viewer: no identity, not the owner. Sees public titles only.</summary>
-    public static CalendarViewer Anonymous { get; } = new(Guid.Empty, false);
-}
-
 /// <summary>Calendar event status. Cancelled is terminal.</summary>
 public enum CalendarStatus
 {
@@ -147,9 +118,6 @@ public sealed record CalendarDraft
 
     /// <summary>The GC where the event was requested, when there is one (informational link).</summary>
     public Guid? SourceGcId { get; init; }
-
-    /// <summary>Who may read the title. Null takes the default for the kind (<see cref="CalendarRules.DefaultVisibility"/>).</summary>
-    public CalendarVisibility? Visibility { get; init; }
 }
 
 /// <summary>One stored calendar event. The title stays sealed; read it with <see cref="CalendarService.OpenTitleAsync"/>.</summary>
@@ -184,9 +152,6 @@ public sealed record CalendarEventRecord
     public Guid? SourceGcId { get; init; }
 
     public required long Version { get; init; }
-
-    /// <summary>Who may read the title. The route redacts it per viewer; the time block is always shown.</summary>
-    public CalendarVisibility Visibility { get; init; } = CalendarVisibility.Public;
 }
 
 /// <summary>The answer to a calendar call. <see cref="Event"/> is the stored row after the call, when there is one.</summary>

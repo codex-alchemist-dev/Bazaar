@@ -46,19 +46,6 @@ public sealed record ViewDataSource(string Capability, RubedoType? Type, IReadOn
 public sealed record ViewAction(ViewActionKind Kind, string? Target);
 
 /// <summary>
-/// The named arguments of a button (doc 41c, section 6.1). Each value is a literal scalar or a <see cref="ViewExpr"/>
-/// evaluated in the button's scope when it is clicked. The reader stores them under the <c>args</c> prop.
-/// </summary>
-public sealed record ViewArgs(IReadOnlyDictionary<string, object?> Values)
-{
-    /// <summary>The most arguments one button may carry.</summary>
-    public const int MaxCount = 8;
-
-    /// <summary>The prop name that holds the arguments.</summary>
-    public const string PropName = "args";
-}
-
-/// <summary>
 /// One node of a view tree (doc 41c, section 2). <see cref="Widget"/> is the wire name, so a newer document's unknown
 /// widget is kept as written and reported by the validator.
 /// </summary>

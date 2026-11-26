@@ -13,9 +13,6 @@ public class GrpcTransportTests
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(20);
 
     private static CancellationToken Token() => new CancellationTokenSource(Wait).Token;
-    private static readonly TimeSpan _wait = TimeSpan.FromSeconds(20);
-
-    private static CancellationToken Token() => new CancellationTokenSource(_wait).Token;
 
     [Fact]
     public async Task Echoes_frames_over_connect_and_reports_the_connector_as_supported()

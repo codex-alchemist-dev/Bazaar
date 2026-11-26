@@ -211,7 +211,7 @@ public sealed class BoardMoveHandlerTests(KanbanDb db) : IClassFixture<KanbanDb>
     {
         SkipWithoutDatabase();
         var context = new WireRequestContext(_owner, new Envelope(1, WireTypes.BoardMove, EnvelopeKind.Request, "req-1", null, null, null, null,
-            System.Text.Encoding.UTF8.GetBytes("\"not an object\"")));
+            _codec.EncodePayload("not an object")));
 
         var reply = await Handler().HandleAsync(context, Ct);
 

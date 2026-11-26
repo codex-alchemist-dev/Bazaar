@@ -39,37 +39,14 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private NodePipeline? _pipeline;
     private VkFormat _pipelineFormat;
     private byte[] _styleBytes = [];
-    private byte[] _sectionBytes = [];
-    private bool _sectionsDirty;
     private readonly bool _reversedZ;
     private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
 
-    private readonly bool _nodeIcons;
-    private readonly IconAtlas _iconAtlas;
-    private byte[] _iconBytes = [];
-    private bool _iconsDirty;
-
-    private VulkanSwapchain(RenderSurface surface, bool reversedZ, bool nodeIcons, IconAtlas? iconAtlas)
+    private VulkanSwapchain(RenderSurface surface, bool reversedZ)
     {
         Surface = surface;
         _reversedZ = reversedZ;
-        _nodeIcons = nodeIcons;
-        _iconAtlas = iconAtlas ?? IconAtlas.Create();
-    }
-
-    /// <summary>True when node icons are drawn (the default); false draws every node as a dot or ring.</summary>
-    public bool NodeIconsEnabled => _nodeIcons;
-
-    /// <summary>
-    /// Replaces the per-instance icon rectangles (<see cref="NodeIconBuffer.Bytes"/>). The bytes are kept and uploaded at
-    /// the next present (after the frame fence), like the sections.
-    /// </summary>
-    public void SetIcons(ReadOnlySpan<byte> iconBytes)
-    {
-        ThrowIfDisposed();
-        _iconBytes = iconBytes.ToArray();
-        _iconsDirty = true;
     }
 
     /// <summary>True when the swapchain renders with a reversed-Z depth attachment (<see cref="ReversedZDepth"/>).</summary>
@@ -94,11 +71,9 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     /// Creates the instance, surface, device and swapchain. Returns the reason when no device can present to the surface.
     /// </summary>
     /// <param name="reversedZ">Adds a D32 reversed-Z depth attachment (clear 0, greater-or-equal). Off by default.</param>
-    /// <param name="nodeIcons">Draws node icons from the atlas. On by default.</param>
-    /// <param name="iconAtlas">Atlas to upload; null generates the default one.</param>
-    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface, bool reversedZ = false, bool nodeIcons = true, IconAtlas? iconAtlas = null)
+    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface, bool reversedZ = false)
     {
-        var swapchain = new VulkanSwapchain(surface, reversedZ, nodeIcons, iconAtlas);
+        var swapchain = new VulkanSwapchain(surface, reversedZ);
         try
         {
             string reason = swapchain.Initialise();
@@ -137,17 +112,6 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     /// <summary>
-    /// Replaces the section rectangles with bytes from <see cref="SectionPacking.Pack"/>. The bytes are kept and uploaded
-    /// at the next present (after the frame fence), so no in-flight frame reads a half-written buffer.
-    /// </summary>
-    public void SetSections(ReadOnlySpan<byte> sectionBytes)
-    {
-        ThrowIfDisposed();
-        _sectionBytes = sectionBytes.ToArray();
-        _sectionsDirty = true;
-    }
-
-    /// <summary>
     /// Acquires the next image, clears it to <paramref name="clear"/> and presents it.
     /// Returns false when the swapchain had to be rebuilt instead, so the caller can retry on the next tick.
     /// </summary>
@@ -183,18 +147,6 @@ public sealed unsafe class VulkanSwapchain : IDisposable
 
         _deviceApi.vkResetFences(1, &fence);
         _pipeline.Upload(instanceBytes);
-        if (_iconsDirty)
-        {
-            _pipeline.UploadIcons(_iconBytes);
-            _iconsDirty = false;
-        }
-
-        if (_sectionsDirty)
-        {
-            _pipeline.UploadSections(_sectionBytes);
-            _sectionsDirty = false;
-        }
-
         RecordFrame(imageIndex, color, instanceCount, view);
 
         VkSemaphore waitSemaphore = _imageAvailable;
@@ -569,11 +521,9 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         if (_pipeline is null || _pipelineFormat != _format)
         {
             _pipeline?.Dispose();
-            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR, _queue, _commandPool, _iconAtlas, _nodeIcons, _reversedZ);
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR, _reversedZ);
             _pipelineFormat = _format;
             _pipeline.UploadStyles(_styleBytes);
-            _sectionsDirty = true;
-            _iconsDirty = _iconBytes.Length > 0;
         }
 
         uint imageCount = Math.Max(capabilities.minImageCount + 1, 2u);

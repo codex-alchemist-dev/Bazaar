@@ -1,11 +1,10 @@
 using System.Net.Sockets;
-using System.Text.Json;
 using Bazaar.Vms.Sockets;
 
 namespace Bazaar.Server.VmTransport;
 
 /// <summary>Settings of the Hyper-V socket listener.</summary>
-/// <param name="ServiceId">The service GUID guests dial. <see cref="HvSocketListenerOptions.FromSettings"/> fills it from the operator setting <c>vm.transport.service_guid</c>; the default is a fixed GUID.</param>
+/// <param name="ServiceId">The service GUID guests dial. The setting <c>vm.transport.service_guid</c> will feed it; the default is a fixed GUID.</param>
 /// <param name="Backlog">Pending connections the OS queues.</param>
 /// <param name="BindVmId">
 /// The one VM to listen for. The default, <see cref="Guid.Empty"/>, listens for every VM. A Windows Sandbox guest connects only to a listener
@@ -16,14 +15,6 @@ public sealed record HvSocketListenerOptions(Guid ServiceId, int Backlog = 16, G
 {
     /// <summary>The shipped default: vsock port 5000 in the Hyper-V service template, so Windows and Linux guests reach the same listener.</summary>
     public static HvSocketListenerOptions Default { get; } = new(HvSocketAddress.DefaultServiceId);
-
-    /// <summary>
-    /// Builds options with the service GUID from the operator setting (<paramref name="stored"/> is the stored value, null when unset). A
-    /// stored value that is not a valid non-empty GUID never throws: the default is used and the reason goes to <paramref name="problem"/>
-    /// so the caller can report it.
-    /// </summary>
-    public static HvSocketListenerOptions FromSettings(JsonElement? stored, out string? problem) =>
-        Default with { ServiceId = VmTransportSettings.ResolveServiceId(stored, out problem) };
 }
 
 /// <summary>

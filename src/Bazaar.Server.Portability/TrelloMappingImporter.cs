@@ -5,8 +5,6 @@ namespace Bazaar.Server.Portability;
 /// Trello list as a Kanban column attribute on each card: the five doc 44 columns match by name (case-insensitive),
 /// and any other list name goes to Backlog with a <c>column_warning</c> attribute for the preview. Cards still land as
 /// Vault notes, because the commit path has no Kanban target yet.
-/// and any other list name goes to Backlog with a <c>column_warning</c> attribute for the preview. Each card becomes a
-/// Kanban task through the <see cref="ImportTargetKind.KanbanTask"/> target.
 /// </summary>
 public sealed class TrelloMappingImporter : IMappingImporter
 {
@@ -16,7 +14,7 @@ public sealed class TrelloMappingImporter : IMappingImporter
     public string Id => _inner.Id;
     public string Version => _inner.Version;
     public string FormatId => _formatId;
-    public ImporterDeclaration Declaration { get; } = new(_formatId, [ImportTargetKind.KanbanTask]);
+    public ImporterDeclaration Declaration { get; } = new(_formatId, [ImportTargetKind.VaultFile]);
 
     public DetectResult Detect(ImportSource source) => _inner.Detect(source);
 
@@ -42,8 +40,6 @@ public sealed class TrelloMappingImporter : IMappingImporter
 
         var mapped = record with { Attributes = attributes };
         return MappingResult.To(ImportCommitter.TargetFor(mapped), mapped);
-        var mapped = record with { Kind = ImportCommitter.KanbanTaskKind, Attributes = attributes };
-        return MappingResult.To(ImportTargetKind.KanbanTask, mapped);
     }
 
     public ImporterSelfTestResult SelfTest()

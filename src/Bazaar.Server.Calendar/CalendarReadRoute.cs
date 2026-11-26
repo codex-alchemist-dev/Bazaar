@@ -22,10 +22,6 @@ namespace Bazaar.Server.Calendar;
 /// through). Titles are personal fields (C01): they are opened server-side and sent only in this response, never logged. A title
 /// whose author key was erased reads as <see cref="ErasedTitle"/>. The route has no caller identity, so it cannot narrow a title
 /// to its viewer; per-viewer filtering waits for a guard that hands the principal over.
-/// whose author key was erased reads as <see cref="ErasedTitle"/>. A title the viewer may not read (event visibility, doc 24) goes
-/// out as <see cref="CalendarVisibilityRules.RedactedTitle"/>; the time block is always sent. The viewer is the
-/// <see cref="CalendarViewer"/> the host registers for the request; without one the route uses
-/// <see cref="CalendarViewer.Anonymous"/>, so only public titles are shown. A redacted title is never opened.
 /// </remarks>
 public static class CalendarReadRoute
 {
@@ -115,7 +111,6 @@ public static class CalendarReadRoute
         var calendar = services.GetRequiredService<ICalendarService>();
         var records = await calendar.ListOverlappingAsync(from, until, agentId: null, ct);
         var mode = services.GetService<CalendarReadOptions>()?.DisplayTimezone ?? DisplayTimezone.Viewer;
-        var viewer = services.GetService<CalendarViewer>() ?? CalendarViewer.Anonymous;
 
         using var stream = new MemoryStream();
         using (var json = new Utf8JsonWriter(stream))
@@ -126,9 +121,6 @@ public static class CalendarReadRoute
             foreach (var record in records)
             {
                 var title = await calendar.OpenTitleAsync(record, ct) ?? ErasedTitle;
-                var title = CalendarVisibilityRules.CanSeeTitle(record, viewer)
-                    ? await calendar.OpenTitleAsync(record, ct) ?? ErasedTitle
-                    : CalendarVisibilityRules.RedactedTitle;
                 WriteEvent(json, record, title);
             }
 

@@ -55,11 +55,6 @@ public sealed class CapabilityRegistry
             throw new ArgumentException($"Tool '{tool.Name}' has an undefined tier or class.", nameof(tool));
         }
 
-        if (!Enum.IsDefined(tool.ResultTaint))
-        {
-            throw new ArgumentException($"Tool '{tool.Name}' has an undefined result taint.", nameof(tool));
-        }
-
         if (tool.Roles == SessionRoles.None || (tool.Roles & ~(SessionRoles.Reader | SessionRoles.Actor)) != 0)
         {
             throw new ArgumentException($"Tool '{tool.Name}' must name at least one known session role.", nameof(tool));

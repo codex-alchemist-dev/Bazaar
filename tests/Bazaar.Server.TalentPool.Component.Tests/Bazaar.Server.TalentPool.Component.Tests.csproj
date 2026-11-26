@@ -12,8 +12,6 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.TalentPool.Component\Bazaar.Server.TalentPool.Component.csproj" />
   </ItemGroup>
 </Project>

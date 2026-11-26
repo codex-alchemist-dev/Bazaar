@@ -87,7 +87,7 @@ public sealed partial class RealSandboxTests : IDisposable
             // Wipe the way the pool does, then remove the empty shell.
             foreach (var slot in new[] { 0, 1 })
             {
-                foreach (var c in PoolCommandLine.CleanupCommands(_options, slot))
+                foreach (var c in PoolCommandLine.CleanupCommands(PoolCommandLine.SlotUid(_options, slot), PoolCommandLine.SlotDirectory(_options, slot)))
                 {
                     RunBlocking(c.Argv);
                 }
@@ -145,10 +145,10 @@ public sealed partial class RealSandboxTests : IDisposable
         // The slot users must be able to walk down to their own slot directory (the slot root is root-owned, traverse-only).
         RunBlocking(["chmod", "0755", _temp]);
         RunBlocking(["chmod", "0711", _temp + "/pool"]);
-        foreach (var c in PoolCommandLine.PrepareCommands(_options, slot))
+        foreach (var c in PoolCommandLine.PrepareCommands(PoolCommandLine.SlotUid(_options, slot), PoolCommandLine.SlotDirectory(_options, slot)))
         {
             var r = RunBlocking(c.Argv);
-            Assert.True((c.AllowedExitCodes ?? [0]).Contains(r.Exit), "prepare failed: " + string.Join(' ', c.Argv) + " " + r.Err);
+            Assert.True(r.Exit == 0, "prepare failed: " + string.Join(' ', c.Argv) + " " + r.Err);
         }
     }
 
@@ -186,92 +186,6 @@ public sealed partial class RealSandboxTests : IDisposable
         var status = RunBlocking([.. prefix, "/usr/bin/grep", "-E", "^(NoNewPrivs|CapEff):", "/proc/self/status"]);
         Assert.Contains("NoNewPrivs:\t1", status.Out, StringComparison.Ordinal);
         Assert.Contains("CapEff:\t0000000000000000", status.Out, StringComparison.Ordinal);
-    }
-
-    private static bool IsMounted(string dir) =>
-        File.ReadLines("/proc/self/mountinfo").Any(l => l.Split(' ').ElementAtOrDefault(4) == dir);
-
-    [Fact]
-    public void Disk_cap_stops_a_write_beyond_the_size_and_cleanup_leaves_no_mount()
-    {
-        Assert.SkipWhen(!OperatingSystem.IsLinux(), "Not Linux.");
-        // Mounts a tmpfs on the machine that runs the test, so it runs only when asked for, like the network tests.
-        Assert.SkipWhen(
-            Environment.GetEnvironmentVariable(NetnsRealTests.OptInVariable) != "1",
-            "Set " + NetnsRealTests.OptInVariable + "=1 to run the tests that change the machine's mounts and network setup.");
-        Assert.SkipWhen(!File.ReadAllText("/proc/self/status").Contains("Uid:\t0\t", StringComparison.Ordinal), "Not running as root.");
-        Assert.SkipWhen(!File.Exists("/usr/bin/mount") || !File.Exists("/usr/bin/umount"), "mount or umount is not installed.");
-
-        var options = new BrowserPoolOptions
-        {
-            SlotRoot = _temp + "/pool",
-            UseSystemdRun = false,
-            MemoryMaxMb = 0,
-            DiskMaxMb = 16,
-            DiskMaxInodes = 2048,
-            MaxSessions = 4,
-            MaxSessionsPerAgent = 2,
-            NetworkIsolation = NetworkIsolation.SharedWithUidRule,
-        };
-        var slot = 2;
-        var dir = PoolCommandLine.SlotDirectory(options, slot);
-        Directory.CreateDirectory(_temp + "/pool");
-        RunBlocking(["chmod", "0755", _temp]);
-        RunBlocking(["chmod", "0711", _temp + "/pool"]);
-
-        void Run(IReadOnlyList<PoolCommand> commands)
-        {
-            foreach (var c in commands)
-            {
-                var r = RunBlocking(c.Argv);
-                Assert.True((c.AllowedExitCodes ?? [0]).Contains(r.Exit), "command failed (" + r.Exit + "): " + string.Join(' ', c.Argv) + " " + r.Err);
-            }
-        }
-
-        try
-        {
-            // A first prepare on a slot that does not exist yet (nothing to unmount) works and mounts the cap.
-            Run(PoolCommandLine.PrepareCommands(options, slot));
-            Assert.True(IsMounted(dir));
-            var mounts = RunBlocking(["findmnt", "-n", "-o", "FSTYPE,OPTIONS", dir]);
-            Assert.Contains("tmpfs", mounts.Out, StringComparison.Ordinal);
-            Assert.Contains("size=16384k", mounts.Out, StringComparison.Ordinal);
-            Assert.Contains("nr_inodes=2048", mounts.Out, StringComparison.Ordinal);
-            Assert.Contains("noexec", mounts.Out, StringComparison.Ordinal);
-            Assert.Contains("nosuid", mounts.Out, StringComparison.Ordinal);
-            Assert.Contains("nodev", mounts.Out, StringComparison.Ordinal);
-
-            // The ownership and modes of the subdirectories are as before.
-            Assert.Equal("700 20002", RunBlocking(["stat", "-c", "%a %u", dir + "/profile"]).Out.Trim());
-            Assert.Equal("700 20002", RunBlocking(["stat", "-c", "%a %u", dir + "/run"]).Out.Trim());
-
-            // A write inside the cap works; one beyond it fails with no space left.
-            Assert.Equal(0, RunBlocking(["dd", "if=/dev/zero", "of=" + dir + "/profile/small", "bs=1M", "count=4"]).Exit);
-            var big = RunBlocking(["dd", "if=/dev/zero", "of=" + dir + "/profile/big", "bs=1M", "count=64"]);
-            Assert.NotEqual(0, big.Exit);
-            Assert.Contains("No space left on device", big.Err, StringComparison.Ordinal);
-            Assert.Equal(0, RunBlocking(["rm", "-f", dir + "/profile/big"]).Exit);
-
-            // noexec: a copied binary does not run from the slot directory.
-            Assert.Equal(0, RunBlocking(["cp", "/usr/bin/true", dir + "/profile/true"]).Exit);
-            Assert.Equal(126, RunBlocking(["/bin/sh", "-c", dir + "/profile/true"]).Exit);
-
-            // A crashed session left the tmpfs mounted with data in it: prepare ends with exactly one fresh, empty tmpfs.
-            Run(PoolCommandLine.PrepareCommands(options, slot));
-            Assert.Equal(1, File.ReadLines("/proc/self/mountinfo").Count(l => l.Split(' ').ElementAtOrDefault(4) == dir));
-            Assert.Empty(Directory.GetFileSystemEntries(dir + "/profile"));
-
-            // Cleanup unmounts and removes the directory, and running it again is harmless.
-            Run(PoolCommandLine.CleanupCommands(options, slot));
-            Assert.False(IsMounted(dir));
-            Assert.False(Directory.Exists(dir));
-            Run(PoolCommandLine.CleanupCommands(options, slot));
-            Assert.False(IsMounted(dir));
-        }
-        finally
-        {
-            RunBlocking(["umount", dir]);
-        }
     }
 
     [Fact]

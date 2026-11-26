@@ -47,11 +47,6 @@ public sealed class TokenService(
         if (record.RevokedAt is not null)
             throw new TokenRefreshException(TokenRefreshFailure.DeviceRevoked);
 
-        // A person who is not active gets nothing, even if a device row slipped through. A missing row is tolerated (the foreign key
-        // guarantees one in Postgres); only a row that says suspended or removed refuses.
-        if (await store.FindHumanAsync(record.HumanId, ct).ConfigureAwait(false) is { Status: not "active" })
-            throw new TokenRefreshException(TokenRefreshFailure.PersonNotActive);
-
         var absoluteEnd = credential.ChainStartedAt + TimeSpan.FromDays(_options.RefreshAbsoluteDays);
         if (credential.ExpiresAt <= now || absoluteEnd <= now)
             throw new TokenRefreshException(TokenRefreshFailure.ExpiredCredential);
@@ -85,44 +80,6 @@ public sealed class TokenService(
         }
 
         return new TokenPair(accessToken, accessExpiresAt, nextSecret, nextExpiresAt);
-    }
-
-    public async Task<TokenPair> IssueAsync(Guid deviceId, Guid humanId, DeviceInfo device, CancellationToken ct = default)
-    {
-        ArgumentNullException.ThrowIfNull(device);
-        if (deviceId == Guid.Empty || humanId == Guid.Empty || string.IsNullOrWhiteSpace(device.DeviceClass))
-            throw new TokenIssueException(TokenIssueFailure.InvalidDevice);
-        if (await store.FindDeviceAsync(deviceId, ct).ConfigureAwait(false) is not null)
-            throw new TokenIssueException(TokenIssueFailure.DeviceAlreadyExists);
-
-        if (await store.FindHumanAsync(humanId, ct).ConfigureAwait(false) is { Status: not "active" })
-            throw new TokenIssueException(TokenIssueFailure.PersonNotActive);
-
-        var now = time.GetUtcNow();
-        var secret = RefreshCredentialSecret.Generate();
-        var refreshExpiresAt = Min(now + TimeSpan.FromDays(_options.RefreshSlidingDays), now + TimeSpan.FromDays(_options.RefreshAbsoluteDays));
-
-        // Issue the access token first: if the issuer is unavailable nothing has been stored, so the caller can retry.
-        var accessExpiresAt = now + TimeSpan.FromMinutes(_options.AccessTokenMinutes);
-        var accessToken = accessTokens.Issue(deviceId, humanId, accessExpiresAt);
-
-        try
-        {
-            await store.CreateDeviceAsync(
-                new DeviceRecord(deviceId, humanId, device.DeviceClass, device.DeviceClass, 1, null),
-                Guid.CreateVersion7(now),
-                RefreshCredentialSecret.Hash(secret),
-                now,
-                refreshExpiresAt,
-                ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is InvalidOperationException or Npgsql.PostgresException { SqlState: Npgsql.PostgresErrorCodes.UniqueViolation })
-        {
-            // A concurrent issue for the same device won the insert.
-            throw new TokenIssueException(TokenIssueFailure.DeviceAlreadyExists);
-        }
-
-        return new TokenPair(accessToken, accessExpiresAt, secret, refreshExpiresAt);
     }
 
     public async Task RevokeDeviceAsync(Guid deviceId, PrincipalRef by, CancellationToken ct = default)

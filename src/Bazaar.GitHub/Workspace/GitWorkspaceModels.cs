@@ -19,25 +19,7 @@ public sealed class GitWorkspaceOptions
 /// <param name="TaskId">The task that owns the branch.</param>
 /// <param name="Branch">The branch checked out in the worktree, always <c>agent/&lt;task&gt;</c>.</param>
 /// <param name="Path">The full path of the worktree directory.</param>
-/// <param name="AgentId">The agent whose work share holds the worktree; null for the global root.</param>
-public sealed record TaskWorktree(string RepoId, string TaskId, string Branch, string Path, string? AgentId = null);
-
-/// <summary>
-/// Resolves the work-share root of one agent (doc 16, inter-VM shares). Returning null means "use the global
-/// <see cref="GitWorkspaceOptions.RootPath"/>", which is also what happens when no resolver is supplied.
-/// </summary>
-public interface IWorkShareRootResolver
-{
-    /// <summary>Returns the agent's worktree root, or null for the global root.</summary>
-    string? GetRoot(string agentId);
-}
-
-/// <summary>One file of a worktree's diff against a base ref.</summary>
-/// <param name="Path">The path in the worktree (the old path for deletions), '/' separated.</param>
-/// <param name="OldPath">The previous path for renames and copies; otherwise null.</param>
-/// <param name="Kind">What happened to the file.</param>
-/// <param name="Patch">The unified diff text for the file; empty for binary files.</param>
-public sealed record FileDiff(string Path, string? OldPath, DiffChangeKind Kind, string Patch);
+public sealed record TaskWorktree(string RepoId, string TaskId, string Branch, string Path);
 
 /// <summary>
 /// A commit made in a task worktree. The trailers <c>Bazaar-Agent</c>, <c>Bazaar-GC</c> and <c>Bazaar-Task</c> are

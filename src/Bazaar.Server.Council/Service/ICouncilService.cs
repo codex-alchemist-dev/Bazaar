@@ -1,5 +1,3 @@
-using Bazaar.Server.Council.Membership;
-
 namespace Bazaar.Server.Council.Service;
 
 /// <summary>
@@ -17,8 +15,6 @@ namespace Bazaar.Server.Council.Service;
 /// from voting when council.exclude_membership_subject is set. Null for other motions.</param>
 /// <param name="HighImpact">Set by the proposer: a high-impact ordinary motion goes to follow-up on enough dissent
 /// (council.followup_dissent_share). Stored on the vote; default false.</param>
-/// <param name="MembershipKind">For membership votes, the motion kind the outcome handoff reports. Required exactly when
-/// <paramref name="MembershipSubjectId"/> is set: both or neither. Stored on the vote.</param>
 public sealed record MotionDraft(
     string SubjectRef,
     VoteKind Kind,
@@ -29,8 +25,7 @@ public sealed record MotionDraft(
     string? SubjectAuthorId,
     DateTimeOffset Deadline,
     string? MembershipSubjectId = null,
-    bool HighImpact = false,
-    MembershipMotionKind? MembershipKind = null);
+    bool HighImpact = false);
 
 /// <summary>
 /// Council operations (docs/design/10-council-and-voting.md, Data and interfaces). Vote ids are Guids, generated at open.
@@ -40,7 +35,7 @@ public sealed record MotionDraft(
 public interface ICouncilService
 {
     /// <summary>Opens a vote. Only the proposer may open it. Snapshots the electorate and returns the vote id.</summary>
-    /// <exception cref="ArgumentException">The options do not fit the vote kind, or only one of the membership kind and subject is set.</exception>
+    /// <exception cref="ArgumentException">The options do not fit the vote kind.</exception>
     /// <exception cref="CouncilRejectedException">The caller is not the proposer, or the deadline has passed.</exception>
     Task<Guid> OpenAsync(string callerId, MotionDraft motion, CancellationToken ct);
 

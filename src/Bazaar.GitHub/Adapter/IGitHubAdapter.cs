@@ -18,25 +18,7 @@ public interface IGitHubAdapter
     /// anything but <see cref="PrChecksState.Passing"/> (doc 21, Merge request path: "checks pass").
     /// </summary>
     Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken);
-
-    /// <summary>
-    /// One conditional read of the repository Events API (doc 21, Ingress). The caller owns the ETag so it can tell "not modified" from
-    /// new events; the adapter's own GET cache is bypassed. Rate gating, retries and backoff apply as for any read.
-    /// </summary>
-    Task<RepositoryEventsPage> ListRepositoryEventsAsync(RepositoryEventsRequest request, CancellationToken cancellationToken);
-
-    /// <summary>The repository's GraphQL node id. Repos are keyed by node id so renames do not break mappings (doc 21, Behaviour).</summary>
-    Task<string> GetRepositoryNodeIdAsync(long installationId, string owner, string repo, CancellationToken cancellationToken);
 }
-
-/// <summary>Request for one page of repository events. <paramref name="ETag"/> is the value from the last 200, or null for an unconditional read.</summary>
-public sealed record RepositoryEventsRequest(long InstallationId, string Owner, string Repo, string? ETag);
-
-/// <summary>
-/// The result of one Events API read. When <see cref="NotModified"/> is true, <see cref="Body"/> is empty and the previous ETag stays current.
-/// <see cref="PollInterval"/> is GitHub's <c>X-Poll-Interval</c>, which the caller must not poll faster than.
-/// </summary>
-public sealed record RepositoryEventsPage(bool NotModified, string? ETag, TimeSpan? PollInterval, string Body);
 
 /// <summary>Combined state of the checks on one commit.</summary>
 public enum PrChecksState

@@ -19,7 +19,7 @@ public sealed class ModuleDb : PgFixture, IAsyncLifetime
     /// embedded in Bazaar.Server.Modules. The same composition as <c>HostMigrations.Source()</c>, without the Vms component files.
     /// </summary>
     public static IMigrationSource MigrationSource { get; } = new CompositeMigrationSource(
-        new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly),
+        new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly),
         new EmbeddedMigrationSource(typeof(ModuleManagerComponent).Assembly));
 
     /// <summary>Pooled data source for this class's database, capped at 12 connections.</summary>

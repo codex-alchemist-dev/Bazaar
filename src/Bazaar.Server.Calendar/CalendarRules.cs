@@ -166,28 +166,6 @@ public static class CalendarRules
         _ => throw new ArgumentOutOfRangeException(nameof(text), text, "Unknown stored calendar kind."),
     };
 
-    /// <summary>The visibility an event gets when none is given: <c>attendees</c> for a vacation (a personal event), <c>public</c> otherwise.</summary>
-    public static CalendarVisibility DefaultVisibility(CalendarKind kind) =>
-        kind == CalendarKind.Vacation ? CalendarVisibility.Attendees : CalendarVisibility.Public;
-
-    /// <summary>Stored text for a visibility. Matches the CHECK constraint in the calendar component's migration 0001.</summary>
-    public static string ToSql(CalendarVisibility visibility) => visibility switch
-    {
-        CalendarVisibility.Public => "public",
-        CalendarVisibility.Attendees => "attendees",
-        CalendarVisibility.Owner => "owner",
-        _ => throw new ArgumentOutOfRangeException(nameof(visibility)),
-    };
-
-    /// <summary>Parses stored visibility text.</summary>
-    public static CalendarVisibility VisibilityFromSql(string text) => text switch
-    {
-        "public" => CalendarVisibility.Public,
-        "attendees" => CalendarVisibility.Attendees,
-        "owner" => CalendarVisibility.Owner,
-        _ => throw new ArgumentOutOfRangeException(nameof(text), text, "Unknown stored calendar visibility."),
-    };
-
     /// <summary>Stored text for a status. Matches the CHECK constraint in 0017.</summary>
     public static string ToSql(CalendarStatus status) => status switch
     {

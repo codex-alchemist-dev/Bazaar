@@ -16,7 +16,6 @@ public enum DenyReason
     ModelUnavailable,
     DeniedByTightening,
     FamilyMismatch,
-    KindMismatch,
     NoEligibleCandidate,
 }
 

@@ -59,32 +59,6 @@ public static class TaskTransitionRules
         _ => false,
     };
 
-    /// <summary>
-    /// The gates for entering <see cref="TaskState.Withdrawn"/> (doc 12, "Withdrawn state"). It is not a table move: only the
-    /// withdrawal port calls this. The actor is the system or the owner, a reason is required, and a Done task needs the owner.
-    /// A task that is already withdrawn is <see cref="TransitionOutcome.NotATransition"/>; the service reports that as a no-op.
-    /// </summary>
-    public static TransitionOutcome EvaluateWithdrawal(TaskState from, TransitionContext ctx)
-    {
-        ArgumentNullException.ThrowIfNull(ctx);
-        if (from == TaskState.Withdrawn)
-        {
-            return TransitionOutcome.NotATransition;
-        }
-
-        if (!(ctx.IsSystem || ctx.IsOwner))
-        {
-            return TransitionOutcome.NotAuthorised;
-        }
-
-        if (!ctx.HasReason)
-        {
-            return TransitionOutcome.MissingReason;
-        }
-
-        return from == TaskState.Done && !ctx.IsOwner ? TransitionOutcome.NotAuthorised : TransitionOutcome.Allowed;
-    }
-
     public static TransitionOutcome Evaluate(TaskState from, TaskState to, TransitionContext ctx)
     {
         ArgumentNullException.ThrowIfNull(ctx);

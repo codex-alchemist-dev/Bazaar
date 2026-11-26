@@ -69,14 +69,13 @@ public sealed class SetupDoorOverlayTests
     [Fact]
     public void A_list_item_is_set_by_its_numeric_segment_in_both_doors()
     {
-        var environment = Env(("BAZAAR__SETUP__MODELS__SOURCES__1__ID", "openrouter"));
-        var flags = new[] { "models.sources.0.id=openai" };
+        var environment = Env(("BAZAAR__SETUP__MODELS__SOURCES__1__ID", "other-source"));
+        var flags = new[] { "models.sources.0.id=first-source" };
 
         var result = Load(Merge(SetupFixtures.Valid, flags, environment));
 
-        Assert.True(result.Plan is not null, string.Join("; ", result.Issues.Select(issue => issue.Path + " " + issue.Message)));
-        Assert.Equal("openai", result.Plan!.Models.Sources[0].Id);
-        Assert.Equal("openrouter", result.Plan.Models.Sources[1].Id);
+        Assert.Equal("first-source", result.Plan!.Models.Sources[0].Id);
+        Assert.Equal("other-source", result.Plan.Models.Sources[1].Id);
     }
 
     [Fact]
@@ -93,12 +92,12 @@ public sealed class SetupDoorOverlayTests
     {
         var overlay = Merge(
             SetupFixtures.Valid,
-            ["models.sources.2.id=openrouter", "models.sources.2.keyRef=secret://bazaar/providers/openrouter/key"]);
+            ["models.sources.2.id=third", "models.sources.2.keyRef=secret://bazaar/providers/third/key"]);
 
         var result = Load(overlay);
 
-        Assert.Equal("openrouter", result.Plan!.Models.Sources[2].Id);
-        Assert.Equal("secret://bazaar/providers/openrouter/key", result.Plan.Models.Sources[2].KeyRef);
+        Assert.Equal("third", result.Plan!.Models.Sources[2].Id);
+        Assert.Equal("secret://bazaar/providers/third/key", result.Plan.Models.Sources[2].KeyRef);
     }
 
     [Fact]

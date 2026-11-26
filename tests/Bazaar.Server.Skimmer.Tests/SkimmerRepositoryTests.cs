@@ -47,22 +47,6 @@ public sealed class SkimmerRepositoryTests(SkimmerDb db) : IClassFixture<Skimmer
     }
 
     [Fact]
-    public async Task Max_seq_is_zero_then_the_highest_decided_seq()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var repo = new WakeDecisionRepository(db.DataSource);
-        var agentId = await db.CreateAgentAsync();
-        var (gcId, seq) = await db.CreateGcEventAsync();
-
-        Assert.Equal(0, await repo.MaxSeqAsync(gcId, agentId, "score-1", Ct));
-
-        await repo.InsertAsync(new NewWakeDecision(Guid.CreateVersion7(), gcId, seq, agentId, "default", "defer", true, null, null, null, "score-1"), ct: Ct);
-
-        Assert.Equal(seq, await repo.MaxSeqAsync(gcId, agentId, "score-1", Ct));
-        Assert.Equal(0, await repo.MaxSeqAsync(gcId, agentId, "score-2", Ct));
-    }
-
-    [Fact]
     public async Task Rules_decision_stores_null_score_category_and_model()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

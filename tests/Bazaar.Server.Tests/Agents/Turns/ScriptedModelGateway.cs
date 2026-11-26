@@ -11,9 +11,6 @@ namespace Bazaar.Server.Tests.Agents.Turns;
 /// </summary>
 internal sealed class ScriptedModelGateway : IModelGateway
 {
-
-    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("ScriptedModelGateway does not support embeddings.");
     private readonly Lock _gate = new();
     private readonly Queue<Script> _scripts = new();
     private readonly List<ModelRequest> _requests = [];

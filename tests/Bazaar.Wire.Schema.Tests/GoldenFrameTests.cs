@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Text;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;

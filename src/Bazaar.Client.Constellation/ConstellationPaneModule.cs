@@ -44,7 +44,6 @@ public sealed class ConstellationPaneModule : IPaneModule, IClientModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
-        PaneCommandBindings.Open(context, OpenCommandId, PaneKinds.Constellation);
         var tiles = context.Get<IConstellationTileSource>();
         registry.Register(PaneKinds.Constellation, descriptor =>
             new ConstellationPaneViewModel(descriptor, tiles, ConstellationPaneViewModel.DefaultNodeCap));

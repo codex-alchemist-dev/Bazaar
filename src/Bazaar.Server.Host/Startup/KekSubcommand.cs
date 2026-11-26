@@ -23,7 +23,6 @@ public static class KekSubcommand
             .SetBasePath(AppContext.BaseDirectory)
             .AddJsonFile("appsettings.json", optional: true)
             .AddEnvironmentVariables("BAZAAR__")
-            .AddKekHostConfig()
             .Build();
 
         if (args.Length == 0 || !args[0].Equals("rewrap", StringComparison.OrdinalIgnoreCase))

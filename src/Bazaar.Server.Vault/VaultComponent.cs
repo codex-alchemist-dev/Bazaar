@@ -1,9 +1,7 @@
 using Bazaar.Core;
 using Bazaar.Server.Vault.Search;
-using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Vault;
 
@@ -34,8 +32,5 @@ public sealed class VaultComponent : IBazaarComponent
         ArgumentNullException.ThrowIfNull(configuration);
         // Read side: hybrid search, link expansion and body fetch (GET /vault/search). Needs the host's NpgsqlDataSource.
         services.AddBazaarVaultSearch();
-        // Page writes (doc 18) are the writer itself: forward the one VaultWriter instance, so the vault lane stays single.
-        // Resolving fails until the host registers a VaultWriter, like the other write-side services.
-        services.TryAddSingleton<IVaultPageWriter>(sp => sp.GetRequiredService<VaultWriter>());
     }
 }

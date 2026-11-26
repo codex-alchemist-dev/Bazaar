@@ -18,7 +18,6 @@ public sealed class PostgresKillSwitchStateStore(NpgsqlDataSource dataSource) : 
     private const string _loadAgents = "SELECT agent_id, reason, actor_id, engaged_at FROM kill_switch_agent_stop ORDER BY agent_id";
     private const string _deleteGlobal = "DELETE FROM kill_switch_global";
     private const string _insertGlobal = "INSERT INTO kill_switch_global (singleton, actor_id, reason, engaged_at) VALUES (true, $1, $2, $3)";
-    private const string _listAgentIds = "SELECT agent_id FROM kill_switch_agent_stop";
     private const string _deleteAgent = "DELETE FROM kill_switch_agent_stop WHERE agent_id = $1";
     private const string _insertAgent =
         "INSERT INTO kill_switch_agent_stop (agent_id, scope, reason, actor_id, engaged_at) VALUES ($1, 'agent', $2, $3, $4)";
@@ -45,28 +44,22 @@ public sealed class PostgresKillSwitchStateStore(NpgsqlDataSource dataSource) : 
             }
         }
 
-        var byAgent = new SortedDictionary<string, KillSwitchStop>(StringComparer.Ordinal);
+        var agents = new List<KillSwitchStop>();
         await using (var agentCmd = new NpgsqlCommand(_loadAgents, conn))
         await using (var reader = await agentCmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
         {
             while (await reader.ReadAsync(ct).ConfigureAwait(false))
             {
-                // A row written before ids were canonicalised may carry another spelling; two spellings of one agent keep the earlier stop.
-                var key = AgentIds.Canonical(reader.GetString(0));
-                var stop = new KillSwitchStop(
+                agents.Add(new KillSwitchStop(
                     KillSwitchScope.Agent,
-                    key,
+                    reader.GetString(0),
                     reader.GetString(2),
                     reader.GetString(1),
-                    reader.GetFieldValue<DateTimeOffset>(3));
-                if (!byAgent.TryGetValue(key, out var kept) || stop.Since < kept.Since)
-                {
-                    byAgent[key] = stop;
-                }
+                    reader.GetFieldValue<DateTimeOffset>(3)));
             }
         }
 
-        return new KillSwitchStatus(global, byAgent.Values.ToArray());
+        return new KillSwitchStatus(global, agents);
     }
 
     /// <inheritdoc />
@@ -112,11 +105,14 @@ public sealed class PostgresKillSwitchStateStore(NpgsqlDataSource dataSource) : 
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
 
-        var canonical = AgentIds.Canonical(engaged.AgentId);
-        await DeleteAgentSpellingsAsync(conn, tx, canonical, ct).ConfigureAwait(false);
+        await using (var deleteCmd = new NpgsqlCommand(_deleteAgent, conn, tx))
+        {
+            deleteCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = engaged.AgentId });
+            await deleteCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        }
         await using (var insertCmd = new NpgsqlCommand(_insertAgent, conn, tx))
         {
-            insertCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = canonical });
+            insertCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = engaged.AgentId });
             insertCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = engaged.Reason });
             insertCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = engaged.ActorId });
             insertCmd.Parameters.Add(new NpgsqlParameter<DateTimeOffset> { TypedValue = TruncateToMicroseconds(engaged.Since) });
@@ -132,38 +128,9 @@ public sealed class PostgresKillSwitchStateStore(NpgsqlDataSource dataSource) : 
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ct.ThrowIfCancellationRequested();
 
-        await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
-        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
-        await DeleteAgentSpellingsAsync(conn, tx, AgentIds.Canonical(agentId), ct).ConfigureAwait(false);
-        await tx.CommitAsync(ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Deletes every stored row of one agent, whatever its spelling. The ids are compared in code (not in SQL), so rows written
-    /// before ids were canonicalised match too and no migration is needed. The table holds one row per stopped agent.
-    /// </summary>
-    private static async Task DeleteAgentSpellingsAsync(NpgsqlConnection conn, NpgsqlTransaction tx, string canonical, CancellationToken ct)
-    {
-        var spellings = new List<string>();
-        await using (var listCmd = new NpgsqlCommand(_listAgentIds, conn, tx))
-        await using (var reader = await listCmd.ExecuteReaderAsync(ct).ConfigureAwait(false))
-        {
-            while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            {
-                var stored = reader.GetString(0);
-                if (string.Equals(AgentIds.Canonical(stored), canonical, StringComparison.Ordinal))
-                {
-                    spellings.Add(stored);
-                }
-            }
-        }
-
-        foreach (var stored in spellings)
-        {
-            await using var deleteCmd = new NpgsqlCommand(_deleteAgent, conn, tx);
-            deleteCmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = stored });
-            await deleteCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
+        await using var cmd = dataSource.CreateCommand(_deleteAgent);
+        cmd.Parameters.Add(new NpgsqlParameter<string> { TypedValue = agentId });
+        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>Cuts an instant to whole microseconds, the precision Postgres stores, so a write and its read-back agree.</summary>

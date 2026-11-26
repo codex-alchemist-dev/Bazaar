@@ -226,24 +226,6 @@ public sealed class TaskGcBridgeTests(KanbanDb db) : IClassFixture<KanbanDb>
     }
 
     [Fact]
-    public async Task Pinning_with_an_import_job_id_stores_it_on_the_task()
-    {
-        SkipWithoutDatabase();
-        var (gcId, messageId) = await db.CreateGcWithMessageAsync();
-        var service = new TaskService(db.DataSource, gcLog: NewWriter());
-
-        var imported = await service.CreateFromMessageAsync(Guid.CreateVersion7(), gcId, messageId, "Imported card", _owner, "job-7", Ct);
-        var plain = await service.CreateFromMessageAsync(Guid.CreateVersion7(), gcId, messageId, "Plain card", _owner, Ct);
-
-        await using var cmd = db.DataSource.CreateCommand("SELECT import_job_id FROM tasks WHERE id = $1");
-        cmd.Parameters.AddWithValue(imported.TaskId!.Value);
-        Assert.Equal("job-7", (string?)await cmd.ExecuteScalarAsync(Ct));
-        await using var cmd2 = db.DataSource.CreateCommand("SELECT import_job_id FROM tasks WHERE id = $1");
-        cmd2.Parameters.AddWithValue(plain.TaskId!.Value);
-        Assert.Equal(DBNull.Value, await cmd2.ExecuteScalarAsync(Ct));
-    }
-
-    [Fact]
     public async Task Pinning_a_message_from_another_gc_is_refused_and_creates_nothing()
     {
         SkipWithoutDatabase();

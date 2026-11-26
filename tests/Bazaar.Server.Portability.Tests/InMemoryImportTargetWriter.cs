@@ -14,8 +14,6 @@ public sealed class InMemoryImportTargetWriter : IImportTargetWriter
 
     public List<ImportItem> VaultFiles { get; } = [];
 
-    public List<ImportItem> KanbanTasks { get; } = [];
-
     /// <summary>Batch index whose write throws. Null means no failure is injected.</summary>
     public int? FailOnBatchIndex { get; set; }
 
@@ -33,15 +31,6 @@ public sealed class InMemoryImportTargetWriter : IImportTargetWriter
         Write(VaultFiles, batchIndex, items);
         return Task.CompletedTask;
     }
-
-    public Task AppendKanbanTasksAsync(string jobId, int batchIndex, IReadOnlyList<ImportItem> items, CancellationToken ct)
-    {
-        Write(KanbanTasks, batchIndex, items);
-        return Task.CompletedTask;
-    }
-
-    public Task<IReadOnlyList<string>> ReadKanbanSourceKeysAsync(string jobId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<string>>(KanbanTasks.Where(i => i.Provenance.JobId == jobId).Select(i => i.Record.SourceKey).ToList());
 
     public Task<IReadOnlyList<string>> ReadGcSourceKeysAsync(string jobId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<string>>(GcMessages.Where(i => i.Provenance.JobId == jobId).Select(i => i.Record.SourceKey).ToList());

@@ -80,7 +80,7 @@ public sealed class SecretStoreTests : IDisposable
         var scope = SecretScope.ForAgent(_alpha);
         await _store.PutAsync(_gateway, scope, new SecretName("token"), SecretValue.FromText("alpha-token"), CancellationToken.None);
         await _store.PutAsync(_gateway, _installation, _providerKey, SecretValue.FromText("installation"), CancellationToken.None);
-        await _agents.TransitionAsync(_alpha, AgentState.Quarantined, null, CancellationToken.None);
+        await _agents.SetStateAsync(_alpha, AgentState.Quarantined, CancellationToken.None);
 
         var denied = await Assert.ThrowsAsync<SecretAccessDeniedException>(() =>
             _store.GetAsync(_gateway, scope, new SecretName("token"), _callPurpose, CancellationToken.None));
@@ -338,7 +338,7 @@ public sealed class RevokedAgentTests
         var gateway = new HostCaller("gateway");
         await agents.RegisterAsync(alpha, CancellationToken.None);
         await store.PutAsync(gateway, scope, new SecretName("token"), SecretValue.FromText("t"), CancellationToken.None);
-        await agents.TransitionAsync(alpha, AgentState.Revoked, null, CancellationToken.None);
+        await agents.SetStateAsync(alpha, AgentState.Revoked, CancellationToken.None);
 
         var denied = await Assert.ThrowsAsync<SecretAccessDeniedException>(() =>
             store.GetAsync(gateway, scope, new SecretName("token"), new SecretPurpose("gateway.call"), CancellationToken.None));

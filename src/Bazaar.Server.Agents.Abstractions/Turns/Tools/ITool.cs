@@ -17,7 +17,7 @@ public interface ITool
 /// <see cref="ChainDepth"/> is how many trigger fires deep the calling turn is: 0 for a turn no fire woke, and the woken
 /// turn's fire depth otherwise. A tool that creates work from this turn adds one to it, so a loop cannot reset its depth.
 /// </summary>
-public sealed record ToolCallContext(Guid AgentId, Guid SessionId, Guid TurnId, int ChainDepth = 0, Guid? GcId = null);
+public sealed record ToolCallContext(Guid AgentId, Guid SessionId, Guid TurnId, int ChainDepth = 0);
 
 /// <summary>
 /// A tool that also needs the caller (<see cref="ToolCallContext"/>). Added as a companion interface, not a change to

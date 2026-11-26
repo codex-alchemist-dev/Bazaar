@@ -13,5 +13,4 @@ namespace Bazaar.Contracts.Approvals;
 [JsonSerializable(typeof(QuotedExcerptDto))]
 [JsonSerializable(typeof(ApprovalCardDto))]
 [JsonSerializable(typeof(ApprovalDecisionDto))]
-[JsonSerializable(typeof(ApprovalCardDto[]))]
 public sealed partial class ApprovalContractsJsonContext : JsonSerializerContext;

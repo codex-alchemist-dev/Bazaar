@@ -45,9 +45,6 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
     private static readonly IReadOnlyDictionary<string, string> _checksReadPermissions =
         new Dictionary<string, string> { ["checks"] = "read", ["statuses"] = "read" };
 
-    private static readonly IReadOnlyDictionary<string, string> _metadataReadPermissions =
-        new Dictionary<string, string> { ["metadata"] = "read" };
-
     private static readonly IReadOnlyDictionary<string, string> _pullWritePermissions =
         new Dictionary<string, string> { ["pull_requests"] = "write" };
 
@@ -257,29 +254,6 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
         return seen == 0 ? PrChecksState.NoChecks : PrChecksState.Passing;
     }
 
-    /// <inheritdoc />
-    public async Task<RepositoryEventsPage> ListRepositoryEventsAsync(RepositoryEventsRequest request, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        var token = await AcquireTokenAsync(request.InstallationId, _metadataReadPermissions, cancellationToken);
-        var uri = Endpoint($"{RepoPath(request.Owner, request.Repo)}/events?per_page=100");
-        var call = new GitHubCall(request.InstallationId, HttpMethod.Get, uri, token, null, IsRead: true) { ExplicitETag = request.ETag ?? string.Empty };
-        var response = await ExecuteAsync(call, cancellationToken);
-        return new RepositoryEventsPage(response.NotModified, response.ETag ?? request.ETag, response.PollInterval, response.Body);
-    }
-
-    /// <inheritdoc />
-    public async Task<string> GetRepositoryNodeIdAsync(long installationId, string owner, string repo, CancellationToken cancellationToken)
-    {
-        var token = await AcquireTokenAsync(installationId, _metadataReadPermissions, cancellationToken);
-        var response = await GetAsync(installationId, token, Endpoint(RepoPath(owner, repo)), cancellationToken);
-        using var doc = ParseJson(response, "repository");
-        var nodeId = Shape(() => doc.RootElement.GetProperty("node_id").GetString());
-        return string.IsNullOrEmpty(nodeId)
-            ? throw new GitHubApiException(null, null, "GitHub repository response had no node id.")
-            : nodeId;
-    }
-
     /// <summary>
     /// The squash merge call. It is not on <see cref="IGitHubAdapter"/>, so it is reachable only through <see cref="OwnerSignedMerge"/>.
     /// </summary>
@@ -365,7 +339,7 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
     {
         var cacheKey = $"{call.InstallationId} {call.Address.AbsoluteUri}";
         CacheEntry? cached = null;
-        if (call.IsRead && call.ExplicitETag is null)
+        if (call.IsRead)
         {
             _cache.TryGet(cacheKey, out cached);
         }
@@ -378,10 +352,6 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
         if (cached is not null)
         {
             request.Headers.TryAddWithoutValidation("If-None-Match", cached.ETag);
-        }
-        else if (!string.IsNullOrEmpty(call.ExplicitETag))
-        {
-            request.Headers.TryAddWithoutValidation("If-None-Match", call.ExplicitETag);
         }
 
         if (call.Body is not null)
@@ -415,27 +385,12 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
                 return AttemptOutcome.Ok(cached.Response);
             }
 
-            if (response.StatusCode == HttpStatusCode.NotModified && call.ExplicitETag is not null)
-            {
-                return AttemptOutcome.Ok(new GitHubResponse(string.Empty, null)
-                {
-                    NotModified = true,
-                    ETag = response.Headers.ETag?.ToString(),
-                    PollInterval = ReadPollInterval(response.Headers),
-                });
-            }
-
             var text = response.Content is { } content ? await content.ReadAsStringAsync(cancellationToken) : string.Empty;
 
             if (response.IsSuccessStatusCode)
             {
                 var next = ReadNextLink(response.Headers);
                 var result = new GitHubResponse(text, next);
-                if (call.ExplicitETag is not null)
-                {
-                    return AttemptOutcome.Ok(result with { ETag = response.Headers.ETag?.ToString(), PollInterval = ReadPollInterval(response.Headers) });
-                }
-
                 if (call.IsRead && response.Headers.ETag is { } etag)
                 {
                     _cache.Set(cacheKey, new CacheEntry(etag.ToString(), result));
@@ -584,9 +539,6 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
         return null;
     }
 
-    private static TimeSpan? ReadPollInterval(HttpResponseHeaders headers) =>
-        ReadInt(headers, "x-poll-interval") is { } seconds and > 0 ? TimeSpan.FromSeconds(seconds) : null;
-
     private static string? ReadRaw(HttpResponseHeaders headers, string name) =>
         headers.TryGetValues(name, out var values) ? values.FirstOrDefault() : null;
 
@@ -679,11 +631,7 @@ public sealed class GitHubAdapter : IGitHubAdapter, IGitHubMergeExecutor
         return new Uri(text.EndsWith('/') ? text : text + "/", UriKind.Absolute);
     }
 
-    private sealed record GitHubCall(long InstallationId, HttpMethod Method, Uri Address, string Token, JsonNode? Body, bool IsRead)
-    {
-        /// <summary>Non-null for a caller-managed conditional read (empty string: no ETag yet). Bypasses the adapter's GET cache.</summary>
-        public string? ExplicitETag { get; init; }
-    }
+    private sealed record GitHubCall(long InstallationId, HttpMethod Method, Uri Address, string Token, JsonNode? Body, bool IsRead);
 
     private sealed record RateHeaders(int? Limit, int? Remaining, DateTimeOffset? Reset, TimeSpan? RetryAfter);
 

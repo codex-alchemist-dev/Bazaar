@@ -10,12 +10,6 @@ namespace Bazaar.Client.Chat.Abstractions;
 /// <param name="Own">True when this client sent the message.</param>
 public sealed record ChatLine(long N, Guid AuthorId, string Author, string Time, string Text, bool Edited, bool Own)
 {
-    /// <summary>
-    /// The reaction chips. The chat view model sets a stable, observable list per message so a view animates only the chips that
-    /// join; a line built by <c>ChatTimeline</c> has none.
-    /// </summary>
-    public IReadOnlyList<ChatReaction> Reactions { get; init; } = [];
-
     /// <summary>The header above the text, such as <c>[09:14] Dom-tron (edited)</c>.</summary>
     public string Header => Edited ? $"[{Time}] {Author} (edited)" : $"[{Time}] {Author}";
 }

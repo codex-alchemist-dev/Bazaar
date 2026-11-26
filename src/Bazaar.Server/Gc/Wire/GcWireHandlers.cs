@@ -149,7 +149,7 @@ public sealed class GcHistoryHandler(IGcHistorySource source, IGcReadAccess acce
         // Only a full grant reads history. A limited (former member) grant is denied, the same as a missing GC.
         var grant = await access.GetGrantAsync(request.GcId, GcWirePrincipals.PrincipalOf(context.Connection.Principal), cancellationToken)
             .ConfigureAwait(false);
-        if (!grant.IsFull)
+        if (!grant.Allowed || grant.ThroughSeq is not null)
             return WireReply.Fail(WireErrorCodes.NotFound);
 
         var page = await source.ReadHistoryAsync(request.GcId, request.Before, request.Limit, cancellationToken).ConfigureAwait(false);

@@ -1,6 +1,5 @@
 using Bazaar.Components.ManagedPostgres.Bundle;
 using Bazaar.Components.ManagedPostgres.Secrets;
-using Bazaar.Server.DataVolume;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -11,15 +10,12 @@ namespace Bazaar.Components.ManagedPostgres;
 /// Runs the managed cluster. The first caller (the host's database connection or the hosted service) starts it, under a
 /// lock, so the cluster is ready before anything opens a connection. In External mode it does nothing. The first start
 /// runs initdb and saves the superuser password; later starts load it.
-/// When a data volume guard is registered (doc 63), the cluster starts only after the guard has verified the encrypted
-/// data volume and the cluster's directories resolve inside it, and a missing cluster is a refusal: setup creates it.
 /// </summary>
 public sealed class ManagedPostgresHostedService(
     IOptions<ManagedPostgresOptions> options,
     IPostgresCommandRunner runner,
     IEnumerable<IManagedPasswordStore> passwordStores,
-    ManagedPostgresEndpoint endpoint,
-    IEnumerable<IDataVolumeGuard>? dataVolumeGuards = null) : IHostedService, IAsyncDisposable, IManagedPostgresConnectionProvider
+    ManagedPostgresEndpoint endpoint) : IHostedService, IAsyncDisposable, IManagedPostgresConnectionProvider
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private PostgresProcessController? _controller;
@@ -60,20 +56,7 @@ public sealed class ManagedPostgresHostedService(
                 },
                 runner);
 
-            var hasCluster = File.Exists(Path.Combine(paths.DataDirectory, "PG_VERSION"));
-            if (dataVolumeGuards?.FirstOrDefault() is { } guard)
-            {
-                await guard.VerifyAsync(cancellationToken);
-                guard.EnsureInsideDataRoot([paths.DataDirectory, Path.Combine(paths.DataDirectory, "pg_wal")]);
-                if (!hasCluster)
-                {
-                    throw new DataVolumeRefusedException(
-                        DataVolumeRefusal.NotInitialised,
-                        $"No PostgreSQL cluster at '{paths.DataDirectory}'. The host does not create one at start; setup does (doc 63).");
-                }
-            }
-
-            if (!hasCluster)
+            if (!File.Exists(Path.Combine(paths.DataDirectory, "PG_VERSION")))
             {
                 await _controller.InitDbAsync((password, token) => new ValueTask(store.SaveAsync(password, token)), cancellationToken);
             }

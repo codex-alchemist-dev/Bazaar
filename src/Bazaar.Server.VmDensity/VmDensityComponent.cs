@@ -35,7 +35,5 @@ public sealed class VmDensityComponent : IBazaarComponent
         services.AddOptions<VmDensityOptions>().Bind(configuration.GetSection(VmDensityOptions.SectionName));
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton<IDensityGovernor, DensityGovernor>();
-        // Nothing reads per-VM activity yet, so the default reads nothing and every VM counts as busy (doc 59 section 8, PROPOSED).
-        services.TryAddSingleton<IVmActivityReader, UnreadableVmActivityReader>();
     }
 }

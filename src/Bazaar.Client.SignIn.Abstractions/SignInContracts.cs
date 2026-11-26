@@ -106,36 +106,3 @@ public interface ISignInService
     /// <summary>Forgets the saved session on this device.</summary>
     Task SignOutAsync(CancellationToken cancellationToken = default);
 }
-
-/// <summary>The signed-in person as the server reports them (<c>GET /auth/whoami</c>, doc 32 section 5, doc 45 section 2.6).</summary>
-/// <param name="HumanId">The person's id.</param>
-/// <param name="DisplayName">The name shown on their account.</param>
-/// <param name="Role">The role string the server sent, such as <c>owner</c> or <c>coworker</c>.</param>
-/// <param name="DeviceId">The id of the device this session belongs to, the one the sign-in handoff created.</param>
-public sealed record SignedInPerson(Guid HumanId, string DisplayName, string Role, Guid DeviceId);
-
-/// <summary>How a whoami call ended.</summary>
-public enum WhoAmIOutcome
-{
-    /// <summary>The server named the person.</summary>
-    Found,
-
-    /// <summary>401: the token is not valid (any reason; the server gives one answer). Sign in again.</summary>
-    InvalidToken,
-
-    /// <summary>403: the server refuses plaintext off the machine. Not a sign-in problem.</summary>
-    Forbidden,
-
-    /// <summary>503, no answer, or a reply that could not be read. Try later.</summary>
-    Unavailable,
-}
-
-/// <summary>The outcome of one whoami call. <see cref="Person"/> is set only for <see cref="WhoAmIOutcome.Found"/>.</summary>
-public sealed record WhoAmIResult(WhoAmIOutcome Outcome, SignedInPerson? Person = null);
-
-/// <summary>Reads the signed-in person from the company server with an access token.</summary>
-public interface IWhoAmIClient
-{
-    /// <summary>Calls <c>GET /auth/whoami</c> with the session's access token. Never throws for a server or network failure.</summary>
-    Task<WhoAmIResult> WhoAmIAsync(ClientSession session, CancellationToken cancellationToken = default);
-}

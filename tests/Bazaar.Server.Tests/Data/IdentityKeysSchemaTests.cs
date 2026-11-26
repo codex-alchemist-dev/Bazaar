@@ -8,7 +8,7 @@ namespace Bazaar.Server.Tests.Data;
 /// <summary>Migration <c>common/0019_identity_keys.sql</c> on real PostgreSQL (doc 14, data and interfaces).</summary>
 public sealed class IdentityKeysSchemaTests(MigrationDb db) : IClassFixture<MigrationDb>
 {
-    private static readonly EmbeddedMigrationSource _source = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+    private static readonly EmbeddedMigrationSource _source = new(typeof(MigrationRunner).Assembly);
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

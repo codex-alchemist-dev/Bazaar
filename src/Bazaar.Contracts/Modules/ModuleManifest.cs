@@ -15,8 +15,6 @@ public enum ModuleIsolation
 /// <summary>
 /// The manifest every client module declares (doc 41 section 8). The host enforces it the same way for every module,
 /// first-party or not (doc 41 section 10, decision 1). Records are immutable; <see cref="ModuleManifestValidator"/> checks them.
-/// <c>EnabledByDefault</c> false makes the module optional: it ships in the build but <c>ClientModuleHost</c> loads it only when the head
-/// names it as enabled (docs/design/BAZAAR-COMPONENTS.md section 3).
 /// </summary>
 public sealed record ModuleManifest(
     string Id,
@@ -27,8 +25,7 @@ public sealed record ModuleManifest(
     IReadOnlyList<string> SettingKeys,
     IReadOnlyList<string> Capabilities,
     ModuleIsolation Isolation,
-    HostRequirements Host,
-    bool EnabledByDefault = true);
+    HostRequirements Host);
 
 /// <summary>One manifest problem. Path is a JSON pointer; Code is stable for tests.</summary>
 public sealed record ModuleManifestIssue(string Path, string Code, string Message);

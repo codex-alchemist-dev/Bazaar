@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using Bazaar.Constellation.Rendering.Core;
 using Vortice.Vulkan;
 using static Vortice.Vulkan.Vulkan;
 
@@ -53,29 +52,11 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
 
-    private readonly bool _nodeIcons;
-    private readonly IconAtlas _iconAtlas;
-
-    private VulkanOffscreenRenderer(uint width, uint height, bool reversedZ, bool nodeIcons, IconAtlas? iconAtlas)
+    private VulkanOffscreenRenderer(uint width, uint height, bool reversedZ)
     {
         _width = width;
         _height = height;
         _reversedZ = reversedZ;
-        _nodeIcons = nodeIcons;
-        _iconAtlas = iconAtlas ?? IconAtlas.Create();
-    }
-
-    /// <summary>True when node icons are drawn (the default); false draws every node as a dot or ring.</summary>
-    public bool NodeIconsEnabled => _nodeIcons;
-
-    /// <summary>
-    /// Replaces the per-instance icon rectangles (<see cref="NodeIconBuffer.Bytes"/>). Takes effect on the next render;
-    /// ignored when icons are off. Safe between renders, which wait for the GPU to finish.
-    /// </summary>
-    public void SetIcons(ReadOnlySpan<byte> iconBytes)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _pipeline.UploadIcons(iconBytes);
     }
 
     /// <summary>True when the renderer was created with a reversed-Z depth attachment (<see cref="ReversedZDepth"/>).</summary>
@@ -111,13 +92,11 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     /// Creates the renderer. Throws <see cref="InvalidOperationException"/> with the reason when the loader or device is unusable.
     /// </summary>
     /// <param name="reversedZ">Adds a D32 reversed-Z depth attachment (clear 0, greater-or-equal). Off by default.</param>
-    /// <param name="nodeIcons">Draws node icons from the atlas. On by default.</param>
-    /// <param name="iconAtlas">Atlas to upload; null generates the default one.</param>
-    public static VulkanOffscreenRenderer Create(uint width, uint height, bool enableValidation = false, bool reversedZ = false, bool nodeIcons = true, IconAtlas? iconAtlas = null)
+    public static VulkanOffscreenRenderer Create(uint width, uint height, bool enableValidation = false, bool reversedZ = false)
     {
         ArgumentOutOfRangeException.ThrowIfZero(width);
         ArgumentOutOfRangeException.ThrowIfZero(height);
-        var renderer = new VulkanOffscreenRenderer(width, height, reversedZ, nodeIcons, iconAtlas);
+        var renderer = new VulkanOffscreenRenderer(width, height, reversedZ);
         try
         {
             renderer.Initialise(enableValidation);
@@ -150,14 +129,6 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _pipeline.UploadStyles(styleBytes);
-    }
-
-    /// <summary>Replaces the section rectangles (<see cref="SectionPacking.Pack"/>) drawn behind the nodes. Waits for the device to go idle.</summary>
-    public void SetSections(ReadOnlySpan<byte> sectionBytes)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-        _deviceApi.vkDeviceWaitIdle();
-        _pipeline.UploadSections(sectionBytes);
     }
 
     /// <summary>
@@ -456,7 +427,7 @@ public sealed unsafe class VulkanOffscreenRenderer : IDisposable
         };
         _deviceApi.vkCreateImageView(&viewInfo, null, out _imageView);
 
-        _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, TargetFormat, VkImageLayout.TransferSrcOptimal, _queue, _commandPool, _iconAtlas, _nodeIcons, _reversedZ);
+        _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, TargetFormat, VkImageLayout.TransferSrcOptimal, _reversedZ);
 
         if (_reversedZ)
         {

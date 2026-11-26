@@ -105,7 +105,7 @@ public static class CompanyBuildPipeline
         await CompanyBuildFiles.WriteChecksumsAsync(layout, cancellationToken).ConfigureAwait(false);
         CompanyBuildFiles.WriteAtomic(layout.ReadmePath, CompanyBuildFiles.RenderReadme(plan, finished, hostNotes));
         CompanyBuildFiles.WriteAtomic(layout.ReportPath, CompanyBuildFiles.RenderReport(finished));
-        CompanyBuildFiles.AppendHistory(layout, finished, identity.Address.AbsoluteUri, identity.KeyHashPin);
+        CompanyBuildFiles.AppendHistory(layout, finished);
         if (!complete)
         {
             CompanyBuildFiles.WriteAtomic(layout.IncompleteMarkerPath, "At least one target failed. See BUILD-REPORT.txt.\n");

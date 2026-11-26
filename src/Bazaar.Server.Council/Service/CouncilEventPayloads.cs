@@ -11,7 +11,6 @@ namespace Bazaar.Server.Council.Service;
 [JsonSerializable(typeof(CouncilTransitionPayload))]
 [JsonSerializable(typeof(CouncilRevealPayload))]
 [JsonSerializable(typeof(CouncilDecisionPayload))]
-[JsonSerializable(typeof(CouncilReasonPayload))]
 internal sealed partial class CouncilEventJsonContext : JsonSerializerContext;
 
 /// <summary>The <c>council.open</c> payload (no reasoning).</summary>
@@ -95,26 +94,8 @@ internal sealed record CouncilRevealReasonPayload
     public required string VoterId { get; init; }
 
     public required string Choice { get; init; }
-}
 
-/// <summary>
-/// The clear part of a <c>council.reason</c> event (doc 10, Envelope). The reasoning text is not here: it is sealed in the
-/// event's <c>payload_ct</c> under the voter's key.
-/// </summary>
-internal sealed record CouncilReasonPayload
-{
-    public required Guid VoteId { get; init; }
-
-    public required string VoterId { get; init; }
-
-    public required string Phase { get; init; }
-
-    public required string Choice { get; init; }
-
-    /// <summary><c>reveal</c> for independent reasons and <c>decision</c> for follow-up reasons.</summary>
-    public required string Context { get; init; }
-
-    public required bool ErasedAtWrite { get; init; }
+    public required string Reasoning { get; init; }
 }
 
 /// <summary>The <c>council.decision</c> payload.</summary>
@@ -147,4 +128,6 @@ internal sealed record CouncilDecisionVoterPayload
     public required string? FollowupChoice { get; init; }
 
     public required string? FinalChoice { get; init; }
+
+    public required string? Reasoning { get; init; }
 }

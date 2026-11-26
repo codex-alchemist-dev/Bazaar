@@ -30,29 +30,4 @@ public sealed class LeaseTokenRevokerTests
 
         Assert.Equal(TokenResumeOutcome.NotReversible, result.Outcome);
     }
-
-    [Theory]
-    [InlineData("upper")]
-    [InlineData("braces")]
-    [InlineData("nohyphen")]
-    [InlineData("padded")]
-    public async Task Any_spelling_of_a_guid_agent_id_revokes_the_agents_leases(string spelling)
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var agent = Guid.NewGuid();
-        var leases = new InMemoryCredentialLeaseStore(TimeProvider.System);
-        await leases.IssueAsync(
-            new LeaseId(Guid.NewGuid()), agent.ToString("D"), new CredentialId(Guid.NewGuid()), "read", DateTimeOffset.UtcNow.AddHours(1), approvalId: null, ct);
-        var spelled = spelling switch
-        {
-            "upper" => agent.ToString("D").ToUpperInvariant(),
-            "braces" => agent.ToString("B"),
-            "nohyphen" => agent.ToString("N"),
-            _ => "  " + agent.ToString("D") + "  ",
-        };
-
-        await new LeaseTokenRevoker(leases).RevokeAsync(spelled, ct);
-
-        Assert.Empty(await leases.ListActiveAsync(agent.ToString("D"), ct));
-    }
 }

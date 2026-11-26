@@ -15,8 +15,6 @@ public abstract class WireCodecConformance
 {
     private const int _fuzzIterations = 2000;
     private const int _fuzzSeed = 90;
-    internal const int FuzzIterations = 2000;
-    internal const int FuzzSeed = 90;
 
     private static readonly DateTimeOffset _at = new(2026, 11, 19, 5, 36, 12, 345, TimeSpan.Zero);
     private static readonly Guid _gc = Guid.Parse("0196a6f0-0000-7000-8000-000000000001");
@@ -35,13 +33,6 @@ public abstract class WireCodecConformance
     /// <c>x-future</c> added whose value nests arrays <paramref name="nestingDepth"/> levels deep. Used for the unknown-field tests.
     /// </summary>
     protected abstract byte[] AddUnknownField(ReadOnlyMemory<byte> encodedObject, int nestingDepth);
-
-    /// <summary>
-    /// True for a codec whose unknown fields are skipped by length without being parsed (MemoryPack's version-tolerant objects), so
-    /// a deeply nested unknown field costs nothing and is not a nesting violation. Such a codec must still either read the frame or
-    /// fail with <see cref="WireFormatException"/> on the nesting-bomb tests, never crash. Self-describing codecs leave this false.
-    /// </summary>
-    protected virtual bool UnknownFieldsAreOpaque => false;
 
     private IWireCodec Codec => CreateCodec(WireDecodeLimits.Default);
 
@@ -255,16 +246,12 @@ public abstract class WireCodecConformance
         var random = new Random(_fuzzSeed);
 
         for (var i = 0; i < _fuzzIterations; i++)
-        var random = new Random(FuzzSeed);
-
-        for (var i = 0; i < FuzzIterations; i++)
         {
             var index = random.Next(samples.Count);
             var sample = samples[index];
             var onFrame = i % 2 == 0;
             var mutated = Mutate(random, onFrame ? frames[index] : payloads[index], frames[random.Next(frames.Length)]);
             var label = $"iteration {i} seed {_fuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
-            var label = $"iteration {i} seed {FuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
 
             ExpectOnlyWireFormat(
                 () =>
@@ -282,13 +269,6 @@ public abstract class WireCodecConformance
         var codec = Codec;
         var payload = codec.EncodePayload(new Ping(null));
         var frame = Frame(codec, Envelope("ping", payload));
-
-        if (UnknownFieldsAreOpaque)
-        {
-            ExpectOnlyWireFormat(() => codec.Decode(AddUnknownField(frame, 100_000)), "nesting bomb in an opaque frame field");
-            ExpectOnlyWireFormat(() => codec.DecodePayload<Ping>(Envelope("ping", AddUnknownField(payload, 100_000))), "nesting bomb in an opaque payload field");
-            return;
-        }
 
         Assert.Throws<WireFormatException>(() => codec.Decode(AddUnknownField(frame, 100_000)));
         Assert.Throws<WireFormatException>(() => codec.DecodePayload<Ping>(Envelope("ping", AddUnknownField(payload, 100_000))));

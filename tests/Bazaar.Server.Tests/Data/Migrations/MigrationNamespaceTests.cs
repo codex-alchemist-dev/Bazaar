@@ -163,7 +163,7 @@ public sealed class MigrationNamespaceTests
     [Fact]
     public void Embedded_source_finds_the_common_namespace_with_every_shipped_file()
     {
-        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
 
         Assert.Contains(MigrationNamespaces.Common, source.Namespaces());
         var common = source.Load(MigrationNamespaces.Common);
@@ -176,28 +176,8 @@ public sealed class MigrationNamespaceTests
     [Fact]
     public void Embedded_source_has_no_namespace_that_breaks_the_name_rule()
     {
-        var source = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly);
+        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
 
         Assert.All(source.Namespaces(), ns => Assert.True(MigrationNamespaces.IsValid(ns), ns));
-    }
-
-    [Fact]
-    public void Plan_leaves_out_the_namespace_of_a_switched_off_component()
-    {
-        var source = new InMemoryMigrationSource([Mig("common", 1), Mig("kanban", 1), Mig("playground", 1)]);
-
-        var plan = MigrationRunner.Plan(source, "linux", [Component("kanban"), Component("playground")], m => m.Id != "playground");
-
-        Assert.Equal(["common", "kanban"], plan.Select(f => f.Namespace));
-    }
-
-    [Fact]
-    public void Plan_with_no_enablement_function_keeps_every_namespace()
-    {
-        var source = new InMemoryMigrationSource([Mig("common", 1), Mig("playground", 1)]);
-
-        var plan = MigrationRunner.Plan(source, "linux", [Component("playground")]);
-
-        Assert.Equal(["common", "playground"], plan.Select(f => f.Namespace));
     }
 }

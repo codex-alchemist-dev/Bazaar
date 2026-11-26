@@ -22,7 +22,7 @@ public sealed record TeamSchedule(IReadOnlyList<TeamScheduleGroup> Groups);
 
 /// <summary>
 /// Pure builder for the RyuseiFuda layer 1 macro board. Groups every task given by owner, orders deterministically,
-/// and derives Blocked and blocker chips from the edges. No I/O and no clock. Leaves withdrawn tasks out (doc 12, "Withdrawn state"); filters nothing else by state.
+/// and derives Blocked and blocker chips from the edges. No I/O and no clock. Does not filter by state.
 /// </summary>
 public static class TeamScheduleBuilder
 {
@@ -38,7 +38,6 @@ public static class TeamScheduleBuilder
         }
 
         var groups = tasks
-            .Where(t => t.State != TaskState.Withdrawn)
             .GroupBy(t => t.OwnerAgentId)
             .OrderBy(g => g.Key is null ? 1 : 0)
             .ThenBy(g => g.Key is null ? string.Empty : g.Key.Value.ToString("D"), StringComparer.Ordinal)

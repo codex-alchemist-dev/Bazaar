@@ -8,7 +8,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Platform-neutral: the pool VM is reached only through the ports in the Abstractions project. No Bazaar.Server, no other feature module. -->
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
   </ItemGroup>
 </Project>

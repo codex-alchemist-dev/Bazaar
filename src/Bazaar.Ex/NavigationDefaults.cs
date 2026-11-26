@@ -13,7 +13,6 @@ public static class NavigationDefaults
     public const string UnreadCommandId = "nav.unread";
     public const string SettingsCommandId = "nav.settings";
     public const string ConstellationCommandId = "nav.constellation";
-    public const string DashboardCommandId = "nav.dashboard";
     public const string RemapCommandId = "nav.remap";
 
     public static IReadOnlyList<MnemonicAssignment> Assignments { get; } = new[]
@@ -26,7 +25,6 @@ public static class NavigationDefaults
         new MnemonicAssignment(UnreadCommandId, "Unread", "unread", MnemonicTier.BuiltIn, MnemonicAssignment.BuiltInSource),
         new MnemonicAssignment(SettingsCommandId, "Settings", "settings", MnemonicTier.BuiltIn, MnemonicAssignment.BuiltInSource),
         new MnemonicAssignment(ConstellationCommandId, "Constellation", "constellation", MnemonicTier.BuiltIn, MnemonicAssignment.BuiltInSource),
-        new MnemonicAssignment(DashboardCommandId, "Dashboard", "dashboard", MnemonicTier.BuiltIn, MnemonicAssignment.BuiltInSource),
         new MnemonicAssignment(RemapCommandId, "Remap mnemonics", "remap", MnemonicTier.BuiltIn, MnemonicAssignment.BuiltInSource),
     };
 }

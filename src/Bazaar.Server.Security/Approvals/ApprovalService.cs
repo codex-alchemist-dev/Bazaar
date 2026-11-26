@@ -19,6 +19,8 @@ public sealed class ApprovalService(
     IRateBucketStore rateBuckets,
     ApprovalOptions options)
 {
+    private static readonly TimeSpan _requestWindow = TimeSpan.FromHours(1);
+
     private readonly IApprovalStore _store = store ?? throw new ArgumentNullException(nameof(store));
     private readonly IOwnerKeyRegistry _keys = keys ?? throw new ArgumentNullException(nameof(keys));
     private readonly IRateBucketStore _rateBuckets = rateBuckets ?? throw new ArgumentNullException(nameof(rateBuckets));
@@ -86,7 +88,8 @@ public sealed class ApprovalService(
             return new RequestResult(RequestOutcome.MalformedArguments, null);
         }
 
-        if (!ApprovalRequestCap.TryConsume(_rateBuckets, context.AgentId, _options, context.Now))
+        var cap = new RateRule(_options.RequestCapPerAgentHour, _requestWindow);
+        if (!_rateBuckets.TryConsume($"approval-request|{context.AgentId}", cap, context.Now).Allowed)
         {
             return new RequestResult(RequestOutcome.RateLimited, null);
         }

@@ -102,26 +102,3 @@ public sealed class ApprovalGate(IApprovalSigner signer, IPresenceVerifier prese
         return await _signer.SignAsync(payload, cancellationToken).ConfigureAwait(false);
     }
 }
-
-/// <summary>A freshly created approval key as the enrolment request needs it (docs/design/32, 5b step 2).</summary>
-/// <param name="PublicKeySpki">The P-256 public key, DER SubjectPublicKeyInfo. The private half never leaves the hardware.</param>
-/// <param name="Attestation">The platform's attestation of the key, one blob per chain element. Empty when the platform produced none; the server then refuses the key.</param>
-/// <param name="KeyName">The name of the key on this device.</param>
-public sealed record ProvisionedApprovalKey(byte[] PublicKeySpki, IReadOnlyList<byte[]> Attestation, string KeyName);
-
-/// <summary>Creates (or opens) the device's hardware approval key for enrolment. Implemented per platform. Throws <see cref="ApprovalRefusedException"/> when no hardware key can be made.</summary>
-public interface IApprovalKeyProvisioner
-{
-    /// <summary>Creates or opens the named key and asks the platform to attest it, binding <paramref name="nonce"/> where the platform allows.</summary>
-    ValueTask<ProvisionedApprovalKey> ProvisionAsync(string keyName, ReadOnlyMemory<byte> nonce, CancellationToken cancellationToken);
-}
-
-/// <summary>
-/// Produces the platform attestation of a hardware key (on Windows, the TPM attestation of doc 32 section 5b step 3). The wire
-/// format is not fixed by the design yet, so it stays behind this interface; a source that cannot attest returns no blobs.
-/// </summary>
-public interface IApprovalKeyAttestationSource
-{
-    /// <summary>The attestation chain for <paramref name="keyName"/>, or an empty list when none can be produced.</summary>
-    ValueTask<IReadOnlyList<byte[]>> AttestAsync(string keyName, ReadOnlyMemory<byte> nonce, CancellationToken cancellationToken);
-}

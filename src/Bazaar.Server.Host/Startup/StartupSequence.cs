@@ -1,11 +1,9 @@
-using Bazaar.Server.DataVolume;
 using Bazaar.Server.Providers;
 
 namespace Bazaar.Server.Host.Startup;
 
 /// <summary>
-/// Doc 03 startup steps, run before the other hosted services: verify the data volume when a guard is registered (doc 63
-/// section 5; a refusal stops the host with exit code 78 before the lock is taken), then take the instance lock (a second instance exits with one log line),
+/// Doc 03 startup steps 3 to 5, run before the other hosted services: take the instance lock (a second instance exits with one log line),
 /// check the schema, probe providers. The schema gate is a seam; M1's runner plugs in through <see cref="ISchemaGate"/>.
 /// </summary>
 public sealed partial class StartupSequence(
@@ -16,27 +14,10 @@ public sealed partial class StartupSequence(
     HostState state,
     HostExitCode exitCode,
     IHostApplicationLifetime lifetime,
-    ILogger<StartupSequence> logger,
-    IEnumerable<IDataVolumeGuard>? dataVolumeGuards = null) : IHostedService
+    ILogger<StartupSequence> logger) : IHostedService
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        foreach (var guard in dataVolumeGuards ?? [])
-        {
-            try
-            {
-                await guard.VerifyAsync(cancellationToken);
-            }
-            catch (DataVolumeRefusedException refusal)
-            {
-                // Fail closed: nothing after this step runs, so no lock is taken and no schema is touched.
-                LogDataVolumeRefused(logger, refusal.Code, refusal.Message);
-                exitCode.Value = DataVolumeRefusedException.ExitCode;
-                lifetime.StopApplication();
-                return;
-            }
-        }
-
         if (!await instanceLock.TryAcquireAsync(cancellationToken))
         {
             LogSecondInstance(logger);
@@ -65,9 +46,6 @@ public sealed partial class StartupSequence(
 
     [LoggerMessage(Level = LogLevel.Critical, Message = "Another Bazaar.Server instance holds the instance lock for this database; exiting.")]
     private static partial void LogSecondInstance(ILogger logger);
-
-    [LoggerMessage(Level = LogLevel.Critical, Message = "Data volume check refused the start ({Code}): {Reason}")]
-    private static partial void LogDataVolumeRefused(ILogger logger, string code, string reason);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "{Line}")]
     private static partial void LogProvider(ILogger logger, string line);

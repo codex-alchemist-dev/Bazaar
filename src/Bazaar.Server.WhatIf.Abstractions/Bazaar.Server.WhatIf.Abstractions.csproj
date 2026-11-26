@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net11.0</TargetFramework>
-    <RootNamespace>Bazaar.Server.WhatIf</RootNamespace>
-    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <IsAotCompatible>true</IsAotCompatible>
-  </PropertyGroup>
-</Project>

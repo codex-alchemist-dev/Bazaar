@@ -8,8 +8,6 @@ namespace Bazaar.Constellation.Vulkan;
 /// (vec2); binding 1 is the per-instance block that <see cref="NodeInstanceBuffer"/> packs (x, y, style index).
 /// The shaders in Shaders/ read these locations: 0 corner, 1 centre, 2 style index. The style itself comes from the
 /// style table in a storage buffer, see <see cref="NodeStylePacking"/>.
-/// Binding 2 is a second per-instance stream, the icon atlas rectangle from <see cref="NodeIconBuffer"/> (location 3, vec4).
-/// The stream is always bound; all-zero rectangles mean no icon, so the first stream is the same with icons off.
 /// This type builds no device objects, so the layout can be checked without a GPU.
 /// </summary>
 public static class NodeInstanceVertexLayout
@@ -20,9 +18,6 @@ public static class NodeInstanceVertexLayout
     /// <summary>Bytes per instance, equal to <see cref="NodeInstanceBuffer.FloatsPerInstance"/> times four.</summary>
     public const uint InstanceStride = NodeInstanceBuffer.FloatsPerInstance * sizeof(float);
 
-    /// <summary>Bytes per instance in the icon stream, equal to <see cref="NodeIconBuffer.FloatsPerInstance"/> times four.</summary>
-    public const uint IconStride = NodeIconBuffer.FloatsPerInstance * sizeof(float);
-
     /// <summary>Bytes per corner vertex.</summary>
     public const uint CornerStride = 2 * sizeof(float);
 
@@ -30,7 +25,6 @@ public static class NodeInstanceVertexLayout
     [
         new VkVertexInputBindingDescription { binding = 0, stride = CornerStride, inputRate = VkVertexInputRate.Vertex },
         new VkVertexInputBindingDescription { binding = 1, stride = InstanceStride, inputRate = VkVertexInputRate.Instance },
-        new VkVertexInputBindingDescription { binding = 2, stride = IconStride, inputRate = VkVertexInputRate.Instance },
     ];
 
     public static VkVertexInputAttributeDescription[] Attributes =>
@@ -38,6 +32,5 @@ public static class NodeInstanceVertexLayout
         new VkVertexInputAttributeDescription { location = 0, binding = 0, format = VkFormat.R32G32Sfloat, offset = 0 },
         new VkVertexInputAttributeDescription { location = 1, binding = 1, format = VkFormat.R32G32Sfloat, offset = 0 },
         new VkVertexInputAttributeDescription { location = 2, binding = 1, format = VkFormat.R32Sfloat, offset = 2 * sizeof(float) },
-        new VkVertexInputAttributeDescription { location = 3, binding = 2, format = VkFormat.R32G32B32A32Sfloat, offset = 0 },
     ];
 }

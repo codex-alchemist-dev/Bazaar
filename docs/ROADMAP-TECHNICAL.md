@@ -174,7 +174,7 @@ The target is one module contract for all modules, first-party and third-party a
 | FreeLLMAPI provider: usage, health and expected-set auditor | Partial. Live key check (spike S17) pending | `docs/design/05b`; spike S17 |
 | `custom/*` routing methods | Planned (rules OPEN) | `CLAUDE.md` |
 | Turn runner in production; model tool calls dispatched through `IToolDispatcher` | Done | PRs #447, #457, #461 |
-| Wake loop behind `IAgentScheduler`; on by default behind the kill switch and loop guard (was off by default) | Done | PR #442; overnight plan item 41 |
+| Wake loop behind `IAgentScheduler`, off by default | Done | PR #442 |
 | Loop guard limits from configuration; loop guard mention parsing on the post path | Done | PRs #404, #438 |
 | Psych Ward state machine; loop-guard trips into it | Done | PRs #406, #467, #469 |
 | RyuseiFuda agent tools through the dispatcher; per-agent wake cap; chain depth | Done | PRs #349, #353, #359, #463, #370 |
@@ -236,7 +236,7 @@ The target is one module contract for all modules, first-party and third-party a
 | Observatory: live agent activity and model lanes near limits | Partial (usage rollup in flight) | `docs/design/23` |
 | Usage records labelled by source, `native` or `pooled` | Planned in full (`GW8`) | `docs/design/05` |
 | Admin panel inside the apps | Planned | `CLAUDE.md` |
-| Server TUI (install wizard and live ops) | DECIDED, `docs/design/58-server-tui.md` | `CLAUDE.md` |
+| TUI status client | OPEN | `CLAUDE.md` |
 
 ## T13. Virtual machines and environments
 
@@ -247,7 +247,7 @@ The target is one module contract for all modules, first-party and third-party a
 | QEMU/KVM backend, Linux as a first-class tested host | Planned (after v1 candidates) | `docs/ROADMAP.md` |
 | Guest agent project | Partial (project exists) | `src/Bazaar.Guest.Agent` |
 | Browser profiles with credential leases | Planned | `docs/design/16`, `docs/design/14` |
-| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Server.Engines` |
+| Godot headless adapter; Roblox Studio bridge | Partial | `src/Bazaar.Engines` |
 
 ## T14. Backup, restore and export
 

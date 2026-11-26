@@ -1,10 +1,4 @@
 using Bazaar.Server.Setup;
-using Bazaar.Server.Company;
-using Bazaar.Server.Security.Audit;
-using Bazaar.Server.Setup;
-using Bazaar.Server.Setup.Constitution;
-using Bazaar.Server.Setup.FirstRun;
-using Bazaar.Server.Setup.FirstRun.Postgres;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.Setup.Postgres;
 using Microsoft.Extensions.Configuration;
@@ -22,13 +16,6 @@ public sealed class SetupComponentStepTests
         services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none"));
         services.AddSingleton(Bazaar.Server.Settings.BuiltInSettingRegistries.Known);
         component.AddServices(services, new ConfigurationBuilder().Build());
-    private static ServiceProvider Build(SetupComponent component, IReadOnlyDictionary<string, string?>? settings = null)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none"));
-        services.AddSingleton(Bazaar.Server.Settings.BuiltInSettingRegistries.WithContributions([]));
-        services.AddSingleton<IAuditLog>(new NullAudit());
-        component.AddServices(services, new ConfigurationBuilder().AddInMemoryCollection(settings ?? new Dictionary<string, string?>()).Build());
         return services.BuildServiceProvider();
     }
 
@@ -41,92 +28,6 @@ public sealed class SetupComponentStepTests
 
         Assert.IsType<InstallSettingsStep>(step);
         Assert.Equal("install.settings", step.Id);
-    public void The_default_component_registers_the_company_owner_install_settings_model_sources_constitution_and_first_run_seed_steps()
-    {
-        using var provider = Build(new SetupComponent());
-
-        var steps = provider.GetServices<ISetupStep>().OrderBy(step => step.Order).ToList();
-
-        // The profile and the owner come first: the first-run seed finds the owner row. The Constitution is drafted just before the
-        // first-run seed, which needs a commit to accept.
-        Assert.Equal(
-            ["company.profile", "owner.create", "constitution.seed", "firstrun.seed", "models.sources", "install.settings"],
-            steps.Select(step => step.Id));
-        Assert.IsType<CompanyProfileStep>(steps[0]);
-        Assert.IsType<OwnerStep>(steps[1]);
-        Assert.IsType<ConstitutionSeedStep>(steps[2]);
-        Assert.IsType<FirstRunSeedStep>(steps[3]);
-        Assert.IsType<GatewaySourcesStep>(steps[4]);
-        Assert.IsType<InstallSettingsStep>(steps[5]);
-    }
-
-    [Fact]
-    public void The_company_stores_resolve_and_the_owner_step_covers_the_owner_sections_but_not_the_backup_owners()
-    {
-        using var provider = Build(new SetupComponent());
-
-        Assert.IsType<PostgresCompanyProfileReader>(provider.GetRequiredService<ICompanyProfileReader>());
-        Assert.IsType<PostgresCompanyProfileStore>(provider.GetRequiredService<ICompanyProfileStore>());
-        Assert.IsType<PostgresOwnerStore>(provider.GetRequiredService<IOwnerStore>());
-        var covered = provider.GetServices<ISetupStep>().SelectMany(step => step.Covers).ToHashSet(StringComparer.Ordinal);
-        Assert.Contains("install.identity", covered);
-        Assert.Contains("owner", covered);
-        Assert.Contains("owner.recovery", covered);
-        Assert.DoesNotContain("owner.backupOwners", covered);
-    }
-
-    [Fact]
-    public void The_owner_step_runs_before_the_first_run_seed_that_needs_the_owner_row()
-    {
-        using var provider = Build(new SetupComponent());
-        var steps = provider.GetServices<ISetupStep>().ToDictionary(step => step.Id, StringComparer.Ordinal);
-
-        Assert.True(steps["owner.create"].Order < steps["constitution.seed"].Order);
-        Assert.True(steps["owner.create"].Order < steps["firstrun.seed"].Order);
-        Assert.True(steps["company.profile"].Order < steps["owner.create"].Order);
-    }
-
-    [Fact]
-    public void The_constitution_vault_is_unconfigured_without_the_memory_vault_settings()
-    {
-        using var provider = Build(new SetupComponent());
-
-        Assert.IsType<UnconfiguredConstitutionVault>(provider.GetRequiredService<IConstitutionVault>());
-    }
-
-    [Fact]
-    public void The_constitution_vault_is_the_git_vault_when_the_memory_vault_settings_are_set()
-    {
-        using var provider = Build(new SetupComponent(), new Dictionary<string, string?>
-        {
-            [ConstitutionVaultOptions.RepoPathKey] = Path.Combine(Path.GetTempPath(), "bazaar-unused-vault"),
-            [ConstitutionVaultOptions.VaultIdKey] = Guid.NewGuid().ToString(),
-            [ConstitutionVaultOptions.WriterNameKey] = "Writer",
-            [ConstitutionVaultOptions.WriterEmailKey] = "writer@example.invalid",
-        });
-
-        Assert.IsType<GitConstitutionVault>(provider.GetRequiredService<IConstitutionVault>());
-    }
-
-    [Fact]
-    public void The_first_run_seed_step_resolves_with_its_postgres_stores()
-    {
-        using var provider = Build(new SetupComponent());
-
-        Assert.IsType<PostgresFirstRunStore>(provider.GetRequiredService<IFirstRunStore>());
-        Assert.IsType<PostgresFirstRunOwner>(provider.GetRequiredService<IFirstRunOwner>());
-        Assert.IsType<PostgresConstitutionAcceptance>(provider.GetRequiredService<IConstitutionAcceptance>());
-        Assert.IsType<PostgresDefaultAgentRoutes>(provider.GetRequiredService<IDefaultAgentRoutes>());
-        Assert.IsType<AuditLogFirstRunAudit>(provider.GetRequiredService<IFirstRunAudit>());
-        Assert.NotNull(provider.GetRequiredService<FirstRunSeedStep>());
-    }
-
-    [Fact]
-    public void The_first_run_section_is_covered_so_an_apply_is_not_held_for_it()
-    {
-        using var provider = Build(new SetupComponent());
-
-        Assert.Contains(provider.GetServices<ISetupStep>(), step => step.Covers.Contains("firstRun"));
     }
 
     [Fact]
@@ -140,7 +41,6 @@ public sealed class SetupComponentStepTests
 
     [Fact]
     public async Task The_progress_list_reports_the_registered_step_as_pending()
-    public async Task The_progress_list_reports_the_registered_steps_as_pending()
     {
         using var provider = Build(new SetupComponent());
 
@@ -148,17 +48,6 @@ public sealed class SetupComponentStepTests
 
         var progress = Assert.Single(snapshot.Steps);
         Assert.Equal("install.settings", progress.Id);
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "install.settings");
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "company.profile");
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "owner.create");
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "firstrun.seed");
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "constitution.seed");
-        Assert.Contains(snapshot.Steps, progress => progress.Id == "models.sources");
-    }
-
-    private sealed class NullAudit : IAuditLog
-    {
-        public Task AppendAsync(AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class OwnStep : ISetupStep

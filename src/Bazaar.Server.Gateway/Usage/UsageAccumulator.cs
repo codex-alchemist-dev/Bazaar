@@ -136,8 +136,7 @@ public sealed class UsageAccumulator
             ErrorCode: _failure?.Code,
             RetryAfterSeconds: _failure?.RetryAfterSeconds,
             Estimated: estimated,
-            PriceVersion: priced ? prices!.Version : null,
-            Source: UsageSource.For(_providerId));
+            PriceVersion: priced ? prices!.Version : null);
     }
 
     /// <summary>Claims the right to record this accumulator. Returns false if it was already claimed.</summary>

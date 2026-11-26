@@ -53,9 +53,6 @@ public sealed class GcPaneModule : IPaneModule, IClientModule
     /// </remarks>
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
-        // Both GC commands bring the GC pane into view; choosing the chat inside it is the pane's own business.
-        PaneCommandBindings.Open(context, FirstCommandId, GcPaneViewModel.PaneKind);
-        PaneCommandBindings.Open(context, TopCommandId, GcPaneViewModel.PaneKind);
         registry.Register(GcPaneViewModel.PaneKind, descriptor => new GcPaneViewModel(descriptor, context.Get<IChatViewModel>()));
         registry.RegisterView<GcPaneViewModel>(gc => GcPaneView.Create(gc, context.Get<IChatViewFactory>()));
     }

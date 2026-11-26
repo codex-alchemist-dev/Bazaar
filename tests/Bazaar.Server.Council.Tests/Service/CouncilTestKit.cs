@@ -1,9 +1,5 @@
-using Bazaar.Server.Mirror;
 using Bazaar.Server.Council;
-using Bazaar.Server.Council.Data;
-using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
-using Bazaar.Server.Council.Tests.Data;
 
 namespace Bazaar.Server.Council.Tests.Service;
 
@@ -21,8 +17,6 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     private readonly Dictionary<Guid, CouncilVoteRecord> _votes = new();
     private readonly List<StoredBallot> _ballots = new();
     private readonly Dictionary<Guid, List<CouncilTransitionRecord>> _transitions = new();
-    private readonly Dictionary<(Guid, string, BallotPhase), ReasoningCiphertext> _sealed = new();
-    private readonly CouncilTestCipher _cipher = new();
 
     public int ForcedMismatches { get; set; }
 
@@ -78,24 +72,6 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     public Task<IReadOnlyList<StoredBallot>> ListBallotsAsync(Guid voteId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<StoredBallot>>(_ballots.Where(ballot => ballot.VoteId == voteId).ToList());
 
-    public async Task<IReadOnlyList<SealedBallotReason>> ListSealedReasonsAsync(Guid voteId, CancellationToken ct)
-    {
-        var result = new List<SealedBallotReason>();
-        foreach (var ballot in _ballots.Where(ballot => ballot.VoteId == voteId).ToList())
-        {
-            var key = (ballot.VoteId, ballot.VoterId, ballot.Phase);
-            if (!_sealed.TryGetValue(key, out var sealedText))
-            {
-                sealedText = await _cipher.SealAsync(ballot.VoterId, ballot.Reasoning, ct);
-                _sealed[key] = sealedText;
-            }
-
-            result.Add(new SealedBallotReason(ballot.VoteId, ballot.VoterId, ballot.Phase, ballot.Choice, ballot.TaintedAtWrite, sealedText));
-        }
-
-        return result;
-    }
-
     public Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
         if (_ballots.Any(existing => existing.VoteId == ballot.VoteId
@@ -130,23 +106,6 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
             .Select(pair => pair.Id)
             .ToList());
 
-    public Task<IReadOnlyList<Guid>> ListUndeliveredMembershipDecisionsAsync(int limit, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Guid>>(_votes.Values
-            .Where(vote => vote.State == VoteState.Decided
-                && vote.MembershipKind is not null
-                && vote.MembershipOutcomeDeliveredAt is null)
-            .OrderBy(vote => vote.VoteId)
-            .Take(limit)
-            .Select(vote => vote.VoteId)
-            .ToList());
-
-    public Task MarkMembershipOutcomeDeliveredAsync(Guid voteId, DateTimeOffset at, CancellationToken ct)
-    {
-        var vote = _votes[voteId];
-        _votes[voteId] = vote with { MembershipOutcomeDeliveredAt = vote.MembershipOutcomeDeliveredAt ?? at };
-        return Task.CompletedTask;
-    }
-
     public Task<IReadOnlyList<CouncilTransitionRecord>> ListTransitionsAsync(Guid voteId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<CouncilTransitionRecord>>(_transitions.GetValueOrDefault(voteId)?.ToList()
             ?? new List<CouncilTransitionRecord>());
@@ -159,14 +118,8 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     public void InsertBallotDirectly(StoredBallot ballot) => _ballots.Add(ballot);
 }
 
-/// <summary>A GC event as the fake recorded it. <see cref="SealedBlob"/> and <see cref="SealedKeyId"/> are set for a sealed append.</summary>
-internal sealed record RecordedGcEvent(
-    Guid GcId,
-    string Kind,
-    string PayloadJson,
-    string IdempotencyKey,
-    byte[]? SealedBlob = null,
-    Guid? SealedKeyId = null);
+/// <summary>A GC event as the fake recorded it.</summary>
+internal sealed record RecordedGcEvent(Guid GcId, string Kind, string PayloadJson, string IdempotencyKey);
 
 /// <summary>GC event sink that honours idempotency keys: a repeated key appends nothing.</summary>
 internal sealed class RecordingGcEvents : ICouncilGcEvents
@@ -180,23 +133,6 @@ internal sealed class RecordingGcEvents : ICouncilGcEvents
         if (_keys.Add(idempotencyKey))
         {
             Events.Add(new RecordedGcEvent(gcId, kind, payloadJson, idempotencyKey));
-        }
-
-        return Task.CompletedTask;
-    }
-
-    public Task AppendSealedAsync(
-        Guid gcId,
-        string kind,
-        string payloadJson,
-        ReadOnlyMemory<byte> sealedBlob,
-        Guid keyId,
-        string idempotencyKey,
-        CancellationToken ct)
-    {
-        if (_keys.Add(idempotencyKey))
-        {
-            Events.Add(new RecordedGcEvent(gcId, kind, payloadJson, idempotencyKey, sealedBlob.ToArray(), keyId));
         }
 
         return Task.CompletedTask;
@@ -218,23 +154,6 @@ internal sealed class CrashingGcEvents(RecordingGcEvents inner, string failKind)
         }
 
         return inner.AppendAsync(gcId, kind, payloadJson, idempotencyKey, ct);
-    }
-
-    public Task AppendSealedAsync(
-        Guid gcId,
-        string kind,
-        string payloadJson,
-        ReadOnlyMemory<byte> sealedBlob,
-        Guid keyId,
-        string idempotencyKey,
-        CancellationToken ct)
-    {
-        if (Armed && kind == failKind)
-        {
-            throw new IOException("Simulated crash before the event was written.");
-        }
-
-        return inner.AppendSealedAsync(gcId, kind, payloadJson, sealedBlob, keyId, idempotencyKey, ct);
     }
 }
 
@@ -289,14 +208,8 @@ internal sealed class CouncilHarness
 
     public ICouncilDissentShareSource? Settings { get; set; }
 
-    public IMirrorFeed? Mirror { get; set; }
-
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Mirror);
-    public List<IMembershipOutcomeSink> Sinks { get; } = new();
-
-    public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Sinks);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)
@@ -317,8 +230,7 @@ internal sealed class CouncilHarness
         string? author = null,
         string? membershipSubject = null,
         DateTimeOffset? deadline = null,
-        bool highImpact = false,
-        MembershipMotionKind? membershipKind = null) =>
+        bool highImpact = false) =>
         new(
             SubjectRef: "task/42",
             Kind: kind,
@@ -329,8 +241,7 @@ internal sealed class CouncilHarness
             SubjectAuthorId: author,
             Deadline: deadline ?? Clock.Now.AddHours(100),
             MembershipSubjectId: membershipSubject,
-            HighImpact: highImpact,
-            MembershipKind: membershipKind ?? (membershipSubject is null ? null : MembershipMotionKind.Hire));
+            HighImpact: highImpact);
 
     /// <summary>The standard three-voter electorate: ada proposes, cal, dot and eve vote.</summary>
     public void AddThreeVoters()

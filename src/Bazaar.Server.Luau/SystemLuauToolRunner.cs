@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Text;
-using Bazaar.Server.Engines.Abstractions;
 using Bazaar.Server.Luau.Abstractions;
 
 namespace Bazaar.Server.Luau;
@@ -11,7 +10,7 @@ namespace Bazaar.Server.Luau;
 /// shell string. Each stream is read up to the output cap and drained past it, so a chatty tool cannot block on a full
 /// pipe or grow memory without bound. The whole process tree is killed on timeout or cancellation.
 /// </summary>
-public sealed class SystemLuauToolRunner : IProcessRunner
+public sealed class SystemLuauToolRunner : ILuauToolRunner
 {
     private readonly int _maxOutputCharacters;
 
@@ -27,7 +26,7 @@ public sealed class SystemLuauToolRunner : IProcessRunner
     }
 
     /// <inheritdoc />
-    public async Task<ProcessResult> RunAsync(
+    public async Task<LuauProcessResult> RunAsync(
         string fileName,
         IReadOnlyList<string> arguments,
         string workingDirectory,
@@ -72,7 +71,7 @@ public sealed class SystemLuauToolRunner : IProcessRunner
         {
             Kill(process);
             await process.WaitForExitAsync(CancellationToken.None);
-            return new ProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: true);
+            return new LuauProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: true);
         }
         catch (OperationCanceledException)
         {
@@ -80,7 +79,7 @@ public sealed class SystemLuauToolRunner : IProcessRunner
             throw;
         }
 
-        return new ProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: false);
+        return new LuauProcessResult(process.ExitCode, await stdout, await stderr, TimedOut: false);
     }
 
     /// <summary>

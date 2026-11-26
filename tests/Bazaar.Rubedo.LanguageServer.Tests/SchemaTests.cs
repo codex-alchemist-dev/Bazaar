@@ -9,8 +9,6 @@ public sealed class SchemaTests
 {
     private const string Uri = "file:///a.rubedo";
     private const string SchemaJson = """{"unreadCount":"number","isMuted":"bool","roomName":"text"}""";
-    private const string _uri = "file:///a.rubedo";
-    private const string _schemaJson = """{"unreadCount":"number","isMuted":"bool","roomName":"text"}""";
 
     private static LanguageServerCore Started(RubedoSchema? schema)
     {
@@ -26,7 +24,6 @@ public sealed class SchemaTests
         ["jsonrpc"] = "2.0",
         ["method"] = "textDocument/didOpen",
         ["params"] = new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = Uri, ["languageId"] = "rubedo", ["version"] = 1, ["text"] = text } },
-        ["params"] = new JsonObject { ["textDocument"] = new JsonObject { ["uri"] = _uri, ["languageId"] = "rubedo", ["version"] = 1, ["text"] = text } },
     }.ToJsonString())));
 
     private static JsonObject Call(LanguageServerCore core, string method, int character) => Single(core.Process(Encoding.UTF8.GetBytes(new JsonObject
@@ -37,7 +34,6 @@ public sealed class SchemaTests
         ["params"] = new JsonObject
         {
             ["textDocument"] = new JsonObject { ["uri"] = Uri },
-            ["textDocument"] = new JsonObject { ["uri"] = _uri },
             ["position"] = new JsonObject { ["line"] = 0, ["character"] = character },
         },
     }.ToJsonString())));
@@ -45,7 +41,6 @@ public sealed class SchemaTests
     private static RubedoSchema Custom()
     {
         Assert.True(ServerOptions.TryParseSchema(SchemaJson, out RubedoSchema? schema, out _));
-        Assert.True(ServerOptions.TryParseSchema(_schemaJson, out RubedoSchema? schema, out _));
         return schema!;
     }
 
@@ -80,7 +75,6 @@ public sealed class SchemaTests
     public void Schema_file_is_parsed_with_all_three_types()
     {
         Assert.True(ServerOptions.TryParseSchema(SchemaJson, out RubedoSchema? schema, out string? problem));
-        Assert.True(ServerOptions.TryParseSchema(_schemaJson, out RubedoSchema? schema, out string? problem));
         Assert.Null(problem);
         Assert.Equal(RubedoType.Number, schema!.Identifiers["unreadCount"]);
         Assert.Equal(RubedoType.Bool, schema.Identifiers["isMuted"]);
@@ -125,7 +119,6 @@ public sealed class SchemaTests
         try
         {
             File.WriteAllText(good, SchemaJson);
-            File.WriteAllText(good, _schemaJson);
             File.WriteAllText(bad, """{"a":"nope"}""");
             Assert.True(ServerOptions.TryParse(["--schema", good], out ServerOptions loaded, out _));
             Assert.NotNull(loaded.Schema);

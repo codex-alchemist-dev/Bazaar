@@ -14,16 +14,10 @@ public sealed record MemoryGraphRebuildResult(int Scanned, int Stored, int UpToD
 
 /// <summary>
 /// Rebuilds one agent's graph from the Vault, the source of truth. Safe to run any number of times: a note whose active
-/// revision is already current is left alone, and nothing is deleted. With a Vault index, a note the index holds is projected
-/// onto its doc node with the links the index resolved (docs/design/constellation-memory-graph.md, "Convergence design").
-/// Otherwise wiki-links resolve by note id or by a title that is unique within the agent's own area; an ambiguous title
-/// produces no edge.
+/// revision is already current is left alone, and nothing is deleted. Wiki-links resolve by note id or by a title that
+/// is unique within the agent's own area; an ambiguous title produces no edge.
 /// </summary>
-public sealed partial class MemoryGraphRebuilder(
-    IMemoryVault vault,
-    IMemoryGraphStore store,
-    ILogger<MemoryGraphRebuilder> logger,
-    IVaultDocIndex? index = null)
+public sealed partial class MemoryGraphRebuilder(IMemoryVault vault, IMemoryGraphStore store, ILogger<MemoryGraphRebuilder> logger)
 {
     private readonly IMemoryVault _vault = vault ?? throw new ArgumentNullException(nameof(vault));
     private readonly IMemoryGraphStore _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -72,10 +66,7 @@ public sealed partial class MemoryGraphRebuilder(
                     continue;
                 }
 
-                var indexed = index is null ? null : await index.FindAsync(document.Note.Id, path.Value, ct).ConfigureAwait(false);
-                var revision = indexed is null
-                    ? MemoryGraphProjector.Project(document.Note, document.Body, path.Value, agentId, titles)
-                    : MemoryGraphProjector.ProjectIndexed(document.Note, path.Value, agentId, indexed.DocId, indexed.LinkTargets);
+                var revision = MemoryGraphProjector.Project(document.Note, document.Body, path.Value, agentId, titles);
                 await _store.StoreRevisionAsync(revision, ct).ConfigureAwait(false);
                 stored++;
             }

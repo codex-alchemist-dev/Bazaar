@@ -62,54 +62,10 @@ public sealed class AgentTurnsCompositionTests
         Assert.Equal(PolicyOutcome.Deny, decision.Outcome);
     }
 
-    [Fact]
-    public async Task The_session_taint_reads_resolve_over_the_store_and_one_directory()
-    {
-        using var provider = Build(withRyusei: false);
-        var agent = Guid.NewGuid().ToString("D");
-        var session = Guid.NewGuid();
-
-        Assert.Same(provider.GetRequiredService<ISessionTaintStore>(), provider.GetRequiredService<ISessionTaintReader>());
-        Assert.Same(provider.GetRequiredService<IAgentSessionDirectory>(), provider.GetRequiredService<IAgentSessionRegistrar>());
-
-        provider.GetRequiredService<IAgentSessionRegistrar>().BeginSession(agent, session);
-        var reader = provider.GetRequiredService<IAgentSessionTaintReader>();
-
-        // The fake store reports Clean for every session; a registered session is read through it.
-        Assert.Equal(TaintState.Clean, await reader.GetActiveTaintAsync(agent, TestContext.Current.CancellationToken));
-        Assert.Equal([session], await provider.GetRequiredService<IAgentSessionDirectory>().ListActiveAsync(agent, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public async Task A_hard_tainted_store_makes_a_registered_agent_hard()
-    {
-        using var provider = Build(withRyusei: false, Security.Policy.PolicyFixtures.Hard());
-        var agent = Guid.NewGuid().ToString("D");
-        var reader = provider.GetRequiredService<IAgentSessionTaintReader>();
-
-        Assert.Equal(TaintState.Clean, await reader.GetActiveTaintAsync(agent, TestContext.Current.CancellationToken));
-
-        provider.GetRequiredService<IAgentSessionRegistrar>().BeginSession(agent, Guid.NewGuid());
-
-        Assert.Equal(TaintState.Hard, await reader.GetActiveTaintAsync(agent, TestContext.Current.CancellationToken));
-    }
-
-    [Fact]
-    public void The_production_turn_runner_registers_each_run_in_the_session_directory()
+    private static ServiceProvider Build(bool withRyusei)
     {
         var services = new ServiceCollection();
-        services.AddSingleton<ITurnContextAssembler>(new Runner.FakeContextAssembler());
-        services.AddSingleton<Bazaar.Server.Gateway.IModelGateway>(new ScriptedModelGateway());
-        services.AddSingleton(Npgsql.NpgsqlDataSource.Create("Host=localhost;Database=unused"));
-        using var provider = Build(withRyusei: false, services: services);
-
-        Assert.IsType<SessionRegisteringTurnRunner>(provider.GetRequiredService<ITurnRunner>());
-    }
-
-    private static ServiceProvider Build(bool withRyusei, SessionTaint? taint = null, ServiceCollection? services = null)
-    {
-        services ??= new ServiceCollection();
-        services.AddSingleton<ISessionTaintStore>(new FakeSessionTaintStore(taint ?? SessionTaint.Clean));
+        services.AddSingleton<ISessionTaintStore>(new FakeSessionTaintStore(SessionTaint.Clean));
         services.AddSingleton<IInFlightCallStore>(new FakeInFlightCallStore());
         services.AddSingleton<IAuditLog>(new NullAuditLog());
         services.AddSingleton(TimeProvider.System);

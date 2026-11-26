@@ -11,12 +11,6 @@ namespace Bazaar.Server.Vms.Lifecycle;
 /// the optional device-guest cap (doc 62 section 9.3); either refusal is <see cref="VmRefusalReason.Capacity"/>.
 /// </summary>
 public sealed class VmLifecycleService
-public sealed class VmLifecycleService(
-    IEnvironmentVmStore store,
-    IVmBackend backend,
-    VmOperationLocks locks,
-    TimeProvider clock,
-    IAgentContainmentCheck? containment = null)
 {
     private readonly IEnvironmentVmStore _store;
     private readonly IVmBackendRouter _router;
@@ -121,28 +115,6 @@ public sealed class VmLifecycleService(
     {
         if (_governor is null && _devicePolicy is null)
             return await RunAsync(vmId, VmState.Running, (b, h) => b.StartAsync(h, ct), ct).ConfigureAwait(false);
-    /// Starts the VM unless its agent is contained: then the start is refused with <see cref="VmRefusalReason.AgentContained"/> and the
-    /// backend is not called. When the containment check cannot answer it throws, so the VM stays down (fail closed).
-    /// </summary>
-    public async Task<VmOperationResult> StartAsync(Guid vmId, CancellationToken ct)
-    {
-        if (containment is not null)
-        {
-            var record = await store.GetAsync(vmId, ct).ConfigureAwait(false);
-            if (record is not null && await containment.IsContainedAsync(record.AgentId, ct).ConfigureAwait(false))
-                return Refuse(VmRefusalReason.AgentContained, record.State, VmState.Running);
-        }
-
-        return await RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Starts the VM without the containment check. Only the owner-signed containment release uses it: it resumes the VMs while the
-    /// agent is still in the containment store, and removes the agent from the store afterwards. It is internal: only
-    /// <c>Bazaar.Server.AgentSafety</c> (and the Vms tests) can reach it, and an architecture test pins which file calls it.
-    /// </summary>
-    internal Task<VmOperationResult> StartForReleaseAsync(Guid vmId, CancellationToken ct) =>
-        RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct);
 
         // Cheap refusals first, so an unknown VM or a forbidden start never waits in the governor's queue. RunAsync checks again under the lock.
         var current = await _store.GetAsync(vmId, ct).ConfigureAwait(false);

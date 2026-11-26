@@ -29,7 +29,6 @@ public sealed class GatewayCompositionTests
             [$"{BazaarHostOptions.SectionName}:DatabaseConnectionReference"] = "env:" + _envName,
         }).Build();
         var services = new ServiceCollection();
-        services.AddSingleton<IConfiguration>(configuration);
         services.AddLogging();
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);

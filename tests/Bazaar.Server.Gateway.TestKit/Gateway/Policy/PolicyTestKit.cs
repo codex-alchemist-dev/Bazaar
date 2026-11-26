@@ -32,10 +32,10 @@ internal sealed class InMemoryPolicyWorld : IAgentPolicyStore, IGatewayDirectory
         return this;
     }
 
-    public InMemoryPolicyWorld AddModel(string provider, string model, string family = "claude", string status = GwModel.StatusAvailable, string kind = GwModel.KindChat, int? embedMaxBatch = null, int? embedMaxInputChars = null)
+    public InMemoryPolicyWorld AddModel(string provider, string model, string family = "claude", string status = GwModel.StatusAvailable)
     {
         var at = DateTimeOffset.UnixEpoch;
-        Models[new ModelRef(provider, model)] = new GwModel(provider, model, family, GatewayIdentity.Native, "{}", status, at, at, "test", kind, embedMaxBatch, embedMaxInputChars);
+        Models[new ModelRef(provider, model)] = new GwModel(provider, model, family, GatewayIdentity.Native, "{}", status, at, at, "test");
         return this;
     }
 

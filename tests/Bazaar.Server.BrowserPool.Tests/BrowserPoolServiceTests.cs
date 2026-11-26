@@ -301,63 +301,6 @@ public class BrowserPoolServiceTests
     }
 
     [Fact]
-    public async Task Open_with_the_disk_cap_mounts_before_the_directories_and_before_the_firewall()
-    {
-        using var rig = new Rig(o => o.DiskMaxMb = 256);
-
-        await rig.OpenAsync("agent-1");
-
-        Assert.Equal(
-            ["run:/usr/bin/umount", "run:rm", "run:install", "run:/usr/bin/mount", "run:install", "run:install", "fw", "start"],
-            rig.Host.Log);
-    }
-
-    [Fact]
-    public async Task Close_with_the_disk_cap_unmounts_after_the_kill_and_before_the_wipe()
-    {
-        using var rig = new Rig(o => o.DiskMaxMb = 256);
-        var s = await rig.OpenAsync("agent-1");
-        var before = rig.Host.Log.Count;
-
-        await rig.Pool.CloseAsync(s.SessionId, TestContext.Current.CancellationToken);
-
-        Assert.Equal(["stop", "run:pkill", "run:/usr/bin/umount", "run:rm"], rig.Host.Log.Skip(before).Where(l => l != "fw").ToList());
-    }
-
-    [Fact]
-    public async Task A_failed_mount_fails_the_open_closed_cleans_up_and_never_starts_the_browser()
-    {
-        using var rig = new Rig(o => o.DiskMaxMb = 256);
-        rig.Host.FailRun = c => c.Argv[0] == "/usr/bin/mount";
-
-        var ex = await Refused(rig.OpenAsync("a"));
-
-        Assert.Equal(PoolFailure.LaunchFailed, ex.Failure);
-        Assert.Empty(rig.Host.Started);
-        Assert.DoesNotContain(rig.Host.Firewalls, f => f.Count > 0);
-        // The directories inside the slot were not made on the plain disk after the failed mount.
-        Assert.Equal(1, rig.Host.Count("install"));
-        // Cleanup ran (kill, unmount, wipe) and the slot is free again.
-        Assert.Equal(1, rig.Host.Count("pkill"));
-        Assert.Equal(2, rig.Host.Count("/usr/bin/umount"));
-        rig.Host.FailRun = null;
-        Assert.Equal(0, (await rig.OpenAsync("a")).Slot);
-    }
-
-    [Fact]
-    public async Task A_cleanup_whose_wipe_fails_because_the_unmount_did_not_take_quarantines_the_slot()
-    {
-        using var rig = new Rig(o => { o.DiskMaxMb = 256; o.MaxSessions = 2; o.MaxSessionsPerAgent = 2; });
-        var s = await rig.OpenAsync("a");
-        // rm -rf --one-file-system exits 1 (EBUSY on rmdir) when the tmpfs is still mounted.
-        rig.Host.FailRun = c => c.Argv[0] == "rm";
-
-        await rig.Pool.CloseAsync(s.SessionId, TestContext.Current.CancellationToken);
-
-        Assert.Equal(0, Assert.Single(rig.Pool.Snapshot().Quarantined).Slot);
-    }
-
-    [Fact]
     public async Task Failed_start_runs_cleanup_and_frees_the_slot()
     {
         using var rig = new Rig();

@@ -119,7 +119,7 @@ public sealed class ScreenInputTool(
             return ScreenToolSupport.Refusal("invalid_arguments", problem.Message);
         }
 
-        (DisplayTarget? target, string? refusal) = await ScreenToolSupport.ResolveOwnAsync(_targets, context.AgentId, kind, cancellationToken).ConfigureAwait(false);
+        DisplayTarget? target = ScreenToolSupport.ResolveOwn(_targets, context.AgentId, kind, out string? refusal);
         if (target is null)
             return refusal!;
 

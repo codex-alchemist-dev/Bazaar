@@ -92,7 +92,7 @@ public sealed class FreeLlmApiRoutingAdapter(
     IModelAdapter standard,
     IModelAdapter freeLlmApi,
     string freeLlmApiBaseUrl,
-    FreeLlmApiRoutingDiagnostics diagnostics) : IModelAdapter, IEmbeddingAdapter
+    FreeLlmApiRoutingDiagnostics diagnostics) : IModelAdapter
 {
     private readonly IModelAdapter _standard = standard ?? throw new ArgumentNullException(nameof(standard));
     private readonly IModelAdapter _freeLlmApi = freeLlmApi ?? throw new ArgumentNullException(nameof(freeLlmApi));
@@ -119,15 +119,6 @@ public sealed class FreeLlmApiRoutingAdapter(
             },
         };
         return _freeLlmApi.StreamAsync(observed, request, ct);
-    }
-
-    public Task<EmbeddingOutcome> EmbedAsync(ProviderEndpoint endpoint, EmbeddingRequest request, CancellationToken ct)
-    {
-        ArgumentNullException.ThrowIfNull(endpoint);
-        var target = string.Equals(Normalize(endpoint.BaseUrl), _baseUrl, StringComparison.OrdinalIgnoreCase) ? _freeLlmApi : _standard;
-        return target is IEmbeddingAdapter embedder
-            ? embedder.EmbedAsync(endpoint, request, ct)
-            : Task.FromResult<EmbeddingOutcome>(new EmbeddingOutcome.Failed(new ModelEvent.Failure("provider_error", "The adapter cannot embed.")));
     }
 
     private static string Normalize(string baseUrl) => (baseUrl ?? "").TrimEnd('/');

@@ -107,19 +107,6 @@ public abstract record AvailabilityEvent
         public override string EventName => nameof(TokenBreak);
     }
 
-    /// <summary>
-    /// A calendar vacation ends. Valid only in VACATION and goes to OFF; the schedule then starts the shift as usual. Rejected while a
-    /// provider-cap vacation has not reached its reset time.
-    /// </summary>
-    public sealed record VacationEnds : AvailabilityEvent
-    {
-        /// <summary>Creates the event.</summary>
-        public VacationEnds(DateTimeOffset scheduledAt) : base(scheduledAt) { }
-
-        /// <inheritdoc />
-        public override string EventName => nameof(VacationEnds);
-    }
-
     /// <summary>The drain checklist finished; <paramref name="Target"/> is where the agent goes next.</summary>
     public sealed record DrainComplete : AvailabilityEvent
     {
@@ -284,21 +271,6 @@ public static class AvailabilityRules
         var state = current.State;
         switch (evt)
         {
-            // An agent already off duty has nothing to drain, so a vacation grant takes it straight to VACATION.
-            case AvailabilityEvent.VacationStarts when state is AvailabilityMachineState.Off or AvailabilityMachineState.Break:
-                return Accept(current, AvailabilityMachineState.Vacation, current.Overlays, "VacationStarts: vacation", current.ProviderResetAt);
-
-            case AvailabilityEvent.VacationEnds:
-                if (state != AvailabilityMachineState.Vacation)
-                {
-                    return Reject(current, $"VacationEnds is not valid in {state}");
-                }
-
-                // A provider-cap vacation clears only at the provider's reset (doc 09); an unknown reset never clears it.
-                return current.Reason == "provider cap" && (current.ProviderResetAt is not { } reset || reset > evt.ScheduledAt)
-                    ? Reject(current, "VacationEnds: provider cap has not reset")
-                    : Accept(current, AvailabilityMachineState.Off, current.Overlays, "vacation ended", null);
-
             case AvailabilityEvent.ShiftEnd or AvailabilityEvent.BreakDue
                 or AvailabilityEvent.VacationStarts or AvailabilityEvent.TokenBreak:
                 return state == AvailabilityMachineState.OnShift

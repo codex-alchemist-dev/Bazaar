@@ -19,6 +19,6 @@ public sealed class GcStreamAccessPolicy(IGcReadAccess access) : IGcAccessPolicy
     {
         var grant = await access.GetGrantAsync(gcId, new GcPrincipal(principalId, kind, string.Empty), ct)
             .ConfigureAwait(false);
-        return grant.IsFull;
+        return grant is { Allowed: true, ThroughSeq: null };
     }
 }

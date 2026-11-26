@@ -58,19 +58,6 @@ public sealed class PostgresRefreshCredentialStoreTests(RemoteAuthDb db) : IClas
     }
 
     [Fact]
-    public async Task FindHuman_reads_the_human_row_on_postgres()
-    {
-        Assert.SkipUnless(RemoteAuthDb.Enabled, "BAZAAR_TEST_PG is not set: no test PostgreSQL available.");
-        var humanId = await InsertCoworkerAsync();
-        var store = new PostgresRefreshCredentialStore(db.DataSource);
-
-        var human = await store.FindHumanAsync(humanId, Ct);
-
-        Assert.Equal(new HumanRecord(humanId, "Test coworker", "coworker", "active"), human);
-        Assert.Null(await store.FindHumanAsync(Guid.NewGuid(), Ct));
-    }
-
-    [Fact]
     public async Task Rotation_then_reuse_revokes_the_device_and_audits_it_on_postgres()
     {
         Assert.SkipUnless(RemoteAuthDb.Enabled, "BAZAAR_TEST_PG is not set: no test PostgreSQL available.");

@@ -1,5 +1,4 @@
 using Bazaar.Components.ManagedPostgres.Secrets;
-using Bazaar.Server.DataVolume;
 using Microsoft.Extensions.Options;
 
 namespace Bazaar.Components.ManagedPostgres.Tests;
@@ -45,56 +44,6 @@ public sealed class ManagedPostgresHostedServiceTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => service.StartAsync(TestContext.Current.CancellationToken));
 
         Assert.Empty(runner.Runs);
-    }
-
-    [Fact]
-    public async Task A_refusing_data_volume_guard_stops_the_start_before_any_postgres_command()
-    {
-        var runner = new FakePostgresCommandRunner();
-        var guard = new StubGuard { Refusal = DataVolumeRefusal.NotEncrypted };
-        var service = new ManagedPostgresHostedService(Options.Create(ManagedOptions()), runner, [new MemoryPasswordStore()], new ManagedPostgresEndpoint(), [guard]);
-
-        var refused = await Assert.ThrowsAsync<DataVolumeRefusedException>(() => service.StartAsync(TestContext.Current.CancellationToken));
-
-        Assert.Equal(DataVolumeRefusal.NotEncrypted, refused.Reason);
-        Assert.Empty(runner.Runs);
-        Assert.Empty(runner.Children);
-    }
-
-    [Fact]
-    public async Task With_a_data_volume_guard_a_missing_cluster_is_refused_and_initdb_does_not_run()
-    {
-        var runner = new FakePostgresCommandRunner();
-        var options = ManagedOptions();
-        options.DataRoot = Path.Combine(Path.GetTempPath(), "bazaar-data-test-" + Guid.CreateVersion7().ToString("N"));
-        var guard = new StubGuard();
-        var service = new ManagedPostgresHostedService(Options.Create(options), runner, [new MemoryPasswordStore()], new ManagedPostgresEndpoint(), [guard]);
-
-        var refused = await Assert.ThrowsAsync<DataVolumeRefusedException>(() => service.StartAsync(TestContext.Current.CancellationToken));
-
-        Assert.Equal(DataVolumeRefusal.NotInitialised, refused.Reason);
-        Assert.Empty(runner.Runs);
-        Assert.False(Directory.Exists(options.DataRoot));
-        Assert.Contains(guard.CheckedPaths, path => path.EndsWith("pg_wal", StringComparison.Ordinal));
-    }
-
-    private sealed class StubGuard : IDataVolumeGuard
-    {
-        public DataVolumeRefusal? Refusal { get; init; }
-
-        public List<string> CheckedPaths { get; } = [];
-
-        public ValueTask<DataVolumeVerification> VerifyAsync(CancellationToken cancellationToken)
-        {
-            if (Refusal is { } reason)
-                throw new DataVolumeRefusedException(reason, "refused by the test");
-
-            var descriptor = new DataVolumeDescriptor(1, "install", "volume", "fake", "file", "container", DataVolumeCiphers.XtsAes256, InstanceClass.Production, "kek", [], [1], DateTimeOffset.UnixEpoch);
-            var status = new DataVolumeStatus(true, "volume", true, true, DataVolumeCiphers.XtsAes256);
-            return ValueTask.FromResult(new DataVolumeVerification(descriptor, status, null));
-        }
-
-        public void EnsureInsideDataRoot(IEnumerable<string> paths) => CheckedPaths.AddRange(paths);
     }
 
     private static ManagedPostgresHostedService CreateService(ManagedPostgresOptions options, FakePostgresCommandRunner runner, ManagedPostgresEndpoint endpoint) =>

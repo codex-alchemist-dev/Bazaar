@@ -2,11 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
-using Bazaar.Server.Mirror;
-using Bazaar.Server.Council.Data;
-using Bazaar.Server.Council.Membership;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Council.Service;
 
@@ -34,7 +29,7 @@ namespace Bazaar.Server.Council.Service;
 /// <c>final_choice</c>, <c>reasoning</c> of the final ballot).</description></item>
 /// </list>
 /// </remarks>
-public sealed partial class CouncilService : ICouncilService
+public sealed class CouncilService : ICouncilService
 {
     /// <summary>Attempts at one transition before <see cref="ConcurrencyException"/>. Each retry reloads the vote.</summary>
     private const int _maxTransitionAttempts = 3;
@@ -52,14 +47,8 @@ public sealed partial class CouncilService : ICouncilService
     private readonly CouncilOptions _options;
     private readonly ICouncilDecisionWriter? _decisionWriter;
     private readonly ICouncilDissentShareSource? _dissentShare;
-    private readonly IMirrorFeed? _mirror;
-    private readonly IMembershipOutcomeSink[] _membershipSinks;
-    private readonly ILogger<CouncilService> _logger;
 
-    /// <summary>
-    /// Creates the service. The decision writer is optional until the Vault adapter exists (WP7). The membership sinks
-    /// (doc 10, Membership handoff) may be empty or null: then a membership decision is recorded and no outcome is delivered.
-    /// </summary>
+    /// <summary>Creates the service. The decision writer is optional until the Vault adapter exists (WP7).</summary>
     /// <exception cref="ArgumentException">The options are out of range.</exception>
     public CouncilService(
         ICouncilStore store,
@@ -68,10 +57,7 @@ public sealed partial class CouncilService : ICouncilService
         CouncilOptions options,
         TimeProvider clock,
         ICouncilDecisionWriter? decisionWriter = null,
-        ICouncilDissentShareSource? dissentShare = null,
-        IMirrorFeed? mirror = null)
-        IEnumerable<IMembershipOutcomeSink>? membershipSinks = null,
-        ILogger<CouncilService>? logger = null)
+        ICouncilDissentShareSource? dissentShare = null)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _gcEvents = gcEvents ?? throw new ArgumentNullException(nameof(gcEvents));
@@ -80,9 +66,6 @@ public sealed partial class CouncilService : ICouncilService
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _decisionWriter = decisionWriter;
         _dissentShare = dissentShare;
-        _mirror = mirror;
-        _membershipSinks = membershipSinks?.ToArray() ?? [];
-        _logger = logger ?? NullLogger<CouncilService>.Instance;
         _options.Validate();
     }
 
@@ -99,11 +82,6 @@ public sealed partial class CouncilService : ICouncilService
         }
 
         ValidateOptionList(motion.Kind, motion.Options);
-        if ((motion.MembershipKind is null) != string.IsNullOrWhiteSpace(motion.MembershipSubjectId))
-        {
-            throw new ArgumentException("A membership vote needs both a membership kind and a membership subject, or neither.", nameof(motion));
-        }
-
         if (!string.Equals(callerId, motion.ProposerId, StringComparison.Ordinal))
         {
             throw new CouncilRejectedException("Only the proposer can open a vote on the motion.");
@@ -134,9 +112,7 @@ public sealed partial class CouncilService : ICouncilService
             RevealSeed: RandomSeed(),
             VaultDecisionNo: null,
             CreatedAt: now,
-            HighImpact: motion.HighImpact,
-            MembershipKind: motion.MembershipKind,
-            MembershipSubjectId: motion.MembershipKind is null ? null : motion.MembershipSubjectId);
+            HighImpact: motion.HighImpact);
 
         await _store.InsertVoteAsync(record, ct);
         await AppendAsync(
@@ -316,39 +292,6 @@ public sealed partial class CouncilService : ICouncilService
             ?? throw new CouncilRejectedException("The vote is no longer awaiting the owner.");
 
         await RecordDecisionAsync(decided, optionChoice, "owner", reasoning, ct);
-        await FeedMirrorAsync(decided, optionChoice, reasoning, ct);
-    }
-
-    /// <summary>
-    /// Tells Mirror the owner broke a tie (doc 26 section 5). An approve or reject vote prefers or avoids its subject; an option vote
-    /// prefers the chosen option. An abstain is no preference. Mirror failing never undoes the decision.
-    /// </summary>
-    private async Task FeedMirrorAsync(CouncilVoteRecord vote, string choice, string? reasoning, CancellationToken ct)
-    {
-        if (_mirror is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var voteRef = $"council:{vote.VoteId:D}";
-            if (vote.Kind == VoteKind.ApproveReject)
-            {
-                if (choice is ApprovalChoices.Yes or ApprovalChoices.No)
-                {
-                    await _mirror.CouncilTieBrokenAsync(voteRef, vote.SubjectRef, choice == ApprovalChoices.Yes, reasoning, ct);
-                }
-            }
-            else
-            {
-                await _mirror.CouncilTieBrokenAsync(voteRef, $"{vote.SubjectRef}:{choice}", true, reasoning, ct);
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // A learning failure must not fail the owner's decision, which is already recorded.
-        }
     }
 
     /// <inheritdoc />
@@ -454,18 +397,12 @@ public sealed partial class CouncilService : ICouncilService
                 {
                     VoterId = voterId,
                     Choice = byVoter[voterId].Choice,
+                    Reasoning = byVoter[voterId].Reasoning,
                 }).ToArray(),
             },
             CouncilEventJsonContext.Default.CouncilRevealPayload,
             $"reveal:{revealed.VoteId:D}",
             ct);
-
-        // The reasons follow the summary as one sealed council.reason event per voter, in the stored reveal order. The sealed
-        // bytes are copied as stored; nothing is decrypted here (doc 10, Seal once, copy ciphertext).
-        var sealedByVoter = (await _store.ListSealedReasonsAsync(revealed.VoteId, ct))
-            .Where(reason => reason.Phase == BallotPhase.Independent)
-            .ToDictionary(reason => reason.VoterId, StringComparer.Ordinal);
-        await AppendReasonsAsync(revealed, order.Where(sealedByVoter.ContainsKey).Select(voterId => sealedByVoter[voterId]), "reveal", ct);
 
         await ApplyTallyAsync(revealed, decision, ct);
     }
@@ -642,6 +579,7 @@ public sealed partial class CouncilService : ICouncilService
                     IndependentChoice = independent?.Choice,
                     FollowupChoice = followUp?.Choice,
                     FinalChoice = final?.Choice,
+                    Reasoning = final?.Reasoning,
                 };
             })
             .ToList();
@@ -664,12 +602,6 @@ public sealed partial class CouncilService : ICouncilService
             vaultNo = written;
         }
 
-        // Follow-up reasons join the log here, sealed as stored; an independent final ballot is referenced by its reveal row.
-        var followUpReasons = (await _store.ListSealedReasonsAsync(decided.VoteId, ct))
-            .Where(reason => reason.Phase == BallotPhase.FollowUp)
-            .OrderBy(reason => reason.VoterId, StringComparer.Ordinal);
-        await AppendReasonsAsync(decided, followUpReasons, "decision", ct);
-
         await AppendAsync(
             decided.GcId,
             "council.decision",
@@ -687,79 +619,7 @@ public sealed partial class CouncilService : ICouncilService
             CouncilEventJsonContext.Default.CouncilDecisionPayload,
             $"decision:{decided.VoteId:D}",
             ct);
-
-        await DeliverMembershipOutcomeAsync(decided, choice, decidedBy, vaultNo, finalCounts, ct);
     }
-
-    /// <summary>
-    /// The membership handoff (doc 10, Membership handoff). Runs after the decision is recorded, so a failure here never
-    /// loses the decision. Does nothing for a vote that is not a membership vote, one already delivered, or when no sink is
-    /// registered. Maps the outcome (an owner resolution as an escalated tally plus <see cref="OwnerResolution"/>) and calls
-    /// every sink; the vote is marked delivered only when all of them succeed. A failing sink is logged and left for the
-    /// deadline sweeper to re-drive, so sinks must be idempotent by vote id.
-    /// </summary>
-    private async Task DeliverMembershipOutcomeAsync(
-        CouncilVoteRecord decided,
-        string choice,
-        string decidedBy,
-        int? vaultNo,
-        IReadOnlyDictionary<string, int> finalCounts,
-        CancellationToken ct)
-    {
-        if (decided.MembershipKind is not { } kind
-            || decided.MembershipSubjectId is not { } subject
-            || decided.MembershipOutcomeDeliveredAt is not null
-            || _membershipSinks.Length == 0)
-        {
-            return;
-        }
-
-        // The decided transition's time keeps the outcome identical across re-drives.
-        var history = await _store.ListTransitionsAsync(decided.VoteId, ct);
-        var decidedAt = history.LastOrDefault(transition => transition.To == VoteState.Decided)?.At ?? _clock.GetUtcNow();
-        var motion = new MembershipMotionMetadata(decided.VoteId, kind, subject, decided.MotionClass, decidedAt);
-        var outcome = decidedBy == "owner"
-            ? MembershipOutcomeMapper.Map(
-                new TallyDecision(TallyDecisionKind.Escalated, null, null, finalCounts),
-                motion,
-                new OwnerResolution(choice),
-                vaultNo)
-            : MembershipOutcomeMapper.Map(
-                new TallyDecision(TallyDecisionKind.Decided, choice, null, finalCounts),
-                motion,
-                ownerResolution: null,
-                vaultNo);
-        if (outcome is null)
-        {
-            LogOutcomeNotMapped(_logger, decided.VoteId);
-            return;
-        }
-
-        var failed = false;
-        foreach (var sink in _membershipSinks)
-        {
-            try
-            {
-                await sink.PublishAsync(outcome, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                failed = true;
-                LogSinkFailed(_logger, ex, decided.VoteId, sink.GetType().Name);
-            }
-        }
-
-        if (!failed)
-        {
-            await _store.MarkMembershipOutcomeDeliveredAsync(decided.VoteId, _clock.GetUtcNow(), ct);
-        }
-    }
-
-    [LoggerMessage(Level = LogLevel.Warning, Message = "Membership sink {Sink} failed for Council vote {VoteId}; the sweeper will re-drive it.")]
-    private static partial void LogSinkFailed(ILogger logger, Exception ex, Guid voteId, string sink);
-
-    [LoggerMessage(Level = LogLevel.Error, Message = "Council vote {VoteId} is a decided membership vote that does not map to an outcome.")]
-    private static partial void LogOutcomeNotMapped(ILogger logger, Guid voteId);
 
     private async Task<bool> UnanimityBlockedAsync(CouncilVoteRecord vote, CancellationToken ct)
     {
@@ -812,35 +672,6 @@ public sealed partial class CouncilService : ICouncilService
         string idempotencyKey,
         CancellationToken ct) =>
         await _gcEvents.AppendAsync(gcId, kind, JsonSerializer.Serialize(payload, typeInfo), idempotencyKey, ct);
-
-    private async Task AppendReasonsAsync(
-        CouncilVoteRecord vote,
-        IEnumerable<SealedBallotReason> reasons,
-        string context,
-        CancellationToken ct)
-    {
-        foreach (var reason in reasons)
-        {
-            var phase = Wire(reason.Phase);
-            var payload = new CouncilReasonPayload
-            {
-                VoteId = vote.VoteId,
-                VoterId = reason.VoterId,
-                Phase = phase,
-                Choice = reason.Choice,
-                Context = context,
-                ErasedAtWrite = false,
-            };
-            await _gcEvents.AppendSealedAsync(
-                vote.GcId,
-                "council.reason",
-                JsonSerializer.Serialize(payload, CouncilEventJsonContext.Default.CouncilReasonPayload),
-                CouncilSealedBlob.Pack(reason.Reasoning),
-                reason.Reasoning.KeyId,
-                $"reason:{vote.VoteId:D}:{reason.VoterId}:{phase}:{context}",
-                ct);
-        }
-    }
 
     private static bool AllEligibleCast(CouncilVoteRecord vote, IReadOnlyList<StoredBallot> ballots, BallotPhase phase)
     {

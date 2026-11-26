@@ -46,7 +46,7 @@ public sealed class BlobReadAccess(IBlobStore store, IBlobGcLinks links, IGcRead
         foreach (var link in await links.FindAsync(hash, ct).ConfigureAwait(false))
         {
             var grant = await gcAccess.GetGrantAsync(link.GcId, viewer, ct).ConfigureAwait(false);
-            if (grant.Covers(link.Seq)) return true;
+            if (grant.Allowed && (grant.ThroughSeq is null || link.Seq <= grant.ThroughSeq)) return true;
         }
 
         return false;

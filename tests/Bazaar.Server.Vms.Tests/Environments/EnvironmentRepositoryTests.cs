@@ -78,24 +78,6 @@ public sealed class EnvironmentRepositoryTests(VmDb db) : IClassFixture<VmDb>
     }
 
     [Fact]
-    public async Task List_running_returns_only_running_vms_of_every_agent()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var image = await db.InsertImageAsync();
-        var running = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, VmOs.Linux, VmState.Running);
-        var otherRunning = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, VmOs.Windows, VmState.Running);
-        var saved = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, VmOs.Linux, VmState.Saved);
-        var stopped = await db.InsertVmAsync(Guid.CreateVersion7(), image.Id, VmOs.Linux, VmState.Stopped);
-
-        var list = await db.Repository.ListRunningVmsAsync(TestContext.Current.CancellationToken);
-
-        Assert.Contains(list, v => v.Id == running.Id);
-        Assert.Contains(list, v => v.Id == otherRunning.Id);
-        Assert.DoesNotContain(list, v => v.Id == saved.Id || v.Id == stopped.Id);
-        Assert.All(list, v => Assert.Equal(VmState.Running, v.State));
-    }
-
-    [Fact]
     public async Task Try_update_vm_state_succeeds_on_match_and_fails_on_stale_expected_state()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

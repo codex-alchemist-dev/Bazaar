@@ -23,7 +23,6 @@ def read(p):
         return f.read()
 
 text = read(os.path.join(here, "TheBazaarAuthors.BazaarClient.yml"))
-text = read(os.path.join(here, "io.github.codex_alchemist_dev.BazaarClient.yml"))
 
 # Parse: PyYAML when available, else a line-based reader for the few keys we check.
 data = None

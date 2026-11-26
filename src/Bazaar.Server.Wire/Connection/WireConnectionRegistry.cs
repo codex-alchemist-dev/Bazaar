@@ -3,7 +3,7 @@ using System.Collections.Concurrent;
 namespace Bazaar.Server.Wire.Connection;
 
 /// <summary>The live sockets. Revocation and the per-device socket limit go through here.</summary>
-public sealed class WireConnectionRegistry : IWireConnectionDirectory
+public sealed class WireConnectionRegistry
 {
     private readonly ConcurrentDictionary<Guid, (long Seq, IWireConnection Connection)> _connections = new();
     private long _seq;

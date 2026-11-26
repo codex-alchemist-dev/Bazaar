@@ -15,9 +15,6 @@
     <!-- Test-only: CouncilDb applies the core gc schema (Server's common/0001) and the migration runner from Bazaar.Server. -->
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Mirror.Abstractions\Bazaar.Server.Mirror.Abstractions.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>

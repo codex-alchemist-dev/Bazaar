@@ -1,4 +1,3 @@
-using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Gateway;
@@ -74,20 +73,6 @@ public static class GatewaySettings
         validate: AtLeast(0),
         requiresApprovalFor: days => days != 0);
 
-    public static readonly SettingKey<string> EmbeddingRoute = new(
-        "gateway.embedding.route", "", SettingScope.Install, SettingRole.Operator,
-        "The model id or route name the install's embeddings use when a caller names none. Empty means unset; embedding calls then fail with embedding_route_unset.",
-        validate: ValidEmbeddingRoute);
-
-    /// <summary>
-    /// The routing preset new agents start from (doc 45 step 9, <c>models.defaultPreset</c>). A name only: the preset's members come
-    /// from the sources the operator configured. The shipped default is the free lane (doc 45), the safest because it spends nothing.
-    /// </summary>
-    public static readonly SettingKey<string> DefaultPreset = new(
-        "gateway.default_preset", "free-lane", SettingScope.Install, SettingRole.Operator,
-        "Name of the default routing preset: a lower-case slug such as free-lane.",
-        validate: CheckPresetName);
-
     /// <summary>Every gateway key, in doc 05 table order.</summary>
     public static IReadOnlyList<SettingDefinition> All { get; } =
     [
@@ -104,22 +89,7 @@ public static class GatewaySettings
         LongPromptHardCapTokens,
         FreeLlmApiWarnOnVersionChange,
         UsageRetentionDays,
-        EmbeddingRoute,
-        DefaultPreset,
     ];
-
-    // Empty is the safe default (unset). Anything else must be a model id or a route name; wildcards and auto routes never resolve.
-    private static string? ValidEmbeddingRoute(string value) =>
-        value.Length == 0 || ModelRef.TryParse(value, out _) || RouteNames.IsValid(value)
-            ? null
-            : "must be empty, a provider-qualified model id, or a route name (no wildcard, no auto).";
-
-    private static string? CheckPresetName(string name)
-    {
-        if (name.Length is 0 or > 63 || !char.IsAsciiLetterOrDigit(name[0]) || name.Any(c => !(char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c) || c == '-')))
-            return "must be a lower-case slug: letters, digits and dashes, up to 63 characters.";
-        return null;
-    }
 
     private static Func<int, string?> AtLeast(int min) =>
         value => value >= min ? null : $"must be at least {min}; got {value}.";

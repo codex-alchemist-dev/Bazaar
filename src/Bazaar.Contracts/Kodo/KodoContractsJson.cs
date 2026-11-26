@@ -16,6 +16,4 @@ namespace Bazaar.Contracts.Kodo;
 [JsonSerializable(typeof(KodoComponentDto))]
 [JsonSerializable(typeof(KodoStreamEventDto))]
 [JsonSerializable(typeof(KodoStateChangeDto))]
-[JsonSerializable(typeof(KodoFleetSnapshotDto))]
-[JsonSerializable(typeof(KodoServerStatusDto))]
 public sealed partial class KodoContractsJsonContext : JsonSerializerContext;

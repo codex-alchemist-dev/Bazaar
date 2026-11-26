@@ -1,6 +1,5 @@
 using System.Text;
 using Bazaar.Rubedo.Semantics;
-using Bazaar.Rubedo.Views;
 
 namespace Bazaar.Rubedo.LanguageServer;
 
@@ -11,9 +10,6 @@ public static class LanguageServerHost
     public static async Task<int> RunAsync(Stream input, Stream output, RubedoSchema? schema = null, CancellationToken cancellationToken = default)
     {
         var core = new LanguageServerCore(schema);
-    public static async Task<int> RunAsync(Stream input, Stream output, RubedoSchema? schema = null, IViewTokenCatalog? tokens = null, CancellationToken cancellationToken = default)
-    {
-        var core = new LanguageServerCore(schema, tokens);
         var reader = new FrameReader(input);
         while (!core.ExitRequested)
         {

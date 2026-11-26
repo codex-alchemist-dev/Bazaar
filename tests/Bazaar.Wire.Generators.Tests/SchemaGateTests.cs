@@ -9,7 +9,6 @@ namespace Bazaar.Wire.Generators.Tests;
 public class SchemaGateTests
 {
     private const string Marker = """
-    private const string _marker = """
         namespace Bazaar.Contracts.Wire
         {
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct, AllowMultiple = true)]
@@ -37,7 +36,6 @@ public class SchemaGateTests
             .Select(a => MetadataReference.CreateFromFile(a.Location))
             .ToArray();
         var marker = protocol is null ? Marker : Marker.Replace("Major = 1", $"Major = {protocol}");
-        var marker = protocol is null ? _marker : _marker.Replace("Major = 1", $"Major = {protocol}");
         return CSharpCompilation.Create(
             "Bazaar.Test",
             [
@@ -66,7 +64,6 @@ public class SchemaGateTests
     }
 
     private const string V1 = """
-    private const string _v1 = """
         public enum Kind { Unknown = 0, A = 1, B = 2 }
         [WirePayload("a.one")] public sealed record A(int X, string Name, Kind Kind);
         """;
@@ -75,14 +72,12 @@ public class SchemaGateTests
     public void Unchanged_schema_reports_nothing()
     {
         Assert.Empty(RunAgainstLock(V1, V1));
-        Assert.Empty(RunAgainstLock(_v1, _v1));
     }
 
     [Fact]
     public void Appending_a_nullable_or_defaulted_field_is_compatible()
     {
         var diagnostics = RunAgainstLock(V1, V1.Replace("Kind Kind)", "Kind Kind, string? Extra, int More = 3)"));
-        var diagnostics = RunAgainstLock(_v1, _v1.Replace("Kind Kind)", "Kind Kind, string? Extra, int More = 3)"));
 
         Assert.DoesNotContain(diagnostics, d => d.Id == "BWG007");
         Assert.Contains(diagnostics, d => d.Id == "BWG008" && d.Severity == DiagnosticSeverity.Info);
@@ -98,7 +93,6 @@ public class SchemaGateTests
     public void Breaking_field_changes_fail_the_build(string newFields, string expectedText)
     {
         var diagnostics = RunAgainstLock(V1, V1.Replace("int X, string Name, Kind Kind)", newFields));
-        var diagnostics = RunAgainstLock(_v1, _v1.Replace("int X, string Name, Kind Kind)", newFields));
 
         var error = Assert.Single(diagnostics, d => d.Id == "BWG007");
         Assert.Equal(DiagnosticSeverity.Error, error.Severity);
@@ -112,16 +106,12 @@ public class SchemaGateTests
         Assert.Contains(RunAgainstLock(V1, V1.Replace("a.one", "a.two")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("a.one"));
         Assert.Contains(RunAgainstLock(V1, V1.Replace("B = 2", "C = 3")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("'b'"));
         Assert.Contains(RunAgainstLock(V1, V1.Replace("B = 2", "B = 5")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("changed value"));
-        Assert.Contains(RunAgainstLock(_v1, _v1.Replace("a.one", "a.two")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("a.one"));
-        Assert.Contains(RunAgainstLock(_v1, _v1.Replace("B = 2", "C = 3")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("'b'"));
-        Assert.Contains(RunAgainstLock(_v1, _v1.Replace("B = 2", "B = 5")), d => d.Id == "BWG007" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("changed value"));
     }
 
     [Fact]
     public void A_protocol_major_bump_allows_breaking_changes_but_still_wants_a_new_lock()
     {
         var diagnostics = RunAgainstLock(V1, V1.Replace("int X, string Name, Kind Kind)", "string Name, int X, Kind Kind)"), protocol: "2");
-        var diagnostics = RunAgainstLock(_v1, _v1.Replace("int X, string Name, Kind Kind)", "string Name, int X, Kind Kind)"), protocol: "2");
 
         Assert.DoesNotContain(diagnostics, d => d.Id == "BWG007");
         Assert.Contains(diagnostics, d => d.Id == "BWG008" && d.GetMessage(System.Globalization.CultureInfo.InvariantCulture).Contains("protocol version is 2.0"));
@@ -132,7 +122,6 @@ public class SchemaGateTests
     {
         var driver = CSharpGeneratorDriver.Create([new WireCodecGenerator().AsSourceGenerator()], [new LockText("{ nope")]);
         var diagnostics = driver.RunGenerators(Compile(V1), TestContext.Current.CancellationToken).GetRunResult().Diagnostics;
-        var diagnostics = driver.RunGenerators(Compile(_v1), TestContext.Current.CancellationToken).GetRunResult().Diagnostics;
 
         Assert.Contains(diagnostics, d => d.Id == "BWG009");
     }
@@ -143,9 +132,6 @@ public class SchemaGateTests
         var first = SchemaJsonOf(V1);
 
         Assert.Equal(first, SchemaJsonOf(V1));
-        var first = SchemaJsonOf(_v1);
-
-        Assert.Equal(first, SchemaJsonOf(_v1));
         var doc = MiniJson.ToDoc(first);
         Assert.NotNull(doc);
         Assert.Equal(SchemaEmitters.ComputeHash(doc), doc.Hash);
@@ -159,7 +145,6 @@ public class SchemaGateTests
     public void Artifacts_cover_json_schema_and_cddl()
     {
         var compilation = Compile(V1 + "\n[WirePayload] public sealed record B(System.Guid Id, System.Collections.Generic.IReadOnlyList<A> Items, float[] Vec, System.DateTimeOffset At, decimal? Price);");
-        var compilation = Compile(_v1 + "\n[WirePayload] public sealed record B(System.Guid Id, System.Collections.Generic.IReadOnlyList<A> Items, float[] Vec, System.DateTimeOffset At, decimal? Price);");
         var diagnostics = new List<DiagnosticInfo>();
         var payloads = PayloadModel.Discover(compilation, diagnostics, TestContext.Current.CancellationToken);
         var doc = SchemaBuilder.Build(compilation, payloads, diagnostics, TestContext.Current.CancellationToken);

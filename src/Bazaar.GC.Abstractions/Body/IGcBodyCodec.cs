@@ -27,7 +27,4 @@ public interface IGcBodyCodec
 public static class GcBodyText
 {
     public const string ErasedText = "[erased]";
-
-    /// <summary>Text shown in place of a body whose current version was withdrawn by an import (doc 44, 8.8). The text stays in history.</summary>
-    public const string WithdrawnText = "[withdrawn by import]";
 }

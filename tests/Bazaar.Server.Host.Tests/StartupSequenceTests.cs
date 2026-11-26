@@ -1,4 +1,3 @@
-using Bazaar.Server.DataVolume;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers;
 using Microsoft.Extensions.Hosting;
@@ -54,61 +53,14 @@ public sealed class StartupSequenceTests
     }
 
     private static (StartupSequence Sequence, HostState State, HostExitCode Exit, FakeLifetime Lifetime) Create(
-        FakeLock instanceLock, ISchemaGate gate, ProviderRole[]? required = null, IDataVolumeGuard[]? guards = null)
+        FakeLock instanceLock, ISchemaGate gate, ProviderRole[]? required = null)
     {
         var state = new HostState(TimeProvider.System);
         var exit = new HostExitCode();
         var lifetime = new FakeLifetime();
         var options = Options.Create(new BazaarReadinessOptions { RequiredRoles = [.. required ?? []] });
-        var report = new ProviderCapabilityReport([]);
-        return (new StartupSequence(instanceLock, gate, report, options, state, exit, lifetime, NullLogger<StartupSequence>.Instance, guards), state, exit, lifetime);
-    }
-
-    private sealed class FakeGuard(DataVolumeRefusedException? refusal = null) : IDataVolumeGuard
-    {
-        public int Calls { get; private set; }
-
-        public ValueTask<DataVolumeVerification> VerifyAsync(CancellationToken cancellationToken)
-        {
-            Calls++;
-            return refusal is null ? ValueTask.FromResult<DataVolumeVerification>(null!) : ValueTask.FromException<DataVolumeVerification>(refusal);
-        }
-
-        public void EnsureInsideDataRoot(IEnumerable<string> paths)
-        {
-        }
-    }
-
-    [Fact]
-    public async Task A_refused_data_volume_stops_the_host_with_exit_code_78_before_the_lock_is_taken()
-    {
-        var gate = new FakeGate();
-        var instanceLock = new FakeLock(acquire: true);
-        var guard = new FakeGuard(new DataVolumeRefusedException(DataVolumeRefusal.NotEncrypted, "plain folder"));
-        var (sequence, state, exit, lifetime) = Create(instanceLock, gate, guards: [guard]);
-
-        await sequence.StartAsync(TestContext.Current.CancellationToken);
-
-        Assert.True(lifetime.Stopped);
-        Assert.Equal(78, exit.Value);
-        Assert.False(instanceLock.IsHeld);
-        Assert.Equal(0, gate.Calls);
-        Assert.False(state.Started);
-    }
-
-    [Fact]
-    public async Task A_verified_data_volume_lets_the_start_continue()
-    {
-        var gate = new FakeGate();
-        var guard = new FakeGuard();
-        var (sequence, state, exit, lifetime) = Create(new FakeLock(acquire: true), gate, guards: [guard]);
-
-        await sequence.StartAsync(TestContext.Current.CancellationToken);
-
-        Assert.Equal(1, guard.Calls);
-        Assert.True(state.Started);
-        Assert.Equal(0, exit.Value);
-        Assert.False(lifetime.Stopped);
+        var report = new ProviderCapabilityReport([ProviderSelector.Select(ProviderRole.Cache, ProviderSelector.None, Array.Empty<ICacheProvider>())]);
+        return (new StartupSequence(instanceLock, gate, report, options, state, exit, lifetime, NullLogger<StartupSequence>.Instance), state, exit, lifetime);
     }
 
     [Fact]

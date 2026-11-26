@@ -1,6 +1,6 @@
 namespace Bazaar.Client.Theme;
 
-/// <summary>The kinds of value a token may hold in a theme file.</summary>
+/// <summary>The kinds of value a token may hold in a schemaVersion 1 theme file.</summary>
 public enum TokenKind
 {
     /// <summary>#RRGGBB or #RRGGBBAA.</summary>
@@ -14,88 +14,28 @@ public enum TokenKind
 
     /// <summary>true or false.</summary>
     Flag,
-
-    /// <summary>A JSON number within the token's Min and Max (schemaVersion 2). Canonical form has at most three decimals.</summary>
-    Number,
-
-    /// <summary>A duration in whole milliseconds, 0 to <see cref="ThemeTokens.MaxDurationMs"/> (schemaVersion 2).</summary>
-    Duration,
-
-    /// <summary>One of the token's fixed string choices (schemaVersion 2).</summary>
-    Choice,
 }
 
-/// <summary>
-/// A required token and its kind. Since is the schema version that introduced it; Min and Max bound a Number;
-/// Choices lists the allowed values of a Choice.
-/// </summary>
-public sealed record TokenSpec(
-    string Name,
-    TokenKind Kind,
-    int Since = 1,
-    double Min = 0,
-    double Max = 0,
-    IReadOnlyList<string>? Choices = null);
+/// <summary>A required token and its kind.</summary>
+public sealed record TokenSpec(string Name, TokenKind Kind);
 
 /// <summary>A foreground token checked against a background token at 4.5:1 or better (WCAG 2.2 AA text).</summary>
 public sealed record ContrastPair(string Foreground, string Background);
 
 /// <summary>
-/// The required token list (docs/design/27-client-architecture.md, Theme file; docs/design/93-client-visual-system-and-motion.md,
-/// Theme file additions). schemaVersion 2 is additive: every schemaVersion 1 token is unchanged and a version 1 file is
-/// migrated by filling the version 2 tokens with defaults (<see cref="ThemeDefaults"/>). A file must hold exactly the tokens
-/// of its own version, so unknown tokens are rejected and a typo cannot pass silently.
+/// The required token list for schemaVersion 1 (docs/design/27-client-architecture.md, Theme file).
+/// Every token below must be present; unknown tokens are rejected so a typo cannot pass silently.
 /// </summary>
 public static class ThemeTokens
 {
-    /// <summary>The current schema version; every loaded theme is migrated to it.</summary>
-    public const int SchemaVersion = 2;
-
-    /// <summary>The oldest schema version this build still reads (and migrates).</summary>
-    public const int MinSchemaVersion = 1;
-
-    /// <summary>Number of explicit hue tokens, color.hue.0 to color.hue.11.</summary>
-    public const int HueCount = 12;
-
-    /// <summary>Largest accepted duration token value, in milliseconds.</summary>
-    public const int MaxDurationMs = 5000;
-
-    /// <summary>
-    /// Safety floor (doc 93): the reduced-motion cross-fade is at most this long. A theme may shorten it, never lengthen it.
-    /// </summary>
-    public const int ReducedDurationFloorMs = 90;
-
-    /// <summary>Contrast floor for graphics (WCAG 2.2 non-text contrast).</summary>
-    public const double MinimumGraphicContrastRatio = 3.0;
-
-    /// <summary>The colours the hue family must pass against, as text (4.5:1) and as a graphic (3:1).</summary>
-    public static readonly IReadOnlyList<string> HueBackgrounds =
-        ["color.background.base", "color.background.surface", "color.background.editor"];
-
-    /// <summary>Text tokens that must stay readable on a translucent material at the worst-case backdrop.</summary>
-    public static readonly IReadOnlyList<string> MaterialTextTokens =
-        ["color.text.primary", "color.text.secondary", "color.text.accent"];
-
-    /// <summary>The name of hue token <paramref name="index"/>, 0 to 11.</summary>
-    public static string HueToken(int index) => "color.hue." + index.ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-    /// <summary>The schemaVersion 1 tokens, unchanged.</summary>
-    public static IEnumerable<TokenSpec> V1 => Required.Where(spec => spec.Since == 1);
-
-    /// <summary>The tokens a file of the given schema version must hold.</summary>
-    public static IEnumerable<TokenSpec> For(int schemaVersion) => Required.Where(spec => spec.Since <= schemaVersion);
+    /// <summary>The only schema version this build reads.</summary>
+    public const int SchemaVersion = 1;
 
     /// <summary>WCAG 2.2 AA minimum for body text.</summary>
     public const double MinimumContrastRatio = 4.5;
 
-    /// <summary>Largest accepted layout.* extent (sidebar, strip and sheet sizes), in device-independent pixels.</summary>
-    public const double MaxLayoutExtent = 1024.0;
-
     /// <summary>Largest accepted length token value, in pixels.</summary>
     public const int MaxLength = 256;
-
-    /// <summary>Allowed values of material.mode; they mirror the client.materials setting (auto, translucent, opaque).</summary>
-    public static readonly IReadOnlyList<string> MaterialModes = ["auto", "translucent", "opaque"];
 
     public static readonly IReadOnlyList<TokenSpec> Required =
     [
@@ -142,46 +82,7 @@ public static class ThemeTokens
         new("radius.sm", TokenKind.Length),
         new("radius.md", TokenKind.Length),
         new("reducedMotion", TokenKind.Flag),
-        .. HueSpecs(),
-        new("color.hue.lightness", TokenKind.Number, 2, 0.2, 0.95),
-        new("color.hue.chroma", TokenKind.Number, 2, 0.0, 0.4),
-        new("color.hue.origin", TokenKind.Number, 2, 0.0, 360.0),
-        new("material.mode", TokenKind.Choice, 2, Choices: MaterialModes),
-        new("material.tint", TokenKind.Colour, 2),
-        new("material.opacity", TokenKind.Number, 2, 0.0, 1.0),
-        new("material.fallback.chrome", TokenKind.Colour, 2),
-        new("material.fallback.sheet", TokenKind.Colour, 2),
-        new("motion.duration.hover", TokenKind.Duration, 2),
-        new("motion.duration.palette", TokenKind.Duration, 2),
-        new("motion.duration.tab", TokenKind.Duration, 2),
-        new("motion.duration.message", TokenKind.Duration, 2),
-        new("motion.duration.sheet", TokenKind.Duration, 2),
-        new("motion.duration.swipe", TokenKind.Duration, 2),
-        new("motion.duration.reduced", TokenKind.Duration, 2),
-        new("motion.spring.stiffness", TokenKind.Number, 2, 50.0, 1000.0),
-        new("motion.spring.damping", TokenKind.Number, 2, 0.5, 1.2),
-        new("motion.scale.desktop", TokenKind.Number, 2, 0.0, 1.0),
-        new("motion.liquid.squash.max", TokenKind.Number, 2, 0.0, 0.5),
-        new("motion.liquid.stretch.max", TokenKind.Number, 2, 0.0, 0.5),
-        new("motion.liquid.ripple.size", TokenKind.Length, 2),
-        new("motion.liquid.ripple.duration", TokenKind.Duration, 2),
-        new("motion.liquid.merge.softness", TokenKind.Number, 2, 0.0, 1.0),
-        new("layout.sidebar.width.expanded", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
-        new("layout.sidebar.width.collapsed", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
-        new("layout.strip.height", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
-        new("layout.sheet.width", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
-        new("layout.sheet.side.width", TokenKind.Number, 2, 0.0, MaxLayoutExtent),
-        new("material.scrim.opacity", TokenKind.Number, 2, 0.0, 1.0),
-        new("gesture.sheet.dismiss.fraction", TokenKind.Number, 2, 0.05, 0.95),
     ];
-
-    private static IEnumerable<TokenSpec> HueSpecs()
-    {
-        for (int i = 0; i < HueCount; i++)
-        {
-            yield return new TokenSpec(HueToken(i), TokenKind.Colour, 2);
-        }
-    }
 
     /// <summary>
     /// Text pairs checked for contrast. Every pair must be opaque and reach MinimumContrastRatio.

@@ -13,9 +13,9 @@ namespace Bazaar.Server.Valkey;
 /// Callers must not treat the cache as durable.
 /// </para>
 /// </summary>
-public sealed class ValkeyCacheProvider : ICacheProvider, ICacheCounter, IAsyncDisposable
+public sealed class ValkeyCacheProvider : ICacheProvider, IAsyncDisposable
 {
-    /// <summary>The kind name this provider reports.</summary>
+    /// <summary>The kind name <c>host.provider.cache</c> selects.</summary>
     public const string KindName = "valkey";
 
     private const string _ttlFeature = "ttl";
@@ -148,19 +148,6 @@ public sealed class ValkeyCacheProvider : ICacheProvider, ICacheCounter, IAsyncD
         {
             // Degraded: the delete is dropped; entries still expire by TTL.
         }
-    }
-
-    /// <summary>
-    /// Atomic counter for the shared rate limiter (<see cref="ICacheCounter"/>). Unlike the cache calls this one throws on any failure,
-    /// so the caller sees an outage and falls back. The key is prefixed like every other cache key.
-    /// </summary>
-    public async Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(ttl, TimeSpan.Zero);
-
-        var client = await ClientAsync(ct);
-        return await client.IncrementAsync(Prefixed(key), by, ttl, ct);
     }
 
     /// <inheritdoc />

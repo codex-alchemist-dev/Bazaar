@@ -5,18 +5,8 @@ namespace Bazaar.Server.Gc.Read;
 /// <summary>What a viewer may read in one GC.</summary>
 /// <param name="Allowed">Whether the viewer may read at all.</param>
 /// <param name="ThroughSeq">Last seq the viewer may see, or null for no limit (a member who left keeps what they saw, not later events).</param>
-/// <param name="FromSeq">First seq the viewer may see, or null for no lower limit. A DM access grant reads forward from its grant seq only (doc 32).</param>
-public readonly record struct GcReadGrant(bool Allowed, long? ThroughSeq, long? FromSeq = null)
+public readonly record struct GcReadGrant(bool Allowed, long? ThroughSeq)
 {
-    /// <summary>True when the viewer may read every event: allowed, with no lower and no upper limit.</summary>
-    public bool IsFull => Allowed && ThroughSeq is null && FromSeq is null;
-
-    /// <summary>True when <paramref name="seq"/> lies inside the window the grant allows.</summary>
-    public bool Covers(long seq) => Allowed && (FromSeq is null || seq >= FromSeq) && (ThroughSeq is null || seq <= ThroughSeq);
-
-    /// <summary>A grant that reads from <paramref name="seq"/> onward.</summary>
-    public static GcReadGrant From(long seq) => new(true, null, seq);
-
     public static GcReadGrant Denied { get; } = new(false, null);
 
     public static GcReadGrant Full { get; } = new(true, null);

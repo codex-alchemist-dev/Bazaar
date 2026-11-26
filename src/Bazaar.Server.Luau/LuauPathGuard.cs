@@ -6,7 +6,7 @@ namespace Bazaar.Server.Luau;
 /// <summary>
 /// Keeps Luau check inputs inside one project root. Each file is resolved against the root, normalised, and must stay
 /// under it and name an existing file. Any symbolic link or junction below the root is rejected, so a link cannot
-/// point a check at code outside the root. Same idea as the Rojo path guard in Bazaar.Server.Engines.
+/// point a check at code outside the root. Same idea as the Rojo path guard in Bazaar.Engines.
 /// </summary>
 internal static class LuauPathGuard
 {

@@ -4,22 +4,10 @@ namespace Bazaar.Server.Security.Approvals;
 /// Process-local <see cref="IApprovalStore"/> for tests and single-process use. The Postgres store (migration 0011)
 /// is the durable one. Thread-safe.
 /// </summary>
-public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalLister
+public sealed class InMemoryApprovalStore : IApprovalStore
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, ApprovalRequest> _rows = [];
-
-    /// <summary>Number of stored rows.</summary>
-    public int Count
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _rows.Count;
-            }
-        }
-    }
 
     /// <inheritdoc />
     public Task InsertAsync(ApprovalRequest request, CancellationToken ct = default)
@@ -58,19 +46,6 @@ public sealed class InMemoryApprovalStore : IApprovalStore, IPendingApprovalList
 
             _rows[id] = updated;
             return Task.FromResult(true);
-        }
-    }
-
-    /// <inheritdoc />
-    public Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default)
-    {
-        lock (_gate)
-        {
-            IReadOnlyList<ApprovalRequest> rows = [.. _rows.Values
-                .Where(r => r.Status == ApprovalStatus.Pending && r.ExpiresAt > now)
-                .OrderByDescending(r => r.RequestedAt)
-                .Take(Math.Max(limit, 0))];
-            return Task.FromResult(rows);
         }
     }
 }

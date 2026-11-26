@@ -55,10 +55,10 @@ internal sealed class SyncHarness : IDisposable
         private Task _reader = Task.CompletedTask;
         private readonly ConcurrentQueue<Envelope> _frames = new();
 
-        public Connection(SubscriptionEngine engine, Guid principal, int queueMax, bool paused, PrincipalKind kind = PrincipalKind.Human)
+        public Connection(SubscriptionEngine engine, Guid principal, int queueMax, bool paused)
         {
             _outbound = new BoundedOutbound(queueMax);
-            Session = engine.CreateSession(principal, kind, _codec, _outbound);
+            Session = engine.CreateSession(principal, PrincipalKind.Human, _codec, _outbound);
             if (!paused)
             {
                 Resume();

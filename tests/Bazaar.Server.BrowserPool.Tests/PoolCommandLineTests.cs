@@ -7,7 +7,7 @@ public class PoolCommandLineTests
     private static readonly PoolEgressEndpoint _egress = new("10.0.0.1", 3128);
 
     /// <summary>Options for the tests written for the shared namespace (the pre-netns shape of every list).</summary>
-    private static BrowserPoolOptions Shared() => new() { NetworkIsolation = NetworkIsolation.SharedWithUidRule, DiskMaxMb = 0 };
+    private static BrowserPoolOptions Shared() => new() { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
 
     private static PoolLaunchSpec Build(BrowserPoolOptions? o = null, int slot = 3, PoolSessionRequest? r = null, PoolEgressEndpoint? e = null) =>
         PoolCommandLine.Build(o ?? Shared(), "sess1", slot, r ?? new PoolSessionRequest("agent-1"), e ?? _egress);
@@ -37,12 +37,11 @@ public class PoolCommandLineTests
         "--disable-background-networking", "--disable-component-update", "--disable-breakpad", "--password-store=basic",
         "--disable-features=Translate,MediaRouter", "--proxy-server=http://10.0.0.1:3128", "--proxy-bypass-list=<-loopback>",
         "--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE 10.0.0.1", "--remote-debugging-pipe", "--window-size=1280,800",
-        "--force-device-scale-factor=1",
     ];
 
     private static readonly string[] _systemd =
     [
-        "systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "CPUQuota=200%", "-p", "TasksMax=512", "--",
+        "systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "TasksMax=512", "--",
     ];
 
     [Fact]
@@ -68,29 +67,8 @@ public class PoolCommandLineTests
         var o = new BrowserPoolOptions { MemoryMaxMb = 0 };
 
         Assert.Equal(
-            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "CPUQuota=200%", "-p", "TasksMax=512", "--"],
-            Build(o).Launch.Take(9));
-    }
-
-    [Fact]
-    public void Zero_cpu_quota_omits_the_cpu_property_but_keeps_the_others()
-    {
-        var o = new BrowserPoolOptions { CpuQuotaPercent = 0 };
-
-        Assert.Equal(
-            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "MemoryMax=1024M", "-p", "MemorySwapMax=0", "-p", "TasksMax=512", "--"],
-            Build(o).Launch.Take(11));
-    }
-
-    [Fact]
-    public void Cpu_quota_and_task_limit_are_rendered_from_the_options()
-    {
-        var o = new BrowserPoolOptions { CpuQuotaPercent = 50, TasksMax = 256 };
-        var launch = Build(o).Launch;
-
-        Assert.Contains("CPUQuota=50%", launch);
-        Assert.Contains("TasksMax=256", launch);
-        Assert.DoesNotContain("TasksMax=512", launch);
+            ["systemd-run", "--scope", "--quiet", "--collect", "-p", "TasksMax=512", "--"],
+            Build(o).Launch.Take(7));
     }
 
     [Fact]
@@ -365,132 +343,5 @@ public class PoolCommandLineTests
     public void Invalid_options_object_is_rejected_by_build_even_if_not_validated_at_startup()
     {
         Assert.Throws<ArgumentException>(() => Build(new BrowserPoolOptions { SlotRoot = "/var" }));
-    }
-
-    // ---- per-slot disk cap ----
-
-    private static BrowserPoolOptions Capped() => new() { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
-
-    [Fact]
-    public void Prepare_with_the_disk_cap_unmounts_wipes_makes_the_mount_point_mounts_then_makes_the_subdirectories()
-    {
-        var spec = Build(Capped());
-
-        Assert.Equal(
-            [
-                ["/usr/bin/umount", "/var/lib/bazaar-pool/slot-3"],
-                ["rm", "-rf", "--one-file-system", "/var/lib/bazaar-pool/slot-3"],
-                ["install", "-d", "-m", "0700", "-o", "20003", "-g", "20003", "/var/lib/bazaar-pool/slot-3"],
-                ["/usr/bin/mount", "-t", "tmpfs", "-o", "size=256m,nr_inodes=65536,mode=0711,nosuid,nodev,noexec", "tmpfs", "/var/lib/bazaar-pool/slot-3"],
-                ["install", "-d", "-m", "0700", "-o", "20003", "-g", "20003", "/var/lib/bazaar-pool/slot-3/profile"],
-                ["install", "-d", "-m", "0700", "-o", "20003", "-g", "20003", "/var/lib/bazaar-pool/slot-3/run"],
-            ],
-            spec.Prepare.Select(c => c.Argv));
-
-        // Only the unmount tolerates a failure (32: not mounted); a failed mount or install fails the open.
-        Assert.Equal([0, 32], spec.Prepare[0].AllowedExitCodes);
-        Assert.All(spec.Prepare.Skip(1), c => Assert.Null(c.AllowedExitCodes));
-    }
-
-    [Fact]
-    public void Prepare_with_the_disk_cap_uses_the_configured_size_inodes_and_program_paths()
-    {
-        var o = Capped();
-        o.DiskMaxMb = 64;
-        o.DiskMaxInodes = 4096;
-        o.MountPath = "/bin/mount";
-        o.UmountPath = "/bin/umount";
-
-        var spec = Build(o);
-
-        Assert.Equal(["/bin/umount", "/var/lib/bazaar-pool/slot-3"], spec.Prepare[0].Argv);
-        Assert.Equal(
-            ["/bin/mount", "-t", "tmpfs", "-o", "size=64m,nr_inodes=4096,mode=0711,nosuid,nodev,noexec", "tmpfs", "/var/lib/bazaar-pool/slot-3"],
-            spec.Prepare[3].Argv);
-    }
-
-    [Fact]
-    public void Prepare_with_the_cap_off_is_the_plain_list_and_mentions_neither_mount_nor_umount()
-    {
-        var o = Capped();
-        o.DiskMaxMb = 0;
-
-        var spec = Build(o);
-
-        Assert.Equal(PoolCommandLine.PrepareCommands(20003, "/var/lib/bazaar-pool/slot-3").Select(c => c.Argv), spec.Prepare.Select(c => c.Argv));
-        Assert.Equal(4, spec.Prepare.Count);
-        Assert.DoesNotContain(spec.Prepare.Concat(spec.Cleanup), c => c.Argv.Contains("/usr/bin/mount") || c.Argv.Contains("/usr/bin/umount"));
-    }
-
-    [Fact]
-    public void The_mount_comes_before_any_directory_inside_the_slot_is_made()
-    {
-        var prepare = Build(Capped()).Prepare.Select(c => c.Argv).ToList();
-
-        var mount = prepare.FindIndex(a => a[0] == "/usr/bin/mount");
-        var profile = prepare.FindIndex(a => a[0] == "install" && a[^1].EndsWith("/profile", StringComparison.Ordinal));
-        var run = prepare.FindIndex(a => a[0] == "install" && a[^1].EndsWith("/run", StringComparison.Ordinal));
-        Assert.True(mount >= 0 && mount < profile && mount < run);
-        Assert.True(prepare.FindIndex(a => a[0] == "/usr/bin/umount") < prepare.FindIndex(a => a[0] == "rm"));
-    }
-
-    [Fact]
-    public void Cleanup_with_the_disk_cap_kills_first_then_unmounts_then_wipes()
-    {
-        var spec = Build(Capped());
-
-        Assert.Equal(
-            [
-                ["pkill", "-KILL", "-U", "20003"],
-                ["/usr/bin/umount", "/var/lib/bazaar-pool/slot-3"],
-                ["rm", "-rf", "--one-file-system", "/var/lib/bazaar-pool/slot-3"],
-            ],
-            spec.Cleanup.Select(c => c.Argv));
-        Assert.Equal([0, 1], spec.Cleanup[0].AllowedExitCodes);
-        Assert.Equal([0, 32], spec.Cleanup[1].AllowedExitCodes);
-        Assert.Null(spec.Cleanup[2].AllowedExitCodes);
-        Assert.DoesNotContain(spec.Cleanup, c => c.Argv.Contains("-l") || c.Argv.Contains("--lazy"));
-    }
-
-    [Fact]
-    public void Cleanup_with_the_cap_off_is_exactly_the_old_list()
-    {
-        var o = Capped();
-        o.DiskMaxMb = 0;
-
-        Assert.Equal(
-            PoolCommandLine.CleanupCommands(20003, "/var/lib/bazaar-pool/slot-3").Select(c => c.Argv),
-            PoolCommandLine.CleanupCommands(o, 3).Select(c => c.Argv));
-    }
-
-    [Fact]
-    public void Per_slot_network_cleanup_sits_between_the_kill_and_the_unmount()
-    {
-        var o = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.PerSlotNamespace };
-
-        var names = PoolCommandLine.CleanupCommands(o, 3).Select(c => c.Argv[0]).ToList();
-
-        Assert.Equal("pkill", names[0]);
-        Assert.Equal("/usr/sbin/ip", names[1]);
-        Assert.Equal(["/usr/bin/umount", "rm"], names.TakeLast(2));
-    }
-
-    [Fact]
-    public void The_disk_cap_never_changes_the_sandbox_launch()
-    {
-        var off = Capped();
-        off.DiskMaxMb = 0;
-
-        Assert.Equal(Build(off).Launch, Build(Capped()).Launch);
-        Assert.DoesNotContain("--no-sandbox", Build(Capped()).Launch);
-    }
-
-    [Fact]
-    public void An_unsafe_mount_path_is_refused_by_build()
-    {
-        var o = Capped();
-        o.MountPath = "/usr/bin/mount;rm";
-
-        Assert.Throws<ArgumentException>(() => Build(o));
     }
 }

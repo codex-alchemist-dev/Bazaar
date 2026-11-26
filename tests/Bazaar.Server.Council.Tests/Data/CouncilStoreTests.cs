@@ -111,34 +111,6 @@ public sealed class CouncilStoreTests(CouncilDb db) : IClassFixture<CouncilDb>
     }
 
     [Fact]
-    public async Task The_membership_fields_round_trip_and_delivery_is_marked_once()
-    {
-        SkipWithoutDatabase();
-        var store = NewStore();
-        var gcId = await db.CreateGcAsync();
-        var vote = NewVote(gcId) with
-        {
-            MembershipKind = Bazaar.Server.Council.Membership.MembershipMotionKind.Hire,
-            MembershipSubjectId = "template-7",
-        };
-        await store.InsertVoteAsync(vote, Ct);
-        Assert.True(await store.TryTransitionAsync(vote.VoteId, 1, VoteState.Revealed, "all eligible ballots cast", _due, null, null, Ct));
-        Assert.True(await store.TryTransitionAsync(vote.VoteId, 2, VoteState.Decided, "decided by tally", _due, null, null, Ct));
-
-        var loaded = (await store.FindVoteAsync(vote.VoteId, Ct))!;
-        Assert.Equal(vote.MembershipKind, loaded.MembershipKind);
-        Assert.Equal("template-7", loaded.MembershipSubjectId);
-        Assert.Null(loaded.MembershipOutcomeDeliveredAt);
-        Assert.Contains(vote.VoteId, await store.ListUndeliveredMembershipDecisionsAsync(1000, Ct));
-
-        await store.MarkMembershipOutcomeDeliveredAsync(vote.VoteId, _due, Ct);
-        await store.MarkMembershipOutcomeDeliveredAsync(vote.VoteId, _due.AddHours(1), Ct);
-
-        Assert.Equal(_due, (await store.FindVoteAsync(vote.VoteId, Ct))!.MembershipOutcomeDeliveredAt);
-        Assert.DoesNotContain(vote.VoteId, await store.ListUndeliveredMembershipDecisionsAsync(1000, Ct));
-    }
-
-    [Fact]
     public async Task Find_returns_null_for_an_unknown_vote()
     {
         SkipWithoutDatabase();

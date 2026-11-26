@@ -138,7 +138,7 @@ Stop: the host first drains GC appenders and turns off new turns (doc 03, shutdo
 ### 6.5 Extensions (PLANNED)
 
 - pgvector is bundled in every platform package. It is an `extension` dep that requires a `database` line. Its artifact is built per database line, because a compiled extension is tied to a major (section 8.3).
-- pg_search (BM25) is bundled on Linux only, behind the search provider (doc 03, doc 04). On Windows the search provider stays on Postgres full-text search, which keeps the Windows build OSI-only (DECISIONS-LOG C23). pg_search's licence is covered in section 13.
+- pg_search (BM25) is bundled on Linux only, behind the search provider (doc 03 `host.provider.search`, doc 04). On Windows the search provider stays on Postgres full-text search, which keeps the Windows build OSI-only (DECISIONS-LOG C23). pg_search's licence is covered in section 13.
 
 ### 6.6 Failure the user can act on
 

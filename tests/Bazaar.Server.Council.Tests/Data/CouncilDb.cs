@@ -22,7 +22,7 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
             return;
         await base.InitializeAsync();
         _pool = NpgsqlDataSource.Create(new NpgsqlConnectionStringBuilder(ConnectionString) { MaxPoolSize = 12 }.ConnectionString);
-        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common);
+        var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common);
         var source = new InMemoryMigrationSource(files.Where(f => f.Version == 1).Concat(CouncilMigrations()));
         await new MigrationRunner(DataSource, new MigrationOptions(16)).MigrateAsync(source, "council", CancellationToken.None);
     }
@@ -38,7 +38,6 @@ public sealed class CouncilDb : PgFixture, IAsyncLifetime
         [
             Read(assembly, 1, "0001_council", "council"),
             Read(assembly, 2, "0002_council_high_impact", "council_high_impact"),
-            Read(assembly, 3, "0003_council_membership", "council_membership"),
         ];
     }
 

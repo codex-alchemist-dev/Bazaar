@@ -7,58 +7,11 @@ namespace Bazaar.Server.Components.Remote;
 /// It follows the same rules as <see cref="PostgresRefreshCredentialStore"/>: one live credential per device, atomic rotation,
 /// and revocation that is set once.
 /// </summary>
-public sealed class InMemoryRefreshCredentialStore : IRefreshCredentialStore, IIdentityDirectoryStore
+public sealed class InMemoryRefreshCredentialStore : IRefreshCredentialStore
 {
     private readonly object _gate = new();
     private readonly Dictionary<Guid, DeviceRecord> _devices = [];
-    private readonly Dictionary<Guid, HumanRecord> _humans = [];
     private readonly List<CredentialRow> _credentials = [];
-
-    /// <summary>Adds or replaces a human row. The in-memory store has no pairing flow that creates humans, so tests and dev hosts seed them here.</summary>
-    public void SetHuman(HumanRecord human)
-    {
-        ArgumentNullException.ThrowIfNull(human);
-        lock (_gate)
-        {
-            _humans[human.Id] = human;
-        }
-    }
-
-    public Task<IReadOnlyList<HumanRecord>> ListHumansAsync(CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            IReadOnlyList<HumanRecord> rows = [.. _humans.Values.OrderBy(h => h.DisplayName, StringComparer.Ordinal).ThenBy(h => h.Id)];
-            return Task.FromResult(rows);
-        }
-    }
-
-    public Task<IReadOnlyList<DeviceDirectoryEntry>> ListDevicesAsync(CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            IReadOnlyList<DeviceDirectoryEntry> rows =
-            [
-                .. _devices.Values
-                    .OrderBy(d => d.Label, StringComparer.Ordinal).ThenBy(d => d.Id)
-                    .Select(d => new DeviceDirectoryEntry(
-                        d,
-                        _credentials.Where(c => c.DeviceId == d.Id).Select(c => c.IssuedAt).DefaultIfEmpty(DateTimeOffset.UnixEpoch).Max())),
-            ];
-            return Task.FromResult(rows);
-        }
-    }
-
-    public Task<HumanRecord?> FindHumanAsync(Guid humanId, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            return Task.FromResult(_humans.GetValueOrDefault(humanId));
-        }
-    }
 
     public Task<RefreshCredentialRecord?> FindByHashAsync(byte[] hash, CancellationToken ct = default)
     {
@@ -139,37 +92,6 @@ public sealed class InMemoryRefreshCredentialStore : IRefreshCredentialStore, II
             if (!_devices.TryGetValue(deviceId, out var device) || device.RevokedAt is not null)
                 return Task.FromResult(false);
             _devices[deviceId] = device with { RevokedAt = now, Revision = device.Revision + 1 };
-            return Task.FromResult(true);
-        }
-    }
-
-    public Task<SuspendResult> SuspendHumanAsync(Guid humanId, DateTimeOffset now, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            if (!_humans.TryGetValue(humanId, out var human) || human.Status != "active" || human.Role == "owner")
-                return Task.FromResult(new SuspendResult(false, []));
-            _humans[humanId] = human with { Status = "suspended" };
-            var revoked = new List<Guid>();
-            foreach (var device in _devices.Values.Where(d => d.HumanId == humanId && d.RevokedAt is null).ToList())
-            {
-                _devices[device.Id] = device with { RevokedAt = now, Revision = device.Revision + 1 };
-                revoked.Add(device.Id);
-            }
-
-            return Task.FromResult(new SuspendResult(true, revoked));
-        }
-    }
-
-    public Task<bool> UnsuspendHumanAsync(Guid humanId, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            if (!_humans.TryGetValue(humanId, out var human) || human.Status != "suspended")
-                return Task.FromResult(false);
-            _humans[humanId] = human with { Status = "active" };
             return Task.FromResult(true);
         }
     }

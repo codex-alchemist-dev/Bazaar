@@ -32,46 +32,9 @@ public sealed class AgentSchedulerRegistrationTests
         services.Any(d => d.ServiceType == typeof(IHostedService) && d.ImplementationType == typeof(AgentSchedulerService));
 
     [Fact]
-    public async Task On_by_default_registers_the_loop_but_stays_idle_when_the_host_cannot_run_turns()
-    {
-        // No model gateway and no loop guard: the default-on path logs why and wakes nothing, instead of failing the host.
-        var services = Compose();
-
-        Assert.True(RegistersHostedLoop(services));
-
-        await using var provider = services.BuildServiceProvider();
-        Assert.True(provider.GetRequiredService<AgentSchedulerOptions>().Enabled);
-        var scheduler = provider.GetRequiredService<IAgentScheduler>();
-        Assert.Equal(AgentSchedulerPass.Empty, await scheduler.RunOnceAsync(TestContext.Current.CancellationToken));
-        Assert.Contains(provider.GetServices<IHostedService>(), h => h is AgentSchedulerService);
-    }
-
-    [Fact]
-    public async Task On_by_default_builds_the_inbox_scheduler_when_a_runner_and_guard_exist()
+    public async Task Off_by_default_registers_only_the_options()
     {
         var services = Compose();
-        services.AddSingleton<ITurnRunner>(new FakeTurnRunner());
-        services.AddSingleton<ILoopGuard>(new FakeLoopGuard());
-        await using var provider = services.BuildServiceProvider();
-
-        Assert.IsType<InboxAgentScheduler>(provider.GetRequiredService<IAgentScheduler>());
-    }
-
-    [Fact]
-    public async Task The_default_wake_gate_denies_every_wake_when_no_kill_switch_engine_is_registered()
-    {
-        var services = Compose();
-        await using var provider = services.BuildServiceProvider();
-
-        var decision = provider.GetRequiredService<IAgentWakeGate>().Check(Guid.CreateVersion7());
-
-        Assert.False(decision.Allowed);
-    }
-
-    [Fact]
-    public async Task Switched_off_by_the_operator_registers_only_the_options()
-    {
-        var services = Compose(("Enabled", "false"));
 
         Assert.False(Registers<IAgentScheduler>(services));
         Assert.False(Registers<IDueAgentReader>(services));
@@ -79,7 +42,7 @@ public sealed class AgentSchedulerRegistrationTests
 
         await using var provider = services.BuildServiceProvider();
         Assert.False(provider.GetRequiredService<AgentSchedulerOptions>().Enabled);
-        Assert.DoesNotContain(provider.GetServices<IHostedService>(), h => h is AgentSchedulerService);
+        Assert.Empty(provider.GetServices<IHostedService>());
     }
 
     [Fact]
@@ -115,7 +78,7 @@ public sealed class AgentSchedulerRegistrationTests
         Assert.Equal(TimeSpan.FromMinutes(1), options.GuardTripBackoff);
         Assert.IsType<InboxDueAgentReader>(provider.GetRequiredService<IDueAgentReader>());
         Assert.IsType<InboxAgentScheduler>(provider.GetRequiredService<IAgentScheduler>());
-        Assert.Contains(provider.GetServices<IHostedService>(), h => h is AgentSchedulerService);
+        Assert.IsType<AgentSchedulerService>(Assert.Single(provider.GetServices<IHostedService>()));
     }
 
     [Fact]
@@ -136,7 +99,7 @@ public sealed class AgentSchedulerRegistrationTests
         await using var provider = services.BuildServiceProvider();
 
         Assert.Same(other, provider.GetRequiredService<IAgentScheduler>());
-        Assert.Contains(provider.GetServices<IHostedService>(), h => h is AgentSchedulerService);
+        Assert.IsType<AgentSchedulerService>(Assert.Single(provider.GetServices<IHostedService>()));
     }
 
     [Theory]

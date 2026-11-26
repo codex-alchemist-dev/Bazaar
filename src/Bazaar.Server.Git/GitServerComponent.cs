@@ -1,10 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Git.Forge;
-using Bazaar.Server.Git.Health;
 using Bazaar.Server.Git.Merge;
 using Bazaar.Server.Git.Reads;
 using Bazaar.Server.Git.RepositoryDirectory;
-using Bazaar.Server.Health;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -60,16 +58,6 @@ public static class GitServerServiceCollectionExtensions
         services.AddBazaarForgeRegistry();
         services.TryAddSingleton<IOwnerSignedMergeGate, OwnerSignedMergeGate>();
         services.TryAddSingleton<IGitReadService, GitReadService>();
-
-        // Project health feeder (doc 25): CI runs and reverts from the forge, one health project per registered repository.
-        services.TryAddSingleton(new GitHealthOptions
-        {
-            MaxPages = ReadInt(section, "HealthMaxPages", new GitHealthOptions().MaxPages),
-            PageSize = ReadInt(section, "HealthPageSize", new GitHealthOptions().PageSize),
-            MaxChecksPerDay = ReadInt(section, "HealthMaxChecksPerDay", new GitHealthOptions().MaxChecksPerDay),
-        });
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, GitHealthFactSource>());
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, GitHealthProjectSource>());
         services.AddBazaarGitRepositoryDirectory(configuration);
         return services;
     }

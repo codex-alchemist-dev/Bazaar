@@ -24,22 +24,4 @@ public sealed class PostgresNonceStoreTests
         Assert.Equal("agent-a", first.AgentId);
         Assert.Null(afterRestart);
     }
-
-    [Fact]
-    public async Task One_device_cannot_hold_more_than_the_cap_of_pending_nonces_and_other_devices_are_unaffected()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var ct = TestContext.Current.CancellationToken;
-        await using var db = await PgTestDatabase.CreateAsync("nonce_cap", ServerMigrations.MigrateAsync, ct);
-        var store = new PostgresNonceStore(db.DataSource, TimeProvider.System);
-        var expires = DateTimeOffset.UtcNow.AddMinutes(2);
-        for (var i = 0; i < PostgresNonceStore.MaxPendingPerDevice; i++)
-        {
-            await store.AddAsync(new PendingNonce(RandomNumberGenerator.GetBytes(16), "agent-a", "device-1", expires), ct);
-        }
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => store.AddAsync(new PendingNonce(RandomNumberGenerator.GetBytes(16), "agent-a", "device-1", expires), ct));
-        await store.AddAsync(new PendingNonce(RandomNumberGenerator.GetBytes(16), "agent-a", "device-2", expires), ct);
-    }
 }

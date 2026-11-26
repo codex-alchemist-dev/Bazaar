@@ -13,15 +13,15 @@ public sealed record ReasoningCiphertext(Guid KeyId, byte[] Ciphertext, byte[] N
 /// Seals and opens ballot reasoning under the voter's per-person key (doc 04, per-person encrypted fields; doc 10).
 /// </summary>
 /// <remarks>
-/// The production implementation is the host's cipher over the per-person key store (doc 04, doc 14); this component never
-/// holds key material and ships no production cipher. Tests use an in-memory fake. Both calls are async because the key store
-/// reads Postgres and unwraps under the host KEK.
+/// TODO(component): the production implementation is the doc 04 per-person key helper (KeyStore over person_key, wrapped
+/// under the bootstrap key from doc 14). The host wires it; this store never holds key material. No production cipher
+/// lives in this component. Tests use an in-memory fake.
 /// </remarks>
 public interface ICouncilReasoningCipher
 {
     /// <summary>Seals <paramref name="plaintext"/> under the voter's current per-person key.</summary>
-    ValueTask<ReasoningCiphertext> SealAsync(string voterId, string plaintext, CancellationToken ct);
+    ReasoningCiphertext Encrypt(string voterId, string plaintext);
 
     /// <summary>Opens a sealed reasoning text for the voter. Throws when the key is destroyed (erasure) or the seal is invalid.</summary>
-    ValueTask<string> OpenAsync(string voterId, ReasoningCiphertext sealedText, CancellationToken ct);
+    string Decrypt(string voterId, ReasoningCiphertext sealedText);
 }

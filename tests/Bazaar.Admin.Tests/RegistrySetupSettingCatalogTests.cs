@@ -1,9 +1,5 @@
 using System.Text.Json;
 using Bazaar.Admin.Composition;
-using Bazaar.Conduit.Settings;
-using Bazaar.Server.BackupPolicy;
-using Bazaar.Server.Gateway;
-using Bazaar.Server.MailPolicy;
 using Bazaar.Server.Modules.Settings;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
@@ -22,28 +18,10 @@ public sealed class RegistrySetupSettingCatalogTests
         var catalog = RegistrySetupSettingCatalog.Known;
         var registry = BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]);
 
-        var registry = BuiltInSettingRegistries.WithContributions(
-            [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution(), new GatewaySettingContribution()]);
-
-        // The built-in keys plus the module contributions the admin tool composes (module manager, backup policy, mail policy, Conduit).
         Assert.Equal(registry.Definitions.Count, catalog.Definitions.Count);
         Assert.True(catalog.TryGet("update.channel", out _));
         Assert.All(registry.Definitions, d => Assert.True(catalog.TryGet(d.Name, out var found) && found!.Name == d.Name));
         Assert.False(catalog.TryGet("no.such.key", out _));
-    }
-
-    [Theory]
-    [InlineData("backup.target")]
-    [InlineData("backup.drill_interval_days")]
-    [InlineData("backup.no_target_acknowledged")]
-    [InlineData("mail.enabled")]
-    [InlineData("mail.backend")]
-    [InlineData("update.channel")]
-    [InlineData("deps.update.autoSecurityPatches")]
-    public void The_keys_a_plan_projects_from_modules_are_known_install_settings(string key)
-    {
-        Assert.True(RegistrySetupSettingCatalog.Known.TryGet(key, out var definition));
-        Assert.True(definition!.IsInstallScope);
     }
 
     [Fact]

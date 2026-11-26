@@ -1,8 +1,0 @@
-<Project>
-  <!-- Spike S12 is throwaway and stands alone: it does not inherit the repo's analyzers or central package management. -->
-  <PropertyGroup>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
-  </PropertyGroup>
-</Project>

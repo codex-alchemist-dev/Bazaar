@@ -70,19 +70,6 @@ public sealed class WakeDecisionRepository(NpgsqlDataSource dataSource)
         return (await ReadAsync(cmd, ct).ConfigureAwait(false)).FirstOrDefault();
     }
 
-    /// <summary>The highest decided seq for one (gc, agent, prompt version), or 0 when none. The consumer's cursor on restart.</summary>
-    public async Task<long> MaxSeqAsync(Guid gcId, Guid agentId, string promptVersion, CancellationToken ct = default)
-    {
-        await using var cmd = dataSource.CreateCommand("""
-            SELECT COALESCE(MAX(seq), 0) FROM wake_decisions
-            WHERE gc_id = @gc_id AND agent_id = @agent_id AND prompt_version = @prompt_version
-            """);
-        cmd.Parameters.AddWithValue("gc_id", gcId);
-        cmd.Parameters.AddWithValue("agent_id", agentId);
-        cmd.Parameters.AddWithValue("prompt_version", promptVersion);
-        return (long)(await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) ?? 0L);
-    }
-
     private static async Task<List<WakeDecisionRecord>> ReadAsync(NpgsqlCommand cmd, CancellationToken ct)
     {
         var result = new List<WakeDecisionRecord>();

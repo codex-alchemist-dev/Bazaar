@@ -1,24 +1,23 @@
 using Bazaar.Core;
+using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Memory.Tools;
 using Bazaar.Server.Memory.Write;
-using Bazaar.Server.GeneticMemory.Abstractions;
-using Bazaar.Server.Memory.Tools;
-using Bazaar.Server.Memory.Write;
-using Bazaar.Server.Security.Policy;
+using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Search;
 using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Bazaar.Server.Memory.GitVault;
 
 /// <summary>
 /// Agent memory on the Vault as a Bazaar Component (docs/design/08-memory-system.md, section 11). It registers the Vault-backed
-/// <see cref="IMemoryVault"/> and the memory <see cref="IMemoryBatchSink"/>, which is the same vault. The Constellation module wraps
-/// the sink with its graph projection when its graph store is registered. It does nothing until <c>Memory:Vault:RepoPath</c> is
-/// set, and it fails fast at startup when the path is set but the rest of the configuration is incomplete.
+/// <see cref="IMemoryVault"/> and the memory <see cref="IMemoryBatchSink"/>, which is the same vault wrapped by the Constellation
+/// graph sink when the graph store is registered. It does nothing until <c>Memory:Vault:RepoPath</c> is set, and it fails fast at
+/// startup when the path is set but the rest of the configuration is incomplete.
 /// </summary>
 /// <remarks>
 /// Configuration (install level, paths and identities are host facts, not registry settings):
@@ -50,14 +49,6 @@ public sealed class MemoryComponent : IBazaarComponent
         SoftDependsOn: ["vault", "constellation"]);
 
     public ComponentManifest Manifest => ManifestDefinition;
-
-    /// <summary>The policy entry for <c>gmt.propose_lesson</c>.</summary>
-    public static ToolCapability GmtProposeLessonCapability { get; } = new(
-        GmtToolNames.ProposeLesson,
-        ToolTier.AutonomousWithNotice,
-        CapabilityClass.Exec,
-        SessionRoles.Actor,
-        new RateRule(20, TimeSpan.FromHours(1)));
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -105,18 +96,21 @@ public sealed class MemoryComponent : IBazaarComponent
             options));
         services.TryAddSingleton<IMemoryVault>(sp => sp.GetRequiredService<GitMemoryVault>());
 
-        // The write path is the Vault itself. The Constellation module decorates this registration with its graph sink
-        // (Bazaar.Server.Constellation, AddMemoryGraphProjection) after every component has registered, so the order of
-        // component start-up does not matter and this module never references Constellation.
-        services.TryAddSingleton<IMemoryBatchSink>(sp => sp.GetRequiredService<IMemoryVault>());
-
-        // Genetic Memory Transfer (doc 25 WP9) writes accepted lessons through the memory sink.
-        services.TryAddSingleton<IGmtSecretScanner, GmtSecretScanner>();
-
-        // Policy entry for the [PROPOSED] gmt.propose_lesson tool (doc 15: a tool with no capability fails closed). It only records a
-        // lesson for review, so it is autonomous with a notice, actor sessions only, and capped per hour.
-        services.AddSingleton(GmtProposeLessonCapability);
-        services.TryAddSingleton<IGmtLessonWriter>(sp => new GmtLessonWriter(sp.GetRequiredService<IMemoryBatchSink>()));
+        // Writes go to the Vault first; the graph sink then projects them when a graph store exists.
+        // Every graph change made through the memory path is audited (doc 19) when a graph store and an audit log exist.
+        // The audited store is its own service: component start order is not guaranteed between the memory and Constellation
+        // components, so the Constellation registration of IMemoryGraphStore is left alone. Callers that roll a note back
+        // (the endpoint slice) take AuditingMemoryGraphStore so the rollback is audited too.
+        services.TryAddSingleton(sp => new AuditingMemoryGraphStore(
+            sp.GetRequiredService<IMemoryGraphStore>(),
+            sp.GetRequiredService<IAuditLog>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System));
+        services.TryAddSingleton<IMemoryBatchSink>(sp => sp.GetService<IMemoryGraphStore>() is { } store
+            ? MemoryGraphSink.Wrap(
+                sp.GetRequiredService<IMemoryVault>(),
+                sp.GetService<IAuditLog>() is not null ? sp.GetRequiredService<AuditingMemoryGraphStore>() : store,
+                sp.GetRequiredService<ILogger<MemoryGraphSink>>())
+            : sp.GetRequiredService<IMemoryVault>());
     }
 
     private static string Required(IConfiguration configuration, string key) =>

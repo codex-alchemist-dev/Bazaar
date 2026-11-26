@@ -1,5 +1,4 @@
 using Bazaar.Core;
-using Bazaar.GitHub.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -22,5 +21,5 @@ public sealed class GitHubComponent : IBazaarComponent
     public ComponentManifest Manifest => ManifestDefinition;
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddBazaarGitHub(configuration).AddBazaarGitHubAgentTools(configuration);
+        services.AddBazaarGitHub(configuration);
 }

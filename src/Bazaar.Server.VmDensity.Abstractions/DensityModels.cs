@@ -28,18 +28,10 @@ public sealed record DensityVm(Guid VmId, string AgentId, DensityGuestOs Os, int
 /// <param name="HasOpenTerminal">A terminal session is open.</param>
 /// <param name="HasBrowserSession">A browser session is live.</param>
 /// <param name="LastUsedAt">When the VM was last used.</param>
-/// <param name="IsUnknown">
-/// The activity could not be read (PROPOSED, doc 59 section 8). An unknown activity counts as busy, so the VM is never saved on a
-/// guess. Added after the first four members; existing callers keep compiling.
-/// </param>
-public sealed record VmActivity(bool HasRunningExec, bool HasOpenTerminal, bool HasBrowserSession, DateTimeOffset LastUsedAt, bool IsUnknown = false)
+public sealed record VmActivity(bool HasRunningExec, bool HasOpenTerminal, bool HasBrowserSession, DateTimeOffset LastUsedAt)
 {
-    /// <summary>True when the activity is unknown, or an exec, a terminal or a browser session is active.</summary>
-    public bool IsBusy => IsUnknown || HasRunningExec || HasOpenTerminal || HasBrowserSession;
-
-    /// <summary>The activity of a VM whose activity could not be read: busy, last used at <paramref name="now"/>.</summary>
-    /// <param name="now">The current time.</param>
-    public static VmActivity Unknown(DateTimeOffset now) => new(false, false, false, now, IsUnknown: true);
+    /// <summary>True when an exec, a terminal or a browser session is active.</summary>
+    public bool IsBusy => HasRunningExec || HasOpenTerminal || HasBrowserSession;
 }
 
 /// <summary>Host memory in MiB.</summary>

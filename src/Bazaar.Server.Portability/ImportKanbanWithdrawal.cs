@@ -1,38 +1,40 @@
 namespace Bazaar.Server.Portability;
 
-/// <summary>
-/// The read side of the Kanban withdrawal: the tasks an import created (<c>tasks.import_job_id</c>) and the ones already withdrawn.
-/// <c>PostgresKanbanImportedTaskReader</c> implements it.
-/// </summary>
-public interface IImportedKanbanTaskReader
+/// <summary>How a withdrawn Kanban task is handled (doc 44 section 8.8, following the doc 12 gates).</summary>
+public enum KanbanWithdrawalMode
 {
-    /// <summary>Ids of tasks this job created.</summary>
-    Task<IReadOnlyList<string>> ReadImportedTaskIdsAsync(string jobId, CancellationToken ct);
+    /// <summary>Transition to Blocked with reason <see cref="ImportKanbanWithdrawer.Reason"/>.</summary>
+    Block,
 
-    /// <summary>Ids of this job's tasks already withdrawn.</summary>
-    Task<IReadOnlySet<string>> ReadWithdrawnTaskIdsAsync(string jobId, CancellationToken ct);
+    /// <summary>Archive the task.</summary>
+    Archive,
 }
 
 /// <summary>
-/// Kanban side of a withdrawal. A task moves to the stored <c>withdrawn</c> state through the normal Kanban gates (doc 12,
-/// "Withdrawn state"), so a gate that refuses makes the call throw and nothing is recorded for that batch. The earlier
-/// Block and Archive modes are retired: Blocked is derived and Kanban has no archive.
+/// Kanban side of a withdrawal. The host applies the transition through the normal Kanban gates, so a gate that refuses
+/// makes the call throw and nothing is recorded for that batch.
 /// </summary>
-public interface IKanbanWithdrawalWriter : IImportedKanbanTaskReader
+public interface IKanbanWithdrawalWriter
 {
-    Task WithdrawTasksAsync(string jobId, int batchIndex, IReadOnlyList<string> taskIds, string reason, CancellationToken ct);
+    /// <summary>Ids of tasks this job created, and the ones already withdrawn.</summary>
+    Task<IReadOnlyList<string>> ReadImportedTaskIdsAsync(string jobId, CancellationToken ct);
+
+    Task<IReadOnlySet<string>> ReadWithdrawnTaskIdsAsync(string jobId, CancellationToken ct);
+
+    Task WithdrawTasksAsync(string jobId, int batchIndex, IReadOnlyList<string> taskIds, KanbanWithdrawalMode mode, string reason, CancellationToken ct);
 }
 
 /// <summary>Withdraws the Kanban tasks of an import in audited batches.</summary>
 public static class ImportKanbanWithdrawer
 {
-    /// <summary>The withdrawal reason doc 44 section 8.8 names.</summary>
+    /// <summary>The transition reason doc 44 section 8.8 names.</summary>
     public const string Reason = "withdrawn by import";
 
     public static async Task<ImportWithdrawalResult> WithdrawAsync(
         string jobId,
         IKanbanWithdrawalWriter tasks,
         IAuditSink audit,
+        KanbanWithdrawalMode mode,
         int batchSize,
         TimeProvider now,
         CancellationToken ct)
@@ -56,7 +58,7 @@ public static class ImportKanbanWithdrawer
             ct.ThrowIfCancellationRequested();
             try
             {
-                await tasks.WithdrawTasksAsync(jobId, index, chunk, Reason, ct);
+                await tasks.WithdrawTasksAsync(jobId, index, chunk, mode, Reason, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

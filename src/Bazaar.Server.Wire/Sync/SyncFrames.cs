@@ -22,9 +22,6 @@ internal sealed class SyncFrames(IWireCodec codec, SyncOptions options, TimeProv
     public Envelope GraphLod(GraphLodFrame frame) =>
         Event(WireTypes.GraphLod, frame.S, null, codec.EncodePayload(frame));
 
-    public Envelope Opening(string stream, StreamOpening opening) =>
-        Event(opening.Type, stream, null, opening.Payload);
-
     private Envelope Event(string type, string stream, long? n, ReadOnlyMemory<byte> payload) =>
         new(options.ProtocolMajor, type, EnvelopeKind.Event, null, null, stream, n, time.GetUtcNow(), payload);
 }

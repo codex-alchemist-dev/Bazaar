@@ -15,10 +15,6 @@ public static partial class RubedoAnalyzer
     /// else on the first character. An empty list means the document is valid.
     /// </summary>
     public static IReadOnlyList<AnalysisDiagnostic> DiagnoseView(string? json)
-    public static IReadOnlyList<AnalysisDiagnostic> DiagnoseView(string? json) => DiagnoseView(json, null);
-
-    /// <summary>As <see cref="DiagnoseView(string?)"/>, also checking token references against <paramref name="tokens"/> (doc 41c section 5.1).</summary>
-    public static IReadOnlyList<AnalysisDiagnostic> DiagnoseView(string? json, IViewTokenCatalog? tokens)
     {
         json ??= string.Empty;
         if (IsOverCap(json))
@@ -42,7 +38,6 @@ public static partial class RubedoAnalyzer
         }
 
         IReadOnlyList<RubedoDiagnostic> problems = ViewValidator.Validate(document);
-        IReadOnlyList<RubedoDiagnostic> problems = ViewValidator.Validate(document, tokens);
         if (problems.Count == 0)
         {
             return [];
@@ -65,13 +60,6 @@ public static partial class RubedoAnalyzer
     /// <c>action</c>, action kinds, data types and the document's own keys. Nothing outside a string.
     /// </summary>
     public static CompletionList CompleteView(string? json, int offset)
-    public static CompletionList CompleteView(string? json, int offset) => CompleteView(json, offset, null);
-
-    /// <summary>
-    /// As <see cref="CompleteView(string?, int)"/>, and inside <c>{ "token": "..." }</c> in a prop it also offers the names in
-    /// <paramref name="tokens"/>, narrowed to the kind the prop takes (doc 41c section 5.1).
-    /// </summary>
-    public static CompletionList CompleteView(string? json, int offset, IViewTokenCatalog? tokens)
     {
         json ??= string.Empty;
         offset = Math.Clamp(offset, 0, json.Length);
@@ -81,7 +69,6 @@ public static partial class RubedoAnalyzer
         }
 
         return ViewCompleter.Complete(json, offset);
-        return ViewCompleter.Complete(json, offset, tokens);
     }
 
     private static (int Start, int End) LocateProblem(RubedoDiagnostic problem, Dictionary<string, (int Start, int End)> locations)

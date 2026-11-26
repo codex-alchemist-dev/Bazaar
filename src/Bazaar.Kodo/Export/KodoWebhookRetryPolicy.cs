@@ -147,8 +147,7 @@ public sealed class KodoWebhookRetryPolicy
         double jitter = 1 - (JitterFraction * random.NextDouble());
         TimeSpan delay = TimeSpan.FromSeconds(nominal.TotalSeconds * jitter);
 
-        // Compared as a difference, so an elapsed time of any size cannot overflow the sum.
-        if (elapsedSinceFirstAttempt > Window || delay > Window - elapsedSinceFirstAttempt)
+        if (elapsedSinceFirstAttempt + delay > Window)
         {
             return new KodoWebhookDecision(KodoWebhookStep.DeadLetter, TimeSpan.Zero, "schedule_exhausted");
         }

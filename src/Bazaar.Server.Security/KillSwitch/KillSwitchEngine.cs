@@ -20,7 +20,7 @@ namespace Bazaar.Server.Security.KillSwitch;
 /// the next state change, which waits for the load and throws if it still fails.
 /// </para>
 /// </remarks>
-public sealed class KillSwitchEngine : IKillSwitchReader
+public sealed class KillSwitchEngine
 {
     /// <summary>Actor id recorded for an automatic breach stop. It is not an owner.</summary>
     public const string BreachActorId = "system:breach";
@@ -137,7 +137,6 @@ public sealed class KillSwitchEngine : IKillSwitchReader
     {
         ValidateActorAndReason(actorId, reason);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         var now = _time.GetUtcNow();
@@ -168,7 +167,6 @@ public sealed class KillSwitchEngine : IKillSwitchReader
         var actorId = request.DeviceId;
         ValidateActorAndReason(actorId, reason);
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         KillSwitchStop? previous;
@@ -177,29 +175,28 @@ public sealed class KillSwitchEngine : IKillSwitchReader
             _agentStops.TryGetValue(agentId, out previous);
         }
 
-        // The release verifies the owner signature. The stored stop is cleared only after it succeeds, so a forged or failed
-        // request leaves the stop in the store and the cache.
-        var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
-        if (release.Outcome == ContainmentReleaseOutcome.Denied)
-        {
-            // The agent stays denied: only the owner may lift containment.
-            throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
-        }
-
         await _lane.RunAsync(() => _store.ClearAgentStopAsync(agentId, ct), ct).ConfigureAwait(false);
-        lock (_gate)
-        {
-            _agentStops.Remove(agentId);
-        }
 
         try
         {
+            var release = await _containment.ReleaseAsync(agentId, request, ct).ConfigureAwait(false);
+            if (release.Outcome == ContainmentReleaseOutcome.Denied)
+            {
+                // The agent stays denied: only the owner may lift containment.
+                throw new UnauthorizedAccessException("Only the owner may resume a contained agent.");
+            }
+
+            lock (_gate)
+            {
+                _agentStops.Remove(agentId);
+            }
+
             await _audit.RecordAsync(new KillSwitchAuditEntry(_time.GetUtcNow(), actorId, KillSwitchAction.Resumed, KillSwitchScope.Agent, agentId, reason), ct)
                 .ConfigureAwait(false);
         }
         catch
         {
-            // The record did not complete, so the stop goes back in place.
+            // The release or the record did not complete, so the stop goes back in place.
             await RestoreAsync(previous, agentId, CancellationToken.None).ConfigureAwait(false);
             throw;
         }
@@ -228,7 +225,6 @@ public sealed class KillSwitchEngine : IKillSwitchReader
             throw new ArgumentOutOfRangeException(nameof(effect), effect, "Unknown tool effect.");
         }
 
-        agentId = AgentIds.Canonical(agentId);
         lock (_gate)
         {
             if (!_loaded)
@@ -248,26 +244,6 @@ public sealed class KillSwitchEngine : IKillSwitchReader
         }
 
         return KillSwitchDecision.Allow;
-    }
-
-    /// <inheritdoc />
-    /// <remarks>Reads the cache only; does no I/O. A blank agent id throws.</remarks>
-    public ValueTask<bool> IsFrozenAsync(string agentId, CancellationToken ct = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-        ct.ThrowIfCancellationRequested();
-        lock (_gate)
-        {
-            return ValueTask.FromResult(!_loaded || _global is not null || _agentStops.ContainsKey(agentId));
-        }
-    }
-
-    /// <inheritdoc />
-    /// <remarks>Returns <see cref="Evaluate"/>'s answer; does no I/O.</remarks>
-    public ValueTask<KillSwitchDecision> EvaluateAsync(string agentId, ToolEffect effect, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(Evaluate(agentId, effect));
     }
 
     /// <summary>Read-only snapshot of the current stops. Always allowed, including under a global stop.</summary>
@@ -320,12 +296,7 @@ public sealed class KillSwitchEngine : IKillSwitchReader
                 _agentStops.Clear();
                 foreach (var stop in status.AgentStops)
                 {
-                    // Rows written before ids were canonicalised may carry another spelling; two spellings of one agent keep the earlier stop.
-                    var key = AgentIds.Canonical(stop.AgentId!);
-                    if (!_agentStops.TryGetValue(key, out var kept) || stop.Since < kept.Since)
-                    {
-                        _agentStops[key] = stop with { AgentId = key };
-                    }
+                    _agentStops[stop.AgentId!] = stop;
                 }
                 _loaded = true;
                 _loadFailure = null;

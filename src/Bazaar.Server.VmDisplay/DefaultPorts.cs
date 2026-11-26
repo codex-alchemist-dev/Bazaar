@@ -7,9 +7,9 @@ internal sealed class UnconfiguredDisplayGate : IDisplayGate
 {
     private static readonly DisplayVerdict _refused = DisplayVerdict.Deny("no display gate configured");
 
-    public ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct) => ValueTask.FromResult(_refused);
+    public DisplayVerdict CheckCapture(DisplayTarget target) => _refused;
 
-    public ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct) => ValueTask.FromResult(_refused);
+    public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => _refused;
 }
 
 /// <summary>The audit sink registered until the host supplies one: it records nothing.</summary>

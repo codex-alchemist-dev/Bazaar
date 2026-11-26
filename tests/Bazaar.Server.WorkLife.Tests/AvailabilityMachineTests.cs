@@ -310,49 +310,4 @@ public class AvailabilityMachineTests
                 agentId!,
                 new HashSet<AvailabilityIdempotencyKey>()));
     }
-
-    [Theory]
-    [InlineData(AvailabilityMachineState.Off)]
-    [InlineData(AvailabilityMachineState.Break)]
-    public void Vacation_starts_takes_an_off_duty_agent_straight_to_vacation(AvailabilityMachineState from)
-    {
-        var machine = Machine(from);
-
-        var transition = machine.Submit(new AvailabilityEvent.VacationStarts(_t1));
-
-        Assert.True(transition.Applied);
-        Assert.Equal(AvailabilityMachineState.Vacation, machine.Snapshot.State);
-    }
-
-    [Fact]
-    public void Vacation_ends_goes_to_off_and_is_rejected_outside_vacation()
-    {
-        var vacation = Machine(AvailabilityMachineState.Vacation);
-        Assert.True(vacation.Submit(new AvailabilityEvent.VacationEnds(_t1)).Applied);
-        Assert.Equal(AvailabilityMachineState.Off, vacation.Snapshot.State);
-
-        var onShift = Machine();
-        Assert.False(onShift.Submit(new AvailabilityEvent.VacationEnds(_t1)).Applied);
-    }
-
-    [Fact]
-    public void Vacation_ends_waits_for_a_provider_cap_reset()
-    {
-        var machine = Machine();
-        machine.Submit(new AvailabilityEvent.SpendCapped(_t0, true, _t2));
-
-        Assert.False(machine.Submit(new AvailabilityEvent.VacationEnds(_t1)).Applied);
-        Assert.Equal(AvailabilityMachineState.Vacation, machine.Snapshot.State);
-        Assert.True(machine.Submit(new AvailabilityEvent.VacationEnds(_t2)).Applied);
-        Assert.Equal(AvailabilityMachineState.Off, machine.Snapshot.State);
-    }
-
-    [Fact]
-    public void Vacation_ends_never_clears_a_provider_cap_with_an_unknown_reset()
-    {
-        var machine = Machine();
-        machine.Submit(new AvailabilityEvent.SpendCapped(_t0, true, null));
-
-        Assert.False(machine.Submit(new AvailabilityEvent.VacationEnds(_t2)).Applied);
-    }
 }

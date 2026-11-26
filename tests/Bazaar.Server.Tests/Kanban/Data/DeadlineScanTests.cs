@@ -91,17 +91,6 @@ public sealed class DeadlineScanTests(KanbanDb db) : IClassFixture<KanbanDb>
     }
 
     [Fact]
-    public async Task A_withdrawn_task_gets_no_due_passed_event()
-    {
-        SkipWithoutDatabase();
-        var task = await AddTaskAsync(TaskState.Withdrawn, DateTimeOffset.UtcNow.AddHours(-2));
-
-        await NewHandler().ScanAsync(Ct);
-
-        Assert.Empty(await DuePassedPayloadsAsync(task));
-    }
-
-    [Fact]
     public async Task A_task_without_due_at_gets_no_due_passed_event()
     {
         SkipWithoutDatabase();

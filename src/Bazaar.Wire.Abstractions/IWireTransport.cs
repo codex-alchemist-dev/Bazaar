@@ -53,23 +53,3 @@ public readonly record struct WireReceive(ReadOnlyMemory<byte> Frame, int? Close
     /// <summary>A close.</summary>
     public static WireReceive Closed(int code = 0) => new(default, code);
 }
-
-/// <summary>
-/// Hand-off from a transport listener to the connection layer: every connection that finished its transport and
-/// codec handshake is written to <see cref="Accepted"/>; the connection layer reads from it (doc 90 section 1).
-/// </summary>
-public interface IWireConnectionSource
-{
-    /// <summary>Accepted connections, codec already chosen. Completes when the listener stops.</summary>
-    System.Threading.Channels.ChannelReader<IWireConnection> Accepted { get; }
-}
-
-/// <summary>A listener that runs its own accept loop (stream transports such as <c>quic</c>).</summary>
-public interface IAcceptingWireTransportListener : IWireTransportListener, IWireConnectionSource
-{
-    /// <summary>Starts listening. Throws <see cref="PlatformNotSupportedException"/> when <see cref="IWireTransportListener.IsSupported"/> is false.</summary>
-    ValueTask StartAsync(CancellationToken cancellationToken);
-
-    /// <summary>Stops accepting, closes the listener and completes <see cref="IWireConnectionSource.Accepted"/>.</summary>
-    ValueTask StopAsync(CancellationToken cancellationToken);
-}

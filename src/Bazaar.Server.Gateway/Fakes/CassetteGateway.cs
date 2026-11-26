@@ -9,9 +9,6 @@ namespace Bazaar.Server.Gateway.Fakes;
 /// </summary>
 public sealed class CassetteGateway(CassetteStore store, string provider, string model) : IModelGateway
 {
-
-    public Task<EmbeddingResult> EmbedAsync(EmbeddingRequest request, CancellationToken cancellationToken) =>
-        throw new NotSupportedException("CassetteGateway does not support embeddings.");
     private readonly CassetteStore _store = store ?? throw new ArgumentNullException(nameof(store));
     private readonly string _provider = !string.IsNullOrWhiteSpace(provider) ? provider : throw new ArgumentException("A provider name is required.", nameof(provider));
     private readonly string _model = !string.IsNullOrWhiteSpace(model) ? model : throw new ArgumentException("A model id is required.", nameof(model));

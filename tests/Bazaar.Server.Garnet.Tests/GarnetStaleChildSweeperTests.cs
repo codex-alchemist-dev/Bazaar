@@ -16,7 +16,6 @@ public class GarnetStaleChildSweeperTests
         var probe = new FakeProbe();
 
         var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "Garnet.exe");
-        var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "garnet-server.exe");
 
         Assert.False(killed);
         Assert.Empty(probe.Killed);
@@ -29,7 +28,6 @@ public class GarnetStaleChildSweeperTests
         File.WriteAllText(PidFile(), "777\n");
 
         var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "Garnet.exe");
-        var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "garnet-server.exe");
 
         Assert.True(killed);
         Assert.Equal([777], probe.Killed);
@@ -43,7 +41,6 @@ public class GarnetStaleChildSweeperTests
         File.WriteAllText(PidFile(), "777");
 
         var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "Garnet.exe");
-        var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "garnet-server.exe");
 
         Assert.False(killed);
         Assert.Empty(probe.Killed);
@@ -57,7 +54,6 @@ public class GarnetStaleChildSweeperTests
         File.WriteAllText(PidFile(), "not-a-pid");
 
         var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "Garnet.exe");
-        var killed = new GarnetStaleChildSweeper(probe).Sweep(PidFile(), "garnet-server.exe");
 
         Assert.False(killed);
         Assert.Empty(probe.Killed);

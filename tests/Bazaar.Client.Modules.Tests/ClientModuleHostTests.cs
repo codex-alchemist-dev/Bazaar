@@ -139,33 +139,6 @@ public class ClientModuleHostTests
         Assert.Throws<ArgumentNullException>(() => ClientModuleHost.Load(null!, _host));
         Assert.Throws<ArgumentNullException>(() => ClientModuleHost.Load([], null!));
     }
-
-    [Fact]
-    public void An_optional_module_is_skipped_quietly_until_the_head_switches_it_on()
-    {
-        var optional = new FakeModule(Manifest("bazaar.play") with { EnabledByDefault = false });
-        var lines = new List<string>();
-
-        var off = ClientModuleHost.Load([optional], _host, lines.Add);
-        var on = ClientModuleHost.Load([optional], _host, lines.Add, new Dictionary<string, bool> { ["bazaar.play"] = true });
-
-        Assert.Equal("optional-off", Assert.Single(off.Skipped).Code);
-        Assert.Empty(off.Loaded);
-        Assert.Empty(lines);
-        Assert.Equal(["bazaar.play"], on.Loaded.Select(m => m.Id).ToArray());
-        Assert.Equal(1, optional.RegisterCalls);
-    }
-
-    [Fact]
-    public void An_explicit_false_switches_a_default_on_module_off()
-    {
-        var module = new FakeModule(Manifest("bazaar.gc"));
-
-        var result = ClientModuleHost.Load([module], _host, null, new Dictionary<string, bool> { ["bazaar.gc"] = false });
-
-        Assert.Equal("optional-off", Assert.Single(result.Skipped).Code);
-        Assert.Equal(0, module.RegisterCalls);
-    }
 }
 
 public class ClientModuleLoadResultTests

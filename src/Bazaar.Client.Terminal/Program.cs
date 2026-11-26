@@ -1,7 +1,6 @@
 using System.Threading.Channels;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Terminal;
-using Bazaar.Client.Terminal.Calcinato;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 
@@ -9,23 +8,6 @@ if (args.Contains("--help") || args.Contains("-h"))
 {
     Console.WriteLine(TerminalArgs.Usage);
     return 0;
-}
-
-if (TerminalArgs.IsCalcinato(args))
-{
-    CalcinatoOptions calcinato;
-    try
-    {
-        calcinato = TerminalArgs.ParseCalcinato(args);
-    }
-    catch (ArgumentException ex)
-    {
-        Console.Error.WriteLine(ex.Message);
-        Console.Error.WriteLine(TerminalArgs.Usage);
-        return 2;
-    }
-
-    return await CalcinatoLauncher.RunAsync(calcinato, CancellationToken.None);
 }
 
 TerminalOptions options;

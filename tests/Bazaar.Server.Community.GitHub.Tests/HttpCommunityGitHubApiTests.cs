@@ -100,28 +100,6 @@ public sealed class HttpCommunityGitHubApiTests : IDisposable
     }
 
     [Fact]
-    public async Task A_final_refusal_from_the_token_source_is_not_made_retryable()
-    {
-        var refusal = new CommunityPostException("The GitHub App is not installed on that repository.", retryable: false);
-
-        var ex = await Assert.ThrowsAsync<CommunityPostException>(
-            () => Api(new ThrowingTokenSource(refusal)).CreateIssueAsync("a", "b", "t", "b", CancellationToken.None));
-
-        Assert.Same(refusal, ex);
-        Assert.False(ex.Retryable);
-        Assert.Empty(_handler.Requests);
-    }
-
-    [Fact]
-    public async Task Any_other_token_failure_is_retryable()
-    {
-        var ex = await Assert.ThrowsAsync<CommunityPostException>(
-            () => Api(new ThrowingTokenSource(new InvalidOperationException("boom"))).CreateIssueAsync("a", "b", "t", "b", CancellationToken.None));
-
-        Assert.True(ex.Retryable);
-    }
-
-    [Fact]
     public async Task Too_many_requests_is_retryable_and_carries_retry_after()
     {
         _handler.Enqueue(HttpStatusCode.TooManyRequests, """{"message":"slow down"}""", r => r.Headers.RetryAfter = new RetryConditionHeaderValue(TimeSpan.FromSeconds(42)));
@@ -248,9 +226,4 @@ public sealed class HttpCommunityGitHubApiTests : IDisposable
         public Task<string> GetInstallationTokenAsync(string owner, string repo, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("identity service down");
     }
-}
-
-internal sealed class ThrowingTokenSource(Exception failure) : ICommunityGitHubTokenSource
-{
-    public Task<string> GetInstallationTokenAsync(string owner, string repo, CancellationToken cancellationToken) => throw failure;
 }

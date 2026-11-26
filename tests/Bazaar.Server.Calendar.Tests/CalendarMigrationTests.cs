@@ -60,25 +60,12 @@ public sealed class CalendarMigrationTests(CalendarDb db) : IClassFixture<Calend
     public async Task Reapplying_the_migrations_is_a_no_op()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var source = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly);
         var result = await new MigrationRunner(db.DataSource, new MigrationOptions(16))
-            .MigrateAsync(CalendarDb.MigrationSource(), "linux", TestContext.Current.CancellationToken);
+            .MigrateAsync(source, "linux", TestContext.Current.CancellationToken);
 
         Assert.Empty(result.Applied);
         Assert.True(result.AlreadyApplied > 0);
-    }
-
-    [Fact]
-    public async Task Visibility_defaults_to_public_and_only_the_three_levels_are_stored()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var agent = await db.CreateAgentAsync("visibility-agent");
-        var id = Guid.CreateVersion7();
-        await InsertAsync(id, agentId: agent);
-        Assert.Equal("public", await db.ScalarAsync<string>("SELECT visibility FROM calendar_event WHERE id = $1", id));
-
-        foreach (var level in new[] { "attendees", "owner" })
-            await db.ExecAsync("UPDATE calendar_event SET visibility = $2 WHERE id = $1", id, level);
-        Assert.Equal("23514", await SqlStateAsync(() => db.ExecAsync("UPDATE calendar_event SET visibility = 'secret' WHERE id = $1", id)));
     }
 
     [Fact]

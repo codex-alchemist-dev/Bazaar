@@ -53,31 +53,6 @@ public sealed class CalendarServiceTests(CalendarDb db) : IClassFixture<Calendar
             eventId.ToString());
 
     [Fact]
-    public async Task Visibility_defaults_by_kind_is_stored_and_survives_an_update()
-    {
-        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
-        var agent = await db.CreateAgentAsync("visibility-requester");
-        var gc = await db.CreateGcAsync();
-        var service = Service();
-
-        var vacation = (await service.CreateAsync(Vacation(agent), Agent(agent), gc, TestContext.Current.CancellationToken)).Event!;
-        var release = (await service.CreateAsync(Release(), _owner, gc, TestContext.Current.CancellationToken)).Event!;
-        var secret = (await service.CreateAsync(Release("Hush") with { Visibility = CalendarVisibility.Owner }, _owner, gc, TestContext.Current.CancellationToken)).Event!;
-
-        Assert.Equal(CalendarVisibility.Attendees, vacation.Visibility);
-        Assert.Equal(CalendarVisibility.Public, release.Visibility);
-        Assert.Equal(CalendarVisibility.Owner, secret.Visibility);
-        Assert.Equal("attendees", await db.ScalarAsync<string>("SELECT visibility FROM calendar_event WHERE id = $1", vacation.Id));
-
-        // An update that names no visibility keeps the stored one; naming one changes it.
-        var kept = await service.UpdateAsync(secret.Id, secret.Version, Release("Hush too"), _owner, gc, TestContext.Current.CancellationToken);
-        Assert.Equal(CalendarVisibility.Owner, kept.Event!.Visibility);
-        var changed = await service.UpdateAsync(secret.Id, kept.Event.Version, Release("Hush") with { Visibility = CalendarVisibility.Public }, _owner, gc, TestContext.Current.CancellationToken);
-        Assert.Equal(CalendarVisibility.Public, changed.Event!.Visibility);
-        Assert.Equal(CalendarVisibility.Public, (await service.GetAsync(secret.Id, TestContext.Current.CancellationToken))!.Visibility);
-    }
-
-    [Fact]
     public async Task An_agent_request_is_proposed_and_writes_one_line_with_a_sealed_title()
     {
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");

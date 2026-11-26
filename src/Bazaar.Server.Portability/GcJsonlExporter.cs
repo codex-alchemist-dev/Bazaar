@@ -30,14 +30,12 @@ public sealed class GcJsonlExporter
 {
     private readonly IGcLogReader _log;
     private readonly IGcMessageVersionSource _versions;
-    private readonly IGcMentionSource? _mentions;
     private readonly int _pageSize;
 
     /// <param name="log">The GC log reader. Viewer rules are applied by the reader.</param>
     /// <param name="versions">The message version reader.</param>
     /// <param name="pageSize">Rows read per page. Bounds the memory an export holds at any moment.</param>
-    /// <param name="mentions">When set, <c>mentions.jsonl</c> is written too and head.json carries its count and head hash.</param>
-    public GcJsonlExporter(IGcLogReader log, IGcMessageVersionSource versions, int pageSize = 500, IGcMentionSource? mentions = null)
+    public GcJsonlExporter(IGcLogReader log, IGcMessageVersionSource versions, int pageSize = 500)
     {
         ArgumentNullException.ThrowIfNull(log);
         ArgumentNullException.ThrowIfNull(versions);
@@ -45,7 +43,6 @@ public sealed class GcJsonlExporter
         ArgumentOutOfRangeException.ThrowIfGreaterThan(pageSize, IGcLogReader.MaxLimit);
         _log = log;
         _versions = versions;
-        _mentions = mentions;
         _pageSize = pageSize;
     }
 
@@ -97,22 +94,6 @@ public sealed class GcJsonlExporter
                 await rows.FinishAsync(ct),
             };
 
-            long? mentionCount = null;
-            string? mentionHead = null;
-            if (_mentions is not null)
-            {
-                await using var mentionFile = await GcJsonlFileWriter.CreateAsync(
-                    store, GcJsonlFormat.PathFor(gcId, GcMentionsBundleSource.MentionsFile), ct);
-                await foreach (var mention in GcMentionsBundleSource.ReadPagedAsync(_mentions, gcId, head, _pageSize, viewer, ct))
-                {
-                    await mentionFile.WriteLineAsync(w => GcMentionsBundleSource.WriteMention(w, mention), ct);
-                }
-
-                files.Add(await mentionFile.FinishAsync(ct));
-                mentionCount = mentionFile.Count;
-                mentionHead = mentionFile.PrevHash;
-            }
-
             var headRecord = new GcExportHead(
                 gcId,
                 head,
@@ -122,15 +103,13 @@ public sealed class GcJsonlExporter
                 events.PrevHash,
                 messages.PrevHash,
                 rows.PrevHash,
-                files,
-                mentionCount,
-                mentionHead);
+                files);
             await WriteHeadAsync(store, headFile, headRecord.ToBytes(), ct);
         }
 
         // The files are closed; re-read them from the store, not from memory.
         var check = await GcExportSelfCheck.VerifyAsync(store, gcId, ct);
-        var written = await ListWrittenAsync(store, gcId, _mentions is not null, ct);
+        var written = await ListWrittenAsync(store, gcId, ct);
         return new GcExportResult(gcId, head, written, check);
     }
 
@@ -274,16 +253,10 @@ public sealed class GcJsonlExporter
     }
 
     /// <summary>Lists the files the export wrote, read back from the store, sorted by path.</summary>
-    private static async Task<IReadOnlyList<ExportedFile>> ListWrittenAsync(IExportFileStore store, Guid gcId, bool withMentions, CancellationToken ct)
+    private static async Task<IReadOnlyList<ExportedFile>> ListWrittenAsync(IExportFileStore store, Guid gcId, CancellationToken ct)
     {
         var files = new List<ExportedFile>();
-        var names = new List<string> { GcJsonlFormat.EventsFile, GcJsonlFormat.MessagesFile, GcJsonlFormat.VersionsFile, GcJsonlFormat.HeadFile };
-        if (withMentions)
-        {
-            names.Add(GcMentionsBundleSource.MentionsFile);
-        }
-
-        foreach (var name in names)
+        foreach (var name in new[] { GcJsonlFormat.EventsFile, GcJsonlFormat.MessagesFile, GcJsonlFormat.VersionsFile, GcJsonlFormat.HeadFile })
         {
             var path = GcJsonlFormat.PathFor(gcId, name);
             await using var stream = await store.OpenReadAsync(path, ct);

@@ -10,7 +10,7 @@ namespace Bazaar.Client.Motion.Avalonia;
 /// The merge (goo) effect is optional and behind <see cref="IGooMergeEffect"/>; the default draws nothing and the squash and stretch
 /// of the plan is the fallback that is always applied.
 /// </summary>
-public sealed class DropletBubbleAnimator : IDisposable
+public sealed class DropletBubbleAnimator
 {
     private readonly Control _bubble;
     private readonly Control? _content;
@@ -34,9 +34,6 @@ public sealed class DropletBubbleAnimator : IDisposable
         _goo = goo ?? NoGooMergeEffect.Instance;
         _settings.Changed += OnSettingsChanged;
     }
-
-    /// <summary>Stops listening to the motion settings. Call when the bubble goes away, so a long-lived settings object does not keep it alive.</summary>
-    public void Dispose() => _settings.Changed -= OnSettingsChanged;
 
     /// <summary>The level of the animation that is running or ran last; null before the first <see cref="Play"/>.</summary>
     public MotionLevel? PlayedLevel => _plan?.Level;

@@ -36,7 +36,7 @@ public enum ApprovalDecision
 /// <summary>One row of the <c>approval</c> table (doc 15). Immutable; the store replaces the whole row on each change.</summary>
 /// <param name="Id">Approval id. Also the id in the signed message.</param>
 /// <param name="AgentId">Agent that asked.</param>
-/// <param name="SessionId">Session the call came from. <see cref="Guid.Empty"/> means "no session": the row was enqueued by a module (<c>IOwnerApprovalEnqueuer</c>), not by a tool dispatch. Nothing may treat it as a live session.</param>
+/// <param name="SessionId">Session the call came from.</param>
 /// <param name="Tool">Tool the approval covers.</param>
 /// <param name="Target">Target of the action, if any. Part of the hash.</param>
 /// <param name="ArgsHash">Dispatch hash at request time (<see cref="Policy.DispatchHash"/>). The only thing a decision is bound to.</param>
@@ -82,16 +82,6 @@ public interface IApprovalStore
     /// Returns false when another change got there first.
     /// </summary>
     Task<bool> TryReplaceAsync(Guid id, ApprovalStatus expected, ApprovalRequest updated, CancellationToken ct = default);
-}
-
-/// <summary>
-/// Lists the approvals still waiting for the owner, for the phone's pending list (doc 29 Approvals). Kept apart from
-/// <see cref="IApprovalStore"/> so a store that cannot list does not have to.
-/// </summary>
-public interface IPendingApprovalLister
-{
-    /// <summary>Pending approvals whose expiry is after <paramref name="now"/>, newest first, at most <paramref name="limit"/>.</summary>
-    Task<IReadOnlyList<ApprovalRequest>> ListPendingAsync(DateTimeOffset now, int limit, CancellationToken ct = default);
 }
 
 /// <summary>Operator settings for approvals (doc 15 settings table). Values outside the stated range fail at startup.</summary>

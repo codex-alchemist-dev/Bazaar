@@ -29,15 +29,4 @@ public static class KodoWireCodec
     /// <summary>Reads one stream event, or null for a JSON null.</summary>
     public static KodoStreamEventDto? DecodeEvent(ReadOnlySpan<byte> utf8Json) =>
         JsonSerializer.Deserialize(utf8Json, KodoContractsJsonContext.Default.KodoStreamEventDto);
-
-    /// <summary>The UTF-8 JSON of a fleet snapshot.</summary>
-    public static byte[] EncodeFleet(KodoFleetSnapshotDto fleet)
-    {
-        ArgumentNullException.ThrowIfNull(fleet);
-        return JsonSerializer.SerializeToUtf8Bytes(fleet, KodoContractsJsonContext.Default.KodoFleetSnapshotDto);
-    }
-
-    /// <summary>Reads a fleet snapshot, or null for a JSON null.</summary>
-    public static KodoFleetSnapshotDto? DecodeFleet(ReadOnlySpan<byte> utf8Json) =>
-        JsonSerializer.Deserialize(utf8Json, KodoContractsJsonContext.Default.KodoFleetSnapshotDto);
 }

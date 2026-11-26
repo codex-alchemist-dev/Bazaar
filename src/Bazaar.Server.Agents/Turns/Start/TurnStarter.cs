@@ -1,5 +1,4 @@
 using Bazaar.Server.Agents.Data;
-using Bazaar.Server.Agents.Inbox;
 
 namespace Bazaar.Server.Agents.Turns.Start;
 
@@ -16,11 +15,9 @@ public sealed class TurnStarter(
     IDueInboxReader inbox,
     IWakeChainDepthSource depths,
     ITurnRunner runner,
-    TurnStarterOptions options,
-    IEnumerable<ITaskSessionHook>? taskHooks = null)
+    TurnStarterOptions options)
 {
     private const string _ryuseiPrefix = "ryusei_";
-    private readonly ITaskSessionHook[] _taskHooks = taskHooks?.ToArray() ?? [];
 
     /// <summary>Starts one turn for the due items of the request's agent, or returns <see cref="TurnStartResult.NothingDue"/>.</summary>
     /// <exception cref="ArgumentException">The holder or route is empty.</exception>
@@ -58,41 +55,8 @@ public sealed class TurnStarter(
             TriggerGcSeq: trigger?.GcSeq,
             ChainDepth: depth);
 
-        // A task wake (a card assignment whose source is the card id) starts the task session hooks before the first turn.
-        var task = due.FirstOrDefault(IsTaskItem);
-        if (task is not null)
-            await StartTaskSessionAsync(request, trigger, task, ct).ConfigureAwait(false);
-
         var outcome = await runner.RunAsync(turn, ct).ConfigureAwait(false);
         return new TurnStartResult(true, outcome, ids, wakeReason, depth);
-    }
-
-    /// <summary>A card assignment whose source ref is a card id. The kind is <see cref="InboxKind.Assignment"/> (doc 12).</summary>
-    private static bool IsTaskItem(InboxRow item) =>
-        item.Kind == InboxKind.Assignment && Guid.TryParse(item.SourceRef, out _);
-
-    /// <summary>Calls every task hook's StartAsync. A hook that reports an already held worktree (InvalidOperationException) is skipped.</summary>
-    private async Task StartTaskSessionAsync(TurnStartRequest request, InboxRow? trigger, InboxRow task, CancellationToken ct)
-    {
-        var start = new TaskSessionStart(
-            request.SessionId,
-            request.AgentId,
-            RepoRef: null,
-            TaskSlug: null,
-            GcId: trigger?.GcId,
-            TaskId: Guid.Parse(task.SourceRef!));
-
-        foreach (var hook in _taskHooks)
-        {
-            try
-            {
-                await hook.StartAsync(start, ct).ConfigureAwait(false);
-            }
-            catch (InvalidOperationException)
-            {
-                // The session already holds a worktree; the coding side documents this as the signal to continue.
-            }
-        }
     }
 
     /// <summary>The largest depth any item reports, with unreadable ryusei depths counted as the fail-closed value.</summary>

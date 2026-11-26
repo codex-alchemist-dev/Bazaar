@@ -24,21 +24,6 @@ public sealed partial class PoolImageOptions
     public IList<string> Packages { get; set; } =
         ["chromium", "bubblewrap", "util-linux", "procps", "nftables", "iproute2", "cage", "apparmor"];
 
-    /// <summary>
-    /// The directory on the VM where the operator copied the published tools (<c>bazaar-pool-spawn</c>, <c>bazaar-pointer</c>). Null
-    /// (the default) means the script has no install step. When set, the script needs the matching <see cref="PoolToolBundle"/>.
-    /// </summary>
-    public string? ToolSourceDirectory { get; set; }
-
-    /// <summary>Where the script installs the tools: root-owned, mode 0755. Needs at least two path segments.</summary>
-    public string ToolInstallDirectory { get; set; } = "/opt/bazaar/bin";
-
-    /// <summary>
-    /// Where the tool manifest (<c>pool-tools.json</c>) is on the VM, directly inside <see cref="ToolInstallDirectory"/>; the script
-    /// writes it there. Null (the default) means the readiness check does not compare tool hashes. When set, it must.
-    /// </summary>
-    public string? ToolManifestPath { get; set; }
-
     /// <summary>How long a passing readiness result is reused. A failure is never reused. 10 seconds to 1 hour.</summary>
     public TimeSpan RecheckInterval { get; set; } = TimeSpan.FromMinutes(5);
 
@@ -58,30 +43,6 @@ public sealed partial class PoolImageOptions
         if (RecheckInterval < MinRecheckInterval || RecheckInterval > MaxRecheckInterval)
         {
             errors.Add("RecheckInterval must be 10 seconds to 1 hour.");
-        }
-
-        if (ToolSourceDirectory is not null && !BrowserPoolOptionsValidator.IsSafeAbsolutePath(ToolSourceDirectory))
-        {
-            errors.Add("ToolSourceDirectory must be a safe absolute path.");
-        }
-
-        bool installOk = BrowserPoolOptionsValidator.IsSafeAbsolutePath(ToolInstallDirectory)
-            && ToolInstallDirectory.Split('/', StringSplitOptions.RemoveEmptyEntries).Length >= 2;
-        if (!installOk)
-        {
-            errors.Add("ToolInstallDirectory must be a safe absolute path with at least two segments.");
-        }
-
-        if (ToolManifestPath is not null)
-        {
-            if (!BrowserPoolOptionsValidator.IsSafeAbsolutePath(ToolManifestPath))
-            {
-                errors.Add("ToolManifestPath must be a safe absolute path.");
-            }
-            else if (installOk && ToolManifestPath != ToolInstallDirectory.TrimEnd('/') + "/" + PoolToolBundle.ManifestFileName)
-            {
-                errors.Add($"ToolManifestPath must be {PoolToolBundle.ManifestFileName} directly inside ToolInstallDirectory.");
-            }
         }
 
         return errors;
@@ -109,10 +70,6 @@ public sealed partial class PoolImageOptions
                 ? v
                 : throw new InvalidOperationException($"{SectionName}:{nameof(RecheckInterval)} is not a time span (hh:mm:ss).");
         }
-
-        o.ToolSourceDirectory = s[nameof(ToolSourceDirectory)] ?? o.ToolSourceDirectory;
-        o.ToolInstallDirectory = s[nameof(ToolInstallDirectory)] ?? o.ToolInstallDirectory;
-        o.ToolManifestPath = s[nameof(ToolManifestPath)] ?? o.ToolManifestPath;
 
         IReadOnlyList<string> errors = o.Validate();
         if (errors.Count != 0)

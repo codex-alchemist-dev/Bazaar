@@ -7,7 +7,7 @@ namespace Bazaar.Client.Theme;
 
 /// <summary>
 /// Parses and validates a theme file. Pure: no Avalonia types and no I/O.
-/// Rules: schemaVersion 1 (migrated to 2 by filling defaults) or 2; known top-level fields only; every required token present with the right kind and
+/// Rules: schemaVersion 1; known top-level fields only; every required token present with the right kind and
 /// no unknown tokens; contrast pairs (<see cref="ThemeTokens.ContrastPairs"/>) opaque and at least 4.5:1;
 /// no URL, markup, script or remote-font content in any string (names and keys included).
 /// </summary>
@@ -67,19 +67,11 @@ public static partial class ThemeValidator
                 }
             }
 
-            int? version = CheckSchemaVersion(root, issues);
+            CheckSchemaVersion(root, issues);
             string? name = CheckName(root, issues);
             ThemeBase? polarity = CheckBase(root, issues);
-            Dictionary<string, string> values = CheckTokens(root, version ?? ThemeTokens.SchemaVersion, issues);
-            if (version == 1 && polarity is not null && issues.Count == 0)
-            {
-                ThemeDefaults.Fill(values, polarity.Value); // migration: a version 1 file gains the version 2 tokens
-            }
-
+            Dictionary<string, string> values = CheckTokens(root, issues);
             CheckContrast(values, issues);
-            CheckHues(values, issues);
-            CheckMaterial(values, issues);
-            CheckMotionFloor(values, issues);
 
             if (issues.Count > 0 || name is null || polarity is null)
             {
@@ -129,25 +121,18 @@ public static partial class ThemeValidator
         return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
     }
 
-    private static int? CheckSchemaVersion(JsonElement root, List<ThemeIssue> issues)
+    private static void CheckSchemaVersion(JsonElement root, List<ThemeIssue> issues)
     {
         if (!root.TryGetProperty("schemaVersion", out JsonElement value))
         {
             issues.Add(new ThemeIssue("/schemaVersion", "missing-field", "schemaVersion is required."));
-            return null;
+            return;
         }
 
-        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out int version)
-            || version < ThemeTokens.MinSchemaVersion || version > ThemeTokens.SchemaVersion)
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out int version) || version != ThemeTokens.SchemaVersion)
         {
-            issues.Add(new ThemeIssue(
-                "/schemaVersion",
-                "unsupported-schema-version",
-                $"schemaVersion must be {ThemeTokens.MinSchemaVersion} to {ThemeTokens.SchemaVersion}."));
-            return null;
+            issues.Add(new ThemeIssue("/schemaVersion", "unsupported-schema-version", $"schemaVersion must be {ThemeTokens.SchemaVersion}."));
         }
-
-        return version;
     }
 
     private static string? CheckName(JsonElement root, List<ThemeIssue> issues)
@@ -185,7 +170,7 @@ public static partial class ThemeValidator
         }
     }
 
-    private static Dictionary<string, string> CheckTokens(JsonElement root, int version, List<ThemeIssue> issues)
+    private static Dictionary<string, string> CheckTokens(JsonElement root, List<ThemeIssue> issues)
     {
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         if (!root.TryGetProperty("tokens", out JsonElement tokens))
@@ -201,14 +186,13 @@ public static partial class ThemeValidator
         }
 
         CheckDuplicateKeys(tokens, "/tokens", issues);
-        TokenSpec[] expected = [.. ThemeTokens.For(version)];
-        var known = expected.ToDictionary(spec => spec.Name, StringComparer.Ordinal);
+        var known = ThemeTokens.Required.ToDictionary(spec => spec.Name, StringComparer.Ordinal);
         foreach (JsonProperty property in tokens.EnumerateObject())
         {
             string path = "/tokens/" + property.Name;
             if (!known.TryGetValue(property.Name, out TokenSpec? spec))
             {
-                issues.Add(new ThemeIssue(path, "unknown-token", "Unknown token; only the token list of this schemaVersion is accepted."));
+                issues.Add(new ThemeIssue(path, "unknown-token", "Unknown token; only the required token list is accepted."));
                 continue;
             }
 
@@ -219,7 +203,7 @@ public static partial class ThemeValidator
             }
         }
 
-        foreach (TokenSpec spec in expected)
+        foreach (TokenSpec spec in ThemeTokens.Required)
         {
             if (!tokens.TryGetProperty(spec.Name, out _))
             {
@@ -241,30 +225,19 @@ public static partial class ThemeValidator
                 ? n.ToString(CultureInfo.InvariantCulture)
                 : null,
             TokenKind.Flag => value.ValueKind == JsonValueKind.True ? "true" : value.ValueKind == JsonValueKind.False ? "false" : null,
-            TokenKind.Number => value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out double d)
-                && double.IsFinite(d) && d >= spec.Min && d <= spec.Max
-                    ? d.ToString("0.###", CultureInfo.InvariantCulture)
-                    : null,
-            TokenKind.Duration => value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out int ms) && ms is >= 0 and <= ThemeTokens.MaxDurationMs
-                ? ms.ToString(CultureInfo.InvariantCulture)
-                : null,
-            TokenKind.Choice => text is not null && spec.Choices is not null && spec.Choices.Contains(text, StringComparer.Ordinal) ? text : null,
             _ => null,
         };
 
         if (canonical is null)
         {
-            issues.Add(new ThemeIssue(path, "bad-value", Expected(spec)));
+            issues.Add(new ThemeIssue(path, "bad-value", Expected(spec.Kind)));
         }
 
         return canonical;
     }
 
-    private static string Expected(TokenSpec spec) => spec.Kind switch
+    private static string Expected(TokenKind kind) => kind switch
     {
-        TokenKind.Number => $"Expected a number from {spec.Min.ToString(CultureInfo.InvariantCulture)} to {spec.Max.ToString(CultureInfo.InvariantCulture)}.",
-        TokenKind.Duration => $"Expected a whole number of milliseconds from 0 to {ThemeTokens.MaxDurationMs}.",
-        TokenKind.Choice => $"Expected one of: {string.Join(", ", spec.Choices ?? [])}.",
         TokenKind.Colour => "Expected #RRGGBB or #RRGGBBAA.",
         TokenKind.FontFamily => "Expected a font family name: letters, digits, spaces, underscores and hyphens; no URLs.",
         TokenKind.Length => $"Expected an integer from 0 to {ThemeTokens.MaxLength} (pixels).",
@@ -296,137 +269,6 @@ public static partial class ThemeValidator
                     "contrast",
                     $"Contrast {ratio.ToString("F2", CultureInfo.InvariantCulture)}:1 against {pair.Background} is below {ThemeTokens.MinimumContrastRatio.ToString("F1", CultureInfo.InvariantCulture)}:1."));
             }
-        }
-    }
-
-    /// <summary>Each hue must pass 4.5:1 as text (and so 3:1 as a graphic) on the base, surface and editor backgrounds.</summary>
-    private static void CheckHues(Dictionary<string, string> values, List<ThemeIssue> issues)
-    {
-        for (int i = 0; i < ThemeTokens.HueCount; i++)
-        {
-            string token = ThemeTokens.HueToken(i);
-            if (!values.TryGetValue(token, out string? hue))
-            {
-                continue;
-            }
-
-            if (hue.Length != 7)
-            {
-                issues.Add(new ThemeIssue("/tokens/" + token, "contrast-alpha", "Contrast-checked colours must be opaque #RRGGBB."));
-                continue;
-            }
-
-            foreach (string background in ThemeTokens.HueBackgrounds)
-            {
-                if (!values.TryGetValue(background, out string? surface) || surface.Length != 7)
-                {
-                    continue; // reported elsewhere
-                }
-
-                double ratio = ContrastRatio(hue, surface);
-                if (ratio < ThemeTokens.MinimumContrastRatio)
-                {
-                    issues.Add(new ThemeIssue(
-                        "/tokens/" + token,
-                        "contrast",
-                        $"Contrast {ratio.ToString("F2", CultureInfo.InvariantCulture)}:1 against {background} is below {ThemeTokens.MinimumContrastRatio.ToString("F1", CultureInfo.InvariantCulture)}:1."));
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Text on a translucent material is checked against the worst-case backdrop: the tint at the material opacity composited
-    /// over pure black and over pure white (the darkest and brightest wallpaper). The opaque fallback colours are the floor:
-    /// they are what shows when translucency is off, so they must carry every text colour too.
-    /// </summary>
-    private static void CheckMaterial(Dictionary<string, string> values, List<ThemeIssue> issues)
-    {
-        foreach (string fallback in new[] { "material.fallback.chrome", "material.fallback.sheet" })
-        {
-            if (!values.TryGetValue(fallback, out string? colour))
-            {
-                continue;
-            }
-
-            if (colour.Length != 7)
-            {
-                issues.Add(new ThemeIssue("/tokens/" + fallback, "contrast-alpha", "The opaque fallback must be #RRGGBB."));
-                continue;
-            }
-
-            foreach (string text in ThemeTokens.MaterialTextTokens)
-            {
-                if (values.TryGetValue(text, out string? foreground) && foreground.Length == 7)
-                {
-                    AddIfLow(issues, "/tokens/" + fallback, "fallback-contrast", text, foreground, colour, null);
-                }
-            }
-        }
-
-        if (!values.TryGetValue("material.mode", out string? mode) || mode == "opaque"
-            || !values.TryGetValue("material.tint", out string? tint)
-            || !values.TryGetValue("material.opacity", out string? opacityText))
-        {
-            return;
-        }
-
-        if (tint.Length != 7)
-        {
-            issues.Add(new ThemeIssue("/tokens/material.tint", "contrast-alpha", "The material tint must be #RRGGBB; its opacity is material.opacity."));
-            return;
-        }
-
-        double opacity = double.Parse(opacityText, CultureInfo.InvariantCulture);
-        foreach (string backdrop in new[] { "#000000", "#FFFFFF" })
-        {
-            string composite = Composite(tint, opacity, backdrop);
-            foreach (string text in ThemeTokens.MaterialTextTokens)
-            {
-                if (values.TryGetValue(text, out string? foreground) && foreground.Length == 7)
-                {
-                    AddIfLow(issues, "/tokens/material.tint", "material-contrast", text, foreground, composite, backdrop);
-                }
-            }
-        }
-    }
-
-    private static void AddIfLow(List<ThemeIssue> issues, string path, string code, string textToken, string foreground, string background, string? backdrop)
-    {
-        double ratio = ContrastRatio(foreground, background);
-        if (ratio < ThemeTokens.MinimumContrastRatio)
-        {
-            string where = backdrop is null ? "the opaque fallback" : $"the material over a {backdrop} backdrop";
-            issues.Add(new ThemeIssue(
-                path,
-                code,
-                $"{textToken} has contrast {ratio.ToString("F2", CultureInfo.InvariantCulture)}:1 on {where}, below {ThemeTokens.MinimumContrastRatio.ToString("F1", CultureInfo.InvariantCulture)}:1."));
-        }
-    }
-
-    /// <summary>The tint at the given opacity over an opaque backdrop, as #RRGGBB.</summary>
-    public static string Composite(string tint, double opacity, string backdrop)
-    {
-        int Channel(int offset)
-        {
-            double t = int.Parse(tint.AsSpan(offset, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-            double b = int.Parse(backdrop.AsSpan(offset, 2), NumberStyles.HexNumber, CultureInfo.InvariantCulture);
-            return (int)Math.Round((t * opacity) + (b * (1.0 - opacity)), MidpointRounding.AwayFromZero);
-        }
-
-        return string.Create(CultureInfo.InvariantCulture, $"#{Channel(1):X2}{Channel(3):X2}{Channel(5):X2}");
-    }
-
-    /// <summary>Safety floor (doc 93): the reduced-motion duration is never longer than 90 ms.</summary>
-    private static void CheckMotionFloor(Dictionary<string, string> values, List<ThemeIssue> issues)
-    {
-        if (values.TryGetValue("motion.duration.reduced", out string? text)
-            && int.Parse(text, CultureInfo.InvariantCulture) > ThemeTokens.ReducedDurationFloorMs)
-        {
-            issues.Add(new ThemeIssue(
-                "/tokens/motion.duration.reduced",
-                "motion-floor",
-                $"The reduced-motion duration may not exceed {ThemeTokens.ReducedDurationFloorMs} ms."));
         }
     }
 

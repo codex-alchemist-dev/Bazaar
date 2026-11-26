@@ -2,7 +2,6 @@ using Bazaar.Contracts.Backup;
 using Bazaar.Core;
 using Bazaar.Server.Components.Backup.Engines;
 using Bazaar.Server.Components.Backup.Jobs;
-using Bazaar.Server.Components.Backup.Offsite;
 using Bazaar.Server.Components.Backup.Processes;
 using Bazaar.Server.Jobs;
 using Microsoft.Extensions.Configuration;
@@ -47,17 +46,6 @@ public sealed class BackupComponent : IBazaarComponent
 
         services.AddSingleton(options);
         services.TryAddSingleton<IProcessRunner, SystemProcessRunner>();
-
-        // Offsite (doc 33, "Offsite composition [PROPOSED]"). The target is chosen per upload from the live policy: restic only for
-        // restic-* targets, a no-op that uploads nothing for none. The host replaces the two defaults with settings and secret backed ones.
-        services.TryAddSingleton<IBackupOffsiteOptions, NoOffsiteOptions>();
-        services.TryAddSingleton<IOffsiteCredentialSource, UnavailableOffsiteCredentialSource>();
-        services.TryAddSingleton<IBackupTargetResolver>(sp => new BackupTargetResolver(
-            sp.GetRequiredService<IBackupOffsiteOptions>(),
-            sp.GetRequiredService<IProcessRunner>(),
-            sp.GetRequiredService<IOffsiteCredentialSource>(),
-            sp,
-            sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IBackupEngine>(sp =>
         {
             var dataSource = sp.GetRequiredService<NpgsqlDataSource>();
@@ -76,10 +64,7 @@ public sealed class BackupComponent : IBazaarComponent
             sp.GetRequiredService<IBackupRunLog>(),
             sp.GetRequiredService<IProcessRunner>(),
             options.ArchiveDirectory,
-            options.PgBinDirectory,
-            sp.GetRequiredService<IBackupTargetResolver>(),
-            options.OffsiteAttempts,
-            options.OffsiteRetryDelay));
+            options.PgBinDirectory));
         services.AddSingleton<BaseBackupJobHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<BaseBackupJobHandler>());
         services.AddSingleton(new RecurringJob(BaseBackupJobHandler.JobKind, options.Interval));

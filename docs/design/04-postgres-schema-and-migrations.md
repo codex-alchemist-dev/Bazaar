@@ -25,7 +25,6 @@ The relational store for Bazaar.Server, limited to conventions, the group-chat (
 **Table ownership.** This doc owns the conventions, `schema_migrations`, `schema_setting`, the GC tables, `person_key` and `embedding_profile`. Every other table is created by its owner doc through a migration in `common/`: agent runtime (06, including turns, steps, leases and inbox items), Soul versions (07), memory and its embeddings (08), schedule and availability (09), votes (10), reputation (11), tasks (12), Passport (14), audit log (15), Vault index (18), usage and quotas (05), activity (23), calendar (24). Digest and other wake kinds (13) are rows in owner tables, not new tables.
 
 **[PROPOSED] Migrations.** Embedded resources in `common/`, `linux/` and `windows/`. The runner applies `common/`, then the host's provider folder. Provider folders may add extensions and indexes only; a test enforces that they never change a table a repository uses.
-- Module layout: `Bazaar.Server.Data.Migrations.Abstractions` (`IMigrationSource`, `MigrationFile`, exceptions; no Npgsql) and `Bazaar.Server.Data.Migrations` (runner, `migrate`, `EmbeddedMigrationSource`). The SQL stays in `Bazaar.Server/Data/Sql/`; namespace unchanged.
 - `schema_migrations(version, name, provider, checksum sha256, applied_at)`.
 - `pg_advisory_lock` for the run; one transaction per file, except files marked `-- @no-transaction` (for `CREATE INDEX CONCURRENTLY`).
 - `migrate` refuses an applied file whose checksum has changed. Forward-only; rollback means restore (doc 33).

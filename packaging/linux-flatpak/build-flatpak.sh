@@ -18,8 +18,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
 manifest="$here/TheBazaarAuthors.BazaarClient.yml"
 app_id="TheBazaarAuthors.BazaarClient"
-manifest="$here/io.github.codex_alchemist_dev.BazaarClient.yml"
-app_id="io.github.codex_alchemist_dev.BazaarClient"
 work="${BAZAAR_FLATPAK_WORK:-$repo/obj/flatpak}"
 
 die() { echo "build-flatpak: $*" >&2; exit 1; }

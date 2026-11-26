@@ -31,22 +31,6 @@ The owner's standing answer is to build everything the docs name, so the helper 
 - `Bazaar.Client.Shell` implements it over `WindowChrome` and adds `ShellHost.Attach(window, content, ...)`, the single call a head makes: it attaches the chrome, wraps the content and returns the announcer. It carries no logic of its own beyond composition, so the helper remains the one place that sets direction and mounts the region (no duplicate behaviour).
 - `ShellHost.Install(window, locale, gate)` is the form heads use once the window's content is already set: it moves that content under the chrome and returns the announcer. Windows and Linux call it today. Android has no window, so `WindowChrome.Attach` and `ShellHost.Install` accept any content host control (a `Window` is one); the Android head installs it on its main view. Until a persisted language setting exists, heads pass `SystemLocaleSource` (in `Bazaar.Localisation`), which starts from the operating system's UI language and can be switched at run time.
 
-### 2b. Text scale
-
-Doc 49 asks that text scales to at least 200 percent without loss of function. `WindowChrome.TextScale` (a `TextScaler`) hosts the wrapped content in a layout transform and scales it between 1.0 and 3.0 (values outside are clamped), so measured size follows the scale and a scrollable pane scrolls instead of clipping. The head sets it from the user's text-size setting; the setting itself is the operator-configurable default (configurability rule).
-
-### 2c. Reduced motion
-
-`Bazaar.Accessibility.MotionPolicy` (also on `WindowChrome.Motion`) is the one place that decides animation length (doc 49: motion can be reduced). Reduced motion makes decorative animation instant, caps meaning-carrying (essential) animation at 120 ms, and turns decorative loops off; a module asks the policy instead of reading the theme flag. The head sets `Reduced` from the theme's `reducedMotion` token or the platform setting.
-
-### 2d. Accessibility settings
-
-`AccessibilitySettings` (in `Bazaar.Accessibility`) holds the viewer's text scale, reduced-motion flag and per-category announcement switches and gaps, with shipped defaults and `Normalised()` (clamps the scale, removes negative gaps). `AccessibilitySettingsApplier.Apply(settings, chrome, gate)` pushes them to the chrome and the gate and is safe to call again on every change. Persisting the settings belongs to the settings module, not here.
-
-### 2b. Desktop chrome strings
-
-The desktop chrome (`Bazaar.Client.DesktopChrome`, doc 93) keeps no English in code. Its visible text and accessible names are message ids (`ChromeKeys`, `chrome.<part>.<name>`) in an embedded flat JSON catalogue, `Strings/chrome.en.json`, with English as the source locale. Lookup goes through `LocalisedText` (exact tag, then language, then English), and the two sheet announcements are ICU messages with a named `title` argument, never string concatenation. A head passes its `ILocaleSource` (and any translated catalogues in the same JSON shape) to `ShellVisuals.MountDesktopChrome`; `ChromeLabelSource` rebuilds the labels on `LocaleChanged` and the controls rename at once, with no restart. Tests: every key used exists in English and no English key is unused; a locale switch renames the sidebar toggle.
-
 ## 3. Boundaries
 
 - `Bazaar.Accessibility.Avalonia` gains a reference to `Bazaar.Localisation`. No dependency on Client.Core internals, chat types or the Layout module.
@@ -60,4 +44,4 @@ Avalonia.Headless tests: direction flips for `ar` and not for `en`, and again on
 ## 5. Open questions
 
 - OPEN: where the focus-scope names come from when a layout (doc 41) places panes. Proposed: the layout slot name.
-- Mirror-sensitive icon marking (owner: build it all): the attached property `WindowChrome.MirrorsInRtl` on an icon flips it horizontally while its effective flow direction is right-to-left and follows locale changes; unmarked icons never flip.
+- OPEN: mirror-sensitive icon marking. Proposed: an attached property `WindowChrome.MirrorsInRtl` on icons, read by a style set in `Bazaar.Accessibility.Avalonia`.

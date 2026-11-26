@@ -49,7 +49,7 @@ public sealed class SkimmerSchemaTests(SkimmerDb db) : IClassFixture<SkimmerDb>
         var appliedBefore = (long)(await before.ExecuteScalarAsync(Ct))!;
 
         var result = await new MigrationRunner(db.DataSource, new MigrationOptions(16))
-            .MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", Ct);
+            .MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", Ct);
 
         Assert.Empty(result.Applied);
         Assert.Equal(appliedBefore, result.AlreadyApplied);

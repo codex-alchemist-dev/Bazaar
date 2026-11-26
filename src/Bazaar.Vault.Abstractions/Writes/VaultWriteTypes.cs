@@ -35,16 +35,6 @@ public sealed record VaultEditRequest(
 
 /// <summary>A new decision record. The writer assigns the number and the file path.</summary>
 public sealed record DecisionDraft(Guid DocId, string Slug, string Title, string Body, string AgentId);
-/// <param name="Supersedes">Decision references (<c>0001-slug</c>) this record replaces; written to the <c>supersedes</c> front matter list.</param>
-/// <param name="DecidedIn">The GC message reference that decided the record; written to the <c>decidedIn</c> front matter key.</param>
-public sealed record DecisionDraft(
-    Guid DocId,
-    string Slug,
-    string Title,
-    string Body,
-    string AgentId,
-    IReadOnlyList<string>? Supersedes = null,
-    string? DecidedIn = null);
 
 /// <summary>
 /// What a write did. <see cref="OldCommit"/> and <see cref="NewCommit"/> feed the indexer. <see cref="ConflictPaths"/> is

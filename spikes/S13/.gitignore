@@ -1,5 +1,0 @@
-bin/
-obj/
-web/monaco/
-*.tgz
-results/*.tmp

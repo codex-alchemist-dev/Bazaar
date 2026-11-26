@@ -8,7 +8,7 @@ public class NetnsTests
     private static readonly PoolEgressEndpoint _loopbackEgress = new("127.0.0.1", 3128);
     private static readonly PoolEgressEndpoint _remoteEgress = new("10.0.0.1", 3128);
 
-    private static BrowserPoolOptions PerSlot() => new() { NetworkIsolation = NetworkIsolation.PerSlotNamespace, DiskMaxMb = 0 };
+    private static BrowserPoolOptions PerSlot() => new() { NetworkIsolation = NetworkIsolation.PerSlotNamespace };
 
     private static PoolLaunchSpec Build(BrowserPoolOptions? o = null, int slot = 3, PoolEgressEndpoint? e = null) =>
         PoolCommandLine.Build(o ?? PerSlot(), "sess1", slot, new PoolSessionRequest("agent-1"), e ?? _remoteEgress);
@@ -281,7 +281,7 @@ public class NetnsTests
     [Fact]
     public void Shared_mode_cleanup_is_unchanged()
     {
-        var commands = PoolCommandLine.CleanupCommands(new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule, DiskMaxMb = 0 }, 3);
+        var commands = PoolCommandLine.CleanupCommands(new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule }, 3);
 
         Assert.Equal(["pkill", "rm"], commands.Select(c => c.Argv[0]));
     }
@@ -371,7 +371,7 @@ public class NetnsTests
     [Fact]
     public void Shared_mode_launch_has_no_namespace_prefix_and_points_at_the_real_endpoint()
     {
-        var o = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule, DiskMaxMb = 0 };
+        var o = new BrowserPoolOptions { NetworkIsolation = NetworkIsolation.SharedWithUidRule };
         var spec = Build(o);
 
         Assert.DoesNotContain("/usr/bin/nsenter", spec.Launch);

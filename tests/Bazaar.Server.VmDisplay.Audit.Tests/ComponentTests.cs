@@ -21,9 +21,9 @@ public class ComponentTests
 
     private sealed class AllowGate : IDisplayGate
     {
-        public ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct) => ValueTask.FromResult(DisplayVerdict.Allow);
+        public DisplayVerdict CheckCapture(DisplayTarget target) => DisplayVerdict.Allow;
 
-        public ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct) => ValueTask.FromResult(DisplayVerdict.Allow);
+        public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) => DisplayVerdict.Allow;
     }
 
     private sealed class FakeConsole : IHypervisorConsole
@@ -92,14 +92,14 @@ public class ComponentTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task The_gate_stays_the_unconfigured_refusing_default(bool auditFirst)
+    public void The_gate_stays_the_unconfigured_refusing_default(bool auditFirst)
     {
         using ServiceProvider sp = Build(auditFirst, s => s.AddSingleton<IAuditLog>(new RecordingLog()));
 
         IDisplayGate gate = sp.GetRequiredService<IDisplayGate>();
 
-        Assert.False((await gate.CheckCaptureAsync(_target, TestContext.Current.CancellationToken)).Allowed);
-        Assert.False((await gate.CheckInputAsync(_target, [new KeyStroke("Tab")], TestContext.Current.CancellationToken)).Allowed);
+        Assert.False(gate.CheckCapture(_target).Allowed);
+        Assert.False(gate.CheckInput(_target, [new KeyStroke("Tab")]).Allowed);
     }
 
     [Fact]

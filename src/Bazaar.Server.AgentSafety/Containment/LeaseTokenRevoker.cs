@@ -1,5 +1,4 @@
 using Bazaar.Server.Identity.Leases;
-using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Quarantine;
 
 namespace Bazaar.Server.AgentSafety.Containment;
@@ -14,14 +13,7 @@ namespace Bazaar.Server.AgentSafety.Containment;
 public sealed class LeaseTokenRevoker(ICredentialLeaseStore leases) : IAgentTokenRevoker
 {
     /// <inheritdoc />
-    public Task RevokeAsync(string agentId, CancellationToken ct = default)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
-
-        // One spelling per agent: the lease store compares ids as plain strings, so a stop recorded as an upper-case or braced GUID
-        // would otherwise revoke nothing.
-        return leases.RevokeAgentAsync(AgentIds.Canonical(agentId), ct);
-    }
+    public Task RevokeAsync(string agentId, CancellationToken ct = default) => leases.RevokeAgentAsync(agentId, ct);
 
     /// <inheritdoc />
     public Task<TokenResumeResult> ResumeAsync(string agentId, CancellationToken ct = default) =>

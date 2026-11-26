@@ -3,9 +3,7 @@ using Android.Content.PM;
 using Android.Content.Res;
 using Android.OS;
 using Avalonia.Android;
-using Bazaar.Client.Android.Back;
 using Bazaar.Client.Android.Posture;
-using Bazaar.Client.Gestures;
 
 namespace Bazaar.Client.Android;
 
@@ -26,7 +24,6 @@ namespace Bazaar.Client.Android;
 public class MainActivity : AvaloniaMainActivity
 {
     private WindowManagerPostureSource? _posture;
-    private AndroidBackGestureBridge? _backBridge;
 
     /// <summary>The running activity, or null before OnCreate and after OnDestroy. The app has one activity.</summary>
     public static MainActivity? Current { get; private set; }
@@ -34,26 +31,10 @@ public class MainActivity : AvaloniaMainActivity
     /// <summary>The fold posture source for this activity, or null before OnCreate and after OnDestroy.</summary>
     public WindowManagerPostureSource? Posture => _posture;
 
-    /// <summary>The system back gesture for this activity (doc 93, "Predictive back"), or null before OnCreate and after OnDestroy.</summary>
-    public BackGestureRelay? BackGestures { get; private set; }
-
-    /// <summary>Turns the system back callback on or off. On only while the shell has a screen to pop, so back at the root leaves the app.</summary>
-    public void SetBackCallbackEnabled(bool enabled)
-    {
-        if (_backBridge is not null)
-        {
-            _backBridge.Enabled = enabled;
-        }
-    }
-
     protected override void OnCreate(Bundle? savedInstanceState)
     {
-        // The back source exists before base.OnCreate: that is where Avalonia starts the app and builds the shell, which reads it.
-        // The bridge registers with the system only later, when the shell has a screen to pop.
-        Current = this;
-        BackGestures = new BackGestureRelay();
-        _backBridge = new AndroidBackGestureBridge(this, BackGestures);
         base.OnCreate(savedInstanceState);
+        Current = this;
         _posture = new WindowManagerPostureSource(this);
     }
 
@@ -64,20 +45,10 @@ public class MainActivity : AvaloniaMainActivity
         _posture?.Refresh();
     }
 
-    protected override void OnResume()
-    {
-        base.OnResume();
-        // The person may have switched "Remove animations" in system settings while the app was in the background.
-        App.ReducedMotion?.Refresh();
-    }
-
     protected override void OnDestroy()
     {
         _posture?.Dispose();
         _posture = null;
-        _backBridge?.Dispose();
-        _backBridge = null;
-        BackGestures = null;
         if (ReferenceEquals(Current, this))
         {
             Current = null;

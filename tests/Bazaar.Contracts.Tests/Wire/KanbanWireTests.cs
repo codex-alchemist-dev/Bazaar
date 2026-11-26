@@ -35,16 +35,6 @@ public class KanbanWireTests
     }
 
     [Fact]
-    public void An_assign_request_uses_camel_case_names_and_round_trips_a_null_assignee()
-    {
-        var json = JsonSerializer.Serialize(new KanbanAssignRequest(_project, _card, null, 3), WireJsonContext.Default.KanbanAssignRequest);
-
-        Assert.Contains("\"expectedRevision\":3", json);
-        Assert.Null(JsonSerializer.Deserialize(json, WireJsonContext.Default.KanbanAssignRequest)!.AssigneeAgentId);
-        Assert.Equal("board.assign", WireTypes.BoardAssign);
-    }
-
-    [Fact]
     public void A_move_request_uses_camel_case_names_and_leaves_out_a_missing_reason()
     {
         var json = JsonSerializer.Serialize(new KanbanMoveRequest(_project, _card, "in_progress", 3), WireJsonContext.Default.KanbanMoveRequest);

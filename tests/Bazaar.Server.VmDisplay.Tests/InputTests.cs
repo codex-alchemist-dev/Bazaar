@@ -194,10 +194,10 @@ public class InputTests
 
     private sealed class TextRefusingGate : IDisplayGate
     {
-        public ValueTask<DisplayVerdict> CheckCaptureAsync(DisplayTarget target, CancellationToken ct) => ValueTask.FromResult(DisplayVerdict.Allow);
+        public DisplayVerdict CheckCapture(DisplayTarget target) => DisplayVerdict.Allow;
 
-        public ValueTask<DisplayVerdict> CheckInputAsync(DisplayTarget target, IReadOnlyList<InputAction> actions, CancellationToken ct) =>
-            ValueTask.FromResult(actions.OfType<TypeText>().Any() ? DisplayVerdict.Deny("typing is not allowed here") : DisplayVerdict.Allow);
+        public DisplayVerdict CheckInput(DisplayTarget target, IReadOnlyList<InputAction> actions) =>
+            actions.OfType<TypeText>().Any() ? DisplayVerdict.Deny("typing is not allowed here") : DisplayVerdict.Allow;
     }
 
     [Fact]

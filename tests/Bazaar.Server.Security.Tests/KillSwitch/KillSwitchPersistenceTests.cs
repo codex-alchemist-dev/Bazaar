@@ -116,25 +116,6 @@ public class KillSwitchPersistenceTests
     }
 
     [Fact]
-    public async Task A_denied_release_never_clears_the_stored_stop()
-    {
-        var inner = new InMemoryKillSwitchStateStore();
-        var store = new ControllableKillSwitchStateStore(inner);
-        var containment = new RecordingContainment();
-        var engine = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), containment, store, _time);
-        await engine.EngageAgentAsync("owner-1", "agent-a", "Rate breach", Ct);
-        containment.DenyRelease = true;
-
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => engine.ResumeAgentAsync("agent-a", "Cleared", EngineRequest("agent-a", "attacker"), Ct));
-
-        Assert.False(engine.Evaluate("agent-a", ToolEffect.Read).Allowed);
-        // The durable stop was never cleared: a restarted engine over the same store still denies the agent.
-        var restarted = new KillSwitchEngine(new InMemoryKillSwitchAuditSink(), new RecordingContainment(), inner, _time);
-        Assert.Single(restarted.GetStatus().AgentStops);
-        Assert.False(restarted.Evaluate("agent-a", ToolEffect.Read).Allowed);
-    }
-
-    [Fact]
     public async Task Evaluate_denies_every_effect_until_the_stored_state_is_loaded()
     {
         var load = new TaskCompletionSource();

@@ -1,6 +1,6 @@
 namespace Bazaar.Server.Providers;
 
-/// <summary>The four per-OS roles from doc 03. Any number of providers may be registered for a role; the consuming module decides what to do with several (doc 03, Provider modules).</summary>
+/// <summary>The four per-OS roles from doc 03. Each role has one provider chosen at startup.</summary>
 public enum ProviderRole
 {
     /// <summary>Runs the host as a service: Windows Service or systemd.</summary>

@@ -284,8 +284,6 @@ public sealed class PrivacyAuditRecorderTests
         await recorder.ApprovalKeyUsedAsync("human:owner", "enr-1", "appr-1", TestContext.Current.CancellationToken);
         await recorder.ApprovalKeyRevokedAsync("human:owner", "enr-1", "device-7", TestContext.Current.CancellationToken);
         await recorder.RateLimitDeniedAsync("anonymous", "signin", 10, 600, TestContext.Current.CancellationToken);
-        await recorder.PersonSuspendedAsync("human:owner", "human:coworker", 2, TestContext.Current.CancellationToken);
-        await recorder.PersonUnsuspendedAsync("human:owner", "human:coworker", TestContext.Current.CancellationToken);
 
         Assert.Equal(PrivacyAuditKinds.All.Count, log.Entries.Count);
         foreach (var entry in log.Entries)
@@ -312,7 +310,7 @@ public sealed class PrivacyAuditRecorderTests
     public void Kinds_are_unique_dotted_lowercase_and_match_the_documented_list()
     {
         Assert.Equal(PrivacyAuditKinds.All.Count, PrivacyAuditKinds.All.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(18, PrivacyAuditKinds.All.Count);
+        Assert.Equal(16, PrivacyAuditKinds.All.Count);
         foreach (var kind in PrivacyAuditKinds.All)
         {
             Assert.Matches("^[a-z_]+(\\.[a-z_]+)+$", kind);

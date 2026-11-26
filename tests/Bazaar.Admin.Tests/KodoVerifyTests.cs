@@ -7,11 +7,11 @@ namespace Bazaar.Admin.Tests;
 /// <summary>The <c>kodo verify</c> command: exit codes, the text and JSON shape, usage errors and the help text (doc 45 section 1.12).</summary>
 public sealed class KodoVerifyTests
 {
-    private const int _placeholderCount = 18;
+    private const int _placeholderCount = 14;
 
     private static readonly string[] _pureCheckIds =
     [
-        "network.statusBind", "backups.target", "owner.secondFactor", "secrets.syntax", "audit.anchorTarget", "identity.kekCustody",
+        "network.statusBind", "backups.target", "owner.secondFactor", "secrets.syntax", "audit.anchorTarget",
     ];
 
     [Fact]
@@ -26,7 +26,7 @@ public sealed class KodoVerifyTests
         Assert.Equal(KodoVerifyExitCodes.Amber, run.ExitCode);
         Assert.Contains("Command: kodo verify", run.Stdout);
         Assert.Contains("Result: amber, held for acknowledgement (exit 2)", run.Stdout);
-        Assert.Contains("Score: 10 of 100", run.Stdout);
+        Assert.Contains("Score: 30 of 100", run.Stdout);
         Assert.Contains($"Amber items needing acknowledgement: {_placeholderCount}.", run.Stdout);
         Assert.Contains("Amber item schema.migrations: Schema version and migration state", run.Stdout);
         Assert.Contains("Writes: none.", run.Stdout);
@@ -106,7 +106,7 @@ public sealed class KodoVerifyTests
         Assert.Equal("verify", root.GetProperty("command").GetString());
         Assert.Equal(KodoVerifyExitCodes.Amber, root.GetProperty("exitCode").GetInt32());
         Assert.Equal("amber", root.GetProperty("result").GetString());
-        Assert.Equal(10, root.GetProperty("score").GetInt32());
+        Assert.Equal(30, root.GetProperty("score").GetInt32());
         Assert.Matches("^[0-9a-f]{64}$", root.GetProperty("planHash").GetString()!);
 
         var checks = root.GetProperty("checks").EnumerateArray().ToList();

@@ -30,7 +30,7 @@ public sealed class InMemoryAgentRegistry(TimeProvider time) : IAgentRegistry
         }
     }
 
-    public Task<AgentRecord> TransitionAsync(AgentId id, AgentState target, OwnerRelease? release, CancellationToken ct)
+    public Task<AgentRecord> SetStateAsync(AgentId id, AgentState state, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         lock (_gate)
@@ -40,18 +40,7 @@ public sealed class InMemoryAgentRegistry(TimeProvider time) : IAgentRegistry
                 throw new InvalidOperationException($"Agent '{id.Value}' is not registered.");
             }
 
-            if (existing.State == target)
-            {
-                return Task.FromResult(existing);
-            }
-
-            var denial = AgentTransitionRules.Denial(existing.State, target, release);
-            if (denial is not null)
-            {
-                throw new AgentTransitionException(denial);
-            }
-
-            var updated = existing with { State = target, UpdatedAt = time.GetUtcNow() };
+            var updated = existing with { State = state, UpdatedAt = time.GetUtcNow() };
             _agents[id.Value] = updated;
             return Task.FromResult(updated);
         }

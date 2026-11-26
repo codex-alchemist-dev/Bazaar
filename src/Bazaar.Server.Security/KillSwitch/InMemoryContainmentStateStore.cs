@@ -26,10 +26,9 @@ public sealed class InMemoryContainmentStateStore : IContainmentStateStore
         ArgumentNullException.ThrowIfNull(agent);
         ArgumentException.ThrowIfNullOrWhiteSpace(agent.AgentId);
         ct.ThrowIfCancellationRequested();
-        var canonical = AgentIds.Canonical(agent.AgentId);
         lock (_gate)
         {
-            _agents.TryAdd(canonical, agent with { AgentId = canonical });
+            _agents.TryAdd(agent.AgentId, agent);
         }
         return Task.CompletedTask;
     }
@@ -41,7 +40,7 @@ public sealed class InMemoryContainmentStateStore : IContainmentStateStore
         ct.ThrowIfCancellationRequested();
         lock (_gate)
         {
-            _agents.Remove(AgentIds.Canonical(agentId));
+            _agents.Remove(agentId);
         }
         return Task.CompletedTask;
     }

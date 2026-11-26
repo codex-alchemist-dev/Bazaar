@@ -15,7 +15,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Constellation\Bazaar.Client.Constellation.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Constellation.Rendering\Bazaar.Constellation.Rendering.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
   </ItemGroup>
 </Project>

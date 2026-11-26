@@ -355,7 +355,6 @@ public class LinuxUpdaterTests
     }
 
     [Fact]
-    [LinuxFact]
     public async Task Gpg_runs_with_an_isolated_owner_only_home_and_an_argument_list()
     {
         var rig = new Rig();

@@ -191,20 +191,4 @@ public class TeamScheduleTests
 
         Assert.Equal(2, items.Count);
     }
-
-    [Fact]
-    public void Withdrawn_tasks_are_left_out_of_the_schedule_and_do_not_block()
-    {
-        var tasks = new[]
-        {
-            Task(1, "withdrawn blocker", TaskState.Withdrawn, owner: 5),
-            Task(2, "kept", TaskState.Ready, owner: 5),
-        };
-
-        var schedule = TeamScheduleBuilder.Build(tasks, [Edge(1, 2)]);
-
-        var item = Assert.Single(Assert.Single(schedule.Groups).Items);
-        Assert.Equal(Id(2), item.TaskId);
-        Assert.False(item.IsBlocked);
-    }
 }

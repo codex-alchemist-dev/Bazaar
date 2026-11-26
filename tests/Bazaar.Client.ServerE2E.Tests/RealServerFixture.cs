@@ -27,9 +27,6 @@ public sealed class RealServerFixture : PgFixture, IAsyncLifetime
     /// <summary>The dev token the client presents as its sign-in credential.</summary>
     public string Token { get; } = "e2e-" + Guid.NewGuid().ToString("N");
 
-    /// <summary>The HTTP address of the running host.</summary>
-    public Uri HttpUri { get; private set; } = null!;
-
     /// <summary>The socket address of the running host.</summary>
     public Uri SocketUri { get; private set; } = null!;
 
@@ -78,7 +75,6 @@ public sealed class RealServerFixture : PgFixture, IAsyncLifetime
             ["Bazaar__Host__DataRoot"] = _dataRoot,
             ["Bazaar__Host__DatabaseConnectionReference"] = "env:" + _dbEnv,
             ["Bazaar__Host__Status__Port"] = port.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["signin__enabled"] = "true",
             ["Bazaar__DevAuth__Enabled"] = "true",
             ["Bazaar__DevAuth__TokenSecret"] = "env:" + _tokenEnv,
             ["Bazaar__DevAuth__PrincipalId"] = OwnerId.ToString("D"),
@@ -100,7 +96,6 @@ public sealed class RealServerFixture : PgFixture, IAsyncLifetime
         _host = StartHost(environment);
         await WaitUntilReadyAsync(port);
         SocketUri = new Uri($"ws://127.0.0.1:{port}/ws");
-        HttpUri = new Uri($"http://127.0.0.1:{port}/");
     }
 
     public new async ValueTask DisposeAsync()
@@ -137,7 +132,6 @@ public sealed class RealServerFixture : PgFixture, IAsyncLifetime
         var owner = OwnerId;
         await using var connection = await DataSource.OpenConnectionAsync();
         await ExecAsync(connection, "INSERT INTO gc (gc_id, type_key, title, created_by) VALUES ($1, 'general', 'e2e', $2)", GcId, owner);
-        await ExecAsync(connection, "INSERT INTO human (id, display_name, role, status) VALUES ($1, 'E2E Owner', 'owner', 'active') ON CONFLICT DO NOTHING", owner);
         foreach (var member in new[] { owner, AgentId })
         {
             await ExecAsync(connection, "INSERT INTO gc_member (gc_id, principal_id, role, joined_seq) VALUES ($1, $2, 'member', 0)", GcId, member);

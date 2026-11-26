@@ -21,11 +21,7 @@ public enum OutputSource
 /// <param name="AgentVersion">Guest agent build string.</param>
 /// <param name="VmId">VM id the guest was provisioned with.</param>
 /// <param name="Nonce">Host-supplied nonce echoed back so the host can reject a replayed hello.</param>
-/// <param name="ProtocolVersion">
-/// Highest guest protocol version the agent speaks (<see cref="GuestFrameCodec.Version"/>). Older agents do not send it,
-/// so it reads as 0, and the host then treats the agent as predating version 3.
-/// </param>
-public sealed record Hello(string AgentVersion, string VmId, string Nonce, int ProtocolVersion = 0) : GuestMessage;
+public sealed record Hello(string AgentVersion, string VmId, string Nonce) : GuestMessage;
 
 /// <summary>Host request to run a process in the guest.</summary>
 /// <param name="Id">Exec id, unique per VM.</param>
@@ -119,51 +115,6 @@ public sealed record PtyExit(string Id, int Code) : GuestMessage;
 /// <param name="Code">Machine-readable reason; one of the values in <see cref="ExecRefusalCodes"/>.</param>
 /// <param name="Message">Human-readable reason.</param>
 public sealed record ExecError(string Id, string Code, string Message) : GuestMessage;
-
-/// <summary>
-/// Host asks the guest to delete one file (protocol version 3). The path is relative to the worktree root; the guest
-/// rejects absolute paths and <c>..</c>. A symlink is removed itself, never its target, and a directory is refused.
-/// </summary>
-/// <param name="Path">Root-relative path of the file.</param>
-public sealed record DeleteFile(string Path) : GuestMessage;
-
-/// <summary>Guest answer to a <see cref="DeleteFile"/>.</summary>
-/// <param name="Path">Path from the DeleteFile.</param>
-/// <param name="Ok">True when the file was removed.</param>
-/// <param name="Error">Why it was not; null when <paramref name="Ok"/> is true.</param>
-public sealed record DeleteFileResult(string Path, bool Ok, string? Error) : GuestMessage;
-
-/// <summary>Host asks for the entries of one directory, not recursive (protocol version 3). The path is relative to the worktree root.</summary>
-/// <param name="Dir">Root-relative directory; empty or <c>.</c> is the root itself.</param>
-public sealed record ListFiles(string Dir) : GuestMessage;
-
-/// <summary>One directory entry in a <see cref="ListFilesResult"/>.</summary>
-/// <param name="Name">Entry name, no separators.</param>
-/// <param name="Size">Byte size of a file; 0 for a directory.</param>
-/// <param name="IsDirectory">True for a directory.</param>
-public sealed record GuestFileEntry(string Name, long Size, bool IsDirectory);
-
-/// <summary>Guest answer to a <see cref="ListFiles"/>.</summary>
-/// <param name="Dir">Directory from the ListFiles.</param>
-/// <param name="Entries">Entries ordered by name; empty when <paramref name="Error"/> is set.</param>
-/// <param name="Error">Why the directory could not be listed; null on success.</param>
-public sealed record ListFilesResult(string Dir, IReadOnlyList<GuestFileEntry> Entries, string? Error) : GuestMessage;
-
-/// <summary>
-/// Host asks where a path really points once symlinks are followed (protocol version 3). The path is relative to the
-/// worktree root.
-/// </summary>
-/// <param name="Path">Root-relative path.</param>
-public sealed record ResolveRealPath(string Path) : GuestMessage;
-
-/// <summary>Guest answer to a <see cref="ResolveRealPath"/>.</summary>
-/// <param name="Path">Path from the ResolveRealPath.</param>
-/// <param name="RealPath">
-/// Root-relative real path with <c>/</c> separators, <c>.</c> for the root itself. Null when the target leaves the
-/// root, cannot be resolved, or the path was refused (fail closed).
-/// </param>
-/// <param name="Error">Set only when the path was refused outright (absolute or <c>..</c>); null otherwise.</param>
-public sealed record ResolveRealPathResult(string Path, string? RealPath, string? Error) : GuestMessage;
 
 /// <summary>Reason codes carried in <see cref="ExecError.Code"/>.</summary>
 public static class ExecRefusalCodes

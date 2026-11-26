@@ -1,11 +1,8 @@
 using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Posting;
-using Bazaar.Server.Gc.Create;
 using Bazaar.Server.Gc.Wire;
-using Bazaar.Server.Gc.Write;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Gc;
 
@@ -41,10 +38,5 @@ public sealed class GcComponent : IBazaarComponent
         // Agent posts go to the GC log (doc 06 "Turn loop" step 5). Registered here, not only in the host, so the sink is live
         // with the GC component. TryAdd keeps any sink the host already set.
         services.AddGcAgentPostSink();
-
-        // The seam other modules use to create and find their rooms (doc 40 section 5a, step 5). Without it the ward, vent, mail
-        // and fork writers have no way to make a GC.
-        services.TryAddSingleton<GcCreateService>();
-        services.TryAddSingleton<IGcProvisioner>(sp => sp.GetRequiredService<GcCreateService>());
     }
 }

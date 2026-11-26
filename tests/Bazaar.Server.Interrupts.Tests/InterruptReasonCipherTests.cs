@@ -1,43 +1,79 @@
-using System.Text;
+using System.Security.Cryptography;
+using Bazaar.Server.Interrupts;
 
 namespace Bazaar.Server.Interrupts.Tests;
 
 public class InterruptReasonCipherTests
 {
-    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+    private static byte[] Key(byte seed) => Enumerable.Range(0, AesGcmInterruptReasonCipher.KeySize).Select(i => (byte)(i + seed)).ToArray();
 
-    private static readonly Guid _author = Guid.Parse("11111111-2222-3333-4444-555555555555");
+    private static readonly Guid _keyId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+    private static readonly byte[] _aad = [1, 2, 3, 4];
 
     [Fact]
-    public async Task A_sealed_reason_opens_to_the_original_text_under_the_authors_key()
+    public void A_sealed_reason_opens_to_the_original_text()
     {
-        var cipher = new GcBodyInterruptReasonCipher(new FakeBodyCodec());
+        var cipher = new AesGcmInterruptReasonCipher(_keyId, Key(1));
 
-        var sealed_ = await cipher.SealAsync(_author, "Résumé: build red", Ct);
+        var sealed_ = cipher.Seal("Résumé: build red", _aad);
 
-        Assert.Equal("Résumé: build red", await cipher.OpenAsync(sealed_, Ct));
-        Assert.Equal(FakeBodyCodec.KeyFor(_author), sealed_.KeyId);
+        Assert.Equal("Résumé: build red", cipher.Open(sealed_, _aad));
+        Assert.Equal(_keyId, sealed_.KeyId);
         Assert.Equal(12, sealed_.Nonce.Length);
-        Assert.DoesNotContain("build", Encoding.UTF8.GetString(sealed_.Ciphertext));
     }
 
     [Fact]
-    public async Task A_reason_whose_key_was_erased_opens_as_null()
+    public void Each_seal_uses_a_fresh_nonce()
     {
-        var codec = new FakeBodyCodec();
-        var cipher = new GcBodyInterruptReasonCipher(codec);
-        var sealed_ = await cipher.SealAsync(_author, "gone soon", Ct);
+        var cipher = new AesGcmInterruptReasonCipher(_keyId, Key(1));
 
-        codec.Erase(_author);
+        var a = cipher.Seal("same", _aad);
+        var b = cipher.Seal("same", _aad);
 
-        Assert.Null(await cipher.OpenAsync(sealed_, Ct));
+        Assert.NotEqual(a.Nonce, b.Nonce);
+        Assert.NotEqual(a.Ciphertext, b.Ciphertext);
     }
 
     [Fact]
-    public async Task A_blank_reason_is_refused()
+    public void Different_associated_data_fails_to_open()
     {
-        var cipher = new GcBodyInterruptReasonCipher(new FakeBodyCodec());
+        var cipher = new AesGcmInterruptReasonCipher(_keyId, Key(1));
+        var sealed_ = cipher.Seal("bound", _aad);
 
-        await Assert.ThrowsAsync<ArgumentException>(async () => await cipher.SealAsync(_author, " ", Ct));
+        Assert.ThrowsAny<CryptographicException>(() => cipher.Open(sealed_, [9, 9, 9, 9]));
+    }
+
+    [Fact]
+    public void A_different_key_fails_to_open()
+    {
+        var sealed_ = new AesGcmInterruptReasonCipher(_keyId, Key(1)).Seal("keyed", _aad);
+        var other = new AesGcmInterruptReasonCipher(_keyId, Key(2));
+
+        Assert.ThrowsAny<CryptographicException>(() => other.Open(sealed_, _aad));
+    }
+
+    [Fact]
+    public void A_value_sealed_under_another_key_id_is_refused()
+    {
+        var sealed_ = new AesGcmInterruptReasonCipher(Guid.NewGuid(), Key(1)).Seal("other", _aad);
+        var cipher = new AesGcmInterruptReasonCipher(_keyId, Key(1));
+
+        Assert.ThrowsAny<CryptographicException>(() => cipher.Open(sealed_, _aad));
+    }
+
+    [Fact]
+    public void A_tampered_ciphertext_fails_to_open()
+    {
+        var cipher = new AesGcmInterruptReasonCipher(_keyId, Key(1));
+        var sealed_ = cipher.Seal("intact", _aad);
+        sealed_.Ciphertext[0] ^= 0x01;
+
+        Assert.ThrowsAny<CryptographicException>(() => cipher.Open(sealed_, _aad));
+    }
+
+    [Fact]
+    public void A_key_that_is_not_32_bytes_is_refused()
+    {
+        Assert.Throws<ArgumentException>(() => new AesGcmInterruptReasonCipher(_keyId, new byte[16]));
     }
 }

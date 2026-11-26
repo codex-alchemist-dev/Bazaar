@@ -13,9 +13,6 @@ public sealed class UpdateCoordinator : IDisposable
     /// <summary>Id of the palette command that runs <see cref="CheckNowAsync"/>.</summary>
     public const string CheckCommandId = "update.check";
 
-    /// <summary>Id of the palette command that restarts the app to apply a staged update.</summary>
-    public const string RestartCommandId = "update.restart";
-
     private readonly ILinuxUpdater? _updater;
     private readonly string? _disabledReason;
     private readonly WelcomeCompatibilityHolder _compat;
@@ -52,12 +49,6 @@ public sealed class UpdateCoordinator : IDisposable
     /// <summary>The latest notice, or null when there is nothing to say.</summary>
     public UpdateNotice? Notice { get; private set; }
 
-    /// <summary>The version staged for the next restart, or null. Stays set after the notice is dismissed or replaced.</summary>
-    public string? StagedVersion { get; private set; }
-
-    /// <summary>True when a release is staged and a restart would apply it.</summary>
-    public bool IsStaged => StagedVersion is not null;
-
     /// <summary>Raised, through <c>post</c>, when <see cref="Notice"/> changes.</summary>
     public event Action<UpdateNotice?>? NoticeChanged;
 
@@ -85,7 +76,6 @@ public sealed class UpdateCoordinator : IDisposable
     public async Task<UpdateNotice> CheckNowAsync(CancellationToken ct = default)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, _stop.Token);
-        SetNotice(new UpdateNotice(UpdateNoticeKind.Checking, "Checking for updates..."));
         UpdateNotice notice;
         try
         {
@@ -154,11 +144,6 @@ public sealed class UpdateCoordinator : IDisposable
     private void SetNotice(UpdateNotice notice)
     {
         Notice = notice;
-        if (notice.Kind == UpdateNoticeKind.ReadyAfterRestart && !string.IsNullOrEmpty(notice.Version))
-        {
-            StagedVersion = notice.Version;
-        }
-
         _post(() => NoticeChanged?.Invoke(notice));
     }
 }

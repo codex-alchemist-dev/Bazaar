@@ -65,29 +65,6 @@ public sealed class HostProcess : IAsyncDisposable
         if (process.ExitCode != 0) throw new InvalidOperationException($"migrate exited {process.ExitCode}:\n{string.Join('\n', output)}");
     }
 
-    /// <summary>Runs the host with <paramref name="arguments"/> until it exits by itself, and returns its exit code and output.</summary>
-    public static async Task<(int ExitCode, string Output)> RunToExitAsync(IReadOnlyList<string> arguments, IReadOnlyDictionary<string, string> env, CancellationToken ct)
-    {
-        using var process = Create(arguments, env);
-        var output = new ConcurrentQueue<string>();
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) output.Enqueue(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) output.Enqueue(e.Data); };
-        process.Start();
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-        try
-        {
-            await process.WaitForExitAsync(ct);
-        }
-        catch (OperationCanceledException)
-        {
-            process.Kill(entireProcessTree: true);
-            throw new TimeoutException($"The host did not exit by itself.\n{string.Join('\n', output)}");
-        }
-
-        return (process.ExitCode, string.Join('\n', output));
-    }
-
     /// <summary>Starts the host and waits until <c>/health/ready</c> answers 200. Throws with the host log when it does not.</summary>
     public static async Task<HostProcess> StartAsync(int port, IReadOnlyList<string> keys, IReadOnlyDictionary<string, string> env, TimeSpan timeout, CancellationToken ct)
     {

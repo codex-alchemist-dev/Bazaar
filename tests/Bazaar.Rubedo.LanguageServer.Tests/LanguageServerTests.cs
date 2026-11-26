@@ -8,8 +8,6 @@ public sealed class LanguageServerTests
 {
     private const string Uri = "file:///a.rubedo";
     private const string ViewUri = "file:///v.json";
-    private const string _uri = "file:///a.rubedo";
-    private const string _viewUri = "file:///v.json";
 
     private static byte[] Bytes(string json) => Encoding.UTF8.GetBytes(json);
 
@@ -121,7 +119,6 @@ public sealed class LanguageServerTests
     {
         LanguageServerCore core = Started();
         List<JsonObject> replies = Open(core, Uri, "rubedo", "1 +\n  )");
-        List<JsonObject> replies = Open(core, _uri, "rubedo", "1 +\n  )");
         JsonObject note = Assert.Single(replies);
         Assert.Equal("textDocument/publishDiagnostics", (string?)note["method"]);
         JsonArray diagnostics = note["params"]!["diagnostics"]!.AsArray();
@@ -139,7 +136,6 @@ public sealed class LanguageServerTests
     {
         LanguageServerCore core = Started();
         JsonObject note = Assert.Single(Open(core, Uri, "rubedo", "1 + 2"));
-        JsonObject note = Assert.Single(Open(core, _uri, "rubedo", "1 + 2"));
         Assert.Empty(note["params"]!["diagnostics"]!.AsArray());
     }
 
@@ -148,7 +144,6 @@ public sealed class LanguageServerTests
     {
         LanguageServerCore core = Started();
         Open(core, Uri, "rubedo", "1 +");
-        Open(core, _uri, "rubedo", "1 +");
         JsonObject changed = Assert.Single(Send(core, """{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"file:///a.rubedo","version":2},"contentChanges":[{"text":"1 + 2"}]}}"""));
         Assert.Empty(changed["params"]!["diagnostics"]!.AsArray());
         Assert.Equal(2, (int?)changed["params"]!["version"]);
@@ -161,7 +156,6 @@ public sealed class LanguageServerTests
     {
         LanguageServerCore core = Started();
         Open(core, Uri, "rubedo", "1 + ");
-        Open(core, _uri, "rubedo", "1 + ");
         JsonObject changed = Assert.Single(Send(core, """{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"file:///a.rubedo","version":2},"contentChanges":[{"range":{"start":{"line":0,"character":4},"end":{"line":0,"character":4}},"text":"2"}]}}"""));
         Assert.Empty(changed["params"]!["diagnostics"]!.AsArray());
     }
@@ -178,7 +172,6 @@ public sealed class LanguageServerTests
     {
         LanguageServerCore core = Started();
         JsonObject note = Assert.Single(Open(core, ViewUri, "rubedo-view", "{ not json"));
-        JsonObject note = Assert.Single(Open(core, _viewUri, "rubedo-view", "{ not json"));
         Assert.Equal("view.json", (string?)note["params"]!["diagnostics"]![0]!["code"]);
     }
 
@@ -188,8 +181,6 @@ public sealed class LanguageServerTests
         LanguageServerCore core = Started();
         Open(core, Uri, "rubedo", "ab");
         JsonObject reply = Request(core, "textDocument/completion", Uri, 0, 2);
-        Open(core, _uri, "rubedo", "ab");
-        JsonObject reply = Request(core, "textDocument/completion", _uri, 0, 2);
         JsonArray items = reply["result"]!["items"]!.AsArray();
         Assert.NotEmpty(items);
         Assert.NotNull(items[0]!["textEdit"]!["range"]);
@@ -202,8 +193,6 @@ public sealed class LanguageServerTests
         LanguageServerCore core = Started();
         Open(core, ViewUri, "rubedo-view", "{\"root\":{\"widget\":\"\"}}");
         JsonObject reply = Request(core, "textDocument/completion", ViewUri, 0, 19);
-        Open(core, _viewUri, "rubedo-view", "{\"root\":{\"widget\":\"\"}}");
-        JsonObject reply = Request(core, "textDocument/completion", _viewUri, 0, 19);
         Assert.NotEmpty(reply["result"]!["items"]!.AsArray());
     }
 
@@ -218,13 +207,6 @@ public sealed class LanguageServerTests
 
         Open(core, ViewUri, "rubedo-view", "{}");
         Assert.Null(Request(core, "textDocument/hover", ViewUri).AsObject()["result"]);
-        Open(core, _uri, "rubedo", "max(1, 2)");
-        JsonObject hit = Request(core, "textDocument/hover", _uri, 0, 1);
-        Assert.False(string.IsNullOrEmpty((string?)hit["result"]!["contents"]!["value"]));
-        Assert.NotNull(hit["result"]!["range"]);
-
-        Open(core, _viewUri, "rubedo-view", "{}");
-        Assert.Null(Request(core, "textDocument/hover", _viewUri).AsObject()["result"]);
         Assert.Null(Request(core, "textDocument/hover", "file:///unknown").AsObject()["result"]);
     }
 
@@ -234,8 +216,6 @@ public sealed class LanguageServerTests
         LanguageServerCore core = Started();
         Open(core, Uri, "rubedo", "max(1, ");
         JsonObject reply = Request(core, "textDocument/signatureHelp", Uri, 0, 7);
-        Open(core, _uri, "rubedo", "max(1, ");
-        JsonObject reply = Request(core, "textDocument/signatureHelp", _uri, 0, 7);
         JsonNode result = reply["result"]!;
         Assert.Equal(1, (int?)result["activeParameter"]);
         Assert.NotEmpty(result["signatures"]![0]!["parameters"]!.AsArray());
@@ -247,8 +227,6 @@ public sealed class LanguageServerTests
         LanguageServerCore core = Started();
         Open(core, Uri, "rubedo", "1+2");
         JsonObject reply = Request(core, "textDocument/formatting", Uri);
-        Open(core, _uri, "rubedo", "1+2");
-        JsonObject reply = Request(core, "textDocument/formatting", _uri);
         JsonNode edit = reply["result"]!.AsArray().Single()!;
         Assert.Equal("1 + 2", (string?)edit["newText"]);
         Assert.Equal(0, (int?)edit["range"]!["start"]!["character"]);
@@ -256,8 +234,6 @@ public sealed class LanguageServerTests
 
         Open(core, ViewUri, "rubedo-view", "{}");
         Assert.Null(Request(core, "textDocument/formatting", ViewUri)["result"]);
-        Open(core, _viewUri, "rubedo-view", "{}");
-        Assert.Null(Request(core, "textDocument/formatting", _viewUri)["result"]);
     }
 
     [Fact]
@@ -268,10 +244,6 @@ public sealed class LanguageServerTests
         Assert.Empty(Request(core, "textDocument/formatting", Uri)["result"]!.AsArray());
         Open(core, Uri, "rubedo", "1 +");
         Assert.Empty(Request(core, "textDocument/formatting", Uri)["result"]!.AsArray());
-        Open(core, _uri, "rubedo", "1 + 2");
-        Assert.Empty(Request(core, "textDocument/formatting", _uri)["result"]!.AsArray());
-        Open(core, _uri, "rubedo", "1 +");
-        Assert.Empty(Request(core, "textDocument/formatting", _uri)["result"]!.AsArray());
     }
 
     [Fact]
@@ -281,8 +253,6 @@ public sealed class LanguageServerTests
         string view = "{\n\"dslVersion\":1,\"name\":\"v\",\n\"root\":{\"widget\":\"column\",\"children\":[{\"widget\":\"text\"},{\"widget\":\"row\",\"children\":[{\"widget\":\"text\"}]}]}}";
         Open(core, ViewUri, "rubedo-view", view);
         JsonArray symbols = Request(core, "textDocument/documentSymbol", ViewUri)["result"]!.AsArray();
-        Open(core, _viewUri, "rubedo-view", view);
-        JsonArray symbols = Request(core, "textDocument/documentSymbol", _viewUri)["result"]!.AsArray();
         JsonNode root = Assert.Single(symbols)!;
         Assert.Equal("column", (string?)root["name"]);
         Assert.Equal(2, root["children"]!.AsArray().Count);
@@ -294,10 +264,6 @@ public sealed class LanguageServerTests
         Assert.Empty(Request(core, "textDocument/documentSymbol", Uri)["result"]!.AsArray());
         Open(core, ViewUri, "rubedo-view", "{ broken");
         Assert.Empty(Request(core, "textDocument/documentSymbol", ViewUri)["result"]!.AsArray());
-        Open(core, _uri, "rubedo", "1");
-        Assert.Empty(Request(core, "textDocument/documentSymbol", _uri)["result"]!.AsArray());
-        Open(core, _viewUri, "rubedo-view", "{ broken");
-        Assert.Empty(Request(core, "textDocument/documentSymbol", _viewUri)["result"]!.AsArray());
     }
 
     [Fact]
@@ -322,15 +288,6 @@ public sealed class LanguageServerTests
         JsonObject viewNote = Assert.Single(Open(core, ViewUri, "rubedo-view", "{\"root\":\"" + big + "\"}"));
         Assert.NotEmpty(viewNote["params"]!["diagnostics"]!.AsArray());
         Assert.Empty(Request(core, "textDocument/documentSymbol", ViewUri)["result"]!.AsArray());
-        JsonObject note = Assert.Single(Open(core, _uri, "rubedo", big));
-        Assert.NotEmpty(note["params"]!["diagnostics"]!.AsArray());
-        Assert.NotNull(Request(core, "textDocument/hover", _uri, 0, 5).AsObject());
-        Assert.NotNull(Request(core, "textDocument/completion", _uri, 0, 5).AsObject());
-        Assert.Null(Request(core, "textDocument/formatting", _uri)["result"]);
-
-        JsonObject viewNote = Assert.Single(Open(core, _viewUri, "rubedo-view", "{\"root\":\"" + big + "\"}"));
-        Assert.NotEmpty(viewNote["params"]!["diagnostics"]!.AsArray());
-        Assert.Empty(Request(core, "textDocument/documentSymbol", _viewUri)["result"]!.AsArray());
     }
 
     [Fact]
@@ -359,7 +316,6 @@ public sealed class LanguageServerTests
         JsonObject after = Assert.Single(Send(clean, """{"jsonrpc":"2.0","id":10,"method":"textDocument/hover","params":{}}"""));
         Assert.Equal(LspErrorCodes.InvalidRequest, (int?)after["error"]!["code"]);
         Assert.Empty(Open(clean, Uri, "rubedo", "1"));
-        Assert.Empty(Open(clean, _uri, "rubedo", "1"));
 
         Send(clean, """{"jsonrpc":"2.0","method":"exit"}""");
         Assert.True(clean.ExitRequested);

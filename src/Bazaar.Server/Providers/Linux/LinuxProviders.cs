@@ -6,7 +6,7 @@ namespace Bazaar.Server.Providers.Linux;
 /// </summary>
 public static class LinuxProviders
 {
-    /// <summary>Service host candidates: systemd. Each reports its own status through <c>Probe()</c>.</summary>
+    /// <summary>Service host candidates: systemd. Callers still check <see cref="ProviderSelector"/> results at startup.</summary>
     public static IReadOnlyList<IServiceHostProvider> ServiceHostCandidates()
     {
         if (!OperatingSystem.IsLinux())

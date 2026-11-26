@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.IO;
-using Bazaar.Server.Engines.Abstractions;
 using Bazaar.Server.Luau.Abstractions;
 
 namespace Bazaar.Server.Luau;
@@ -15,9 +14,9 @@ public sealed class LuauChecker : ILuauChecker
     private static readonly LuauToolKind[] _allTools = [LuauToolKind.Analyze, LuauToolKind.Selene, LuauToolKind.StyLuaCheck];
 
     private readonly LuauToolOptions _options;
-    private readonly IProcessRunner _runner;
+    private readonly ILuauToolRunner _runner;
 
-    public LuauChecker(LuauToolOptions options, IProcessRunner runner)
+    public LuauChecker(LuauToolOptions options, ILuauToolRunner runner)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(runner);
@@ -74,7 +73,7 @@ public sealed class LuauChecker : ILuauChecker
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        ProcessResult process;
+        LuauProcessResult process;
         try
         {
             process = await _runner.RunAsync(BinaryFor(tool), ArgumentsFor(tool, files), root, timeout, cancellationToken);

@@ -67,7 +67,5 @@ public static class KodoOtlpMapper
         _ => throw new ArgumentException($"'{label}' is not a label the export may write.", nameof(label)),
     };
 
-    // A long holds about 292 years of nanoseconds either side of the epoch, so a time further out is held at the edge, not thrown.
-    private static long UnixNano(DateTimeOffset at) =>
-        Math.Clamp((at.UtcDateTime - DateTime.UnixEpoch).Ticks, -long.MaxValue / 100, long.MaxValue / 100) * 100;
+    private static long UnixNano(DateTimeOffset at) => checked((at.UtcDateTime - DateTime.UnixEpoch).Ticks * 100);
 }

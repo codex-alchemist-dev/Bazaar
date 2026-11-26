@@ -96,9 +96,6 @@ public sealed class InstallSettingsApplyTests
         Assert.Equal(4, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
         Assert.Equal(1, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setup.plan.applied'", ct));
         Assert.Equal(4, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setting.changed'", ct));
-        Assert.Equal(14, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
-        Assert.Equal(1, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setup.plan.applied'", ct));
-        Assert.Equal(14, await CountAsync(db.DataSource, "SELECT count(*) FROM audit_log WHERE kind = 'setting.changed'", ct));
         Assert.Equal(0, await CountAsync(db.DataSource, $"SELECT count(*) FROM audit_log WHERE payload::text LIKE '%{_canary}%'", ct));
     }
 
@@ -152,7 +149,6 @@ public sealed class InstallSettingsApplyTests
 
         Assert.Equal(SetupExitCode.Ok, second.ExitCode);
         Assert.Equal(4, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
-        Assert.Equal(14, await CountAsync(db.DataSource, "SELECT count(*) FROM setting", ct));
         Assert.Equal(stamp, await CountAsync(db.DataSource, "SELECT extract(epoch FROM max(updated_at))::bigint * 1000000 + extract(microseconds FROM max(updated_at))::bigint % 1000000 FROM setting", ct));
     }
 

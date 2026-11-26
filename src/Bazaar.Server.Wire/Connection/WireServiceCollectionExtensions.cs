@@ -26,7 +26,6 @@ public static class WireServiceCollectionExtensions
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireCodec, JsonWireCodec>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IWireRequestHandler, PingHandler>());
         services.TryAddSingleton<WireConnectionRegistry>();
-        services.TryAddSingleton<IWireConnectionDirectory>(sp => sp.GetRequiredService<WireConnectionRegistry>());
         services.TryAddSingleton<IdempotentRequestExecutor>();
         services.TryAddSingleton<WireConnectionManager>();
         return services;

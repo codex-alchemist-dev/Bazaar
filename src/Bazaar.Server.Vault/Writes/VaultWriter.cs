@@ -122,15 +122,6 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         ValidateSlug(draft.Slug);
         ValidateFrontMatterTitle(draft.Title);
         ArgumentException.ThrowIfNullOrWhiteSpace(draft.Body);
-        foreach (var reference in draft.Supersedes ?? [])
-        {
-            ValidateFrontMatterReference(reference, nameof(draft.Supersedes));
-        }
-
-        if (draft.DecidedIn is not null)
-        {
-            ValidateFrontMatterReference(draft.DecidedIn, nameof(draft.DecidedIn));
-        }
 
         using var documentLease = await AcquireAsync(_documentQueues.GetOrAdd(draft.DocId, _ => new SemaphoreSlim(1, 1)), ct);
         using var laneLease = await AcquireAsync(_vaultLane, ct);
@@ -148,7 +139,6 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
         await File.WriteAllTextAsync(fullPath, RenderDecision(draft), new UTF8Encoding(false), ct);
-        await MarkSupersededAsync(decisionsDirectory, draft.Supersedes, ct);
 
         var message = new StringBuilder($"Decision {number:D4}: {draft.Title}");
         message.Append("\n\n");
@@ -158,44 +148,6 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
 
         return new VaultEditResult(VaultEditOutcome.Merged, oldCommit, newCommit, [], number);
     }
-
-    /// <summary>
-    /// Flips each accepted decision the new record replaces to <c>superseded</c>, in the same commit as the new record. This is
-    /// the one edit <see cref="DecisionImmutability"/> allows on a frozen decision. Proposed and already superseded records
-    /// and references with no file are left alone.
-    /// </summary>
-    private static async Task MarkSupersededAsync(string decisionsDirectory, IReadOnlyList<string>? references, CancellationToken ct)
-    {
-        foreach (var reference in references ?? [])
-        {
-            var name = reference.StartsWith("decisions/", StringComparison.Ordinal) ? reference["decisions/".Length..] : reference;
-            if (name.EndsWith(".md", StringComparison.Ordinal))
-            {
-                name = name[..^3];
-            }
-
-            if (name.Contains('/', StringComparison.Ordinal) || name.Contains("..", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            var target = Path.Combine(decisionsDirectory, name + ".md");
-            if (!File.Exists(target))
-            {
-                continue;
-            }
-
-            var text = await File.ReadAllTextAsync(target, ct);
-            var flipped = AcceptedStatusLine().Replace(text, "status: superseded${eol}", 1);
-            if (!string.Equals(text, flipped, StringComparison.Ordinal))
-            {
-                await File.WriteAllTextAsync(target, flipped, new UTF8Encoding(false), ct);
-            }
-        }
-    }
-
-    [GeneratedRegex("^status: accepted(?<eol>\\r?)$", RegexOptions.Multiline | RegexOptions.CultureInvariant)]
-    private static partial Regex AcceptedStatusLine();
 
     private async Task NotifyAsync(string oldCommit, string newCommit, CancellationToken ct)
     {
@@ -305,32 +257,9 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
         builder.Append("type: decision\n");
         builder.Append("title: ").Append(draft.Title).Append('\n');
         builder.Append("status: proposed\n");
-        if (draft.Supersedes is { Count: > 0 })
-        {
-            builder.Append("supersedes:\n");
-            foreach (var reference in draft.Supersedes)
-            {
-                builder.Append("  - ").Append(reference).Append('\n');
-            }
-        }
-
-        if (draft.DecidedIn is not null)
-        {
-            builder.Append("decidedIn: ").Append(draft.DecidedIn).Append('\n');
-        }
-
         builder.Append("---\n\n");
         builder.Append(draft.Body.TrimEnd()).Append('\n');
         return builder.ToString();
-    }
-
-    /// <summary>References are written unquoted into YAML, so only path-like characters are allowed.</summary>
-    private static void ValidateFrontMatterReference(string reference, string paramName)
-    {
-        if (string.IsNullOrWhiteSpace(reference) || !ReferencePattern().IsMatch(reference))
-        {
-            throw new ArgumentException("A reference may hold only letters, digits and - _ . / characters.", paramName);
-        }
     }
 
     private static void ValidateSlug(string slug)
@@ -377,9 +306,6 @@ public sealed partial class VaultWriter : IVaultWriter, IDisposable
 
     [GeneratedRegex("^(?<number>\\d{4})-", RegexOptions.CultureInvariant)]
     private static partial Regex DecisionPrefix();
-
-    [GeneratedRegex("^[A-Za-z0-9._/-]+$", RegexOptions.CultureInvariant)]
-    private static partial Regex ReferencePattern();
 
     [GeneratedRegex("^[a-z0-9]+(-[a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugPattern();

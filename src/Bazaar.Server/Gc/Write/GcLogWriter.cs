@@ -28,7 +28,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         """;
 
     private const string _keyssql = """
-        SELECT k.ord, e.seq, e.event_id, e.created_at, e.message_id
+        SELECT k.ord, e.seq, e.event_id, e.created_at
         FROM unnest($2::uuid[], $3::text[]) WITH ORDINALITY AS k(author_id, client_msg_id, ord)
         JOIN gc_event e ON e.gc_id = $1 AND e.author_id = k.author_id AND e.client_msg_id = k.client_msg_id
         """;
@@ -51,8 +51,8 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
 
     // An edit adds a version of a message that already exists: no gc_message row, and the version number comes from the request.
     private const string _insertEditVersionSql = """
-        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version, withdrawn_by_import)
-        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11, $12)
+        INSERT INTO gc_message_version (gc_id, message_id, version, seq, body_ct, body_nonce, key_id, editor_id, created_at, soul_id, soul_version)
+        VALUES ($1, $2, $9, $3, $4, $5, $6, $7, $8, $10, $11)
         """;
 
     // A join or a leave is a new state row keyed by its own seq (gc_member is append-only; the key includes joined_seq).
@@ -93,7 +93,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         {
             if (existing.TryGetValue(i, out var found))
             {
-                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt, found.MessageId);
+                results[i] = new AppendResult(gcId, found.Seq, found.EventId, Duplicate: true, found.CreatedAt);
             }
             else
             {
@@ -175,15 +175,6 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                     nameof(requests));
             if (isEdit && (r.MessageId is null || r.Version is null || r.Version < 2))
                 throw new ArgumentException("An edit needs the message id and a version of 2 or more.", nameof(requests));
-            if (r.WithdrawnByImport is { } job)
-            {
-                if (!isEdit)
-                    throw new ArgumentException("Only a message edit can withdraw an import.", nameof(requests));
-                if (r.AuthorKind != AuthorKind.System)
-                    throw new ArgumentException("Only the system principal withdraws an import.", nameof(requests));
-                if (job.Length is 0 or > AppendRequest.MaxWithdrawnByImportLength)
-                    throw new ArgumentException($"WithdrawnByImport must be 1 to {AppendRequest.MaxWithdrawnByImportLength} characters.", nameof(requests));
-            }
             if (r.Mentions.Count > 0 && !isMessage)
                 throw new ArgumentException("Only a message event carries mentions.", nameof(requests));
             if (r.Sealed is { } sealedPayload && (sealedPayload.Ciphertext.IsEmpty || sealedPayload.KeyId == Guid.Empty))
@@ -195,7 +186,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         return gcId;
     }
 
-    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt, Guid? MessageId)> Existing)> LockAndLookupAsync(
+    private static async Task<(long Head, Dictionary<int, (long Seq, Guid EventId, DateTimeOffset CreatedAt)> Existing)> LockAndLookupAsync(
         NpgsqlConnection conn, NpgsqlTransaction tx, Guid gcId, IReadOnlyList<AppendRequest> requests, CancellationToken ct)
     {
         await using var batch = new NpgsqlBatch(conn, tx);
@@ -216,9 +207,9 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
         var archived = reader.GetBoolean(1);
 
         await reader.NextResultAsync(ct).ConfigureAwait(false);
-        var existing = new Dictionary<int, (long, Guid, DateTimeOffset, Guid?)>();
+        var existing = new Dictionary<int, (long, Guid, DateTimeOffset)>();
         while (await reader.ReadAsync(ct).ConfigureAwait(false))
-            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3), reader.IsDBNull(4) ? null : reader.GetGuid(4));
+            existing[(int)reader.GetInt64(0) - 1] = (reader.GetInt64(1), reader.GetGuid(2), reader.GetFieldValue<DateTimeOffset>(3));
 
         // Archive blocks new events; answering a repeat of an event written before the archive stays allowed.
         if (archived && existing.Count < requests.Count)
@@ -252,7 +243,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
             {
                 if (isEdit)
                 {
-                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version), N(r.WithdrawnByImport)));
+                    batch.BatchCommands.Add(Cmd(_insertEditVersionSql, P(gcId), P(mid), P(seq), PBytes(body.BodyCiphertext), body.Nonce.IsEmpty ? NullBytes() : PBytes(body.Nonce), P(body.KeyId), P(r.AuthorId), P(now), P(version!.Value), N(r.Soul?.SoulId), N(r.Soul?.Version)));
                 }
                 else
                 {
@@ -270,7 +261,7 @@ public sealed class GcLogWriter(NpgsqlDataSource dataSource, IGcNotifier notifie
                 batch.BatchCommands.Add(Cmd(_insertmembersql, P(gcId), P(member.PrincipalId), P(member.Role), P(seq), N(left)));
             }
 
-            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now, messageId);
+            results[index] = new AppendResult(gcId, seq, eventId, Duplicate: false, now);
         }
 
         await batch.ExecuteNonQueryAsync(ct).ConfigureAwait(false);

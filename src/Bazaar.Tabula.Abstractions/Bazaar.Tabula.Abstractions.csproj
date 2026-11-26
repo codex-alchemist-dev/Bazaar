@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net11.0</TargetFramework>
-    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
-    <IsAotCompatible>true</IsAotCompatible>
-    <!-- Extractable contracts (doc 85 WP5): base class library only. No package, Bazaar.Server, Bazaar.Contracts or Npgsql reference. -->
-  </PropertyGroup>
-</Project>

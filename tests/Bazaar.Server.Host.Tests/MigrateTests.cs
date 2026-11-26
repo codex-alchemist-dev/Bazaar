@@ -27,14 +27,6 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
         Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
 
     [Fact]
-    public void The_host_migration_source_includes_the_github_namespace()
-    {
-        var source = HostMigrations.Source();
-        Assert.Contains("github", source.Namespaces());
-        Assert.Contains(source.Load("github"), f => f.Version == 1 && f.Name == "github_tables");
-    }
-
-    [Fact]
     public async Task Invalid_config_is_refused()
     {
         var output = new StringWriter();
@@ -58,12 +50,6 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
                 Options.Create(new BazaarHostOptions { DataRoot = Path.GetTempPath(), DatabaseConnectionReference = "env:DB" }),
                 new BootstrapSecretResolver(_ => db.ConnectionString));
             await new MigrationSchemaGate(database).EnsureCurrentAsync(TestContext.Current.CancellationToken);
-
-            // The GitHub module's component migration ran with the rest (doc 21 tables, namespace "github").
-            await using var connection = new Npgsql.NpgsqlConnection(db.ConnectionString);
-            await connection.OpenAsync(TestContext.Current.CancellationToken);
-            await using var command = new Npgsql.NpgsqlCommand("SELECT to_regclass('github_app') IS NOT NULL", connection);
-            Assert.True((bool)(await command.ExecuteScalarAsync(TestContext.Current.CancellationToken))!);
         }
         finally
         {
@@ -105,7 +91,7 @@ public sealed class MigrateTests(MigrateDb db) : IClassFixture<MigrateDb>
             new BootstrapSecretResolver(_ => fresh.ConnectionString));
         // A fresh clone may already carry history from the template migrator; only assert when it is behind.
         var state = await new MigrationRunner(await database.GetAsync(TestContext.Current.CancellationToken))
-            .GetStateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), MigrateCommand.CurrentProvider(), TestContext.Current.CancellationToken);
+            .GetStateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), MigrateCommand.CurrentProvider(), TestContext.Current.CancellationToken);
         if (state == SchemaState.Behind)
         {
             await Assert.ThrowsAsync<SchemaVersionException>(() => new MigrationSchemaGate(database).EnsureCurrentAsync(TestContext.Current.CancellationToken));

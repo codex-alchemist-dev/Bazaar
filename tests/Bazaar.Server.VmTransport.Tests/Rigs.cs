@@ -129,7 +129,7 @@ internal sealed class ManualRig : IAsyncDisposable
     public static async Task<(ManualRig Rig, GuestChannel Channel)> OpenAsync(GuestChannelOptions? options = null, TimeProvider? time = null)
     {
         var rig = await ConnectAsync();
-        await rig.SendAsync(new Hello("test", AgentRig.VmId, AgentRig.Nonce, GuestFrameCodec.Version));
+        await rig.SendAsync(new Hello("test", AgentRig.VmId, AgentRig.Nonce));
         var channel = await GuestChannel.OpenAsync(rig.Connection, new GuestHandshake(AgentRig.VmId, AgentRig.Nonce), options, time);
         return (rig, channel);
     }

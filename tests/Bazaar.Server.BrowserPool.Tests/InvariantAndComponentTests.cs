@@ -112,7 +112,7 @@ public class StructuralInvariantTests
             .Order()
             .ToList();
 
-        Assert.Equal(["Bazaar.Core", "Bazaar.Core.Hosting", "Bazaar.Server.BrowserPool.Abstractions"], bazaar);
+        Assert.Equal(["Bazaar.Core", "Bazaar.Server.BrowserPool.Abstractions"], bazaar);
     }
 
     [Fact]

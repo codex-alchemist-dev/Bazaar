@@ -39,8 +39,7 @@ public static class SyncCompositionExtensions
             sp.GetRequiredService<IGcAccessPolicy>(),
             sp.GetRequiredService<GcDispatcher>(),
             sp.GetRequiredService<IOptions<SyncOptions>>().Value,
-            sp.GetService<TimeProvider>(),
-            gates: sp.GetServices<IStreamGate>()));
+            sp.GetService<TimeProvider>()));
         // The GC component is optional (modules must load without each other): without its sources there is nothing to dispatch.
         services.AddSingleton<Microsoft.Extensions.Hosting.IHostedService>(sp =>
             sp.GetService<IGcNotificationSource>() is { } notifications && sp.GetService<IGcStreamSource>() is not null

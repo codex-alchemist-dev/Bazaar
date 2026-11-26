@@ -1,1 +1,0 @@
-{"v":1,"t":"engine.relay.result","k":"evt","id":"vector-1","s":"gc:0196a6f0-0000-7000-8000-000000000001","n":7,"ts":"2026-11-19T05:36:12.345+00:00","p":{"relayId":"0196a6f0-0000-7000-8000-000000000001","result":{"grantId":"grant-1","ok":true,"payloadJson":"{\u0022done\u0022:true}"}}}

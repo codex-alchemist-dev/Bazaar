@@ -12,7 +12,7 @@ public sealed class RetirementDb : PgFixture, IAsyncLifetime
             return;
         await base.InitializeAsync();
         const string ns = "souls";
-        var files = new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(ns);
+        var files = new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(ns);
         await new MigrationRunner(DataSource).MigrateAsync(new InMemoryMigrationSource(files), ns);
     }
 }

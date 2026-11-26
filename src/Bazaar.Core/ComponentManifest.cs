@@ -11,12 +11,7 @@ namespace Bazaar.Core;
 /// <param name="Provides">Contract names this component implements, for example <c>gateway:adapter:openai_chat</c>.</param>
 /// <param name="SoftDependsOn">
 /// Component ids this one uses when present. A missing soft dependency is not an error: the component runs without that
-/// feature. Soft edges never set start order and may form cycles (section 4.1). Null means none. Default is hard (<see cref="DependsOn"/>).
-/// </param>
-/// <param name="EnabledByDefault">
-/// The state when the operator set no <c>Bazaar:Components:&lt;id&gt;:Enabled</c> value (section 3, PROPOSED). False makes the component
-/// optional: shipped, but not registered until switched on. An explicit setting wins either way. <see cref="ComponentGraph.Order"/>
-/// rejects false on a kernel component and on one that a default-on component hard-depends on.
+/// feature. When the dependency is enabled it starts first. Null means none. Default is hard (<see cref="DependsOn"/>).
 /// </param>
 public sealed record ComponentManifest(
     string Id,
@@ -24,8 +19,7 @@ public sealed record ComponentManifest(
     ComponentKind Kind,
     IReadOnlyList<string> DependsOn,
     IReadOnlyList<string> Provides,
-    IReadOnlyList<string>? SoftDependsOn = null,
-    bool EnabledByDefault = true)
+    IReadOnlyList<string>? SoftDependsOn = null)
 {
     /// <summary>The soft dependencies, never null.</summary>
     public IReadOnlyList<string> Soft => SoftDependsOn ?? [];

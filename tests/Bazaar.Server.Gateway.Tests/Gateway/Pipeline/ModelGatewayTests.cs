@@ -65,43 +65,8 @@ public class ModelGatewayTests
         var events = await GatewayHarness.CollectAsync(h.Gateway().CallAsync(GatewayHarness.Request("c:m"), _ct), _ct);
 
         Assert.Equal("policy_denied", OnlyFailure(events).Code);
-        var row = Assert.Single(h.Usage.Records);
-        Assert.Equal(UsageStatus.Denied, row.Status);
-        Assert.Equal(("c", "c:m", "policy_denied:model_not_allowed"), (row.ProviderId, row.ModelId, row.ErrorCode));
-        Assert.Equal(0, row.Tokens.Input + row.Tokens.Output);
-        Assert.Equal(GatewayHarness.Agent, row.AgentId);
+        Assert.Empty(h.Usage.Records);
         Assert.All(h.Adapters.Values, a => Assert.Empty(((ScriptedAdapter)a).Provider.Calls));
-    }
-
-    [Fact]
-    public async Task Denied_row_without_a_provider_is_labelled_policy()
-    {
-        var h = new GatewayHarness();
-
-        await GatewayHarness.CollectAsync(h.Gateway().CallAsync(GatewayHarness.Request("no-such-route"), _ct), _ct);
-
-        var row = Assert.Single(h.Usage.Records);
-        Assert.Equal(UsageStatus.Denied, row.Status);
-        Assert.Equal(("policy", "policy"), (row.ProviderId, row.Source));
-    }
-
-    [Theory]
-    [InlineData("anthropic-direct", "anthropic_key")]
-    [InlineData("freellmapi", "freellmapi")]
-    [InlineData("claude-code-cli", "claude_code_cli")]
-    [InlineData("openrouter", "openrouter")]
-    public void Usage_source_labels_the_provider(string providerId, string expected) =>
-        Assert.Equal(expected, Bazaar.Server.Gateway.Usage.UsageSource.For(providerId));
-
-    [Fact]
-    public async Task Success_row_carries_the_source()
-    {
-        var h = new GatewayHarness();
-        h.Adapter("a").Provider.EnqueueCall(GatewayHarness.Reply());
-
-        await GatewayHarness.CollectAsync(h.Gateway().CallAsync(GatewayHarness.Request(), _ct), _ct);
-
-        Assert.Equal("a", Assert.Single(h.Usage.Records).Source);
     }
 
     [Fact]

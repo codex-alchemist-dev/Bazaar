@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.Codecs;
 
@@ -7,11 +8,8 @@ namespace Bazaar.Server.VmDisplay;
 /// The <see cref="IGuestDisplay"/> implementation (docs/design/59, sections 3 to 5). Checks run in this order: enabled, target,
 /// gate, rate limit, then source selection. Ports are optional: the module works with any subset of them.
 /// </summary>
-public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReader
+public sealed class GuestDisplayService : IGuestDisplay
 {
-    /// <summary>The most VM displays whose native size is remembered; the oldest entry is dropped first.</summary>
-    public const int MaxRememberedDisplays = 1024;
-
     private readonly VmDisplayOptions _options;
     private readonly IDisplayGate _gate;
     private readonly IDisplayAuditSink _audit;
@@ -22,13 +20,6 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
     private readonly IReadOnlyList<IDeviceDisplay> _devices;
     // The native size of the last guest-source frame per VM: the extent the guest pointer tool maps coordinates onto.
     private readonly ConcurrentDictionary<Guid, (int Width, int Height)> _guestSizes = new();
-    // The native size of the last guest-source frame per VM: the extent the guest pointer tool maps coordinates onto. Bounded.
-    private readonly Dictionary<Guid, (int Width, int Height)> _guestSizes = [];
-    private readonly Queue<Guid> _guestSizeOrder = new();
-    // The native size of the last screenshot per browser session, for pixel-exact drivers only. Bounded the same way.
-    private readonly Dictionary<string, (int Width, int Height)> _browserSizes = new(StringComparer.Ordinal);
-    private readonly Queue<string> _browserSizeOrder = new();
-    private readonly object _guestSizeLock = new();
     private readonly SlidingWindowRateLimiter _captureLimiter;
     private readonly SlidingWindowRateLimiter _inputLimiter;
 
@@ -100,7 +91,7 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
 
         EnsureEnabled(target, "capture");
         Guard(target, "capture", () => InputValidator.ValidateTarget(target));
-        DisplayVerdict verdict = await GateAsync(() => _gate.CheckCaptureAsync(target, ct));
+        DisplayVerdict verdict = Gate(() => _gate.CheckCapture(target));
         if (!verdict.Allowed)
             throw Refuse(target, "capture", DisplayFailure.Refused, verdict.Reason ?? "refused by the display gate");
         if (!_captureLimiter.TryAcquire(target.AgentId))
@@ -153,14 +144,14 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
             InputValidator.ValidateBatch(batch.Actions, _options);
         });
         IReadOnlyList<InputAction> actions = batch.Actions;
-        DisplayVerdict verdict = await GateAsync(() => _gate.CheckInputAsync(target, actions, ct));
+        DisplayVerdict verdict = Gate(() => _gate.CheckInput(target, actions));
         if (!verdict.Allowed)
             throw Refuse(target, "input", DisplayFailure.Refused, verdict.Reason ?? "refused by the display gate");
         if (!_inputLimiter.TryAcquire(target.AgentId))
             throw Refuse(target, "input", DisplayFailure.RateLimited, "the input rate limit was reached");
 
         bool hasPointer = actions.Any(a => a is PointerMove or PointerClick or PointerScroll or PointerButton);
-        (int Width, int Height)? guestSize = GuestSize(target.VmId);
+        (int Width, int Height)? guestSize = _guestSizes.TryGetValue(target.VmId, out (int Width, int Height) known) ? known : null;
         if (hasPointer && batch.Source == DisplaySourceKind.Guest && guestSize is null)
             throw Refuse(target, "input", DisplayFailure.InvalidInput, LinuxInputArgv.PointerRefusal);
         IReadOnlyList<DisplaySourceKind> order = Plan(target, batch.Source);
@@ -208,58 +199,6 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
         _audit.InputSent(target, source, actions.Count);
     }
 
-    /// <inheritdoc />
-    /// <remarks>
-    /// The guest source records a size per VM. A browser target (one that names a session) has its own size, recorded only when its
-    /// driver is an <see cref="IPixelExactBrowserPageDriver"/>; with any other driver the screenshot may be in device pixels while input
-    /// is in CSS pixels, so it stays unknown. A browser target never falls back to its VM's size. A hypervisor frame may already be reduced.
-    /// </remarks>
-    public (int Width, int Height)? TryGetNativeSize(DisplayTarget target)
-    {
-        ArgumentNullException.ThrowIfNull(target);
-        return string.IsNullOrEmpty(target.BrowserSessionId) ? GuestSize(target.VmId) : BrowserSize(target.BrowserSessionId);
-    }
-
-    private (int Width, int Height)? BrowserSize(string sessionId)
-    {
-        lock (_guestSizeLock)
-            return _browserSizes.TryGetValue(sessionId, out (int Width, int Height) known) ? known : null;
-    }
-
-    private void RememberBrowserSize(string sessionId, int width, int height)
-    {
-        lock (_guestSizeLock)
-        {
-            if (!_browserSizes.ContainsKey(sessionId))
-            {
-                _browserSizeOrder.Enqueue(sessionId);
-                while (_browserSizeOrder.Count > MaxRememberedDisplays)
-                    _browserSizes.Remove(_browserSizeOrder.Dequeue());
-            }
-            _browserSizes[sessionId] = (width, height);
-        }
-    }
-
-    private (int Width, int Height)? GuestSize(Guid vmId)
-    {
-        lock (_guestSizeLock)
-            return _guestSizes.TryGetValue(vmId, out (int Width, int Height) known) ? known : null;
-    }
-
-    private void RememberGuestSize(Guid vmId, int width, int height)
-    {
-        lock (_guestSizeLock)
-        {
-            if (!_guestSizes.ContainsKey(vmId))
-            {
-                _guestSizeOrder.Enqueue(vmId);
-                while (_guestSizeOrder.Count > MaxRememberedDisplays)
-                    _guestSizes.Remove(_guestSizeOrder.Dequeue());
-            }
-            _guestSizes[vmId] = (width, height);
-        }
-    }
-
     private async Task<NormalizedFrame> ObtainAsync(DisplaySourceKind source, DisplayTarget target, FrameLimits limits, CancellationToken ct)
     {
         switch (source)
@@ -268,12 +207,6 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
                 {
                     IBrowserPageDriver driver = _browsers.First(b => b.Supports(target));
                     byte[] png = await driver.CaptureScreenshotPngAsync(target.BrowserSessionId!, ct).ConfigureAwait(false);
-                    if (driver is IPixelExactBrowserPageDriver)
-                    {
-                        // Screenshot pixels are input coordinates for this driver, so the size before downscaling is the click space.
-                        PngInfo native = PngInspector.Inspect(png, limits.MaxEncodedBytes);
-                        RememberBrowserSize(target.BrowserSessionId!, native.Width, native.Height);
-                    }
                     return FrameNormalizer.FromPng(png, limits);
                 }
             case DisplaySourceKind.Device:
@@ -294,7 +227,7 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
                     byte[] png = await GuestSource.CaptureAsync(exec, target, TimeSpan.FromSeconds(_options.GuestCaptureTimeoutSeconds), limits.MaxEncodedBytes, ct).ConfigureAwait(false);
                     // The size before any downscaling is the guest's output size, which is what pointer coordinates refer to.
                     PngInfo native = PngInspector.Inspect(png, limits.MaxEncodedBytes);
-                    RememberGuestSize(target.VmId, native.Width, native.Height);
+                    _guestSizes[target.VmId] = (native.Width, native.Height);
                     return FrameNormalizer.FromPng(png, limits);
                 }
         }
@@ -328,11 +261,11 @@ public sealed class GuestDisplayService : IGuestDisplay, IDisplayNativeSizeReade
     }
 
     // A gate that throws is treated as a refusal: the module fails closed.
-    private static async Task<DisplayVerdict> GateAsync(Func<ValueTask<DisplayVerdict>> check)
+    private static DisplayVerdict Gate(Func<DisplayVerdict> check)
     {
         try
         {
-            return await check().ConfigureAwait(false) ?? DisplayVerdict.Deny("the display gate returned no verdict");
+            return check() ?? DisplayVerdict.Deny("the display gate returned no verdict");
         }
         catch (Exception e) when (e is not OperationCanceledException)
         {

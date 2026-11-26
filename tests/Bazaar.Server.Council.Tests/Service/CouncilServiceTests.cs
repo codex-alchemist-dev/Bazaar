@@ -466,7 +466,7 @@ public class CouncilServiceTests
     }
 
     [Fact]
-    public async Task Open_and_reveal_payloads_carry_no_reasoning_text()
+    public async Task Open_payload_carries_no_reasoning_and_the_reveal_does()
     {
         var h = new CouncilHarness();
         var id = await OpenThreeVoter(h);
@@ -480,7 +480,7 @@ public class CouncilServiceTests
             await service.SubmitBallotAsync(id, voter, Ballots.Independent(voter, "yes"), CancellationToken.None);
         }
 
-        Assert.DoesNotContain(Ballots.Reasoning, h.Events.OfKind("council.reveal").Single().PayloadJson, StringComparison.Ordinal);
+        Assert.Contains(Ballots.Reasoning, h.Events.OfKind("council.reveal").Single().PayloadJson, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -8,9 +8,7 @@ public class ComponentServiceCollectionTests
 {
     private sealed class FakeComponent(string id, Action<IServiceCollection>? register = null, params string[] dependsOn) : IBazaarComponent
     {
-        public bool EnabledByDefault { get; init; } = true;
-
-        public ComponentManifest Manifest => new(id, "0.1.0", ComponentKind.Feature, dependsOn, [], EnabledByDefault: EnabledByDefault);
+        public ComponentManifest Manifest { get; } = new(id, "0.1.0", ComponentKind.Feature, dependsOn, []);
 
         public void AddServices(IServiceCollection services, IConfiguration configuration) => register?.Invoke(services);
     }
@@ -72,63 +70,5 @@ public class ComponentServiceCollectionTests
     {
         Assert.True(BazaarComponentRegistration.IsEnabled(Config(), "kanban"));
         Assert.True(BazaarComponentRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "maybe")), "kanban"));
-    }
-
-    [Fact]
-    public void An_optional_component_is_not_registered_until_switched_on()
-    {
-        var log = new List<string>();
-
-        new ServiceCollection().AddBazaarComponents(Config(), [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
-
-        Assert.Empty(log);
-    }
-
-    [Fact]
-    public void An_explicit_setting_switches_an_optional_component_on()
-    {
-        var log = new List<string>();
-
-        new ServiceCollection().AddBazaarComponents(
-            Config(("Bazaar:Components:playground:Enabled", "true")),
-            [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
-
-        Assert.Equal(["playground"], log);
-    }
-
-    [Fact]
-    public void An_explicit_false_still_switches_a_default_on_component_off()
-    {
-        var log = new List<string>();
-
-        new ServiceCollection().AddBazaarComponents(Config(("Bazaar:Components:kanban:Enabled", "false")), [new FakeComponent("kanban", _ => log.Add("kanban"))]);
-
-        Assert.Empty(log);
-    }
-
-    [Fact]
-    public void An_unparsable_setting_falls_back_to_the_manifest_default()
-    {
-        var log = new List<string>();
-
-        new ServiceCollection().AddBazaarComponents(
-            Config(("Bazaar:Components:playground:Enabled", "maybe")),
-            [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
-
-        Assert.Empty(log);
-    }
-
-    [Fact]
-    public void An_optional_component_that_is_on_needs_its_optional_dependency_on_too()
-    {
-        var on = Config(("Bazaar:Components:b:Enabled", "true"));
-
-        var ex = Assert.Throws<ComponentGraphException>(() => new ServiceCollection().AddBazaarComponents(on,
-        [
-            new FakeComponent("b", null, "a") { EnabledByDefault = false },
-            new FakeComponent("a") { EnabledByDefault = false },
-        ]));
-
-        Assert.Contains("'b'", ex.Message);
     }
 }

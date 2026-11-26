@@ -28,6 +28,7 @@ public sealed class SettingDefinitionTests
     {
         string[] expected =
         [
+            "host.provider.service_host", "host.provider.vm", "host.provider.cache", "host.provider.search",
             "host.readiness.required_roles", "host.shutdown_timeout_seconds", "host.service.restart_delays_minutes",
             "host.service.failure_reset_hours", "host.maintenance_window", "host.db.startup_give_up_minutes",
             "host.status.bind", "host.status.port", "host.service_account", "host.log.retention_days",
@@ -100,15 +101,15 @@ public sealed class SettingDefinitionTests
     [Fact]
     public void Enum_uses_snake_case_names_and_rejects_unknown_names_and_integers()
     {
-        var accepted = Eval(HostSettings.StatusBindAddress, "\"loopback\"");
+        var accepted = Eval(HostSettings.ProviderServiceHost, "\"windows_service\"");
         Assert.Equal(SettingWriteOutcome.Accepted, accepted.Outcome);
-        Assert.Equal("\"loopback\"", accepted.ValueJson);
+        Assert.Equal("\"windows_service\"", accepted.ValueJson);
 
-        var unknown = Eval(HostSettings.StatusBindAddress, "\"bogus\"");
+        var unknown = Eval(HostSettings.ProviderServiceHost, "\"bogus\"");
         Assert.Equal(SettingWriteOutcome.Rejected, unknown.Outcome);
-        Assert.Contains("host.status.bind", unknown.Reason);
+        Assert.Contains("host.provider.service_host", unknown.Reason);
 
-        Assert.Equal(SettingWriteOutcome.Rejected, Eval(HostSettings.StatusBindAddress, "0").Outcome);
+        Assert.Equal(SettingWriteOutcome.Rejected, Eval(HostSettings.ProviderServiceHost, "0").Outcome);
     }
 
     [Fact]

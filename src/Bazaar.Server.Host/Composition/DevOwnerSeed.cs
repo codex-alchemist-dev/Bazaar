@@ -5,7 +5,7 @@ using Npgsql;
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
-/// Dev-only: writes the owner <c>human</c> row that a local run needs to pair and
+/// Dev-only: writes the owner <c>human</c> row that the dev access-token issuer signs tokens for, so a local run can pair and
 /// refresh without a manual insert. Runs only when <c>Bazaar:Remote:DevIssuer:Enabled</c> is true AND the host environment is
 /// Development; in any other environment it does nothing. The insert is <c>ON CONFLICT DO NOTHING</c>, so repeat starts leave one
 /// row, and an existing owner row (of any id) makes it a no-op too.
@@ -16,7 +16,7 @@ public sealed class DevOwnerSeed(
     IConfiguration configuration,
     ILogger<DevOwnerSeed> logger) : IHostedService
 {
-    /// <summary>Fixed id of the dev owner. Not a real person; a dev run pairs and refreshes as this human.</summary>
+    /// <summary>Fixed id of the dev owner. Not a real person; the dev issuer tokens name this id.</summary>
     public static readonly Guid OwnerId = new("3f0c7a52-6d1e-4b8a-9c4f-0d3e5a1b7e01");
 
     /// <summary>Display name of the dev owner row.</summary>

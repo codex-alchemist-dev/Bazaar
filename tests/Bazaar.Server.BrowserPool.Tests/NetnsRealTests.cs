@@ -237,7 +237,7 @@ public sealed class NetnsRealTests : IDisposable
         Directory.CreateDirectory(_temp + "/pool");
         RunBlocking(["chmod", "0755", _temp]);
         RunBlocking(["chmod", "0711", _temp + "/pool"]);
-        foreach (var c in PoolCommandLine.PrepareCommands(options, slot))
+        foreach (var c in PoolCommandLine.PrepareCommands(PoolCommandLine.SlotUid(options, slot), PoolCommandLine.SlotDirectory(options, slot)))
         {
             Run(c);
         }
