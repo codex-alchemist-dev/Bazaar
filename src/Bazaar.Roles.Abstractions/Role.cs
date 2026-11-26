@@ -17,6 +17,8 @@ public sealed record Role(
 /// <summary>A role held by one principal. The kind is stored so the floors can be checked without asking identity.</summary>
 public sealed record RoleAssignment(Guid PrincipalId, PrincipalKind PrincipalKind, Guid RoleId, Guid AssignedBy, DateTimeOffset AssignedAt);
 
+/// <summary>Who is making a change.</summary>
+public readonly record struct RoleActor(Guid PrincipalId, PrincipalKind Kind);
 /// <summary>Who is making a change. <paramref name="Approval"/> is the owner's signed approval when the change widens a person's grants.</summary>
 public readonly record struct RoleActor(Guid PrincipalId, PrincipalKind Kind, OwnerWideningApproval? Approval = null);
 

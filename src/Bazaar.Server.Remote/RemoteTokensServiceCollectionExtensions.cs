@@ -26,6 +26,7 @@ public static class RemoteTokensServiceCollectionExtensions
         services.TryAddSingleton<PostgresAdminDirectory>();
         services.TryAddSingleton<IAdminUserDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
         services.TryAddSingleton<IAdminDeviceDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
+        services.TryAddSingleton<SignedInPersonLookup>();
         return services;
     }
 }

@@ -28,6 +28,7 @@ public static class MotionHost
 
     private static readonly Lock _gate = new();
     private static MotionSettings? _settings;
+    private static IFrameTimeSink? _frameTimes;
 
     /// <summary>The shared settings; created on first use with the platform default.</summary>
     public static MotionSettings Settings
@@ -51,23 +52,39 @@ public static class MotionHost
         }
     }
 
+    /// <summary>
+    /// Where the frames of running animations report their timing, for the frame-budget monitor. Null (the default) measures nothing.
+    /// It is read when a driver is created by <see cref="DriverFor"/>, so set it before views attach.
+    /// </summary>
+    public static IFrameTimeSink? FrameTimes
+    {
+        get { lock (_gate) { return _frameTimes; } }
+        set { lock (_gate) { _frameTimes = value; } }
+    }
+
     /// <summary>A frame driver for <paramref name="control"/> that keeps running before the control has a top level.</summary>
-    public static IFrameDriver DriverFor(Control control) => new ResilientFrameDriver(control);
+    public static IFrameDriver DriverFor(Control control) => new ResilientFrameDriver(control, FrameTimes);
 }
 
 /// <summary>
 /// Asks the control's top level for frames; while the control is not in a window yet, it falls back to the UI thread so an animation
 /// that started during layout still finishes and never leaves a control half faded.
 /// </summary>
-internal sealed class ResilientFrameDriver(Control control) : IFrameDriver
+internal sealed class ResilientFrameDriver(Control control, IFrameTimeSink? frameTimes = null) : IFrameDriver
 {
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+    private readonly FrameTimeTracker? _tracker = frameTimes is null ? null : new FrameTimeTracker(frameTimes);
 
     public void RequestFrame(Action<TimeSpan> callback)
     {
+        // Only the top level's frames are real display frames; the UI-thread fallback paces itself and says nothing about cost.
         if (TopLevel.GetTopLevel(control) is { } top)
         {
-            top.RequestAnimationFrame(callback);
+            top.RequestAnimationFrame(_tracker is null ? callback : timestamp =>
+            {
+                _tracker.OnFrame(timestamp);
+                callback(timestamp);
+            });
             return;
         }
 

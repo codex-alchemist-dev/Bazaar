@@ -45,5 +45,22 @@ public static class DataVolumeCiphers
     public static bool MeetsFloor(string? cipher) => string.Equals(cipher, XtsAes256, StringComparison.Ordinal);
 }
 
+/// <summary>What is known about the database files at rest (doc 63 section 5).</summary>
+public enum DatabaseAtRest
+{
+    /// <summary>A managed database inside the verified volume.</summary>
+    Verified,
+
+    /// <summary>An external database whose encryption the owner attested. Bazaar cannot check it.</summary>
+    AttestedNotVerified,
+}
+
 /// <summary>The result of a successful verification.</summary>
-public sealed record DataVolumeVerification(DataVolumeDescriptor Descriptor, DataVolumeStatus Status, string? PostgresSystemIdentifier);
+public sealed record DataVolumeVerification(DataVolumeDescriptor Descriptor, DataVolumeStatus Status, string? PostgresSystemIdentifier)
+{
+    /// <summary>What is known about the database at rest. <see cref="DatabaseAtRest.Verified"/> unless the database is external.</summary>
+    public DatabaseAtRest DatabaseAtRest { get; init; } = DatabaseAtRest.Verified;
+
+    /// <summary>The stable code shown by the status page and Kodo: <c>verified</c> or <c>attested_not_verified</c>.</summary>
+    public string DatabaseAtRestCode => DatabaseAtRest == DatabaseAtRest.AttestedNotVerified ? "attested_not_verified" : "verified";
+}
