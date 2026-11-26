@@ -1,11 +1,5 @@
 namespace Bazaar.Server.Knowledge.Metrics;
 
-/// <summary>
-/// One day-level rollup of a metric, recomputable from its samples. For counts the rollup is the sum; for rates it is the mean,
-/// weighted by the number of contributing samples.
-/// </summary>
-public sealed record MetricRollupRow(string ProjectId, string Metric, string Dimension, DateOnly Bucket, double Value, int Samples);
-
 /// <summary>Computes daily rollups over stored samples. Pure: the same input always gives the same rows.</summary>
 public static class MetricRollup
 {

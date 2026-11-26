@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Bazaar.Client.Community"
+             x:Class="Bazaar.Client.Community.Avalonia.CommunityLogView"
+             x:DataType="vm:CommunityLogViewModel"
+             FontFamily="{DynamicResource Bazaar.font.family.ui}"
+             FontSize="{DynamicResource Bazaar.font.size.body}"
+             Foreground="{DynamicResource Bazaar.brush.color.text.primary}">
+  <UserControl.Styles>
+    <Style Selector="TextBlock.secondary">
+      <Setter Property="Foreground" Value="{DynamicResource Bazaar.brush.color.text.secondary}" />
+    </Style>
+    <Style Selector="TextBlock.mono">
+      <Setter Property="FontFamily" Value="{DynamicResource Bazaar.font.family.mono}" />
+    </Style>
+  </UserControl.Styles>
+  <DockPanel Margin="16">
+    <!-- Filters. Blank means all. -->
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,8">
+      <TextBox Name="AgentFilterBox" Width="180" PlaceholderText="Agent (blank for all)"
+               Text="{Binding AgentFilter, Mode=TwoWay}" AutomationProperties.Name="Filter by agent" />
+      <TextBox Name="PlatformFilterBox" Width="180" PlaceholderText="Platform (blank for all)"
+               Text="{Binding PlatformFilter, Mode=TwoWay}" AutomationProperties.Name="Filter by platform" />
+      <Button Name="RefreshButton" Content="Apply and refresh" Command="{Binding RefreshCommand}"
+              AutomationProperties.Name="Apply filters and reload the log" />
+    </StackPanel>
+
+    <TextBlock DockPanel.Dock="Top" Name="StatusText" Classes="secondary" TextWrapping="Wrap" Text="{Binding StatusText}"
+               AutomationProperties.Name="Community log status" />
+    <TextBlock DockPanel.Dock="Top" Name="ErrorText" FontWeight="Bold" TextWrapping="Wrap" Margin="0,4"
+               IsVisible="{Binding HasError}" Text="{Binding Error, StringFormat='Error: {0}'}" />
+    <TextBlock DockPanel.Dock="Top" Name="EmptyText" Classes="secondary" Margin="0,4"
+               IsVisible="{Binding IsEmpty}" Text="No community actions match." />
+
+    <Button DockPanel.Dock="Bottom" Name="LoadMoreButton" Content="Load older" Margin="0,8,0,0"
+            Command="{Binding LoadMoreCommand}" IsVisible="{Binding CanLoadMore}"
+            AutomationProperties.Name="Load older log rows" />
+
+    <ListBox Name="LogList" ItemsSource="{Binding Rows}" AutomationProperties.Name="Community log, newest first">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:CommunityLogRowViewModel">
+          <StackPanel Margin="4" Spacing="2" AutomationProperties.Name="{Binding Summary}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="secondary" Text="{Binding Time}" />
+              <TextBlock FontWeight="SemiBold" Text="{Binding AgentId}" />
+              <TextBlock Text="{Binding Action}" />
+              <TextBlock Classes="secondary" Text="on" />
+              <TextBlock Text="{Binding Platform}" />
+              <TextBlock Classes="secondary" Text="Status:" />
+              <TextBlock FontWeight="Bold" Text="{Binding Status}" />
+            </StackPanel>
+            <TextBlock Text="{Binding Target}" TextWrapping="Wrap" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Classes="secondary" Text="Body hash" />
+              <TextBlock Classes="mono" Text="{Binding BodyHash}" TextTrimming="CharacterEllipsis" MaxWidth="360" />
+              <TextBlock Classes="secondary" Text="Approval" />
+              <TextBlock Text="{Binding Approval}" />
+              <TextBlock Classes="secondary" Text="External id" />
+              <TextBlock Text="{Binding ExternalId}" />
+            </StackPanel>
+          </StackPanel>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</UserControl>

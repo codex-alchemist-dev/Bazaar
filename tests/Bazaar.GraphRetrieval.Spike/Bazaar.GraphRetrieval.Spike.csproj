@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Spike S28: throwaway benchmark code, kept on its branch. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <ServerGarbageCollector>true</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <GCHeapAffinitizeMask>0</GCHeapAffinitizeMask>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Vortice.Vulkan" />
+    <PackageReference Include="Npgsql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Shaders\*.spv" CopyToOutputDirectory="PreserveNewest" LinkBase="Shaders" />
+  </ItemGroup>
+</Project>

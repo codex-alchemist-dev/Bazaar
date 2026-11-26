@@ -51,6 +51,7 @@ public class KanbanComponentTests
         var types = provider.GetServices<Bazaar.Server.Wire.Connection.IWireRequestHandler>().Select(h => h.Type).ToList();
         Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardSnapshot, types);
         Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardMove, types);
+        Assert.Contains(Bazaar.Contracts.Wire.WireTypes.BoardAssign, types);
     }
 
     [Fact]

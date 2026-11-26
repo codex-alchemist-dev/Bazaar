@@ -71,4 +71,5 @@ public static class AdminAuditKinds
     public const string Read = "admin.web.read";
     public const string SelectionCommit = "admin.web.selection.commit";
     public const string RebuildStart = "admin.web.rebuild.start";
+    public const string CatalogueRefresh = "admin.web.gateway.catalogue.refresh";
 }

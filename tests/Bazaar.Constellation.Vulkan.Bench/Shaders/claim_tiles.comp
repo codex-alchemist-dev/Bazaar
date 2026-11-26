@@ -1,0 +1,26 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Combined frame, decimation pass 1 over the tiles the cull pass kept: workgroup g handles indirect command g.
+// Each in-view sampled point claims its 2x2-pixel cell (highest sample index wins) and counts itself as a candidate.
+#include "topology.glsl"
+#include "tile.glsl"
+layout(local_size_x = 256) in;
+void main()
+{
+    uint g = gl_WorkGroupID.x;
+    if (g >= cmds[0]) { return; }
+    uint cnt = cmds[4u + g * 4u + 1u];
+    uint off = cmds[4u + g * 4u + 3u];
+    for (uint j = gl_LocalInvocationID.x; j < cnt; j += 256u)
+    {
+        uint k = sorted[off + j];
+        vec4 clip = pc.viewProj * vec4(nodePos(min(k * pc.stride, pc.n - 1u)), 1.0);
+        if (clip.w <= 0.0) { continue; }
+        vec2 ndc = clip.xy / clip.w;
+        if (abs(ndc.x) >= 1.0 || abs(ndc.y) >= 1.0) { continue; }
+        uint x = uint((ndc.x * 0.5 + 0.5) * 640.0);
+        uint y = uint((ndc.y * 0.5 + 0.5) * 360.0);
+        atomicAdd(survivors[4], 1u);
+        atomicMax(cells[y * 640u + x], k + 1u);
+    }
+}

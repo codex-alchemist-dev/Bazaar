@@ -78,6 +78,8 @@ Release builds (doc 37) keep line tables in a symbol bundle that the company ser
 
 **Module versions.** Every loaded module id with its version and build id, plus the client version string and channel. This is what lets the server tie a crash to one build.
 
+**Support bundle (cross-reference, 2026-11-22).** A person can also write a local, redacted zip of recent logs, the module list and the last crash record with `--support-bundle`. It uses this section's redactor and floors, is never sent by Bazaar, and is specified in doc 37 section 4d.
+
 ### 4.2 Where capture runs
 
 Capture runs in-process. It hooks the unhandled-exception events of the runtime (`AppDomain` and unobserved task exceptions on Windows and Linux; the uncaught-exception handler on Android). Handled exceptions are captured only when the code calls the reporting API with an error code. It does no I/O on the failing thread. It copies the capture into a bounded in-memory structure and writes one file to the local report queue on a background thread at the next safe point. If the process dies before the write, the report is lost; that is accepted, and the crash-on-last-run path (section 7.4) covers what it can.
@@ -345,6 +347,14 @@ Title: error code and type, or type and flagged frame. Body: fingerprint marker,
 - Trigger: `ask` (default) means an owner clicks Diagnose on a group in the server's group view, and the dialog shows the exact input size and the model label before it runs. `auto` runs after a group reaches the thresholds in 8.4.
 - Posting: diagnosis text appears in the group view. It goes to the issue only if `issue_diagnosis_post = on`, as a separate comment that repeats the label.
 
+### 9.1.1 Diagnosis bindings (PROPOSED, 2026-11-22)
+
+Doc 05 has no per-role policy and `ITokenBudgetService` (doc 15) is per agent with spend-only calls, so neither fits the diagnosis seams as written. Proposal, reversible, all operator settings with safe defaults (configurability rule, DECISIONS-LOG round 13):
+
+- **Model.** Diagnosis calls go through `IModelGateway` under one reserved system agent id (a fixed GUID owned by the diagnostics module, never a real agent) with `Tools = []` (asserted by a test). The route comes from the setting `telemetry.crash.diagnosis_route`. It has no default: until the operator sets it, diagnosis stays paused. The gateway's per-agent whitelist still applies, so the route must be whitelisted for that agent id.
+- **Budget.** The diagnostics module keeps its own company-wide daily counter (table `crash_diagnosis_usage`, one row per UTC day, namespace `diagnostics`). `TryReserveAsync` adds the estimate only if the day stays under `telemetry.crash.diagnosis_daily_tokens` (default 200000), and `SettleAsync` replaces the estimate with the real usage, so an over-estimate is refunded. The Security quota contract is not changed. A later move onto doc 15 quotas is possible once they gain reserve and settle.
+- **Host.** `Bazaar.Server.Host` registers both bindings. Nothing in a module references `Bazaar.Server`.
+
 ### 9.2 Who reads it
 
 Diagnosis is a hint for the owner and for the owning agent's inbox item (section 11). It is not a verdict. The group view states this next to the text.
@@ -412,7 +422,7 @@ Audit rows never contain report content. They carry ids, hashes and counts.
 
 ### 12.1 Ingestion, in order
 
-1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32).
+1. Authenticate the connection and check that `install_id` belongs to the device (doc 02, doc 32). The first submission of an install id binds it to the authenticated device; a different device presenting a bound id is refused (doc 32, "Crash install binding" [DECIDED]).
 2. Check size caps and the schema version. Unknown versions are refused with an error the client can show.
 3. Re-run the redaction validator (section 6). Any canary or residual match refuses the report and audits the refusal.
 4. Check the attachment hash and image headers (magic bytes, dimension cap, no embedded metadata beyond size).

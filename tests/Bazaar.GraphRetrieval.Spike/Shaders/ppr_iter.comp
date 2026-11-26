@@ -1,0 +1,18 @@
+#version 450
+layout(local_size_x = 256) in;
+// One power-iteration step of personalised PageRank, pull form over the transposed CSR: y[v] = alpha * r[v] + (1 - alpha) * sum over in-edges of coef * x[src].
+layout(set = 0, binding = 0) readonly buffer InOff { uint inOff[]; };
+layout(set = 0, binding = 1) readonly buffer InSrc { uint inSrc[]; };
+layout(set = 0, binding = 2) readonly buffer InCoef { float inCoef[]; };
+layout(set = 0, binding = 3) readonly buffer X { float x[]; };
+layout(set = 0, binding = 4) writeonly buffer Y { float y[]; };
+layout(set = 0, binding = 5) readonly buffer R { float r[]; };
+layout(push_constant) uniform P { uint nodes; float alpha; uint pad0; uint pad1; uint pad2; } p;
+void main()
+{
+    uint v = gl_GlobalInvocationID.x;
+    if (v >= p.nodes) { return; }
+    float s = 0.0;
+    for (uint e = inOff[v]; e < inOff[v + 1u]; e++) { s += inCoef[e] * x[inSrc[e]]; }
+    y[v] = p.alpha * r[v] + (1.0 - p.alpha) * s;
+}
