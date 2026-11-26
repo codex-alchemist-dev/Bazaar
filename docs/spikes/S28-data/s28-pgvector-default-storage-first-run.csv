@@ -1,0 +1,25 @@
+arm,dim,n,k,clients,reps,e2e_p50_ms,e2e_p99_ms,server_p50_ms,server_p99_ms,qps,recall_mean,recall_min,note
+pgvector-exact,1024,10000,10,1,48,60.826,65.257,11.714,15.167,8.1,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,10000,10,8,384,67.884,72.467,19.286,22.212,58.0,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,10000,50,1,48,60.880,61.549,11.615,12.754,8.1,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,10000,50,8,384,68.561,72.812,20.515,23.016,57.8,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,100000,10,1,48,56.835,58.355,51.708,54.828,8.6,0.9979,0.9000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,100000,10,8,384,193.364,253.027,176.639,230.204,20.3,0.9971,0.9000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,100000,50,1,48,56.715,59.345,51.910,53.942,8.6,0.9996,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,100000,50,8,384,192.023,242.035,175.932,230.291,20.4,0.9994,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,1000000,10,1,12,412.532,453.421,381.240,426.678,1.1,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,1000000,10,8,96,2181.452,2936.413,1943.314,2870.917,1.8,0.9969,0.9000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,1000000,50,1,12,349.752,351.626,322.250,325.177,1.4,0.9983,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1024,1000000,50,8,96,1745.244,2203.475,1611.255,1957.948,2.2,0.9992,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,100000,10,1,48,60.883,65.249,11.786,12.539,8.1,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,100000,10,8,384,68.633,82.854,18.512,25.595,56.9,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,100000,50,1,48,60.928,65.737,11.759,12.671,8.1,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,100000,50,8,384,69.699,84.629,19.259,27.796,55.6,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,1000000,10,1,12,75.222,80.686,68.567,72.772,4.0,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,1000000,10,8,96,367.503,497.487,339.669,461.723,10.4,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,1000000,50,1,12,73.602,79.237,67.487,71.738,6.4,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,768,1000000,50,8,96,365.632,477.056,336.414,408.557,10.6,0.9996,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1536,100000,10,1,48,77.533,80.711,70.388,72.408,6.3,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1536,100000,10,8,384,208.624,278.851,190.868,239.979,18.8,1.0000,1.0000,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1536,100000,50,1,48,71.133,114.711,64.961,67.637,6.8,0.9996,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients
+pgvector-exact,1536,100000,50,8,384,210.153,293.408,191.075,235.071,18.8,0.9994,0.9800,halfvec cosine, sequential scan; 8 workers per query alone, 2 per query with 8 clients

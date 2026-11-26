@@ -24,5 +24,9 @@ public static partial class HyperVNames
     private static partial Regex VmPattern();
 
     [GeneratedRegex("^bazaar-cp-[0-9a-f]{32}$")]
+    [GeneratedRegex("^bazaar-[0-9a-f]{32}\\z")]
+    private static partial Regex VmPattern();
+
+    [GeneratedRegex("^bazaar-cp-[0-9a-f]{32}\\z")]
     private static partial Regex CheckpointPattern();
 }

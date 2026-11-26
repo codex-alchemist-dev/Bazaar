@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.Athanor.WebView2</RootNamespace>
+    <!-- LibraryImport (source-generated P/Invoke) emits unsafe code. MSB3277: the WebView2 package adds its WPF assembly, which this project never uses. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <!--
+      Windows-only at run time (doc 57 §3a, doc 28), enforced by SupportedOSPlatform on the assembly. The TFM stays net11.0 (no -windows) so
+      the project builds and tests
+      (skipping the integration tests) on every runner.
+    -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <PackageReference Include="Microsoft.Web.WebView2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Abstractions\Bazaar.Client.Athanor.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor\Bazaar.Client.Athanor.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Athanor.Bundle\Bazaar.Client.Athanor.Bundle.csproj" />
+  </ItemGroup>
+</Project>

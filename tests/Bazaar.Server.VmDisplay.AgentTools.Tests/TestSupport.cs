@@ -41,10 +41,11 @@ internal sealed class FakeTargets : IAgentDisplayTargets
 
     public List<(Guid Agent, AgentDisplayKind Kind)> Asked { get; } = [];
 
-    public DisplayTarget? Resolve(Guid agentId, AgentDisplayKind kind)
+    public Task<DisplayTarget?> ResolveAsync(Guid agentId, AgentDisplayKind kind, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         Asked.Add((agentId, kind));
-        return Map.TryGetValue((agentId, kind), out DisplayTarget? t) ? t : null;
+        return Task.FromResult(Map.TryGetValue((agentId, kind), out DisplayTarget? t) ? t : null);
     }
 }
 
@@ -81,4 +82,9 @@ internal static class Rig
     public static JsonElement Json(string text) => JsonElement.Parse(text);
 
     public static JsonElement Parse(string result) => JsonElement.Parse(result);
+}
+
+internal sealed class FakeReader((int, int)? size) : IDisplayNativeSizeReader
+{
+    public (int Width, int Height)? TryGetNativeSize(DisplayTarget target) => size;
 }

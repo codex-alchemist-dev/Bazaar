@@ -63,6 +63,23 @@ public sealed class StackExchangeValkeyClient : IValkeyClient
     }
 
     /// <inheritdoc />
+    public async Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct)
+    {
+        var database = await DatabaseAsync(ct);
+
+        // One MULTI/EXEC: the increment and "EXPIRE NX" (only when the key has no expiry) apply together or not at all.
+        var transaction = database.CreateTransaction();
+        var increment = transaction.StringIncrementAsync(key, by);
+        _ = transaction.KeyExpireAsync(key, ttl, ExpireWhen.HasNoExpiry);
+        if (!await transaction.ExecuteAsync().WaitAsync(ct))
+        {
+            throw new InvalidOperationException("The counter transaction was not committed.");
+        }
+
+        return await increment;
+    }
+
+    /// <inheritdoc />
     public async Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct)
     {
         var database = await DatabaseAsync(ct);

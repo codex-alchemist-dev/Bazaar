@@ -20,7 +20,7 @@ namespace Bazaar.Server.Security.KillSwitch;
 /// the next state change, which waits for the load and throws if it still fails.
 /// </para>
 /// </remarks>
-public sealed class KillSwitchEngine
+public sealed class KillSwitchEngine : IKillSwitchReader
 {
     /// <summary>Actor id recorded for an automatic breach stop. It is not an owner.</summary>
     public const string BreachActorId = "system:breach";
@@ -248,6 +248,26 @@ public sealed class KillSwitchEngine
         }
 
         return KillSwitchDecision.Allow;
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Reads the cache only; does no I/O. A blank agent id throws.</remarks>
+    public ValueTask<bool> IsFrozenAsync(string agentId, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
+        ct.ThrowIfCancellationRequested();
+        lock (_gate)
+        {
+            return ValueTask.FromResult(!_loaded || _global is not null || _agentStops.ContainsKey(agentId));
+        }
+    }
+
+    /// <inheritdoc />
+    /// <remarks>Returns <see cref="Evaluate"/>'s answer; does no I/O.</remarks>
+    public ValueTask<KillSwitchDecision> EvaluateAsync(string agentId, ToolEffect effect, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(Evaluate(agentId, effect));
     }
 
     /// <summary>Read-only snapshot of the current stops. Always allowed, including under a global stop.</summary>

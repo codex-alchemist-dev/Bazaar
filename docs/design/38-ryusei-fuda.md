@@ -76,7 +76,7 @@ Ping fan-out is capped at `ryusei.max_ping_fanout` (default 8). A trigger with m
 - A trigger's fired turn runs under the **target** agent's permissions. The creator's permissions are not inherited, and a trigger cannot grant a tool.
 
 ### Firing and the work-life schedule
-- A fire enqueues an inbox item (doc 06). It does not start a turn directly, so the normal wake priority and digest apply.
+- A fire enqueues an inbox item (doc 06). It does not start a turn directly, so the normal wake priority and digest apply. The wake loop that consumes these items is on by default (doc 06, "Wake loop default"; overnight plan item 41), behind the kill switch and the loop guard, so a fresh company's agents wake on a fire without an operator flipping a flag.
 - Doc 09 applies: a fire during curfew or a break waits for the next shift. The owner's emergency path (doc 24, `emergency` tag) is the only bypass, and it is off for triggers by default (`ryusei.bypass_curfew` = false).
 - A fire for an agent in **Resting** or **Retired** state (doc 06) is recorded as `skipped` and does not wait.
 - If the payload comes from external content (a PR comment, an email, a webhook), the fired turn starts as a reader session under doc 15's hard-taint rule. Trigger purpose text written by the agent is soft-tainted, not hard.
