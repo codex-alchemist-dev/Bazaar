@@ -9,7 +9,7 @@ namespace Bazaar.Server.SealedStorage;
 /// an authenticated manifest and AES-256-GCM files. Failures to authenticate, missing files and rollbacks are audited and thrown as
 /// <see cref="SealTamperedException"/>; nothing falls back to a plaintext or unverified path.
 /// </summary>
-public sealed class SealedStore : ISealedStore
+public sealed class SealedStore : ISealedStore, ISealedScopeShredder
 {
     private readonly string _root;
     private readonly IKekProvider _kek;
@@ -87,9 +87,46 @@ public sealed class SealedStore : ISealedStore
         }
     }
 
+    /// <inheritdoc />
+    public async ValueTask ForceShredScopeAsync(string scope, CancellationToken cancellationToken = default)
+    {
+        scope = SealFormat.NormaliseScope(scope);
+        var directory = Path.Combine(_root, Convert.ToHexString(SHA256.HashData(SealFormat.StrictUtf8.GetBytes(scope)))[..32]);
+        var gate = GateFor(scope);
+        await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // The key header first: from this point the remaining ciphertext cannot be read by anyone.
+            var keyPath = Path.Combine(directory, "scope.key");
+            if (File.Exists(keyPath))
+            {
+                File.Delete(keyPath);
+            }
+
+            if (Directory.Exists(directory))
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+
+            await _anchor.ClearAsync(scope, cancellationToken).ConfigureAwait(false);
+            await RecordAsync("seal.shred", scope, null, "Scope shredded without verification (it failed verification).", cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     internal ISealAnchor Anchor => _anchor;
 
-    internal long MaxBulkBytes { get; }
+    /// <summary>The bulk limit of one snapshot or batch (<see cref="SealedStoreOptions.MaxBulkBytes"/>), so callers can check a scope's projected size first.</summary>
+    public long MaxBulkBytes { get; }
+
+    /// <summary>
+    /// The store's logical path rules (NFC, forward slashes, no empty, dot, dot-dot or drive segments, no colon), so a caller can check a name before
+    /// it writes. Throws <see cref="ArgumentException"/> for a path the store would refuse.
+    /// </summary>
+    public static string NormaliseLogicalPath(string path) => SealFormat.NormalisePath(path);
 
     internal async ValueTask<SealTamperedException> FailAsync(string scope, string? path, string detail, CancellationToken cancellationToken)
     {
