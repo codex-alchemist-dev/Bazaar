@@ -46,7 +46,9 @@ public sealed class HostApplicationTests
             // The Talent tool-grant routes need the owner verifier, the Postgres stores and the approver to resolve from the host graph (doc 25, doc 32 5a).
             Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.Component.TalentToolGrantApprover>());
             Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.ITalentToolGrantApproval>());
-            // The pending-grants route reads the store and the hire state directly, so it does not need the Council service, which the host does not register yet.
+            // The Talent Pool resolves whole now that the Council is a host component: store, hire gate and Council service (doc 25, doc 10).
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.ITalentPool>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.Council.Hiring.IHireGate>());
             Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.ITalentTemplateStore>());
             Assert.NotNull(sp.GetRequiredService<Bazaar.Server.Council.Hiring.IHireDecisionStore>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
