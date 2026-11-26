@@ -104,5 +104,11 @@ public interface IVaultQueryEmbedder
 {
     Guid ProfileId { get; }
 
+    /// <summary>
+    /// False when no profile is active right now, so search runs lexical-only and says so. A fixed embedder is always available; a
+    /// holder that follows the active profile (host wiring) reports false while none is active.
+    /// </summary>
+    bool IsAvailable => true;
+
     Task<float[]> EmbedAsync(string text, CancellationToken cancellationToken);
 }

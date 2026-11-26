@@ -33,31 +33,23 @@ public static class EmbeddingsCompositionExtensions
         // The module registered a default source (none) with TryAdd; the real one replaces it.
         services.Replace(ServiceDescriptor.Singleton<IEmbeddingSettingSource, SettingStoreEmbeddingSettingSource>());
 
-        // The embedder is resolved once, at first use. With the setting at none (the default), no active profile, or a provider that
-        // does not match the profile, nothing is offered and Vault search stays lexical-only, as before. A changed profile is a planned
-        // re-embed and takes effect at the next start.
-        services.TryAddSingleton(typeof(IVaultQueryEmbedder), ResolveQueryEmbedder);
-        return services;
-    }
+        services.Replace(ServiceDescriptor.Singleton<IEmbeddingSwitchSettingSource, SettingStoreEmbeddingSwitchSettingSource>());
 
-    private static object ResolveQueryEmbedder(IServiceProvider services)
-    {
-        var selector = services.GetRequiredService<IActiveEmbeddingSelector>();
-        try
-        {
-            var active = selector.ResolveAsync(CancellationToken.None).GetAwaiter().GetResult();
-            // A null here means "not offered": the Vault search constructor takes the embedder as optional.
-            return active is null ? null! : new VaultQueryEmbedder(active.Profile, active.Provider);
-        }
-        catch (EmbeddingException ex)
-        {
-            if (services.GetService<ILoggerFactory>()?.CreateLogger("Bazaar.Server.Embeddings") is { } logger)
+        // One holder follows the active profile: it re-resolves after an activation, so a planned switch needs no restart. With none
+        // selected, or a provider that does not match the profile (logged), it reports itself unavailable and Vault search stays
+        // lexical-only, as before.
+        services.TryAddSingleton<IVaultQueryEmbedder>(sp => new ActiveVaultQueryEmbedder(
+            sp.GetRequiredService<IActiveEmbeddingSelector>(),
+            sp.GetRequiredService<IEmbeddingStatus>(),
+            sp.GetService<TimeProvider>() ?? TimeProvider.System,
+            ex =>
             {
-                _lexicalOnly(logger, ex);
-            }
-
-            return null!;
-        }
+                if (sp.GetService<ILoggerFactory>()?.CreateLogger("Bazaar.Server.Embeddings") is { } logger)
+                {
+                    _lexicalOnly(logger, ex);
+                }
+            }));
+        return services;
     }
 
     private static readonly Action<ILogger, Exception> _lexicalOnly = LoggerMessage.Define(
