@@ -37,7 +37,8 @@ public class PhoneKanbanPaneTests
         Assert.Contains("RyuseiFuda · Board", texts);
         Assert.Contains("Backlog (0)", texts);
         Assert.Contains("Done (0)", texts);
-        Assert.DoesNotContain(PaneKinds.Kanban, texts);
+        // The chat-name strip and peek edges label every page by its kind, so the placeholder check reads only the pager body.
+        Assert.DoesNotContain(PaneKinds.Kanban, BodyText(shell));
     }
 
     [AvaloniaFact]
@@ -80,4 +81,7 @@ public class PhoneKanbanPaneTests
 
     private static List<string> ShownText(Window window) =>
         window.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? string.Empty).ToList();
+
+    private static List<string> BodyText(PhoneShell shell) =>
+        shell.Gestures.GetLogicalDescendants().OfType<TextBlock>().Select(t => t.Text ?? string.Empty).ToList();
 }

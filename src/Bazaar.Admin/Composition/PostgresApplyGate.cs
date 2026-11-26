@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using Bazaar.Server.Company;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
@@ -51,7 +52,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<string> CoveredSections => [.. InstallSettingsStep.CoveredSections, .. FirstRunSections];
+    public IReadOnlyCollection<string> CoveredSections => [.. InstallSettingsStep.CoveredSections, .. GatewaySourcesStep.CoveredSections, .. CompanyProfileStep.CoveredSections, .. OwnerStep.CoveredSections, .. FirstRunSections];
 
     /// <summary>The plan sections the first-run steps (the Constitution seed and the first-run seed) apply.</summary>
     public static readonly IReadOnlyList<string> FirstRunSections = ["firstRun"];
@@ -146,7 +147,11 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
 
         // The same first-run steps as the host (SetupComponent), so a CLI apply and a host apply do the same thing: the default
         // Constitution in the Vault, then the first GC and default agent. The Vault settings come from the process variables.
+        services.AddSingleton<ISetupStep>(new GatewaySourcesStep(dataSource));
         services.AddSingleton(dataSource);
+
+        // The company profile and the owner, before the seeds that need the owner row.
+        services.AddCompanySetup();
         services.AddConstitutionSeed(ConstitutionVaultOptions.FromSettings(ReadVaultSetting));
         services.AddFirstRunPostgres();
         services.AddFirstRunSeed();

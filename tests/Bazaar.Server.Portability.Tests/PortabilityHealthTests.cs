@@ -35,7 +35,7 @@ public class PortabilityHealthTests
         public IReadOnlyList<SourceRecord> Parse(ImportSource source) => throw new NotSupportedException();
     }
 
-    private static readonly ImportJobHealthSnapshot Clean = new(0, 0, []);
+    private static readonly ImportJobHealthSnapshot _clean = new(0, 0, []);
 
     [Fact]
     public async Task Liveness_and_module_id()
@@ -50,7 +50,7 @@ public class PortabilityHealthTests
     {
         var ct = TestContext.Current.CancellationToken;
         Assert.Equal(ModuleHealthStatus.Healthy, (await new PortabilityHealth([]).ReadinessAsync(ct)).Status);
-        Assert.Equal(ModuleHealthStatus.Healthy, (await new PortabilityHealth([], new Jobs(Clean)).ReadinessAsync(ct)).Status);
+        Assert.Equal(ModuleHealthStatus.Healthy, (await new PortabilityHealth([], new Jobs(_clean)).ReadinessAsync(ct)).Status);
     }
 
     [Fact]
@@ -68,7 +68,7 @@ public class PortabilityHealthTests
     [Fact]
     public void Alerts_are_pure_and_ordered()
     {
-        Assert.Empty(PortabilityJobAlerts.Evaluate(Clean));
+        Assert.Empty(PortabilityJobAlerts.Evaluate(_clean));
         var kinds = PortabilityJobAlerts.Evaluate(new(1, 1, ["a"])).Select(a => a.Kind);
         Assert.Equal(["failed_verify", "stalled", "parser_crash_loop"], kinds);
     }

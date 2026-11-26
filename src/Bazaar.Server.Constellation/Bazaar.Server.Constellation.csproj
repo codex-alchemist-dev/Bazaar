@@ -4,5 +4,13 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Constellation.Algorithms\Bazaar.Server.Constellation.Algorithms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Memory.Abstractions\Bazaar.Server.Memory.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Migrations of the constellation namespace that this module owns (Sql/components/constellation/NNNN_name.sql). -->
+    <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>

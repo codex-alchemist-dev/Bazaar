@@ -4,6 +4,7 @@ using Bazaar.Contracts.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Write;
+using Bazaar.Server.Presence.Sources.Abstractions;
 using Npgsql;
 
 namespace Bazaar.RyuseiFuda.Kanban;
@@ -28,13 +29,25 @@ public sealed class TaskService : IKanbanTaskWithdrawal
     private readonly TaskGateRepository _gates;
     private readonly IGcLogWriter? _gcLog;
     private readonly IGcExistence _gcExistence;
+    private readonly IKanbanWaitSink? _waitSink;
+    private readonly Action<Exception>? _onWaitSinkFailure;
+    private readonly TimeProvider _time;
 
     /// <summary>
     /// Creates the service. <paramref name="gcLog"/> carries the reason lines (doc 12, WP6): without it, transitions and
     /// pins still work and post nothing to a GC. <paramref name="gcExistence"/> is how GC links are checked; null uses the
-    /// <c>gc</c> table.
+    /// <c>gc</c> table. <paramref name="waitSink"/> is optional: with it, a card an agent holds that becomes blocked on an unmet
+    /// prerequisite, or is freed, is reported after the change commits (doc 12, doc 23). A sink failure never fails the change and goes to
+    /// <paramref name="onWaitSinkFailure"/>.
     /// </summary>
-    public TaskService(NpgsqlDataSource dataSource, TaskServiceOptions? options = null, IGcLogWriter? gcLog = null, IGcExistence? gcExistence = null)
+    public TaskService(
+        NpgsqlDataSource dataSource,
+        TaskServiceOptions? options = null,
+        IGcLogWriter? gcLog = null,
+        IGcExistence? gcExistence = null,
+        IKanbanWaitSink? waitSink = null,
+        Action<Exception>? onWaitSinkFailure = null,
+        TimeProvider? time = null)
     {
         ArgumentNullException.ThrowIfNull(dataSource);
         _dataSource = dataSource;
@@ -46,6 +59,9 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         _events = new TaskEventRepository(dataSource);
         _gates = new TaskGateRepository(dataSource);
         _gcExistence = gcExistence ?? new SqlGcExistence(dataSource);
+        _waitSink = waitSink;
+        _onWaitSinkFailure = onWaitSinkFailure;
+        _time = time ?? TimeProvider.System;
     }
 
     /// <summary>
@@ -149,6 +165,8 @@ public sealed class TaskService : IKanbanTaskWithdrawal
             return TransitionResult.Conflict(task.Version);
         }
 
+        // A claim sets the owner to the actor, so the loop guard makes this a no-op; it is here so every owner change goes one way.
+        await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, owner, actor, task.Version + 1, ct).ConfigureAwait(false);
         var transitionSeq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
             Payload(("from", KanbanText.ToSql(task.State)), ("to", KanbanText.ToSql(to)), ("reason", reason))), ct).ConfigureAwait(false);
         var reasonLines = new List<ReasonLine>
@@ -157,7 +175,7 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         };
 
         var dependents = graphBefore.Where(e => e.BlockerId == taskId).Select(e => e.BlockedId);
-        await EmitBlockedChangesAsync(tx, dependents, graphBefore, graphBefore, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
+        var waits = await EmitBlockedChangesAsync(tx, dependents, graphBefore, graphBefore, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
 
         if (to == TaskState.Done && _options.AutoReady)
         {
@@ -177,8 +195,75 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         }
 
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        await ReportWaitsAsync(waits, ct).ConfigureAwait(false);
         await PostReasonLinesAsync(reasonLines, actor, ct).ConfigureAwait(false);
         return TransitionResult.Applied(task.Version + 1);
+    }
+
+    /// <summary>
+    /// Sets or clears a card's assignee (<paramref name="assigneeAgentId"/> null clears it) if <paramref name="expectedVersion"/>
+    /// still matches. When the assignee changes to an agent other than the actor, one <c>assignment</c> inbox item is written in the
+    /// same transaction so the wake loop wakes it (doc 12, "Assignment wake" [PROPOSED]). Assigning the current assignee again
+    /// changes nothing and returns <see cref="TransitionStatus.Refused"/> with <see cref="TransitionOutcome.NotATransition"/>.
+    /// Authority (doc 12, "Assign authority and command" [PROPOSED]): the owner and the system actor may assign any card; an agent
+    /// may assign only while it is a member of the card's origin GC, and not to itself (it claims instead). Anyone else is
+    /// <see cref="TransitionOutcome.NotAuthorised"/>, checked before the version.
+    /// </summary>
+    public async Task<TransitionResult> AssignAsync(
+        Guid taskId, Guid? assigneeAgentId, TaskActor actor, long expectedVersion, CancellationToken ct = default)
+    {
+        await using var conn = await _dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
+        await using var tx = await conn.BeginTransactionAsync(ct).ConfigureAwait(false);
+        var task = await _tasks.GetForUpdateAsync(tx, taskId, ct).ConfigureAwait(false);
+        if (task is null)
+        {
+            return TransitionResult.Invalid(TransitionOutcome.UnknownTask);
+        }
+
+        if (!await MayAssignAsync(tx, task, assigneeAgentId, actor, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotAuthorised, []);
+        }
+
+        if (task.Version != expectedVersion)
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        if (task.OwnerAgentId == assigneeAgentId)
+        {
+            return TransitionResult.Refused(TransitionOutcome.NotATransition, []);
+        }
+
+        if (!await _tasks.UpdateAsync(tx, task with { OwnerAgentId = assigneeAgentId }, task.Version, ct).ConfigureAwait(false))
+        {
+            return TransitionResult.Conflict(task.Version);
+        }
+
+        await AssignmentInbox.EnqueueAsync(tx, taskId, task.OwnerAgentId, assigneeAgentId, actor, task.Version + 1, ct).ConfigureAwait(false);
+        await tx.CommitAsync(ct).ConfigureAwait(false);
+        return TransitionResult.Applied(task.Version + 1);
+    }
+
+    private static async Task<bool> MayAssignAsync(NpgsqlTransaction tx, TaskRecord task, Guid? assignee, TaskActor actor, CancellationToken ct)
+    {
+        switch (actor.Kind)
+        {
+            case TaskActorKind.Owner:
+            case TaskActorKind.System:
+                return true;
+            case TaskActorKind.Agent when assignee != actor.Id:
+                await using (var cmd = new NpgsqlCommand(
+                    "SELECT 1 FROM gc_member WHERE gc_id = @gc AND principal_id = @p AND left_seq IS NULL", tx.Connection, tx))
+                {
+                    cmd.Parameters.AddWithValue("gc", task.OriginGcId);
+                    cmd.Parameters.AddWithValue("p", actor.Id);
+                    return await cmd.ExecuteScalarAsync(ct).ConfigureAwait(false) is not null;
+                }
+
+            default:
+                return false;
+        }
     }
 
     /// <summary>
@@ -231,8 +316,9 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         var seq = await _events.AppendAsync(tx, new NewTaskEvent(taskId, TaskEventKinds.Transitioned, actor.ToText(),
             Payload(("from", KanbanText.ToSql(task.State)), ("to", KanbanText.ToSql(TaskState.Withdrawn)), ("reason", reason))), ct).ConfigureAwait(false);
         var dependents = graph.Where(e => e.BlockerId == taskId).Select(e => e.BlockedId);
-        await EmitBlockedChangesAsync(tx, dependents, graph, graph, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
+        var waits = await EmitBlockedChangesAsync(tx, dependents, graph, graph, statesBefore, statesAfter, actor, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        await ReportWaitsAsync(waits, ct).ConfigureAwait(false);
 
         await PostReasonLinesAsync(
             [new ReasonLine(taskId, task.OriginGcId, seq, task.Title, KanbanText.ToSql(task.State), KanbanText.ToSql(TaskState.Withdrawn), reason)],
@@ -282,8 +368,9 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         var graphAfter = graphBefore.Append(candidate).ToList();
         await _events.AppendAsync(tx, new NewTaskEvent(blockedId, TaskEventKinds.EdgeChanged, actor.ToText(),
             Payload(("action", "added"), ("blocker", blockerId.ToString("D")))), ct).ConfigureAwait(false);
-        await EmitBlockedChangesAsync(tx, [blockedId], graphBefore, graphAfter, statesBefore, statesBefore, actor, ct).ConfigureAwait(false);
+        var waits = await EmitBlockedChangesAsync(tx, [blockedId], graphBefore, graphAfter, statesBefore, statesBefore, actor, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        await ReportWaitsAsync(waits, ct).ConfigureAwait(false);
         return EdgeResult.Of(EdgeStatus.Added);
     }
 
@@ -313,8 +400,9 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         var graphAfter = graphBefore.Where(e => e != candidate).ToList();
         await _events.AppendAsync(tx, new NewTaskEvent(blockedId, TaskEventKinds.EdgeChanged, actor.ToText(),
             Payload(("action", "removed"), ("blocker", blockerId.ToString("D")))), ct).ConfigureAwait(false);
-        await EmitBlockedChangesAsync(tx, [blockedId], graphBefore, graphAfter, statesBefore, statesBefore, actor, ct).ConfigureAwait(false);
+        var waits = await EmitBlockedChangesAsync(tx, [blockedId], graphBefore, graphAfter, statesBefore, statesBefore, actor, ct).ConfigureAwait(false);
         await tx.CommitAsync(ct).ConfigureAwait(false);
+        await ReportWaitsAsync(waits, ct).ConfigureAwait(false);
         return EdgeResult.Of(EdgeStatus.Removed);
     }
 
@@ -609,8 +697,39 @@ public sealed class TaskService : IKanbanTaskWithdrawal
     private async Task<Dictionary<Guid, TaskState>> StatesAsync(NpgsqlTransaction tx, Guid projectId, CancellationToken ct) =>
         (await _tasks.ListByProjectAsync(projectId, null, tx, ct).ConfigureAwait(false)).ToDictionary(t => t.Id, t => t.State);
 
-    /// <summary>Writes task.blocked or task.unblocked for each dependent whose blocked status changed.</summary>
-    private async Task EmitBlockedChangesAsync(
+    /// <summary>One dependent whose blocked status changed, for the wait sink after commit.</summary>
+    private readonly record struct BlockedChange(Guid TaskId, bool Blocked);
+
+    /// <summary>
+    /// Reports each blocked or unblocked card that an agent holds to the wait sink (doc 12, doc 23). Runs after the commit, so presence
+    /// never shows a wait the board does not have. Best effort: a lookup or sink failure goes to the failure hook, never to the caller.
+    /// </summary>
+    private async Task ReportWaitsAsync(IReadOnlyList<BlockedChange> changes, CancellationToken ct)
+    {
+        if (_waitSink is null || changes.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var change in changes)
+        {
+            try
+            {
+                var card = await _tasks.GetAsync(change.TaskId, ct).ConfigureAwait(false);
+                if (card?.OwnerAgentId is { } agentId)
+                {
+                    await _waitSink.OnWaitChangedAsync(agentId, _time.GetUtcNow(), change.Blocked, ct).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+            {
+                _onWaitSinkFailure?.Invoke(ex);
+            }
+        }
+    }
+
+    /// <summary>Writes task.blocked or task.unblocked for each dependent whose blocked status changed, and returns those changes.</summary>
+    private async Task<List<BlockedChange>> EmitBlockedChangesAsync(
         NpgsqlTransaction tx,
         IEnumerable<Guid> dependents,
         IReadOnlyList<TaskEdge> graphBefore,
@@ -620,6 +739,7 @@ public sealed class TaskService : IKanbanTaskWithdrawal
         TaskActor actor,
         CancellationToken ct)
     {
+        var changes = new List<BlockedChange>();
         foreach (var dependent in dependents.Distinct().Order())
         {
             var wasBlocked = BlockedStatus.IsBlocked(dependent, graphBefore, statesBefore);
@@ -634,7 +754,10 @@ public sealed class TaskService : IKanbanTaskWithdrawal
                 isBlocked ? TaskEventKinds.Blocked : TaskEventKinds.Unblocked,
                 actor.ToText(),
                 "{}"), ct).ConfigureAwait(false);
+            changes.Add(new BlockedChange(dependent, isBlocked));
         }
+
+        return changes;
     }
 
     /// <summary>

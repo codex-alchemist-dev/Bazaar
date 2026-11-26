@@ -1,0 +1,12 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 256) in;
+#include "select.glsl"
+void main()
+{
+    uint q = gl_WorkGroupID.y;
+    uint row = gl_GlobalInvocationID.x;
+    if (row >= p.rows || params[q * 4u + 3u] != 0u) { return; }
+    uint key = keyOf(scores[q * p.rowsStride + row]);
+    if ((key >> 20) == params[q * 4u + 0u]) { atomicAdd(hist2[q * 4096u + ((key >> 8) & 0xFFFu)], 1u); }
+}
