@@ -41,6 +41,7 @@
     <!-- Wave 0 pins (docs/implementation-plan.md): data layer, test support, AI abstractions. -->
     <PackageVersion Include="MimeKit" Version="5.0.0" />
     <PackageVersion Include="MailKit" Version="5.0.0" />
+    <PackageVersion Include="Fido2" Version="4.3.3" />
     <PackageVersion Include="Npgsql" Version="10.0.3" />
     <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
     <PackageVersion Include="Microsoft.Extensions.AI.Abstractions" Version="11.0.0" />

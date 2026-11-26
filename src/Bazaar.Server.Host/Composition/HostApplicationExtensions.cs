@@ -57,6 +57,7 @@ public static class HostApplicationExtensions
     public static IServiceCollection AddBazaarHostApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddBazaarDevAuth(configuration);
+        services.AddSingleton<Bazaar.Server.SignIn.Passkeys.IEnrolmentCaller, Bazaar.Server.Host.Auth.HostEnrolmentCaller>();
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarRecoveryHook(configuration);

@@ -68,6 +68,7 @@ using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.SignIn;
+using Bazaar.Server.SignIn.Passkeys;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.SoulProfile;
 using Bazaar.Server.TalentPool.Component;
@@ -136,6 +137,7 @@ public static class HostComponents
         new CommunityComponent(),
         new RolesComponent(),
         new SignInComponent(),
+        new PasskeysComponent(),
         new WebAdminComponent(),
         new CommunityGitHubComponent(),
         new ConstellationComponent(),
