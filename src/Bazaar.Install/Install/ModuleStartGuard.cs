@@ -1,3 +1,4 @@
+using Bazaar.Install.Abstractions;
 using Bazaar.Install.Trust;
 
 namespace Bazaar.Install;
@@ -9,8 +10,12 @@ public abstract record ModuleStartDecision
     {
     }
 
-    /// <summary>The signature verifies and the approved set covers every declared permission.</summary>
-    public sealed record Startable : ModuleStartDecision;
+    /// <summary>
+    /// The signature verifies and the approved set covers every declared permission. <paramref name="Permissions"/> is the set
+    /// the host puts in force for the run: what this version declares, sorted, never the wider set an earlier version was
+    /// approved for.
+    /// </summary>
+    public sealed record Startable(IReadOnlyList<string> Permissions) : ModuleStartDecision;
 
     /// <summary>The signature does not verify now. The module must not start.</summary>
     public sealed record RefusedSignature(ModuleSignatureStatus Status) : ModuleStartDecision;
@@ -21,17 +26,23 @@ public abstract record ModuleStartDecision
 
 /// <summary>
 /// The start gate (doc 48 section 1: verify on download, on install and on every start). Re-runs the signature check and the
-/// approved-set check, so a key revoked or a package altered after install stops the module. Pure apart from the verifier call.
+/// approved-set check, so a key revoked or a package altered after install stops the module. The approved set is worked out
+/// here from the stored approval rows, each checked against the owner's key; a caller cannot hand in a set of its own.
 /// The host check is not repeated here; it ran at install (doc 50 section 5).
 /// </summary>
 public static class ModuleStartGuard
 {
     /// <summary>Decides whether the package may start now. Never starts anything itself.</summary>
-    public static ModuleStartDecision EnsureStartable(ModulePackage package, IModuleSignatureVerifier verifier, IReadOnlySet<string> approved)
+    public static ModuleStartDecision EnsureStartable(
+        ModulePackage package,
+        IModuleSignatureVerifier verifier,
+        IEnumerable<ModulePermissionApprovalRecord> approvals,
+        IOwnerApprovalVerifier ownerVerifier)
     {
         ArgumentNullException.ThrowIfNull(package);
         ArgumentNullException.ThrowIfNull(verifier);
-        ArgumentNullException.ThrowIfNull(approved);
+        ArgumentNullException.ThrowIfNull(approvals);
+        ArgumentNullException.ThrowIfNull(ownerVerifier);
 
         var status = verifier.Verify(package);
         if (status != ModuleSignatureStatus.Valid)
@@ -39,9 +50,10 @@ public static class ModuleStartGuard
             return new ModuleStartDecision.RefusedSignature(status);
         }
 
+        var approved = ModuleApprovalCheck.ApprovedFor(package, approvals, ownerVerifier);
         var permissions = PermissionApproval.Evaluate(package.DeclaredPermissions, approved);
         return permissions.IsApproved
-            ? new ModuleStartDecision.Startable()
+            ? new ModuleStartDecision.Startable([.. package.DeclaredPermissions.Order(StringComparer.Ordinal)])
             : new ModuleStartDecision.RefusedUnapproved(permissions.Unapproved);
     }
 }
