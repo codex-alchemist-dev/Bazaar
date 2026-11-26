@@ -268,6 +268,8 @@
     <Project Path="src/Bazaar.Server.AuditView.Abstractions/Bazaar.Server.AuditView.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.AuditView/Bazaar.Server.AuditView.csproj" />
     <Project Path="src/Bazaar.Roles/Bazaar.Roles.csproj" />
+    <Project Path="src/Bazaar.Server.AuditSinks.Abstractions/Bazaar.Server.AuditSinks.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.AuditSinks/Bazaar.Server.AuditSinks.csproj" />
     <Project Path="src/Bazaar.Server.Observatory.Abstractions/Bazaar.Server.Observatory.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Observatory/Bazaar.Server.Observatory.csproj" />
     <Project Path="src/Bazaar.Server.Observatory.Postgres/Bazaar.Server.Observatory.Postgres.csproj" />
@@ -704,6 +706,7 @@
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
     <Project Path="tests/Bazaar.Rubedo.Tests/Bazaar.Rubedo.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AuditSinks.Tests/Bazaar.Server.AuditSinks.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Observatory.Tests/Bazaar.Server.Observatory.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Observatory.Postgres.Tests/Bazaar.Server.Observatory.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Client.Athanor.Tests/Bazaar.Client.Athanor.Tests.csproj" />
