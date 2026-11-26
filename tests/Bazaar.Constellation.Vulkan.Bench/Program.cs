@@ -31,8 +31,13 @@ var lines = new List<string>
 };
 
 string shaders = Path.Combine(AppContext.BaseDirectory, "Shaders");
-using var bench = new NodeBenchmark();
+using var bench = new NodeBenchmark { EnablePresent = args.Length > 0 && args[0] == "topology-present" };
 bench.Initialize(shaders);
+string schedulingClass = WindowsNative.ApplySchedulingClassFromEnvironment();
+if (schedulingClass.Length > 0)
+{
+    Console.WriteLine(schedulingClass);
+}
 Console.WriteLine($"gpu.name=\"{bench.DeviceName}\" driver={bench.DriverVersion} vulkan={bench.ApiVersion} device_local_gib={(bench.DeviceLocalBytes / (1024.0 * 1024 * 1024)).ToString("F2", CultureInfo.InvariantCulture)}");
 
 if (args.Length > 0 && args[0] == "density")
@@ -227,6 +232,21 @@ if (args.Length > 0 && args[0] == "topology-cull")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "tiledecimate-check")
+{
+    // Parity of TileCullPass followed by TileDecimationPass against the CPU reference (instance sets must match exactly).
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount is not supported on this device");
+        return 3;
+    }
+
+    int bad = bench.CheckTileDecimationPass(100);
+    Console.WriteLine($"tiledecimate-check: {bad} of 100 trials differ from the CPU reference");
+    return bad == 0 ? 0 : 1;
+}
+
 if (args.Length > 0 && args[0] == "tilecull-check")
 {
     // Parity of the reusable TileCullPass (src/Bazaar.Constellation.Vulkan) against its CPU reference on random boxes and cameras.
@@ -280,6 +300,46 @@ if (args.Length > 0 && args[0] == "topology-contention")
                 csv.Add(NodeBenchmark.CsvLine(section, n, m, 0, NodeBenchmark.TopologyGpuBytes, edgeCap, s));
                 File.WriteAllLines(csvPath, csv);
                 Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{section} wall p50/p95/p99/max={s.WallP50:F3}/{s.WallP95:F3}/{s.WallP99:F3}/{s.WallMax:F3}"));
+            }
+        }
+    }
+
+    return 0;
+}
+
+if (args.Length > 0 && args[0] == "topology-present")
+{
+    // Section 10.13. Usage: topology-present <csv>. N = 1B, M = 1M, 30 cells; the points variant of the combined frame drawn into a swapchain
+    // on a visible 1280x720 window, FIFO and IMMEDIATE (the driver offers no MAILBOX), 1, 2 and 3 frames in flight, 600 measured frames.
+    bench.InitializeTopology(shaders);
+    bench.InitializeCull(shaders);
+    bench.InitializePresentSurface();
+    string csvPath = args.Length > 1 ? args[1] : Path.Combine(AppContext.BaseDirectory, "topology-present.csv");
+    Console.WriteLine("present modes: " + string.Join(' ', bench.PresentModes()));
+
+    const long n = 1_000_000_000L;
+    const int m = 1_000_000;
+    const int edgeCap = 100_000;
+    var csv = new List<string> { NodeBenchmark.PresentCsvHeader };
+    foreach (int dim in new[] { 2, 3 })
+    {
+        foreach (Topology topology in Enum.GetValues<Topology>())
+        {
+            bench.BuildTiles(topology, dim, n, m);
+            foreach (Viewpoint view in Enum.GetValues<Viewpoint>())
+            {
+                foreach (Vortice.Vulkan.VkPresentModeKHR mode in new[] { Vortice.Vulkan.VkPresentModeKHR.Fifo, Vortice.Vulkan.VkPresentModeKHR.Immediate })
+                {
+                    foreach (int fif in new[] { 1, 2, 3 })
+                    {
+                        PresentStats p = bench.MeasurePresented(topology, dim, n, view, m, edgeCap, mode, fif, 60, 600, 2f, 400f);
+                        string section = $"pres_{topology}_{dim}d_{view}".ToLowerInvariant();
+                        csv.Add(NodeBenchmark.PresentCsvLine(section, mode.ToString(), fif, p));
+                        File.WriteAllLines(csvPath, csv);
+                        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                            $"{section} {mode} fif={fif} cadence p50/p99/max={p.CadenceP50:F2}/{p.CadenceP99:F2}/{p.CadenceMax:F2} render lat p50/p99={p.RenderLatencyP50:F2}/{p.RenderLatencyP99:F2}"));
+                    }
+                }
             }
         }
     }
@@ -655,6 +715,10 @@ if (args.Length > 0 && args[0] == "experiments")
 
     return 0;
 }
+
+// Warm-up: run the first sweep row once and discard it, so the GPU is at a steady clock before anything is recorded.
+_ = bench.UploadNodes(1_000_000);
+_ = bench.Measure(1_000_000, 300, 600);
 
 // Sweep 1: total node count. The resident window is capped at the 1.5 GiB budget; draws are capped at 2M instances.
 foreach (long total in nodeCounts)
