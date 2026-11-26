@@ -15,6 +15,7 @@ using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.TalentPool;
 using Bazaar.Client.Calendar;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
@@ -111,6 +112,8 @@ public sealed class App : Avalonia.Application
     }
 
     private MnemonicShell? _mnemonics;
+    private readonly CommandRouter _router = new();
+    private readonly LatePaneNavigator _navigator = new();
 
     private async Task InstallMnemonicsAsync(ContentControl host)
     {
@@ -124,8 +127,14 @@ public sealed class App : Avalonia.Application
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             _mnemonics = await MnemonicHeadSetup.InstallAsync(top, host, _moduleCommands, path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
-            _mnemonics.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            // What a chosen command does belongs to the pane module that registered a handler for it.
+            _mnemonics.CommandInvoked += (_, id) =>
+            {
+                if (!_router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -194,6 +203,8 @@ public sealed class App : Avalonia.Application
         var (grantGate, grants) = AndroidApprovals.CreateToolGrants(ClientServer.Current, () => MainActivity.Current, deviceId, ownerHumanId);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
+            .With<ICommandRouter>(_router)
+            .With<IPaneNavigator>(_navigator)
             .With<IConstellationTileSource>(tiles)
             .With<IPendingApprovalSource>(approvals)
             .With<IPendingToolGrantSource>(grants)
@@ -218,6 +229,8 @@ public sealed class App : Avalonia.Application
                 kind => GcPaneModule.PhoneBody(kind, registry),
                 kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
+            settings.RadialSectors);
+        _navigator.Bind(shell.ShowPane);
             settings.RadialSectors,
             // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
             // push as their screens land, and back then runs the predictive transition (doc 93).
