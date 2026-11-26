@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.TalentPool.Http\Bazaar.Server.TalentPool.Http.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.TalentPool.Http\Bazaar.Client.TalentPool.Http.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.TalentLibrary.Http\Bazaar.Client.TalentLibrary.Http.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Approvals\Bazaar.Approvals.csproj" />
   </ItemGroup>
 </Project>

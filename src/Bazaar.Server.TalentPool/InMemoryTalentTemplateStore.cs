@@ -52,4 +52,14 @@ public sealed class InMemoryTalentTemplateStore : ITalentTemplateStore
             return Task.FromResult(all);
         }
     }
+
+    /// <inheritdoc />
+    public Task<IReadOnlyList<TalentTemplate>> ListVersionsAsync(string templateId, CancellationToken ct)
+    {
+        lock (_gate)
+        {
+            IReadOnlyList<TalentTemplate> all = _byId.TryGetValue(templateId, out var list) ? [.. list.OrderBy(t => t.Version)] : [];
+            return Task.FromResult(all);
+        }
+    }
 }

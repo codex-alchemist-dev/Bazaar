@@ -40,6 +40,7 @@ app.MapBazaarStatus();
 app.MapBazaarHttpSurface();
 app.MapCommunityLog();
 app.MapBazaarTalentToolGrants(route => route.RequireBazaarAuth());
+app.MapBazaarTalentLibrary(route => route.RequireBazaarAuth());
 app.MapBazaarSetup();
 app.UseBazaarWire();
 
