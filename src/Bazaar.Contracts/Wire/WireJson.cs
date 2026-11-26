@@ -1,12 +1,14 @@
 using System.Text.Json.Serialization;
+using Bazaar.Contracts.Athanor;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Memory;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
-
 using Bazaar.Contracts.Ryusei;
+using Bazaar.Contracts.TimeMachine;
 
 namespace Bazaar.Contracts.Wire;
 
@@ -18,6 +20,12 @@ namespace Bazaar.Contracts.Wire;
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip)]
+[JsonSerializable(typeof(EditorOpenRequest))]
+[JsonSerializable(typeof(EditorOpenReply))]
+[JsonSerializable(typeof(EditorSaveRequest))]
+[JsonSerializable(typeof(EditorSaveReply))]
+[JsonSerializable(typeof(EditorCreateRequest))]
+[JsonSerializable(typeof(EditorCreateReply))]
 [JsonSerializable(typeof(Hello))]
 [JsonSerializable(typeof(Welcome))]
 [JsonSerializable(typeof(Subscribe))]
@@ -50,15 +58,35 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcHistory))]
 [JsonSerializable(typeof(GcPage))]
 [JsonSerializable(typeof(GcRead))]
+[JsonSerializable(typeof(ReplayFrameRequest))]
+[JsonSerializable(typeof(ReplayFrameResult))]
+[JsonSerializable(typeof(ReplayForkRequest))]
+[JsonSerializable(typeof(ReplayForkResult))]
+[JsonSerializable(typeof(GcListRequest))]
+[JsonSerializable(typeof(GcListReply))]
 [JsonSerializable(typeof(PrefsSet))]
 [JsonSerializable(typeof(PrefsSetResult))]
+[JsonSerializable(typeof(ReplayPointsRequest))]
+[JsonSerializable(typeof(ReplayPointsResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]
 [JsonSerializable(typeof(KanbanBoardSnapshot))]
 [JsonSerializable(typeof(KanbanBoardRequest))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayRequestFrame))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineRelayResultFrame))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineGrantVerifyRequest))]
+[JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineGrantVerifyReply))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
 [JsonSerializable(typeof(KanbanMoveReply))]
+[JsonSerializable(typeof(LuckyStartRequest))]
+[JsonSerializable(typeof(LuckyStartReply))]
+[JsonSerializable(typeof(LuckyIdeaRequest))]
+[JsonSerializable(typeof(LuckyIdeaReply))]
+[JsonSerializable(typeof(LuckyMarkRequest))]
+[JsonSerializable(typeof(LuckyMarkReply))]
+[JsonSerializable(typeof(LuckyOptInRequest))]
+[JsonSerializable(typeof(LuckyOptInReply))]
 [JsonSerializable(typeof(KanbanAssignRequest))]
 [JsonSerializable(typeof(KanbanAssignReply))]
 [JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
@@ -77,6 +105,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(PrReviewReply))]
 [JsonSerializable(typeof(PrMergeRequest))]
 [JsonSerializable(typeof(PrMergeReply))]
+[JsonSerializable(typeof(MemoryContextRequest))]
+[JsonSerializable(typeof(MemoryContextResult))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]

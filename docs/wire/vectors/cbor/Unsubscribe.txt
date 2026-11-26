@@ -1,7 +1,7 @@
 Golden frame: Unsubscribe
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:4cba8e9de4ddd65838a1aa85bad517fae965c4e607f7b0eb600d586986bed692
+Schema hash: sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf
 Payload record: Bazaar.Contracts.Wire.Unsubscribe
 Envelope: v=1 t=unsubscribe k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 174 bytes

@@ -10,7 +10,7 @@ namespace Bazaar.Server.Godot;
 /// </summary>
 internal static class GodotPathGuard
 {
-    private const string ResPrefix = "res://";
+    private const string _resPrefix = "res://";
 
     private static readonly StringComparison _pathComparison =
         OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
@@ -89,7 +89,7 @@ internal static class GodotPathGuard
         }
 
         // res:// is the project root in Godot's own notation; accept it as a project-relative path.
-        string relative = candidate.StartsWith(ResPrefix, StringComparison.Ordinal) ? candidate[ResPrefix.Length..] : candidate;
+        string relative = candidate.StartsWith(_resPrefix, StringComparison.Ordinal) ? candidate[_resPrefix.Length..] : candidate;
         if (relative.Length == 0 || relative.Contains('\0'))
         {
             throw new GodotRequestRejectedException("Godot path is empty or invalid.");

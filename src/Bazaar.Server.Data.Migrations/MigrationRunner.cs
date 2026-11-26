@@ -37,10 +37,15 @@ public enum SchemaState
 /// advisory lock for the whole run, and a checksum guard on every applied file. Forward-only. Startup never calls
 /// <see cref="MigrateAsync"/>; it calls <see cref="EnsureCurrentAsync"/>.
 /// </summary>
-public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOptions? options = null, IEnumerable<ComponentManifest>? components = null)
+public sealed class MigrationRunner(
+    NpgsqlDataSource dataSource,
+    MigrationOptions? options = null,
+    IEnumerable<ComponentManifest>? components = null,
+    Func<ComponentManifest, bool>? isEnabled = null)
 {
     private readonly MigrationOptions _options = options ?? new MigrationOptions();
     private readonly List<ComponentManifest> _components = [.. components ?? []];
+    private readonly Func<ComponentManifest, bool>? _isEnabled = isEnabled;
 
     public const string Common = MigrationNamespaces.Common;
 
@@ -50,7 +55,8 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
     /// <summary>Applies every pending file. Racing runners queue on the lock; the later one finds nothing to do.</summary>
     public async Task<MigrationResult> MigrateAsync(IMigrationSource source, string provider, CancellationToken ct = default)
     {
-        var plan = Plan(source, provider, _components);
+        var plan = Plan(source, provider, _components, _isEnabled);
+        var skipped = SkippedNamespaces(_components, _isEnabled);
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         await ExecAsync(conn, null, $"SELECT pg_advisory_lock({_lockKey})", ct).ConfigureAwait(false);
         try
@@ -58,7 +64,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
             await ExecAsync(conn, null, _createHistorySql, ct).ConfigureAwait(false);
             await ExecAsync(conn, null, _historyUpgradeSql, ct).ConfigureAwait(false);
             var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
-            var pending = Diff(plan, history, throwIfAhead: true);
+            var pending = Diff(plan, history, throwIfAhead: true, skipped);
             await CheckFixedSettingsAsync(conn, ct).ConfigureAwait(false);
             await SetSessionOptionAsync(conn, "bazaar.partition_count", _options.PartitionCount.ToString(CultureInfo.InvariantCulture), ct).ConfigureAwait(false);
 
@@ -81,7 +87,8 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
     /// <summary>Read-only comparison of the database with the binary's files. Takes no lock and changes nothing.</summary>
     public async Task<SchemaState> GetStateAsync(IMigrationSource source, string provider, CancellationToken ct = default)
     {
-        var plan = Plan(source, provider, _components);
+        var plan = Plan(source, provider, _components, _isEnabled);
+        var skipped = SkippedNamespaces(_components, _isEnabled);
         await using var conn = await dataSource.OpenConnectionAsync(ct).ConfigureAwait(false);
         if (!await HistoryExistsAsync(conn, ct).ConfigureAwait(false))
             return SchemaState.Behind;
@@ -89,7 +96,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
         if (!await HistoryHasNamespaceAsync(conn, ct).ConfigureAwait(false))
             return SchemaState.Behind;
         var history = await ReadHistoryAsync(conn, ct).ConfigureAwait(false);
-        if (history.Keys.Any(k => !plan.Any(f => f.Namespace == k.Namespace && f.Version == k.Version)))
+        if (history.Keys.Any(k => !skipped.Contains(k.Namespace) && !plan.Any(f => f.Namespace == k.Namespace && f.Version == k.Version)))
             return SchemaState.Ahead;
         return plan.Any(f => !history.ContainsKey((f.Namespace, f.Version))) ? SchemaState.Behind : SchemaState.Current;
     }
@@ -109,15 +116,19 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
     /// provider folders of other hosts. Pure: needs no database, so tests can check discovery and ordering on their own.
     /// </summary>
     /// <exception cref="MigrationException">A namespace name is invalid, or a namespace holds two files with one version.</exception>
-    public static IReadOnlyList<MigrationFile> Plan(IMigrationSource source, string provider, IEnumerable<ComponentManifest> components)
+    public static IReadOnlyList<MigrationFile> Plan(
+        IMigrationSource source, string provider, IEnumerable<ComponentManifest> components, Func<ComponentManifest, bool>? isEnabled = null)
     {
+        var componentList = components.ToList();
+        var skipped = SkippedNamespaces(componentList, isEnabled);
         var discovered = source.Namespaces();
         var included = discovered
             .Where(ns => !MigrationNamespaces.ProviderFolders.Contains(ns) || (provider != Common && ns == provider))
+            .Where(ns => !skipped.Contains(ns))
             .ToList();
 
         var plan = new List<MigrationFile>();
-        foreach (var ns in MigrationNamespaces.Order(included, components))
+        foreach (var ns in MigrationNamespaces.Order(included, componentList))
         {
             var files = source.Load(ns).OrderBy(f => f.Version).ToList();
             var duplicate = files.GroupBy(f => f.Version).FirstOrDefault(g => g.Count() > 1);
@@ -128,6 +139,12 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
 
         return plan;
     }
+
+    /// <summary>Migration namespaces of components that are switched off (docs/design/BAZAAR-COMPONENTS.md section 3): their files are not applied.</summary>
+    private static HashSet<string> SkippedNamespaces(IEnumerable<ComponentManifest> components, Func<ComponentManifest, bool>? isEnabled) =>
+        isEnabled is null
+            ? []
+            : new HashSet<string>(components.Where(c => !isEnabled(c)).Select(c => c.MigrationNamespace), StringComparer.Ordinal);
 
     private const string _createHistorySql = """
         CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -163,10 +180,15 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, MigrationOption
         """;
 
     /// <summary>Checks the history against the files and returns the pending ones in apply order.</summary>
-    private static List<MigrationFile> Diff(IReadOnlyList<MigrationFile> plan, Dictionary<(string Namespace, int Version), string> history, bool throwIfAhead)
+    private static List<MigrationFile> Diff(
+        IReadOnlyList<MigrationFile> plan, Dictionary<(string Namespace, int Version), string> history, bool throwIfAhead, HashSet<string> skipped)
     {
         foreach (var (key, checksum) in history)
         {
+            // An optional component that was on and is now off keeps its tables; its recorded files are not "ahead".
+            if (skipped.Contains(key.Namespace))
+                continue;
+
             var file = plan.FirstOrDefault(f => f.Namespace == key.Namespace && f.Version == key.Version);
             if (file is null)
             {

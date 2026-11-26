@@ -2,12 +2,15 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
 using Bazaar.Client.Android.Annotation;
 using Bazaar.Client.Android.Approvals;
 using Bazaar.Client.Android.Wire;
+using Bazaar.Client.BackStack;
+using Bazaar.Client.BackStack.Abstractions;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.TalentPool;
@@ -15,22 +18,27 @@ using Bazaar.Client.Calendar;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Analytics;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.PhoneCoach;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Navigation;
 using Bazaar.Client.Navigation.Abstractions;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Org;
-using Bazaar.Client.Panes.Abstractions;
-using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.RyuseiFuda.Phone;
 using Bazaar.Client.Shell;
 using Bazaar.Contracts.Panes;
@@ -52,6 +60,7 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
         ClientServer.ConnectToCompanyServer();
+        StartVisualSettings();
         _wire = AndroidWire.Start(
             ClientServer.Current,
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "bazaar"),
@@ -78,6 +87,27 @@ public sealed class App : Avalonia.Application
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>The OS reduced-motion flag; the activity refreshes it on resume, where Android offers no simple change event.</summary>
+    public static PolledOsReducedMotionSource? ReducedMotion { get; private set; }
+
+    private VisualSettingsBinder? _visual;
+    private ClientSettingsStore? _clientSettings;
+
+    // The person's materials and motion level from the client settings file, the animator scale ("Remove animations") as the OS
+    // flag, and the frame-budget monitor (doc 93). The phone shell has no window chrome and no theme switch yet, so no chrome binds.
+    private void StartVisualSettings()
+    {
+        var context = global::Android.App.Application.Context;
+        string directory = context.FilesDir?.AbsolutePath ?? Path.GetTempPath();
+        // The coach's seen flag lives in the same file, so it survives restarts with the visual settings (doc 93).
+        var settings = new ClientSettingsStore([.. VisualSettings.Definitions, .. CoachController.Definitions], Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        _clientSettings = settings;
+        var materials = new AndroidMaterialEnvironmentSource(context);
+        ReducedMotion = AndroidReducedMotion.Create(context);
+        _visual?.Dispose();
+        _visual = VisualSettingsBinder.Start(settings, materials.Settings, new MotionSettings(MotionPlatform.Phone), ReducedMotion, null, action => Dispatcher.UIThread.Post(action));
     }
 
     private MnemonicShell? _mnemonics;
@@ -145,6 +175,7 @@ public sealed class App : Avalonia.Application
             .. InterruptPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
+            new AgentAnalyticsPaneModule(),
         ];
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the phone shell exists. Preferences stay on this device until a wire sync is attached.
@@ -187,7 +218,13 @@ public sealed class App : Avalonia.Application
                 kind => GcPaneModule.PhoneBody(kind, registry),
                 kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
-            settings.RadialSectors);
+            settings.RadialSectors,
+            // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
+            // push as their screens land, and back then runs the predictive transition (doc 93).
+            history: new ScreenHistory(new ScreenEntry("chat")),
+            backSource: MainActivity.Current?.BackGestures,
+            settings: _clientSettings);
+        shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
         paneSurface.Bind(
             registry.Contains,
             (kind, _) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

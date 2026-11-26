@@ -16,6 +16,8 @@ public static class GcArchiveServiceCollectionExtensions
         services.TryAddSingleton<IGcArchiveBridge>(sp => sp.GetRequiredService<PgGcArchiveBridge>());
         services.TryAddSingleton<IGcMessageTextSource>(sp => sp.GetRequiredService<PgGcArchiveBridge>());
         services.TryAddSingleton<IProjectGcLister, PgProjectGcLister>();
+        services.TryAddSingleton<Bazaar.Archive.IArchiveRestoreTarget>(sp => new PgGcArchiveRestoreTarget(
+            sp.GetRequiredService<Npgsql.NpgsqlDataSource>(), sp.GetRequiredService<PgGcArchiveBridge>()));
         return services;
     }
 }

@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Client.Athanor.Bundle</RootNamespace>
+    <!-- The bundle lands next to the assembly as athanor-bundle/ (page, bridge script and the trimmed Monaco). -->
+    <BundleOutputFolder>athanor-bundle</BundleOutputFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="monaco.lock.json" LogicalName="monaco.lock.json" />
+    <None Include="scripts/**" />
+    <None Include="LICENSE-monaco-editor.txt" Link="$(BundleOutputFolder)/LICENSE-monaco-editor.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="web/host.html" Link="$(BundleOutputFolder)/host.html" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="web/bridge.js" Link="$(BundleOutputFolder)/bridge.js" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!--
+    The trimmed Monaco is vendored by scripts/fetch-monaco.ps1 (hash-pinned in monaco.lock.json) and is not committed.
+    The build fetches it when it is missing. Offline, or without pwsh, the build still succeeds; the bundle is then
+    incomplete and AthanorBundle.Verify says so. Set SkipMonacoFetch=true to skip the fetch (CI legs that do not package).
+  -->
+  <Target Name="FetchMonaco" BeforeTargets="AssignTargetPaths;CopyFilesToOutputDirectory">
+    <Exec Command="pwsh -NoProfile -File &quot;$(MSBuildProjectDirectory)/scripts/fetch-monaco.ps1&quot;"
+          Condition="'$(SkipMonacoFetch)' != 'true' And !Exists('$(MSBuildProjectDirectory)/web/monaco/.stamp')"
+          IgnoreExitCode="true" IgnoreStandardErrorWarningFormat="true" StandardOutputImportance="low" StandardErrorImportance="low" />
+    <ItemGroup>
+      <MonacoFile Include="$(MSBuildProjectDirectory)/web/monaco/**/*" />
+      <None Include="@(MonacoFile)" Link="$(BundleOutputFolder)/monaco/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+</Project>

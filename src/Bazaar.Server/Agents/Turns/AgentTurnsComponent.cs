@@ -92,7 +92,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<ISessionTaintStore>(),
             sp.GetRequiredService<IInFlightCallStore>(),
             sp.GetRequiredService<IAuditLog>(),
-            sp.GetRequiredService<TimeProvider>()));
+            sp.GetRequiredService<TimeProvider>(),
+            options: null,
+            taintListeners: sp.GetServices<ITaintRaisedListener>(),
+            logger: sp.GetService<ILogger<ToolDispatcher>>()));
         services.TryAddSingleton<ISessionTaintStore>(sp => new PostgresSessionTaintStore(sp.GetRequiredService<NpgsqlDataSource>()));
         // Modules read session taint through Security.Abstractions (doc 15, "Reads for modules"): the store is the per-session
         // reader, and the directory the runner below registers each run in feeds the per-agent reader.
@@ -107,7 +110,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IDueInboxReader>(),
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
-            sp.GetRequiredService<TurnStarterOptions>()));
+            sp.GetRequiredService<TurnStarterOptions>(),
+            sp.GetServices<ITaskSessionHook>()));
+        // Ends task sessions for the Ryusei card transition (ITaskSessionHook). No hook is registered by default, so this is a no-op.
+        services.TryAddSingleton(sp => new TaskSessionEnder(sp.GetServices<ITaskSessionHook>()));
         services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();
@@ -140,18 +146,31 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IToolDispatcher>(),
             sp.GetRequiredService<TurnRunnerOptions>(),
             // Optional: with the Thinking GC module loaded, reasoning and steps go to the agent's Thinking GC (doc 01).
-            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>()));
+            sp.GetService<Bazaar.Server.ThinkingGc.IThinkingRecorder>(),
+            ActivityReporter(sp)));
         // Every run, a subagent child included, is registered in the agent session directory for as long as it runs.
         services.TryAddSingleton<ITurnRunner>(sp => new SessionRegisteringTurnRunner(
             new TurnRunAdapter(
                 sp.GetRequiredService<TurnRunner>(),
                 sp.GetRequiredService<ITurnContextAssembler>(),
                 // Every tool definition a component added. A turn is offered only the ones its allowlist names.
-                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>())),
+                ToolCatalogue.Build(sp.GetServices<ModelToolDefinition>(), sp.GetRequiredService<IToolRegistry>()),
+                // A reply to a wake with no trigger GC (a card assignment) is posted through the GC post sink when the Gc component is present.
+                sp.GetService<IAgentPostSink>(),
+                sp.GetServices<ITurnReplyTarget>(),
+                ActivityReporter(sp)),
             sp.GetRequiredService<IAgentSessionRegistrar>()));
 
         AddScheduler(services, configuration);
     }
+
+    /// <summary>Reports turn activity to the presence port when a presence module registered one; null otherwise.</summary>
+    private static TurnActivityReporter? ActivityReporter(IServiceProvider sp) =>
+        sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.ITurnActivitySink>() is { } sink
+            ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IGcKindLookup>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IAgentProjectLookup>())
+            : null;
 
     /// <summary>Binds the wake loop options and, only when the loop is enabled, registers the scheduler and its hosted service.</summary>
     private static void AddScheduler(IServiceCollection services, IConfiguration configuration)

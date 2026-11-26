@@ -14,8 +14,6 @@ namespace Bazaar.RyuseiFuda.Kanban.Data;
 /// <remarks>Reads the card as it is now, not as it was when the item was written, so a card that moved since still shows its current column.</remarks>
 public sealed class AssignmentContextSource(NpgsqlDataSource dataSource) : IContextSource
 {
-    private const string _prefix = "kanban:assign:";
-
     /// <inheritdoc />
     public async Task<IReadOnlyList<ContextSourceItem>> ReadAsync(TurnContextRequest request, CancellationToken cancellationToken)
     {
@@ -26,7 +24,7 @@ public sealed class AssignmentContextSource(NpgsqlDataSource dataSource) : ICont
         }
 
         var items = new List<ContextSourceItem>();
-        foreach (var taskId in await ReadAssignedTaskIdsAsync(request, cancellationToken).ConfigureAwait(false))
+        foreach (var taskId in await AssignmentWake.ReadTaskIdsAsync(dataSource, request.InboxItemIds, cancellationToken).ConfigureAwait(false))
         {
             await using var cmd = dataSource.CreateCommand(
                 "SELECT title, state, project_id, origin_gc_id, version FROM tasks WHERE id = @id");
@@ -54,25 +52,5 @@ public sealed class AssignmentContextSource(NpgsqlDataSource dataSource) : ICont
         }
 
         return items;
-    }
-
-    private async Task<List<Guid>> ReadAssignedTaskIdsAsync(TurnContextRequest request, CancellationToken ct)
-    {
-        await using var cmd = dataSource.CreateCommand(
-            "SELECT source_ref FROM inbox_item WHERE inbox_item_id = ANY(@ids) AND kind = 'assignment' AND source_ref LIKE 'kanban:assign:%'");
-        cmd.Parameters.AddWithValue("ids", request.InboxItemIds.ToArray());
-        var ids = new List<Guid>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
-        {
-            // kanban:assign:<task id>:<version>; the version is not needed, the card is read as it is now.
-            var parts = reader.GetString(0)[_prefix.Length..].Split(':');
-            if (Guid.TryParse(parts[0], out var id) && !ids.Contains(id))
-            {
-                ids.Add(id);
-            }
-        }
-
-        return ids;
     }
 }

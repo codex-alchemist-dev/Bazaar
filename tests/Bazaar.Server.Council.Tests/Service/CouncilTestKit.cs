@@ -1,6 +1,8 @@
 using Bazaar.Server.Council;
+using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
+using Bazaar.Server.Council.Tests.Data;
 
 namespace Bazaar.Server.Council.Tests.Service;
 
@@ -18,6 +20,8 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     private readonly Dictionary<Guid, CouncilVoteRecord> _votes = new();
     private readonly List<StoredBallot> _ballots = new();
     private readonly Dictionary<Guid, List<CouncilTransitionRecord>> _transitions = new();
+    private readonly Dictionary<(Guid, string, BallotPhase), ReasoningCiphertext> _sealed = new();
+    private readonly CouncilTestCipher _cipher = new();
 
     public int ForcedMismatches { get; set; }
 
@@ -72,6 +76,24 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
 
     public Task<IReadOnlyList<StoredBallot>> ListBallotsAsync(Guid voteId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<StoredBallot>>(_ballots.Where(ballot => ballot.VoteId == voteId).ToList());
+
+    public async Task<IReadOnlyList<SealedBallotReason>> ListSealedReasonsAsync(Guid voteId, CancellationToken ct)
+    {
+        var result = new List<SealedBallotReason>();
+        foreach (var ballot in _ballots.Where(ballot => ballot.VoteId == voteId).ToList())
+        {
+            var key = (ballot.VoteId, ballot.VoterId, ballot.Phase);
+            if (!_sealed.TryGetValue(key, out var sealedText))
+            {
+                sealedText = await _cipher.SealAsync(ballot.VoterId, ballot.Reasoning, ct);
+                _sealed[key] = sealedText;
+            }
+
+            result.Add(new SealedBallotReason(ballot.VoteId, ballot.VoterId, ballot.Phase, ballot.Choice, ballot.TaintedAtWrite, sealedText));
+        }
+
+        return result;
+    }
 
     public Task<bool> TryInsertBallotAsync(StoredBallot ballot, CancellationToken ct)
     {
@@ -136,8 +158,14 @@ internal sealed class InMemoryCouncilStore : ICouncilStore
     public void InsertBallotDirectly(StoredBallot ballot) => _ballots.Add(ballot);
 }
 
-/// <summary>A GC event as the fake recorded it.</summary>
-internal sealed record RecordedGcEvent(Guid GcId, string Kind, string PayloadJson, string IdempotencyKey);
+/// <summary>A GC event as the fake recorded it. <see cref="SealedBlob"/> and <see cref="SealedKeyId"/> are set for a sealed append.</summary>
+internal sealed record RecordedGcEvent(
+    Guid GcId,
+    string Kind,
+    string PayloadJson,
+    string IdempotencyKey,
+    byte[]? SealedBlob = null,
+    Guid? SealedKeyId = null);
 
 /// <summary>GC event sink that honours idempotency keys: a repeated key appends nothing.</summary>
 internal sealed class RecordingGcEvents : ICouncilGcEvents
@@ -151,6 +179,23 @@ internal sealed class RecordingGcEvents : ICouncilGcEvents
         if (_keys.Add(idempotencyKey))
         {
             Events.Add(new RecordedGcEvent(gcId, kind, payloadJson, idempotencyKey));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task AppendSealedAsync(
+        Guid gcId,
+        string kind,
+        string payloadJson,
+        ReadOnlyMemory<byte> sealedBlob,
+        Guid keyId,
+        string idempotencyKey,
+        CancellationToken ct)
+    {
+        if (_keys.Add(idempotencyKey))
+        {
+            Events.Add(new RecordedGcEvent(gcId, kind, payloadJson, idempotencyKey, sealedBlob.ToArray(), keyId));
         }
 
         return Task.CompletedTask;
@@ -172,6 +217,23 @@ internal sealed class CrashingGcEvents(RecordingGcEvents inner, string failKind)
         }
 
         return inner.AppendAsync(gcId, kind, payloadJson, idempotencyKey, ct);
+    }
+
+    public Task AppendSealedAsync(
+        Guid gcId,
+        string kind,
+        string payloadJson,
+        ReadOnlyMemory<byte> sealedBlob,
+        Guid keyId,
+        string idempotencyKey,
+        CancellationToken ct)
+    {
+        if (Armed && kind == failKind)
+        {
+            throw new IOException("Simulated crash before the event was written.");
+        }
+
+        return inner.AppendSealedAsync(gcId, kind, payloadJson, sealedBlob, keyId, idempotencyKey, ct);
     }
 }
 

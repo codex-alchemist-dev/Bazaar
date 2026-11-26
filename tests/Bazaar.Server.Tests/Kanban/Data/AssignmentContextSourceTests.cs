@@ -65,4 +65,23 @@ public sealed class AssignmentContextSourceTests(KanbanDb db) : IClassFixture<Ka
 
         Assert.Empty(await source.ReadAsync(new TurnContextRequest(agent, Guid.CreateVersion7(), TurnRole.Actor, "assignment", []), Ct));
     }
+
+    [Fact]
+    public async Task The_reply_goes_to_the_cards_origin_gc_and_other_wakes_have_no_target()
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        var target = new AssignmentReplyTarget(db.DataSource);
+
+        var (agent, card, inbox) = await SeedAsync("kanban:assign:{card}:2");
+        await using var cmd = db.DataSource.CreateCommand("SELECT origin_gc_id FROM tasks WHERE id = $1");
+        cmd.Parameters.AddWithValue(card);
+        var gc = (Guid)(await cmd.ExecuteScalarAsync(Ct))!;
+        Assert.Equal(gc, await target.ResolveGcAsync(Run(agent, inbox), Ct));
+
+        var (agent2, _, inbox2) = await SeedAsync("kanban:assign:{card}:2", kind: "mention");
+        Assert.Null(await target.ResolveGcAsync(Run(agent2, inbox2), Ct));
+    }
+
+    private static TurnRunRequest Run(Guid agent, Guid inbox) =>
+        new(agent, Guid.CreateVersion7(), TurnRole.Actor, "assignment", [inbox], "holder", string.Empty, []);
 }

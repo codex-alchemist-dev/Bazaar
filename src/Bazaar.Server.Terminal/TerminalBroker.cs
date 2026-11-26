@@ -93,7 +93,7 @@ public sealed class TerminalBroker : ITerminalBroker, IAsyncDisposable
         IGuestPty pty;
         try
         {
-            pty = await _channel.OpenAsync(vmId, id, cols, rows, ct).ConfigureAwait(false);
+            pty = await _channel.OpenForAgentAsync(agentId, vmId, id, cols, rows, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {

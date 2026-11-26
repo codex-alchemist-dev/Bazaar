@@ -14,6 +14,12 @@ public interface IInterruptStackService
     /// </summary>
     Task<InterruptFrame> PushAsync(
         Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default);
+    /// and the company owner's key is used (doc 24 section 5, "Interrupt reason sealing"). <paramref name="emergency"/> is stored
+    /// only for an owner source; a system frame always stores false.
+    /// </summary>
+    Task<InterruptFrame> PushAsync(
+        Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Ends the active top frame and resumes its parent, returning the resumed frame, or null when the stack is then empty.

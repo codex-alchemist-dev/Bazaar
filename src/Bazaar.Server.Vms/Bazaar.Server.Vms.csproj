@@ -6,6 +6,9 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.Vms.Abstractions\Bazaar.Server.Vms.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>

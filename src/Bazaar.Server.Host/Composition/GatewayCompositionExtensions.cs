@@ -1,9 +1,12 @@
+using Bazaar.Server.Agents.Data;
+using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
+using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.ClaudeLane;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.FreeLlmApi;
@@ -16,13 +19,10 @@ using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Components.FreeLlmApi;
 using Bazaar.Server.Host.Startup;
 using Bazaar.Server.Providers.ClaudeCode;
-using Bazaar.Server.Agents.Data;
-using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Secrets;
-using Microsoft.Extensions.Configuration;
-using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.FirstRun.Gateway;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -166,11 +166,31 @@ public static class GatewayCompositionExtensions
             scrubber: sp.GetRequiredService<SecretScrubber>(),
             ranker: sp.GetRequiredService<ICandidateRanker>(),
             selectionStats: sp.GetRequiredService<IEndpointStatsTracker>(),
+            events: ComposeQuotaEvents(sp),
 
             embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
             embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
         return services;
     }
+
+    /// <summary>
+    /// The gateway's quota event sink: any registered <see cref="IGatewayEventSink"/> plus, when the presence sources module is loaded,
+    /// its quota source (docs/design/23). Null when neither exists, so the gateway keeps its default.
+    /// </summary>
+    private static IGatewayEventSink? ComposeQuotaEvents(IServiceProvider sp) =>
+        CompositeGatewayEventSink.Compose(
+            [
+                sp.GetService<IGatewayEventSink>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.QuotaPresenceSource>() is { } quota ? new QuotaPresenceGatewayEventSink(quota) : null,
+            ],
+            ex =>
+            {
+                if (sp.GetService<ILoggerFactory>() is { } loggers)
+                {
+                    var log = loggers.CreateLogger<ModelGateway>();
+                    GatewayEventSinkLog.SinkFailed(log, ex);
+                }
+            });
 
     /// <summary>
     /// The dated price table from the file named by <c>Bazaar:Gateway:PriceTable:Path</c>, or null when none is set. Used for

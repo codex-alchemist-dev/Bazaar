@@ -42,6 +42,15 @@ public static class WireTypes
     /// <summary>Client starts, refreshes or stops typing (doc 02, "Typing signal"). Answered with a <c>GcTypingResult</c>.</summary>
     public const string GcTyping = "gc.typing";
 
+    /// <summary>Server event on the <c>engine.relay</c> stream: a Studio call for the owner's desktop to run (doc 02, doc 20). Payload <c>EngineRelayRequestFrame</c>.</summary>
+    public const string EngineRelayRequest = "engine.relay.request";
+
+    /// <summary>Client request answering one relay event (doc 02, doc 20). Payload <c>EngineRelayResultFrame</c>.</summary>
+    public const string EngineRelayResult = "engine.relay.result";
+
+    /// <summary>Client asks whether a grant covers a Studio tool (doc 02, doc 20). Payload <c>EngineGrantVerifyRequest</c>, answered with <c>EngineGrantVerifyReply</c>.</summary>
+    public const string EngineGrantVerify = "engine.grant.verify";
+
     /// <summary>Client asks for a project's Kanban board snapshot (doc 12, board view). Answered with a <c>KanbanBoardSnapshot</c>.</summary>
     public const string BoardSnapshot = "board.snapshot";
 
@@ -57,8 +66,29 @@ public static class WireTypes
     /// <summary>Owner resumes one paused RyuseiFuda trigger (doc 38, Layer 2). Answered with a <c>RyuseiTriggerChangeReply</c>.</summary>
     public const string RyuseiResume = "ryusei.trigger.resume";
 
+    /// <summary>Owner starts a Lucky run (docs/design/26-fun-systems.md, section 6). Answered with a <c>LuckyStartReply</c>.</summary>
+    public const string LuckyStart = "lucky.start";
+
+    /// <summary>An agent records one idea in a Lucky run (docs/design/26-fun-systems.md, section 6). Answered with a <c>LuckyIdeaReply</c>.</summary>
+    public const string LuckyIdea = "lucky.idea";
+
+    /// <summary>Owner marks a kept idea for a Backlog card. Answered with a <c>LuckyMarkReply</c>.</summary>
+    public const string LuckyMark = "lucky.mark";
+
+    /// <summary>Owner sets an agent's Lucky opt-in. Answered with a <c>LuckyOptInReply</c>.</summary>
+    public const string LuckyOptIn = "lucky.opt_in";
+
     /// <summary>Owner asks for a project's RyuseiFuda triggers as board chips (doc 38, Layer 2). Answered with a <c>RyuseiTriggerListReply</c>.</summary>
     public const string RyuseiList = "ryusei.trigger.list";
+
+    /// <summary>Editor opens a workspace file (doc 57 §6, PROPOSED). Answered with an <c>EditorOpenReply</c>.</summary>
+    public const string EditorOpen = "editor.open";
+
+    /// <summary>Editor saves a workspace file against the revision it opened (doc 57 §6, PROPOSED). Answered with an <c>EditorSaveReply</c>.</summary>
+    public const string EditorSave = "editor.save";
+
+    /// <summary>Editor creates a new workspace file in an existing folder (doc 57 §8, PROPOSED). Answered with an <c>EditorCreateReply</c>.</summary>
+    public const string EditorCreate = "editor.create";
 
     /// <summary>Owner asks to grant one Hive (from project, to project, kind) pair (doc 25, "Hive grant wire request"). Answered with a <c>HiveGrantChangeReply</c>.</summary>
     public const string HiveGrantSet = "hive.grant.set";
@@ -81,11 +111,29 @@ public static class WireTypes
     /// <summary>Owner-signed squash merge (doc 21, Merge request path). Answered with a <c>PrMergeReply</c>.</summary>
     public const string PrMerge = "pr.merge";
 
+    /// <summary>
+    /// Owner asks for packed memory context of one agent (docs/design/constellation-memory-graph.md, "Retrieval operation"). Payload
+    /// <c>MemoryContextRequest</c>; answered with a <c>MemoryContextResult</c>, or an error with a <c>MemoryContextErrorCodes</c> code.
+    /// </summary>
+    public const string MemoryContext = "memory.context";
+
     /// <summary>Client pages older entries.</summary>
     public const string GcHistory = "gc.history";
 
+    /// <summary>Client asks for a GC rendered at a seq (doc 02, replay and fork requests). Answered with a <c>ReplayFrameResult</c>.</summary>
+    public const string ReplayFrame = "replay.frame";
+
+    /// <summary>Client forks a project GC at a seq. Answered with a <c>ReplayForkResult</c>.</summary>
+    public const string ReplayFork = "replay.fork";
+
+    /// <summary>Client lists the points in time a GC can be replayed at. Answered with a <c>ReplayPointsResult</c>.</summary>
+    public const string ReplayPoints = "replay.points";
+
     /// <summary>Client marks a GC read up to a sequence.</summary>
     public const string GcRead = "gc.read";
+
+    /// <summary>Client lists the GCs it is a member of (doc 02, GC list). Answered with a <c>GcListReply</c>.</summary>
+    public const string GcList = "gc.list";
 
     /// <summary>Replay gap too large; the client resyncs from the tail.</summary>
     public const string Resync = "resync";
@@ -101,6 +149,9 @@ public static class WireTypes
 
     /// <summary>Client asks for every agent's presence row. Answered with a <c>PresenceSnapshot</c> (docs/design/23).</summary>
     public const string PresenceSnapshot = "presence.snapshot";
+
+    /// <summary>One <c>kodo</c> stream frame (snapshot, state change or heartbeat), as the UTF-8 JSON of a Kodo stream event (doc 46, section 15.2).</summary>
+    public const string KodoEvent = "kodo.event";
 
     /// <summary>Level-of-detail feed for a graph stream (<c>graph:&lt;id&gt;</c>, doc 19).</summary>
     public const string GraphLod = "graph.lod";
