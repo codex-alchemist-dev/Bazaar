@@ -8,5 +8,6 @@
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <!-- The admin read model the snapshot maps to (doc 51 section 5). Abstractions only. -->
     <ProjectReference Include="..\Bazaar.Server.WebAdmin.Abstractions\Bazaar.Server.WebAdmin.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Kodo\Bazaar.Kodo.csproj" />
   </ItemGroup>
 </Project>

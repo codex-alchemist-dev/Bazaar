@@ -29,10 +29,13 @@ internal sealed class KodoHostReadings(KodoServerOptions options) : IHostReading
         throw new NotSupportedException("No clock reference source is configured.");
 }
 
-/// <summary>The self readings: the journal writer's own state. There is no unsent spill backlog because nothing is sent to a store yet.</summary>
-internal sealed class KodoSelfReadings(KodoJournal journal) : IKodoSelfReadings
+/// <summary>
+/// The self readings: the journal writer's own state and, when a durable store is wired, the age of the oldest record not yet in it.
+/// With no store there is no unsent backlog, so the spill reading is none (green).
+/// </summary>
+internal sealed class KodoSelfReadings(KodoJournal journal, KodoJournalSync? sync = null) : IKodoSelfReadings
 {
     public Task<bool> CanWriteJournalAsync(CancellationToken cancellationToken) => Task.FromResult(journal.CheckWritable());
 
-    public Task<SpillFileReading?> ReadSpillFileAsync(CancellationToken cancellationToken) => Task.FromResult<SpillFileReading?>(null);
+    public Task<SpillFileReading?> ReadSpillFileAsync(CancellationToken cancellationToken) => Task.FromResult(sync?.ReadSpill());
 }

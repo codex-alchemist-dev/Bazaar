@@ -7,11 +7,11 @@ namespace Bazaar.Server.Tests.Kanban.Health;
 
 public sealed class KanbanHealthFactsTests
 {
-    private static readonly Guid Project = Guid.NewGuid();
-    private static readonly DateTimeOffset Now = new(2026, 11, 22, 12, 0, 0, TimeSpan.Zero);
+    private static readonly Guid _project = Guid.NewGuid();
+    private static readonly DateTimeOffset _now = new(2026, 11, 22, 12, 0, 0, TimeSpan.Zero);
 
     private static TaskRecord Task(TaskState state) =>
-        new(Guid.NewGuid(), Project, "t", state, null, TaskGate.None, Guid.NewGuid(), null, null, null, null, 1, Now, Now);
+        new(Guid.NewGuid(), _project, "t", state, null, TaskGate.None, Guid.NewGuid(), null, null, null, null, 1, _now, _now);
 
     [Fact]
     public void Reopens_are_moves_out_of_done_only()
@@ -19,9 +19,9 @@ public sealed class KanbanHealthFactsTests
         var a = Guid.NewGuid();
         var b = Guid.NewGuid();
         var facts = KanbanHealthFacts.Build([], [], [
-            new TaskTransitionFact(a, "done", "in_progress", Now),
-            new TaskTransitionFact(b, "review", "done", Now),
-            new TaskTransitionFact(b, "ready", "in_progress", Now),
+            new TaskTransitionFact(a, "done", "in_progress", _now),
+            new TaskTransitionFact(b, "review", "done", _now),
+            new TaskTransitionFact(b, "ready", "in_progress", _now),
         ], includeBoard: false);
 
         var reopen = Assert.Single(facts.Reopens);

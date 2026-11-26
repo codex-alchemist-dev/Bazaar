@@ -34,10 +34,10 @@ public class WireReplayClientTests
         _gc, seq, head,
         new ReplayFrameWire(
             [new ReplayMessageWire(Guid.NewGuid(), Guid.NewGuid(), 1, 1, 1, false, true, payload, DateTimeOffset.UnixEpoch)],
-            new ReplayPartWire<IReadOnlyList<ReplayTaskWire>>(true, [new ReplayTaskWire(Guid.NewGuid(), "t", "Review")], null),
-            new ReplayPartWire<ReplayVaultWire>(false, null, "Vault module not installed"),
-            new ReplayPartWire<IReadOnlyList<ReplaySoulWire>>(true, [], null),
-            new ReplayPartWire<IReadOnlyList<ReplayReputationWire>>(false, null, null)));
+            new ReplayTasksPart(true, [new ReplayTaskWire(Guid.NewGuid(), "t", "Review")], null),
+            new ReplayVaultPart(false, null, "Vault module not installed"),
+            new ReplaySoulsPart(true, [], null),
+            new ReplayReputationPart(false, null, null)));
 
     [Fact]
     public async Task Frame_maps_to_display_models_and_reports_the_clamp()

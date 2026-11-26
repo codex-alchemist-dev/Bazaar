@@ -110,7 +110,10 @@ public sealed class AgentTurnsComponent : IBazaarComponent
             sp.GetRequiredService<IDueInboxReader>(),
             sp.GetRequiredService<IWakeChainDepthSource>(),
             sp.GetRequiredService<ITurnRunner>(),
-            sp.GetRequiredService<TurnStarterOptions>()));
+            sp.GetRequiredService<TurnStarterOptions>(),
+            sp.GetServices<ITaskSessionHook>()));
+        // Ends task sessions for the Ryusei card transition (ITaskSessionHook). No hook is registered by default, so this is a no-op.
+        services.TryAddSingleton(sp => new TaskSessionEnder(sp.GetServices<ITaskSessionHook>()));
         services.TryAddSingleton(sp => new PrincipalHandleRepository(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IAgentHandleAssigner>(sp => sp.GetRequiredService<PrincipalHandleRepository>());
         services.TryAddSingleton<AgentRepository>();
@@ -165,6 +168,9 @@ public sealed class AgentTurnsComponent : IBazaarComponent
     private static TurnActivityReporter? ActivityReporter(IServiceProvider sp) =>
         sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.ITurnActivitySink>() is { } sink
             ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>())
+            ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IGcKindLookup>(),
+                sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IAgentProjectLookup>())
             : null;
 
     /// <summary>Binds the wake loop options and, only when the loop is enabled, registers the scheduler and its hosted service.</summary>

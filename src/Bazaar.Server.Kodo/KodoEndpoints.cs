@@ -55,7 +55,7 @@ public static class KodoEndpoints
             return Json(new KodoEventsResponse(1, entries.Count == 0 ? null : entries[0].Hash, entries), KodoJsonContext.Default.KodoEventsResponse);
         }));
 
-        guard(app.MapGet(Prefix + "/journal/proof/{sequence}", (IKodoStatusSource source, HttpContext http, string sequence) =>
+        guard(app.MapGet(Prefix + "/journal/proof/{sequence}", async (IKodoStatusSource source, HttpContext http, string sequence, CancellationToken cancellationToken) =>
         {
             if (Gate(source, http) is { } refused)
             {
@@ -67,7 +67,7 @@ public static class KodoEndpoints
                 return Error(http, StatusCodes.Status400BadRequest, "bad_sequence", "sequence must be a whole number.", retryable: false);
             }
 
-            return source.JournalProof(number) is { } proof
+            return await source.JournalProofAsync(number, cancellationToken).ConfigureAwait(false) is { } proof
                 ? Json(new KodoProofResponse(1, proof), KodoJsonContext.Default.KodoProofResponse)
                 : Error(http, StatusCodes.Status404NotFound, "proof_unavailable", "No proof is available for that record.", retryable: false);
         }));

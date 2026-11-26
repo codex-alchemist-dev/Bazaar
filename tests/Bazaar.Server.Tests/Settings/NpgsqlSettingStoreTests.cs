@@ -27,7 +27,7 @@ public sealed class NpgsqlSettingStoreTests(SettingsDb db) : IClassFixture<Setti
             await cmd.ExecuteNonQueryAsync(ct);
 
         var ds = db.DataSource;
-        await new MigrationRunner(ds).MigrateAsync(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly), "linux", ct);
+        await new MigrationRunner(ds).MigrateAsync(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly), "linux", ct);
         var audit = new InMemorySettingAuditSink();
         return (ds, audit, new NpgsqlSettingStore(ds, audit, BuiltInSettingRegistries.Known));
     }

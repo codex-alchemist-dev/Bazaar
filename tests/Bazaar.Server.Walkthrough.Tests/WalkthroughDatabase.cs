@@ -16,7 +16,7 @@ internal static partial class WalkthroughDatabase
 
     private static Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct) =>
         new MigrationRunner(dataSource).MigrateAsync(
-            new Combined(new AuditOnly(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly)), new WalkthroughFiles()),
+            new Combined(new AuditOnly(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly)), new WalkthroughFiles()),
             MigrateCommand.CurrentProvider(),
             ct);
 

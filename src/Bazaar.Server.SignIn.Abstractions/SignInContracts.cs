@@ -59,3 +59,17 @@ public interface IPasskeyAssertionVerifier
     /// <param name="assertionJson">The assertion as the page serialised it (the credential response fields, base64url encoded).</param>
     Task<SignInIdentity?> VerifyAsync(string challenge, string assertionJson, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Passkey enrolment for a person who is already signed in (doc 32 section 4, <c>/signin/register</c>). The caller is named by the access
+/// token the route was called with; the implementation decides who the token belongs to, so the route never trusts a person id from the
+/// body. Until an implementation is registered the routes answer 501.
+/// </summary>
+public interface IPasskeyEnrolment
+{
+    /// <summary>The creation options (JSON for <c>navigator.credentials.create</c>) for the token's person, or null when the token is refused.</summary>
+    Task<string?> BeginAsync(string bearerToken, CancellationToken ct = default);
+
+    /// <summary>Verifies the attestation against the options last issued to that person and stores the passkey. False on any refusal.</summary>
+    Task<bool> CompleteAsync(string bearerToken, string attestationJson, CancellationToken ct = default);
+}
