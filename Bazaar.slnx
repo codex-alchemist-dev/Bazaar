@@ -226,6 +226,7 @@
     <Project Path="src/Bazaar.Server.Setup/Bazaar.Server.Setup.csproj" />
     <Project Path="src/Bazaar.Server.Souls.Abstractions/Bazaar.Server.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Souls/Bazaar.Server.Souls.csproj" />
+    <Project Path="src/Bazaar.Server.TalentPool.Http/Bazaar.Server.TalentPool.Http.csproj" />
     <Project Path="src/Bazaar.Server.TalentPool.Component/Bazaar.Server.TalentPool.Component.csproj" />
     <Project Path="src/Bazaar.Server.TalentPool.Abstractions/Bazaar.Server.TalentPool.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.TalentPool/Bazaar.Server.TalentPool.csproj" />
@@ -848,6 +849,7 @@
     <Project Path="tests/Bazaar.Server.Gateway.Catalogue.Tests/Bazaar.Server.Gateway.Catalogue.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Gateway.TestKit/Bazaar.Server.Gateway.TestKit.csproj" />
     <Project Path="tests/Bazaar.Server.Souls.Tests/Bazaar.Server.Souls.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.TalentPool.Http.Tests/Bazaar.Server.TalentPool.Http.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.TalentPool.Component.Tests/Bazaar.Server.TalentPool.Component.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.TalentPool.Tests/Bazaar.Server.TalentPool.Tests.csproj" />
 

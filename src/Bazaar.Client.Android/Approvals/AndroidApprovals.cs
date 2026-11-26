@@ -42,4 +42,20 @@ public static class AndroidApprovals
 
         return (new ToolGrantGate(new AndroidBiometricPrompt(activity), new KeystoreDeviceApprovalSigner(enrolledDeviceId), client, human), client);
     }
+
+    /// <summary>
+    /// Stores the owner's human id (a GUID the server knows) next to the approval device id. It creates no key: the Keystore key and
+    /// its enrolment stay with doc 32 Question 4. Returns false for text that is not a GUID, so nothing malformed is kept.
+    /// </summary>
+    public static bool SaveOwnerHumanId(Activity? activity, string? ownerHumanId)
+    {
+        if (activity is null || !Guid.TryParse(ownerHumanId, out var id))
+        {
+            return false;
+        }
+
+        var prefs = activity.GetSharedPreferences("bazaar", global::Android.Content.FileCreationMode.Private);
+        prefs?.Edit()?.PutString("owner_human_id", id.ToString("D"))?.Apply();
+        return prefs is not null;
+    }
 }

@@ -53,6 +53,12 @@ public sealed class HostApplicationTests
             // The owner-signed merge gate and the one verifier it shares with the kill switch are live in the host graph (doc 21, C25).
             Assert.NotNull(sp.GetRequiredService<IOwnerSignedMergeService>());
             Assert.NotNull(sp.GetRequiredService<IOwnerSignatureVerifier>());
+            // The Talent tool-grant routes need the owner verifier, the Postgres stores and the approver to resolve from the host graph (doc 25, doc 32 5a).
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.Component.TalentToolGrantApprover>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.ITalentToolGrantApproval>());
+            // The pending-grants route reads the store and the hire state directly, so it does not need the Council service, which the host does not register yet.
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.TalentPool.ITalentTemplateStore>());
+            Assert.NotNull(sp.GetRequiredService<Bazaar.Server.Council.Hiring.IHireDecisionStore>());
             Assert.Contains(sp.GetServices<IHostedService>(), service => service is AgentResponderService);
 
             // Account approval: the owner hand-off reaches the durable approval store and the shared request cap.

@@ -45,6 +45,7 @@ public static class StatusEndpoints
 
     /// <summary>The authenticated API routes that also take writes: blob uploads, the Constellation tile endpoint and recording a Company Memory decision, and community draft decisions, and the Genetic Memory review routes.</summary>
     private static bool IsApiRoute(PathString path) =>
+        path.StartsWithSegments("/blobs") || path.Equals("/constellation/tiles", StringComparison.Ordinal) || path.StartsWithSegments("/talent");
         path.StartsWithSegments("/blobs")
         || path.Equals("/constellation/tiles", StringComparison.Ordinal)
         || path.Equals("/company-memory/decisions", StringComparison.Ordinal)
