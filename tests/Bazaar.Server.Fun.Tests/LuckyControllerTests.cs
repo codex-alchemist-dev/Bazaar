@@ -1,8 +1,17 @@
+<<<<<<<< HEAD:tests/Bazaar.Server.Fun.Tests/LuckyControllerTests.cs
 using Bazaar.Server.Fun.Lucky;
 using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;
 
 namespace Bazaar.Server.Fun.Tests;
+========
+using Bazaar.Fun.Lucky;
+using Bazaar.Lucky;
+using Bazaar.Sanitization;
+using Bazaar.Server.Sanitization;
+
+namespace Bazaar.Lucky.Tests;
+>>>>>>>> origin/main:tests/Bazaar.Lucky.Tests/LuckyControllerTests.cs
 
 public class LuckyControllerTests
 {

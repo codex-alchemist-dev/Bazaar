@@ -8,6 +8,7 @@ namespace Bazaar.Server.Org.Tests;
 internal static class OrgTestMigrations
 {
     public static InMemoryMigrationSource Org18() =>
+        new(new EmbeddedMigrationSource(typeof(MigrationRunner).Assembly).Load(MigrationRunner.Common).Where(f => f.Version == 18));
         new(new EmbeddedMigrationSource(typeof(Bazaar.Server.AssemblyMarker).Assembly).Load(MigrationRunner.Common).Where(f => f.Version == 18));
 }
 

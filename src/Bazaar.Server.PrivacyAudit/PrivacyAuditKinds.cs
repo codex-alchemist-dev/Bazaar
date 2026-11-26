@@ -20,6 +20,10 @@ public static class PrivacyAuditKinds
     // Doc 32 section 4 (`/signin/recover`, recovery-code sign-in) and section 8 (sign-in).
     public const string RecoveryCodeUsed = "recovery.code_used";
 
+    // Doc 32 section 8 "revocation" and person suspension (PROPOSED, 2026-11-22): a person is suspended or set active again.
+    public const string PersonSuspended = "person.suspended";
+    public const string PersonUnsuspended = "person.unsuspended";
+
     // Doc 32 section 8 "DM access request/grant/deny" and section 6 (access request and grant or deny).
     public const string AccessRequestRequested = "access_request.requested";
     public const string AccessRequestDecided = "access_request.decided";
@@ -58,6 +62,8 @@ public static class PrivacyAuditKinds
         AccessRequestRequested,
         AccessRequestDecided,
         RoleChanged,
+        PersonSuspended,
+        PersonUnsuspended,
         OwnerDmRead,
         ExportCompleted,
         ErasureCompleted,

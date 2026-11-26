@@ -9,7 +9,7 @@ namespace Bazaar.Client.Transport.AndroidHttp3.Android;
 /// </summary>
 internal sealed class JavaCronetStream : ICronetBidirectionalStream, IJavaCronetCallback
 {
-    private const int ReadChunkBytes = 16 * 1024;
+    private const int _readChunkBytes = 16 * 1024;
 
     private readonly IJavaCronetBridge _bridge;
     private readonly Lock _gate = new();
@@ -67,7 +67,7 @@ internal sealed class JavaCronetStream : ICronetBidirectionalStream, IJavaCronet
             pending = _read = NewSource<ReadOnlyMemory<byte>>();
         }
 
-        _java!.RequestRead(Math.Min(buffer.Length, ReadChunkBytes));
+        _java!.RequestRead(Math.Min(buffer.Length, _readChunkBytes));
         var data = await WaitAsync(pending.Task, cancellationToken).ConfigureAwait(false);
         _leftover = data;
         if (!_leftover.IsEmpty) return TakeLeftover(buffer);

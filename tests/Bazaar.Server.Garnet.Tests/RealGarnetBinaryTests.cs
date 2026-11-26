@@ -12,11 +12,13 @@ namespace Bazaar.Server.Garnet.Tests;
 /// </summary>
 public sealed class RealGarnetBinaryTests
 {
+    private const string BinaryVariable = "BAZAAR_GARNET_BINARY";
     private const string _binaryVariable = "BAZAAR_GARNET_BINARY";
 
     [Fact]
     public async Task The_managed_server_starts_answers_and_keeps_data_across_a_restart()
     {
+        var binary = Environment.GetEnvironmentVariable(BinaryVariable);
         var binary = Environment.GetEnvironmentVariable(_binaryVariable);
         if (!OperatingSystem.IsWindows() || string.IsNullOrWhiteSpace(binary))
         {

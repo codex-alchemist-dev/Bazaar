@@ -13,6 +13,8 @@ namespace Bazaar.Wire.Conformance;
 /// </summary>
 public abstract class WireCodecConformance
 {
+    private const int _fuzzIterations = 2000;
+    private const int _fuzzSeed = 90;
     internal const int FuzzIterations = 2000;
     internal const int FuzzSeed = 90;
 
@@ -250,6 +252,9 @@ public abstract class WireCodecConformance
         var samples = PayloadSamples.All;
         var frames = samples.Select(s => Frame(codec, Envelope(s, s.Encode(codec)))).ToArray();
         var payloads = samples.Select(s => s.Encode(codec).ToArray()).ToArray();
+        var random = new Random(_fuzzSeed);
+
+        for (var i = 0; i < _fuzzIterations; i++)
         var random = new Random(FuzzSeed);
 
         for (var i = 0; i < FuzzIterations; i++)
@@ -258,6 +263,7 @@ public abstract class WireCodecConformance
             var sample = samples[index];
             var onFrame = i % 2 == 0;
             var mutated = Mutate(random, onFrame ? frames[index] : payloads[index], frames[random.Next(frames.Length)]);
+            var label = $"iteration {i} seed {_fuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
             var label = $"iteration {i} seed {FuzzSeed} sample {sample.Name} on {(onFrame ? "frame" : "payload")}: {Convert.ToHexString(mutated)}";
 
             ExpectOnlyWireFormat(

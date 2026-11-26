@@ -76,6 +76,9 @@ internal sealed class Rig
         new(Port, store, Biometric, Audit, Settings, Clock);
 
     private readonly InMemoryContainmentStore store = new();
+        new(Port, _store, Biometric, Audit, Settings, Clock);
+
+    private readonly InMemoryContainmentStore _store = new();
 
     public AnomalyEvaluator Evaluator(ContainmentService? c = null) =>
         new(new ListSource(Events), new FakeScope(InScope), SinkToUse, c ?? Containment(), Audit, Settings, Clock);

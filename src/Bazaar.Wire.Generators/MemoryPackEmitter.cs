@@ -235,7 +235,7 @@ internal static class MemoryPackEmitter
             foreach (var field in symbol.GetMembers().OfType<IFieldSymbol>())
             {
                 if (!field.IsConst) continue;
-                values.Add(Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(field.ConstantValue!, false, false));
+                values.Add(Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(field.ConstantValue!, false, false)!);
                 if (field.Name == "Unknown" || (field.Name == "Unspecified" && fallback is null)) fallback = field.Name;
             }
 
@@ -393,7 +393,7 @@ internal static class MemoryPackEmitter
                 var value = p.ExplicitDefaultValue;
                 if (value is null) return "default";
                 if (field.ReadType.Kind == WireKind.Enum) return $"({field.ReadType.NonNull.Display()}){Convert.ToString(value, CultureInfo.InvariantCulture)}";
-                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(value, true, false);
+                return Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatPrimitive(value, true, false)!;
             }
 
             return field.ReadType.Nullable || field.ReadType.Symbol.IsValueType ? "default" : "default!";

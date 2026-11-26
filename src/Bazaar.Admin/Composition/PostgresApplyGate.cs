@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using Bazaar.Server.Company;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Security.Audit.Db;
@@ -42,6 +43,14 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
         "AND has_table_privilege('audit_log', 'SELECT') AND has_table_privilege('audit_log', 'INSERT')";
 
     private NpgsqlDataSource? _dataSource;
+
+    private PostgresApplyGate(NpgsqlDataSource? dataSource)
+    {
+        _dataSource = dataSource;
+    }
+
+    /// <inheritdoc />
+    public IReadOnlyCollection<string> CoveredSections => InstallSettingsStep.CoveredSections;
     private readonly IReadOnlyDictionary<string, string?> _variables;
 
     private PostgresApplyGate(NpgsqlDataSource? dataSource, IReadOnlyDictionary<string, string?>? variables = null)
@@ -51,7 +60,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public IReadOnlyCollection<string> CoveredSections => [.. InstallSettingsStep.CoveredSections, .. FirstRunSections];
+    public IReadOnlyCollection<string> CoveredSections => [.. InstallSettingsStep.CoveredSections, .. GatewaySourcesStep.CoveredSections, .. CompanyProfileStep.CoveredSections, .. OwnerStep.CoveredSections, .. FirstRunSections];
 
     /// <summary>The plan sections the first-run steps (the Constitution seed and the first-run seed) apply.</summary>
     public static readonly IReadOnlyList<string> FirstRunSections = ["firstRun"];
@@ -88,6 +97,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
 
             var connectionString = await resolver.ResolveAsync(reference, cancellationToken).ConfigureAwait(false);
             dataSource = NpgsqlDataSource.Create(connectionString);
+            return await ProbeAsync(dataSource, cancellationToken).ConfigureAwait(false);
             return await ProbeAsync(dataSource, cancellationToken, variables).ConfigureAwait(false);
         }
         catch (Exception exception) when (IsConnectionFailure(exception, cancellationToken))
@@ -105,6 +115,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
     /// Checks that <paramref name="dataSource"/> reaches an audit store this role can write. Open on success, with the gate taking
     /// ownership of the data source. Closed on failure, with the data source disposed.
     /// </summary>
+    public static async Task<PostgresApplyGate> ProbeAsync(NpgsqlDataSource dataSource, CancellationToken cancellationToken)
     public static async Task<PostgresApplyGate> ProbeAsync(
         NpgsqlDataSource dataSource,
         CancellationToken cancellationToken,
@@ -119,6 +130,7 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
             var ready = await cmd.ExecuteScalarAsync(timeout.Token).ConfigureAwait(false);
             if (ready is true)
             {
+                return new PostgresApplyGate(dataSource);
                 return new PostgresApplyGate(dataSource, variables);
             }
         }
@@ -146,7 +158,11 @@ public sealed class PostgresApplyGate : ICliApplyGate, IAsyncDisposable
 
         // The same first-run steps as the host (SetupComponent), so a CLI apply and a host apply do the same thing: the default
         // Constitution in the Vault, then the first GC and default agent. The Vault settings come from the process variables.
+        services.AddSingleton<ISetupStep>(new GatewaySourcesStep(dataSource));
         services.AddSingleton(dataSource);
+
+        // The company profile and the owner, before the seeds that need the owner row.
+        services.AddCompanySetup();
         services.AddConstitutionSeed(ConstitutionVaultOptions.FromSettings(ReadVaultSetting));
         services.AddFirstRunPostgres();
         services.AddFirstRunSeed();

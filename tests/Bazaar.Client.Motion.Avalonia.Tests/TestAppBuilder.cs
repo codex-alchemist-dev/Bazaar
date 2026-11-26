@@ -12,6 +12,7 @@ public static class TestAppBuilder
     public static AppBuilder BuildAvaloniaApp() =>
         AppBuilder.Configure<global::Avalonia.Application>()
             .UseSkia()
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
             // Without a theme an ItemsControl has no template, so its items are never realized.
             .AfterSetup(_ => Application.Current!.Styles.Add(new FluentTheme()));

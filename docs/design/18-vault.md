@@ -77,6 +77,7 @@ Resolution: path first, then title or alias. If several match, prefer the same p
 7. Batching: memory writes from one agent coalesce into one commit per batch, per `vault.memory_commit_batching`. A commit carries one batch only.
 8. Decisions: `VaultWriter` assigns the next free `NNNN` under the queue and returns it in `EditResult`, so the Council (10) can cite `decisions/NNNN-<slug>.md`.
 
+**Page writes [PROPOSED].** A module that owns a Vault area (Company Memory under `company/memory/`) writes one page at a fixed path through `IVaultPageWriter.CreateOrUpdatePageAsync`, implemented by `VaultWriter` (`VaultWriter.Pages.cs`) so there is still one writer per repo and one vault lane. A page draft is `{docId, path, title, type, body, agentId, gcId}`. The path must be a relative `.md` path under a prefix in `vault.page_write_prefixes` (default `company/memory/`); `decisions/` is never allowed, because decisions keep their numbered path (item 8), and the type may be any known type except `decision`. The write is idempotent by `docId`: the same id at the same path with the same content commits nothing, changed content updates the file in a new commit, a path held by another id and an id already used at another page path are refused. The commit carries the same trailers as other writes and the indexer hook runs after it. A page larger than `vault.max_document_bytes` is refused.
 The writer contract (`IVaultWriter`, the edit request and result types, `DecisionDraft`) lives in `Bazaar.Vault.Abstractions`, so other modules can write to a Vault without referencing `Bazaar.Server.Vault`. The implementation stays in `Bazaar.Server.Vault`.
 
 **Commit attribution [PROPOSED].** Author = the agent's GitHub App identity (bot name and email as GitHub issues them; format unverified). Committer = `VaultWriter`. Trailers: `Bazaar-Agent`, `Bazaar-GC`, `Bazaar-Task`, `Bazaar-Edit-Base`.
@@ -165,6 +166,7 @@ Keys are typed and shown in the setup wizard and advanced settings (27, 32). Eve
 |---|---|---|---|---|---|
 | `vault.push_cadence` | duration | 15 min | install | operator | No; sets the Vault RPO in doc 33 |
 | `vault.max_document_bytes` | int | 1048576 (1 MiB) | install | operator | No |
+| `vault.page_write_prefixes` | list of path prefixes | `company/memory/` | install | operator | No; each ends with `/`, `decisions/` is refused |
 | `vault.merge_approval_paths` | list of path prefixes | `company/Constitution.md` | install | owner; Council may propose | Yes (owner) |
 | `vault.ambiguous_link_policy` | enum: warn, refuse | warn | install | operator | No |
 | `vault.conflict_card_actions` | list | keep mine, keep theirs, agent rebases | install | operator | No |
@@ -212,6 +214,8 @@ Keys are typed and shown in the setup wizard and advanced settings (27, 32). Eve
 Packages 1 and 3 can run in parallel; 3 starts after S23 reports.
 
 ## Conflicts
+
+Offline edits merge by the rules in doc 49 section 4, implemented per doc 56.
 1. **Git engine pending.** S23 has not run. LibGit2Sharp's worktree, merge and thread-safety support is unverified (`github_community_presence.md` s4; `vault_constellation_tech.md` s2). If S23 fails, the CLI becomes the implementation, and bundling `git` (GPL-2.0) needs counsel (unverified).
 2. **Windows search is weaker.** Postgres `ts_rank` is below BM25 in ranking quality (unverified against primary docs), and pgvector on Windows needs a manual MSVC build (`data_layer_windows.md` s2). The Windows hybrid path carries more risk than Linux.
 3. **Commit email.** The GitHub App bot email format is unverified. Test it on the throwaway repo from Server spike 2.

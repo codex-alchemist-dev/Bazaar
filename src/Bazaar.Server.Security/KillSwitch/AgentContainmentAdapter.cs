@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 using Bazaar.Approvals;
@@ -10,7 +11,7 @@ namespace Bazaar.Server.Security.KillSwitch;
 
 /// <summary>
 /// Host-side containment for an agent stop (doc 15; kill switch). On contain it revokes the agent's tokens and leases, then
-/// pauses its VMs. On release it undoes that in reverse order: VMs first, then tokens.
+/// pauses its VMs; a failed revoke does not skip the pause. On release it undoes that in reverse order: VMs first, then tokens.
 /// </summary>
 /// <remarks>
 /// Release is owner-only and signed. The caller first gets a single-use nonce from <see cref="IssueReleaseChallengeAsync"/>,
@@ -43,6 +44,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     private readonly INonceStore _nonces;
     private readonly IContainmentStateStore _store;
     private readonly TimeProvider _time;
+    private readonly ContainmentReleaseGuard _guard;
     private readonly ConcurrentDictionary<string, byte> _contained = new(StringComparer.Ordinal);
     private readonly SerialLane _lane = new();
     private readonly Lock _gate = new();
@@ -75,6 +77,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     /// <param name="nonces">Holds the single-use release nonces.</param>
     /// <param name="store">Durable contained-agent set. Every contain and release is written here first.</param>
     /// <param name="timeProvider">Clock for audit and containment instants. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <param name="releaseGuard">Shared with the re-containment sweep so it skips an agent mid-release. Defaults to a private guard.</param>
     public AgentContainmentAdapter(
         IVmPauser pauser,
         IAgentTokenRevoker revoker,
@@ -82,7 +85,8 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         IAuditLog audit,
         INonceStore nonces,
         IContainmentStateStore store,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        ContainmentReleaseGuard? releaseGuard = null)
     {
         _pauser = pauser ?? throw new ArgumentNullException(nameof(pauser));
         _revoker = revoker ?? throw new ArgumentNullException(nameof(revoker));
@@ -91,6 +95,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         _nonces = nonces ?? throw new ArgumentNullException(nameof(nonces));
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _time = timeProvider ?? TimeProvider.System;
+        _guard = releaseGuard ?? new ContainmentReleaseGuard();
         _loadTask = LoadStateAsync(CancellationToken.None);
     }
 
@@ -99,6 +104,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(actorId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         // Store and mark first: a contain that fails half way still needs a release afterwards. A failed store write
@@ -109,8 +115,31 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             _contained[agentId] = 0;
         }, ct).ConfigureAwait(false);
 
-        await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
-        await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
+        // Both steps always run: a lease store that fails must not leave the agent's VMs running, and the other way round.
+        // The first failure is the one reported, so the caller still sees the contain as failed and can retry it.
+        Exception? revokeFailure = null;
+        try
+        {
+            await _revoker.RevokeAsync(agentId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            revokeFailure = ex;
+        }
+
+        try
+        {
+            await _pauser.PauseAsync(agentId, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException && revokeFailure is not null)
+        {
+            throw new AggregateException("The agent's tokens could not be revoked and its VMs could not be paused.", revokeFailure, ex);
+        }
+
+        if (revokeFailure is not null)
+        {
+            ExceptionDispatchInfo.Capture(revokeFailure).Throw();
+        }
     }
 
     /// <inheritdoc />
@@ -118,6 +147,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceId);
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
         var key = ApprovalSignature.IsValidDeviceId(deviceId) ? await _owners.FindAsync(deviceId, ct).ConfigureAwait(false) : null;
@@ -142,10 +172,11 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         ArgumentException.ThrowIfNullOrWhiteSpace(agentId);
         ArgumentNullException.ThrowIfNull(request);
         var claimed = request.DeviceId ?? string.Empty;
+        agentId = AgentIds.Canonical(agentId);
         await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-        // The agent id in the request is what was signed, so it must be the agent being released.
-        if (!string.Equals(request.AgentId, agentId, StringComparison.Ordinal))
+        // The agent id in the request is what was signed, so it must be the agent being released (the same agent, in any spelling).
+        if (!AgentIds.Same(request.AgentId, agentId))
         {
             return await DenyAsync(claimed, agentId, "Request is for a different agent.", ct).ConfigureAwait(false);
         }
@@ -161,7 +192,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             return await DenyAsync(claimed, agentId, "Request is malformed.", ct).ConfigureAwait(false);
         }
 
-        var message = ApprovalSignature.ReleaseMessage(agentId, claimed, request.Nonce, request.ExpiresAt);
+        var message = ApprovalSignature.ReleaseMessage(request.AgentId, claimed, request.Nonce, request.ExpiresAt);
         if (!ApprovalSignature.Verify(key.PublicKeySpki, message, request.Signature))
         {
             // Not consumed: a request nobody holding the key signed must not be able to burn the owner's nonce.
@@ -175,7 +206,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             return await DenyAsync(claimed, agentId, "Nonce was not issued or was already used.", ct).ConfigureAwait(false);
         }
 
-        if (!string.Equals(pending.AgentId, agentId, StringComparison.Ordinal) || !string.Equals(pending.DeviceId, claimed, StringComparison.Ordinal))
+        if (!AgentIds.Same(pending.AgentId, agentId) || !string.Equals(pending.DeviceId, claimed, StringComparison.Ordinal))
         {
             return await DenyAsync(claimed, agentId, "Nonce was issued for a different agent or device.", ct).ConfigureAwait(false);
         }
@@ -184,6 +215,9 @@ public sealed class AgentContainmentAdapter : IAgentContainment
         {
             return await DenyAsync(claimed, agentId, "Nonce has expired or the signed expiry does not match.", ct).ConfigureAwait(false);
         }
+
+        // Held from the first resume to the store removal, so the re-containment sweep never pauses VMs this release has resumed.
+        using var releaseLease = await _guard.AcquireAsync(agentId, ct).ConfigureAwait(false);
 
         var actor = key.OwnerId;
         if (!_contained.ContainsKey(agentId))
@@ -237,7 +271,7 @@ public sealed class AgentContainmentAdapter : IAgentContainment
             _contained.Clear();
             foreach (var agent in agents)
             {
-                _contained[agent.AgentId] = 0;
+                _contained[AgentIds.Canonical(agent.AgentId)] = 0;
             }
             _loaded = true;
         }

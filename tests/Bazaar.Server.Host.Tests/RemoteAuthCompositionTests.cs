@@ -27,6 +27,11 @@ public sealed class RemoteAuthCompositionTests
         public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
+    private sealed class NullAuditLog : Bazaar.Server.Security.Audit.IAuditLog
+    {
+        public Task AppendAsync(Bazaar.Server.Security.Audit.AuditEntry e, CancellationToken ct = default) => Task.CompletedTask;
+    }
+
     private static IConfiguration Config(bool devSeed = false)
     {
         var values = new Dictionary<string, string?> { [RemoteAuthCompositionExtensions.DevIssuerEnabledKey] = devSeed ? "true" : "false" };
@@ -43,6 +48,22 @@ public sealed class RemoteAuthCompositionTests
         if (withDatabase) services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none;Username=none"));
         services.AddBazaarRemoteAuth(Config());
         return services.BuildServiceProvider();
+    }
+
+    [Fact]
+    public void The_identity_ports_of_the_web_admin_and_the_tui_resolve_over_the_remote_store()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IHostEnvironment>(new FakeEnvironment("Development"));
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton(NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=none;Username=none"));
+        services.AddSingleton<Bazaar.Server.Security.Audit.IAuditLog, NullAuditLog>();
+        services.AddBazaarRemoteAuth(Config());
+        using var provider = services.BuildServiceProvider();
+
+        Assert.IsType<RemoteAdminUserDirectory>(provider.GetRequiredService<Bazaar.Server.WebAdmin.IAdminUserDirectory>());
+        Assert.IsType<RemoteAdminDeviceDirectory>(provider.GetRequiredService<Bazaar.Server.WebAdmin.IAdminDeviceDirectory>());
+        Assert.IsType<RemoteOpsDeviceRevoker>(provider.GetRequiredService<Bazaar.Client.Tui.Dashboard.IOpsDeviceRevoker>());
     }
 
     [Fact]

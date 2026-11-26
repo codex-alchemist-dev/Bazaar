@@ -69,6 +69,22 @@ jobs:
             echo "Neither apt-get nor dnf found on this runner; install flatpak and flatpak-builder by hand." >&2
             exit 1
           fi
+      # flatpak-builder strips binaries with eu-strip, which the elfutils package provides.
+      - name: Install flatpak, flatpak-builder and elfutils
+        run: |
+          set -euo pipefail
+          if command -v flatpak >/dev/null 2>&1 && command -v flatpak-builder >/dev/null 2>&1 && command -v eu-strip >/dev/null 2>&1; then
+            echo "flatpak, flatpak-builder and eu-strip already installed"
+          elif command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y --no-install-recommends flatpak flatpak-builder elfutils
+          elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y flatpak flatpak-builder elfutils
+          else
+            echo "Neither apt-get nor dnf found on this runner; install flatpak, flatpak-builder and elfutils by hand." >&2
+            exit 1
+          fi
+          command -v eu-strip
           flatpak --version
           flatpak-builder --version
 
@@ -76,6 +92,7 @@ jobs:
         run: |
           set -euo pipefail
           manifest_branch="$(sed -n "s/^runtime-version:[[:space:]]*'\{0,1\}\([^'[:space:]#]*\)'\{0,1\}.*/\1/p" packaging/linux-flatpak/TheBazaarAuthors.BazaarClient.yml | head -n1)"
+          manifest_branch="$(sed -n "s/^runtime-version:[[:space:]]*'\{0,1\}\([^'[:space:]#]*\)'\{0,1\}.*/\1/p" packaging/linux-flatpak/io.github.codex_alchemist_dev.BazaarClient.yml | head -n1)"
           if [ "$manifest_branch" != "$FREEDESKTOP_BRANCH" ]; then
             echo "Manifest runtime-version '$manifest_branch' differs from the workflow pin '$FREEDESKTOP_BRANCH'. Update both together." >&2
             exit 1
@@ -95,6 +112,7 @@ jobs:
           set -euo pipefail
           cd "$RUNNER_TEMP/flatpak-out"
           sha256sum --check TheBazaarAuthors.BazaarClient.flatpak.sha256
+          sha256sum --check io.github.codex_alchemist_dev.BazaarClient.flatpak.sha256
 
       - name: Upload the bundle and checksum
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -103,5 +121,7 @@ jobs:
           path: |
             ${{ runner.temp }}/flatpak-out/TheBazaarAuthors.BazaarClient.flatpak
             ${{ runner.temp }}/flatpak-out/TheBazaarAuthors.BazaarClient.flatpak.sha256
+            ${{ runner.temp }}/flatpak-out/io.github.codex_alchemist_dev.BazaarClient.flatpak
+            ${{ runner.temp }}/flatpak-out/io.github.codex_alchemist_dev.BazaarClient.flatpak.sha256
           if-no-files-found: error
           retention-days: 14

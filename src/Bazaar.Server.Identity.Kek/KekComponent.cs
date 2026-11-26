@@ -1,6 +1,10 @@
 using Bazaar.Core;
+using Bazaar.Server.Identity.Kek.Tpm;
+using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 
 namespace Bazaar.Server.Identity.Kek;
@@ -25,6 +29,9 @@ public sealed class KekComponent : IBazaarComponent
     public const string KekProviderKey = "Bazaar:Identity:KekProvider";
 
     /// <summary>The configuration key holding the data root.</summary>
+    /// <summary>The configuration key holding the PCR list that binds a <c>tpm</c> KEK (default <c>7</c>).</summary>
+    public const string TpmPcrsKey = "Bazaar:Identity:TpmPcrs";
+
     public const string DataRootKey = "Bazaar:Host:DataRoot";
 
     /// <summary>The configuration key holding the boot root (doc 63 section 2): the plain folder that holds the KEK file.</summary>
@@ -63,17 +70,28 @@ public sealed class KekComponent : IBazaarComponent
 
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
-        services.AddSingleton<IKekProvider>(_ =>
+        services.AddSingleton<IKekProvider>(sp =>
         {
             // With a boot root the install follows doc 63: the key lives outside the encrypted data root and the host only
             // opens it. Without one the install predates doc 63 and keeps the old location until it is migrated.
+            var kind = KekProviderFactory.NormaliseKind(configuration[KekProviderKey]);
+            var plugged = sp.GetServices<IKekProviderKind>().FirstOrDefault(k => string.Equals(k.Kind, kind, StringComparison.Ordinal));
             var bootRoot = configuration[BootRootKey];
             if (!string.IsNullOrWhiteSpace(bootRoot))
-                return KekProviderFactory.Create(configuration[KekProviderKey], bootRoot, KekOpenMode.OpenExisting);
+                return plugged is not null
+                    ? plugged.Create(key => configuration[key], bootRoot)
+                    : KekProviderFactory.Create(kind, bootRoot, KekOpenMode.OpenExisting);
 
             var dataRoot = configuration[DataRootKey]
+                ?? throw new InvalidOperationException($"{DataRootKey} is required to open the KEK.");
+            return KekProviderFactory.Create(
+                configuration[KekProviderKey],
+                dataRoot,
+                new TpmKekOptions(Pcrs: configuration[TpmPcrsKey] ?? "7"));
                 ?? throw new InvalidOperationException($"{BootRootKey} or {DataRootKey} is required to open the KEK.");
-            return KekProviderFactory.Create(configuration[KekProviderKey], dataRoot);
+            return plugged is not null
+                ? plugged.Create(key => configuration[key], dataRoot)
+                : KekProviderFactory.Create(kind, dataRoot);
         });
         // The secret store (doc 14 ISecretStore) takes the same host KEK through its key-id-aware contract: one custody path.
         services.AddSingleton<Bazaar.Secrets.IKekProvider>(sp => new SecretsKekAdapter(sp.GetRequiredService<IKekProvider>()));
@@ -83,5 +101,11 @@ public sealed class KekComponent : IBazaarComponent
             sp.GetRequiredService<IKekProvider>(),
             sp.GetRequiredService<ISoulDekStore>(),
             sp.GetService<IKekAuditSink>()));
+
+        // With a host audit log present, one custody entry is written at start (doc 14). Without one the recorder does nothing.
+        services.AddHostedService(sp => new KekCustodyRecorder(
+            sp.GetService<IAuditLog>() is { } log ? new AuditLogKekSink(log) : null,
+            configuration[KekProviderKey],
+            sp.GetService<ILogger<KekCustodyRecorder>>() ?? NullLogger<KekCustodyRecorder>.Instance));
     }
 }

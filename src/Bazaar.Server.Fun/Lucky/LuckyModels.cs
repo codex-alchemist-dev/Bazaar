@@ -1,6 +1,10 @@
 using System.Collections.Immutable;
 
+<<<<<<<< HEAD:src/Bazaar.Server.Fun/Lucky/LuckyModels.cs
 namespace Bazaar.Server.Fun.Lucky;
+========
+namespace Bazaar.Lucky;
+>>>>>>>> origin/main:src/Bazaar.Lucky.Abstractions/LuckyModels.cs
 
 /// <summary>An agent the controller may invite.</summary>
 /// <param name="AgentId">The agent.</param>

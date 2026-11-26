@@ -40,6 +40,7 @@ public sealed class RoadmapPaneModule : IPaneModule, IClientModule
 
     public void Register(PaneRegistry registry, PaneModuleContext context)
     {
+        PaneCommandBindings.Open(context, OpenCommandId, PaneKinds.Roadmap);
         registry.Register(PaneKinds.Roadmap, descriptor => new RoadmapPaneViewModel(descriptor));
         var head = context.Get<ViewContext>();
         registry.RegisterView<RoadmapPaneViewModel>(pane => head is null ? RyuseiFudaPaneViews.Roadmap(pane) : RyuseiViewPanes.Roadmap(pane, head));

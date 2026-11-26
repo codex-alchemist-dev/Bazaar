@@ -23,6 +23,7 @@ public enum PoolImageRequirementKind
 /// <param name="Kind">What it is.</param>
 /// <param name="Path">Where it must be, as configured.</param>
 /// <param name="SlotsMustExecute">True when slot uids must be able to execute (programs) or traverse (directories) it.</param>
+public sealed record PoolImageRequirement(string Id, PoolImageRequirementKind Kind, string Path, bool SlotsMustExecute);
 /// <param name="ToolName">For <see cref="PoolImageRequirementKind.ToolHash"/>, the tool's name in the manifest; otherwise null.</param>
 public sealed record PoolImageRequirement(string Id, PoolImageRequirementKind Kind, string Path, bool SlotsMustExecute, string? ToolName = null);
 
@@ -42,6 +43,7 @@ public sealed class PoolImageRequirements
     public const string SystemdRunProgram = "systemd-run";
 
     /// <summary>Derives the list. Options are assumed valid (the pool and the host validate them at startup).</summary>
+    public static PoolImageRequirements From(BrowserPoolOptions pool, LinuxPoolHostOptions host)
     public static PoolImageRequirements From(BrowserPoolOptions pool, LinuxPoolHostOptions host) => From(pool, host, null);
 
     /// <summary>

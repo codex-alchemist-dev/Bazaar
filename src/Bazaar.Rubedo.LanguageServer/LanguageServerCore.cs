@@ -12,6 +12,7 @@ namespace Bazaar.Rubedo.LanguageServer;
 /// send back (responses and published diagnostics). Holds the text the client sent and nothing else: it never reads files,
 /// opens no network connection and executes nothing from a view document. Not thread safe; one connection drives one instance.
 /// </summary>
+public sealed class LanguageServerCore(RubedoSchema? schema = null)
 public sealed class LanguageServerCore(RubedoSchema? schema = null, IViewTokenCatalog? tokens = null)
 {
     public const string RubedoLanguageId = "rubedo";
@@ -280,6 +281,7 @@ public sealed class LanguageServerCore(RubedoSchema? schema = null, IViewTokenCa
 
     private void Publish(string uri, Document document, List<string> output)
     {
+        IReadOnlyList<AnalysisDiagnostic> found = document.IsView ? RubedoAnalyzer.DiagnoseView(document.Text) : RubedoAnalyzer.Diagnose(document.Text, _schema);
         IReadOnlyList<AnalysisDiagnostic> found = document.IsView ? RubedoAnalyzer.DiagnoseView(document.Text, tokens) : RubedoAnalyzer.Diagnose(document.Text, _schema);
         var diagnostics = found
             .Select(d => new LspDiagnostic(TextPositions.ToRange(document.Text, d.Start, d.End), 1, d.Code, "rubedo", d.Message))
@@ -313,6 +315,7 @@ public sealed class LanguageServerCore(RubedoSchema? schema = null, IViewTokenCa
 
     private JsonNode? Complete(Document document, int offset)
     {
+        CompletionList list = document.IsView ? RubedoAnalyzer.CompleteView(document.Text, offset) : RubedoAnalyzer.Complete(document.Text, offset, _schema);
         CompletionList list = document.IsView ? RubedoAnalyzer.CompleteView(document.Text, offset, tokens) : RubedoAnalyzer.Complete(document.Text, offset, _schema);
         LspRange replace = TextPositions.ToRange(document.Text, list.ReplaceStart, list.ReplaceEnd);
         var items = list.Items

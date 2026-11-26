@@ -5,31 +5,52 @@ using Avalonia.Markup.Xaml;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Panes;
 using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Calendar;
+using Avalonia.Threading;
+using Bazaar.Accessibility;
+using Bazaar.Client.Abstractions.Panes;
+using Bazaar.Client.Abstractions.Server;
+using Bazaar.Client.Android.Annotation;
 using Bazaar.Client.Android.Approvals;
+using Bazaar.Client.Android.Wire;
+using Bazaar.Client.BackStack;
+using Bazaar.Client.BackStack.Abstractions;
 using Bazaar.Client.Approvals;
 using Bazaar.Client.Approvals.Phone;
 using Bazaar.Client.TalentPool;
 using Bazaar.Client.Calendar;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Constellation;
 using Bazaar.Client.Constellation.Abstractions;
 using Bazaar.Client.Core.Panes;
+using Bazaar.Client.Analytics;
 using Bazaar.Client.Dashboard;
 using Bazaar.Client.Engines;
 using Bazaar.Client.Gc;
+using Bazaar.Client.PhoneCoach;
 using Bazaar.Client.GitSolarSystem.Abstractions;
 using Bazaar.Client.GitSolarSystem.Http;
 using Bazaar.Client.GitSolarSystem.Panes;
 using Bazaar.Client.Interrupts;
 using Bazaar.Client.Mobile;
 using Bazaar.Client.Modules;
+using Bazaar.Client.Org;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Shell;
+using Bazaar.Client.Motion;
+using Bazaar.Client.Motion.Avalonia;
+using Bazaar.Client.Panes.Abstractions;
+using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.Settings;
 using Bazaar.Client.Navigation;
 using Bazaar.Client.Navigation.Abstractions;
 using Bazaar.Client.Preferences;
 using Bazaar.Client.Preferences.Abstractions;
 using Bazaar.Client.Org;
-using Bazaar.Client.Panes.Abstractions;
-using Bazaar.Client.RyuseiFuda;
+using Bazaar.Client.RyuseiFuda.Phone;
 using Bazaar.Client.Shell;
+using Bazaar.Contracts.Panes;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
@@ -48,16 +69,25 @@ public sealed class App : Avalonia.Application
         // Provisional, pending spike S13: MainActivity declares configChanges, so rotation, fold and resize are handled in place and the view is not rebuilt (doc 29).
         // The Constellation pane fetches its tiles from the server over HTTP (POST /constellation/tiles).
         ClientServer.ConnectToCompanyServer();
+        StartVisualSettings();
+        _wire = AndroidWire.Start(
+            ClientServer.Current,
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "bazaar"),
+            "bazaar-android");
         var host = new ContentControl
         {
             Content = CreatePhoneShell(HttpConstellationTileSource.Create(ClientServer.Current)),
         };
+        Annotation = new AndroidAnnotation(host, ClientServer.Current);
 
         // Direction from the locale and the screen-reader live region wrap the main view (doc 41c; Android has no window).
         ShellHost.Install(host, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
         // Mnemonics serve a hardware keyboard (a foldable or a docked phone). They start once the view has a top level to listen on.
         host.AttachedToVisualTree += (_, _) => _ = InstallMnemonicsAsync(host);
+
+        // Direction from the locale and the screen-reader live region wrap the main view (doc 41c; Android has no window).
+        ShellHost.Install(host, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 
         if (ApplicationLifetime is IActivityApplicationLifetime activity)
         {
@@ -71,7 +101,30 @@ public sealed class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    /// <summary>The OS reduced-motion flag; the activity refreshes it on resume, where Android offers no simple change event.</summary>
+    public static PolledOsReducedMotionSource? ReducedMotion { get; private set; }
+
+    private VisualSettingsBinder? _visual;
+    private ClientSettingsStore? _clientSettings;
+
+    // The person's materials and motion level from the client settings file, the animator scale ("Remove animations") as the OS
+    // flag, and the frame-budget monitor (doc 93). The phone shell has no window chrome and no theme switch yet, so no chrome binds.
+    private void StartVisualSettings()
+    {
+        var context = global::Android.App.Application.Context;
+        string directory = context.FilesDir?.AbsolutePath ?? Path.GetTempPath();
+        // The coach's seen flag lives in the same file, so it survives restarts with the visual settings (doc 93).
+        var settings = new ClientSettingsStore([.. VisualSettings.Definitions, .. CoachController.Definitions], Path.Combine(directory, "client-settings.json"), Console.Error.WriteLine);
+        _clientSettings = settings;
+        var materials = new AndroidMaterialEnvironmentSource(context);
+        ReducedMotion = AndroidReducedMotion.Create(context);
+        _visual?.Dispose();
+        _visual = VisualSettingsBinder.Start(settings, materials.Settings, new MotionSettings(MotionPlatform.Phone), ReducedMotion, null, action => Dispatcher.UIThread.Post(action));
+    }
+
     private MnemonicShell? _mnemonics;
+    private readonly CommandRouter _router = new();
+    private readonly LatePaneNavigator _navigator = new();
 
     private async Task InstallMnemonicsAsync(ContentControl host)
     {
@@ -85,8 +138,14 @@ public sealed class App : Avalonia.Application
             var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", MnemonicHeadSetup.OverridesFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             _mnemonics = await MnemonicHeadSetup.InstallAsync(top, host, _moduleCommands, path, Console.Error.WriteLine);
-            // What a chosen command does belongs to the pane that owns it; until a pane claims one, the head only records it.
-            _mnemonics.CommandInvoked += (_, id) => Console.Error.WriteLine($"Bazaar: mnemonic command {id}");
+            // What a chosen command does belongs to the pane module that registered a handler for it.
+            _mnemonics.CommandInvoked += (_, id) =>
+            {
+                if (!_router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
@@ -99,6 +158,25 @@ public sealed class App : Avalonia.Application
 
     // The shell follows the fold posture from the running activity. The bindings stay alive for the session.
     private readonly List<IDisposable> _postureBindings = [];
+
+    // The one socket to the company server. Kanban (and later approvals) send their wire requests through it.
+    private AndroidWire? _wire;
+
+    /// <summary>
+    /// The project whose board the Kanban pane shows, or null while none is chosen (the pane then says so and sends nothing).
+    /// How the phone learns the project is not decided yet (doc 29 and doc 12 name no project listing), so a build sets it.
+    /// </summary>
+    public static Guid? KanbanProjectId { get; set; }
+
+    /// <summary>
+    /// Screenshot annotation over the HTTP blob channel (doc 29, work package 11). The radial menu is not in the head yet, so its
+    /// Annotate sector will call <see cref="AndroidAnnotation.ShowAsync"/> once it is.
+    /// </summary>
+    public AndroidAnnotation? Annotation { get; private set; }
+
+    // Push (doc 29, Background delivery) is not wired. PushProviderSelector and BareWakeHandler exist in Bazaar.Client.Push, but the
+    // pieces they need do not: no IPushProvider for FCM or UnifiedPush, no IWakeFetcher and no ILocalNotifier. Once those exist, build
+    // `new PushProviderSelector(providers).Select(settings.PushProvider)` and pass wakes to `new BareWakeHandler(fetcher, notifier).HandleAsync(rawKind, ct)`.
 
     private PhoneShell CreatePhoneShell(IConstellationTileSource tiles)
     {
@@ -117,6 +195,7 @@ public sealed class App : Avalonia.Application
             .. InterruptPanes.Modules,
             new EnginePaneModule(),
             .. GitSolarSystemPanes.Modules,
+            new AgentAnalyticsPaneModule(),
         ];
         // The four view actions (doc 41c section 6) go to the navigator, the command runner and the preference store. The surface is bound
         // once the phone shell exists. Preferences stay on this device until a wire sync is attached.
@@ -135,6 +214,8 @@ public sealed class App : Avalonia.Application
         var (grantGate, grants) = AndroidApprovals.CreateToolGrants(ClientServer.Current, () => MainActivity.Current, deviceId, ownerHumanId);
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
+            .With<ICommandRouter>(_router)
+            .With<IPaneNavigator>(_navigator)
             .With<IConstellationTileSource>(tiles)
             .With<IPendingApprovalSource>(approvals)
             .With<IPendingToolGrantSource>(grants)
@@ -149,11 +230,26 @@ public sealed class App : Avalonia.Application
         var shipped = loaded.Only(modules);
         var registry = FirstPartyPanes.CreateRegistry(shipped, features: features);
         var settings = new AndroidSettings();
+        // The Kanban pane is the live board over the wire (doc 29 work package 9), not the static placeholder body.
+        var board = new WireKanbanBoardClient(_wire!.Client);
         var shell = new PhoneShell(
             registry,
-            FirstPartyPanes.PhonePaneBodies(kind => RyuseiFudaPanes.PhoneBody(kind, registry), kind => GcPaneModule.PhoneBody(kind, registry), kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
+            FirstPartyPanes.PhonePaneBodies(
+                kind => kind == PaneKinds.Kanban ? KanbanPhoneBody.Create(board, KanbanProjectId) : null,
+                kind => RyuseiFudaPanes.PhoneBody(kind, registry),
+                kind => GcPaneModule.PhoneBody(kind, registry),
+                kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
             settings.RadialSectors);
+        _navigator.Bind(shell.ShowPane);
+            settings.RadialSectors,
+            // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
+            // push as their screens land, and back then runs the predictive transition (doc 93).
+            history: new ScreenHistory(new ScreenEntry("chat")),
+            backSource: MainActivity.Current?.BackGestures);
+            backSource: MainActivity.Current?.BackGestures,
+            settings: _clientSettings);
+        shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
         paneSurface.Bind(
             registry.Contains,
             (kind, _) => Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>

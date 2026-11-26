@@ -30,6 +30,8 @@ public class FirstRunScreensTests
 
         var panel = Assert.IsType<StackPanel>(Assert.IsType<ScrollViewer>(control).Content);
         Assert.Equal(2, panel.Children.Count);
+        // The walkthrough card, the composer and profile hosts, the sign-in screen and the create-company screen.
+        Assert.Equal(5, panel.Children.Count);
     }
 
     [AvaloniaFact]

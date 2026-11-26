@@ -67,6 +67,17 @@ public class PhoneShellTests
         Assert.Equal(-1, shell.SelectedPage);
     }
 
+    [AvaloniaFact]
+    public void Showing_a_pane_selects_the_page_that_holds_it()
+    {
+        var shell = new PhoneShell(Registry("a", "b", "c"));
+
+        Assert.True(shell.ShowPane("c"));
+        Assert.Equal(2, shell.SelectedPage);
+        Assert.False(shell.ShowPane("missing"));
+        Assert.Equal(2, shell.SelectedPage);
+    }
+
     private static PaneRegistry Registry(params string[] kinds)
     {
         var registry = new PaneRegistry(TestPaneViews.Instance);

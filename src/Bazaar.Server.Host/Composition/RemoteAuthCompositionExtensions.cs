@@ -35,6 +35,8 @@ public static class RemoteAuthCompositionExtensions
 
         services.AddBazaarPrivacyAudit();
         services.AddBazaarRemoteTokens();
+        // Identity read ports and the device revoker for the web admin and the server TUI (docs 51 and 58).
+        services.AddBazaarRemoteAdminPorts();
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(ReadSigningOptions(configuration));
         if (services.Any(d => d.ServiceType == typeof(NpgsqlDataSource)))

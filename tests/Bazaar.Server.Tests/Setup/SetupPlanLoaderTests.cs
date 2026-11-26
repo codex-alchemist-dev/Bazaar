@@ -231,6 +231,7 @@ public sealed class SetupPlanLoaderTests
     {
         var result = SetupPlanLoader.Load(SetupFixtures.Valid
             .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true }", StringComparison.Ordinal)
+            .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true, \"backend\": \"imap_smtp\" }", StringComparison.Ordinal)
             .Replace("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }", StringComparison.Ordinal), RegistrySetupSettingCatalog.Known);
 
         Assert.NotNull(result.Plan);

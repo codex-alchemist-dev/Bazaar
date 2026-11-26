@@ -10,6 +10,8 @@ public sealed class MotionSettings
     private MotionLevel? _setting;
     private bool _osReducedMotion;
     private MotionTokens _tokens = MotionTokens.Default;
+    private MotionLevel? _budgetCap;
+    private MotionTokens _tokens = MotionTokens.Default;
     private InteractionPresets _presets = InteractionPresets.Default;
 
     public MotionSettings(MotionPlatform platform) => Platform = platform;
@@ -30,6 +32,16 @@ public sealed class MotionSettings
         set => Set(ref _osReducedMotion, value);
     }
 
+    /// <summary>
+    /// The most motion the frame-budget monitor allows while frames run over (doc 93: the client adapts, there is no graphics setting).
+    /// Null means no cap. It only ever lowers the level; it never raises a level the person or the OS already lowered.
+    /// </summary>
+    public MotionLevel? BudgetCap
+    {
+        get => _budgetCap;
+        set => Set(ref _budgetCap, value);
+    }
+
     /// <summary>Durations and limits; the safety floors are applied on assignment.</summary>
     public MotionTokens Tokens
     {
@@ -37,6 +49,8 @@ public sealed class MotionSettings
         set => Set(ref _tokens, value.Clamped());
     }
 
+    /// <summary>The level views use now.</summary>
+    public MotionLevel Effective => MotionLevelResolver.Resolve(_setting, _osReducedMotion, Platform);
     /// <summary>The micro-interaction presets in force (doc 93: <c>motion.interaction.*</c>); a motion document may replace or turn off rows.</summary>
     public InteractionPresets Presets
     {
@@ -45,7 +59,15 @@ public sealed class MotionSettings
     }
 
     /// <summary>The level views use now.</summary>
-    public MotionLevel Effective => MotionLevelResolver.Resolve(_setting, _osReducedMotion, Platform);
+    public MotionLevel Effective
+    {
+        get
+        {
+            MotionLevel resolved = MotionLevelResolver.Resolve(_setting, _osReducedMotion, Platform);
+            // The enum runs from most motion (Liquid) to least (Reduced), so the cap lowers the level by taking the larger value.
+            return _budgetCap is { } cap && cap > resolved ? cap : resolved;
+        }
+    }
 
     /// <summary>Raised after the effective inputs change.</summary>
     public event EventHandler? Changed;

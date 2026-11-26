@@ -139,6 +139,7 @@ public sealed class FakeSettingAudit : ISetupSettingAudit
 
 /// <summary>
 /// A three-key settings catalog: the keys the fixture plans use. Values are checked by type and range only, and a status bind
+/// A four-key settings catalog: the keys the fixture plans use. Values are checked by type and range only, and a status bind
 /// other than <c>loopback</c> is held, like the real registry.
 /// </summary>
 public sealed class FakeSettingCatalog : ISetupSettingCatalog
@@ -148,6 +149,7 @@ public sealed class FakeSettingCatalog : ISetupSettingCatalog
         ["host.status.bind"] = new Definition("host.status.bind", typeof(string), CheckBind, held: value => value.GetString() != "loopback"),
         ["host.status.port"] = new Definition("host.status.port", typeof(int), value => CheckRange(value, 0, 65535)),
         ["host.shutdown_timeout_seconds"] = new Definition("host.shutdown_timeout_seconds", typeof(int), value => CheckRange(value, 5, 120)),
+        ["backup.target"] = new Definition("backup.target", typeof(string), CheckBind, held: value => value.GetString()?.StartsWith("file:", StringComparison.Ordinal) != true),
     };
 
     public IReadOnlyCollection<ISetupSettingDefinition> Definitions => _byName.Values;

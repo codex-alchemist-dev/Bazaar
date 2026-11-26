@@ -104,6 +104,10 @@ public sealed class HttpCommunityGitHubApi(HttpClient http, ICommunityGitHubToke
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+        catch (Exception ex) when (ex is not (OperationCanceledException or CommunityPostException))
+        {
+            // A CommunityPostException from the token source already says whether the failure is final (for example, no installation
+            // is configured for the repository) and passes through unchanged; anything else may succeed later.
             throw new CommunityPostException("Could not obtain a GitHub installation token.", retryable: true, ex);
         }
 

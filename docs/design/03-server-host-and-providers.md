@@ -26,7 +26,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 ## Design
 **Composition root [PROPOSED].** Only `Bazaar.Server.Host` builds the host. It calls `AddBazaarServer(options)` from `Bazaar.Server`, then registers each provider module whose `Supports(os)` returns true. Modules are an explicit list, not assembly scanning, which keeps Native AOT open.
 
-**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` and `.Linux` hold the OS-bound modules; the Windows assembly never loads on Linux.
+**Project split.** `Bazaar.Contracts` holds the wire contracts shared with clients (CLAUDE.md). `Bazaar.Server` is platform-neutral: provider interfaces, services, Npgsql repositories, Postgres full-text search. No `Microsoft.Win32`, `System.Management` or `[SupportedOSPlatform]`; CA1416 is an error here. `Bazaar.Server.Providers.Windows` holds the OS-bound Windows modules and never loads on Linux. The Linux modules are still in `src/Bazaar.Server/Providers/Linux/`; the approved name `Bazaar.Server.Providers.Linux` is not created yet.
 
 **Provider kinds [PROPOSED].** A role is just the interface a family of provider modules implements; the table lists the first-party modules.
 
@@ -57,7 +57,7 @@ Bazaar.Server.Host is the one executable that runs the company server, as a Work
 
 **Background jobs [PROPOSED].** A `BackgroundService` claims due `job` rows with `FOR UPDATE SKIP LOCKED`, sets a lease and runs the handler. Job leases stay as the inline columns below. Doc 06's `agent_lease` is for agent work claims and is not reused here. Jobs do not touch turn leases, which are doc 06's.
 
-**Settings registry [PROPOSED].** Round 13 makes each open value an operator setting. Every setting is a typed key registered in code with a default, a scope (install, project or agent; this doc's keys are all install scope), a "who may change" role and an approval tier. Values are stored in Postgres (a `setting` table; name and shape PROPOSED, migration owned by doc 04). Each change writes an entry to doc 15's `audit_log`. The setup wizard and advanced settings (docs 27, 32) surface the registry. Settings may tighten a floor, never loosen it: the floors are that the service account is never Administrator, that the status listener is never bound beyond loopback without approval, and that Postgres is always a readiness role. Validation rejects a value that breaks a floor, and a change that needs approval is held until the owner approves it (Tier 2, doc 15).
+**Settings registry [PROPOSED].** Round 13 makes each open value an operator setting. Every setting is a typed key registered in code with a default, a scope (install, project or agent; this doc's keys are all install scope), a "who may change" role and an approval tier. Values are stored in Postgres (a `setting` table; name and shape PROPOSED, migration owned by doc 04). Each change writes an entry to doc 15's `audit_log`. The setup wizard and advanced settings (docs 27, 32) surface the registry. Settings may tighten a floor, never loosen it: the floors are that the service account is never Administrator, that the status listener is never bound beyond loopback without approval, and that Postgres is always a readiness role. Validation rejects a value that breaks a floor, and a change that needs approval is held until the owner approves it (Tier 2, doc 15). Client side, the settings pane (`Bazaar.Client.Settings`, pane kind `bazaar.settings`, command `nav.settings`) lists the registry grouped by area and checks each edit against the key's own validator before it asks the server; the server still decides. It reads and writes through `ISettingsClient`, which has no wire implementation yet (wire message OPEN).
 
 ## Data and interfaces
 Sketches only. [PROPOSED] unless noted.
@@ -74,6 +74,10 @@ public interface ICacheProvider : IProvider {      // cache and presence only; n
     Task SetAsync(string key, ReadOnlyMemory<byte> value, TimeSpan ttl, CancellationToken ct);
     Task<ReadOnlyMemory<byte>?> GetAsync(string key, CancellationToken ct);
     Task DeleteAsync(string key, CancellationToken ct);   // PROPOSED (doc 40 section 4c.4): matches ValkeyCacheProvider; entries also expire by TTL
+}
+// PROPOSED (DECISIONS-LOG round 37): optional and separate from ICacheProvider; implemented by the Garnet and Valkey providers only.
+public interface ICacheCounter {                   // throws on failure (the caller must see an outage); atomic INCRBY + EXPIRE NX
+    Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct);
 }
 public interface ISearchProvider : IProvider {
     Task IndexAsync(SearchDocument doc, CancellationToken ct);
@@ -103,6 +107,10 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 
 | Key | Type | Default | Scope | Who may change | Change needs approval? |
 |---|---|---|---|---|---|
+| `host.provider.service_host` | `auto`, `windows_service`, `systemd` | `auto` | install | operator | no |
+| `host.provider.vm` | `auto`, `hyperv`, `qemu_kvm`, `none` | `auto` | install | operator | no |
+| `host.provider.cache` | `auto`, `garnet`, `valkey` | `auto` (Garnet on Windows, Valkey on Linux) | install | operator | no |
+| `host.provider.search` | `auto`, `postgres_fts`, `pg_search` | `auto` | install | operator | no |
 | `host.readiness.required_roles` | list of roles | `search`, `service_host` | install | operator | no |
 | `host.shutdown_timeout_seconds` | int, 5 to 120 | 20 | install | operator | no |
 | `host.service.restart_delays_minutes` | list of int | 1, 1, 5 | install | operator | no |
@@ -156,6 +164,7 @@ Registry rows for this doc (DECISIONS-LOG round 13). Keys are dotted and prefixe
 9. Linux module: systemd, journald, systemd-creds. [2, 3]
 10. Postgres FTS search (OS-neutral). [2, 04]
 11. Kill and stop rig; soak harness. [5, 6, 06]
+12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2] Status: PROPOSED (2026-11-18) for the Valkey part. Valkey becomes the `valkey` dependency module (doc 40 section 4c, doc 42 section 11.1): `Bazaar.Server.Valkey.Abstractions` and `Bazaar.Server.Valkey`. `ICacheProvider` moves to `Bazaar.Server.Providers.Abstractions` with the same namespace and gains `DeleteAsync` (PROPOSED). The `host.provider.cache` setting is unchanged.
 12. Cache provider: Valkey on Linux (`Bazaar.Server.Valkey`); Garnet on Windows (`Bazaar.Server.Garnet`, spike S2 passed). Garnet is its own module that supervises `Garnet.exe` on loopback with password auth and AOF persistence, and reuses `Bazaar.Server.Valkey.Abstractions` (RESP client, options, supervision types) behind `ICacheProvider`. Presence deltas carry sequence numbers because Garnet pub/sub ordering is not guaranteed. [2] Status: PROPOSED (2026-11-18) for the Valkey part. Valkey becomes the `valkey` dependency module (doc 40 section 4c, doc 42 section 11.1): `Bazaar.Server.Valkey.Abstractions` and `Bazaar.Server.Valkey`. `ICacheProvider` moves to `Bazaar.Server.Providers.Abstractions` with the same namespace and gains `DeleteAsync` (PROPOSED). There is no `host.provider.cache` setting: the cache modules are installed and configured like any other module.
 13. `Vm` provider registration against doc 16's contract; S8 sizing. [2, 16]. Unblocked by C03.
 14. `pg_search` provider. Blocked on counsel review.
@@ -175,6 +184,6 @@ ANSWERED: VM topology is two VMs per agent; S8 is for sizing only (DECISIONS-LOG
 ANSWERED: GC fan-out is Postgres NOTIFY; Valkey or Garnet serve cache and presence only (DECISIONS-LOG round 1, C07).
 
 1. **Windows KEK store.** Default: DPAPI-protected file. Alternative: Windows Credential Manager. This is key custody, so it stays a question. Blocked on doc 33 C1 (recovery on new hardware).
-2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI stays OPEN. This is product scope.
+2. **Admin CLI in v1.** Default: a small non-TUI `bazaar-admin` (status, providers, recovery check). The TUI is DECIDED as a separate client module (doc 58, owner 2026-11-19); `bazaar-admin` stays the plain, scriptable path.
 
 MOVED TO SETTINGS: host.readiness.required_roles, host.shutdown_timeout_seconds, host.service.restart_delays_minutes, host.service.failure_reset_hours, host.maintenance_window, host.db.startup_give_up_minutes, host.status.bind, host.status.port, host.service_account, host.log.retention_days, host.log.max_total_mb, host.health.disk_used_warn_percent, host.health.memory_growth_warn_percent (DECISIONS-LOG round 13)

@@ -59,4 +59,50 @@ public sealed record GitHubEvent
 
     /// <summary>pull_request closed: true when the PR was merged rather than closed.</summary>
     public bool Merged { get; init; }
+
+    /// <summary>The PR number (or the issue number of a PR comment). Needed to register the PR; null when the source did not carry it.</summary>
+    public int? Number { get; init; }
+
+    /// <summary>The PR title, when the event carries the pull request object.</summary>
+    public string? Title { get; init; }
+
+    /// <summary>The PR state from the payload: <c>open</c>, <c>closed</c> or <c>merged</c>. Null when the event does not carry it.</summary>
+    public string? PrState { get; init; }
+
+    public bool? Draft { get; init; }
+
+    public string? BaseRef { get; init; }
+
+    /// <summary>
+    /// The head branch name (PROPOSED, doc 21 PR lookup). On a pull request object: <c>head.ref</c>, only for a same-repository PR (null for a fork).
+    /// On <c>push</c>: the branch from <c>refs/heads/&lt;name&gt;</c> (null for tags and branch deletions). Used to match a push to its PR before the head SHA is stored.
+    /// </summary>
+    public string? HeadRef { get; init; }
+
+    /// <summary><c>owner/name</c> of the repository, used for the GC title only. Keys are node ids.</summary>
+    public string? RepoFullName { get; init; }
+
+    /// <summary>check_run or check_suite: the numbers of the PRs the payload lists in <c>pull_requests</c> (empty for forks and for other events). Used only to look the PR up.</summary>
+    public IReadOnlyList<int> PullRequestNumbers { get; init; } = [];
+
+    /// <summary>Logins assigned to or asked to review the PR, from the pull request object.</summary>
+    public IReadOnlyList<string> AssigneeLogins { get; init; } = [];
+
+    /// <summary>The issue number, for an <c>issues</c> or non-PR <c>issue_comment</c> event. Needed to register the issue GC (doc 21, issue GC).</summary>
+    public int? IssueNumber { get; init; }
+
+    /// <summary>The issue title, when the event carries the issue object.</summary>
+    public string? IssueTitle { get; init; }
+
+    /// <summary>The issue state from the payload, <c>open</c> or <c>closed</c>. Null when the event does not carry it.</summary>
+    public string? IssueState { get; init; }
+
+    /// <summary>The issue author login (<c>issue.user.login</c>), who is a member of the issue GC when it is an agent.</summary>
+    public string? IssueAuthorLogin { get; init; }
+
+    /// <summary>Logins assigned to the issue, from the issue object.</summary>
+    public IReadOnlyList<string> IssueAssigneeLogins { get; init; } = [];
+
+    /// <summary>issues assigned: the login that was just assigned (<c>assignee.login</c>).</summary>
+    public string? AssignedLogin { get; init; }
 }

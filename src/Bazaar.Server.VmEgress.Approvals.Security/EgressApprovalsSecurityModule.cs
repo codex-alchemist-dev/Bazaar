@@ -1,4 +1,5 @@
 using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Taint;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -6,7 +7,7 @@ namespace Bazaar.Server.VmEgress.Approvals.Security;
 
 /// <summary>
 /// Composition for the approvals-service adapters of the egress gate. The host registers <c>ApprovalService</c>, <c>IApprovalStore</c>
-/// and <see cref="IAgentSessionTaintLookup"/>; a missing one fails at call time and the gate denies.
+/// and <see cref="IAgentSessionTaintReader"/>; a missing one fails at call time and the gate denies.
 /// </summary>
 public static class EgressApprovalsSecurityModule
 {
@@ -24,7 +25,7 @@ public static class EgressApprovalsSecurityModule
             () => sp.GetRequiredService<IApprovalStore>(),
             sp.GetRequiredService<TimeProvider>())));
         services.Replace(ServiceDescriptor.Singleton<IEgressTaintReader>(sp =>
-            new AgentTaintReader(sp.GetService<IAgentSessionTaintLookup>())));
+            new AgentTaintReader(sp.GetService<IAgentSessionTaintReader>())));
         return services;
     }
 }

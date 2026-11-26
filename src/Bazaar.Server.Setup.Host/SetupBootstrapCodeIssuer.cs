@@ -23,6 +23,7 @@ public sealed partial class SetupBootstrapCodeIssuer(
     IBootstrapCodeStore codes,
     ISetupOwnerDirectory owners,
     IBootstrapCodeAnnouncer announcer,
+    ILogger<SetupBootstrapCodeIssuer> logger) : IHostedService
     ILogger<SetupBootstrapCodeIssuer> logger,
     SetupPlanStartOutcome? planStart = null) : IHostedService
 {

@@ -79,7 +79,7 @@ public class MnemonicHeadSetupHeadlessTests
                 new ClientCommandContribution("demo.open", "Open the demo", "opendemo"),
                 new ClientCommandContribution(NavigationDefaults.ConstellationCommandId, "Constellation", "constellation"),
             ],
-            TestContext.Current.CancellationToken);
+            ct: TestContext.Current.CancellationToken);
         var commands = new List<string>();
         host.Shell.CommandInvoked += (_, id) => commands.Add(id);
 

@@ -53,6 +53,11 @@ public sealed class PowerShellHyperVHostTests : IDisposable
     [Fact]
     public async Task Create_vm_passes_sizing_and_os_as_separate_arguments()
     {
+        await _host.CreateVmAsync(new HyperVVmDefinition(_vm, Environments.VmOs.Linux, 4, 8192, @"C:\vms\disk.vhdx"), Ct);
+
+        var call = Assert.Single(_runner.Calls);
+        Assert.Equal<string>(
+            ["-Operation", "CreateVm", "-Name", _vm, "-DiskPath", @"C:\vms\disk.vhdx", "-GuestOs", "Linux", "-Vcpu", "4", "-MemoryMb", "8192"],
         var disk = Path.Combine(_root, "vms", _vm, "disk.vhdx");
         await _host.CreateVmAsync(new HyperVVmDefinition(_vm, Environments.VmOs.Linux, 4, 8192, disk), Ct);
 
@@ -161,6 +166,8 @@ public sealed class PowerShellHyperVHostTests : IDisposable
     [Fact]
     public void The_script_validates_names_and_accepts_only_the_listed_operations()
     {
+        Assert.Contains("[ValidatePattern('^bazaar-[0-9a-f]{32}$')]", HyperVScript.Text, StringComparison.Ordinal);
+        Assert.Contains("[ValidatePattern('^bazaar-cp-[0-9a-f]{32}$')]", HyperVScript.Text, StringComparison.Ordinal);
         Assert.Contains("[ValidatePattern('(?-i)^bazaar-[0-9a-f]{32}\\z')]", HyperVScript.Text, StringComparison.Ordinal);
         Assert.Contains("[ValidatePattern('(?-i)^bazaar-cp-[0-9a-f]{32}\\z')]", HyperVScript.Text, StringComparison.Ordinal);
         foreach (var operation in HyperVScript.Operations)

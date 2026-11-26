@@ -17,6 +17,9 @@ public static class PoolImageScript
     /// <summary>The systemd-tmpfiles entry that recreates the pipe directory's parent at boot.</summary>
     public const string TmpfilesPath = "/etc/tmpfiles.d/bazaar-pool.conf";
 
+    /// <summary>Renders the script.</summary>
+    /// <exception cref="ArgumentException">A package name or a path is not acceptable.</exception>
+    public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host)
     /// <summary>Renders the script without a tool install step.</summary>
     /// <exception cref="ArgumentException">A package name or a path is not acceptable, or the options name a tool source directory.</exception>
     public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host) => Render(image, pool, host, null);
@@ -104,6 +107,9 @@ public static class PoolImageScript
             sb.Append("printf 'd %s 0700 root root -\\n' ").Append(parent).Append(" > ").Append(TmpfilesPath).Append('\n');
             sb.Append("chmod 0644 ").Append(TmpfilesPath).Append('\n');
         }
+
+        return sb.ToString();
+    }
 
         if (tools is not null)
         {

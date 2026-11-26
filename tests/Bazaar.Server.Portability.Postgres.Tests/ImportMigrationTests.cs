@@ -18,6 +18,7 @@ public class ImportMigrationTests
     public void Portability_namespace_holds_migration_0001_import_job()
     {
         Assert.Contains("portability", _source.Namespaces());
+        var file = Assert.Single(_source.Load("portability"));
         var file = Assert.Single(_source.Load("portability"), f => f.Version == 1);
 
         Assert.Equal("portability", file.Namespace);

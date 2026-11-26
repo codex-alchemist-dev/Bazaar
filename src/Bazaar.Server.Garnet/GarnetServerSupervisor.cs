@@ -201,6 +201,7 @@ public sealed partial class GarnetServerSupervisor : BackgroundService, IValkeyC
         {
             var port = _cache.ManagedPort == 0 ? FreeLoopbackPort() : _cache.ManagedPort;
             _connection.Prepare(port);
+            var spec = GarnetLaunchSpec.Build(_cache, port, _connection.PasswordForChild(), recover: _starts > 1);
             var spec = GarnetLaunchSpec.Build(_cache, port, _connection.PasswordForChild(), recover: _starts > 1 || HasRecoverableData());
             child = await _launcher.StartAsync(spec, stoppingToken);
             WritePidFile(child.ProcessId);

@@ -30,6 +30,7 @@ public class GarnetServerSupervisorTests
         await WaitUntilAsync(() => harness.Supervisor.State == ValkeyChildState.Running);
 
         var spec = Assert.Single(harness.Launcher.Launches);
+        Assert.Equal("Garnet.exe", spec.Executable);
         Assert.Equal("garnet-server.exe", spec.Executable);
         Assert.Equal(harness.Connection.PasswordForChild(), spec.Arguments[spec.Arguments.ToList().IndexOf("--password") + 1]);
         Assert.Contains("--bind", spec.Arguments);
@@ -194,6 +195,7 @@ public class GarnetServerSupervisorTests
         Assert.Equal(TimeSpan.FromSeconds(expectedSeconds), harness.Supervisor.BackoffFor(failures));
     }
 
+    private static GarnetCacheOptions Managed(int port) => new() { Managed = true, BinaryPath = "Garnet.exe", ManagedPort = port };
     private static GarnetCacheOptions Managed(int port) => new() { Managed = true, BinaryPath = "garnet-server.exe", ManagedPort = port };
 
     /// <summary>Polls real time until the condition holds. Used where the supervisor runs on its own task.</summary>
@@ -331,6 +333,8 @@ public class GarnetServerSupervisorTests
             public Task DeleteAsync(string key, CancellationToken ct) => throw new NotSupportedException();
 
             public Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct) => throw new NotSupportedException();
+
+            public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct) => throw new NotSupportedException();
 
             public Task<string?> GetConfigAsync(string parameter, CancellationToken ct) => throw new NotSupportedException();
 

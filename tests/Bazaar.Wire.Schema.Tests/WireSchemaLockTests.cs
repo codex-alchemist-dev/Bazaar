@@ -15,6 +15,11 @@ public class WireSchemaLockTests
     private static SchemaDoc Current() => MiniJson.ToDoc(WireSchemaArtifacts.SchemaJson) ?? throw new InvalidOperationException("The generated schema.json does not parse.");
 
     private static SchemaDoc? Locked() => MiniJson.ToDoc(WireFiles.Read(LockFile));
+    private const string _lockFile = "schema.lock.json";
+
+    private static SchemaDoc Current() => MiniJson.ToDoc(WireSchemaArtifacts.SchemaJson) ?? throw new InvalidOperationException("The generated schema.json does not parse.");
+
+    private static SchemaDoc? Locked() => MiniJson.ToDoc(WireFiles.Read(_lockFile));
 
     [Fact]
     public void Update_checked_in_artifacts_when_asked()
@@ -29,6 +34,7 @@ public class WireSchemaLockTests
         }
 
         WireFiles.Write(LockFile, Utf8(WireSchemaArtifacts.SchemaJson));
+        WireFiles.Write(_lockFile, Utf8(WireSchemaArtifacts.SchemaJson));
         WireFiles.Write("json-schema.json", Utf8(WireSchemaArtifacts.JsonSchema));
         WireFiles.Write("wire.cddl", Utf8(WireSchemaArtifacts.Cddl));
     }
@@ -38,6 +44,7 @@ public class WireSchemaLockTests
     {
         var locked = Locked();
         Assert.True(locked is not null, $"docs/wire/{LockFile} is missing or unreadable. Create it with: {WireFiles.UpdateCommand}");
+        Assert.True(locked is not null, $"docs/wire/{_lockFile} is missing or unreadable. Create it with: {WireFiles.UpdateCommand}");
 
         var breaking = SchemaDiff.Compare(locked, Current()).Where(c => c.Breaking).ToList();
 
@@ -53,6 +60,7 @@ public class WireSchemaLockTests
     {
         var stale = new List<string>();
         Check(LockFile, WireSchemaArtifacts.SchemaJson, stale);
+        Check(_lockFile, WireSchemaArtifacts.SchemaJson, stale);
         Check("json-schema.json", WireSchemaArtifacts.JsonSchema, stale);
         Check("wire.cddl", WireSchemaArtifacts.Cddl, stale);
 

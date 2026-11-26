@@ -24,6 +24,7 @@ internal sealed class FakeFileSystem : IPoolImageFileSystem
     {
         Calls++;
         Gate(path);
+        return Files.ContainsKey(path) || Texts.ContainsKey(path);
         return Files.ContainsKey(path) || Texts.ContainsKey(path) || Contents.ContainsKey(path);
     }
 

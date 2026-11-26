@@ -2,6 +2,8 @@ using Bazaar.Components.ManagedPostgres;
 using Bazaar.Components.ManagedPostgres.Secrets;
 using Bazaar.Server.Agents.LoopGuard;
 using Bazaar.Server.Agents.Recovery;
+using Bazaar.Server.Components.Backup;
+using Bazaar.Server.Components.Backup.Offsite;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Recovery;
 using Bazaar.Server.Host.Startup;
@@ -15,7 +17,9 @@ using Bazaar.Server.Providers.Windows.Postgres;
 using Bazaar.Server.PsychWard;
 using Bazaar.Server.Secrets;
 using Bazaar.Server.Security.Taint;
+using Bazaar.Server.Settings;
 using Bazaar.Server.Souls;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
@@ -33,6 +37,7 @@ public static class HostCompositionExtensions
         services.AddSingleton<IValidateOptions<BazaarStatusOptions>, BazaarStatusOptionsValidator>();
         services.AddOptions<BazaarReadinessOptions>().Bind(configuration.GetSection(BazaarReadinessOptions.SectionName));
         services.TryAddSingleton<HostState>();
+        services.TryAddSingleton<IAdminStatusSource, HostAdminStatusSource>();
         services.TryAddSingleton<HostExitCode>();
         // Managed PostgreSQL (packaging.md P5). External mode is the default and leaves the configured secret reference in charge.
         // Windows keeps the managed superuser password under DPAPI. The component's file store refuses to run there.
@@ -49,10 +54,22 @@ public static class HostCompositionExtensions
         services.TryAddSingleton(sp => sp.GetRequiredService<DatabaseConnection>().GetAsync(CancellationToken.None).AsTask().GetAwaiter().GetResult());
         services.TryAddSingleton<IInstanceLock, PostgresInstanceLock>();
         services.TryAddSingleton<ISchemaGate, MigrationSchemaGate>();
+        services.AddSetupVerificationSeams();
         services.AddSingleton<IReadinessCheck, DatabaseReadinessCheck>();
         services.AddSingleton<IReadinessCheck, InstanceLockReadinessCheck>();
         services.AddSingleton<IReadinessCheck, ProviderReadinessCheck>();
         services.AddHostedService<StartupSequence>();
+
+        // The doc 51 status port, and its file for the resident TUI (doc 58). An explicitly empty Bazaar:Ops:StatusFile turns the file off.
+        services.TryAddSingleton<IAdminStatusSource, HostAdminStatusSource>();
+        var statusFile = configuration["Bazaar:Ops:StatusFile"];
+        if (statusFile is not { Length: 0 })
+        {
+            var statusPath = AdminStatusFile.ResolvePath(statusFile, configuration["Bazaar:Ops:DataDirectory"]);
+            services.AddHostedService(sp => new AdminStatusFileService(
+                sp.GetRequiredService<IAdminStatusSource>(), statusPath, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<AdminStatusFileService>>()));
+        }
+
         return services;
     }
 
@@ -99,6 +116,27 @@ public static class HostCompositionExtensions
     /// </summary>
     public static IServiceCollection AddBazaarProviders(this IServiceCollection services)
     {
+        services.AddOptions<BazaarProviderOptions>().Bind(configuration.GetSection(BazaarProviderOptions.SectionName));
+        // Consumers of ICacheProvider get the deferred wrapper: misses and dropped writes until CacheSelectionStep resolves the cache.
+        services.TryAddSingleton<DeferredCacheProvider>();
+        services.AddSingleton<ICacheProvider>(sp => sp.GetRequiredService<DeferredCacheProvider>());
+        services.TryAddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<BazaarProviderOptions>>().Value;
+            IReadOnlyList<IServiceHostProvider> serviceHosts = [.. WindowsProviders.ServiceHostCandidates(), .. LinuxProviders.ServiceHostCandidates()];
+            // The cache is not probed here. CacheSelectionStep selects it after the instance lock and the managed child (doc 40 section 4c.4 item 8).
+            // Host options (and their validation) are read only when the VM role is enabled, so a host that disables it needs no data root.
+            IReadOnlyList<IVmProvider> vms = options.Vm.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
+                ? []
+                : WindowsProviders.VmCandidates(sp.GetRequiredService<IOptions<BazaarHostOptions>>().Value.DataRoot);
+            return new ProviderCapabilityReport(
+            [
+                ProviderSelector.Select(ProviderRole.ServiceHost, options.ServiceHost, serviceHosts),
+                ProviderSelector.Select(ProviderRole.Vm, options.Vm, vms, ProviderRequirements.AgentPairConcurrency),
+                CacheSelection(options.Cache),
+                ProviderSelector.Select(ProviderRole.Search, options.Search, Array.Empty<ISearchProvider>()),
+            ]);
+        });
         foreach (var serviceHost in WindowsProviders.ServiceHostCandidates().Concat(LinuxProviders.ServiceHostCandidates()))
         {
             services.AddSingleton<IServiceHostProvider>(serviceHost);
@@ -118,6 +156,26 @@ public static class HostCompositionExtensions
                 .Concat(sp.GetServices<ICacheProvider>())
                 .Concat(sp.GetServices<ISearchProvider>())
                 .Distinct()));
+        return services;
+    }
+
+    /// <summary>
+    /// The cache role at startup. <c>none</c> is decided at once. Any other request is pending until <see cref="CacheSelectionStep"/> runs,
+    /// so the cache, which is optional and non-critical (C07), never delays or fails the instance lock or the other roles.
+    /// </summary>
+    private static ProviderSelection CacheSelection(string requested) =>
+        requested.Equals(ProviderSelector.None, StringComparison.OrdinalIgnoreCase)
+            ? ProviderSelector.Select(ProviderRole.Cache, requested, Array.Empty<ICacheProvider>())
+            : ProviderSelection.Pending(ProviderRole.Cache, requested);
+
+    /// <summary>
+    /// Registers the deferred cache selection. Call after <see cref="AddBazaarComponents"/>: hosted services start in registration order, and
+    /// the Valkey supervisor is registered by a component. The step then runs after the instance lock (<c>StartupSequence</c>) and after the
+    /// supervisor has started the managed child.
+    /// </summary>
+    public static IServiceCollection AddBazaarCacheSelection(this IServiceCollection services)
+    {
+        services.AddHostedService<CacheSelectionStep>();
         return services;
     }
 
@@ -162,4 +220,48 @@ public static class HostCompositionExtensions
         services.AddBazaarLoopTripHandling();
         return services;
     }
+
+    /// <summary>
+    /// Feeds the backup component's offsite policy from the settings store and its credentials reference from the secret
+    /// resolver (doc 33, "Offsite composition [PROPOSED]"). Replaces the component's fail-closed defaults. Run after the components.
+    /// </summary>
+    public static IServiceCollection AddBazaarBackupOffsite(this IServiceCollection services)
+    {
+        // The offsite keys live in the backup module, so the settings registry learns them through a contribution (doc 33).
+        services.AddSingleton<ISettingContribution, BackupSettingContribution>();
+        services.Replace(ServiceDescriptor.Singleton<IBackupOffsiteOptions, SettingsBackupOffsiteOptions>());
+        services.Replace(ServiceDescriptor.Singleton<IOffsiteCredentialSource, ResolverOffsiteCredentialSource>());
+        return services;
+    }
+}
+
+/// <summary>The backup module's contribution to the settings registry, so the store knows the offsite keys.</summary>
+internal sealed class BackupSettingContribution : ISettingContribution
+{
+    public IReadOnlyList<SettingDefinition> Settings => BackupSettings.All;
+}
+
+/// <summary>Reads the offsite policy from the settings store on every call, so a changed setting applies to the next upload.</summary>
+internal sealed class SettingsBackupOffsiteOptions(ISettingStore settings) : IBackupOffsiteOptions
+{
+    // The shipped key object from the registry, so the store's registry check (same instance) accepts it.
+    private static readonly SettingKey<bool> _includeCookieProfiles =
+        (SettingKey<bool>)SecuritySettings.All.Single(d => d.Name == "security.backup.include_cookie_profiles");
+
+    public async Task<BackupOffsiteSettings> GetAsync(CancellationToken ct) => new(
+        await settings.GetAsync(BackupSettings.OffsiteTarget, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteResticPath, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteRepository, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(BackupSettings.OffsiteCredentialsRef, cancellationToken: ct).ConfigureAwait(false),
+        await settings.GetAsync(_includeCookieProfiles, cancellationToken: ct).ConfigureAwait(false));
+}
+
+/// <summary>
+/// Resolves the offsite credentials reference through <see cref="ISecretResolver"/> (bootstrap families only for now; the
+/// <c>secret://bazaar/</c> store scheme has no resolver yet, so such a reference fails the upload closed, doc 14).
+/// </summary>
+internal sealed class ResolverOffsiteCredentialSource(ISecretResolver resolver) : IOffsiteCredentialSource
+{
+    public async Task<string> ReadAsync(string reference, CancellationToken ct) =>
+        await resolver.ResolveAsync(reference, ct).ConfigureAwait(false);
 }
