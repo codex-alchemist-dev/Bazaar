@@ -25,7 +25,8 @@ public sealed class TurnRunAdapter(
     ITurnContextAssembler assembler,
     IReadOnlyList<ModelToolDefinition>? toolCatalogue = null,
     IAgentPostSink? posts = null,
-    IEnumerable<ITurnReplyTarget>? replyTargets = null) : ITurnRunner
+    IEnumerable<ITurnReplyTarget>? replyTargets = null,
+    TurnActivityReporter? activity = null) : ITurnRunner
 {
     private readonly IAgentPostSink? _posts = posts;
     private readonly List<ITurnReplyTarget> _replyTargets = replyTargets?.ToList() ?? [];
@@ -83,6 +84,8 @@ public sealed class TurnRunAdapter(
                 continue;
             try
             {
+                if (activity is not null)
+                    await activity.ReportAsync(request.AgentId, turnId, gcId.ToString("D"), Presence.Sources.Abstractions.TurnActivityKind.Drafting, ct: ct).ConfigureAwait(false);
                 await _posts.PostAsync(request.AgentId, turnId, gcId.ToString("D"), text, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is Posting.AgentPostRefusedException or Posting.AgentPostUnboundException)

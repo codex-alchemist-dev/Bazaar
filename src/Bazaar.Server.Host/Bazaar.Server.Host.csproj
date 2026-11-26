@@ -108,6 +108,7 @@
     <ProjectReference Include="..\Bazaar.Server.Presence.Postgres\Bazaar.Server.Presence.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Presence.Sources\Bazaar.Server.Presence.Sources.csproj" />
     <ProjectReference Include="..\Bazaar.RateLimits.Cache\Bazaar.RateLimits.Cache.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WorkLife.Scheduler\Bazaar.Server.WorkLife.Scheduler.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Valkey\Bazaar.Server.Valkey.csproj" />
     <ProjectReference Include="..\Bazaar.Community\Bazaar.Community.csproj" />
     <ProjectReference Include="..\Bazaar.Roles\Bazaar.Roles.csproj" />

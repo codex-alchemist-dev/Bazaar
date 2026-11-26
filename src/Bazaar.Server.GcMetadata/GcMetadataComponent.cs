@@ -41,6 +41,7 @@ public sealed class GcMetadataComponent : IBazaarComponent
         var options = ReadOptions(section);
         services.TryAddSingleton<IDmAccessOptionsSource>(new StaticDmAccessOptionsSource(options));
         services.TryAddSingleton<IDmAccessLedger>(sp => new PgDmAccessLedger(sp.GetRequiredService<NpgsqlDataSource>()));
+        services.TryAddSingleton<IGcHeaderSource>(sp => new PgGcHeaderSource(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IDmDirectory>(sp => new PgDmDirectory(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<IDmAccessEvents>(sp => new GcDmAccessEvents(sp.GetRequiredService<IGcLogWriter>()));
         services.TryAddSingleton(sp => new DmAccessService(
