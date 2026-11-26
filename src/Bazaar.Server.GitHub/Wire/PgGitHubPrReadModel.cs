@@ -1,11 +1,11 @@
 using System.Globalization;
 using System.Text;
 using Bazaar.Contracts.GitHub;
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Ingress;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Ingress;
 using Npgsql;
 
-namespace Bazaar.GitHub.Wire;
+namespace Bazaar.Server.GitHub.Wire;
 
 /// <summary>
 /// The PR read model over <c>github_pr</c> (doc 21, Client PR wire). The directory comes from the table the PR service fills; checks and

@@ -59,10 +59,6 @@ internal static class ViewCompleter
         ["tab"] = ["title"],
     };
 
-    public static CompletionList Complete(string json, int offset)
-    {
-        List<JsonToken> tokens = Scan(json);
-        int cursor = tokens.FindIndex(t => t.Kind == JsonKind.String && t.Start < offset && (t.Terminated ? offset < t.End : offset <= t.End));
     public static CompletionList Complete(string json, int offset, IViewTokenCatalog? tokens = null)
     {
         List<JsonToken> tokens_ = Scan(json);
@@ -72,7 +68,6 @@ internal static class ViewCompleter
             return new CompletionList(offset, offset, []);
         }
 
-        JsonToken current = tokens[cursor];
         JsonToken current = tokens_[cursor];
         int contentStart = current.Start + 1;
         int contentEnd = current.Terminated ? current.End - 1 : current.End;
@@ -81,7 +76,6 @@ internal static class ViewCompleter
         var stack = new List<Level>();
         List<Level>? snapshot = null;
         var actionIds = new List<string>();
-        for (int i = 0; i < tokens.Count; i++)
         for (int i = 0; i < tokens_.Count; i++)
         {
             if (i == cursor)
@@ -89,10 +83,6 @@ internal static class ViewCompleter
                 snapshot = stack.Select(l => l.Snapshot()).ToList();
             }
 
-            Apply(json, tokens[i], stack, i == cursor ? null : actionIds);
-        }
-
-        var (kind, candidates) = Candidates(snapshot ?? [], actionIds);
             Apply(json, tokens_[i], stack, i == cursor ? null : actionIds);
         }
 
@@ -104,7 +94,6 @@ internal static class ViewCompleter
         return new CompletionList(contentStart, contentEnd, items.ToArray());
     }
 
-    private static (CompletionKind Kind, IEnumerable<string> Items) Candidates(List<Level> stack, List<string> actionIds)
     private static (CompletionKind Kind, IEnumerable<string> Items) Candidates(List<Level> stack, List<string> actionIds, IViewTokenCatalog? tokens)
     {
         if (stack.Count == 0)

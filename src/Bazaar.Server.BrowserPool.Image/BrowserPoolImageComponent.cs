@@ -50,7 +50,6 @@ public sealed class BrowserPoolImageComponent : IBazaarComponent
         {
             BrowserPoolOptions pool = sp.GetRequiredService<IOptions<BrowserPoolOptions>>().Value;
             return new PoolImageReadinessCheck(
-                PoolImageRequirements.From(pool, host),
                 PoolImageRequirements.From(pool, host, image),
                 sp.GetRequiredService<IPoolImageFileSystem>(),
                 image,

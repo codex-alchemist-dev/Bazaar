@@ -13,8 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Npgsql" />
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <PackageReference Include="Npgsql" />    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Roles.Abstractions\Bazaar.Roles.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SignIn\Bazaar.Server.SignIn.csproj" />

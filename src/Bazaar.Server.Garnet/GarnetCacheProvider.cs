@@ -16,9 +16,6 @@ namespace Bazaar.Server.Garnet;
 /// Callers must not treat the cache as durable.
 /// </para>
 /// </summary>
-public sealed class GarnetCacheProvider : ICacheProvider, IAsyncDisposable
-{
-    /// <summary>The kind name <c>host.provider.cache</c> selects.</summary>
 public sealed class GarnetCacheProvider : ICacheProvider, ICacheCounter, IAsyncDisposable
 {
     /// <summary>The kind name this provider reports.</summary>

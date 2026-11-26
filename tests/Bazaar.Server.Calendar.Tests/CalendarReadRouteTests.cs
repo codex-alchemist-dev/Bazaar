@@ -27,7 +27,6 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync() => await StartAsync(options: null);
 
-    private async Task StartAsync(CalendarReadOptions? options)
     private async Task StartAsync(CalendarReadOptions? options, CalendarViewer? viewer = null)
     {
         var builder = WebApplication.CreateBuilder();
@@ -62,7 +61,6 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
 
     private static CalendarEventRecord Record(
         CalendarKind kind, DateTimeOffset starts, DateTimeOffset ends, bool allDay = false, string tz = "UTC",
-        CalendarStatus status = CalendarStatus.Confirmed, Guid? agent = null, Guid? project = null, bool availability = false) => new()
         CalendarStatus status = CalendarStatus.Confirmed, Guid? agent = null, Guid? project = null, bool availability = false,
         CalendarVisibility visibility = CalendarVisibility.Public) => new()
         {
@@ -340,8 +338,6 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
             return Task.FromResult(Rows);
         }
 
-        public ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default) =>
-            ValueTask.FromResult(Titles.GetValueOrDefault(record.Id));
         public ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default)
         {
             Opened.Add(record.Id);

@@ -8,9 +8,6 @@ namespace Bazaar.Rubedo.LanguageServer;
 public static class LanguageServerHost
 {
     /// <summary>Serves until the stream ends, <c>exit</c> arrives or a fatal framing error happens. Returns the process exit code.</summary>
-    public static async Task<int> RunAsync(Stream input, Stream output, RubedoSchema? schema = null, CancellationToken cancellationToken = default)
-    {
-        var core = new LanguageServerCore(schema);
     public static async Task<int> RunAsync(Stream input, Stream output, RubedoSchema? schema = null, IViewTokenCatalog? tokens = null, CancellationToken cancellationToken = default)
     {
         var core = new LanguageServerCore(schema, tokens);

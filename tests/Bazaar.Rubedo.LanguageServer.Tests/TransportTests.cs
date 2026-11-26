@@ -10,9 +10,6 @@ public sealed class TransportTests
 
     private static byte[] Concat(params byte[][] parts) => parts.SelectMany(p => p).ToArray();
 
-    private const string Init = """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}""";
-    private const string Shutdown = """{"jsonrpc":"2.0","id":2,"method":"shutdown"}""";
-    private const string Exit = """{"jsonrpc":"2.0","method":"exit"}""";
     private const string _init = """{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}""";
     private const string _shutdown = """{"jsonrpc":"2.0","id":2,"method":"shutdown"}""";
     private const string _exit = """{"jsonrpc":"2.0","method":"exit"}""";
@@ -77,7 +74,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Full_session_over_streams_exits_zero()
     {
-        byte[] input = Concat(Frame(Init), Frame(Shutdown), Frame(Exit));
         byte[] input = Concat(Frame(_init), Frame(_shutdown), Frame(_exit));
         (int code, List<JsonObject> replies) = await RunAsync(new MemoryStream(input));
         Assert.Equal(0, code);
@@ -89,9 +85,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Exit_without_shutdown_exits_one_and_eof_exits_one()
     {
-        (int code, _) = await RunAsync(new MemoryStream(Concat(Frame(Init), Frame(Exit))));
-        Assert.Equal(1, code);
-        (int eof, _) = await RunAsync(new MemoryStream(Frame(Init)));
         (int code, _) = await RunAsync(new MemoryStream(Concat(Frame(_init), Frame(_exit))));
         Assert.Equal(1, code);
         (int eof, _) = await RunAsync(new MemoryStream(Frame(_init)));
@@ -105,7 +98,6 @@ public sealed class TransportTests
     [InlineData(64)]
     public async Task Messages_split_across_reads_are_reassembled(int chunk)
     {
-        byte[] input = Concat(Frame(Init), Frame(Shutdown), Frame(Exit));
         byte[] input = Concat(Frame(_init), Frame(_shutdown), Frame(_exit));
         (int code, List<JsonObject> replies) = await RunAsync(new ChunkedStream(input, chunk));
         Assert.Equal(0, code);
@@ -115,7 +107,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Several_messages_in_one_read_are_all_handled()
     {
-        byte[] input = Concat(Frame(Init), Frame(Shutdown), Frame(Exit));
         byte[] input = Concat(Frame(_init), Frame(_shutdown), Frame(_exit));
         (int code, List<JsonObject> replies) = await RunAsync(new ChunkedStream(input, input.Length));
         Assert.Equal(0, code);
@@ -126,7 +117,6 @@ public sealed class TransportTests
     public async Task Multibyte_body_is_measured_in_bytes()
     {
         string open = """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"u","languageId":"rubedo","version":1,"text":"\"héllo 😀\""}}}""";
-        byte[] input = Concat(Frame(Init), Frame(open), Frame(Shutdown), Frame(Exit));
         byte[] input = Concat(Frame(_init), Frame(open), Frame(_shutdown), Frame(_exit));
         (int code, List<JsonObject> replies) = await RunAsync(new ChunkedStream(input, 5));
         Assert.Equal(0, code);
@@ -136,9 +126,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Extra_headers_and_lowercase_names_are_accepted()
     {
-        byte[] body = Encoding.UTF8.GetBytes(Init);
-        byte[] header = Encoding.ASCII.GetBytes($"content-type: application/vscode-jsonrpc; charset=utf-8\r\ncontent-length: {body.Length}\r\n\r\n");
-        (_, List<JsonObject> replies) = await RunAsync(new MemoryStream(Concat(header, body, Frame(Exit))));
         byte[] body = Encoding.UTF8.GetBytes(_init);
         byte[] header = Encoding.ASCII.GetBytes($"content-type: application/vscode-jsonrpc; charset=utf-8\r\ncontent-length: {body.Length}\r\n\r\n");
         (_, List<JsonObject> replies) = await RunAsync(new MemoryStream(Concat(header, body, Frame(_exit))));
@@ -150,7 +137,6 @@ public sealed class TransportTests
     {
         byte[] bad = Encoding.ASCII.GetBytes("Content-Type: x\r\n\r\n");
         byte[] notNumber = Encoding.ASCII.GetBytes("Content-Length: abc\r\n\r\n");
-        byte[] input = Concat(bad, notNumber, Frame(Init), Frame(Shutdown), Frame(Exit));
         byte[] input = Concat(bad, notNumber, Frame(_init), Frame(_shutdown), Frame(_exit));
         (int code, List<JsonObject> replies) = await RunAsync(new MemoryStream(input));
         Assert.Equal(0, code);
@@ -172,7 +158,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Truncated_body_ends_cleanly()
     {
-        byte[] whole = Frame(Init);
         byte[] whole = Frame(_init);
         (int code, List<JsonObject> replies) = await RunAsync(new MemoryStream(whole[..^5]));
         Assert.Equal(1, code);
@@ -182,7 +167,6 @@ public sealed class TransportTests
     [Fact]
     public async Task Invalid_json_body_replies_parse_error_and_continues()
     {
-        byte[] input = Concat(Frame("{oops"), Frame(Init), Frame(Exit));
         byte[] input = Concat(Frame("{oops"), Frame(_init), Frame(_exit));
         (_, List<JsonObject> replies) = await RunAsync(new MemoryStream(input));
         Assert.Equal(2, replies.Count);
@@ -213,7 +197,6 @@ public sealed class TransportTests
             """{"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":"u"},"contentChanges":[{"text":"x"}]}}""",
         ];
         using var data = new MemoryStream();
-        byte[] init = Frame(Init);
         byte[] init = Frame(_init);
         data.Write(init);
         for (int i = 0; i < 2000; i++)

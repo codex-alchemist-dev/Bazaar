@@ -46,7 +46,7 @@ public sealed class GitHubRegistrationTests
         Assert.Superset(
             new HashSet<string> { Bazaar.Contracts.Wire.WireTypes.PrList, Bazaar.Contracts.Wire.WireTypes.PrSummary, Bazaar.Contracts.Wire.WireTypes.PrHunks, Bazaar.Contracts.Wire.WireTypes.PrReview, Bazaar.Contracts.Wire.WireTypes.PrMerge },
             types);
-        Assert.IsType<Bazaar.GitHub.Wire.EmptyGitHubPrReadModel>(provider.GetRequiredService<Bazaar.GitHub.Wire.IGitHubPrReadModel>());
+        Assert.IsType<Bazaar.Server.GitHub.Wire.EmptyGitHubPrReadModel>(provider.GetRequiredService<Bazaar.Server.GitHub.Wire.IGitHubPrReadModel>());
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class GitHubRegistrationTests
     {
         using var provider = Build();
 
-        var service = Assert.Single(provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<Bazaar.GitHub.Processing.GitHubWebhookProcessingService>());
+        var service = Assert.Single(provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<Bazaar.Server.GitHub.Processing.GitHubWebhookProcessingService>());
         Assert.NotNull(service.DisabledReason);
     }
 
@@ -94,19 +94,19 @@ public sealed class GitHubRegistrationTests
         services.AddSingleton<IOwnerKeyRegistry, NoKeys>();
         services.AddSingleton<IOwnerNonceStore, InMemoryOwnerNonceStore>();
         services.AddSingleton<IOwnerSignatureVerifier, OwnerSignatureVerifier>();
-        services.AddSingleton<Bazaar.GitHub.Ingress.IGitHubEventSink, NoopSink>();
+        services.AddSingleton<Bazaar.Server.GitHub.Ingress.IGitHubEventSink, NoopSink>();
         using var dataSource = Npgsql.NpgsqlDataSource.Create("Host=localhost;Database=unused");
         services.AddSingleton(dataSource);
         services.AddBazaarGitHub(configuration);
         using var provider = services.BuildServiceProvider(validateScopes: true);
 
-        var service = Assert.Single(provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<Bazaar.GitHub.Processing.GitHubWebhookProcessingService>());
+        var service = Assert.Single(provider.GetServices<Microsoft.Extensions.Hosting.IHostedService>().OfType<Bazaar.Server.GitHub.Processing.GitHubWebhookProcessingService>());
         Assert.Null(service.DisabledReason);
     }
 
-    private sealed class NoopSink : Bazaar.GitHub.Ingress.IGitHubEventSink
+    private sealed class NoopSink : Bazaar.Server.GitHub.Ingress.IGitHubEventSink
     {
-        public Task DeliverAsync(Bazaar.GitHub.Ingress.GitHubEventDelivery delivery, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeliverAsync(Bazaar.Server.GitHub.Ingress.GitHubEventDelivery delivery, CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
     [Fact]

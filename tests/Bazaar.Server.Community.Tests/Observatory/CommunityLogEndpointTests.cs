@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
+using Bazaar.Contracts.Community;
 using Bazaar.Server.Community.Actions;
 using Bazaar.Server.Community.Observatory;
-using Bazaar.Contracts.Community;
 using Bazaar.Server.Http;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Http;

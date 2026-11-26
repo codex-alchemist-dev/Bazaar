@@ -1,6 +1,6 @@
 using Bazaar.Client.Tui.Dashboard;
-using Bazaar.Server.Wire.Connection;
 using Bazaar.Server.WebAdmin;
+using Bazaar.Server.Wire.Connection;
 
 namespace Bazaar.Server.Components.Remote;
 

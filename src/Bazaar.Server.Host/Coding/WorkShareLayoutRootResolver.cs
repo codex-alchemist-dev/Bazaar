@@ -1,5 +1,5 @@
-using Bazaar.GitHub.Workspace;
 using Bazaar.Server.CodingGit;
+using Bazaar.Server.GitHub.Workspace;
 
 namespace Bazaar.Server.Host.Coding;
 

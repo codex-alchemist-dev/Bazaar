@@ -34,7 +34,11 @@ public sealed record VaultEditRequest(
     string? TaskId);
 
 /// <summary>A new decision record. The writer assigns the number and the file path.</summary>
-public sealed record DecisionDraft(Guid DocId, string Slug, string Title, string Body, string AgentId);
+/// <param name="DocId">The document id.</param>
+/// <param name="Slug">The file slug.</param>
+/// <param name="Title">The title.</param>
+/// <param name="Body">The body.</param>
+/// <param name="AgentId">The authoring agent.</param>
 /// <param name="Supersedes">Decision references (<c>0001-slug</c>) this record replaces; written to the <c>supersedes</c> front matter list.</param>
 /// <param name="DecidedIn">The GC message reference that decided the record; written to the <c>decidedIn</c> front matter key.</param>
 public sealed record DecisionDraft(

@@ -10,7 +10,6 @@ namespace Bazaar.Server.Org;
 
 /// <summary>
 /// <c>POST /company/org</c> (doc 24 section 5, read routes): the Org pane model as JSON,
-/// <c>{ projects: [{id, name}], agents: [{id, name}], edges: [{id, kind, fromAgentId, toAgentId, projectId|null, startsAt, endsAt|null}] }</c>.
 /// <c>{ projects: [{id, name}], agents: [{id, name, role|null}], edges: [{id, kind, fromAgentId, toAgentId, projectId|null, startsAt, endsAt|null}] }</c>.
 /// The body is <c>{}</c> (an empty body counts as the same); any other JSON or a body that is not an object answers 400.
 /// </summary>
@@ -113,8 +112,6 @@ public static class OrgReadRoute
         using (var json = new Utf8JsonWriter(stream))
         {
             json.WriteStartObject();
-            WriteEntries(json, "projects", projects);
-            WriteEntries(json, "agents", agents);
             WriteEntries(json, "projects", projects, withRole: false);
             WriteEntries(json, "agents", agents, withRole: true);
 
@@ -155,7 +152,6 @@ public static class OrgReadRoute
         return System.Text.Encoding.UTF8.GetString(stream.GetBuffer(), 0, (int)stream.Length);
     }
 
-    private static void WriteEntries(Utf8JsonWriter json, string name, IReadOnlyList<OrgDirectoryEntry> entries)
     private static void WriteEntries(Utf8JsonWriter json, string name, IReadOnlyList<OrgDirectoryEntry> entries, bool withRole)
     {
         json.WriteStartArray(name);

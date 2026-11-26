@@ -1,11 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Bazaar.Rubedo.Semantics;
-
-namespace Bazaar.Rubedo.LanguageServer;
-
-/// <summary>Command line of the tool: <c>[--socket] [--schema &lt;file&gt;]</c> (doc 41d section 5).</summary>
-public sealed record ServerOptions(bool Socket, RubedoSchema? Schema)
 using Bazaar.Rubedo.Views;
 
 namespace Bazaar.Rubedo.LanguageServer;
@@ -60,7 +55,6 @@ public sealed record ServerOptions(bool Socket, RubedoSchema? Schema, IViewToken
             }
         }
 
-        options = new ServerOptions(socket, schema);
         options = new ServerOptions(socket, schema, tokens);
         return true;
     }

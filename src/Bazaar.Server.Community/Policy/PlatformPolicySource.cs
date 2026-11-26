@@ -1,6 +1,6 @@
-using Bazaar.Community.Drafts;
+using Bazaar.Server.Community.Drafts;
 
-namespace Bazaar.Community.Policy;
+namespace Bazaar.Server.Community.Policy;
 
 /// <summary>
 /// <see cref="ICommunityPolicySource"/> over <see cref="PlatformPolicyLoader"/> (doc 36 WP8). Reads the table on every call, so an

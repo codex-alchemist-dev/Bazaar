@@ -9,6 +9,5 @@
     <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Server.GeneticMemory.Abstractions\Bazaar.Server.GeneticMemory.Abstractions.csproj" />
-    <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
   </ItemGroup>
 </Project>

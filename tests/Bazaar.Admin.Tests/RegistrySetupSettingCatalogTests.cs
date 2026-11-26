@@ -20,8 +20,6 @@ public sealed class RegistrySetupSettingCatalogTests
     public void Every_registered_key_is_exposed_by_name()
     {
         var catalog = RegistrySetupSettingCatalog.Known;
-        var registry = BuiltInSettingRegistries.WithContributions([new ModuleManagerSettingContribution()]);
-
 
         var registry = BuiltInSettingRegistries.WithContributions(
             [new ModuleManagerSettingContribution(), new BackupPolicySettingContribution(), new MailPolicySettingContribution(), new ConduitSettingContribution(), new GatewaySettingContribution()]);

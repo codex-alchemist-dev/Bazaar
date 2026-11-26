@@ -1,4 +1,4 @@
-namespace Bazaar.GitHub.Webhooks;
+namespace Bazaar.Server.GitHub.Webhooks;
 
 /// <summary>Durable record of GitHub deliveries (the <c>github_delivery</c> table, doc 21). Webhooks and the poller share it.</summary>
 public interface IGitHubDeliveryStore

@@ -73,9 +73,6 @@ internal sealed class Rig
     public Rig() => SinkToUse = Sink;
 
     public ContainmentService Containment() =>
-        new(Port, store, Biometric, Audit, Settings, Clock);
-
-    private readonly InMemoryContainmentStore store = new();
         new(Port, _store, Biometric, Audit, Settings, Clock);
 
     private readonly InMemoryContainmentStore _store = new();

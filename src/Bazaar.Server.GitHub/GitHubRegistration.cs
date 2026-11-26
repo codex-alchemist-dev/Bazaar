@@ -1,12 +1,10 @@
 using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Server.GitHub.Auth;
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
-using Bazaar.GitHub.Ingress;
-using Bazaar.GitHub.Issues;
-using Bazaar.GitHub.Pr;
-using Bazaar.GitHub.Processing;
-using Bazaar.GitHub.Wire;
+using Bazaar.Server.GitHub.Ingress;
+using Bazaar.Server.GitHub.Issues;
+using Bazaar.Server.GitHub.Pr;
+using Bazaar.Server.GitHub.Processing;
+using Bazaar.Server.GitHub.Wire;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -85,7 +83,7 @@ public static class GitHubRegistration
                 : null;
             return new GitHubWebhookProcessingService(processor, options, sink, sp.GetRequiredService<ILogger<GitHubWebhookProcessingService>>(), sp.GetService<TimeProvider>());
         }));
-        services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.GitHub.Webhooks.GitHubWebhookOptions());
+        services.TryAddSingleton(section.GetSection("Webhook").Get<Bazaar.Server.GitHub.Webhooks.GitHubWebhookOptions>() ?? new Bazaar.Server.GitHub.Webhooks.GitHubWebhookOptions());
 
         var identityBase = section["IdentityService:BaseAddress"];
         if (string.IsNullOrWhiteSpace(identityBase))

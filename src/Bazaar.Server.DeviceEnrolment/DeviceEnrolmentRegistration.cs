@@ -6,9 +6,6 @@ namespace Bazaar.Server.DeviceEnrolment;
 public static class DeviceEnrolmentRegistration
 {
     /// <summary>
-    /// Registers the ceremony. The host supplies <see cref="IEnrolmentStore"/>, <see cref="IEnrolmentAudit"/>, one attestor per platform
-    /// and the owner-signature and biometric verifiers; the module registers none of them, so a missing piece fails at start, not
-    /// as a weaker check.
     /// Registers the ceremony. The host supplies <see cref="IEnrolmentStore"/>, <see cref="IEnrolmentAudit"/> and the owner-signature and
     /// biometric verifiers; the module registers none of them, so a missing piece fails at start, not as a weaker check. The two
     /// attestors default to <see cref="RefusingApprovalKeyAttestor"/> and <see cref="RefusingCredentialAttestor"/>, which refuse every

@@ -1,8 +1,8 @@
-using Bazaar.GitHub.Workspace;
+using Bazaar.Server.GitHub.Workspace;
 using Bazaar.Server.Vault.Git;
 using LibGit2Sharp;
 
-namespace Bazaar.GitHub.Tests.Workspace;
+namespace Bazaar.Server.GitHub.Tests.Workspace;
 
 public sealed class GitWorkspaceDiffTests : IDisposable
 {

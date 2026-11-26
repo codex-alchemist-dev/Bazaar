@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
-using Bazaar.GitHub.Workspace;
 using Bazaar.Server.CodingGit;
+using Bazaar.Server.GitHub.Workspace;
 using Bazaar.Server.Vault.Git;
 
 namespace Bazaar.Server.Host.Coding;

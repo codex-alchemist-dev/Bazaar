@@ -1,14 +1,14 @@
 using System.Text.Json;
 using Bazaar.Server.Gateway.Data;
-using Bazaar.Server.Gateway.Policy;
 using Bazaar.Server.Gateway.Pipeline;
+using Bazaar.Server.Gateway.Policy;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.Server.Gateway.SystemPolicy.Tests;
 
 public sealed class SystemAgentPolicySeederTests
 {
-    private const string Agent = EmbeddingsPolicySource.EmbeddingsAgentId;
+    private const string _agent = EmbeddingsPolicySource.EmbeddingsAgentId;
 
     [Fact]
     public async Task Creates_a_missing_row_for_a_model_id()
@@ -18,7 +18,7 @@ public sealed class SystemAgentPolicySeederTests
         var written = await h.Seeder.ReconcileAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, written);
-        var row = h.Store.Rows[Agent];
+        var row = h.Store.Rows[_agent];
         Assert.Equal(["openai:text-embedding-3-small"], row.Allowed);
         Assert.Equal("openai:text-embedding-3-small", row.DefaultRoute);
         Assert.Equal(SystemAgentPolicySeeder.ChangedBy, row.ChangedBy);
@@ -36,7 +36,7 @@ public sealed class SystemAgentPolicySeederTests
 
         await h.Seeder.ReconcileAsync(TestContext.Current.CancellationToken);
 
-        var row = h.Store.Rows[Agent];
+        var row = h.Store.Rows[_agent];
         Assert.Equal(["embed-main", "openai:text-embedding-3-small", "voyage:voyage-3"], row.Allowed);
         Assert.Equal("embed-main", row.DefaultRoute);
     }
@@ -51,7 +51,7 @@ public sealed class SystemAgentPolicySeederTests
         var written = await h.Seeder.ReconcileAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, written);
-        Assert.Equal(["openai:new-model"], h.Store.Rows[Agent].Allowed);
+        Assert.Equal(["openai:new-model"], h.Store.Rows[_agent].Allowed);
         Assert.Equal(2, h.Store.Saves);
     }
 
@@ -71,14 +71,14 @@ public sealed class SystemAgentPolicySeederTests
     public async Task Leaves_an_operator_edited_row_alone()
     {
         var h = new Harness("openai:new-model");
-        h.Store.Rows[Agent] = new AgentModelPolicyRow(Agent, ["openai:operator-pick"], "openai:operator-pick", 3, "operator:alice", DateTimeOffset.UnixEpoch);
+        h.Store.Rows[_agent] = new AgentModelPolicyRow(_agent, ["openai:operator-pick"], "openai:operator-pick", 3, "operator:alice", DateTimeOffset.UnixEpoch);
 
         var written = await h.Seeder.ReconcileAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(0, written);
         Assert.Equal(0, h.Store.Saves);
-        Assert.Equal(["openai:operator-pick"], h.Store.Rows[Agent].Allowed);
-        Assert.Equal("operator:alice", h.Store.Rows[Agent].ChangedBy);
+        Assert.Equal(["openai:operator-pick"], h.Store.Rows[_agent].Allowed);
+        Assert.Equal("operator:alice", h.Store.Rows[_agent].ChangedBy);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class SystemAgentPolicySeederTests
 
         await h.Seeder.StartAsync(TestContext.Current.CancellationToken);
 
-        Assert.True(h.Store.Rows.ContainsKey(Agent));
+        Assert.True(h.Store.Rows.ContainsKey(_agent));
     }
 
     private sealed class Harness

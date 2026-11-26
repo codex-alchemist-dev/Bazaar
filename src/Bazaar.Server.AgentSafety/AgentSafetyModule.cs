@@ -1,7 +1,7 @@
 using Bazaar.Approvals;
+using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.AgentSafety.Anomaly;
 using Bazaar.Server.AgentSafety.AutoContainment;
-using Bazaar.Server.Agents.Scheduling;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.AgentSafety.Persistence;
 using Bazaar.Server.AgentSafety.Startup;

@@ -1,4 +1,4 @@
-namespace Bazaar.GitHub.Webhooks;
+namespace Bazaar.Server.GitHub.Webhooks;
 
 /// <summary>
 /// Operator settings for webhook ingress (doc 21, Ingress). Bound from <c>Bazaar:GitHub:Webhook</c>. Doc 21 fixes the

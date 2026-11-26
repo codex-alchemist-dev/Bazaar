@@ -234,7 +234,6 @@ public sealed class SignInHostTests
     [Theory]
     [InlineData("/signin/register")]
     [InlineData("/signin/recover")]
-    public async Task Register_and_recover_are_not_implemented(string path)
     public async Task Bare_register_and_recover_are_not_implemented(string path)
     {
         await using var host = await StartAsync();

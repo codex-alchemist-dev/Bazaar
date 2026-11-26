@@ -74,7 +74,6 @@ public sealed class StubModelServer : IAsyncDisposable
             }
 
             holder[0]._requests.Enqueue(new StubRequest(http.Request.Headers.Authorization.ToString(), doc.RootElement.GetRawText(), lastUser));
-            var reply = ReplyPrefix + lastUser;
             var offeredTools = doc.RootElement.TryGetProperty("tools", out var tools) && tools.ValueKind == JsonValueKind.Array && tools.GetArrayLength() > 0;
             if (offeredTools && holder[0]._toolCalls.TryDequeue(out var call))
             {

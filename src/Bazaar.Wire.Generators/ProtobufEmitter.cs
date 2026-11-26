@@ -14,10 +14,6 @@ internal static class ProtobufEmitter
 {
     internal const string ProtoNamespace = "Bazaar.Wire.Codec.Protobuf.Proto";
 
-    private const string P = "global::" + ProtoNamespace;
-    private const string Rt = "global::Bazaar.Wire.Codec.Protobuf.ProtobufWireRuntime";
-    private const string Lim = "global::Bazaar.Wire.Codec.Protobuf.ProtobufLimits";
-    private const string Repeated = "global::Google.Protobuf.Collections.RepeatedField";
     private const string _p = "global::" + ProtoNamespace;
     private const string _rt = "global::Bazaar.Wire.Codec.Protobuf.ProtobufWireRuntime";
     private const string _lim = "global::Bazaar.Wire.Codec.Protobuf.ProtobufLimits";
@@ -456,13 +452,11 @@ internal static class ProtobufEmitter
         sb.AppendLine();
 
         sb.AppendLine("    /// <summary>Decodes one payload, enforcing the decode limits. The payload record is nesting level 2, below the envelope.</summary>");
-        sb.AppendLine($"    public static T Read<T>(global::System.ReadOnlyMemory<byte> data, {Lim} l)");
         sb.AppendLine($"    public static T Read<T>(global::System.ReadOnlyMemory<byte> data, {_lim} l)");
         sb.AppendLine("    {");
         foreach (var payload in payloads)
         {
             var fq = CborEmitter.Fq(payload.Type);
-            sb.AppendLine($"        if (typeof(T) == typeof({fq})) return (T)(object)From_{payload.Type.Name}({P}.{payload.Type.Name}.Parser.ParseFrom({Rt}.NewInput(data, l)), l, 2);");
             sb.AppendLine($"        if (typeof(T) == typeof({fq})) return (T)(object)From_{payload.Type.Name}({_p}.{payload.Type.Name}.Parser.ParseFrom({_rt}.NewInput(data, l)), l, 2);");
         }
 
@@ -503,8 +497,6 @@ internal static class ProtobufEmitter
             WireKind.Single or WireKind.Float32Array or WireKind.Float32Memory => "float",
             WireKind.Double => "double",
             WireKind.Guid => "global::Google.Protobuf.ByteString",
-            WireKind.DateTimeOffset => P + ".Instant",
-            _ => P + "." + type.Symbol.Name,
             WireKind.DateTimeOffset => _p + ".Instant",
             _ => _p + "." + type.Symbol.Name,
         };
@@ -512,9 +504,6 @@ internal static class ProtobufEmitter
         private static string ToProto(TypeRef type, string x) => type.Kind switch
         {
             WireKind.Byte => $"(uint){x}",
-            WireKind.Decimal => $"{Rt}.DecimalText({x})",
-            WireKind.Guid => $"{Rt}.GuidBytes({x})",
-            WireKind.DateTimeOffset => $"{Rt}.ToInstant({x})",
             WireKind.Decimal => $"{_rt}.DecimalText({x})",
             WireKind.Guid => $"{_rt}.GuidBytes({x})",
             WireKind.DateTimeOffset => $"{_rt}.ToInstant({x})",
@@ -525,11 +514,6 @@ internal static class ProtobufEmitter
 
         private static string FromProto(TypeRef type, string x, string depth, string key) => type.Kind switch
         {
-            WireKind.String => $"{Rt}.Text({x}, l)",
-            WireKind.Byte => $"{Rt}.Byte({x})",
-            WireKind.Decimal => $"{Rt}.Decimal({x}, l)",
-            WireKind.Guid => $"{Rt}.Guid({x})",
-            WireKind.DateTimeOffset => $"{Rt}.FromInstant({x})",
             WireKind.String => $"{_rt}.Text({x}, l)",
             WireKind.Byte => $"{_rt}.Byte({x})",
             WireKind.Decimal => $"{_rt}.Decimal({x}, l)",
@@ -543,16 +527,6 @@ internal static class ProtobufEmitter
         public static void Enum(StringBuilder sb, EnumInfo info)
         {
             var fq = CborEmitter.Fq(info.Symbol);
-            sb.AppendLine($"    private static {P}.{info.Name} ToProto_{info.Name}({fq} v) => v switch");
-            sb.AppendLine("    {");
-            foreach (var (field, _, value) in info.Members) sb.AppendLine($"        {fq}.{field} => ({P}.{info.Name}){value.ToString(CultureInfo.InvariantCulture)},");
-            sb.AppendLine("        _ => throw new global::System.ArgumentOutOfRangeException(nameof(v)),");
-            sb.AppendLine("    };");
-            sb.AppendLine($"    private static {fq} FromProto_{info.Name}({P}.{info.Name} p) => (int)p switch");
-            sb.AppendLine("    {");
-            foreach (var (field, _, value) in info.Members) sb.AppendLine($"        {value.ToString(CultureInfo.InvariantCulture)} => {fq}.{field},");
-            sb.AppendLine(info.Fallback is null
-                ? $"        var n => throw {Rt}.UnknownEnum(\"{info.Name}\", n),"
             sb.AppendLine($"    private static {_p}.{info.Name} ToProto_{info.Name}({fq} v) => v switch");
             sb.AppendLine("    {");
             foreach (var (field, _, value) in info.Members) sb.AppendLine($"        {fq}.{field} => ({_p}.{info.Name}){value.ToString(CultureInfo.InvariantCulture)},");
@@ -573,9 +547,6 @@ internal static class ProtobufEmitter
             var fq = CborEmitter.Fq(message.Symbol);
             var name = message.Name;
 
-            sb.AppendLine($"    private static {P}.{name} To_{name}({fq} v)");
-            sb.AppendLine("    {");
-            sb.AppendLine($"        var m = new {P}.{name}();");
             sb.AppendLine($"    private static {_p}.{name} To_{name}({fq} v)");
             sb.AppendLine("    {");
             sb.AppendLine($"        var m = new {_p}.{name}();");
@@ -583,9 +554,6 @@ internal static class ProtobufEmitter
             sb.AppendLine("        return m;");
             sb.AppendLine("    }");
 
-            sb.AppendLine($"    private static {fq} From_{name}({P}.{name} m, {Lim} l, int d)");
-            sb.AppendLine("    {");
-            sb.AppendLine($"        {Rt}.CheckDepth(d, l);");
             sb.AppendLine($"    private static {fq} From_{name}({_p}.{name} m, {_lim} l, int d)");
             sb.AppendLine("    {");
             sb.AppendLine($"        {_rt}.CheckDepth(d, l);");
@@ -608,7 +576,6 @@ internal static class ProtobufEmitter
             {
                 var id = ListId(t.NonNull);
                 if (!t.Nullable) return $"WL{id}({member}, {value});";
-                return $"if ({value} is {{ }} x{f.Local}) {{ var w{f.Local} = new {P}.{WrapperName(ProtoOf(t))}(); WL{id}(w{f.Local}.Items, x{f.Local}); {member} = w{f.Local}; }}";
                 return $"if ({value} is {{ }} x{f.Local}) {{ var w{f.Local} = new {_p}.{WrapperName(ProtoOf(t))}(); WL{id}(w{f.Local}.Items, x{f.Local}); {member} = w{f.Local}; }}";
             }
 
@@ -635,7 +602,6 @@ internal static class ProtobufEmitter
             {
                 return t.Nullable
                     ? $"{member} is {{ }} x{f.Local} ? ({display}){FromProto(t.NonNull, "x" + f.Local, "d + 1", key)} : default"
-                    : FromProto(t, $"{Rt}.Require({member}, \"{key}\")", "d + 1", key);
                     : FromProto(t, $"{_rt}.Require({member}, \"{key}\")", "d + 1", key);
             }
 
@@ -660,7 +626,6 @@ internal static class ProtobufEmitter
             var elementDisplay = element is null ? "float" : Fq(element);
 
             Lists.AppendLine($"    // {display}");
-            Lists.AppendLine($"    private static void WL{id}({Repeated}<{protoCs}> r, {display} v)");
             Lists.AppendLine($"    private static void WL{id}({_repeated}<{protoCs}> r, {display} v)");
             Lists.AppendLine("    {");
             switch (list.Kind)
@@ -681,9 +646,6 @@ internal static class ProtobufEmitter
 
             Lists.AppendLine("    }");
 
-            Lists.AppendLine($"    private static {display} RL{id}({Repeated}<{protoCs}> r, {Lim} l, int d)");
-            Lists.AppendLine("    {");
-            Lists.AppendLine($"        {Rt}.CheckList(r.Count, l, d);");
             Lists.AppendLine($"    private static {display} RL{id}({_repeated}<{protoCs}> r, {_lim} l, int d)");
             Lists.AppendLine("    {");
             Lists.AppendLine($"        {_rt}.CheckList(r.Count, l, d);");

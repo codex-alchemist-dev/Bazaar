@@ -21,7 +21,6 @@ public sealed class PlaygroundPaneModule : IPaneModule, IClientModule
     ];
 
     public ModuleManifest Manifest { get; } = FirstPartyManifest.Create(
-        typeof(PlaygroundPaneModule), PlaygroundViewModel.PaneKind, [PlaygroundViewModel.PaneKind], ["ui:pane"], Commands.Select(c => c.Id).ToArray());
         typeof(PlaygroundPaneModule), PlaygroundViewModel.PaneKind, [PlaygroundViewModel.PaneKind], ["ui:pane"], Commands.Select(c => c.Id).ToArray(), enabledByDefault: EnabledByDefault);
 
     public string Id => PlaygroundViewModel.PaneKind;

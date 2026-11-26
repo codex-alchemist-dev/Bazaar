@@ -203,10 +203,10 @@ public sealed class TalentToolGrantRoutesTests : IAsyncLifetime
         {
             try
             {
-            LastBody = System.Text.Json.JsonSerializer.Serialize(new Bazaar.Client.TalentPool.Http.ToolGrantDecisionDto(
-                    payload.Action, payload.ApprovalId, Convert.ToHexStringLower(payload.ArgsHash), payload.HumanId, payload.DeviceId,
-                    payload.IssuedAt.ToUnixTimeMilliseconds(), payload.ExpiresAt.ToUnixTimeMilliseconds(), Convert.ToHexStringLower(payload.Nonce), Convert.ToBase64String(signature)),
-                    ToolGrantJsonContext.Default.ToolGrantDecisionDto);
+                LastBody = System.Text.Json.JsonSerializer.Serialize(new Bazaar.Client.TalentPool.Http.ToolGrantDecisionDto(
+                        payload.Action, payload.ApprovalId, Convert.ToHexStringLower(payload.ArgsHash), payload.HumanId, payload.DeviceId,
+                        payload.IssuedAt.ToUnixTimeMilliseconds(), payload.ExpiresAt.ToUnixTimeMilliseconds(), Convert.ToHexStringLower(payload.Nonce), Convert.ToBase64String(signature)),
+                        ToolGrantJsonContext.Default.ToolGrantDecisionDto);
                 await inner.SendAsync(templateId, version, payload, signature, cancellationToken);
                 LastStatus = HttpStatusCode.NoContent;
             }
