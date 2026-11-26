@@ -3,15 +3,6 @@ using Bazaar.Server.Knowledge.Metrics;
 
 namespace Bazaar.Server.Health;
 
-/// <summary>A reverted merge, as the forge adapter reports it (doc 21).</summary>
-public sealed record RevertFact(string Sha, DateTimeOffset At);
-
-/// <summary>A card moved back out of Done (doc 12), from a Kanban or <c>gc_event</c> record.</summary>
-public sealed record ReopenFact(string CardId, DateTimeOffset At);
-
-/// <summary>A Council vote that was decided the other way on a re-vote (doc 10), from a <c>gc_event</c> record.</summary>
-public sealed record VoteReversalFact(string VoteId, DateTimeOffset At);
-
 /// <summary>
 /// Turns debt and morale inputs into metric samples (doc 25 WP1). Every method is pure: no storage, no clock. A source with nothing
 /// to say returns no sample (null or an empty list), because a missing input is a gap, never a zero.

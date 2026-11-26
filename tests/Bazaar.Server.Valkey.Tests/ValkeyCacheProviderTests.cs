@@ -220,6 +220,40 @@ public class ValkeyCacheProviderTests
         Assert.Single(FakeValkeyClientFactory.Requested);
     }
 
+    [Fact]
+    public async Task Increment_adds_to_the_prefixed_counter_and_returns_the_new_value()
+    {
+        var client = new FakeValkeyClient();
+        var provider = Create(new ValkeyCacheOptions { Endpoint = _endpoint, KeyPrefix = "test:" }, client: client);
+        var ct = TestContext.Current.CancellationToken;
+
+        Assert.Equal(1, await provider.IncrementAsync("c", 1, TimeSpan.FromMinutes(2), ct));
+        Assert.Equal(3, await provider.IncrementAsync("c", 2, TimeSpan.FromMinutes(9), ct));
+        Assert.Equal(2, await provider.IncrementAsync("c", -1, TimeSpan.FromMinutes(9), ct));
+
+        Assert.Equal(2, client.Counters["test:c"]);
+        Assert.Equal(TimeSpan.FromMinutes(2), client.CounterTtls["test:c"]);
+    }
+
+    [Fact]
+    public async Task Increment_throws_when_the_server_is_down_so_the_caller_can_fall_back()
+    {
+        var client = new FakeValkeyClient { OperationFailure = new IOException("connection reset") };
+        var provider = Create(new ValkeyCacheOptions { Endpoint = _endpoint }, client: client);
+
+        await Assert.ThrowsAsync<IOException>(() => provider.IncrementAsync("c", 1, TimeSpan.FromMinutes(1), TestContext.Current.CancellationToken));
+    }
+
+    [Fact]
+    public async Task The_provider_is_offered_as_a_cache_counter()
+    {
+        ICacheProvider provider = Create(new ValkeyCacheOptions { Endpoint = _endpoint }, client: new FakeValkeyClient());
+
+        Assert.IsAssignableFrom<ICacheCounter>(provider);
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => ((ICacheCounter)provider).IncrementAsync("c", 1, TimeSpan.Zero, TestContext.Current.CancellationToken));
+    }
+
     private static ValkeyCacheProvider Create(
         ValkeyCacheOptions options,
         ISecretResolver? resolver = null,
@@ -282,6 +316,18 @@ public class ValkeyCacheProviderTests
         {
             ThrowIfFailing();
             return Task.FromResult(new ValkeyMemoryInfo(0, 0));
+        }
+
+        public Dictionary<string, long> Counters { get; } = new(StringComparer.Ordinal);
+
+        public Dictionary<string, TimeSpan> CounterTtls { get; } = new(StringComparer.Ordinal);
+
+        public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct)
+        {
+            ThrowIfFailing();
+            Counters[key] = Counters.GetValueOrDefault(key) + by;
+            CounterTtls.TryAdd(key, ttl);
+            return Task.FromResult(Counters[key]);
         }
 
         public Task<string?> GetConfigAsync(string parameter, CancellationToken ct)

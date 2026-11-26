@@ -5,7 +5,7 @@ namespace Bazaar.Server.Godot.Tests;
 
 public class BuildCheckTests
 {
-    private const string Features = "config_version=5\n\n[application]\nconfig/features=PackedStringArray(\"4.7\", \"C#\")\n";
+    private const string _features = "config_version=5\n\n[application]\nconfig/features=PackedStringArray(\"4.7\", \"C#\")\n";
 
     [Theory]
     [InlineData("4.7.2.stable.official.0123abcde", 4, 7, 2, "stable", false, false)]
@@ -112,7 +112,7 @@ public class BuildCheckTests
     [Fact]
     public async Task Dotnet_project_detected_from_features_fails_a_gdscript_setting()
     {
-        using var project = new TempGodotProject(Features);
+        using var project = new TempGodotProject(_features);
         var runner = new FakeGodotRunner((_, _, _) => FakeGodotRunner.Ok("4.7.2.stable.official.abc\n"));
 
         GodotBuildCheckResult result = await new GodotAdapter(new GodotAdapterOptions(), runner).BuildCheckAsync(project.Root, cancellationToken: TestContext.Current.CancellationToken);
@@ -210,7 +210,7 @@ public class BuildCheckTests
     [Fact]
     public async Task Mono_export_templates_live_in_a_mono_folder()
     {
-        using var project = new TempGodotProject(Features);
+        using var project = new TempGodotProject(_features);
         project.WritePresets("Linux Release");
         using var templates = new TempGodotProject();
         Directory.CreateDirectory(Path.Combine(templates.Root, "4.7.2.stable.mono"));

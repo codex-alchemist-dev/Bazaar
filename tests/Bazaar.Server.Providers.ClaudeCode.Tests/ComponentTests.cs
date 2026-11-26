@@ -19,6 +19,7 @@ public sealed class ComponentTests
     {
         using var sp = Build([]);
         Assert.Empty(sp.GetServices<ModelAdapterRegistration>());
+        Assert.Empty(sp.GetServices<Bazaar.Server.Modules.Health.IModuleHealthContract>());
     }
 
     [Fact]
@@ -35,10 +36,13 @@ public sealed class ComponentTests
         {
             ["Bazaar:Gateway:ClaudeCode:Enabled"] = "true",
             ["Bazaar:Gateway:ClaudeCode:ConfigDir"] = "/tmp/x",
+            ["Bazaar:Gateway:ClaudeCode:LoginOwner"] = "user:owner",
+            ["Bazaar:Gateway:ClaudeCode:TermsAcknowledgedAt"] = "2026-11-22T00:00:00Z",
         });
         var reg = Assert.Single(sp.GetServices<ModelAdapterRegistration>());
         Assert.Equal("claude_code_cli", reg.WireName);
         Assert.NotNull(sp.GetRequiredService<IClaudeCodeLaneState>());
+        Assert.Equal(ClaudeCodeHealth.Id, Assert.Single(sp.GetServices<Bazaar.Server.Modules.Health.IModuleHealthContract>()).ModuleId);
     }
 
     [Fact]
