@@ -21,44 +21,27 @@ public static class ApprovalEndpoints
     private const int _maxPending = 100;
     private const string _ownerKind = "owner";
 
-    /// <summary>Maps both routes. Services are looked up per request, so a missing one answers 503.</summary>
-    public static IEndpointRouteBuilder MapBazaarApprovalRoutes(this IEndpointRouteBuilder routes)
+    /// <summary>
+    /// Maps both routes behind the host's own guard (<c>HttpSurfaceEndpoints.Guarded</c>: plaintext refusal, bearer check, rate
+    /// bucket), which runs the route with the signed-in principal. The module then lets only the owner through. Services are
+    /// looked up per request, so a missing one answers 503.
+    /// </summary>
+    public static IEndpointRouteBuilder MapBazaarApprovalRoutes(
+        this IEndpointRouteBuilder routes,
+        Func<HttpContext, Func<HttpContext, PrincipalRef, Task<IResult>>, Task<IResult>> guard)
     {
-        routes.MapGet(ApprovalRoutes.Pending, Route(PendingAsync));
-        routes.MapPost(ApprovalRoutes.DecisionTemplate, Route(DecideAsync));
+        ArgumentNullException.ThrowIfNull(guard);
+        routes.MapGet(ApprovalRoutes.Pending, Route(guard, PendingAsync));
+        routes.MapPost(ApprovalRoutes.DecisionTemplate, Route(guard, DecideAsync));
         return routes;
     }
 
     // A RequestDelegate keeps the routes free of reflection (the project is AOT compatible).
-    private static RequestDelegate Route(Func<HttpContext, Task<IResult>> run) =>
-        async http => await (await GuardedAsync(http, run).ConfigureAwait(false)).ExecuteAsync(http).ConfigureAwait(false);
-
-    private static async Task<IResult> GuardedAsync(HttpContext http, Func<HttpContext, Task<IResult>> run)
-    {
-        var authenticator = http.RequestServices.GetService<IConnectionAuthenticator>();
-        if (authenticator is null)
-        {
-            return Status(StatusCodes.Status503ServiceUnavailable);
-        }
-
-        var header = http.Request.Headers.Authorization.ToString();
-        var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
-        if (string.IsNullOrEmpty(token))
-        {
-            return Unauthorized(http);
-        }
-
-        var auth = await authenticator.AuthenticateAsync(new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), http.RequestAborted).ConfigureAwait(false);
-        var now = http.RequestServices.GetRequiredService<TimeProvider>().GetUtcNow();
-        if (!auth.Ok || auth.Principal is null || (auth.ExpiresAt is { } expiry && expiry <= now))
-        {
-            return Unauthorized(http);
-        }
-
-        return string.Equals(auth.Principal.Kind, _ownerKind, StringComparison.Ordinal)
-            ? await run(http).ConfigureAwait(false)
-            : Status(StatusCodes.Status403Forbidden);
-    }
+    private static RequestDelegate Route(
+        Func<HttpContext, Func<HttpContext, PrincipalRef, Task<IResult>>, Task<IResult>> guard,
+        Func<HttpContext, Task<IResult>> run) =>
+        async http => await (await guard(http, (h, principal) =>
+            string.Equals(principal.Kind, _ownerKind, StringComparison.Ordinal) ? run(h) : Task.FromResult(Status(StatusCodes.Status403Forbidden))).ConfigureAwait(false)).ExecuteAsync(http).ConfigureAwait(false);
 
     private static async Task<IResult> PendingAsync(HttpContext http)
     {
@@ -137,12 +120,6 @@ public static class ApprovalEndpoints
         {
             return null;
         }
-    }
-
-    private static IResult Unauthorized(HttpContext http)
-    {
-        http.Response.Headers.WWWAuthenticate = "Bearer";
-        return Status(StatusCodes.Status401Unauthorized);
     }
 
     private static IResult Status(int status) => Results.StatusCode(status);

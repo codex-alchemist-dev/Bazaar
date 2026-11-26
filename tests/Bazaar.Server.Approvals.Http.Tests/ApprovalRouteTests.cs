@@ -9,6 +9,7 @@ using Bazaar.Server.Security.Approvals;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -55,7 +56,7 @@ public sealed class ApprovalRouteTests : IAsyncLifetime
         builder.Services.AddSingleton<IPendingApprovalLister>(_store);
         builder.Services.AddSingleton(new ApprovalService(_store, keys, new InMemoryRateBucketStore(), new ApprovalOptions()));
         _app = builder.Build();
-        _app.MapBazaarApprovalRoutes();
+        _app.MapBazaarApprovalRoutes(GuardAsync);
         await _app.StartAsync(Ct);
         _client = _app.GetTestClient();
     }
@@ -64,6 +65,16 @@ public sealed class ApprovalRouteTests : IAsyncLifetime
     {
         _key.Dispose();
         await _app.DisposeAsync();
+    }
+
+    // Stands in for HttpSurfaceEndpoints.Guarded: bearer check through the authenticator, 401 otherwise.
+    private static async Task<IResult> GuardAsync(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    {
+        var header = http.Request.Headers.Authorization.ToString();
+        var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
+        var auth = await http.RequestServices.GetRequiredService<IConnectionAuthenticator>()
+            .AuthenticateAsync(token is null ? null : new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), http.RequestAborted);
+        return auth.Ok && auth.Principal is not null ? await run(http, auth.Principal) : Results.StatusCode(StatusCodes.Status401Unauthorized);
     }
 
     private async Task<ApprovalRequest> AddAsync(TimeSpan? expiresIn = null, DateTimeOffset? requestedAt = null)
