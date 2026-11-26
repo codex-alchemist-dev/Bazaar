@@ -28,3 +28,9 @@ internal sealed class NoWardPrincipalDirectory : IWardPrincipalDirectory
 
     public Task<Bazaar.Contracts.Gc.GcPrincipal?> GetAgentAsync(Guid agentId, CancellationToken cancellationToken) => Task.FromResult<Bazaar.Contracts.Gc.GcPrincipal?>(null);
 }
+
+/// <summary>The owner source used without a database: no owner is known, so no GC entry is written.</summary>
+internal sealed class NoWardOwnerSource : IWardOwnerSource
+{
+    public Task<Bazaar.Contracts.Gc.GcPrincipal?> GetOwnerAsync(CancellationToken cancellationToken) => Task.FromResult<Bazaar.Contracts.Gc.GcPrincipal?>(null);
+}
