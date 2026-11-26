@@ -232,6 +232,21 @@ if (args.Length > 0 && args[0] == "topology-cull")
     return 0;
 }
 
+if (args.Length > 0 && args[0] == "tiledecimate-check")
+{
+    // Parity of TileCullPass followed by TileDecimationPass against the CPU reference (instance sets must match exactly).
+    bench.InitializeTopology(shaders);
+    if (!bench.IndirectCountSupported)
+    {
+        Console.WriteLine("vkCmdDrawIndirectCount is not supported on this device");
+        return 3;
+    }
+
+    int bad = bench.CheckTileDecimationPass(100);
+    Console.WriteLine($"tiledecimate-check: {bad} of 100 trials differ from the CPU reference");
+    return bad == 0 ? 0 : 1;
+}
+
 if (args.Length > 0 && args[0] == "tilecull-check")
 {
     // Parity of the reusable TileCullPass (src/Bazaar.Constellation.Vulkan) against its CPU reference on random boxes and cameras.
@@ -700,6 +715,10 @@ if (args.Length > 0 && args[0] == "experiments")
 
     return 0;
 }
+
+// Warm-up: run the first sweep row once and discard it, so the GPU is at a steady clock before anything is recorded.
+_ = bench.UploadNodes(1_000_000);
+_ = bench.Measure(1_000_000, 300, 600);
 
 // Sweep 1: total node count. The resident window is capped at the 1.5 GiB budget; draws are capped at 2M instances.
 foreach (long total in nodeCounts)
