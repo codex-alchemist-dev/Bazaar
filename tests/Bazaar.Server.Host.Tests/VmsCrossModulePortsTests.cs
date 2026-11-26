@@ -34,8 +34,8 @@ public sealed class VmsCrossModulePortsTests
     {
         using var provider = Build(new Dictionary<string, string?>
         {
-            ["Bazaar:Vms:Kvm:ImageDirectory"] = "/var/lib/bazaar/images",
-            ["Bazaar:Vms:Kvm:VmDirectory"] = "/var/lib/bazaar/vms",
+            ["Bazaar:Vms:Kvm:ImageDirectory"] = Path.Combine(Path.GetTempPath(), "bazaar-images"),
+            ["Bazaar:Vms:Kvm:VmDirectory"] = Path.Combine(Path.GetTempPath(), "bazaar-vms"),
         });
 
         Assert.IsType<LifecycleVmControl>(provider.GetRequiredService<ModuleVmControl>());

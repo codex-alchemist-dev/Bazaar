@@ -8,7 +8,7 @@ namespace Bazaar.Server.CompanyBuild.Tests;
 
 public sealed class CompanyBuildHostOptionsTests
 {
-    private static readonly string Pin = new('b', 64);
+    private static readonly string _pin = new('b', 64);
 
     private static ServiceCollection Register(Dictionary<string, string?> values)
     {
@@ -25,13 +25,13 @@ public sealed class CompanyBuildHostOptionsTests
         {
             ["Bazaar:CompanyBuild:CompanyId"] = "CDAX",
             ["Bazaar:CompanyBuild:ServerAddress"] = "https://bazaar.example/",
-            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = Pin,
+            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = _pin,
             ["Bazaar:CompanyBuild:OutputRoot"] = root,
         }).BuildServiceProvider();
 
         var check = Assert.IsType<ServerIdentityCheck>(Assert.Single(provider.GetServices<ISetupVerificationCheck>()));
         Assert.Equal(Path.Combine(root, "CDAX"), provider.GetRequiredService<CompanyBuildOutputLayout>().CompanyDirectory);
-        Assert.Equal(Pin, provider.GetRequiredService<IServerIdentitySource>().KeyHashPin);
+        Assert.Equal(_pin, provider.GetRequiredService<IServerIdentitySource>().KeyHashPin);
 
         // No build has run yet, so the check is amber (no-build), not green and not "not evaluated".
         var result = await check.RunAsync(new SetupVerificationContext(new SetupPlan()), TestContext.Current.CancellationToken);
@@ -45,7 +45,7 @@ public sealed class CompanyBuildHostOptionsTests
         {
             ["Bazaar:CompanyBuild:CompanyId"] = "CDAX",
             ["Bazaar:CompanyBuild:ServerAddress"] = "https://bazaar.example/",
-            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = Pin,
+            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = _pin,
             ["Bazaar:Host:DataRoot"] = Path.GetTempPath(),
         }).BuildServiceProvider();
 
@@ -83,7 +83,7 @@ public sealed class CompanyBuildHostOptionsTests
         {
             ["Bazaar:CompanyBuild:CompanyId"] = "CDAX",
             ["Bazaar:CompanyBuild:ServerAddress"] = "https://bazaar.example/",
-            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = Pin,
+            ["Bazaar:CompanyBuild:ServerKeyHashPin"] = _pin,
             ["Bazaar:CompanyBuild:OutputRoot"] = Path.GetTempPath(),
         };
         foreach (var (key, value) in extra)
@@ -105,7 +105,7 @@ public sealed class CompanyBuildHostOptionsTests
 
         var identity = provider.GetRequiredService<Bazaar.CompanyIdentity.CompanyServerIdentity>();
         Assert.Null(identity.Update);
-        Assert.Equal(Pin, identity.KeyHashPin);
+        Assert.Equal(_pin, identity.KeyHashPin);
     }
 
     [Fact]

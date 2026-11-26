@@ -19,10 +19,10 @@ public class ReplayWireTests
             "frame-result",
             new ReplayFrameResult(_gc, 40, 40, new ReplayFrameWire(
                 [new ReplayMessageWire(_gc, _agent, 3, 5, 2, true, false, "{\"text\":\"hi\"}", _at)],
-                new ReplayPartWire<IReadOnlyList<ReplayTaskWire>>(true, [new ReplayTaskWire(_gc, "Ship", "Review")], null),
-                new ReplayPartWire<ReplayVaultWire>(true, new ReplayVaultWire("abc123"), null),
-                new ReplayPartWire<IReadOnlyList<ReplaySoulWire>>(false, null, "Soul versions not installed"),
-                new ReplayPartWire<IReadOnlyList<ReplayReputationWire>>(true, [new ReplayReputationWire(_agent, 0.75m)], null)))
+                new ReplayTasksPart(true, [new ReplayTaskWire(_gc, "Ship", "Review")], null),
+                new ReplayVaultPart(true, new ReplayVaultWire("abc123"), null),
+                new ReplaySoulsPart(false, null, "Soul versions not installed"),
+                new ReplayReputationPart(true, [new ReplayReputationWire(_agent, 0.75m)], null)))
         },
         { "fork-request", new ReplayForkRequest(_gc, 42, _agent) },
         { "fork-result", new ReplayForkResult(_gc, "abc123", true) },
@@ -55,6 +55,7 @@ public class ReplayWireTests
     {
         Assert.Equal("replay.frame", WireTypes.ReplayFrame);
         Assert.Equal("replay.fork", WireTypes.ReplayFork);
+        Assert.Equal("replay.points", WireTypes.ReplayPoints);
         var json = JsonSerializer.Serialize(new ReplayForkResult(_gc, null, true), WireJsonContext.Default.ReplayForkResult);
         Assert.Contains("\"newGc\"", json);
         Assert.DoesNotContain("vaultCommit", json);

@@ -4,6 +4,7 @@ using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
 using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
+using Bazaar.Contracts.Memory;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
 using Bazaar.Contracts.Ryusei;
@@ -65,6 +66,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(GcListReply))]
 [JsonSerializable(typeof(PrefsSet))]
 [JsonSerializable(typeof(PrefsSetResult))]
+[JsonSerializable(typeof(ReplayPointsRequest))]
+[JsonSerializable(typeof(ReplayPointsResult))]
 [JsonSerializable(typeof(GraphSnapshot))]
 [JsonSerializable(typeof(GitSolarSnapshot))]
 [JsonSerializable(typeof(GitSolarFeed))]
@@ -76,6 +79,14 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(Bazaar.Contracts.Engines.EngineGrantVerifyReply))]
 [JsonSerializable(typeof(KanbanMoveRequest))]
 [JsonSerializable(typeof(KanbanMoveReply))]
+[JsonSerializable(typeof(LuckyStartRequest))]
+[JsonSerializable(typeof(LuckyStartReply))]
+[JsonSerializable(typeof(LuckyIdeaRequest))]
+[JsonSerializable(typeof(LuckyIdeaReply))]
+[JsonSerializable(typeof(LuckyMarkRequest))]
+[JsonSerializable(typeof(LuckyMarkReply))]
+[JsonSerializable(typeof(LuckyOptInRequest))]
+[JsonSerializable(typeof(LuckyOptInReply))]
 [JsonSerializable(typeof(KanbanAssignRequest))]
 [JsonSerializable(typeof(KanbanAssignReply))]
 [JsonSerializable(typeof(RyuseiTriggerChangeRequest))]
@@ -94,6 +105,8 @@ namespace Bazaar.Contracts.Wire;
 [JsonSerializable(typeof(PrReviewReply))]
 [JsonSerializable(typeof(PrMergeRequest))]
 [JsonSerializable(typeof(PrMergeReply))]
+[JsonSerializable(typeof(MemoryContextRequest))]
+[JsonSerializable(typeof(MemoryContextResult))]
 [JsonSerializable(typeof(RoadmapBoardSnapshot))]
 [JsonSerializable(typeof(LayoutFrame))]
 [JsonSerializable(typeof(FocusRequest))]

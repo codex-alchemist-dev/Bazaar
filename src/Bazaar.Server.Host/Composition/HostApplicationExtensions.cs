@@ -8,24 +8,33 @@ using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
+using Bazaar.Server.Constellation.Memory.Context;
+using Bazaar.Server.Constellation.Memory.ReadLog;
+using Bazaar.Server.DevSandbox;
+using Bazaar.Server.DevSandbox.Linux;
+using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
+using Bazaar.Server.DevSandbox.Windows;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.FreeLlmApi;
-using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Host.Display;
+using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
 using Bazaar.Server.Host.Wire;
 using Bazaar.Server.Hosting;
 using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
+using Bazaar.Server.Kodo.Postgres;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
+using Bazaar.Server.CompanyBuild.Postgres;
+using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Souls.Retirement;
@@ -36,6 +45,7 @@ using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -49,6 +59,7 @@ public static class HostApplicationExtensions
     public static IServiceCollection AddBazaarHostApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddBazaarDevAuth(configuration);
+        services.AddSingleton<Bazaar.Server.SignIn.Passkeys.IEnrolmentCaller, Bazaar.Server.Host.Auth.HostEnrolmentCaller>();
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarRecoveryHook(configuration);
@@ -56,6 +67,7 @@ public static class HostApplicationExtensions
         services.AddBazaarProviders();
         services.AddBazaarHostWire(configuration);
         services.AddBazaarHostWireDiscovery();
+        services.AddBazaarHostInterrupts();
         services.AddBazaarSync(configuration);
         services.AddBazaarAgentSafety(configuration);
         services.AddBazaarGeneticMemoryHost();
@@ -63,10 +75,18 @@ public static class HostApplicationExtensions
         services.AddSecretStoreLeasedCredentialValues();
         services.AddLeasedCredentialMatcher();
         services.AddBazaarVms(configuration);
+        // Developer sandbox (doc 48 section 2.1). The core is always added; each OS provider and engine adds itself only when the launch
+        // plan or module source it needs is registered before this call, so with none every sandbox run is refused.
+        services.AddBazaarDevSandbox();
+        services.AddBazaarDevSandboxLinux();
+        services.AddBazaarDevSandboxWindows();
+        services.AddBazaarDevSandboxWasmtime();
         services.AddBazaarVmSecurity(configuration);
         services.AddBazaarAgentSafetyModule(configuration);
         services.AddBazaarHiveGrantApprovals();
         services.AddBazaarOwnerApprovals();
+        // The owner queue as the web admin approvals section (doc 51 section 5).
+        services.AddBazaarAdminApprovalSource();
         services.AddBazaarRetirementLedger();
         services.AddBazaarGateway();
         services.AddBazaarSecretStore(configuration);
@@ -74,6 +94,8 @@ public static class HostApplicationExtensions
         services.AddBazaarJobs();
         services.AddBazaarPortabilityPostgres();
         services.AddBazaarPresencePostgres();
+        services.AddBazaarSignInPostgres();
+        services.AddBazaarKodoPostgres();
         services.AddBazaarAccountApprovalPostgres();
         services.AddBazaarLegalHoldReader();
 
@@ -85,9 +107,32 @@ public static class HostApplicationExtensions
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
-        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
+        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id)
+            || BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
+        }
+
+        // Lucky runs (docs/design/26-fun-systems.md, section 6): the host supplies the run store and the side-effect sink.
+        if (BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
+        {
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyRunStore>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyRunStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyOptInStore>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyOptInStore(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyCandidateSource>(sp =>
+                new Bazaar.Server.Host.Lucky.PgLuckyCandidateSource(sp.GetRequiredService<NpgsqlDataSource>()));
+            services.TryAddSingleton<Bazaar.Lucky.ILuckyRunSink>(sp =>
+            {
+                var ds = sp.GetRequiredService<NpgsqlDataSource>();
+                return new Bazaar.Server.Host.Lucky.PgLuckyRunSink(
+                    ds,
+                    new Bazaar.Server.Gc.Create.GcCreateService(ds),
+                    sp.GetRequiredService<Bazaar.Server.Gc.Write.IGcLogWriter>(),
+                    sp.GetRequiredService<Bazaar.Server.Gc.Body.IGcBodyCodec>(),
+                    sp.GetRequiredService<Bazaar.Server.Agents.Data.InboxRepository>(),
+                    sp.GetRequiredService<Bazaar.RyuseiFuda.Kanban.TaskService>());
+            });
         }
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
@@ -120,10 +165,21 @@ public static class HostApplicationExtensions
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
             services.AddMemoryGraphProjection();
+
+            // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
+            // vector seeds through the Vault query embedder when one is registered, the service and the memory.context wire command.
+            Guid? constellationVault = Guid.TryParse(configuration[ConstellationComponent.VaultIdKey], out var constellationVaultId) ? constellationVaultId : null;
+            services.AddMemoryContext(new MemoryContextHostOptions(constellationVault));
+
+            // The durable owner-read log (constellation/0003): owner reads of another agent's memory are recorded and hash-chained,
+            // and a read that cannot be logged is refused.
+            services.AddMemoryReadLog();
         }
 
         // Puts each packaged module's approved permission set in force once the components are up (doc 48 section 1).
         services.AddBazaarModuleHostWiring(HostComponents.All.Select(c => c.Manifest));
+        // Module selection, the rebuild queue and the catalogue snapshot the TUI reads (doc 37 section 4a, PROPOSED).
+        services.AddBazaarModuleSelectionPostgres(HostComponents.All.Select(c => c.Manifest));
         services.AddBazaarBackupOffsite();
         // The community draft seams: policy source, GitHub adapter and its bridge, owner keys, action store (doc 36 WP7 and WP8).
         services.AddBazaarCommunityHost();

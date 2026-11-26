@@ -23,4 +23,10 @@ public interface IMemoryGraphStore
 
     /// <summary>Every stored revision of one note, newest version first.</summary>
     Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct);
+
+    /// <summary>
+    /// Every stored revision of the memory note that is Vault doc <paramref name="docId"/>, newest version first. History is
+    /// keyed by the doc node (docs/design/constellation-memory-graph.md, "Convergence design"). Empty when no revision is mapped.
+    /// </summary>
+    Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct);
 }

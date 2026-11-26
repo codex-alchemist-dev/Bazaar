@@ -8,6 +8,7 @@
   <ItemGroup>
     <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda.Abstractions\Bazaar.RyuseiFuda.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Presence.Sources.Abstractions\Bazaar.Server.Presence.Sources.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Health.Abstractions\Bazaar.Server.Health.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Jobs.Abstractions\Bazaar.Server.Jobs.Abstractions.csproj" />

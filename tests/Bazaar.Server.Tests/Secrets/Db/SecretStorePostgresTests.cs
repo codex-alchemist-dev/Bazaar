@@ -19,13 +19,20 @@ public sealed class SecretStorePostgresTests : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
+        Assert.SkipWhen(Bazaar.Testing.Postgres.PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
         _db = await SecretsTestDb.CreateAsync(CancellationToken.None);
         _auditLog = new PostgresAuditLog(_db.DataSource);
         _records = new PostgresSecretRecordRepository(_db.DataSource);
         _agents = new PostgresAgentRegistry(_db.DataSource, _auditLog, TimeProvider.System);
     }
 
-    public async ValueTask DisposeAsync() => await _db.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        if (_db is not null)
+        {
+            await _db.DisposeAsync();
+        }
+    }
 
     [Fact]
     public async Task PutThenGetReturnsTheNewestVersion()

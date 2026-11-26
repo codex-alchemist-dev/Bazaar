@@ -12,12 +12,12 @@ namespace Bazaar.GitHub.Tests.Tools;
 /// <summary>The agent GitHub tools (doc 21, Agent tools [PROPOSED]).</summary>
 public sealed class GitHubAgentToolsTests
 {
-    private const string Head = "0123456789abcdef0123456789abcdef01234567";
+    private const string _head = "0123456789abcdef0123456789abcdef01234567";
     private static readonly Guid _agent = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     private sealed class FakeAdapter : IGitHubAdapter
     {
-        public string CurrentHead { get; set; } = Head;
+        public string CurrentHead { get; set; } = _head;
         public bool RepoVisible { get; set; } = true;
         public List<(PrRef Pr, ReviewRequest Review)> Reviews { get; } = [];
         public List<long> InstallationsSeen { get; } = [];
@@ -71,7 +71,7 @@ public sealed class GitHubAgentToolsTests
 
     private static ToolCallContext Ctx(Guid? agent = null) => new(agent ?? _agent, Guid.NewGuid(), Guid.NewGuid());
 
-    private static string ReviewArgs(string ev = "COMMENT", string head = Head, string body = "ok") =>
+    private static string ReviewArgs(string ev = "COMMENT", string head = _head, string body = "ok") =>
         $$"""{"owner":"acme","repo":"widgets","number":7,"headSha":"{{head}}","event":"{{ev}}","body":"{{body}}"}""";
 
     private static (GitHubPrReviewTool Tool, FakeAdapter Adapter, Installs Installs) Review(long? installation = 42, IGitHubTokenProvider? tokens = null)
@@ -211,7 +211,7 @@ public sealed class GitHubAgentToolsTests
 
         var result = Json(await tool.ExecuteAsync(Json("""{"owner":"acme","repo":"widgets","number":7}"""), Ctx(), TestContext.Current.CancellationToken));
 
-        Assert.Equal(Head, result.GetProperty("headSha").GetString());
+        Assert.Equal(_head, result.GetProperty("headSha").GetString());
         Assert.Equal("failing", result.GetProperty("checks").GetString());
         var file = result.GetProperty("files")[0];
         Assert.True(file.GetProperty("patchTruncated").GetBoolean());

@@ -25,13 +25,43 @@ public sealed record ReplayWireReply<T>(T? Value, string? ErrorCode, string? Mes
 }
 
 /// <summary>
-/// Maps <c>replay.frame</c> and <c>replay.fork</c> (doc 02, replay and fork requests) onto <see cref="IReplayProjector"/> and
-/// <see cref="IForkService"/>. Both are read-only on the log. A GC the viewer cannot read gets <see cref="WireErrorCodes.NotFound"/>,
+/// Maps <c>replay.frame</c>, <c>replay.fork</c> and <c>replay.points</c> (doc 02, replay and fork requests) onto <see cref="IReplayProjector"/>,
+/// <see cref="IForkService"/> and <see cref="IReplayPointLister"/>. Both are read-only on the log. A GC the viewer cannot read gets <see cref="WireErrorCodes.NotFound"/>,
 /// the same as <c>gc.history</c>, so membership does not leak. The wire host registers an adapter that passes the connection's
 /// principal in and the reply out; the rate bucket (<c>gc.history</c>) is the host's.
 /// </summary>
-public sealed class ReplayWireHandler(IReplayProjector projector, IForkService forks, IGcReadAccess access, IGcLogReader reader)
+public sealed class ReplayWireHandler(
+    IReplayProjector projector, IForkService forks, IGcReadAccess access, IGcLogReader reader, IReplayPointLister? points = null)
 {
+    /// <summary>Answers <c>replay.points</c>: the seqs a frame can be rendered at, from the GC log and, for the owner, audit markers.</summary>
+    public async Task<ReplayWireReply<ReplayPointsResult>> PointsAsync(GcPrincipal viewer, ReplayPointsRequest request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(viewer);
+        ArgumentNullException.ThrowIfNull(request);
+        if (request.Gc == Guid.Empty || request.AfterSeq < 0 || request.Limit < 1 || request.BucketSeconds is <= 0)
+        {
+            return ReplayWireReply<ReplayPointsResult>.Fail(
+                WireErrorCodes.BadRequest, "A replay points request needs a GC, an afterSeq of zero or more, a limit of one or more, and a positive bucket.");
+        }
+
+        if (points is null)
+        {
+            return ReplayWireReply<ReplayPointsResult>.Fail(WireErrorCodes.Unsupported, "Replay points are not available on this server.");
+        }
+
+        try
+        {
+            var bucket = request.BucketSeconds is { } s ? TimeSpan.FromSeconds(s) : (TimeSpan?)null;
+            var page = await points.ListAsync(request.Gc, request.AfterSeq, request.Limit, bucket, viewer, ct).ConfigureAwait(false);
+            return ReplayWireReply<ReplayPointsResult>.Ok(new ReplayPointsResult(
+                request.Gc, [.. page.Points.Select(p => new ReplayPointWire(p.Seq, p.At, p.Kind, p.Label))], page.NextAfterSeq, page.Head));
+        }
+        catch (GcAccessDeniedException)
+        {
+            return ReplayWireReply<ReplayPointsResult>.Fail(WireErrorCodes.NotFound);
+        }
+    }
+
     /// <summary>Answers <c>replay.frame</c>. The result carries the clamped seq and the viewer's visible head, never the true head.</summary>
     public async Task<ReplayWireReply<ReplayFrameResult>> FrameAsync(GcPrincipal viewer, ReplayFrameRequest request, CancellationToken ct)
     {
@@ -84,13 +114,13 @@ public sealed class ReplayWireHandler(IReplayProjector projector, IForkService f
     private static ReplayFrameWire Map(ReplayFrame frame) => new(
         [.. frame.Messages.Select(m => new ReplayMessageWire(
             m.MessageId, m.AuthorId, m.FirstSeq, m.VersionSeq, m.Version, m.Edited, m.Quarantined, m.PayloadJson, m.CreatedAt))],
-        MapPart(frame.Kanban, v => (IReadOnlyList<ReplayTaskWire>)[.. v.Select(t => new ReplayTaskWire(t.TaskId, t.Title, t.Column))]),
-        MapPart(frame.Vault, v => new ReplayVaultWire(v.Commit)),
-        MapPart(frame.Souls, v => (IReadOnlyList<ReplaySoulWire>)[.. v.Select(s => new ReplaySoulWire(s.AgentId, s.Version))]),
-        MapPart(frame.Reputation, v => (IReadOnlyList<ReplayReputationWire>)[.. v.Select(r => new ReplayReputationWire(r.AgentId, r.Score))]));
+        MapPart(frame.Kanban, (a, v, r) => new ReplayTasksPart(a, v, r), v => (IReadOnlyList<ReplayTaskWire>)[.. v.Select(t => new ReplayTaskWire(t.TaskId, t.Title, t.Column))]),
+        MapPart(frame.Vault, (a, v, r) => new ReplayVaultPart(a, v, r), v => new ReplayVaultWire(v.Commit)),
+        MapPart(frame.Souls, (a, v, r) => new ReplaySoulsPart(a, v, r), v => (IReadOnlyList<ReplaySoulWire>)[.. v.Select(s => new ReplaySoulWire(s.AgentId, s.Version))]),
+        MapPart(frame.Reputation, (a, v, r) => new ReplayReputationPart(a, v, r), v => (IReadOnlyList<ReplayReputationWire>)[.. v.Select(r => new ReplayReputationWire(r.AgentId, r.Score))]));
 
-    private static ReplayPartWire<TWire> MapPart<TSource, TWire>(ReplayPart<TSource> part, Func<TSource, TWire> map) =>
+    private static TPart MapPart<TSource, TWire, TPart>(ReplayPart<TSource> part, Func<bool, TWire?, string?, TPart> make, Func<TSource, TWire> map) =>
         part.IsAvailable && part.Value is { } value
-            ? new ReplayPartWire<TWire>(true, map(value), null)
-            : new ReplayPartWire<TWire>(false, default, part.Reason ?? "unavailable");
+            ? make(true, map(value), null)
+            : make(false, default, part.Reason ?? "unavailable");
 }

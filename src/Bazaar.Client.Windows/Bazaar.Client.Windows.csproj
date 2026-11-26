@@ -44,6 +44,7 @@
     <ProjectReference Include="..\Bazaar.Client.Athanor.Wire\Bazaar.Client.Athanor.Wire.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Input\Bazaar.Client.Input.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />

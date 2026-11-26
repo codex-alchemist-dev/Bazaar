@@ -35,7 +35,8 @@ Owner picks, 2026-11-22 (project thread "Design desktop and mobile GUI in detail
 - Hold empty space for 400 ms: radial, dictation at the centre (doc 29). Hold the composer: dictation. Composer placeholder reads "Hold to dictate".
 - Sheets drag with the finger and snap at half and full height.
 - Top strip: the chat names, current one highlighted, tappable.
-- First run shows two short prompts (swipe, then hold) once; they can be replayed from settings.
+- First run shows two short prompts (swipe, then hold) once; they can be replayed from settings. "Seen" is the client setting `client.phone_coach_seen`; replaying does not clear it. Skip, Escape and "Got it" all dismiss. The card enters by the motion level (a fade of 90 ms or less when reduced, an ease with a slight scale otherwise).
+- The strip lists every chat name sideways-scrollable, so the current one is centred and its neighbours peek in; a chevron toward each neighbour hints the swipe. A few dp of the neighbouring page also shows at the pager's edge (`PeekEdges`). Sizes are options, colours are theme tokens (`Bazaar.Strip.*`, `Bazaar.Coach.*`, `Bazaar.Accent`).
 - **Accessibility:** gestures are never the only route. The pager exposes custom accessibility actions (Next chat, Previous chat, Open menu). Under TalkBack the radial is presented as a standard action list with the same sectors. Swipe recognition ignores the outer 24 dp so the system back gesture wins. This adds to, and does not replace, the doc 29 spike list.
 
 ### Predictive back [PROPOSED; platform support unverified]
@@ -150,12 +151,16 @@ Additive to schemaVersion 1 (doc 27), under a new schemaVersion 2 with the old t
 | `client.motion_level` | enum liquid, subtle, reduced (OS reduced-motion forces reduced) | liquid on phone, subtle on desktop | person | person | no |
 | `android.haptics` | bool | on | person | person | no |
 | `android.gesture_edge_dp` | int | 24 (floor 16) | install | operator | no |
+| `client.phone_coach_seen` | bool | false | person | person | no |
 
 ## Behaviour and edge cases
 - A window moved between displays keeps its theme and re-evaluates material support.
 - An unsupported backdrop silently uses the next fallback and logs once.
 - Theme change applies live with a cross-fade (or instantly under reduced motion) and does not restart panes.
 - A gesture started over a text input that selects text does not start a swipe.
+- The four visual settings are read from the head's client settings file (`Bazaar.Client.Settings`, a JSON file with registered keys, safe defaults and change notification) and applied live; an unreadable file gives the defaults. `imported` themes fall back to the default until theme import is wired.
+- The OS reduced-motion flag is read by each head (Windows `SPI_GETCLIENTAREAANIMATION`, Android `animator_duration_scale` of 0, Linux GNOME `enable-animations` through `gsettings` where present, else not reduced) and forces the reduced level. Heads refresh it when the window activates or the app resumes.
+- Frame budget (no graphics settings): the client measures the gaps between frames of running animations only, so measuring costs nothing at rest. When the p95 over a rolling window exceeds 1.5 times the 60 Hz budget it drops blur and caps motion at subtle; past 3 times it caps motion at reduced. It steps back up one level at a time only after several windows under 1.15 times the budget (hysteresis), and after a long pause in animation.
 - Fold and unfold animate between variants with the same Fluid tokens and send nothing on the wire (doc 27); see the unfold transition section.
 
 ## Testing

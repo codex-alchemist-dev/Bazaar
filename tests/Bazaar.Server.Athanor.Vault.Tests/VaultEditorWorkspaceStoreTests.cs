@@ -23,6 +23,13 @@ public sealed class VaultEditorWorkspaceStoreTests : IDisposable
         _repoPath = Path.Combine(_base, "vault");
         Directory.CreateDirectory(Path.Combine(_repoPath, "notes"));
         Repository.Init(_repoPath);
+        // Git for Windows sets core.autocrlf=true globally; a checkout would then write saved files as CRLF and the revisions would differ.
+        using (var init = new Repository(_repoPath))
+        {
+            init.Config.Set("core.autocrlf", "false");
+            init.Config.Set("core.eol", "lf");
+        }
+
         File.WriteAllText(Path.Combine(_repoPath, "notes", "a.md"), "hello\n");
         Commit("seed");
 

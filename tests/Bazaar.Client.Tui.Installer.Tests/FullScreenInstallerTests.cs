@@ -1,5 +1,5 @@
-using Bazaar.Client.Tui.Tests;
 using Bazaar.Client.Tui.TerminalGui;
+using Bazaar.Client.Tui.Tests;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Host;
 using Microsoft.Extensions.DependencyInjection;

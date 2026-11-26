@@ -263,6 +263,8 @@ Decisions (the most robust option; the owner may overrule):
 4. **A worktree is held by the host.** The per-task worktree flow (`ICodingTaskWorkspace`) registers it in `CodingWorktreeRegistry`; a key nothing registered fails with the usage error (exit code 64).
 5. **Result shape.** The model receives `{"status", "exit_code", "error_code", "message", "output"}`; `output` is the handler's JSON, embedded as JSON when valid.
 
+**Task session hook (PROPOSED, 2026-11-22).** `CodingTaskSessionHook` (Host, `Coding/CodingTaskSessionHook.cs`) implements the Agents module's `ITaskSessionHook`. On an assignment wake it opens the task worktree through `ICodingTaskWorkspace.OpenAsync` (task slug, else the task id in `N` format; repo from the wake, else `Coding:Harness:Repo`) and records the issued key in `CodingSessionWorktreeKeys`, which the tool bridge reads; starting a session twice opens one worktree. `EndAsync` closes the worktree and forgets the key. A wake with no task opens nothing. Registered with the task workspace, so it exists only when `Coding:Harness:Enabled`.
+
 
 ## Conflicts
 1. **Subagent depth.** This doc uses depth 1 inside doc 06's runtime limit (depth 2, 3 concurrent). Doc 06 must still state that its limit covers runtime delegation only.

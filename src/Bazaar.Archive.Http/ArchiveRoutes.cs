@@ -158,6 +158,11 @@ public static class ArchiveRoutes
             return Error(StatusCodes.Status503ServiceUnavailable, "not_configured");
         }
 
+        if (http.RequestServices.GetService<ArchiveIndexRebuilder>() is { } rebuilder)
+        {
+            await rebuilder.EnsureBuiltAsync(http.RequestAborted);
+        }
+
         var hits = await index.SearchAsync(q, limit, http.RequestAborted);
         return Results.Json(new SearchResult([.. hits.Select(h => new HitRow(KindName(h.Unit.Kind), h.Unit.Id, h.RecordId, h.At, h.Snippet))]), ArchiveHttpJson.Default.SearchResult);
     }

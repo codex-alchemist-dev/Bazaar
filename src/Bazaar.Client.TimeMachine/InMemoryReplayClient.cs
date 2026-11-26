@@ -4,8 +4,26 @@ namespace Bazaar.Client.TimeMachine;
 /// A scripted <see cref="IReplayClient"/> for tests and for heads that run without a server. Frames come from a function
 /// of the seq, so a test controls exactly what each point of history shows. Records every call.
 /// </summary>
-public sealed class InMemoryReplayClient : IReplayClient
+public sealed class InMemoryReplayClient : IReplayClient, IReplayPointClient
 {
+    /// <summary>The points this client lists, in seq order. Empty by default.</summary>
+    public List<ReplayPointView> Points { get; } = [];
+
+    public List<long> PointRequests { get; } = [];
+
+    public Task<ReplayPointsPage> GetPointsAsync(Guid gcId, long afterSeq, int limit, CancellationToken ct)
+    {
+        PointRequests.Add(afterSeq);
+        if (Failure is { } failure)
+        {
+            throw failure;
+        }
+
+        var page = Points.Where(p => p.Seq > afterSeq).Take(limit).ToList();
+        var more = Points.Count(p => p.Seq > afterSeq) > page.Count;
+        return Task.FromResult(new ReplayPointsPage(page, more && page.Count > 0 ? page[^1].Seq : null));
+    }
+
     private readonly Func<Guid, long, ReplayFrameView> _frames;
     private readonly Dictionary<(Guid Gc, long Seq, Guid Request), ReplayForkOutcome> _forks = [];
 

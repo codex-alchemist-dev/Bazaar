@@ -264,4 +264,56 @@ public sealed class MemoryGraphProjectorTests
         Assert.ThrowsAny<ArgumentException>(() =>
             MemoryGraphProjector.Project(Note(), "", _path, agentId!, _titles));
     }
+
+    private static readonly Guid _docId = new("0190a000-0000-7000-8000-000000000001");
+    private static readonly Guid _decisionDoc = new("0190a000-0000-7000-8000-000000000002");
+    private static readonly Guid _researchDoc = new("0190a000-0000-7000-8000-000000000003");
+
+    [Fact]
+    public void Indexed_projection_sets_the_doc_id_and_takes_link_edges_from_the_vault_index()
+    {
+        var revision = MemoryGraphProjector.ProjectIndexed(
+            Note(derivedFrom: [_otherId]), _path, _agent, _docId, [_researchDoc, _decisionDoc, _researchDoc]);
+
+        Assert.Equal(_docId, revision.DocId);
+        Assert.Equal(
+            [_decisionDoc.ToString("D"), _researchDoc.ToString("D")],
+            revision.Edges.Where(e => e.Kind == MemoryEdgeKind.Link).Select(e => e.TargetId));
+        Assert.All(revision.Edges.Where(e => e.Kind == MemoryEdgeKind.Link), e => Assert.Equal(1.0, e.Weight));
+        Assert.Contains(new MemoryGraphEdge(_otherId, MemoryEdgeKind.DerivedFrom, 0.8), revision.Edges);
+        Assert.Contains(new MemoryGraphEdge("agent:" + _agent, MemoryEdgeKind.AuthoredBy, 0.0), revision.Edges);
+    }
+
+    [Fact]
+    public void Indexed_projection_drops_a_link_to_the_doc_itself()
+    {
+        var revision = MemoryGraphProjector.ProjectIndexed(Note(), _path, _agent, _docId, [_docId]);
+
+        Assert.DoesNotContain(revision.Edges, e => e.Kind == MemoryEdgeKind.Link);
+    }
+
+    [Fact]
+    public void Indexed_projection_keeps_the_note_fields()
+    {
+        var revision = MemoryGraphProjector.ProjectIndexed(Note(version: 4), _path, _agent, _docId, []);
+
+        Assert.Equal(_selfId, revision.NoteId);
+        Assert.Equal(4, revision.Version);
+        Assert.Equal(_path, revision.VaultPath);
+        Assert.Equal("Procedural", revision.Kind);
+        Assert.Equal("AgentVerified", revision.Trust);
+    }
+
+    [Fact]
+    public void Legacy_projection_has_no_doc_id()
+    {
+        Assert.Null(Project("").DocId);
+    }
+
+    [Fact]
+    public void Indexed_projection_rejects_an_empty_doc_id_and_null_links()
+    {
+        Assert.Throws<ArgumentException>(() => MemoryGraphProjector.ProjectIndexed(Note(), _path, _agent, Guid.Empty, []));
+        Assert.Throws<ArgumentNullException>(() => MemoryGraphProjector.ProjectIndexed(Note(), _path, _agent, _docId, null!));
+    }
 }

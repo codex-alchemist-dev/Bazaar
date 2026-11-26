@@ -1,11 +1,12 @@
 using Bazaar.Archive.Http;
-using Bazaar.Server.Council.Http;
 using Bazaar.Community.Drafts;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.GitHub;
 using Bazaar.Server.Analytics;
+using Bazaar.Server.Approvals.Http;
 using Bazaar.Server.CompanyMemory;
+using Bazaar.Server.Council.Http;
 using Bazaar.Server.Host.Analytics;
 using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Host.Composition;
@@ -46,6 +47,11 @@ if (args.Length > 0 && args[0].Equals("volume", StringComparison.OrdinalIgnoreCa
 if (args.Length > 0 && args[0].Equals("storage", StringComparison.OrdinalIgnoreCase))
 {
     return await StorageSubcommand.RunAsync(args[1..], Console.Out);
+}
+
+if (args.Length > 0 && args[0].Equals("memory-graph", StringComparison.OrdinalIgnoreCase))
+{
+    return await MemoryGraphSubcommand.RunAsync(args[1..], Console.Out);
 }
 
 var builder = WebApplication.CreateBuilder(args);
@@ -91,6 +97,7 @@ app.MapCouncilEscalations((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, 
 app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
+app.MapBazaarApprovalRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapCommunityLog();
 app.MapCommunityDraftDecision();
 app.MapCommunityDraftReads();

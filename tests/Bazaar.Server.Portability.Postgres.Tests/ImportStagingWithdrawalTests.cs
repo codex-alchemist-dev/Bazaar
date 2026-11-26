@@ -8,7 +8,7 @@ namespace Bazaar.Server.Portability.Postgres.Tests;
 public class ImportStagingMigrationTests
 {
     private static readonly EmbeddedMigrationSource _portability = new(typeof(PostgresImportJobStore).Assembly);
-    private static readonly EmbeddedMigrationSource _server = new(typeof(MigrationRunner).Assembly);
+    private static readonly EmbeddedMigrationSource _server = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
     private static string Sql => _portability.Load("portability").Single(f => f.Version == 2).Sql;
 

@@ -66,6 +66,7 @@ public sealed class InterruptStackService(NpgsqlDataSource dataSource, IInterrup
 
     /// <inheritdoc />
     public async Task<InterruptFrame> PushAsync(
+        Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default)
         Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, bool emergency = false,
         CancellationToken ct = default)
     {

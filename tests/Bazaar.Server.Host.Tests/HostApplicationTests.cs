@@ -1,17 +1,17 @@
 using Bazaar.Approvals;
-using Bazaar.Server.AccountApproval;
-using Bazaar.Server.AccountApproval.Postgres;
-using Bazaar.Server.AccountApproval.Abstractions;
-using Bazaar.Server.AccountApproval.OwnerQueue;
-using Bazaar.Server.Security.Approvals;
-using Bazaar.Server.Security.Approvals.Db;
-using Bazaar.Server.Security.Policy;
 using Bazaar.GitHub.Adapter;
 using Bazaar.Sanitization;
+using Bazaar.Server.AccountApproval;
+using Bazaar.Server.AccountApproval.Abstractions;
+using Bazaar.Server.AccountApproval.OwnerQueue;
+using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Portability;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.Security.Approvals;
+using Bazaar.Server.Security.Approvals.Db;
+using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Sync;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -107,6 +107,8 @@ public sealed class HostApplicationTests
             if (funEnabled is not null)
             {
                 values["Bazaar:Components:fun-systems:Enabled"] = funEnabled;
+                // Lucky runs also need the sanitizer, so it is switched off with the fun systems.
+                values["Bazaar:Components:" + Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id + ":Enabled"] = funEnabled;
             }
 
             var builder = Microsoft.Extensions.Hosting.Host.CreateApplicationBuilder();

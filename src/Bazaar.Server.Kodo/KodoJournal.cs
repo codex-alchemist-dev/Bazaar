@@ -19,6 +19,7 @@ internal sealed class KodoJournal : IDisposable
     private byte[]? _head;
     private long _next;
     private bool _writable = true;
+    private bool _spillSuspended;
 
     public KodoJournal(string? directory, int capacity)
     {
@@ -43,6 +44,53 @@ internal sealed class KodoJournal : IDisposable
         }
     }
 
+    /// <summary>The sequence the next appended record gets: the number of records the chain holds.</summary>
+    public long NextSequence
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _next;
+            }
+        }
+    }
+
+    /// <summary>Records in memory with a sequence of at least <paramref name="sequence"/>, oldest first, at most <paramref name="limit"/>.</summary>
+    public IReadOnlyList<JournalRecord> ReadFrom(long sequence, int limit)
+    {
+        lock (_gate)
+        {
+            return _records.Where(record => record.Sequence >= sequence).Take(limit).ToArray();
+        }
+    }
+
+    /// <summary>
+    /// Continues the chain from records the durable store already holds, when this journal has none of its own (a lost or absent spill
+    /// file). The spill file is left alone for the rest of the run, because a file that does not start at record 0 would not verify on
+    /// reopen. Returns false, changing nothing, when the journal already has records or <paramref name="tail"/> is empty.
+    /// </summary>
+    public bool AdoptTail(IReadOnlyList<JournalRecord> tail)
+    {
+        ArgumentNullException.ThrowIfNull(tail);
+        lock (_gate)
+        {
+            if (_next != 0 || _records.Count != 0 || tail.Count == 0)
+            {
+                return false;
+            }
+
+            _spill?.Dispose();
+            _spill = null;
+            _spillSuspended = true;
+            _records.AddRange(tail.Count > _capacity ? tail.Skip(tail.Count - _capacity) : tail);
+            _head = tail[^1].Hash;
+            _next = tail[^1].Sequence + 1;
+            _writable = true;
+            return true;
+        }
+    }
+
     /// <summary>Appends one record and returns it, or null when the journal refused the write.</summary>
     public JournalRecord? Append(DateTimeOffset at, string kind, string summary)
     {
@@ -52,7 +100,7 @@ internal sealed class KodoJournal : IDisposable
             {
                 byte[] payload = Encoding.UTF8.GetBytes(summary);
                 JournalRecord record;
-                if (_spillPath is not null)
+                if (_spillPath is not null && !_spillSuspended)
                 {
                     if (_spill is null && !TryOpenSpill())
                     {
@@ -93,7 +141,7 @@ internal sealed class KodoJournal : IDisposable
     {
         lock (_gate)
         {
-            if (_spillPath is not null && _spill is null)
+            if (_spillPath is not null && !_spillSuspended && _spill is null)
             {
                 _writable = TryOpenSpill();
             }

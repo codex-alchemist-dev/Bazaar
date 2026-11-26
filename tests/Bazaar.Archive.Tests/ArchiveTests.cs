@@ -154,6 +154,27 @@ public sealed class ArchiveTests : IDisposable
     }
 
     [Fact]
+    public async Task A_restarted_index_is_rebuilt_from_verified_bundles_only()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var store = new DirectoryArchiveStore(_root);
+        await Archiver(new FakeSource(Records(4)), store).ArchiveAsync(_unit, ct);
+        var broken = new ArchiveUnit(ArchiveUnitKind.GroupChat, "gc-broken");
+        await Archiver(new FakeSource(Records(2)), store).ArchiveAsync(broken, ct);
+        var segment = Directory.EnumerateFiles(Path.Combine(_root), "0001.jsonl", SearchOption.AllDirectories).First(f => f.Contains("gc-broken"));
+        File.AppendAllText(segment, " ");
+
+        var fresh = new InMemoryArchiveSearchIndex();
+        var rebuilder = new ArchiveIndexRebuilder(store, new ArchiveVerifier(store), fresh);
+        await rebuilder.EnsureBuiltAsync(ct);
+        await rebuilder.EnsureBuiltAsync(ct);
+
+        var hits = await fresh.SearchAsync("needle1", 10, ct);
+        Assert.Equal(["m1", "m3"], hits.Select(h => h.RecordId).ToArray());
+        Assert.DoesNotContain(hits, h => h.Unit == broken);
+    }
+
+    [Fact]
     public async Task Restore_reports_a_conflict_instead_of_overwriting()
     {
         var store = new DirectoryArchiveStore(_root);

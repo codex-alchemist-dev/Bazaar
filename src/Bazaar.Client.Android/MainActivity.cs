@@ -64,6 +64,13 @@ public class MainActivity : AvaloniaMainActivity
         _posture?.Refresh();
     }
 
+    protected override void OnResume()
+    {
+        base.OnResume();
+        // The person may have switched "Remove animations" in system settings while the app was in the background.
+        App.ReducedMotion?.Refresh();
+    }
+
     protected override void OnDestroy()
     {
         _posture?.Dispose();

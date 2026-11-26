@@ -24,12 +24,15 @@ namespace Bazaar.Server.Kodo;
 internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
 {
     private const string _dataVolume = "data";
+    private static readonly TimeSpan _storeTimeout = TimeSpan.FromSeconds(15);
 
     private readonly KodoServerOptions _options;
     private readonly TimeProvider _time;
     private readonly IKodoStreamPublisher _publisher;
     private readonly ILogger _logger;
     private readonly KodoJournal _journal;
+    private readonly KodoJournalSync? _sync;
+    private readonly IKodoJournalStore? _store;
     private readonly KodoStreamWriter _stream = new();
     private readonly SemaphoreSlim _cycle = new(1, 1);
     private readonly Dictionary<string, Bulkhead> _pools = new(StringComparer.Ordinal);
@@ -42,7 +45,7 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
     private KodoStatusSnapshotDto? _latest;
     private bool _started;
 
-    public KodoMonitor(KodoServerOptions options, IHostReadings host, IKodoStreamPublisher publisher, TimeProvider time, ILogger<KodoMonitor> logger)
+    public KodoMonitor(KodoServerOptions options, IHostReadings host, IKodoStreamPublisher publisher, TimeProvider time, ILogger<KodoMonitor> logger, IKodoJournalStore? store = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         ArgumentNullException.ThrowIfNull(host);
@@ -60,6 +63,11 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
         };
         _probeTimeout = TimeSpan.FromMilliseconds(s.GetInt(KodoSettingKey.ProbeTimeoutMs));
         _journal = new KodoJournal(options.DataDirectory, options.JournalMemoryRecords);
+        if (store is not null && options.UseJournalStore)
+        {
+            _store = store;
+            _sync = new KodoJournalSync(_journal, store, options, time, logger);
+        }
 
         int failures = s.GetInt(KodoSettingKey.BreakerFailures);
         TimeSpan cooldown = TimeSpan.FromSeconds(s.GetInt(KodoSettingKey.BreakerCooldownSeconds));
@@ -75,8 +83,8 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
 
         DiskFreeProbe disk = new(host, _dataVolume);
         MemoryPressureProbe memory = new(host);
-        JournalWritableProbe writable = new(new KodoSelfReadings(_journal));
-        SpillAgeProbe spill = new(new KodoSelfReadings(_journal), timeProvider: time);
+        JournalWritableProbe writable = new(new KodoSelfReadings(_journal, _sync));
+        SpillAgeProbe spill = new(new KodoSelfReadings(_journal, _sync), timeProvider: time);
         Add(disk.Id, KodoCategory.Host, critical: true, disk.RunAsync);
         Add(MemoryPressureProbe.Id, KodoCategory.Host, critical: false, memory.RunAsync);
         if (options.IncludeClockDrift)
@@ -110,6 +118,34 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
             Hex(proof.RecordHash),
             Hex(proof.Root),
             proof.Proof.Path.Select(Hex).ToArray());
+    }
+
+    public async ValueTask<KodoJournalProofView?> JournalProofAsync(long sequence, CancellationToken cancellationToken)
+    {
+        if (JournalProof(sequence) is { } local)
+        {
+            return local;
+        }
+
+        // The memory window cannot answer (older than the window): ask the store, which holds the whole history.
+        if (_store is null || sequence < 0 || sequence >= _journal.NextSequence)
+        {
+            return null;
+        }
+
+        try
+        {
+            return await _store.ProofAsync(sequence, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception error)
+        {
+            LogProofStoreFailed(_logger, error);
+            return null;
+        }
     }
 
     /// <summary>The ids of the probes this monitor runs, in catalogue order.</summary>
@@ -156,6 +192,12 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
         if (!_started)
         {
             _started = true;
+            if (_sync is not null)
+            {
+                // Connect first: with no local chain, the journal continues from the stored head instead of starting a second chain.
+                await SyncStepAsync((sync, token) => sync.ConnectAsync(token), ct).ConfigureAwait(false);
+            }
+
             _journal.Append(now, "start", "kodo monitor started");
         }
 
@@ -201,10 +243,53 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
             revision => KodoStatusSnapshotBuilder.Build(evaluation, observation, score, components, revision, now, head),
             now);
         Volatile.Write(ref _latest, snapshotEvent.Snapshot);
+        WriteSnapshotFile(snapshotEvent.Snapshot);
+        if (_sync is not null)
+        {
+            await SyncStepAsync((sync, token) => sync.SyncAsync(snapshotEvent.Snapshot, token), ct).ConfigureAwait(false);
+        }
 
         foreach (KodoStreamEventDto streamEvent in events)
         {
             await PublishAsync(streamEvent, ct).ConfigureAwait(false);
+        }
+    }
+
+    // The snapshot file is how the resident TUI, a separate process, reads Kodo (doc 58 section 3). A write failure never stops a pass;
+    // it is logged once until a write succeeds again.
+    private bool _snapshotFileFailing;
+
+    private void WriteSnapshotFile(KodoStatusSnapshotDto? snapshot)
+    {
+        if (_options.SnapshotFile is not { Length: > 0 } path || snapshot is null)
+        {
+            return;
+        }
+
+        try
+        {
+            KodoSnapshotFile.Write(path, snapshot);
+            _snapshotFileFailing = false;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            if (!_snapshotFileFailing)
+            {
+                _snapshotFileFailing = true;
+                LogSnapshotFileFailed(_logger, error);
+            }
+    // The store call never holds a pass longer than the timeout: a hung database leaves the records in the local journal.
+    private async Task SyncStepAsync(Func<KodoJournalSync, CancellationToken, Task> step, CancellationToken ct)
+    {
+        using CancellationTokenSource timeout = new(_storeTimeout, _time);
+        using CancellationTokenSource limit = CancellationTokenSource.CreateLinkedTokenSource(ct, timeout.Token);
+        try
+        {
+            await step(_sync!, limit.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            LogSyncTimedOut(_logger);
         }
     }
 
@@ -325,6 +410,14 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
 
     [LoggerMessage(Level = LogLevel.Error, Message = "A Kodo pass failed and will be retried at the next tick.")]
     private static partial void LogCycleFailed(ILogger logger, Exception error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo snapshot file could not be written; the resident TUI will show Kodo as silent.")]
+    private static partial void LogSnapshotFileFailed(ILogger logger, Exception error);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store could not answer a proof request.")]
+    private static partial void LogProofStoreFailed(ILogger logger, Exception error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store did not answer in time; the records stay in the local journal.")]
+    private static partial void LogSyncTimedOut(ILogger logger);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo stream publisher failed for a {EventType} event; the event is dropped.")]
     private static partial void LogPublishFailed(ILogger logger, Exception error, string eventType);
