@@ -1,0 +1,16 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+#extension GL_EXT_samplerless_texture_functions : require
+// Hi-Z pyramid, level 0 (640x360): min of the 2x2 depth texels of the previous frame's 1280x720 depth image.
+#include "topology.glsl"
+#include "tile.glsl"
+layout(set = 1, binding = 0) uniform texture2D depthTex;
+layout(local_size_x = 256) in;
+void main()
+{
+    uint k = gl_GlobalInvocationID.x;
+    if (k >= 640u * 360u) { return; }
+    ivec2 p = ivec2(int(k % 640u) * 2, int(k / 640u) * 2);
+    hiz[k] = min(min(texelFetch(depthTex, p, 0).r, texelFetch(depthTex, p + ivec2(1, 0), 0).r),
+                 min(texelFetch(depthTex, p + ivec2(0, 1), 0).r, texelFetch(depthTex, p + ivec2(1, 1), 0).r));
+}

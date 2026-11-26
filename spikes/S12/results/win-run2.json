@@ -1,0 +1,94 @@
+{
+  "results": {
+    "loadOfflineFromBundle": {
+      "pass": true,
+      "detail": "ready=1461ms since process start"
+    },
+    "coldStartToWebView2CreatedMs": 1219,
+    "coldStartToMonacoReadyMs": 1461,
+    "coldStartToFirstPaintMs": 1462,
+    "jsReadyMs": 202,
+    "noExternalRequests": {
+      "pass": true,
+      "detail": ""
+    },
+    "themeApplied": {
+      "pass": true,
+      "detail": "editor bg=\u0022\\\u0022rgb(24, 24, 37)\\\u0022\u0022 expected #181825, no reload"
+    },
+    "themeSwapLive": {
+      "pass": true,
+      "detail": "after light theme bg=\u0022\\\u0022rgb(255, 255, 255)\\\u0022\u0022"
+    },
+    "typingAscii": {
+      "pass": true,
+      "detail": "typed=\u0027Hello, Bazaar! 123 x\u0027 got=\u0027Hello, Bazaar! 123 x\u0027 mismatches=0"
+    },
+    "imeCommit_CdpSimulated": {
+      "pass": true,
+      "detail": "textarea during composition=\u0022\u0022 committed=\u0027\u65E5\u672C\u0027"
+    },
+    "imeCancel_CdpSimulated": {
+      "pass": true,
+      "detail": "after cancel=\u0027\u65E5\u672C\u0027"
+    },
+    "pasteNonAscii": {
+      "pass": true,
+      "detail": "got=\u0027paste: \u00FCn\u00EF\u00A9\u00F6d\u00E9 \u65E5\u672C\u8A9E \uD83D\uDE80\u0027"
+    },
+    "keyHandoffClaimedKey": {
+      "pass": true,
+      "detail": "keyPressed -\u003E Avalonia focus; handed=True nativeFocused=True"
+    },
+    "noCtrlChordsClaimed": {
+      "pass": true,
+      "detail": "\u0022[\\\u0022Alt\u002BKeyM\\\u0022,\\\u0022F6\\\u0022]\u0022"
+    },
+    "unclaimedCtrlChordStaysInMonaco": {
+      "pass": true,
+      "detail": "no keyPressed for Ctrl\u002BS"
+    },
+    "seqGuardBothWays": {
+      "pass": true,
+      "detail": "editor rejected stale host seq=True; host rejected stale editor seq=1"
+    },
+    "unknownTypeRejected": {
+      "pass": true,
+      "detail": ""
+    },
+    "diffEditor": {
+      "pass": true,
+      "detail": "diffEditorDom=\u0022true\u0022 changes=2"
+    },
+    "memAvaloniaProcessPrivateMB": 94,
+    "memWebView2ProcessesPrivateMB": 254,
+    "memWebView2Processes": "Utility:7MB Utility:11MB Renderer:96MB Browser:39MB Gpu:99MB",
+    "webview2RuntimeVersion": "157.0.4341.60",
+    "crashes": 0
+  },
+  "log": [
+    "PASS loadOfflineFromBundle ready=1461ms since process start",
+    "coldStartToWebView2CreatedMs = 1219",
+    "coldStartToMonacoReadyMs = 1461",
+    "coldStartToFirstPaintMs = 1462",
+    "jsReadyMs = 202",
+    "PASS noExternalRequests ",
+    "PASS themeApplied editor bg=\u0022\\\u0022rgb(24, 24, 37)\\\u0022\u0022 expected #181825, no reload",
+    "PASS themeSwapLive after light theme bg=\u0022\\\u0022rgb(255, 255, 255)\\\u0022\u0022",
+    "PASS typingAscii typed=\u0027Hello, Bazaar! 123 x\u0027 got=\u0027Hello, Bazaar! 123 x\u0027 mismatches=0",
+    "PASS imeCommit_CdpSimulated textarea during composition=\u0022\u0022 committed=\u0027\u65E5\u672C\u0027",
+    "PASS imeCancel_CdpSimulated after cancel=\u0027\u65E5\u672C\u0027",
+    "PASS pasteNonAscii got=\u0027paste: \u00FCn\u00EF\u00A9\u00F6d\u00E9 \u65E5\u672C\u8A9E \uD83D\uDE80\u0027",
+    "PASS keyHandoffClaimedKey keyPressed -\u003E Avalonia focus; handed=True nativeFocused=True",
+    "PASS noCtrlChordsClaimed \u0022[\\\u0022Alt\u002BKeyM\\\u0022,\\\u0022F6\\\u0022]\u0022",
+    "PASS unclaimedCtrlChordStaysInMonaco no keyPressed for Ctrl\u002BS",
+    "PASS seqGuardBothWays editor rejected stale host seq=True; host rejected stale editor seq=1",
+    "PASS unknownTypeRejected ",
+    "PASS diffEditor diffEditorDom=\u0022true\u0022 changes=2",
+    "memAvaloniaProcessPrivateMB = 94",
+    "memWebView2ProcessesPrivateMB = 254",
+    "memWebView2Processes = Utility:7MB Utility:11MB Renderer:96MB Browser:39MB Gpu:99MB",
+    "webview2RuntimeVersion = 157.0.4341.60",
+    "crashes = 0"
+  ]
+}

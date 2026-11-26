@@ -1,0 +1,882 @@
+; Bazaar wire payloads for the CBOR codec, protocol 1.0 (RFC 8610).
+; Schema hash sha256:ce704485256a47966ab9caab7e87284fc14c916a6e0bd97a06a72849e79aeea7.
+; Schema hash sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf.
+; Map keys are text. Absent keys mean null or the default. Readers ignore unknown keys. Generated; do not edit.
+
+envelope = {
+  v: uint,
+  t: tstr,
+  k: "req" / "res" / "evt" / "err",
+  ? id: tstr,
+  ? re: tstr,
+  ? s: tstr,
+  ? n: int,
+  ? ts: #6.0(tstr),
+  ? p: any,
+  * tstr => any
+}
+
+uuid-text = tstr .regexp "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+decimal-fraction = #6.4([exponent: int, mantissa: int])
+float32-array = #6.85(bstr)
+
+; Message types and the payload rule each carries.
+; board.snapshot = kanban-board-request
+; gc.edit = gc-edit
+; gc.history = gc-history
+; gc.member.add = gc-member-add
+; gc.member.remove = gc-member-remove
+; gc.message = wire-gc-message
+; gc.read = gc-read
+; gc.send = gc-send
+; graph.lod = graph-lod-frame
+; hello = hello
+; lagged = lagged
+; ping = ping
+; pong = pong
+; board.assign = kanban-assign-request
+; board.move = kanban-move-request
+; board.snapshot = kanban-board-request
+; editor.create = editor-create-request
+; editor.open = editor-open-request
+; editor.save = editor-save-request
+; engine.grant.verify = engine-grant-verify-request
+; engine.relay.request = engine-relay-request-frame
+; engine.relay.result = engine-relay-result-frame
+; gc.edit = gc-edit
+; gc.history = gc-history
+; gc.list = gc-list-request
+; gc.member.add = gc-member-add
+; gc.member.remove = gc-member-remove
+; gc.message = wire-gc-message
+; gc.react = gc-react
+; gc.reaction = wire-gc-reaction
+; gc.reactions = gc-reactions-request
+; gc.read = gc-read
+; gc.send = gc-send
+; gc.typing = gc-typing
+; graph.lod = graph-lod-frame
+; hello = hello
+; hive.grant.revoke = hive-grant-change-request
+; hive.grant.set = hive-grant-change-request
+; lagged = lagged
+; pane.frame = pane-frame
+; ping = ping
+; pong = pong
+; pr.hunks = pr-hunks-request
+; pr.list = pr-list-request
+; pr.merge = pr-merge-request
+; pr.review = pr-review-request
+; pr.summary = pr-summary-request
+; presence.snapshot = presence-snapshot-request
+; presence.update = presence-update
+; replay.fork = replay-fork-request
+; replay.frame = replay-frame-request
+; resync = resync
+; ryusei.trigger.list = ryusei-trigger-list-request
+; ryusei.trigger.pause = ryusei-trigger-change-request
+; ryusei.trigger.resume = ryusei-trigger-change-request
+; stream.revoked = stream-revoked
+; subscribe = subscribe
+; unsubscribe = unsubscribe
+; welcome = welcome
+
+payload = cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / kanban-board-request / kanban-board-snapshot / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / gc-edit / gc-history / gc-member-add / gc-member-remove / gc-page / gc-read / gc-send / gc-send-result / hello / lagged / ping / pong / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message
+
+principal-kind = "owner" / "human" / "agent"
+payload = editor-create-reply / editor-create-request / editor-open-reply / editor-open-request / editor-save-reply / editor-save-request / engine-grant-verify-reply / engine-grant-verify-request / engine-relay-request-frame / engine-relay-result-frame / pr-hunks-reply / pr-hunks-request / pr-list-reply / pr-list-request / pr-merge-reply / pr-merge-request / pr-review-reply / pr-review-request / pr-summary-reply / pr-summary-request / cluster-glyph / focus-request / graph-lod-frame / graph-snapshot / layout-frame / tile-frame / tile-key / viewport-request / hive-grant-change-reply / hive-grant-change-request / kanban-assign-reply / kanban-assign-request / kanban-board-request / kanban-board-snapshot / kanban-move-reply / kanban-move-request / release-manifest / roadmap-board-snapshot / ryusei-trigger-change-reply / ryusei-trigger-change-request / ryusei-trigger-list-reply / ryusei-trigger-list-request / replay-fork-request / replay-fork-result / replay-frame-request / replay-frame-result / replay-frame-wire / replay-message-wire / replay-reputation-part / replay-reputation-wire / replay-soul-wire / replay-souls-part / replay-task-wire / replay-tasks-part / replay-vault-part / replay-vault-wire / gc-edit / gc-history / gc-list-item / gc-list-reply / gc-list-request / gc-member-add / gc-member-remove / gc-page / gc-react / gc-react-result / gc-reactions-reply / gc-reactions-request / gc-read / gc-send / gc-send-result / gc-typing / gc-typing-result / hello / lagged / pane-frame / ping / pong / presence-snapshot / presence-snapshot-request / presence-typing / presence-update / resync / stream-revoked / subscribe / subscribe-result / unsubscribe / welcome / wire-error / wire-gc-message / wire-gc-reaction / wire-reaction-group
+
+editor-create-reply = {
+  revision: tstr,  ; 1
+  * tstr => any
+}
+editor-create-request = {
+  workspaceId: tstr,  ; 1
+  path: tstr,  ; 2
+  content: tstr,  ; 3
+  * tstr => any
+}
+editor-open-reply = {
+  content: tstr,  ; 1
+  revision: tstr,  ; 2
+  ? languageHint: tstr,  ; 3
+  readOnly: bool,  ; 4
+  sizeBytes: int,  ; 5
+  * tstr => any
+}
+editor-open-request = {
+  workspaceId: tstr,  ; 1
+  path: tstr,  ; 2
+  * tstr => any
+}
+editor-save-reply = {
+  ? newRevision: tstr,  ; 1
+  ? serverRevision: tstr,  ; 2
+  ? serverContent: tstr,  ; 3
+  * tstr => any
+}
+editor-save-request = {
+  workspaceId: tstr,  ; 1
+  path: tstr,  ; 2
+  baseRevision: tstr,  ; 3
+  content: tstr,  ; 4
+  * tstr => any
+}
+engine-grant-verify-reply = {
+  covers: bool,  ; 1
+  * tstr => any
+}
+engine-grant-verify-request = {
+  grantId: tstr,  ; 1
+  tool: tstr,  ; 2
+  riskClass: risk-class,  ; 3
+  * tstr => any
+}
+engine-relay-call-frame = {
+  grantId: tstr,  ; 1
+  studioId: tstr,  ; 2
+  tool: tstr,  ; 3
+  argsJson: tstr,  ; 4
+  * tstr => any
+}
+engine-relay-call-result-frame = {
+  grantId: tstr,  ; 1
+  ok: bool,  ; 2
+  payloadJson: tstr,  ; 3
+  * tstr => any
+}
+engine-relay-request-frame = {
+  relayId: uuid-text,  ; 1
+  deadline: #6.0(tstr),  ; 2
+  call: engine-relay-call-frame,  ; 3
+  * tstr => any
+}
+engine-relay-result-frame = {
+  relayId: uuid-text,  ; 1
+  result: engine-relay-call-result-frame,  ; 2
+  * tstr => any
+}
+risk-class = "read" / "write" / "exec"
+principal-kind = "owner" / "human" / "agent"
+pr-author-kind = "agent" / "human"
+pr-changed-file = {
+  path: tstr,  ; 1
+  status: tstr,  ; 2
+  additions: -2147483648..2147483647,  ; 3
+  deletions: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-checks-rollup = "none" / "pending" / "passing" / "failing"
+pr-hunk = {
+  header: tstr,  ; 1
+  oldStart: -2147483648..2147483647,  ; 2
+  oldCount: -2147483648..2147483647,  ; 3
+  newStart: -2147483648..2147483647,  ; 4
+  newCount: -2147483648..2147483647,  ; 5
+  lines: [* tstr],  ; 6
+  * tstr => any
+}
+pr-hunks-reply = {
+  status: pr-hunks-status,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  hunks: [* pr-hunk],  ; 4
+  ? nextCursor: tstr,  ; 5
+  * tstr => any
+}
+pr-hunks-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  path: tstr,  ; 3
+  ? cursor: tstr,  ; 4
+  * tstr => any
+}
+pr-hunks-status = "ok" / "stale"
+pr-list-reply = {
+  rows: [* pr-list-row],  ; 1
+  ? nextCursor: tstr,  ; 2
+  * tstr => any
+}
+pr-list-request = {
+  ? repo: tstr,  ; 1
+  state: pr-list-state,  ; 2
+  ? cursor: tstr,  ; 3
+  ? limit: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+pr-list-row = {
+  prId: tstr,  ; 1
+  repo: tstr,  ; 2
+  number: -2147483648..2147483647,  ; 3
+  title: tstr,  ; 4
+  author: tstr,  ; 5
+  authorKind: pr-author-kind,  ; 6
+  draft: bool,  ; 7
+  headSha: tstr,  ; 8
+  checks: pr-checks-rollup,  ; 9
+  revision: int,  ; 10
+  ? installationId: int,  ; 11
+  ? owner: tstr,  ; 12
+  ? repoName: tstr,  ; 13
+  * tstr => any
+}
+pr-list-state = "open" / "closed" / "merged" / "all"
+pr-merge-reply = {
+  status: pr-merge-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-merge-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  commitTitle: tstr,  ; 3
+  commitMessage: tstr,  ; 4
+  owner: pr-owner-payload,  ; 5
+  signature: [* 0..255],  ; 6
+  * tstr => any
+}
+pr-merge-status = "merged" / "stale" / "checks_failed" / "bad_signature" / "not_mergeable" / "conflict" / "refused"
+pr-owner-payload = {
+  action: tstr,  ; 1
+  approvalId: uuid-text,  ; 2
+  argsHash: [* 0..255],  ; 3
+  ? headSha: tstr,  ; 4
+  humanId: uuid-text,  ; 5
+  deviceId: tstr,  ; 6
+  issuedAt: #6.0(tstr),  ; 7
+  expiresAt: #6.0(tstr),  ; 8
+  nonce: [* 0..255],  ; 9
+  * tstr => any
+}
+pr-review-reply = {
+  status: pr-review-status,  ; 1
+  ? headSha: tstr,  ; 2
+  ? message: tstr,  ; 3
+  * tstr => any
+}
+pr-review-request = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  event: tstr,  ; 3
+  body: tstr,  ; 4
+  * tstr => any
+}
+pr-review-status = "applied" / "stale" / "refused"
+pr-summary-reply = {
+  prId: tstr,  ; 1
+  headSha: tstr,  ; 2
+  summary: tstr,  ; 3
+  files: [* pr-changed-file],  ; 4
+  checks: pr-checks-rollup,  ; 5
+  reviewerApproved: bool,  ; 6
+  ? linkedCardId: uuid-text,  ; 7
+  ? installationId: int,  ; 8
+  ? owner: tstr,  ; 9
+  ? repoName: tstr,  ; 10
+  ? number: -2147483648..2147483647,  ; 11
+  * tstr => any
+}
+pr-summary-request = {
+  prId: tstr,  ; 1
+  * tstr => any
+}
+cluster-glyph = {
+  clusterId: tstr,  ; 1
+  memberCount: -2147483648..2147483647,  ; 2
+  x: float32,  ; 3
+  y: float32,  ; 4
+  z: float32,  ; 5
+  * tstr => any
+}
+focus-request = {
+  viewId: tstr,  ; 1
+  nodeId: tstr,  ; 2
+  * tstr => any
+}
+graph-edge = {
+  from: tstr,  ; 1
+  to: tstr,  ; 2
+  ? kind: graph-edge-kind,  ; 3
+  * tstr => any
+}
+graph-edge-kind = "unspecified" / "dependsOn" / "phaseMembership" / "wikiLink"
+graph-lod-edge = {
+  a: -2147483648..2147483647,  ; 1
+  b: -2147483648..2147483647,  ; 2
+  weight: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+graph-lod-frame = {
+  s: tstr,  ; 1
+  graphVersion: int,  ; 2
+  clustersOnly: bool,  ; 3
+  clusters: [* graph-lod-glyph],  ; 4
+  clusterEdges: [* graph-lod-edge],  ; 5
+  tiles: [* graph-lod-tile],  ; 6
+  * tstr => any
+}
+graph-lod-glyph = {
+  cluster: -2147483648..2147483647,  ; 1
+  centroid: float32-array,  ; 2
+  count: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+graph-lod-tile = {
+  col: -2147483648..2147483647,  ; 1
+  row: -2147483648..2147483647,  ; 2
+  nodeIndices: [* -2147483648..2147483647],  ; 3
+  * tstr => any
+}
+graph-node = {
+  id: tstr,  ; 1
+  ? kind: graph-node-kind,  ; 2
+  * tstr => any
+}
+graph-node-kind = "unspecified" / "objective" / "phase" / "vault"
+graph-snapshot = {
+  graphVersion: int,  ; 1
+  nodes: [* graph-node],  ; 2
+  edges: [* graph-edge],  ; 3
+  * tstr => any
+}
+layout-frame = {
+  graphVersion: int,  ; 1
+  layoutSeq: int,  ; 2
+  focusId: tstr,  ; 3
+  xyz: float32-array,  ; 4
+  * tstr => any
+}
+tile-frame = {
+  viewId: tstr,  ; 1
+  graphVersion: int,  ; 2
+  layoutSeq: int,  ; 3
+  key: tile-key,  ; 4
+  tier: zoom-tier,  ; 5
+  dimensions: 0..255,  ; 6
+  nodeIds: [* tstr],  ; 7
+  xyz: float32-array,  ; 8
+  clusters: [* cluster-glyph],  ; 9
+  * tstr => any
+}
+tile-key = {
+  level: -2147483648..2147483647,  ; 1
+  x: -2147483648..2147483647,  ; 2
+  y: -2147483648..2147483647,  ; 3
+  ? z: -2147483648..2147483647,  ; 4
+  * tstr => any
+}
+viewport-request = {
+  viewId: tstr,  ; 1
+  graphVersion: int,  ; 2
+  tier: zoom-tier,  ; 3
+  minX: float32,  ; 4
+  minY: float32,  ; 5
+  minZ: float32,  ; 6
+  maxX: float32,  ; 7
+  maxY: float32,  ; 8
+  maxZ: float32,  ; 9
+  maxNodes: -2147483648..2147483647,  ; 10
+  * tstr => any
+}
+zoom-tier = "far" / "mid" / "near"
+hive-grant-change-reply = {
+  accepted: bool,  ; 1
+  ? reason: tstr,  ; 2
+  approvalRequired: bool,  ; 3
+  * tstr => any
+}
+hive-grant-change-request = {
+  fromProject: tstr,  ; 1
+  toProject: tstr,  ; 2
+  kind: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-reply = {
+  status: tstr,  ; 1
+  ? revision: int,  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+kanban-assign-request = {
+  projectId: uuid-text,  ; 1
+  cardId: uuid-text,  ; 2
+  ? assigneeAgentId: uuid-text,  ; 3
+  expectedRevision: int,  ; 4
+  * tstr => any
+}
+kanban-board-card = {
+  id: uuid-text,  ; 1
+  title: tstr,  ; 2
+  state: tstr,  ; 3
+  ? ownerAgentId: uuid-text,  ; 4
+  unfinishedBlockerIds: [* uuid-text],  ; 5
+  blockerTitles: [* tstr],  ; 6
+  ? revision: int,  ; 7
+  * tstr => any
+}
+kanban-board-request = {
+  projectId: uuid-text,  ; 1
+  * tstr => any
+}
+kanban-board-snapshot = {
+  projectId: uuid-text,  ; 1
+  cards: [* kanban-board-card],  ; 2
+  * tstr => any
+}
+kanban-move-reply = {
+  status: tstr,  ; 1
+  ? revision: int,  ; 2
+  blockerTitles: [* tstr],  ; 3
+  ? reason: tstr,  ; 4
+  * tstr => any
+}
+kanban-move-request = {
+  projectId: uuid-text,  ; 1
+  cardId: uuid-text,  ; 2
+  toState: tstr,  ; 3
+  expectedRevision: int,  ; 4
+  ? reason: tstr,  ; 5
+  * tstr => any
+}
+release-artifact = {
+  os: tstr,  ; 1
+  architecture: tstr,  ; 2
+  format: tstr,  ; 3
+  url: tstr,  ; 4
+  sizeBytes: int,  ; 5
+  sha256: tstr,  ; 6
+  ? sha256Url: tstr,  ; 7
+  ? signatureUrl: tstr,  ; 8
+  ? signature: tstr,  ; 9
+  * tstr => any
+}
+release-manifest = {
+  channel: tstr,  ; 1
+  appVersion: tstr,  ; 2
+  minProtocol: tstr,  ; 3
+  maxProtocol: tstr,  ; 4
+  schemaVersion: tstr,  ; 5
+  signingKeyFingerprint: tstr,  ; 6
+  artifacts: [* release-artifact],  ; 7
+  * tstr => any
+}
+roadmap-board-snapshot = {
+  vaultId: uuid-text,  ; 1
+  phases: [* roadmap-phase-dto],  ; 2
+  unphasedObjectives: [* roadmap-objective-dto],  ; 3
+  dependencyCycle: [* tstr],  ; 4
+  errors: [* roadmap-document-error-dto],  ; 5
+  * tstr => any
+}
+roadmap-document-error-dto = {
+  path: tstr,  ; 1
+  field: tstr,  ; 2
+  message: tstr,  ; 3
+  * tstr => any
+}
+roadmap-objective-dto = {
+  path: tstr,  ; 1
+  title: tstr,  ; 2
+  phaseSlug: tstr,  ; 3
+  status: tstr,  ; 4
+  ? owner: tstr,  ; 5
+  dependsOn: [* tstr],  ; 6
+  progress: roadmap-progress-dto,  ; 7
+  * tstr => any
+}
+roadmap-phase-dto = {
+  slug: tstr,  ; 1
+  path: tstr,  ; 2
+  title: tstr,  ; 3
+  gatePassed: bool,  ; 4
+  objectiveCount: -2147483648..2147483647,  ; 5
+  openObjectives: -2147483648..2147483647,  ; 6
+  objectives: [* roadmap-objective-dto],  ; 7
+  * tstr => any
+}
+roadmap-progress-dto = {
+  linkedTasks: -2147483648..2147483647,  ; 1
+  backlog: -2147483648..2147483647,  ; 2
+  ready: -2147483648..2147483647,  ; 3
+  inProgress: -2147483648..2147483647,  ; 4
+  review: -2147483648..2147483647,  ; 5
+  done: -2147483648..2147483647,  ; 6
+  ? doneShare: decimal-fraction,  ; 7
+  * tstr => any
+}
+ryusei-trigger-change-reply = {
+  triggerId: uuid-text,  ; 1
+  version: int,  ; 2
+  * tstr => any
+}
+ryusei-trigger-change-request = {
+  triggerId: uuid-text,  ; 1
+  * tstr => any
+}
+ryusei-trigger-chip = {
+  triggerId: uuid-text,  ; 1
+  ? taskId: uuid-text,  ; 2
+  kind: tstr,  ; 3
+  state: tstr,  ; 4
+  ? nextFireAt: #6.0(tstr),  ; 5
+  purpose: tstr,  ; 6
+  version: int,  ; 7
+  * tstr => any
+}
+ryusei-trigger-list-reply = {
+  projectId: uuid-text,  ; 1
+  triggers: [* ryusei-trigger-chip],  ; 2
+  * tstr => any
+}
+ryusei-trigger-list-request = {
+  projectId: uuid-text,  ; 1
+  * tstr => any
+}
+replay-fork-request = {
+  gc: uuid-text,  ; 1
+  seq: int,  ; 2
+  requestId: uuid-text,  ; 3
+  * tstr => any
+}
+replay-fork-result = {
+  newGc: uuid-text,  ; 1
+  ? vaultCommit: tstr,  ; 2
+  created: bool,  ; 3
+  * tstr => any
+}
+replay-frame-request = {
+  gc: uuid-text,  ; 1
+  seq: int,  ; 2
+  ? mode: tstr,  ; 3
+  * tstr => any
+}
+replay-frame-result = {
+  gc: uuid-text,  ; 1
+  seq: int,  ; 2
+  head: int,  ; 3
+  frame: replay-frame-wire,  ; 4
+  * tstr => any
+}
+replay-frame-wire = {
+  messages: [* replay-message-wire],  ; 1
+  kanban: replay-tasks-part,  ; 2
+  vault: replay-vault-part,  ; 3
+  souls: replay-souls-part,  ; 4
+  reputation: replay-reputation-part,  ; 5
+  * tstr => any
+}
+replay-message-wire = {
+  messageId: uuid-text,  ; 1
+  authorId: uuid-text,  ; 2
+  firstSeq: int,  ; 3
+  versionSeq: int,  ; 4
+  version: -2147483648..2147483647,  ; 5
+  edited: bool,  ; 6
+  quarantined: bool,  ; 7
+  ? payloadJson: tstr,  ; 8
+  createdAt: #6.0(tstr),  ; 9
+  * tstr => any
+}
+replay-reputation-part = {
+  available: bool,  ; 1
+  ? value: [* replay-reputation-wire],  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+replay-reputation-wire = {
+  agentId: uuid-text,  ; 1
+  score: decimal-fraction,  ; 2
+  * tstr => any
+}
+replay-soul-wire = {
+  agentId: uuid-text,  ; 1
+  version: -2147483648..2147483647,  ; 2
+  * tstr => any
+}
+replay-souls-part = {
+  available: bool,  ; 1
+  ? value: [* replay-soul-wire],  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+replay-task-wire = {
+  taskId: uuid-text,  ; 1
+  title: tstr,  ; 2
+  column: tstr,  ; 3
+  * tstr => any
+}
+replay-tasks-part = {
+  available: bool,  ; 1
+  ? value: [* replay-task-wire],  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+replay-vault-part = {
+  available: bool,  ; 1
+  ? value: (replay-vault-wire / null),  ; 2
+  ? reason: tstr,  ; 3
+  * tstr => any
+}
+replay-vault-wire = {
+  commit: tstr,  ; 1
+  * tstr => any
+}
+replay-vault-wire? = {
+  commit: tstr,  ; 1
+  * tstr => any
+}
+gc-edit = {
+  gcId: uuid-text,  ; 1
+  messageId: uuid-text,  ; 2
+  text: tstr,  ; 3
+  * tstr => any
+}
+gc-history = {
+  gcId: uuid-text,  ; 1
+  before: int,  ; 2
+  limit: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+gc-list-item = {
+  gcId: uuid-text,  ; 1
+  title: tstr,  ; 2
+  kind: tstr,  ; 3
+  memberCount: -2147483648..2147483647,  ; 4
+  headSeq: int,  ; 5
+  ? lastActivityTs: #6.0(tstr),  ; 6
+  * tstr => any
+}
+gc-list-reply = {
+  items: [* gc-list-item],  ; 1
+  hasMore: bool,  ; 2
+  ? defaultGcId: uuid-text,  ; 3
+  * tstr => any
+}
+gc-list-request = {
+  limit: -2147483648..2147483647,  ; 1
+  ? includeThinking: bool,  ; 2
+  * tstr => any
+}
+gc-member-add = {
+  gcId: uuid-text,  ; 1
+  principalId: uuid-text,  ; 2
+  kind: principal-kind,  ; 3
+  role: tstr,  ; 4
+  * tstr => any
+}
+gc-member-remove = {
+  gcId: uuid-text,  ; 1
+  principalId: uuid-text,  ; 2
+  * tstr => any
+}
+gc-page = {
+  items: [* wire-gc-message],  ; 1
+  hasMore: bool,  ; 2
+  * tstr => any
+}
+gc-react = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  add: bool,  ; 4
+  * tstr => any
+}
+gc-react-result = {
+  n: int,  ; 1
+  changed: bool,  ; 2
+  * tstr => any
+}
+gc-reactions-reply = {
+  items: [* wire-reaction-group],  ; 1
+  * tstr => any
+}
+gc-reactions-request = {
+  gcId: uuid-text,  ; 1
+  ? afterN: int,  ; 2
+  * tstr => any
+}
+gc-read = {
+  gcId: uuid-text,  ; 1
+  upToN: int,  ; 2
+  * tstr => any
+}
+gc-send = {
+  gcId: uuid-text,  ; 1
+  text: tstr,  ; 2
+  ? mentions: [* uuid-text],  ; 3
+  ? replyToN: int,  ; 4
+  * tstr => any
+}
+gc-send-result = {
+  n: int,  ; 1
+  ev: int,  ; 2
+  * tstr => any
+}
+gc-typing = {
+  gcId: uuid-text,  ; 1
+  typing: bool,  ; 2
+  * tstr => any
+}
+gc-typing-result = {
+  accepted: bool,  ; 1
+  * tstr => any
+}
+hello = {
+  versionMin: -2147483648..2147483647,  ; 1
+  versionMax: -2147483648..2147483647,  ; 2
+  minor: -2147483648..2147483647,  ; 3
+  codecs: [* tstr],  ; 4
+  deviceId: tstr,  ; 5
+  deviceClass: tstr,  ; 6
+  clientBuild: tstr,  ; 7
+  ? credential: tstr,  ; 8
+  ? cursors: [* stream-cursor],  ; 9
+  * tstr => any
+}
+lagged = {
+  s: tstr,  ; 1
+  lastSent: int,  ; 2
+  * tstr => any
+}
+pane-frame = {
+  frame: tstr,  ; 1
+  * tstr => any
+}
+ping = {
+  ? nonce: tstr,  ; 1
+  * tstr => any
+}
+pong = {
+  ? nonce: tstr,  ; 1
+  * tstr => any
+}
+presence-snapshot = {
+  rows: [* wire-presence-row],  ; 1
+  * tstr => any
+}
+presence-snapshot-request = {
+  * tstr => any
+}
+presence-typing = {
+  kind: tstr,  ; 1
+  gcId: uuid-text,  ; 2
+  principalId: uuid-text,  ; 3
+  typing: bool,  ; 4
+  ttlMs: -2147483648..2147483647,  ; 5
+  * tstr => any
+}
+presence-update = {
+  kind: tstr,  ; 1
+  agentId: uuid-text,  ; 2
+  revision: int,  ; 3
+  row: wire-presence-row,  ; 4
+  * tstr => any
+}
+resync = {
+  s: tstr,  ; 1
+  latestN: int,  ; 2
+  latestEv: int,  ; 3
+  unread: -2147483648..2147483647,  ; 4
+  tail: [* wire-gc-message],  ; 5
+  * tstr => any
+}
+stream-cursor = {
+  s: tstr,  ; 1
+  after: int,  ; 2
+  editAfter: int,  ; 3
+  * tstr => any
+}
+stream-result = {
+  s: tstr,  ; 1
+  status: tstr,  ; 2
+  * tstr => any
+}
+stream-revoked = {
+  s: tstr,  ; 1
+  * tstr => any
+}
+subscribe = {
+  streams: [* stream-cursor],  ; 1
+  * tstr => any
+}
+subscribe-result = {
+  results: [* stream-result],  ; 1
+  * tstr => any
+}
+unsubscribe = {
+  streams: [* tstr],  ; 1
+  * tstr => any
+}
+welcome = {
+  version: -2147483648..2147483647,  ; 1
+  minor: -2147483648..2147483647,  ; 2
+  codec: tstr,  ; 3
+  principalId: uuid-text,  ; 4
+  serverTime: #6.0(tstr),  ; 5
+  heartbeatIntervalS: -2147483648..2147483647,  ; 6
+  heartbeatTimeoutS: -2147483648..2147483647,  ; 7
+  limits: wire-limits,  ; 8
+  capabilities: [* tstr],  ; 9
+  uiRevision: int,  ; 10
+  ? upgradeRequired: bool,  ; 11
+  ? minimumBuild: tstr,  ; 12
+  ? schemaVersion: tstr,  ; 13
+  ? previousMajorSupported: bool,  ; 14
+  * tstr => any
+}
+wire-error = {
+  code: tstr,  ; 1
+  ? message: tstr,  ; 2
+  ? retryAfterMs: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+wire-gc-message = {
+  gcId: uuid-text,  ; 1
+  n: int,  ; 2
+  ev: int,  ; 3
+  messageId: uuid-text,  ; 4
+  authorId: uuid-text,  ; 5
+  text: tstr,  ; 6
+  ts: #6.0(tstr),  ; 7
+  edited: bool,  ; 8
+  mentions: [* uuid-text],  ; 9
+  ? replyToN: int,  ; 10
+  ? withdrawn: bool,  ; 11
+  * tstr => any
+}
+wire-gc-reaction = {
+  gcId: uuid-text,  ; 1
+  targetN: int,  ; 2
+  emoji: tstr,  ; 3
+  by: uuid-text,  ; 4
+  add: bool,  ; 5
+  ts: #6.0(tstr),  ; 6
+  * tstr => any
+}
+wire-limits = {
+  maxFrameBytes: -2147483648..2147483647,  ; 1
+  inflightRequestsMax: -2147483648..2147483647,  ; 2
+  replayPageSize: -2147483648..2147483647,  ; 3
+  * tstr => any
+}
+wire-presence-row = {
+  agentId: uuid-text,  ; 1
+  revision: int,  ; 2
+  availability: tstr,  ; 3
+  overlays: [* tstr],  ; 4
+  presence: tstr,  ; 5
+  activityKind: tstr,  ; 6
+  ? gcId: uuid-text,  ; 7
+  ? turnId: uuid-text,  ; 8
+  ? label: tstr,  ; 9
+  since: #6.0(tstr),  ; 10
+  updatedAt: #6.0(tstr),  ; 11
+  * tstr => any
+}
+wire-reaction-group = {
+  targetN: int,  ; 1
+  emoji: tstr,  ; 2
+  by: [* uuid-text],  ; 3
+  * tstr => any
+}

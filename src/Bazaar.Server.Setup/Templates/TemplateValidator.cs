@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Setup;
 
@@ -38,7 +37,7 @@ internal static partial class TemplateValidator
     private static partial Regex PresetKeyRegex();
 
     /// <summary>Checks and normalizes <paramref name="template"/>, adds every issue found, and returns the seed references in a stable order.</summary>
-    public static List<TemplateSeedReference> Validate(SetupTemplate template, SettingRegistry registry, List<SetupValidationIssue> issues)
+    public static List<TemplateSeedReference> Validate(SetupTemplate template, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         ArgumentNullException.ThrowIfNull(template);
         ArgumentNullException.ThrowIfNull(registry);
@@ -95,7 +94,7 @@ internal static partial class TemplateValidator
         Normalize(template.Modules);
     }
 
-    private static void ValidateSettings(SetupTemplate template, SettingRegistry registry, List<SetupValidationIssue> issues)
+    private static void ValidateSettings(SetupTemplate template, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
     {
         // The network block owns these two keys in a plan (doc 45 section 1.5). A template cannot set them, so there is one answer.
         foreach (var name in template.Settings.Keys.Where(IsNetworkKey).OrderBy(k => k, StringComparer.Ordinal).ToList())

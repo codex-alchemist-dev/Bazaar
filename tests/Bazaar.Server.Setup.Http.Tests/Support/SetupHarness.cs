@@ -2,12 +2,10 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Security.Audit;
-using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 using Bazaar.Server.Setup.Http;
-using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,9 +45,13 @@ public sealed class SetupHarness : IAsyncDisposable
 
     public FakeAuditLog Audit { get; } = new();
 
+    public FakeTransportPolicy TransportPolicy { get; } = new();
+
     public FakeInstanceLock Lock { get; } = new();
 
-    public InMemorySettingAuditSink SettingAudit { get; } = new();
+    public FakeSettingAudit SettingAudit { get; } = new();
+
+    public FakeSettingCatalog Settings { get; } = new();
 
     public FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 11, 18, 0, 0, 0, TimeSpan.Zero));
 
@@ -68,8 +70,8 @@ public sealed class SetupHarness : IAsyncDisposable
 
     public SetupHarness()
     {
-        Auth.Tokens[OwnerToken] = new PrincipalRef(OwnerId, "owner");
-        Auth.Tokens[AgentToken] = new PrincipalRef(AgentId, "agent");
+        Auth.Tokens[OwnerToken] = new SetupPrincipal(OwnerId, "owner");
+        Auth.Tokens[AgentToken] = new SetupPrincipal(AgentId, "agent");
     }
 
     /// <summary>The applier the routes use. It runs the counting step, so a test can see every apply.</summary>
@@ -80,7 +82,7 @@ public sealed class SetupHarness : IAsyncDisposable
     /// <summary>Builds and starts the host. Call once per test, after setting the fakes the test needs.</summary>
     public async Task StartAsync()
     {
-        Applier = new SetupApplier(Lock, [Step], Audit, SettingAudit, Time);
+        Applier = new SetupApplier(Lock, [Step], Audit, SettingAudit, Time, Settings);
 
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -93,7 +95,9 @@ public sealed class SetupHarness : IAsyncDisposable
         builder.Services.AddSingleton<ISetupProgressSource>(Progress);
         builder.Services.AddSingleton<IRateLimiter>(Limiter);
         builder.Services.AddSingleton<IAuditLog>(Audit);
-        builder.Services.AddSingleton<IConnectionAuthenticator>(Auth);
+        builder.Services.AddSingleton<ISetupCallerAuthenticator>(Auth);
+        builder.Services.AddSingleton<ISetupSettingCatalog>(Settings);
+        builder.Services.AddSingleton<ISetupTransportPolicy>(TransportPolicy);
         if (RegisterGate)
         {
             builder.Services.AddSingleton<IBootstrapCodeStore>(Codes);

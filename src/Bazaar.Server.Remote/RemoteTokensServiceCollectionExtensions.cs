@@ -1,3 +1,4 @@
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.PrivacyAudit;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public static class RemoteTokensServiceCollectionExtensions
         services.TryAddSingleton<PostgresAdminDirectory>();
         services.TryAddSingleton<IAdminUserDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
         services.TryAddSingleton<IAdminDeviceDirectory>(sp => sp.GetRequiredService<PostgresAdminDirectory>());
+        services.TryAddSingleton<SignedInPersonLookup>();
         return services;
     }
 }

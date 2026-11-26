@@ -1,4 +1,5 @@
 using Bazaar.Server.Knowledge;
+using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Settings;
 
 namespace Bazaar.Server.Tests.Knowledge;
@@ -8,7 +9,7 @@ public sealed class KnowledgeSettingsTests
     [Fact]
     public void Known_registry_holds_every_doc_25_key()
     {
-        var names = SettingRegistry.Known.Definitions.Select(d => d.Name).ToHashSet(StringComparer.Ordinal);
+        var names = BuiltInSettingRegistries.Known.Definitions.Select(d => d.Name).ToHashSet(StringComparer.Ordinal);
 
         Assert.Equal(KnowledgeSettings.All.Count, KnowledgeSettings.All.Count(d => names.Contains(d.Name)));
         Assert.Contains("hive.grant_review_days", names);
@@ -69,7 +70,16 @@ public sealed class KnowledgeSettingsTests
     [Fact]
     public void Host_registry_is_unchanged_by_the_knowledge_keys()
     {
-        Assert.DoesNotContain(SettingRegistry.Host.Definitions, d => d.Name.StartsWith("archive.", StringComparison.Ordinal));
+        Assert.DoesNotContain(BuiltInSettingRegistries.Host.Definitions, d => d.Name.StartsWith("archive.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Health_threshold_defaults_match_the_shipped_settings()
+    {
+        Assert.Equal(KnowledgeSettings.HealthCoverageDropPoints.Default, HealthThresholds.Defaults.CoverageDropPoints);
+        Assert.Equal(KnowledgeSettings.HealthBuildFailureStreak.Default, HealthThresholds.Defaults.BuildFailureStreak);
+        Assert.Equal(2, HealthThresholds.Defaults.CoverageDropPoints);
+        Assert.Equal(3, HealthThresholds.Defaults.BuildFailureStreak);
     }
 
     private static System.Text.Json.JsonElement Json(string text) => System.Text.Json.JsonElement.Parse(text);
