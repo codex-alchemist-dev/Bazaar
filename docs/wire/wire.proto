@@ -410,6 +410,21 @@ message KanbanBoardSnapshot {
   repeated KanbanBoardCard cards = 2;
 }
 
+message KanbanMoveReply {
+  string status = 1;
+  optional int64 revision = 2;
+  repeated string blocker_titles = 3;
+  optional string reason = 4;
+}
+
+message KanbanMoveRequest {
+  bytes project_id = 1;
+  bytes card_id = 2;
+  string to_state = 3;
+  int64 expected_revision = 4;
+  optional string reason = 5;
+}
+
 message Lagged {
   string s = 1;
   int64 last_sent = 2;

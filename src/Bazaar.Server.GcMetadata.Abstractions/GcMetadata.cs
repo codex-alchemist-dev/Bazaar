@@ -59,3 +59,15 @@ public sealed record GcMetadataApplyResult(IReadOnlyDictionary<string, string>? 
     /// <summary>True when the patch was accepted.</summary>
     public bool Succeeded => Metadata is not null;
 }
+
+/// <summary>The header of one GC that readers outside the GC module need: its type key and raw metadata.</summary>
+/// <param name="TypeKey">The <c>gc_type</c> registry key, such as <c>project</c> or <c>dm</c>.</param>
+/// <param name="Metadata">The <c>gc.metadata</c> map, unchanged. Read the typed keys with <see cref="GcMetadataKeys"/>.</param>
+public sealed record GcHeader(string TypeKey, IReadOnlyDictionary<string, string> Metadata);
+
+/// <summary>Read-only access to a GC's type key and metadata by id (docs/design/01-gc-data-model.md, GC metadata).</summary>
+public interface IGcHeaderSource
+{
+    /// <summary>Finds the header of the GC, or null when there is no such GC.</summary>
+    Task<GcHeader?> FindAsync(Guid gcId, CancellationToken ct);
+}

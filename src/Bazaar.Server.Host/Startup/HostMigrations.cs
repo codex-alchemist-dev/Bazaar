@@ -12,6 +12,7 @@ using Bazaar.Server.GcReactions;
 using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Kodo.Postgres;
 using Bazaar.Server.Mail;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
@@ -57,8 +58,10 @@ public static class HostMigrations
         new EmbeddedMigrationSource(typeof(PostgresImportJobStore).Assembly),
         new EmbeddedMigrationSource(typeof(PgPresenceStore).Assembly),
         new EmbeddedMigrationSource(typeof(Bazaar.Server.Engines.EnginesComponent).Assembly),
+        new EmbeddedMigrationSource(typeof(PgKodoJournalStore).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.GitHub.GitHubComponent).Assembly),
         new ComponentMigrationSource(typeof(CalendarComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresWalkthroughPrefsStore).Assembly),
-        new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly));
+        new ComponentMigrationSource(typeof(PgMemoryGraphStore).Assembly),
+        new ComponentMigrationSource(typeof(Bazaar.Lucky.LuckyComponent).Assembly));
 }

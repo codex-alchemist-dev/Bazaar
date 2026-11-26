@@ -583,7 +583,7 @@ One client module, `Bazaar.Client.FirstTask` (with `.Avalonia`), adds no code to
 - **Nothing hidden.** The text is the person's own words, shown back after sending. The module stores nothing; the walkthrough's "task given" fact is the server's, computed from the chat (section 2.9).
 - **Keyboard first.** The box takes no focus by default (doc 27); Tab reaches Send. Enter inserts a new line; Send is a button. No Ctrl chords.
 - **Agent profile screen.** The profile card is `Bazaar.Client.Souls`; the walkthrough's "meet your first agent" step opens it from the read-only profile route (doc 07, PROPOSED), keyed by the `first_agent_id` fact. When the server has no profile to show, the step says it cannot open and the name from the facts stays on the card.
-- **Sending.** The Windows head sends over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
+- **Sending.** The Windows and Linux heads send over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
 - **Testing.** Unit tests for the view model (disabled without ids, sends once, trims, shows failures without repeating a secret) and an Avalonia.Headless test by `firsttask-*` ids; the sender adapter is tested against a fake wire.
 
 ---

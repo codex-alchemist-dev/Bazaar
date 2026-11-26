@@ -5,7 +5,7 @@ namespace Bazaar.Server.Walkthrough.Tests;
 
 public sealed class PostgresWalkthroughPrefsStoreTests
 {
-    private static readonly WalkthroughPrefs Sample = new(true, false, "MeetAgent", ["CreateCompany"]);
+    private static readonly WalkthroughPrefs _sample = new(true, false, "MeetAgent", ["CreateCompany"]);
 
     [Fact]
     public async Task Prefs_round_trip_per_person_and_a_save_replaces_the_row()
@@ -17,9 +17,9 @@ public sealed class PostgresWalkthroughPrefsStoreTests
 
         Assert.Null(await store.GetAsync("alice", ct));
 
-        await store.SetAsync("alice", Sample, ct);
+        await store.SetAsync("alice", _sample, ct);
         var read = await store.GetAsync("alice", ct);
-        Assert.Equal(Sample.Dismissed, read!.Dismissed);
+        Assert.Equal(_sample.Dismissed, read!.Dismissed);
         Assert.Equal("MeetAgent", read.Current);
         Assert.Equal(["CreateCompany"], read.Completed);
         Assert.Null(await store.GetAsync("bob", ct));

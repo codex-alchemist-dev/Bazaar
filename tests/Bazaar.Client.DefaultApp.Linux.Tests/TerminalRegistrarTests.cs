@@ -52,6 +52,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Register_writes_a_separate_managed_terminal_entry_and_the_list()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var status = await Make().RegisterAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(DefaultAppState.Registered, status.State);
@@ -67,6 +68,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Register_runs_no_writing_tool()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         await Make().RegisterAsync(TestContext.Current.CancellationToken);
 
         Assert.All(_runner.Calls, c => Assert.True(c.FileName is "gsettings" or "kreadconfig6" or "kreadconfig5"));
@@ -76,6 +78,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Register_keeps_the_users_lines_puts_bazaar_first_and_is_idempotent()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         Directory.CreateDirectory(Config);
         File.WriteAllText(UserList, "# mine\nfoot.desktop\n-xterm.desktop\nbazaar-terminal.desktop\n");
         var reg = Make();
@@ -91,6 +94,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task A_desktop_specific_list_that_names_another_terminal_wins_and_is_reported()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         Directory.CreateDirectory(Config);
         File.WriteAllText(Path.Combine(Config, "gnome-xdg-terminals.list"), "org.gnome.Ptyxis.desktop\n");
         var status = await Make(desktop: "GNOME").RegisterAsync(TestContext.Current.CancellationToken);
@@ -103,6 +107,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Query_with_no_list_is_not_default_and_changes_nothing()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var status = await Make().QueryAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(DefaultAppState.NotDefault, status.State);
@@ -114,6 +119,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Query_reads_a_system_list_and_ignores_comments_exclusions_and_actions()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         Directory.CreateDirectory(SystemConfig);
         File.WriteAllText(Path.Combine(SystemConfig, "xdg-terminals.list"), "# c\n-bad.desktop\n/directive\nkitty.desktop:new-window\n");
         var status = await Make().QueryAsync(TestContext.Current.CancellationToken);
@@ -124,6 +130,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Query_mentions_gnome_and_kde_values_without_deciding_from_them()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         _runner.GnomeExec = "gnome-terminal";
         _runner.KdeService = "org.kde.konsole.desktop";
         var status = await Make().QueryAsync(TestContext.Current.CancellationToken);
@@ -137,6 +144,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Unregister_removes_only_bazaars_lines_and_its_own_entry()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var reg = Make();
         Directory.CreateDirectory(Config);
         File.WriteAllText(UserList, "foot.desktop\n");
@@ -152,6 +160,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Unregister_deletes_a_list_it_created_and_is_safe_to_repeat()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         var reg = Make();
         await reg.RegisterAsync(TestContext.Current.CancellationToken);
         await reg.UnregisterAsync(TestContext.Current.CancellationToken);
@@ -163,6 +172,7 @@ public sealed class TerminalRegistrarTests : IDisposable
     [Fact]
     public async Task Unregister_leaves_a_foreign_entry_alone()
     {
+        Assert.SkipWhen(OperatingSystem.IsWindows(), "Linux-only behaviour.");
         string path = Path.Combine(Data, "applications", "bazaar-terminal.desktop");
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, "[Desktop Entry]\nName=Mine\n");

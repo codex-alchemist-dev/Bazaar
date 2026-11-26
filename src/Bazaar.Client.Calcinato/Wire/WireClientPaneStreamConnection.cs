@@ -23,12 +23,12 @@ public sealed class WireClientPaneStreamConnection : IPaneStreamConnection, IDis
     /// <summary>The message type of a terminal frame (doc 55, section 6.1).</summary>
     public const string PaneFrameType = WireTypes.PaneFrame;
 
-    private const int BodyCapacity = 1024;
+    private const int _bodyCapacity = 1024;
 
     private readonly WireClient _client;
     private readonly IWireCodec _codec;
     private readonly Channel<PaneStreamBody> _bodies = Channel.CreateBounded<PaneStreamBody>(
-        new BoundedChannelOptions(BodyCapacity) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
+        new BoundedChannelOptions(_bodyCapacity) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
     private readonly IDisposable _sink;
     private int _connections;
     private int _disposed;

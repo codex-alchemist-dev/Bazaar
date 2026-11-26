@@ -2,10 +2,10 @@ using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Server.Athanor;
 using Bazaar.Server.Wire.Connection;
-using WireOpenReply = Bazaar.Contracts.Athanor.EditorOpenReply;
-using WireOpenRequest = Bazaar.Contracts.Athanor.EditorOpenRequest;
 using WireCreateReply = Bazaar.Contracts.Athanor.EditorCreateReply;
 using WireCreateRequest = Bazaar.Contracts.Athanor.EditorCreateRequest;
+using WireOpenReply = Bazaar.Contracts.Athanor.EditorOpenReply;
+using WireOpenRequest = Bazaar.Contracts.Athanor.EditorOpenRequest;
 using WireSaveReply = Bazaar.Contracts.Athanor.EditorSaveReply;
 using WireSaveRequest = Bazaar.Contracts.Athanor.EditorSaveRequest;
 

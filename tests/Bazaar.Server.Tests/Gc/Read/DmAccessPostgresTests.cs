@@ -10,7 +10,7 @@ namespace Bazaar.Server.Tests.Gc.Read;
 
 /// <summary>
 /// The DM access flow on real Postgres: request, owner grant, and a read that starts at the grant's system event
-/// (docs/design/32, Per-GC; docs/design/01, DM owner-read flow).
+/// (docs/design/32, Per-GC; docs/design/01, DM owner-read flow). Needs a real Postgres with pgvector, so it runs in CI only.
 /// </summary>
 public sealed class DmAccessPostgresTests(GcDb db) : IClassFixture<GcDb>
 {

@@ -45,5 +45,7 @@ public sealed class ArchiveComponent : IBazaarComponent
             sp.GetRequiredService<ArchiveOptions>(),
             sp.GetRequiredService<TimeProvider>()));
         services.AddSingleton<ArchiveRestorer>();
+        services.AddSingleton(sp => new ArchiveIndexRebuilder(
+            sp.GetRequiredService<IArchiveStore>(), sp.GetRequiredService<ArchiveVerifier>(), sp.GetRequiredService<IArchiveSearchIndex>()));
     }
 }
