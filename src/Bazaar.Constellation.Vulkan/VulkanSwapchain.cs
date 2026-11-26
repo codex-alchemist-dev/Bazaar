@@ -39,12 +39,47 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     private NodePipeline? _pipeline;
     private VkFormat _pipelineFormat;
     private byte[] _styleBytes = [];
+    private byte[] _sectionBytes = [];
+    private bool _sectionsDirty;
+    private readonly bool _reversedZ;
+    private ReversedZDepthTarget? _depthTarget;
     private bool _disposed;
 
-    private VulkanSwapchain(RenderSurface surface)
+    private readonly bool _nodeIcons;
+    private readonly IconAtlas _iconAtlas;
+    private byte[] _iconBytes = [];
+    private bool _iconsDirty;
+
+    private VulkanSwapchain(RenderSurface surface, bool reversedZ, bool nodeIcons, IconAtlas? iconAtlas)
     {
         Surface = surface;
+        _reversedZ = reversedZ;
+        _nodeIcons = nodeIcons;
+        _iconAtlas = iconAtlas ?? IconAtlas.Create();
     }
+
+    /// <summary>True when node icons are drawn (the default); false draws every node as a dot or ring.</summary>
+    public bool NodeIconsEnabled => _nodeIcons;
+
+    /// <summary>
+    /// Replaces the per-instance icon rectangles (<see cref="NodeIconBuffer.Bytes"/>). The bytes are kept and uploaded at
+    /// the next present (after the frame fence), like the sections.
+    /// </summary>
+    public void SetIcons(ReadOnlySpan<byte> iconBytes)
+    {
+        ThrowIfDisposed();
+        _iconBytes = iconBytes.ToArray();
+        _iconsDirty = true;
+    }
+
+    /// <summary>True when the swapchain renders with a reversed-Z depth attachment (<see cref="ReversedZDepth"/>).</summary>
+    public bool ReversedZEnabled => _reversedZ;
+
+    /// <summary>Depth image for the Hi-Z pass, sized to the current extent; null unless reversed-Z is on or while the swapchain has no drawable area.</summary>
+    internal VkImage? DepthImage => _depthTarget?.Image;
+
+    /// <summary>Depth-aspect view of <see cref="DepthImage"/>, for <see cref="HiZPyramidPass"/>. Replaced on every resize.</summary>
+    internal VkImageView? DepthView => _depthTarget?.View;
 
     /// <summary>The surface this swapchain presents to.</summary>
     public RenderSurface Surface { get; private set; }
@@ -58,9 +93,12 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     /// <summary>
     /// Creates the instance, surface, device and swapchain. Returns the reason when no device can present to the surface.
     /// </summary>
-    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface)
+    /// <param name="reversedZ">Adds a D32 reversed-Z depth attachment (clear 0, greater-or-equal). Off by default.</param>
+    /// <param name="nodeIcons">Draws node icons from the atlas. On by default.</param>
+    /// <param name="iconAtlas">Atlas to upload; null generates the default one.</param>
+    public static (VulkanSwapchain? Swapchain, string Reason) TryCreate(RenderSurface surface, bool reversedZ = false, bool nodeIcons = true, IconAtlas? iconAtlas = null)
     {
-        var swapchain = new VulkanSwapchain(surface);
+        var swapchain = new VulkanSwapchain(surface, reversedZ, nodeIcons, iconAtlas);
         try
         {
             string reason = swapchain.Initialise();
@@ -99,6 +137,17 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     }
 
     /// <summary>
+    /// Replaces the section rectangles with bytes from <see cref="SectionPacking.Pack"/>. The bytes are kept and uploaded
+    /// at the next present (after the frame fence), so no in-flight frame reads a half-written buffer.
+    /// </summary>
+    public void SetSections(ReadOnlySpan<byte> sectionBytes)
+    {
+        ThrowIfDisposed();
+        _sectionBytes = sectionBytes.ToArray();
+        _sectionsDirty = true;
+    }
+
+    /// <summary>
     /// Acquires the next image, clears it to <paramref name="clear"/> and presents it.
     /// Returns false when the swapchain had to be rebuilt instead, so the caller can retry on the next tick.
     /// </summary>
@@ -134,6 +183,18 @@ public sealed unsafe class VulkanSwapchain : IDisposable
 
         _deviceApi.vkResetFences(1, &fence);
         _pipeline.Upload(instanceBytes);
+        if (_iconsDirty)
+        {
+            _pipeline.UploadIcons(_iconBytes);
+            _iconsDirty = false;
+        }
+
+        if (_sectionsDirty)
+        {
+            _pipeline.UploadSections(_sectionBytes);
+            _sectionsDirty = false;
+        }
+
         RecordFrame(imageIndex, color, instanceCount, view);
 
         VkSemaphore waitSemaphore = _imageAvailable;
@@ -187,6 +248,8 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             DestroySwapchainObjects();
             _pipeline?.Dispose();
             _pipeline = null;
+            _depthTarget?.Dispose();
+            _depthTarget = null;
             if (_frameFence.Handle != 0)
             {
                 _deviceApi.vkDestroyFence(_frameFence, null);
@@ -506,9 +569,11 @@ public sealed unsafe class VulkanSwapchain : IDisposable
         if (_pipeline is null || _pipelineFormat != _format)
         {
             _pipeline?.Dispose();
-            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR);
+            _pipeline = new NodePipeline(_instanceApi, _deviceApi, _physicalDevice, _format, VkImageLayout.PresentSrcKHR, _queue, _commandPool, _iconAtlas, _nodeIcons, _reversedZ);
             _pipelineFormat = _format;
             _pipeline.UploadStyles(_styleBytes);
+            _sectionsDirty = true;
+            _iconsDirty = _iconBytes.Length > 0;
         }
 
         uint imageCount = Math.Max(capabilities.minImageCount + 1, 2u);
@@ -593,6 +658,12 @@ public sealed unsafe class VulkanSwapchain : IDisposable
     {
         _imageViews = new VkImageView[_images.Length];
         _framebuffers = new VkFramebuffer[_images.Length];
+        _depthTarget?.Dispose();
+        _depthTarget = _reversedZ
+            ? new ReversedZDepthTarget(_instanceApi, _deviceApi, _physicalDevice, _extent.width, _extent.height)
+            : null;
+        VkImageView* attachments = stackalloc VkImageView[2];
+        attachments[1] = _depthTarget?.View ?? default;
         for (int index = 0; index < _images.Length; index++)
         {
             var viewInfo = new VkImageViewCreateInfo
@@ -612,13 +683,13 @@ public sealed unsafe class VulkanSwapchain : IDisposable
             };
             _deviceApi.vkCreateImageView(&viewInfo, null, out _imageViews[index]);
 
-            VkImageView attachment = _imageViews[index];
+            attachments[0] = _imageViews[index];
             var framebufferInfo = new VkFramebufferCreateInfo
             {
                 sType = VkStructureType.FramebufferCreateInfo,
                 renderPass = _pipeline!.RenderPass,
-                attachmentCount = 1,
-                pAttachments = &attachment,
+                attachmentCount = _reversedZ ? 2u : 1u,
+                pAttachments = attachments,
                 width = _extent.width,
                 height = _extent.height,
                 layers = 1,

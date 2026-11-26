@@ -105,6 +105,114 @@ public sealed class KekProviderTests : IDisposable
     }
 
     [Fact]
+    public void Open_existing_refuses_a_missing_key_and_creates_nothing()
+    {
+        // Doc 63 section 5: an unmounted boot root must never be answered with a fresh key.
+        Assert.Throws<KekMissingException>(() => FileKekProvider.Open(KeyPath, KekOpenMode.OpenExisting));
+        Assert.Throws<KekMissingException>(() => DpapiKekProvider.Open(KeyPath, TestProtector.Create(), KekOpenMode.OpenExisting));
+
+        Assert.False(File.Exists(KeyPath));
+        Assert.False(Directory.Exists(_root));
+    }
+
+    [Fact]
+    public void Open_existing_refuses_a_zero_byte_key_file()
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(KeyPath)!);
+        File.WriteAllBytes(KeyPath, []);
+
+        Assert.Throws<KekMissingException>(() => FileKekProvider.Open(KeyPath, KekOpenMode.OpenExisting));
+        Assert.Equal(0, new FileInfo(KeyPath).Length);
+    }
+
+    [Fact]
+    public async Task Open_existing_opens_a_key_that_setup_created()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var aad = Guid.CreateVersion7().ToByteArray();
+        byte[] wrapped;
+        using (var created = FileKekProvider.Open(KeyPath, KekOpenMode.CreateIfMissing))
+        {
+            wrapped = await created.WrapAsync(new byte[32], aad, ct);
+        }
+
+        using var opened = FileKekProvider.Open(KeyPath, KekOpenMode.OpenExisting);
+
+        Assert.Equal(new byte[32], await opened.UnwrapAsync(wrapped, aad, ct));
+    }
+
+    [Fact]
+    public void Component_with_a_boot_root_opens_only_and_never_mints_a_key()
+    {
+        var bootRoot = Path.Combine(_root, "boot");
+        var services = new ServiceCollection();
+        new KekComponent().AddServices(services, new FakeConfiguration(new Dictionary<string, string?>
+        {
+            [KekComponent.KekProviderKey] = "file",
+            [KekComponent.BootRootKey] = bootRoot,
+            [KekComponent.DataRootKey] = Path.Combine(_root, "data"),
+        }));
+        using var provider = services.BuildServiceProvider();
+
+        Assert.Throws<KekMissingException>(() => provider.GetRequiredService<IKekProvider>());
+        Assert.False(Directory.Exists(bootRoot));
+        Assert.False(Directory.Exists(Path.Combine(_root, "data")));
+    }
+
+    [Fact]
+    public void OpenExisting_opens_the_boot_root_key_and_never_creates_one()
+    {
+        var bootRoot = Path.Combine(_root, "boot");
+        var configuration = new FakeConfiguration(new Dictionary<string, string?>
+        {
+            [KekComponent.KekProviderKey] = "file",
+            [KekComponent.BootRootKey] = bootRoot,
+        });
+
+        Assert.Throws<KekMissingException>(() => KekComponent.OpenExisting(configuration));
+        Assert.False(Directory.Exists(bootRoot));
+
+        FileKekProvider.Open(Path.Combine(bootRoot, "keys", "kek.bin")).Dispose();
+        using var opened = KekComponent.OpenExisting(configuration) as IDisposable;
+
+        Assert.NotNull(opened);
+    }
+
+    [Fact]
+    public void OpenExisting_needs_a_boot_root()
+    {
+        var configuration = new FakeConfiguration(new Dictionary<string, string?> { [KekComponent.DataRootKey] = _root });
+
+        Assert.Throws<InvalidOperationException>(() => KekComponent.OpenExisting(configuration));
+    }
+
+    [Fact]
+    public void OpenOrCreate_creates_the_boot_root_key_once_and_reuses_it()
+    {
+        var bootRoot = Path.Combine(_root, "boot");
+        var configuration = new FakeConfiguration(new Dictionary<string, string?>
+        {
+            [KekComponent.KekProviderKey] = "file",
+            [KekComponent.BootRootKey] = bootRoot,
+        });
+
+        using var created = KekComponent.OpenOrCreate(configuration) as IDisposable;
+        Assert.True(File.Exists(Path.Combine(bootRoot, "keys", "kek.bin")));
+
+        var first = ((IKekProvider)created!).KekId;
+        using var reopened = KekComponent.OpenOrCreate(configuration) as IDisposable;
+        Assert.Equal(first, ((IKekProvider)reopened!).KekId);
+    }
+
+    [Fact]
+    public void OpenOrCreate_needs_a_boot_root()
+    {
+        var configuration = new FakeConfiguration(new Dictionary<string, string?> { [KekComponent.DataRootKey] = _root });
+
+        Assert.Throws<InvalidOperationException>(() => KekComponent.OpenOrCreate(configuration));
+    }
+
+    [Fact]
     public void Factory_defaults_to_the_platform_choice()
     {
         var expected = OperatingSystem.IsWindows() ? "dpapi" : "file";
@@ -163,7 +271,7 @@ public sealed class KekProviderTests : IDisposable
 
         Assert.IsType<FileKekProvider>(provider.GetRequiredService<IKekProvider>());
         Assert.Equal("identity-kek", KekComponent.ManifestDefinition.Id);
-        Assert.Equal(["identity:kek:provider"], KekComponent.ManifestDefinition.Provides);
+        Assert.Equal(["identity:kek:provider", "identity:dek:service", "secrets:kek"], KekComponent.ManifestDefinition.Provides);
     }
 
     [Fact]

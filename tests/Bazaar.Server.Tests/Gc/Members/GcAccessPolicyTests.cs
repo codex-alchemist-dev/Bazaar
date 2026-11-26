@@ -126,6 +126,38 @@ public class GcAccessPolicyTests
     }
 
     [Fact]
+    public void Dm_grant_reads_forward_from_the_grant_seq_only()
+    {
+        var gc = Gc("dm", archived: false);
+        var viewer = Viewer(Relation.Outsider);
+        var grants = new Dictionary<Guid, long> { [viewer.PrincipalId] = 7 };
+
+        var window = GcAccessPolicy.ReadableWindow(gc, Members("dm"), viewer, grants);
+
+        Assert.Equal(new GcReadWindow(7, GcAccessPolicy.AllEvents), window);
+    }
+
+    [Fact]
+    public void Dm_without_a_grant_has_no_window_for_an_outsider_and_the_owner_reads_everything()
+    {
+        var gc = Gc("dm", archived: false);
+        var none = new Dictionary<Guid, long>();
+
+        Assert.Null(GcAccessPolicy.ReadableWindow(gc, Members("dm"), Viewer(Relation.Outsider), none));
+        Assert.Equal(new GcReadWindow(null, GcAccessPolicy.AllEvents), GcAccessPolicy.ReadableWindow(gc, Members("dm"), Viewer(Relation.Owner), none));
+    }
+
+    [Fact]
+    public void A_grant_does_not_narrow_an_active_member()
+    {
+        var gc = Gc("dm", archived: false);
+        var viewer = Viewer(Relation.ActiveMember);
+        var grants = new Dictionary<Guid, long> { [viewer.PrincipalId] = 50 };
+
+        Assert.Equal(new GcReadWindow(null, GcAccessPolicy.AllEvents), GcAccessPolicy.ReadableWindow(gc, Members("dm"), viewer, grants));
+    }
+
+    [Fact]
     public void Former_member_cannot_read_the_event_after_LeftSeq()
     {
         var gc = Gc(GcTypeKeys.Dm, archived: false);

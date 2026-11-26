@@ -15,7 +15,13 @@ public interface IConstellationRenderer : IDisposable
     RenderAttachResult Attach(RenderSurface surface);
 
     /// <summary>Replaces the topology. Interpolation restarts from the first frame of the new scene.</summary>
-    void SetScene(ConstellationScene scene);
+    void SetScene(RenderScene scene);
+
+    /// <summary>
+    /// Sets the style of every node of the current scene. The table is read when this is called.
+    /// Throws when no scene is set or the table does not match the scene's node count.
+    /// </summary>
+    void SetNodeStyles(NodeStyleTable styles);
 
     /// <summary>Offers a layout frame. Returns false when it is not newer than the last frame applied.</summary>
     bool SubmitFrame(RenderFrame frame, double nowSeconds);

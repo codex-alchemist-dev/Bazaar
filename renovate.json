@@ -46,6 +46,21 @@
       "ignoreUnstable": false
     },
     {
+      "description": "Skip prerelease MAJOR bumps (for example StackExchange.Redis 4.0.x alpha, PR 596) until a stable release exists. Stable majors and prerelease minor/patch updates still flow. .NET runtime-aligned packages (Microsoft.*, Npgsql 11 previews) keep intentional prerelease tracking.",
+      "matchManagers": [
+        "nuget"
+      ],
+      "matchPackageNames": [
+        "*",
+        "!Microsoft.*",
+        "!Npgsql"
+      ],
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "ignoreUnstable": true
+    },
+    {
       "description": "xunit.v3 4.x is binary-incompatible with Avalonia.Headless.XUnit 12.1.x (see Directory.Packages.props).",
       "matchManagers": [
         "nuget"
