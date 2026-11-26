@@ -9,6 +9,8 @@ layout(set = 0, binding = 3) buffer TileBounds { uint tileBounds[]; };   // per 
 layout(set = 0, binding = 4) buffer Sorted { uint sorted[]; };           // sample indices grouped by tile
 layout(set = 0, binding = 5) buffer Cmds { uint cmds[]; };               // word 0 draw count, 1 frustum-visible tiles, 2 instances, 3 non-empty tiles; commands from byte 16
 layout(set = 0, binding = 6) buffer HiZ { float hiz[]; };                // depth pyramid, level 0 is 640x360, min of 2x2 per level
+layout(set = 0, binding = 7) buffer Cells { uint cells[]; };                // decimation grid, 640x360 (one cell per 2x2 pixels)
+layout(set = 0, binding = 8) buffer Survivors { uint survivors[]; };      // words 0..3 VkDrawIndirectCommand, 4 candidate counter, survivors from word 8
 
 uint tileOf(vec3 p)
 {
