@@ -32,6 +32,7 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
+using Bazaar.Server.Embeddings;
 using Bazaar.Server.Council;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -153,6 +154,7 @@ public static class HostComponents
         new VaultComponent(),
         new TimeMachineComponent(),
         new MemoryComponent(),
+        new EmbeddingsComponent(),
         new HiveComponent(),
         new CompanyKnowledgeComponent(),
         new GeneticMemoryComponent(),

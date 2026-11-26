@@ -157,6 +157,7 @@ public static class HostApplicationExtensions
         // The DM access flow reads gc.dm_access_approvers live from the settings store. Registered first, so the gc-metadata component keeps it.
         services.TryAddSingleton<Bazaar.Server.GcMetadata.IDmAccessOptionsSource, Components.GcMetadata.SettingsDmAccessOptionsSource>();
         services.AddBazaarComponents(configuration, HostComponents.All);
+        services.AddBazaarEmbeddingsHost(configuration);
         services.AddBazaarGcForkTarget();
         services.AddBazaarReplayWire();
 
@@ -165,6 +166,10 @@ public static class HostApplicationExtensions
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
             services.AddMemoryGraphProjection();
+        }
+
+        // After the components: the Valkey supervisor is one of them, and the deferred cache selection must start after it (doc 40 section 4c.4 item 8).
+        services.AddBazaarCacheSelection();
 
             // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
             // vector seeds through the Vault query embedder when one is registered, the service and the memory.context wire command.

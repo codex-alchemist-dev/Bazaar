@@ -76,6 +76,14 @@ src/Bazaar.Server/Knowledge/Archive/ArchiveChapterRenderer.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveChapterValidator.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveModel.cs
 src/Bazaar.Server/Knowledge/Archive/ArchiveVaultWriter.cs
+src/Bazaar.Server/Knowledge/CompanyMemory/DecisionRecordReader.cs
+src/Bazaar.Server/Knowledge/KnowledgeSettings.cs
+src/Bazaar.Server/Mail/MailComponent.cs
+src/Bazaar.Server/Mail/Parsing/MailLimits.cs
+src/Bazaar.Server/Mail/Parsing/MimeMailParser.cs
+src/Bazaar.Server/Mail/Parsing/ParsedMail.cs
+src/Bazaar.Server/Mentions/HandleSlug.cs
+src/Bazaar.Server/Mentions/PrincipalHandleRepository.cs
 src/Bazaar.Server/Providers/Linux/LinuxProviders.cs
 src/Bazaar.Server/Settings/HostSettingValues.cs
 src/Bazaar.Server/Settings/HostSettings.cs

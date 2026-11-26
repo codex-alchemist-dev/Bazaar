@@ -144,6 +144,7 @@
     <ProjectReference Include="..\Bazaar.Lucky\Bazaar.Lucky.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Memory\Bazaar.Server.Memory.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constellation\Bazaar.Server.Constellation.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Embeddings\Bazaar.Server.Embeddings.csproj" />
     <ProjectReference Include="..\Bazaar.RyuseiFuda\Bazaar.RyuseiFuda.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
     <ProjectReference Include="..\Bazaar.Server.LoopGuard\Bazaar.Server.LoopGuard.csproj" />

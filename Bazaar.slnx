@@ -477,6 +477,8 @@
     <Project Path="src/Bazaar.Server/Bazaar.Server.csproj" />
     <Project Path="src/Bazaar.Server.Constellation/Bazaar.Server.Constellation.csproj" />
     <Project Path="src/Bazaar.Server.Constellation.Algorithms/Bazaar.Server.Constellation.Algorithms.csproj" />
+    <Project Path="src/Bazaar.Server.Embeddings.Abstractions/Bazaar.Server.Embeddings.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.Embeddings/Bazaar.Server.Embeddings.csproj" />
     <Project Path="src/Bazaar.Server.GraphRetrieval.Abstractions/Bazaar.Server.GraphRetrieval.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.GraphRetrieval/Bazaar.Server.GraphRetrieval.csproj" />
     <Project Path="src/Bazaar.Server.Memory/Bazaar.Server.Memory.csproj" />
@@ -812,6 +814,7 @@
     <Project Path="tests/Bazaar.Server.WorkLife.Tests/Bazaar.Server.WorkLife.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.WorkLife.Scheduler.Tests/Bazaar.Server.WorkLife.Scheduler.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Council.Tests/Bazaar.Server.Council.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Embeddings.Tests/Bazaar.Server.Embeddings.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingPermissions.Tests/Bazaar.Server.CodingPermissions.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CodingEdit.Tests/Bazaar.Server.CodingEdit.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.RepoMap.Tests/Bazaar.Server.RepoMap.Tests.csproj" />
