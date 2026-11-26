@@ -118,6 +118,7 @@
     <Project Path="src/Bazaar.Constellation.Sections/Bazaar.Constellation.Sections.csproj" />
     <Project Path="src/Bazaar.Constellation.Vulkan/Bazaar.Constellation.Vulkan.csproj" />
     <Project Path="src/Bazaar.Contracts/Bazaar.Contracts.csproj" />
+    <Project Path="src/Bazaar.Core.Hosting/Bazaar.Core.Hosting.csproj" />
     <Project Path="src/Bazaar.Core/Bazaar.Core.csproj" />
     <Project Path="src/Bazaar.Install.Abstractions/Bazaar.Install.Abstractions.csproj" />
     <Project Path="src/Bazaar.Install/Bazaar.Install.csproj" />
