@@ -1,5 +1,6 @@
 using Bazaar.Core;
 using Bazaar.Erasure;
+using Bazaar.Install.Abstractions;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
@@ -51,8 +52,13 @@ public static class HostApplicationExtensions
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
         // The module catalogue the panel and the company build state read. The build runner and the install-gate approval check
-        // are optional seams the operator or a later wave supplies; without them a rebuild is refused with a reason.
+        // are seams: the executor is bound when Bazaar:CompanyBuild is configured (else a rebuild is refused with a reason), and the
+        // approval requirement reads the install gate's rule (docs/design/51 section 5a).
         services.TryAddSingleton<IModuleCatalogue, HostModuleCatalogue>();
+        services.AddBazaarCompanyBuildExecutor(configuration);
+        services.TryAddSingleton<IModuleDeclarationSource, HostModuleDeclarationSource>();
+        services.TryAddSingleton<IModuleApprovalRequirement>(sp => new InstallGateApprovalRequirement(
+            sp.GetRequiredService<IModuleDeclarationSource>(), sp.GetService<IModulePermissionApprovalReader>()));
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
