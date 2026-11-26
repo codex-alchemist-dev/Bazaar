@@ -8,6 +8,7 @@ namespace Bazaar.Server.Memory.Access;
 /// <item><c>projects/&lt;slug&gt;/**</c> and <c>twin/&lt;slug&gt;/**</c>: owner, maintenance, and members of the project (agents,
 /// cover of a member primary, member humans). Which paths are project areas, and of which project, comes from
 /// <see cref="Vault.Search.VaultProjectAreas.ProjectAreaOf"/>, the same source Vault search, link expansion and moves use.</item>
+/// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover.</item>
 /// <item><c>company/memory/**</c>: owner, maintenance and all agents, including cover, except an agent that
 /// <see cref="ICompanyAgentQuarantine"/> reports as quarantined (doc 08, 6.5).</item>
 /// <item><c>company/candidates/**</c>: owner, maintenance and the proposing agent only, as <see cref="ICompanyCandidateProposers"/>

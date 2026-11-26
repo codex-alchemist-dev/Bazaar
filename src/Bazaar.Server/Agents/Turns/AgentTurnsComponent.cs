@@ -167,6 +167,7 @@ public sealed class AgentTurnsComponent : IBazaarComponent
     /// <summary>Reports turn activity to the presence port when a presence module registered one; null otherwise.</summary>
     private static TurnActivityReporter? ActivityReporter(IServiceProvider sp) =>
         sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.ITurnActivitySink>() is { } sink
+            ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>())
             ? new TurnActivityReporter(sink, sp.GetService<TimeProvider>(), sp.GetService<ILoggerFactory>()?.CreateLogger<TurnRunner>(),
                 sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IGcKindLookup>(),
                 sp.GetService<Bazaar.Server.Presence.Sources.Abstractions.IAgentProjectLookup>())

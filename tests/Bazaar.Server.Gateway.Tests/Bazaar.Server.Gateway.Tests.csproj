@@ -25,7 +25,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations.Abstractions\Bazaar.Server.Data.Migrations.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Gateway.TestKit\Bazaar.Server.Gateway.TestKit.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Secrets\Bazaar.Secrets.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Gateway\Bazaar.Server.Gateway.csproj" />

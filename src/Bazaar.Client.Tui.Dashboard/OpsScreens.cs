@@ -189,7 +189,9 @@ public static class OpsScreens
         }
 
         var items = pending.Select(a => TextFit.Cut($"{Time(a.RequestedAt, context)} {a.Action} (asked by {a.Requester})", context.Width)).ToList();
-        return Page("Approvals waiting", [], items.Count == 0 ? ["Nothing is waiting."] : items, context, tail: false);
+        // A terminal holds no hardware-backed approval key (doc 32 section 5a), so it lists what waits and sends the operator to the owner device.
+        IReadOnlyList<string> header = items.Count == 0 ? [] : ["Approve from the owner device (phone or Windows client); this terminal cannot approve."];
+        return Page("Approvals waiting", header, items.Count == 0 ? ["Nothing is waiting."] : items, context, tail: false);
     }
 
     public static async Task<IReadOnlyList<string>> AuditAsync(OpsPorts ports, ScreenContext context, CancellationToken ct)

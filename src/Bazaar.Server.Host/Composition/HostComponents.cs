@@ -12,6 +12,7 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.AuditReader;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Analytics.Git;
 using Bazaar.Server.Analytics.Postgres;
@@ -32,6 +33,7 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
+using Bazaar.Server.Embeddings;
 using Bazaar.Server.Council;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
@@ -41,6 +43,7 @@ using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Catalogue;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gateway.Retention;
+using Bazaar.Server.Gateway.SystemPolicy;
 using Bazaar.Server.Gc;
 using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
@@ -48,6 +51,7 @@ using Bazaar.Server.GcReactions;
 using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
@@ -66,6 +70,13 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
+using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Component;
+using Bazaar.Server.Valkey;
+using Bazaar.Server.SignIn;
+using Bazaar.Server.SignIn.WebAuthn;
+using Bazaar.Server.Vault;
+using Bazaar.Server.WebAdmin;
 using Bazaar.Server.Setup.Host;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.SignIn.Passkeys;
@@ -137,6 +148,9 @@ public static class HostComponents
         new CommunityComponent(),
         new RolesComponent(),
         new SignInComponent(),
+        new SignInWebAuthnComponent(),
+        new WebAdminComponent(),
+        new AuditReaderComponent(),
         new PasskeysComponent(),
         new WebAdminComponent(),
         new CommunityGitHubComponent(),
@@ -145,6 +159,7 @@ public static class HostComponents
         new VaultComponent(),
         new TimeMachineComponent(),
         new MemoryComponent(),
+        new EmbeddingsComponent(),
         new HiveComponent(),
         new CompanyKnowledgeComponent(),
         new GeneticMemoryComponent(),
@@ -176,6 +191,7 @@ public static class HostComponents
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),
         new GarnetComponent(),
+        new SystemPolicyComponent(),
         // The one host IRateLimiter, counted in the cache provider above and falling back to an in-process limiter (doc 15, PROPOSED). It
         // replaces the limiters other components register with TryAdd, so it wins whatever the order.
         new Bazaar.RateLimits.Cache.RateLimitsCacheComponent(),

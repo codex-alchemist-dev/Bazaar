@@ -10,6 +10,7 @@ public enum OpsActionKind
     StartRebuild,
     CommitSelection,
     RevokeMember,
+    RestoreMember,
     RevokeDevice,
     Approve,
     Deny,
@@ -54,7 +55,8 @@ public sealed record OpsWritePorts(
     IOpsMemberRevoker? Members = null,
     IOpsDeviceRevoker? Devices = null,
     IOpsApprovalDecider? Approvals = null,
-    IOpsStepUp? StepUp = null);
+    IOpsStepUp? StepUp = null,
+    IOpsMemberRestorer? Restorer = null);
 
 /// <summary>
 /// The Ops write actions (doc 58 sections 3 and 5): start a rebuild, commit a module selection, revoke a person or a device, approve or
@@ -87,7 +89,7 @@ public sealed class OpsActions(
     public static IReadOnlyList<Capability> CapabilitiesFor(OpsActionKind kind) => kind switch
     {
         OpsActionKind.StartRebuild or OpsActionKind.CommitSelection => [Capabilities.AdminModules],
-        OpsActionKind.RevokeMember => [Capabilities.AdminMembers],
+        OpsActionKind.RevokeMember or OpsActionKind.RestoreMember => [Capabilities.AdminMembers],
         OpsActionKind.RevokeDevice => [Capabilities.AdminDevices],
         OpsActionKind.Approve or OpsActionKind.Deny => [Capabilities.Approve],
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
@@ -99,6 +101,7 @@ public sealed class OpsActions(
         (DefaultMenus.Modules, 'c') => OpsActionKind.CommitSelection,
         (DefaultMenus.Modules or DefaultMenus.Rebuilds, 'b') => OpsActionKind.StartRebuild,
         (DefaultMenus.Users, 'x') => OpsActionKind.RevokeMember,
+        (DefaultMenus.Users, 's') => OpsActionKind.RestoreMember,
         (DefaultMenus.Users, 'v') => OpsActionKind.RevokeDevice,
         (DefaultMenus.Approvals, 'y') => OpsActionKind.Approve,
         (DefaultMenus.Approvals, 'n') => OpsActionKind.Deny,
@@ -110,7 +113,7 @@ public sealed class OpsActions(
     {
         DefaultMenus.Modules => "c: save selection  b: start rebuild",
         DefaultMenus.Rebuilds => "b: start rebuild",
-        DefaultMenus.Users => "x: revoke person  v: revoke device",
+        DefaultMenus.Users => "x: suspend person  s: unsuspend  v: revoke device",
         DefaultMenus.Approvals => "y: approve  n: refuse",
         _ => null,
     };
@@ -121,6 +124,7 @@ public sealed class OpsActions(
         OpsActionKind.StartRebuild => StartRebuildAsync(session, ct),
         OpsActionKind.CommitSelection => PickAndCommitSelectionAsync(session, ct),
         OpsActionKind.RevokeMember => PickAndRevokeMemberAsync(session, ct),
+        OpsActionKind.RestoreMember => PickAndRestoreMemberAsync(session, ct),
         OpsActionKind.RevokeDevice => PickAndRevokeDeviceAsync(session, ct),
         OpsActionKind.Approve => PickAndDecideAsync(session, approve: true, ct),
         OpsActionKind.Deny => PickAndDecideAsync(session, approve: false, ct),
@@ -308,10 +312,10 @@ public sealed class OpsActions(
         var live = users.Where(u => !u.Revoked).ToDictionary(u => $"{TextFit.Clean(u.DisplayName)} | {TextFit.Clean(u.Role)} | {u.PrincipalId:D}");
         if (live.Count == 0)
         {
-            return new OpsActionOutcome(OpsActionStatus.Cancelled, "Nobody is left to revoke.");
+            return new OpsActionOutcome(OpsActionStatus.Cancelled, "Nobody is left to suspend.");
         }
 
-        var pick = widgets.PickOne("Revoke which person", [.. live.Keys], null);
+        var pick = widgets.PickOne("Suspend which person", [.. live.Keys], null);
         return pick is null
             ? Cancelled()
             : await RevokeMemberAsync(session, live[pick].PrincipalId, live[pick].DisplayName, ct).ConfigureAwait(false);
@@ -330,7 +334,7 @@ public sealed class OpsActions(
         }
 
         var who = string.IsNullOrWhiteSpace(displayName) ? principalId.ToString("D") : TextFit.Cut(displayName, 40);
-        if (!Confirm($"Revoke {who}? Their devices stop working at once. This cannot be undone from the TUI."))
+        if (!Confirm($"Suspend {who}? Their devices and approval keys are revoked at once and they cannot sign in. Unsuspending later does not bring the devices back."))
         {
             return Cancelled();
         }
@@ -342,9 +346,70 @@ public sealed class OpsActions(
 
         return await WriteAsync(
             () => members.RevokeMemberAsync(session.Identity.PrincipalId, principalId, ct),
-            $"Revoked {who}.",
-            "Revoking",
-            "The revocation did not finish. Check the Users screen.").ConfigureAwait(false);
+            $"Suspended {who}.",
+            "Suspending",
+            "The suspension did not finish. Check the Users screen.").ConfigureAwait(false);
+    }
+
+    private async Task<OpsActionOutcome> PickAndRestoreMemberAsync(OpsSession session, CancellationToken ct)
+    {
+        if (reads.Users is null)
+        {
+            return Unavailable("The user list");
+        }
+
+        if (await GateAsync(session, OpsActionKind.RestoreMember, ct).ConfigureAwait(false) is { } stopped)
+        {
+            return stopped;
+        }
+
+        var users = await SoftPort.TryAsync(reads.Users, (source, token) => source.ListAsync(token), ct).ConfigureAwait(false);
+        if (users is null)
+        {
+            return Unavailable("The user list");
+        }
+
+        // The list marks suspended and removed people alike as revoked; the identity module refuses to restore a removed one.
+        var revoked = users.Where(u => u.Revoked).ToDictionary(u => $"{TextFit.Clean(u.DisplayName)} | {TextFit.Clean(u.Role)} | {u.PrincipalId:D}");
+        if (revoked.Count == 0)
+        {
+            return new OpsActionOutcome(OpsActionStatus.Cancelled, "Nobody is suspended.");
+        }
+
+        var pick = widgets.PickOne("Unsuspend which person", [.. revoked.Keys], null);
+        return pick is null
+            ? Cancelled()
+            : await RestoreMemberAsync(session, revoked[pick].PrincipalId, revoked[pick].DisplayName, ct).ConfigureAwait(false);
+    }
+
+    public async Task<OpsActionOutcome> RestoreMemberAsync(OpsSession session, Guid principalId, string? displayName, CancellationToken ct = default)
+    {
+        if (writes.Restorer is not { } restorer)
+        {
+            return Unavailable("Unsuspending people");
+        }
+
+        if (await GateAsync(session, OpsActionKind.RestoreMember, ct).ConfigureAwait(false) is { } stopped)
+        {
+            return stopped;
+        }
+
+        var who = string.IsNullOrWhiteSpace(displayName) ? principalId.ToString("D") : TextFit.Cut(displayName, 40);
+        if (!Confirm($"Unsuspend {who}? They can sign in again, and must pair their devices again."))
+        {
+            return Cancelled();
+        }
+
+        if (!await TryAuditAsync(session, OpsAuditKinds.MemberRestore, ("principal", principalId.ToString("D"))).ConfigureAwait(false))
+        {
+            return AuditRefused();
+        }
+
+        return await WriteAsync(
+            () => restorer.RestoreMemberAsync(session.Identity.PrincipalId, principalId, ct),
+            $"Unsuspended {who}.",
+            "Unsuspending",
+            "The change did not finish. Check the Users screen.").ConfigureAwait(false);
     }
 
     private async Task<OpsActionOutcome> PickAndRevokeDeviceAsync(OpsSession session, CancellationToken ct)
@@ -412,6 +477,11 @@ public sealed class OpsActions(
     private async Task<OpsActionOutcome> PickAndDecideAsync(OpsSession session, bool approve, CancellationToken ct)
     {
         var kind = approve ? OpsActionKind.Approve : OpsActionKind.Deny;
+        if (approve && writes.StepUp is null)
+        {
+            return ApproveFromOwnerDevice();
+        }
+
         if (reads.Approvals is null)
         {
             return Unavailable("The approvals list");
@@ -448,6 +518,11 @@ public sealed class OpsActions(
         OpsSession session, string approvalId, bool approve, string? actionSummary, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(approvalId);
+        if (approve && writes.StepUp is null)
+        {
+            return ApproveFromOwnerDevice();
+        }
+
         if (writes.Approvals is not { } approvals)
         {
             return Unavailable("Approvals");
@@ -610,6 +685,10 @@ public sealed class OpsActions(
                 string.Join("; ", problems.Take(3).Select(p => $"{TextFit.Clean(p.ModuleId)}: {TextFit.Clean(p.Message)}"))
                 + (problems.Count > 3 ? $" (+{problems.Count - 3} more)" : string.Empty),
                 _messageWidth);
+
+    /// <summary>A software-only key cannot approve (doc 32 section 5a), and no step-up channel exists, so the TUI tells the operator where to approve.</summary>
+    private static OpsActionOutcome ApproveFromOwnerDevice() =>
+        new(OpsActionStatus.Refused, "A terminal cannot approve. Approve it from the owner device (phone or Windows client).");
 
     private static OpsActionOutcome Done(string message) => new(OpsActionStatus.Done, message);
 

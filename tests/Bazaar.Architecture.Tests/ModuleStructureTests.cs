@@ -66,8 +66,21 @@ public class ModuleStructureTests
         foreach (var host in new[] { "Bazaar.Server.Host", "Bazaar.Client.Core" })
         {
             var refs = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(host)).ToArray();
-            Assert.Contains("Bazaar.Core", refs);
+            Assert.Contains(refs, r => r is "Bazaar.Core" or "Bazaar.Core.Hosting");
         }
+    }
+
+    /// <summary>
+    /// Bazaar.Core must stay dependency-free so it can become a standalone repo (docs/design/BAZAAR-COMPONENTS.md section 13):
+    /// no package references and no project references. The dependency-injection and configuration entry point lives in Bazaar.Core.Hosting.
+    /// </summary>
+    [Fact]
+    public void Bazaar_core_has_no_package_or_project_references()
+    {
+        var project = System.Xml.Linq.XDocument.Load(RepoPaths.ProjectFile("Bazaar.Core"));
+
+        Assert.Empty(project.Descendants("PackageReference"));
+        Assert.Empty(project.Descendants("ProjectReference"));
     }
 
     /// <summary>Every PR body and the PR template must carry the docs-section checklist item (CLAUDE.md, PR checklist rule).</summary>

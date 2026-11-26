@@ -14,9 +14,11 @@ namespace Bazaar.Server.OpsPorts;
 /// only, with <c>TryAdd</c>, so an owning module's own implementation of a port wins. It needs <see cref="IRoleStore"/> and
 /// <see cref="IPermissionChecker"/> (the roles module) for the gate and the roles check, and an <see cref="NpgsqlDataSource"/> for
 /// the audit view; a port whose dependency is missing is not registered, and its screen shows "unavailable".
-/// <para>Not here: <c>IAdminStatusSource</c>, <c>IAdminKodoSource</c>, <c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>,
-/// <c>IAdminApprovalSource</c> and <c>IAdminModuleSelection</c>. The modules that own that data (Kodo, identity, approvals, module
-/// selection) have no read model yet, and the doc 51 ports are theirs to implement.</para>
+/// <para>The TUI is a separate process from the server, so the status and Kodo ports read the files the server writes
+/// (<c>AdminStatusFile</c> from the host, <c>KodoSnapshotFile</c> from the Kodo module); the owning modules implement the same ports
+/// in-process for the web panel. The identity ports (<c>IAdminUserDirectory</c>, <c>IAdminDeviceDirectory</c>, <c>IOpsDeviceRevoker</c>)
+/// are implemented by <c>Bazaar.Server.Remote</c> and <c>IAdminApprovalSource</c> by <c>Bazaar.Server.Security</c>; the TUI host and the
+/// server host register them (doc 58 section 4a). Not here: <c>IAdminModuleSelection</c>, whose owning module has no read model yet.</para>
 /// </summary>
 public sealed class OpsPortsComponent : IBazaarComponent
 {
@@ -42,6 +44,8 @@ public sealed class OpsPortsComponent : IBazaarComponent
         services.TryAddSingleton(new OpsLogFileWriter(options.LogFile));
         services.TryAddSingleton(new OpsEventFileWriter(options.EventFile));
         services.TryAddSingleton<IOpsAuthorizer>(sp => new RolesOpsAuthorizer(sp.GetRequiredService<IPermissionChecker>()));
+        services.TryAddSingleton<IAdminStatusSource>(sp => new FileAdminStatusSource(options.StatusFile, sp.GetRequiredService<TimeProvider>()));
+        services.TryAddSingleton<IAdminKodoSource>(sp => new FileAdminKodoSource(options.KodoSnapshotFile, sp.GetRequiredService<TimeProvider>()));
         services.TryAddSingleton<IAdminAuditReader>(sp => new PostgresAdminAuditReader(sp.GetRequiredService<NpgsqlDataSource>()));
 
         // The gate says "on the box" only because the host got here: it holds the operator's database reference (see the class remarks

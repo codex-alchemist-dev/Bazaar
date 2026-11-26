@@ -191,8 +191,8 @@ Coordinator request: get `Bazaar.Core` ready to become the standalone CDAX Core 
 
 **Proposed split (needs the owner's go-ahead).**
 
-1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`, and a neutral component interface that does not mention DI or configuration. No package references.
-2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter.
+1. `Core` keeps only the pure parts: `ComponentManifest`, `ComponentKind`, `ComponentGraph`, `ComponentGraphException`. No package references. (A separate neutral component interface proved unnecessary: the graph works on manifests alone.)
+2. The DI and configuration entry point (`AddServices(IServiceCollection, IConfiguration)`, `AddBazaarComponents`, `IsEnabled`, the configuration key and `LegacyIds`) moves to its own adapter module, for example `Bazaar.Core.Hosting`, which keeps the two Microsoft packages. Heads and `Bazaar.Server.Host` reference the adapter. The namespace stays `Bazaar.Core` in both projects until the owner names the standalone repo, so the split costs no source changes and a later rename is one mechanical pass. Done in the split PR stacked on this one; modules that only read manifests reference `Bazaar.Core` alone.
 3. The architecture tests gain a rule that `Bazaar.Core` has no package or project references, so it stays dependency-free once split.
 
 **Owner questions.**

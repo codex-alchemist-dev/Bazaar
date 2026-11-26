@@ -97,6 +97,9 @@ public static class SignInEndpoints
                 }
 
                 return;
+            case "/signin/register":
+            case "/signin/recover":
+                // Pairing approval and recovery-code sign-in are separate work packages; the route is reserved and says nothing else.
             case "/signin/register/options":
             case "/signin/register/complete":
                 if (HttpMethods.IsPost(method))
