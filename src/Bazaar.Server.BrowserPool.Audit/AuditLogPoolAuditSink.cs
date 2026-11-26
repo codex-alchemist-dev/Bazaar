@@ -1,8 +1,8 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.BrowserPool.Abstractions;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 
 namespace Bazaar.Server.BrowserPool.Audit;

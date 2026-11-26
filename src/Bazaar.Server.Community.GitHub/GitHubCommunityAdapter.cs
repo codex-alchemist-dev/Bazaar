@@ -33,7 +33,7 @@ public sealed class GitHubCommunityAdapter(
 
         var body = post.Body + "\n\n" + marker;
 
-        // Draft PRs are Bazaar.GitHub's job (it searches by head branch first, so it is idempotent itself).
+        // Draft PRs are Bazaar.Server.GitHub's job (it searches by head branch first, so it is idempotent itself).
         if (post.Kind == KindPullRequest)
         {
             return await prOpener.OpenDraftAsync(

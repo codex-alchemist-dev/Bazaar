@@ -14,5 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.AgentSafety.Drill\Bazaar.Server.AgentSafety.Drill.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Data.Migrations\Bazaar.Server.Data.Migrations.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Security\Bazaar.Server.Security.csproj" />
   </ItemGroup>
 </Project>

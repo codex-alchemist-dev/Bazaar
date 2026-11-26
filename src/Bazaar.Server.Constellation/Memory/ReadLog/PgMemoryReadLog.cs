@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
-using Bazaar.PrivacyAudit;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.Security.Audit;
 using Npgsql;
 using NpgsqlTypes;

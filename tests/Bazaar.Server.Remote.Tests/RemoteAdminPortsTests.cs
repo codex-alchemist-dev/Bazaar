@@ -1,6 +1,6 @@
 using Bazaar.Client.Tui.Dashboard;
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
+using Bazaar.Server.PrivacyAudit;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

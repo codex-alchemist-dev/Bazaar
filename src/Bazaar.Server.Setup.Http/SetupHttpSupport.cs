@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Microsoft.AspNetCore.Http;
 
 namespace Bazaar.Server.Setup.Http;

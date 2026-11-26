@@ -1,9 +1,9 @@
 using Bazaar.Approvals;
-using Bazaar.Community.Actions;
-using Bazaar.Community.Drafts;
-using Bazaar.Community.Policy;
+using Bazaar.Server.Community.Actions;
+using Bazaar.Server.Community.Drafts;
 using Bazaar.Server.Community.GitHub;
 using Bazaar.Server.Community.GitHub.Bridge;
+using Bazaar.Server.Community.Policy;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
@@ -18,7 +18,7 @@ namespace Bazaar.Server.Host.Composition;
 public static class CommunityCompositionExtensions
 {
     /// <summary>
-    /// Registers the policy source over <see cref="PlatformPolicyLoader"/>, the GitHub community adapter with its Bazaar.GitHub bridge
+    /// Registers the policy source over <see cref="PlatformPolicyLoader"/>, the GitHub community adapter with its Bazaar.Server.GitHub bridge
     /// (the installation allowlist is read from <c>Bazaar:Community:GitHub:Installations</c>; an unlisted repository is refused, never
     /// posted to), the owner key registry (through <c>AddBazaarApprovals</c>) and the community action store. Needs the shared
     /// <see cref="NpgsqlDataSource"/> and <see cref="IAuditLog"/>, which other host modules supply. The GitHub token provider and
@@ -38,7 +38,7 @@ public static class CommunityCompositionExtensions
         services.TryAddSingleton(sp => new CommunityActionStore(
             sp.GetRequiredService<ICommunityActionSql>(), sp.GetRequiredService<IAuditLog>(), sp.GetService<TimeProvider>()));
 
-        // GitHubCommunityAdapter (an ICommunityAdapter), its HTTP API and footer check, then the bridge to Bazaar.GitHub.
+        // GitHubCommunityAdapter (an ICommunityAdapter), its HTTP API and footer check, then the bridge to Bazaar.Server.GitHub.
         services.AddBazaarCommunityGitHub();
         services.AddBazaarCommunityGitHubBridge();
         return services;

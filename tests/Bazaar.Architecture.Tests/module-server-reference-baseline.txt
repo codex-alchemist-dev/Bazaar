@@ -1,7 +1,9 @@
 Bazaar.Admin
-Bazaar.Community
+Bazaar.Server.Community
 Bazaar.RyuseiFuda
 Bazaar.Server.AgentSafety
+Bazaar.Server.Constellation
+Bazaar.Server.Hive
 Bazaar.Server.CompanyKnowledge
 Bazaar.Server.Constellation
 Bazaar.Server.Hive

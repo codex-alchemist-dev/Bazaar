@@ -4,6 +4,7 @@
     <!-- Windows TFM: the head composes the TPM signer and Windows Hello (Bazaar.DeviceApproval.Windows, doc 32 section 5a.1). The Windows SDK projection restores on every host, so the Linux CI leg still builds the solution. -->
     <TargetFramework>net11.0-windows10.0.19041.0</TargetFramework>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
   </PropertyGroup>
   <PropertyGroup>
     <!-- Client: workstation concurrent GC with TieredPGO (doc 40, owner decision 2026-11-11). Latency mode is set at start-up. -->

@@ -1,6 +1,6 @@
 using System.Net;
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Community.GitHub.Bridge.Tests;

@@ -17,6 +17,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.PullRequests\Bazaar.Client.PullRequests.csproj" />
     <!-- Only the cross-check that the phone's merge args hash equals the server's OwnerMergeArgs.Hash. -->
-    <ProjectReference Include="..\..\src\Bazaar.GitHub\Bazaar.GitHub.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.GitHub\Bazaar.Server.GitHub.csproj" />
   </ItemGroup>
 </Project>

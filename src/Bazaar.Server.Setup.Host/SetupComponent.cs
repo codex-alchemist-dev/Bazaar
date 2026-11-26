@@ -1,6 +1,6 @@
 using Bazaar.Core;
-using Bazaar.RateLimits;
 using Bazaar.Server.Company;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup.Constitution;
 using Bazaar.Server.Setup.FirstRun;

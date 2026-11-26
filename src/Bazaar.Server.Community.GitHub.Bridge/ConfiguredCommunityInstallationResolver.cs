@@ -3,7 +3,7 @@ using Microsoft.Extensions.Options;
 namespace Bazaar.Server.Community.GitHub.Bridge;
 
 /// <summary>
-/// Resolves installations from the operator's allowlist only. Bazaar.GitHub exposes no App-JWT or installation lookup
+/// Resolves installations from the operator's allowlist only. Bazaar.Server.GitHub exposes no App-JWT or installation lookup
 /// (its token provider takes an installation id, and App keys live in the Identity Service, doc 14), so there is nothing
 /// to reuse for <c>GET /repos/{owner}/{repo}/installation</c>. Unlisted repos return null: fail closed, no writes.
 /// An exact owner/repo entry wins over an owner wildcard. Nothing is cached beyond the validated option values.

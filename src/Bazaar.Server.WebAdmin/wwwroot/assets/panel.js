@@ -19,7 +19,7 @@
   var SECTIONS = [
     { id: "status", label: "Status", capability: null },
     { id: "kodo", label: "Kodo health", capability: "kodo.view.status" },
-    { id: "users", label: "Users", capability: "admin.members" },
+    { id: "users", label: "Agents and members", capability: "admin.members" },
     { id: "devices", label: "Devices", capability: "admin.devices" },
     { id: "audit", label: "Audit log", capability: "kodo.view.audit" },
     { id: "approvals", label: "Approvals", capability: "approvals.decide" },
@@ -295,6 +295,10 @@
     t.loaded = true;
     if (id === "modules") {
       loadModules(t);
+    } else if (id === "users") {
+      t.memberKind = "";
+      t.memberOffset = 0;
+      loadMembers(t);
     } else {
       loadSection(t);
     }
@@ -473,6 +477,97 @@
     b.type = "button";
     b.addEventListener("click", onClick);
     return b;
+  }
+
+  var MEMBER_PAGE = 25;
+
+  // The Agents and members tab: one paged list from /admin/api/members with a kind filter. All text goes in with textContent.
+  function loadMembers(t) {
+    setBusy(t.body, true);
+    clear(t.body);
+    t.body.appendChild(make("p", "meta", TEXT.loading));
+    var query = "?limit=" + MEMBER_PAGE + "&offset=" + t.memberOffset + (t.memberKind ? "&kind=" + t.memberKind : "");
+    request("GET", API + "members" + query).then(function (res) {
+      if (res.status === 401) {
+        expire();
+        return;
+      }
+      setBusy(t.body, false);
+      clear(t.body);
+      if (res.status === 403) {
+        note(t.body, TEXT.forbidden, true);
+        return;
+      }
+      if (!res.ok) {
+        note(t.body, httpFailure(res), true);
+        return;
+      }
+      if (isPlainObject(res.data) && res.data.available === false) {
+        note(t.body, TEXT.unavailable);
+        return;
+      }
+      var page = isPlainObject(res.data) ? res.data.data : null;
+      if (!isPlainObject(page) || !Array.isArray(page.rows)) {
+        note(t.body, "The members list has an unexpected shape.", true);
+        return;
+      }
+      renderMembers(t, page);
+    }).catch(function () {
+      setBusy(t.body, false);
+      clear(t.body);
+      note(t.body, TEXT.network, true);
+    });
+  }
+
+  function renderMembers(t, page) {
+    var bar = make("div", "toolbar");
+    [["", "Everyone"], ["agent", "Agents"], ["human", "People"]].forEach(function (f) {
+      var b = makeButton(f[1], function () {
+        t.memberKind = f[0];
+        t.memberOffset = 0;
+        loadMembers(t);
+      });
+      if (t.memberKind === f[0]) {
+        b.setAttribute("aria-pressed", "true");
+      }
+      bar.appendChild(b);
+    });
+    t.body.appendChild(bar);
+
+    var rows = page.rows.map(function (m) {
+      return {
+        name: m.name,
+        kind: m.kind,
+        role: m.role,
+        status: m.status,
+        lastSeen: m.lastSeen || "never",
+        model: m.model || "",
+        tokens24h: m.tokens24h
+      };
+    });
+    var total = typeof page.total === "number" ? page.total : rows.length;
+    var from = rows.length ? t.memberOffset + 1 : 0;
+    t.body.appendChild(make("p", "meta", "Showing " + from + " to " + (t.memberOffset + rows.length) + " of " + total));
+    if (rows.length) {
+      renderTable(t.body, rows, 0);
+    } else {
+      note(t.body, "No members to show.");
+    }
+
+    var nav = make("div", "toolbar");
+    var prev = makeButton("Previous", function () {
+      t.memberOffset = Math.max(0, t.memberOffset - MEMBER_PAGE);
+      loadMembers(t);
+    });
+    prev.disabled = t.memberOffset === 0;
+    var next = makeButton("Next", function () {
+      t.memberOffset = page.nextOffset;
+      loadMembers(t);
+    });
+    next.disabled = typeof page.nextOffset !== "number";
+    nav.appendChild(prev);
+    nav.appendChild(next);
+    t.body.appendChild(nav);
   }
 
   function loadModules(t) {

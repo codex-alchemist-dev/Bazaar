@@ -1,11 +1,11 @@
 using Bazaar.Core;
 using Bazaar.Erasure;
-using Bazaar.Fun;
 using Bazaar.Sanitization;
 using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.CompanyBuild.Postgres;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Memory.Context;
@@ -16,6 +16,7 @@ using Bazaar.Server.DevSandbox.Wasm.Wasmtime;
 using Bazaar.Server.DevSandbox.Windows;
 using Bazaar.Server.Diagnostics;
 using Bazaar.Server.Diagnostics.Adapters;
+using Bazaar.Server.Fun;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -24,6 +25,7 @@ using Bazaar.Server.Gateway.FreeLlmApi;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Hive.Approvals;
 using Bazaar.Server.Host.Coding;
+using Bazaar.Server.Host.Components.OfflineSync;
 using Bazaar.Server.Host.Display;
 using Bazaar.Server.Host.GeneticMemory;
 using Bazaar.Server.Host.Http;
@@ -33,13 +35,13 @@ using Bazaar.Server.Http;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Kodo.Postgres;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Portability.Postgres;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Sanitization;
-using Bazaar.Server.CompanyBuild.Postgres;
-using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Credentials;
+using Bazaar.Server.SignIn.Postgres;
 using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
@@ -172,10 +174,6 @@ public static class HostApplicationExtensions
         if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
             services.AddMemoryGraphProjection();
-        }
-
-        // After the components: the Valkey supervisor is one of them, and the deferred cache selection must start after it (doc 40 section 4c.4 item 8).
-        services.AddBazaarCacheSelection();
 
             // The retrieval operation over the graph (constellation-memory-graph.md, "Retrieval operation"): memory.context.* settings,
             // vector seeds through the Vault query embedder when one is registered, the service and the memory.context wire command.
@@ -206,6 +204,7 @@ public static class HostApplicationExtensions
         services.AddBazaarRemoteAuth(configuration);
         services.AddBazaarBlobs(configuration);
         services.AddBazaarHttpSurface(configuration);
+        services.TryAddSingleton<IOfflineSyncRequestAuthenticator, HostOfflineSyncAuthenticator>();
         services.AddBazaarCompanyReadOptions();
         services.AddBazaarArchive();
         return services;

@@ -7,7 +7,7 @@ using Bazaar.Client.Mobile;
 using Bazaar.Client.PullRequests;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Wire;
-using Bazaar.GitHub.Adapter;
+using Bazaar.Server.GitHub.Adapter;
 using Microsoft.Extensions.Time.Testing;
 
 namespace Bazaar.Client.PullRequests.Tests;

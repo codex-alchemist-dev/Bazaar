@@ -15,8 +15,7 @@
     <ProjectReference Include="..\..\src\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.Server.Coding\Bazaar.Server.Coding.csproj" />
-    <ProjectReference Include="..\..\src\Bazaar.GitHub\Bazaar.GitHub.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.GitHub\Bazaar.Server.GitHub.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
     <!-- The server is run as a real process. Its assembly is also referenced for the in-process per-task worktree flow (doc 17), the
          same composition tests/Bazaar.Server.Host.Tests uses, until the host drives that flow from a turn itself. -->

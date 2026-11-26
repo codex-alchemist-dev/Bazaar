@@ -8,7 +8,6 @@ namespace Bazaar.Server.Agents.Turns;
 /// none, every call is a no-op, so the runtime works with no presence module registered. A sink failure never fails the turn; it is
 /// logged at debug and the turn carries on. An external cancel still reaches the caller.
 /// </summary>
-public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? time = null, ILogger? logger = null)
 public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? time = null, ILogger? logger = null,
     IGcKindLookup? gcKinds = null, IAgentProjectLookup? agentProjects = null)
 {
@@ -25,7 +24,6 @@ public sealed class TurnActivityReporter(ITurnActivitySink? sink, TimeProvider? 
 
         try
         {
-            var activity = new TurnActivity(agentId, _time.GetUtcNow(), kind, turnId, Guid.TryParse(gcId, out var gc) ? gc : null, ToolName: toolName);
             Guid? gc = Guid.TryParse(gcId, out var parsed) ? parsed : null;
             var gcInfo = GcKindInfo.Other;
             string? agentProject = null;
