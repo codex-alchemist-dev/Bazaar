@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.OutcomeLedger\Bazaar.Server.OutcomeLedger.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.OutcomeLedger.GitHub\Bazaar.Server.OutcomeLedger.GitHub.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.OutcomeLedger.Abstractions\Bazaar.Server.OutcomeLedger.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
