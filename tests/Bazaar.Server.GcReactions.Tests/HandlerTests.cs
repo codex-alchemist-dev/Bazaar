@@ -44,7 +44,7 @@ public class HandlerTests
 
     private GcTypingHandler Typing() => new(_access, _tracker, _broadcaster, _options);
 
-    private static WireRequestContext Context(FakeConnection connection, string type, object payload, string id = "req-1") =>
+    private static WireRequestContext Context<T>(FakeConnection connection, string type, T payload, string id = "req-1") =>
         new(connection, new Envelope(1, type, EnvelopeKind.Request, id, null, null, null, null, _codec.EncodePayload(payload)));
 
     private static T Decode<T>(WireReply reply) =>
@@ -389,6 +389,9 @@ public class HandlerTests
         public HashSet<Guid> Members { get; } = [];
 
         public Dictionary<Guid, long> ReadThrough { get; } = [];
+
+        public Task<HashSet<Guid>> LoadActiveMemberIdsAsync(Guid gcId, CancellationToken ct) =>
+            Task.FromResult(gcId == _gc ? new HashSet<Guid>(Members) : []);
 
         public ValueTask<bool> CanWriteAsync(Guid gcId, GcPrincipal writer, CancellationToken ct) =>
             ValueTask.FromResult(gcId == _gc && Members.Contains(writer.Id));

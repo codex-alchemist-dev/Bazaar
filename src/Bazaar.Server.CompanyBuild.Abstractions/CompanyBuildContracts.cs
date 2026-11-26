@@ -40,7 +40,9 @@ public sealed class CompanyBuildException(string message) : Exception(message);
 /// <summary>One client artifact a company build produces (docs/design/37 section 4a): an output id and the project it is built from.</summary>
 /// <param name="Id">Output folder name and artifact id, for example <c>windows-msix</c>. Letters, digits, dot, dash and underscore only.</param>
 /// <param name="ProjectPath">The client project the target is published from.</param>
-public sealed record CompanyBuildTarget(string Id, string ProjectPath, string? RuntimeIdentifier = null);
+/// <param name="RuntimeIdentifier">The .NET runtime identifier for a self-contained desktop publish, or null.</param>
+/// <param name="ExtraArguments">Extra <c>dotnet publish</c> arguments the target needs, for example the Android framework and packaging properties. Passed as a list, never through a shell.</param>
+public sealed record CompanyBuildTarget(string Id, string ProjectPath, string? RuntimeIdentifier = null, IReadOnlyList<string>? ExtraArguments = null);
 
 /// <summary>The outcome of one target within a company build set.</summary>
 /// <param name="TargetId">The target's id.</param>
@@ -66,3 +68,17 @@ public sealed record CompanyBuildSetReport(
 /// <param name="Code">One of <c>no-build</c>, <c>build-incomplete</c>, <c>identity-unrecorded</c>, <c>address-mismatch</c>, <c>key-pin-mismatch</c>.</param>
 /// <param name="Message">Plain text for the setup report. It never carries a secret; the pin is a public hash.</param>
 public sealed record CompanyBuildIdentityIssue(string Code, string Message);
+
+/// <summary>
+/// The server's own identity as clients see it: the address they connect to and the SHA-256 pin of its key. The component that owns
+/// the server's TLS identity supplies it, so the build module never reads keys itself.
+/// </summary>
+public interface IServerIdentitySource
+{
+    /// <summary>The address company clients connect to.</summary>
+    Uri Address { get; }
+
+    /// <summary>Lowercase hex SHA-256 of the server key's SubjectPublicKeyInfo (64 characters). A public hash, never a key.</summary>
+    string KeyHashPin { get; }
+}
+

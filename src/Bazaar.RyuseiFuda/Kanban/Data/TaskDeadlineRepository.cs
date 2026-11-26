@@ -4,7 +4,7 @@ namespace Bazaar.RyuseiFuda.Kanban.Data;
 
 /// <summary>
 /// Reads for the deadline scanner (doc 12, WP11). A task is due-passed for one due time once its <c>due_at</c> is at or before
-/// now, it is not Done, and no <c>task.due_passed</c> event carries that same due time. The <c>due_at</c> in the payload is
+/// now, it is not Done or withdrawn, and no <c>task.due_passed</c> event carries that same due time. The <c>due_at</c> in the payload is
 /// compared as a timestamp, so each (task, due_at) pair is announced once.
 /// </summary>
 public sealed class TaskDeadlineRepository(NpgsqlDataSource dataSource)
@@ -15,7 +15,7 @@ public sealed class TaskDeadlineRepository(NpgsqlDataSource dataSource)
         FROM tasks AS t
         WHERE t.due_at IS NOT NULL
           AND t.due_at <= now()
-          AND t.state <> 'done'
+          AND t.state NOT IN ('done', 'withdrawn')
           AND NOT EXISTS (
               SELECT 1 FROM task_events AS e
               WHERE e.task_id = t.id AND e.kind = 'task.due_passed'
@@ -32,7 +32,7 @@ public sealed class TaskDeadlineRepository(NpgsqlDataSource dataSource)
         WHERE t.id = @id
           AND t.due_at IS NOT NULL
           AND t.due_at <= now()
-          AND t.state <> 'done'
+          AND t.state NOT IN ('done', 'withdrawn')
           AND NOT EXISTS (
               SELECT 1 FROM task_events AS e
               WHERE e.task_id = t.id AND e.kind = 'task.due_passed'

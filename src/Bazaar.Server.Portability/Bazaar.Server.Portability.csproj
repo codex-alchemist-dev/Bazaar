@@ -9,6 +9,7 @@
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
   </ItemGroup>
 </Project>

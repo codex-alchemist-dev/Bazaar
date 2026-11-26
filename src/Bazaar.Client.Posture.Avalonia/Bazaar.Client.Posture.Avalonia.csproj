@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
+  </ItemGroup>
+</Project>

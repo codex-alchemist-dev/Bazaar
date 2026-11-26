@@ -1,0 +1,46 @@
+#version 450
+#extension GL_EXT_control_flow_attributes : require
+// S28 vector top-k, pass 1 (int8 matrix, per-row scale folded into aux). One thread per row, queries in blocks of 8. Approximate scores.
+layout(local_size_x = 128) in;
+layout(push_constant) uniform P { uint rows; uint dim; uint queries; uint rowsStride; } p;
+layout(set = 0, binding = 0) readonly buffer Mat { uvec4 mat[]; };
+layout(set = 0, binding = 1) readonly buffer Aux { float aux[]; };      // per row: scale / norm
+layout(set = 0, binding = 2) readonly buffer Qv { vec4 qv[]; };
+layout(set = 0, binding = 3) writeonly buffer Scores { float scores[]; };
+const uint QB = 8u;
+vec4 unpack4(uint w)
+{
+    int x = int(w);
+    return vec4(float(bitfieldExtract(x, 0, 8)), float(bitfieldExtract(x, 8, 8)), float(bitfieldExtract(x, 16, 8)), float(bitfieldExtract(x, 24, 8)));
+}
+void main()
+{
+    uint row = (gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x) * 128u + gl_LocalInvocationID.x;
+    if (row >= p.rows) { return; }
+    uint rowVecs = p.dim / 16u;                // uvec4 = 16 int8
+    uint qVecs = p.dim / 4u;
+    float scale = aux[row];
+    for (uint q0 = 0u; q0 < p.queries; q0 += QB)
+    {
+        float acc[8];
+        [[unroll]] for (uint i = 0u; i < 8u; i++) { acc[i] = 0.0; }
+        for (uint j = 0u; j < rowVecs; j++)
+        {
+            uvec4 u = mat[row * rowVecs + j];
+            vec4 v0 = unpack4(u.x), v1 = unpack4(u.y), v2 = unpack4(u.z), v3 = unpack4(u.w);
+            [[unroll]] for (uint i = 0u; i < 8u; i++)
+            {
+                uint q = q0 + i;
+                if (q < p.queries)
+                {
+                    uint b = q * qVecs + j * 4u;
+                    acc[i] += dot(v0, qv[b]) + dot(v1, qv[b + 1u]) + dot(v2, qv[b + 2u]) + dot(v3, qv[b + 3u]);
+                }
+            }
+        }
+        [[unroll]] for (uint i = 0u; i < 8u; i++)
+        {
+            if (q0 + i < p.queries) { scores[(q0 + i) * p.rowsStride + row] = acc[i] * scale; }
+        }
+    }
+}

@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <!-- Platform-neutral adapters only. The TPM key and Windows Hello live in Bazaar.DeviceApproval.Windows, which the Windows head references. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Client.Approvals.Abstractions\Bazaar.Client.Approvals.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.DeviceApproval.Abstractions\Bazaar.DeviceApproval.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
