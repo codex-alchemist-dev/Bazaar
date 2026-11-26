@@ -19,6 +19,13 @@ public interface IKodoStatusSource
 
     /// <summary>A Merkle inclusion proof for the journal record at <paramref name="sequence"/>, or null when it is unknown or the retained history no longer starts at the genesis record.</summary>
     KodoJournalProofView? JournalProof(long sequence);
+
+    /// <summary>
+    /// Like <see cref="JournalProof"/>, and also consults the durable journal store when the memory window no longer holds the record
+    /// (doc 46 section 7.10). The default answers from <see cref="JournalProof"/>.
+    /// </summary>
+    ValueTask<KodoJournalProofView?> JournalProofAsync(long sequence, CancellationToken cancellationToken) =>
+        ValueTask.FromResult(JournalProof(sequence));
 }
 
 /// <summary>One journal entry as the read API shows it. Hashes are lowercase hex.</summary>

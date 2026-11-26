@@ -50,6 +50,14 @@ public static class ThemeDefaults
         tokens["motion.liquid.ripple.size"] = "160";
         tokens["motion.liquid.ripple.duration"] = "900";
         tokens["motion.liquid.merge.softness"] = "0.6";
+
+        tokens["layout.sidebar.width.expanded"] = "256";
+        tokens["layout.sidebar.width.collapsed"] = "48";
+        tokens["layout.strip.height"] = "48";
+        tokens["layout.sheet.width"] = "448";
+        tokens["layout.sheet.side.width"] = "384";
+        tokens["material.scrim.opacity"] = "0.4";
+        tokens["gesture.sheet.dismiss.fraction"] = "0.3";
     }
 
     private static string Num(double value) => value.ToString("0.###", CultureInfo.InvariantCulture);

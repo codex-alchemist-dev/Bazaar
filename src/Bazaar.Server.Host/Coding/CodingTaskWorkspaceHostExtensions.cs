@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Bazaar.Server.Agents.Turns.Start;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingWorkspace;
 using Microsoft.Extensions.Configuration;
@@ -66,6 +67,9 @@ public static partial class CodingTaskWorkspaceHostExtensions
             sp.GetRequiredService<IWorkShareLayout>(),
             sp.GetRequiredService<ICodingWorktreeRegistrar>(),
             repo));
+        services.TryAddSingleton<CodingSessionWorktreeKeys>();
+        services.TryAddSingleton<ICodingSessionWorktreeKeys>(sp => sp.GetRequiredService<CodingSessionWorktreeKeys>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<ITaskSessionHook, CodingTaskSessionHook>());
         return services;
     }
 

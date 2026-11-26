@@ -41,6 +41,10 @@
     <ProjectReference Include="..\Bazaar.Client.Modules\Bazaar.Client.Modules.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Core\Bazaar.Client.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Shell\Bazaar.Client.Shell.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Materials\Bazaar.Client.Materials.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Posture\Bazaar.Client.Posture.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Motion.Avalonia\Bazaar.Client.Motion.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Commands\Bazaar.Client.Commands.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Theme\Bazaar.Client.Theme.csproj" />
     <ProjectReference Include="..\Bazaar.Client.DefaultApp.Linux\Bazaar.Client.DefaultApp.Linux.csproj" />
@@ -48,6 +52,9 @@
     <ProjectReference Include="..\Bazaar.Client.SignIn.Avalonia\Bazaar.Client.SignIn.Avalonia.csproj" />
     <ProjectReference Include="..\Bazaar.Client.SignIn.Storage\Bazaar.Client.SignIn.Storage.csproj" />
     <ProjectReference Include="..\Bazaar.Client.CompanySetup.Avalonia\Bazaar.Client.CompanySetup.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Walkthrough.Avalonia\Bazaar.Client.Walkthrough.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.FirstTask.Avalonia\Bazaar.Client.FirstTask.Avalonia.csproj" />
+    <ProjectReference Include="..\Bazaar.Client.Souls\Bazaar.Client.Souls.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Components.Launcher\Bazaar.Client.Components.Launcher.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato\Bazaar.Client.Calcinato.csproj" />
     <ProjectReference Include="..\Bazaar.Client.Calcinato.Avalonia\Bazaar.Client.Calcinato.Avalonia.csproj" />

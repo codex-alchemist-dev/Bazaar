@@ -20,6 +20,13 @@ public sealed record KodoServerOptions
     /// </summary>
     public string? DataDirectory { get; init; }
 
+    /// <summary>
+    /// Where the latest status snapshot is written after every pass, for the resident TUI (doc 58 section 3), a separate process.
+    /// Null writes nothing (the shipped default of the record; <c>AddBazaarKodo</c> with configuration resolves
+    /// <c>Bazaar:Kodo:SnapshotFile</c>, then <see cref="DataDirectory"/>, then the machine-wide default, and an explicit empty value turns it off).
+    /// </summary>
+    public string? SnapshotFile { get; init; }
+
     /// <summary>The validated section 20 settings. Invalid or loosening operator values fall back to the defaults and are listed in <see cref="SettingErrors"/>.</summary>
     public KodoSettings Settings { get; init; } = KodoSettings.Defaults;
 
@@ -46,4 +53,16 @@ public sealed record KodoServerOptions
     /// hold the state at degraded forever. OPEN until a clock reading is registered (section 5.4).
     /// </summary>
     public bool IncludeClockDrift { get; init; }
+
+    /// <summary>
+    /// Replays the local journal into the durable store when a <see cref="IKodoJournalStore"/> is registered (doc 46 section 7.10).
+    /// Default true. False keeps the memory and spill journal only.
+    /// </summary>
+    public bool UseJournalStore { get; init; } = true;
+
+    /// <summary>
+    /// Days the durable store keeps journal records (doc 46 section 20, <c>kodo.retention.journal_days</c>, default 730). That setting is
+    /// counsel-gated and not in the settings registry yet, so this wiring key stands in for it. Pruning never removes the head.
+    /// </summary>
+    public int JournalRetentionDays { get; init; } = 730;
 }

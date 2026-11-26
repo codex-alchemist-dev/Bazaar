@@ -65,6 +65,9 @@ public enum TokenRefreshFailure
 
     /// <summary>A retired credential was presented. The device has been revoked (doc 32 section 5).</summary>
     ReuseDetected,
+
+    /// <summary>The person is suspended or removed (PROPOSED, doc 32 person suspension). No token is issued.</summary>
+    PersonNotActive,
 }
 
 /// <summary>A refresh was refused. Carries only the reason, never the secret.</summary>
@@ -82,6 +85,9 @@ public enum TokenIssueFailure
 
     /// <summary>The device class is empty or not a class the server accepts.</summary>
     InvalidDevice,
+
+    /// <summary>The person is suspended or removed, so no device can be signed in for them (PROPOSED, doc 32 person suspension).</summary>
+    PersonNotActive,
 }
 
 /// <summary>A first token pair was refused. Carries only the reason.</summary>

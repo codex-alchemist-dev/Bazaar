@@ -14,7 +14,11 @@ namespace Bazaar.Server.Setup.FirstRun.Postgres.Tests;
 /// </summary>
 internal static partial class FirstRunDatabase
 {
-    public static Task<PgTestDatabase> CreateAsync(CancellationToken ct) => PgTestDatabase.CreateAsync("firstrun", MigrateAsync, ct);
+    public static Task<PgTestDatabase> CreateAsync(CancellationToken ct)
+    {
+        Assert.SkipWhen(PgSource.IsUnsupportedHost, "Windows without BAZAAR_TEST_PG: no test PostgreSQL available.");
+        return PgTestDatabase.CreateAsync("firstrun", MigrateAsync, ct);
+    }
 
     private static async Task MigrateAsync(NpgsqlDataSource dataSource, CancellationToken ct)
     {
@@ -36,7 +40,7 @@ internal static partial class FirstRunDatabase
 
     private sealed class Sources : IMigrationSource
     {
-        private static readonly EmbeddedMigrationSource _server = new(typeof(MigrationRunner).Assembly);
+        private static readonly EmbeddedMigrationSource _server = new(typeof(Bazaar.Server.AssemblyMarker).Assembly);
 
         public IReadOnlyList<string> Namespaces() => [MigrationNamespaces.Common, "remote", "setup_firstrun"];
 

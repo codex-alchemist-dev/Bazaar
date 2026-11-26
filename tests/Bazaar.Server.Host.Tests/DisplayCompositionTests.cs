@@ -1,5 +1,5 @@
-using Bazaar.Core;
 using Bazaar.Contracts.Gateway;
+using Bazaar.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Abstractions;
@@ -15,18 +15,18 @@ using Bazaar.Server.Security.Taint;
 using Bazaar.Server.VmDensity;
 using Bazaar.Server.VmDensity.Abstractions;
 using Bazaar.Server.VmDensity.Vms;
-using Bazaar.Server.Vms.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Bazaar.Server.VmDisplay.AgentTools;
 using Bazaar.Server.VmDisplay.AgentTools.Vms;
 using Bazaar.Server.VmDisplay.Audit;
 using Bazaar.Server.VmDisplay.Gate;
 using Bazaar.Server.VmDisplay.GuestChannel;
-using Bazaar.Server.VmTransport;
 using Bazaar.Server.VmDisplay.HyperV;
 using Bazaar.Server.VmDisplay.Kvm;
-using Microsoft.Extensions.Configuration;
 using Bazaar.Server.VmEgress;
+using Bazaar.Server.Vms.Abstractions;
+using Bazaar.Server.VmTransport;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 

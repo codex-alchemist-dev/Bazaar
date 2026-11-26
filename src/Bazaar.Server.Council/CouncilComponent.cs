@@ -1,10 +1,10 @@
-using Bazaar.Server.Council.Health;
-using Bazaar.Server.Health;
 using Bazaar.Core;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Escalation;
+using Bazaar.Server.Council.Health;
 using Bazaar.Server.Council.Service;
 using Bazaar.Server.Council.Settings;
+using Bazaar.Server.Health;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

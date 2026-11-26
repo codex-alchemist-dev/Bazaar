@@ -3,6 +3,7 @@ using Bazaar.Kodo.Probes.Host;
 using Bazaar.Kodo.Settings;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Server.Wire.Sync;
+using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -34,7 +35,7 @@ public static class KodoServiceCollectionExtensions
     /// <summary>
     /// Registers the Kodo monitor, its hosted loop, <see cref="IKodoStatusSource"/> and the <c>kodo</c> stream on <c>/ws</c> (gate and publisher). Reads <c>Bazaar:Kodo</c>: <c>Enabled</c>,
     /// <c>DataDirectory</c>, <c>TickSeconds</c>, <c>HeartbeatSeconds</c>, <c>NonCriticalGraceSeconds</c>, <c>JournalMemoryRecords</c>,
-    /// <c>DataVolumePath</c>, <c>IncludeClockDrift</c> and <c>Settings:&lt;kodo.key&gt;</c> for the section 20 catalogue. Bound by hand, no
+    /// <c>DataVolumePath</c>, <c>IncludeClockDrift</c>, <c>UseJournalStore</c>, <c>JournalRetentionDays</c> and <c>Settings:&lt;kodo.key&gt;</c> for the section 20 catalogue. Bound by hand, no
     /// reflection. With <c>Enabled</c> false nothing is registered that runs. Every registration is TryAdd, so a host or test can
     /// substitute first (a stream publisher, host readings, a clock).
     /// </summary>
@@ -45,6 +46,9 @@ public static class KodoServiceCollectionExtensions
         KodoServerOptions options = ReadOptions(configuration?.GetSection(KodoServerComponent.SectionName));
         services.TryAddSingleton(options);
         services.TryAddSingleton(TimeProvider.System);
+
+        // The web panel's Kodo section reads through this port (doc 51 section 5); the TUI reads the snapshot file instead.
+        services.TryAddSingleton<IAdminKodoSource>(sp => new KodoAdminSource(sp.GetRequiredService<IKodoStatusSource>(), sp.GetRequiredService<TimeProvider>()));
         if (!options.Enabled)
         {
             services.TryAddSingleton<IKodoStatusSource, DisabledKodoStatusSource>();
@@ -62,7 +66,8 @@ public static class KodoServiceCollectionExtensions
             sp.GetRequiredService<IHostReadings>(),
             sp.GetRequiredService<IKodoStreamPublisher>(),
             sp.GetRequiredService<TimeProvider>(),
-            sp.GetRequiredService<ILogger<KodoMonitor>>()));
+            sp.GetRequiredService<ILogger<KodoMonitor>>(),
+            sp.GetService<IKodoJournalStore>()));
         services.TryAddSingleton<IKodoStatusSource>(sp => sp.GetRequiredService<KodoMonitor>());
         services.AddSingleton<IStreamGate>(sp => new KodoStreamGate(
             sp.GetRequiredService<IKodoStatusSource>(),
@@ -98,7 +103,22 @@ public static class KodoServiceCollectionExtensions
             JournalMemoryRecords = Int(s, "JournalMemoryRecords", d.JournalMemoryRecords),
             DataVolumePath = string.IsNullOrWhiteSpace(s?["DataVolumePath"]) ? d.DataVolumePath : s["DataVolumePath"]!,
             IncludeClockDrift = Bool(s, "IncludeClockDrift", d.IncludeClockDrift),
+            SnapshotFile = SnapshotPath(s),
+            UseJournalStore = Bool(s, "UseJournalStore", d.UseJournalStore),
+            JournalRetentionDays = Int(s, "JournalRetentionDays", d.JournalRetentionDays),
         };
+    }
+
+    // With configuration present the file is on by default (the TUI needs it); an explicitly empty value turns it off.
+    private static string? SnapshotPath(IConfigurationSection? s)
+    {
+        if (s is null)
+        {
+            return null;
+        }
+
+        string? explicitPath = s["SnapshotFile"];
+        return explicitPath is { Length: 0 } ? null : KodoSnapshotFile.ResolvePath(explicitPath, s["DataDirectory"]);
     }
 
     private static bool Bool(IConfigurationSection? s, string key, bool fallback) => bool.TryParse(s?[key], out bool v) ? v : fallback;

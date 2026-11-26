@@ -215,6 +215,7 @@ public sealed class PoolToolBundle
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     AllowDuplicateProperties = false,
     WriteIndented = true,
+    NewLine = "\n",
     NumberHandling = JsonNumberHandling.Strict)]
 [JsonSerializable(typeof(PoolToolBundle.BundleDto))]
 internal sealed partial class PoolToolJsonContext : JsonSerializerContext;

@@ -1,10 +1,10 @@
 using Bazaar.Core;
 using Bazaar.Server.Git.Forge;
 using Bazaar.Server.Git.Health;
-using Bazaar.Server.Health;
 using Bazaar.Server.Git.Merge;
 using Bazaar.Server.Git.Reads;
 using Bazaar.Server.Git.RepositoryDirectory;
+using Bazaar.Server.Health;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

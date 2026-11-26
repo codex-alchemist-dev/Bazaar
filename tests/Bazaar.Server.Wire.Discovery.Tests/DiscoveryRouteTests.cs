@@ -47,8 +47,10 @@ public class DiscoveryRouteTests
     [Fact]
     public async Task Every_listed_url_serves_its_artifact_with_the_listed_hash()
     {
-        // The default budget is enough to mirror every artifact once.
-        await using var host = await Start();
+        // One request for the document and one per artifact. The operator default (300 a minute, doc 90 section 6) is below the
+        // artifact count now, so this test sets a budget that covers one full mirror; the default itself is unchanged.
+        var budget = new EmbeddedWireSchemaSource().Names.Count + 1;
+        await using var host = await Start(o => o.PermitLimit = budget);
         using var doc = JsonDocument.Parse(await host.Client.GetStringAsync(_route, TestContext.Current.CancellationToken));
 
         foreach (var schema in doc.RootElement.GetProperty("schemas").EnumerateArray())

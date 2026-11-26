@@ -4,11 +4,11 @@ namespace Bazaar.Client.FirstTask.Tests;
 
 public class FirstTaskViewModelTests
 {
-    private static readonly FirstTaskTarget Target = new(Guid.NewGuid(), Guid.NewGuid());
+    private static readonly FirstTaskTarget _target = new(Guid.NewGuid(), Guid.NewGuid());
 
     private sealed class Sender(FirstTaskOutcome outcome) : IFirstTaskSender
     {
-        public List<(FirstTaskTarget Target, string Text)> Sent { get; } = [];
+        public List<(FirstTaskTarget _target, string Text)> Sent { get; } = [];
 
         public Task<FirstTaskOutcome> SendAsync(FirstTaskTarget target, string text, CancellationToken cancellationToken = default)
         {
@@ -40,7 +40,7 @@ public class FirstTaskViewModelTests
         Assert.False(none.SendCommand.CanExecute(null));
         Assert.Contains("not ready", none.Message);
 
-        var ready = new FirstTaskViewModel(sender, new Targets(Target));
+        var ready = new FirstTaskViewModel(sender, new Targets(_target));
         await ready.StartAsync(TestContext.Current.CancellationToken);
         Assert.False(ready.SendCommand.CanExecute(null)); // no text yet
         ready.Text = "   ";
@@ -53,13 +53,13 @@ public class FirstTaskViewModelTests
     public async Task Send_posts_the_trimmed_text_once_and_locks_the_box()
     {
         var sender = new Sender(FirstTaskOutcome.Sent);
-        var model = new FirstTaskViewModel(sender, new Targets(Target));
+        var model = new FirstTaskViewModel(sender, new Targets(_target));
         await model.StartAsync(TestContext.Current.CancellationToken);
         model.Text = "  summarise the repo  ";
 
         await Press(model.SendCommand);
 
-        Assert.Equal([(Target, "summarise the repo")], sender.Sent);
+        Assert.Equal([(_target, "summarise the repo")], sender.Sent);
         Assert.True(model.Sent);
         Assert.False(model.SendCommand.CanExecute(null));
         Assert.DoesNotContain("summarise", model.Message);
@@ -68,7 +68,7 @@ public class FirstTaskViewModelTests
     [Fact]
     public async Task A_failed_send_keeps_the_text_and_allows_a_retry()
     {
-        var model = new FirstTaskViewModel(new Sender(FirstTaskOutcome.Failed), new Targets(Target));
+        var model = new FirstTaskViewModel(new Sender(FirstTaskOutcome.Failed), new Targets(_target));
         await model.StartAsync(TestContext.Current.CancellationToken);
         model.Text = "do a thing";
 
@@ -82,7 +82,7 @@ public class FirstTaskViewModelTests
     [Fact]
     public async Task An_unreachable_server_reads_as_not_ready_and_long_text_is_capped()
     {
-        var model = new FirstTaskViewModel(new Sender(FirstTaskOutcome.Sent), new Targets(Target, throws: true));
+        var model = new FirstTaskViewModel(new Sender(FirstTaskOutcome.Sent), new Targets(_target, throws: true));
         await model.StartAsync(TestContext.Current.CancellationToken);
         Assert.Contains("not ready", model.Message);
 
@@ -102,12 +102,12 @@ public class FirstTaskViewModelTests
         var transport = new FakeWireTransport();
         var sender = new WireFirstTaskSender(() => transport, () => Task.FromResult<string?>("tok"), "windows", "test");
 
-        var send = sender.SendAsync(Target, "hi", TestContext.Current.CancellationToken);
+        var send = sender.SendAsync(_target, "hi", TestContext.Current.CancellationToken);
         await Until(() => transport.Count > 0 && transport.Latest.SentOfType(WireTypes.GcSend).Any());
         var request = transport.Latest.SentOfType(WireTypes.GcSend).Single();
         var payload = transport.Codec.DecodePayload<GcSend>(request);
-        Assert.Equal(Target.ChatId, payload.GcId);
-        Assert.Equal([Target.AgentId], payload.Mentions);
+        Assert.Equal(_target.ChatId, payload.GcId);
+        Assert.Equal([_target.AgentId], payload.Mentions);
         Assert.Equal("hi", payload.Text);
         Assert.Contains("tok", transport.Codec.DecodePayload<Hello>(transport.Latest.SentOfType(WireTypes.Hello).Single()).Credential ?? "");
 
@@ -122,7 +122,7 @@ public class FirstTaskViewModelTests
         var transport = new FakeWireTransport();
         var sender = new WireFirstTaskSender(() => transport, () => Task.FromResult<string?>(null), "windows", "test");
 
-        Assert.Equal(FirstTaskOutcome.Failed, await sender.SendAsync(Target, "hi", TestContext.Current.CancellationToken));
+        Assert.Equal(FirstTaskOutcome.Failed, await sender.SendAsync(_target, "hi", TestContext.Current.CancellationToken));
         Assert.Equal(0, transport.Count);
     }
 

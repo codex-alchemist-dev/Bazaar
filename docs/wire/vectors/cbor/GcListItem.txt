@@ -1,7 +1,7 @@
 Golden frame: GcListItem
 Codec: cbor (binary)
 Protocol: 1.0
-Schema hash: sha256:a8581a95c16d9093bd29ea9fef08ee9ec24eea9ef9d42632aad7d4e144e50740
+Schema hash: sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf
 Payload record: Bazaar.Contracts.Wire.GcListItem
 Envelope: v=1 t=sample k=evt id=vector-1 s=gc:0196a6f0-0000-7000-8000-000000000001 n=7 ts=2026-11-19T05:36:12.345Z
 Frame length: 203 bytes

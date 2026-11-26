@@ -120,6 +120,8 @@ public sealed class CompositionTests
     public void Report_lists_every_provider_registered_in_di_with_no_selection()
     {
         var services = new ServiceCollection();
+        // The Windows VM provider reads the data root when first resolved, so the options must exist on every OS.
+        services.AddOptions<Bazaar.Server.Hosting.BazaarHostOptions>().Configure(o => o.DataRoot = Path.GetTempPath());
         services.AddBazaarProviders();
         services.AddSingleton<ICacheProvider>(new Bazaar.Server.Providers.Fakes.FakeCacheProvider("valkey"));
         services.AddSingleton<ICacheProvider>(new Bazaar.Server.Providers.Fakes.FakeCacheProvider("garnet", usable: false));

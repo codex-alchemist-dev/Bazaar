@@ -46,6 +46,7 @@ public sealed class ArchiveRoutesTests : IAsyncLifetime
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IArchiveStore>(new DirectoryArchiveStore(_root));
         builder.Services.AddSingleton<IArchiveSearchIndex, InMemoryArchiveSearchIndex>();
+        builder.Services.AddSingleton(sp => new ArchiveIndexRebuilder(sp.GetRequiredService<IArchiveStore>(), new ArchiveVerifier(sp.GetRequiredService<IArchiveStore>()), sp.GetRequiredService<IArchiveSearchIndex>()));
         builder.Services.AddSingleton<IArchiveSourceFactory>(new Factory(_marked));
         _app = builder.Build();
         _app.MapArchive((http, run) =>
