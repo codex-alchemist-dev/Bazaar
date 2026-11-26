@@ -25,13 +25,15 @@ public enum VaultEditOutcome
 /// <param name="AgentId">The agent's identity (<c>Bazaar-Agent</c> trailer).</param>
 /// <param name="GcId">The GC the edit belongs to, or null for memory writes (<c>Bazaar-GC</c> trailer).</param>
 /// <param name="TaskId">The task, or null (<c>Bazaar-Task</c> trailer).</param>
+/// <param name="ExtraTrailers">Further trailers for the merge commit, in order (for example offline-write ids); null for none.</param>
 public sealed record VaultEditRequest(
     Guid DocId,
     string BaseCommit,
     string Branch,
     string AgentId,
     string? GcId,
-    string? TaskId);
+    string? TaskId,
+    IReadOnlyList<KeyValuePair<string, string>>? ExtraTrailers = null);
 
 /// <summary>A new decision record. The writer assigns the number and the file path.</summary>
 /// <param name="DocId">The document id.</param>

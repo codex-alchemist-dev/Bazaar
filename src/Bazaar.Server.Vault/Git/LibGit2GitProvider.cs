@@ -11,7 +11,7 @@ namespace Bazaar.Server.Vault.Git;
 /// Writes take <see cref="CheckoutLocks"/> for the checkout they change (see the single-writer rule on
 /// <see cref="IGitProvider"/>). Sparse worktrees are not implemented.
 /// </remarks>
-public sealed class LibGit2GitProvider : IGitProvider
+public sealed class LibGit2GitProvider : IGitProvider, IGitBranchWriter
 {
     private static readonly string[] _mergeStateNames = ["MERGE_HEAD", "MERGE_MSG", "MERGE_MODE", "MERGE_RR"];
 
