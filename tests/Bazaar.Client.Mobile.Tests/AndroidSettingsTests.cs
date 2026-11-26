@@ -31,4 +31,11 @@ public class AndroidSettingsTests
         Assert.NotEmpty(new AndroidSettings { RadialSectors = ["Reply", "Reply"] }.Validate());
         Assert.NotEmpty(new AndroidSettings { RadialSectors = ["Reply", " "] }.Validate());
     }
+
+    [Fact]
+    public void The_gesture_edge_defaults_to_24_dp_and_never_drops_below_its_floor()
+    {
+        Assert.Equal(24, new AndroidSettings().Gestures.EdgeInsetDp);
+        Assert.Equal(GestureOptions.EdgeInsetFloorDp, new AndroidSettings { GestureEdgeDp = 4 }.Gestures.EdgeInsetDp);
+    }
 }

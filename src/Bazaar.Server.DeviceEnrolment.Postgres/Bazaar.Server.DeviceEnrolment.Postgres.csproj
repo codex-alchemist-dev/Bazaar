@@ -13,6 +13,14 @@
     <ProjectReference Include="..\Bazaar.Server.DeviceEnrolment.Abstractions\Bazaar.Server.DeviceEnrolment.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Server.DeviceEnrolment.Abstractions\Bazaar.Server.DeviceEnrolment.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.DeviceEnrolment.Postgres.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />
   </ItemGroup>
 </Project>

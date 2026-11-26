@@ -16,7 +16,11 @@ public sealed record GwProvider(
     DateTimeOffset? TermsAckAt,
     bool Enabled);
 
-/// <summary>A row of <c>gw_model</c>. <c>Family</c> is the model-family class that fallbacks may not leave.</summary>
+/// <summary>
+/// A row of <c>gw_model</c>. <c>Family</c> is the model-family class that fallbacks may not leave. <c>Kind</c> is
+/// <see cref="KindChat"/> or <see cref="KindEmbedding"/>. <c>EmbedMaxBatch</c> and <c>EmbedMaxInputChars</c> are the model's
+/// embedding caps; null means the provider default.
+/// </summary>
 public sealed record GwModel(
     string ProviderId,
     string ModelId,
@@ -26,12 +30,24 @@ public sealed record GwModel(
     string Status,
     DateTimeOffset FirstSeen,
     DateTimeOffset LastSeen,
-    string Source)
+    string Source,
+    string Kind = GwModel.KindChat,
+    int? EmbedMaxBatch = null,
+    int? EmbedMaxInputChars = null)
 {
+    public const string KindChat = "chat";
+    public const string KindEmbedding = "embedding";
     public const string StatusAvailable = "available";
     public const string StatusMissing = "missing";
 
     public ModelRef Ref => new(ProviderId, ModelId);
+}
+
+/// <summary>Which kind of model a call needs. Chat routes use only <c>chat</c> models, embedding routes only <c>embedding</c> models.</summary>
+public enum GwModelKind
+{
+    Chat,
+    Embedding,
 }
 
 /// <summary>How a route orders its candidates.</summary>

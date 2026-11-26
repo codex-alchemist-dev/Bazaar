@@ -80,6 +80,7 @@ public sealed partial class CouncilDeadlineSweeper
         var deadlines = 0;
         var redriven = 0;
         var failed = 0;
+        var recovered = new List<Guid>();
 
         foreach (var voteId in await _store.ListVotesDueAsync(now, _options.BatchSize, ct))
         {
@@ -106,12 +107,36 @@ public sealed partial class CouncilDeadlineSweeper
                 {
                     await _council.RedriveDecisionAsync(voteId, ct);
                     redriven++;
+                    recovered.Add(voteId);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     failed++;
                     LogDecisionRecoveryFailed(_logger, ex, voteId);
                 }
+            }
+        }
+
+        // Decided membership votes whose outcome no sink has accepted yet, whatever their age (doc 10, Membership handoff).
+        // A vote already re-driven above in this pass is skipped.
+        var seen = new HashSet<Guid>(recovered);
+        foreach (var voteId in await _store.ListUndeliveredMembershipDecisionsAsync(_options.BatchSize, ct))
+        {
+            if (!seen.Add(voteId))
+            {
+                continue;
+            }
+
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                await _council.RedriveDecisionAsync(voteId, ct);
+                redriven++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failed++;
+                LogDecisionRecoveryFailed(_logger, ex, voteId);
             }
         }
 

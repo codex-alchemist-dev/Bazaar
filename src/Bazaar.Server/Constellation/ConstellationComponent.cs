@@ -1,5 +1,4 @@
 using Bazaar.Core;
-using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Constellation.Tiles;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Vault.Data;
@@ -51,9 +50,8 @@ public sealed class ConstellationComponent : IBazaarComponent
         services.TryAddSingleton<IConstellationGraphSource, ConstellationEmptyGraphSource>();
         services.TryAddSingleton<IConstellationTileSource, LayoutTileSource>();
 
-        // The memory graph store. The write-path sink is not registered here: MemoryGraphSink.Wrap decorates the Memory module's
-        // real IMemoryBatchSink, and the memory component wiring calls it when it lands (docs/design/constellation-memory-graph.md).
-        services.TryAddSingleton<IMemoryGraphStore>(sp => new PgMemoryGraphStore(sp.GetRequiredService<NpgsqlDataSource>()));
+        // The memory graph store and its write-path sink live in Bazaar.Server.Constellation (the memory graph, docs/design/
+        // constellation-memory-graph.md). That project references this one, so the host registers them after the components.
 
         // TODO(settings): read the stored constellation.node_cap per request. Until the settings reader is wired here, the handler
         // uses the shipped default, which is the same bound the settings store enforces.
