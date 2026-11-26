@@ -186,6 +186,20 @@ internal sealed class InMemoryCrashStore : ICrashIntakeStore, ICrashActionOutbox
         }
     }
 
+    public Task<bool> AttachLateAsync(StoredCrashAttachment attachment, CancellationToken ct = default)
+    {
+        lock (_gate)
+        {
+            if (!_reports.ContainsKey(attachment.ReportId) || _attachments.Values.Any(a => a.ReportId == attachment.ReportId))
+            {
+                return Task.FromResult(false);
+            }
+
+            _attachments[attachment.AttachmentId] = attachment;
+            return Task.FromResult(true);
+        }
+    }
+
     public Task<CrashCommitStatus> CommitAsync(CrashCommit commit, CancellationToken ct = default)
     {
         lock (_gate)

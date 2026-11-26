@@ -20,6 +20,12 @@ public interface ICrashIntakeStore
 
     /// <summary>Applies one change atomically. See <see cref="CrashCommitStatus"/> for the outcomes.</summary>
     Task<CrashCommitStatus> CommitAsync(CrashCommit commit, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stores a screenshot for a report that is already stored and has none (doc 43 section 5.2: the screenshot may finish after its
+    /// report). Returns false when the report does not exist or already has a screenshot; nothing is written then.
+    /// </summary>
+    Task<bool> AttachLateAsync(StoredCrashAttachment attachment, CancellationToken ct = default);
 }
 
 /// <summary>The filing outbox. A row is leased, carried out, then completed, or failed with a retry time.</summary>
