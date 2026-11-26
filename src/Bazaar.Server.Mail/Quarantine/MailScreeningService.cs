@@ -75,6 +75,31 @@ public sealed class MailScreeningService(IProtectedMailDomains protectedDomains,
             MessageBytes: Math.Max(messageBytes, largest),
             Attachments: attachments,
             Links: links ?? []);
-        return InboundQuarantineRules.Evaluate(headers, new InboundQuarantineOptions { Limits = limits, ProtectedDomains = domains });
+        var decision = InboundQuarantineRules.Evaluate(headers, new InboundQuarantineOptions { Limits = limits, ProtectedDomains = domains });
+        return links is null ? AddLinkReasons(decision, mail, limits, domains) : decision;
+    }
+
+    /// <summary>
+    /// Passes the message's own links through <see cref="MailLinkExtractor"/> and adds <see cref="QuarantineReason.LinkTextMismatch"/> when an
+    /// anchor shows a host that differs from its target. Links the limits left out were not examined, so they add
+    /// <see cref="QuarantineReason.LinkLimitExceeded"/> (an unexamined link is not a clean one).
+    /// </summary>
+    private static QuarantineDecision AddLinkReasons(QuarantineDecision decision, ParsedMail mail, MailLimits limits, IReadOnlyList<string> domains)
+    {
+        var report = MailLinkExtractor.Extract(mail, limits, domains);
+        var reasons = new SortedSet<QuarantineReason>(decision.Reasons);
+        if (report.Links.Any(link => link.DisplayTextMismatch))
+        {
+            reasons.Add(QuarantineReason.LinkTextMismatch);
+        }
+
+        if (report.Truncated || report.DroppedTooLong > 0)
+        {
+            reasons.Add(QuarantineReason.LinkLimitExceeded);
+        }
+
+        return reasons.Count == decision.Reasons.Length
+            ? decision
+            : new QuarantineDecision(QuarantineAction.Quarantine, [.. reasons]);
     }
 }

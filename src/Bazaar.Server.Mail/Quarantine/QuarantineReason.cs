@@ -31,4 +31,7 @@ public enum QuarantineReason
 
     /// <summary>An attachment is an archive that holds another archive, or declares an archive-bomb shape.</summary>
     NestedArchive,
+
+    /// <summary>The body has more links, or longer links, than the link limits let the screen examine, so the rest were not checked.</summary>
+    LinkLimitExceeded,
 }
