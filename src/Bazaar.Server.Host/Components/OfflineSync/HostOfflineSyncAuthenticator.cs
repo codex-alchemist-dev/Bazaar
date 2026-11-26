@@ -1,5 +1,6 @@
 using System.Globalization;
 using Bazaar.Server.Http;
+using Bazaar.Server.Http.Auth;
 using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Http;
@@ -10,7 +11,8 @@ namespace Bazaar.Server.Host.Components.OfflineSync;
 /// <summary>
 /// Authenticates <c>POST /offline-sync/batch</c> with the same steps as the other authenticated HTTP routes (the transport rule,
 /// the bearer credential through <see cref="IConnectionAuthenticator"/>, expiry, the HTTP rate bucket) and then binds the call to
-/// the device the credential was issued to. A credential that carries no server-assigned device id cannot use this route: the
+/// the device the credential was issued to. A caller already verified by the authentication middleware (a device-bound access token) is
+/// used directly. A credential that carries no server-assigned device id cannot use this route: the
 /// batch's device id would be unverifiable, so the request is refused (403) instead of trusting the body.
 /// </summary>
 public sealed class HostOfflineSyncAuthenticator(
@@ -28,6 +30,18 @@ public sealed class HostOfflineSyncAuthenticator(
         if (!http.Request.IsHttps && !wire.Value.AllowPlaintextOverlay && remote is not null && !System.Net.IPAddress.IsLoopback(remote))
         {
             return OfflineSyncAuthResult.Refuse(StatusCodes.Status403Forbidden, "forbidden");
+        }
+
+        // A device-bound access token verified by the authentication middleware (doc 32 section 5) names the device itself.
+        if (http.GetAuthenticatedCaller() is { } verified && verified.DeviceId != Guid.Empty)
+        {
+            if (!rateLimiter.TryAcquire(verified.HumanId, out var verifiedRetryAfter))
+            {
+                http.Response.Headers.RetryAfter = verifiedRetryAfter.ToString(CultureInfo.InvariantCulture);
+                return OfflineSyncAuthResult.Refuse(StatusCodes.Status429TooManyRequests, "rate_limited");
+            }
+
+            return OfflineSyncAuthResult.Success(new OfflineSyncCaller(verified.HumanId, verified.DeviceId));
         }
 
         var header = http.Request.Headers.Authorization.ToString();

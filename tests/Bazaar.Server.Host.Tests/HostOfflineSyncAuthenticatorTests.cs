@@ -1,5 +1,6 @@
 using Bazaar.Server.Host.Components.OfflineSync;
 using Bazaar.Server.Http;
+using Bazaar.Server.Http.Auth;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
@@ -67,5 +68,30 @@ public sealed class HostOfflineSyncAuthenticatorTests
 
         Assert.Equal(device, result.Caller?.DeviceId);
         Assert.Equal(_principal.Id, result.Caller?.PrincipalId);
+    }
+
+    [Fact]
+    public async Task Verified_device_bound_caller_is_used_without_the_connection_authenticator()
+    {
+        var device = Guid.NewGuid();
+        var human = Guid.NewGuid();
+        var http = Request("Bearer x");
+        http.SetAuthenticatedCaller(new AuthenticatedCaller(device, human));
+
+        var result = await Build(AuthResult.Fail("must not be consulted")).AuthenticateAsync(http, CancellationToken.None);
+
+        Assert.Equal(device, result.Caller?.DeviceId);
+        Assert.Equal(human, result.Caller?.PrincipalId);
+    }
+
+    [Fact]
+    public async Task Verified_caller_without_a_device_falls_back_to_the_credential_path()
+    {
+        var http = Request("Bearer x");
+        http.SetAuthenticatedCaller(new AuthenticatedCaller(Guid.Empty, Guid.NewGuid()));
+
+        var result = await Build(AuthResult.Success(_principal)).AuthenticateAsync(http, CancellationToken.None);
+
+        Assert.Equal("device_unbound", result.FailureCode);
     }
 }
