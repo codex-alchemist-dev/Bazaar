@@ -70,6 +70,14 @@ Running the server installer produces the company's client installers in an outp
 - **No internet at install (owner, 2026-11-12). The installer never halts for lack of network. It finishes installing the server. The server then defers every download (SDKs, NuGet packages, Flatpak runtimes) until a connection is detected, and it builds the client installers once everything it needs is present and runnable. Until then the output folder shows the state (for example "waiting for network, 3 of 5 downloads done"). The server resumes on its own; the user does nothing.
 - **Scheduling.** A build runs on install, on an update of the server, or when the company changes its module list or baked layout. It is one job on the server, visible in the Observatory (doc 23), never a separate tool.
 
+**Module selection and the rebuild queue (PROPOSED, coordinator, 2026-11-22).** Status: PROPOSED. This fixes where the selection lives so the web panel (doc 51) and the TUI (doc 58) share one store. Module placement: `Bazaar.Server.CompanyBuild.Postgres` (the Postgres store beside the company build module; it implements `IAdminModuleSelection` of `Bazaar.Server.WebAdmin.Abstractions`). No new setting is added and no floor is loosened.
+
+- **Where the selection lives.** In the settings store, the install-scope key `modules.selection`. The value is `{"revision": N, "modules": ["id", ...]}`. Before the first commit there is no row: revision 0, and every catalogue module counts as selected (the shipped default; PROPOSED). Only the module-selection store writes the key.
+- **Commit is compare-and-set.** A commit names the revision the caller saw. It succeeds only when that is still the stored revision, and then stores revision + 1. A stale revision changes nothing and is a conflict (the panel's 409), answered with the current revision. A selection is validated first: every id must be in the catalogue, every hard dependency must be selected, and a kernel module cannot be removed. A dry run (preview) runs the same checks, writes nothing and lists what is added and removed.
+- **Catalogue.** The server publishes its module list (id, version, kind as the tag, hard dependencies) into the `module_catalogue` table at start, so the separate TUI process reads it without referencing the host.
+- **Rebuild queue.** Table `module_rebuild`, one row per job, states `queued`, `running`, `succeeded`, `failed`. **The selection revision is the idempotency key:** one rebuild per revision, enforced by a unique constraint. A repeated start for a revision that already has a job returns that job (the request's own `Idempotency-Key` also returns the first result). **One concurrent rebuild:** a partial unique index allows at most one `queued` or `running` row, so a start for a newer revision while one is active is refused with the active job's id (the panel's 409). A `failed` job is not re-queued for the same revision; a new committed revision builds again (the build runner's own bounded retries of section 4a happen inside one job and count as its attempts). Starting needs a committed selection (revision 1 or later).
+- **Who runs the job.** The company build module owns the work: a worker claims the oldest queued job (`queued` to `running`, attempt + 1), runs the company build for that revision's modules, and completes it as `succeeded` or `failed` with a report summary. A failed build leaves the previous selection live and says so in the report, as above. The worker that calls the pipeline is not built yet; until it is, started jobs stay `queued`.
+
 Feasibility questions are spikes, not assumptions. Each must be answered before this section is built:
 
 - **S-B1 Android SDK bundling.** The Android SDK and the .NET Android workload are large. Measure the installer size if bundled, against the time to download on first run. Doc 29 keeps the Android head out of the default solution, so the company build must add it on demand.
@@ -78,6 +86,42 @@ Feasibility questions are spikes, not assumptions. Each must be answered before 
 - **S-B5 In-place update.** Which updater each head uses, how the client verifies a server-issued build (hash plus signature), and whether a failed update rolls back.
 - **S-B6 Server discovery.** Decided 2026-11-12: a fresh client finds its company server through an address and key pin baked into the company build. No pairing code is needed. Owner rule (2026-11-12): connecting and pairing never need a LAN. The baked address must be reachable from any network. Reachability options, in order of preference: a tunnel such as Cloudflared (Conduit.Cloudflared) with a registered domain; Conduit relay options (doc 39, on PR #358); port forwarding last. Port forwarding is supported because the design is modular, but it is never assumed and never recommended unless the operator has proper networking and security in place. Open within the spike: how the address stays valid when it changes.
 - **S-B4 Linux packaging without a terminal.** Whether `.deb` and Flatpak outputs can be produced by a server running as a service, with no user shell.
+
+## 4d. Windows clean-run check and support bundle (PROPOSED, 2026-11-22)
+
+Status: PROPOSED. Needs no new owner decision: it applies doc 43's redaction floors and the "No silent defaults" principle, and adds no setting that loosens a floor. Module placement: `Bazaar.SupportBundle` plus `Bazaar.SupportBundle.Abstractions` (doc 40 rule: every feature is its own module). The Windows head only composes it.
+
+**Goal.** Before a Windows client build is called releasable, a script proves that the published exe starts cleanly on a machine that has never run Bazaar, and that a failure leaves enough evidence to diagnose it without a remote session.
+
+**Clean-run check** (`packaging/tools/clean-run-windows.ps1`, PowerShell 7 or Windows PowerShell 5.1):
+
+1. Inputs: `-PublishDir` (the output of the release publish, as in `publish-smoke.yml`) and a required `-WorkDir`. The script refuses a `-WorkDir` on the system drive unless `-AllowSystemDrive` is passed, and CI passes it only on disposable hosted runners. On the owner's PC the work directory is on a non-system drive, never `C:`.
+2. It copies nothing into the real user profile. It sets `BAZAAR_DATA_DIR` (the client's data directory override, read by the support-bundle module because the OS known-folder API ignores `LOCALAPPDATA`) and `USERPROFILE`, `APPDATA`, `LOCALAPPDATA` and `TEMP` to folders under `-WorkDir` for the child process, so a "fresh machine" is simulated without touching the real one. No registry write, no service, no handler registration.
+3. Check 1, files: the entry exe exists, and when a `SHA256SUMS` file is next to it every listed hash matches.
+4. Check 2, headless start: it runs `Bazaar.Client.Windows.exe --self-check --report <WorkDir>\selfcheck.json`. The flag runs the same module load and manifest checks as a normal start (doc 41 section 8), builds the pane registry, then exits without showing a window and without opening a network connection. Exit code 0 means every check passed. The report is JSON, schema `bazaar.selfcheck/1`, one entry per check with an id, a pass or fail and a short reason.
+5. Bounded time (applies to check 2): the process must exit within `-TimeoutSeconds` (default 60). A timeout kills the process tree and counts as a failure.
+6. Check 3, log hygiene: the client log written under the isolated data directory (`logs/client.log`, stderr copied as `WARN`, failures as `ERROR`) has no `ERROR` line. The self-check's own checks (modules load with none skipped, pane registry builds) already cover module-manifest failures.
+7. Check 4, GUI start (optional, `-Gui`): starts the exe normally, waits until the main window handle exists (`MainWindowHandle`) or the timeout, then closes it. Needs an interactive desktop, so hosted runners and the PC run it, a service session does not.
+8. On any failure the script runs `Bazaar.Client.Windows.exe --support-bundle <WorkDir>\bundle.zip` and prints the path. CI uploads the zip as a workflow artifact.
+9. The script prints one checklist line per check (`PASS`, `FAIL` or `SKIP`), exits 0 only when no check failed, and never deletes `-WorkDir` on failure.
+
+The check is read-only toward the build: it never modifies the publish directory. Installer-level checks (the Velopack setup exe, MSIX) stay in the packaging jobs; this check covers the unpackaged exe that every installer wraps.
+
+**Support bundle** (`--support-bundle <path>` on any client head that composes the module, and later a "Save support bundle" command in the palette):
+
+- One zip, schema `bazaar.supportbundle/1`, written to the path given. It is built on the device and never sent anywhere by Bazaar. The person decides whether and how to share it. This keeps doc 43's floor that raw logs never leave a device: the zip holds only redacted text.
+- Contents: `client/info.txt` (client version string, OS description, runtime, architecture, the loaded modules with versions), `manifest.json` (schema, included files, cut or refused notes), `selfcheck.json` (the latest self-check report when one exists), `logs/client.log` (the client log, newest last), (`crash/last.json`, the crash sentinel record, is added when doc 43's capture module lands).
+- Every text file goes through the doc 43 redactor (`Bazaar.Diagnostics`, rules v1, with the machine name and user name as exact values) before it is written. A file that fails redaction is replaced by a one-line marker, never included raw. A test asserts that a planted secret, path, host name and user name do not appear in the zip.
+- Never included: screenshots, settings values, environment variables, tokens, any Vault, GC or DM content, file listings outside the install directory.
+- Caps: 2 MiB per file (a larger file keeps its newest lines), 5 MiB of redacted text in total before compression (later files are left out). `manifest.json` lists what was cut or refused.
+- Deterministic: the same inputs give the same zip bytes (sorted entries, fixed timestamps), so tests compare bytes.
+- Sources are pluggable through `ISupportBundleSource` in `Bazaar.SupportBundle.Abstractions`, so other modules can add their own redacted section. A source cannot read another source's output.
+
+**Palette command.** `Bazaar.SupportBundle` also ships a client module, `bazaar.supportbundle`, that contributes the command `supportbundle.save` ("Save support bundle", default mnemonic `bundle`). The Windows head runs it off the UI thread: it writes `support/bazaar-support-<UTC time>.zip` under the client data directory and logs the path. Nothing is uploaded. Other heads add the same listener when they compose the mnemonic shell.
+
+**Out of scope here.** Uploading a bundle, the server-side crash pipeline (doc 43), and the server's audit and recovery export (a different artifact, see doc 33). The Linux head has the same two flags (its self-check is the data-directory check until it composes a module list). Android uses the same module later.
+
+**Testing.** Unit tests for the builder (redaction, caps, determinism, failing source), an end-to-end test that runs the self-check runner with a failing check and reads the zip, and PowerShell script tests run on a Windows runner in CI against the `publish-smoke` output.
 
 ## 5. Install, upgrade and rollback rules
 

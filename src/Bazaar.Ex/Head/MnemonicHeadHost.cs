@@ -1,5 +1,6 @@
 using Avalonia.Controls;
 using Bazaar.Client.Input;
+using Bazaar.Contracts.Modules;
 
 namespace Bazaar.Ex.Head;
 
@@ -22,12 +23,37 @@ public sealed class MnemonicHeadHost : IDisposable
 
     private MnemonicHeadHost(MnemonicRuntime runtime, MnemonicShell shell, Action<Control> show, Action<Control> hide, bool actorIsOwner)
     {
+    private readonly IReadOnlyList<MnemonicAssignment> _assignments;
+    private readonly ClientCommandDispatcher? _dispatcher;
+    private readonly IMnemonicAnnouncer _announcer;
+    private readonly Action<string> _log;
+    private MnemonicRemapScreen? _remap;
+
+    private MnemonicHeadHost(
+        MnemonicRuntime runtime,
+        MnemonicShell shell,
+        Action<Control> show,
+        Action<Control> hide,
+        bool actorIsOwner,
+        IReadOnlyList<MnemonicAssignment> assignments,
+        ClientCommandDispatcher? dispatcher,
+        IMnemonicAnnouncer announcer,
+        Action<string>? log)
+    {
+        _dispatcher = dispatcher;
+        _announcer = announcer;
+        _log = log ?? (_ => { });
+        _assignments = assignments;
         _runtime = runtime;
         _shell = shell;
         _show = show;
         _hide = hide;
         _actorIsOwner = actorIsOwner;
         _shell.RemapRequested += (_, _) => OpenRemap();
+        if (dispatcher is not null)
+        {
+            _shell.CommandInvoked += OnCommandInvoked;
+        }
     }
 
     /// <summary>The runtime holding the person's current mnemonic document.</summary>
@@ -47,6 +73,9 @@ public sealed class MnemonicHeadHost : IDisposable
         Action<Control> show,
         Action<Control> hide,
         bool actorIsOwner = false,
+        IEnumerable<ClientCommandContribution>? moduleCommands = null,
+        ClientCommandDispatcher? dispatcher = null,
+        Action<string>? log = null,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(top);
@@ -57,6 +86,9 @@ public sealed class MnemonicHeadHost : IDisposable
 
         var runtime = await MnemonicRuntime.CreateAsync(
             NavigationDefaults.Assignments,
+        var assignments = MnemonicHeadSetup.Combine(moduleCommands ?? []);
+        var runtime = await MnemonicRuntime.CreateAsync(
+            assignments,
             store,
             _paletteKeys,
             new MnemonicNoticeLog(_ => { }),
@@ -64,6 +96,7 @@ public sealed class MnemonicHeadHost : IDisposable
             ct: ct).ConfigureAwait(true);
         var shell = new MnemonicShell(top, runtime, announcer, view => show(view), view => hide(view));
         return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner);
+        return new MnemonicHeadHost(runtime, shell, show, hide, actorIsOwner, assignments, dispatcher, announcer, log);
     }
 
     /// <summary>
@@ -71,12 +104,41 @@ public sealed class MnemonicHeadHost : IDisposable
     /// child windows of <paramref name="window"/>. Heads call this once the window is opened.
     /// </summary>
     public static Task<MnemonicHeadHost> AttachAsync(Window window, string overridesPath, CancellationToken ct = default)
+    /// child windows of <paramref name="window"/>. Heads call this once the window is opened. When <paramref name="dispatcher"/> is
+    /// given, each command the shell reports (<see cref="MnemonicShell.CommandInvoked"/>) is carried out through it, and a notice it
+    /// returns goes to <paramref name="log"/> and the announcer.
+    /// </summary>
+    public static Task<MnemonicHeadHost> AttachAsync(
+        Window window,
+        string overridesPath,
+        IEnumerable<ClientCommandContribution>? moduleCommands = null,
+        ClientCommandDispatcher? dispatcher = null,
+        Action<string>? log = null,
+        CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(window);
         ArgumentException.ThrowIfNullOrWhiteSpace(overridesPath);
 
         var overlay = new MnemonicOverlay(window);
         return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, ct: ct);
+        return StartAsync(window, new FileMnemonicOverrideStore(overridesPath), new NullMnemonicAnnouncer(), overlay.Show, overlay.Hide, moduleCommands: moduleCommands, dispatcher: dispatcher, log: log, ct: ct);
+    }
+
+    private async void OnCommandInvoked(object? sender, string commandId)
+    {
+        try
+        {
+            var result = await _dispatcher!.DispatchAsync(commandId).ConfigureAwait(true);
+            if (result.Notice is { } notice)
+            {
+                _log($"Command {commandId}: {notice}");
+                _announcer.Announce(notice, AnnouncePriority.Assertive);
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            _log($"Command {commandId} failed: {ex.Message}");
+        }
     }
 
     /// <summary>Opens the remap screen. Does nothing when it is already open.</summary>
@@ -88,6 +150,7 @@ public sealed class MnemonicHeadHost : IDisposable
         }
 
         var screen = new MnemonicRemapScreen(NavigationDefaults.Assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
+        var screen = new MnemonicRemapScreen(_assignments, _runtime.Document, _paletteKeys, _actorIsOwner);
         screen.DocumentChanged += (_, next) => _ = ApplyAsync(_runtime.Document, next, CancellationToken.None);
         screen.Closed += (_, _) => CloseRemap();
         _remap = screen;

@@ -18,6 +18,7 @@ public sealed class SetupWizardEngineTests
     private static readonly string[] _mainAnswers =
     [
         "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", _anchor, _backup, "", "", "", "", "",
+        "Example Studio", "", "Owner", "", "dpapi", _kekRef, "", "", _anchor, _backup, "", "", "", "", "", "", "", "",
     ];
 
     private static readonly string[] _mainFlags =
@@ -113,6 +114,7 @@ public sealed class SetupWizardEngineTests
     {
         var answers = _mainAnswers.ToArray();
         answers[10] = "lan";
+        answers[11] = "lan";
         var prompter = new ScriptedWizardPrompter(answers);
         var backend = new FakeBackend();
 

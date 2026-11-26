@@ -12,6 +12,10 @@ internal sealed class FakeFileSystem : IPoolImageFileSystem
 
     public Dictionary<string, string> Texts { get; } = [];
 
+    public Dictionary<string, byte[]> Contents { get; } = [];
+
+    public Dictionary<string, long> Lengths { get; } = [];
+
     public HashSet<string> Throwing { get; } = [];
 
     public int Calls { get; private set; }
@@ -21,6 +25,7 @@ internal sealed class FakeFileSystem : IPoolImageFileSystem
         Calls++;
         Gate(path);
         return Files.ContainsKey(path) || Texts.ContainsKey(path);
+        return Files.ContainsKey(path) || Texts.ContainsKey(path) || Contents.ContainsKey(path);
     }
 
     public bool DirectoryExists(string path)
@@ -40,6 +45,18 @@ internal sealed class FakeFileSystem : IPoolImageFileSystem
     {
         Gate(path);
         return Texts.TryGetValue(path, out var t) ? t : throw new FileNotFoundException();
+    }
+
+    public long GetFileLength(string path)
+    {
+        Gate(path);
+        return Lengths.TryGetValue(path, out var l) ? l : Contents.TryGetValue(path, out var c) ? c.Length : throw new FileNotFoundException();
+    }
+
+    public Stream OpenRead(string path)
+    {
+        Gate(path);
+        return Contents.TryGetValue(path, out var c) ? new MemoryStream(c) : throw new FileNotFoundException();
     }
 
     private void Gate(string path)

@@ -21,6 +21,8 @@
 # (stable, beta or alpha; any other tag fails the run). The staged ring comes from the
 # optional ring input of a manual start and is "all" otherwise. Both are written to
 # RELEASE-CHANNEL.txt, which joins SHA256SUMS, and are named in the draft's notes.
+# The SBOM (bazaar.cdx.json) from the tag's sbom.yml run joins the set the same way;
+# a release with no SBOM run for its commit stops in verify.
 #
 # Every third-party action is pinned to a full commit SHA; the version tag is
 # kept in a trailing comment, the same pins as ci.yml. Do not switch to tags.
@@ -230,6 +232,48 @@ jobs:
           sha256sum --check --strict SHA256SUMS
           echo "Verified ${#names[@]} files:"
           cat SHA256SUMS
+
+      - name: Find the SBOM run for the tag commit
+        id: sbom_run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ steps.resolve.outputs.commit }}
+        run: |
+          set -euo pipefail
+          # sbom.yml runs on the same tag push. Exactly one successful run must exist
+          # for the tag commit, or the release stops: a release never ships without
+          # its SBOM.
+          mapfile -t runs < <(gh api --paginate "repos/$REPO/actions/workflows/sbom.yml/runs?head_sha=$COMMIT&status=success" --jq '.workflow_runs[].id')
+          if [ "${#runs[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly one successful SBOM run for $COMMIT, found ${#runs[@]}. Run the SBOM workflow for this tag first."
+            exit 1
+          fi
+          echo "run_id=${runs[0]}" >> "$GITHUB_OUTPUT"
+
+      - name: Download the SBOM artifact
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: sbom
+          path: ${{ runner.temp }}/sbom
+          run-id: ${{ steps.sbom_run.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Check the SBOM and add it to SHA256SUMS
+        run: |
+          set -euo pipefail
+          sbom_dir="$RUNNER_TEMP/sbom"
+          # The SBOM run wrote its own checksum file. Verify it before the file joins the release set.
+          (cd "$sbom_dir" && sha256sum --check --strict SHA256SUMS)
+          if [ ! -f "$sbom_dir/bazaar.cdx.json" ] || [ -L "$sbom_dir/bazaar.cdx.json" ]; then
+            echo "::error::The SBOM artifact has no regular bazaar.cdx.json."
+            exit 1
+          fi
+          dir="$RUNNER_TEMP/release-candidate"
+          cp -- "$sbom_dir/bazaar.cdx.json" "$dir/bazaar.cdx.json"
+          cd "$dir"
+          sha256sum -- bazaar.cdx.json >> SHA256SUMS
+          sha256sum --check --strict SHA256SUMS
 
       - name: Write release metadata and add it to SHA256SUMS
         env:
@@ -494,7 +538,7 @@ jobs:
           retention-days: 7
 
   package-android:
-    name: Package Android APK
+    name: Package Android APK and AAB
     needs: packaging-detect
     # Runs only once src/Bazaar.Client.Android exists (doc 29). Unsigned: no keystore is read here.
     if: needs.packaging-detect.outputs.android == 'true'
@@ -521,17 +565,23 @@ jobs:
       - name: Install .NET Android workload
         run: dotnet workload install android
 
-      - name: Publish unsigned APK
+      - name: Build unsigned APK and AAB
         shell: bash
         run: |
           set -euo pipefail
           semver="${TAG#v}"
-          dotnet publish src/Bazaar.Client.Android/Bazaar.Client.Android.csproj \
-            -c Release -p:AndroidPackageFormat=apk -o stage/android
-          apk="$(find stage/android -name '*.apk' | head -n 1)"
-          if [[ -z "$apk" ]]; then echo "::error::No APK was produced."; exit 1; fi
+          # One build path for CI and releases: packaging/android/build-android.sh owns the
+          # publish flags and output names. No keystore is set here, so the output is unsigned.
+          ANDROID_OUT="$PWD/stage/android" bash packaging/android/build-android.sh
           mkdir -p dist
-          cp "$apk" "dist/Bazaar.Client.Android-$semver.apk"
+          found=0
+          for f in stage/android/*.apk stage/android/*.aab; do
+            [[ -f "$f" ]] || continue
+            ext="${f##*.}"
+            cp "$f" "dist/Bazaar.Client.Android-$semver-$(basename "${f%.*}").$ext"
+            found=1
+          done
+          if [[ "$found" -eq 0 ]]; then echo "::error::No APK or AAB was produced."; exit 1; fi
 
       # Named packaging-android, not installer-*: verify accepts only .msi, .exe, .zip,
       # .tar.gz and .nupkg, so an APK must not enter a release set until that list changes.

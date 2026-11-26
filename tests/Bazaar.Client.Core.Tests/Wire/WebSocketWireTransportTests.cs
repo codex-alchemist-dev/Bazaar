@@ -67,6 +67,8 @@ public sealed class WebSocketWireTransportTests
         await Step(RawFrameServer.WriteFrameAsync(stream, opcode: 0x0, fin: true, [6], Ct), "write fragment 3");
 
         WireReceive frame = await Step(client.ReceiveAsync(Ct).AsTask(), "client receive");
+        WireReceive frame = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(60), Ct);
+        await sending.WaitAsync(TimeSpan.FromSeconds(60), Ct);
 
         Assert.False(frame.IsClosed);
         Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, frame.Frame.ToArray());

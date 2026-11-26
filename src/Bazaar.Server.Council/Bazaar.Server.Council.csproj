@@ -11,7 +11,11 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Health.Abstractions\Bazaar.Server.Health.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WorkLife\Bazaar.Server.WorkLife.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Mirror.Abstractions\Bazaar.Server.Mirror.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Sql\**\*.sql" />

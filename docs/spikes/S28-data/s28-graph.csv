@@ -1,0 +1,737 @@
+task,arm,edges,nodes,seeds,depth,batch,reps,p50_ms,p99_ms,qps,reached_p50,verified,gpu_mib,note
+khop,cpu1,935310,100000,1,1,1,60,0.002,0.011,588235.3,6,true,0,queries run back to back
+khop,cpu8,935310,100000,1,1,1,60,0.003,0.041,370370.4,6,true,0,queries run back to back
+khop,cpu24,935310,100000,1,1,1,60,0.004,0.023,243902.4,6,true,0,queries run back to back
+khop,gpu,935310,100000,1,1,1,60,0.109,0.360,9140.8,6,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,1,1,32,12,0.077,0.124,413971.5,6,true,0,queries run back to back
+khop,cpu8,935310,100000,1,1,32,12,0.135,0.185,237037.0,6,true,0,queries run back to back
+khop,cpu24,935310,100000,1,1,32,12,0.136,0.163,235121.2,6,true,0,queries run back to back
+khop,gpu,935310,100000,1,1,32,12,0.613,0.759,52193.8,6,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,1,2,1,60,0.006,0.021,156250.0,31,true,0,queries run back to back
+khop,cpu8,935310,100000,1,2,1,60,0.010,0.034,104166.7,31,true,0,queries run back to back
+khop,cpu24,935310,100000,1,2,1,60,0.009,0.021,109890.1,31,true,0,queries run back to back
+khop,gpu,935310,100000,1,2,1,60,0.118,0.559,8467.4,31,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,1,2,32,12,0.256,0.896,125048.8,31,true,0,queries run back to back
+khop,cpu8,935310,100000,1,2,32,12,0.403,0.579,79503.1,31,true,0,queries run back to back
+khop,cpu24,935310,100000,1,2,32,12,0.366,0.488,87479.5,31,true,0,queries run back to back
+khop,gpu,935310,100000,1,2,32,12,1.301,1.602,24596.5,31,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,1,3,1,60,0.015,3.722,65359.5,255,true,0,queries run back to back
+khop,cpu8,935310,100000,1,3,1,60,0.019,0.091,51546.4,255,true,0,queries run back to back
+khop,cpu24,935310,100000,1,3,1,60,0.015,0.070,68027.2,255,true,0,queries run back to back
+khop,gpu,935310,100000,1,3,1,60,0.146,0.431,6849.3,255,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,1,3,32,12,0.548,1.436,58340.9,374,true,0,queries run back to back
+khop,cpu8,935310,100000,1,3,32,12,0.807,1.251,39643.2,374,true,0,queries run back to back
+khop,cpu24,935310,100000,1,3,32,12,1.040,1.390,30766.3,374,true,0,queries run back to back
+khop,gpu,935310,100000,1,3,32,12,2.883,4.586,11099.9,374,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,2,1,60,0.005,0.010,204081.6,6,true,0,queries run back to back
+dag,cpu8,935310,100000,1,2,1,60,0.007,0.057,138888.9,6,true,0,queries run back to back
+dag,cpu24,935310,100000,1,2,1,60,0.007,0.055,140845.1,6,true,0,queries run back to back
+dag,gpu,935310,100000,1,2,1,60,0.104,0.202,9606.1,6,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,2,32,12,0.136,0.158,236162.4,4,true,0,queries run back to back
+dag,cpu8,935310,100000,1,2,32,12,0.216,0.284,148216.8,4,true,0,queries run back to back
+dag,cpu24,935310,100000,1,2,32,12,0.222,0.317,144079.2,4,true,0,queries run back to back
+dag,gpu,935310,100000,1,2,32,12,0.641,0.727,49914.2,4,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,8,1,60,0.027,0.049,37594.0,129,true,0,queries run back to back
+dag,cpu8,935310,100000,1,8,1,60,0.041,0.102,24509.8,129,true,0,queries run back to back
+dag,cpu24,935310,100000,1,8,1,60,0.038,0.075,26315.8,129,true,0,queries run back to back
+dag,gpu,935310,100000,1,8,1,60,0.167,0.741,5988.0,129,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,8,32,12,0.754,0.953,42417.8,21,true,0,queries run back to back
+dag,cpu8,935310,100000,1,8,32,12,1.143,1.434,27989.2,21,true,0,queries run back to back
+dag,cpu24,935310,100000,1,8,32,12,1.122,1.410,28530.7,21,true,0,queries run back to back
+dag,gpu,935310,100000,1,8,32,12,2.414,3.335,13254.9,21,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,32,1,60,0.173,0.248,5790.4,1156,true,0,queries run back to back
+dag,cpu8,935310,100000,1,32,1,60,0.277,0.334,3612.7,1156,true,0,queries run back to back
+dag,cpu24,935310,100000,1,32,1,60,0.266,0.331,3760.8,1156,true,0,queries run back to back
+dag,gpu,935310,100000,1,32,1,60,0.614,1.196,1629.7,1156,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,1,32,32,12,4.043,4.921,7915.3,816,true,0,queries run back to back
+dag,cpu8,935310,100000,1,32,32,12,7.600,9.765,4210.5,816,true,0,queries run back to back
+dag,cpu24,935310,100000,1,32,32,12,7.632,9.085,4192.9,816,true,0,queries run back to back
+dag,gpu,935310,100000,1,32,32,12,13.404,15.719,2387.3,816,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,1,1,60,0.007,0.020,149253.7,62,true,0,queries run back to back
+khop,cpu8,935310,100000,8,1,1,60,0.009,0.029,108695.7,62,true,0,queries run back to back
+khop,cpu24,935310,100000,8,1,1,60,0.008,0.039,125000.0,62,true,0,queries run back to back
+khop,gpu,935310,100000,8,1,1,60,0.118,0.989,8453.1,62,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,1,32,12,0.183,0.219,175246.4,48,true,0,queries run back to back
+khop,cpu8,935310,100000,8,1,32,12,0.292,13.838,109401.7,48,true,0,queries run back to back
+khop,cpu24,935310,100000,8,1,32,12,0.265,0.361,120891.6,48,true,0,queries run back to back
+khop,gpu,935310,100000,8,1,32,12,1.126,1.547,28411.6,48,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,2,1,60,0.022,0.652,46082.9,512,true,0,queries run back to back
+khop,cpu8,935310,100000,8,2,1,60,0.027,0.105,37594.0,512,true,0,queries run back to back
+khop,cpu24,935310,100000,8,2,1,60,0.029,0.245,34602.1,512,true,0,queries run back to back
+khop,gpu,935310,100000,8,2,1,60,0.226,1.022,4417.0,512,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,2,32,12,0.763,60.432,41917.7,341,true,0,queries run back to back
+khop,cpu8,935310,100000,8,2,32,12,0.772,0.985,41429.3,341,true,0,queries run back to back
+khop,cpu24,935310,100000,8,2,32,12,0.767,0.974,41693.8,341,true,0,queries run back to back
+khop,gpu,935310,100000,8,2,32,12,3.465,4.955,9235.7,341,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,3,1,60,0.056,0.430,17793.6,3683,true,0,queries run back to back
+khop,cpu8,935310,100000,8,3,1,60,0.066,0.245,15105.7,3683,true,0,queries run back to back
+khop,cpu24,935310,100000,8,3,1,60,0.071,0.255,14164.3,3683,true,0,queries run back to back
+khop,gpu,935310,100000,8,3,1,60,0.358,1.082,2790.2,3683,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,8,3,32,12,2.297,3.657,13928.8,2380,true,0,queries run back to back
+khop,cpu8,935310,100000,8,3,32,12,2.669,20.494,11990.9,2380,true,0,queries run back to back
+khop,cpu24,935310,100000,8,3,32,12,2.474,3.145,12932.4,2380,true,0,queries run back to back
+khop,gpu,935310,100000,8,3,32,12,7.083,8.038,4517.9,2380,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,2,1,60,0.006,0.017,161290.3,54,true,0,queries run back to back
+dag,cpu8,935310,100000,8,2,1,60,0.006,0.065,158730.2,54,true,0,queries run back to back
+dag,cpu24,935310,100000,8,2,1,60,0.006,0.025,156250.0,54,true,0,queries run back to back
+dag,gpu,935310,100000,8,2,1,60,0.115,0.244,8695.7,54,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,2,32,12,0.122,0.157,262080.3,48,true,0,queries run back to back
+dag,cpu8,935310,100000,8,2,32,12,0.173,0.258,185399.8,48,true,0,queries run back to back
+dag,cpu24,935310,100000,8,2,32,12,0.177,0.200,180281.7,48,true,0,queries run back to back
+dag,gpu,935310,100000,8,2,32,12,1.215,1.729,26337.4,48,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,8,1,60,0.045,0.077,21978.0,1009,true,0,queries run back to back
+dag,cpu8,935310,100000,8,8,1,60,0.066,0.101,15174.5,1009,true,0,queries run back to back
+dag,cpu24,935310,100000,8,8,1,60,0.064,0.105,15674.0,1009,true,0,queries run back to back
+dag,gpu,935310,100000,8,8,1,60,0.330,0.812,3034.9,1009,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,8,32,12,1.369,1.573,23376.4,883,true,0,queries run back to back
+dag,cpu8,935310,100000,8,8,32,12,2.071,2.347,15453.0,883,true,0,queries run back to back
+dag,cpu24,935310,100000,8,8,32,12,2.077,2.453,15406.8,883,true,0,queries run back to back
+dag,gpu,935310,100000,8,8,32,12,6.803,8.564,4703.8,883,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,32,1,60,0.360,30.068,2777.8,7106,true,0,queries run back to back
+dag,cpu8,935310,100000,8,32,1,60,0.490,0.684,2041.6,7106,true,0,queries run back to back
+dag,cpu24,935310,100000,8,32,1,60,0.484,0.630,2064.4,7106,true,0,queries run back to back
+dag,gpu,935310,100000,8,32,1,60,1.327,3.167,753.8,7106,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,8,32,32,12,10.833,11.721,2953.8,6167,true,0,queries run back to back
+dag,cpu8,935310,100000,8,32,32,12,15.687,15.892,2039.9,6167,true,0,queries run back to back
+dag,cpu24,935310,100000,8,32,32,12,14.942,53.519,2141.6,6167,true,0,queries run back to back
+dag,gpu,935310,100000,8,32,32,12,43.194,66.510,740.9,6167,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,1,1,60,0.006,0.011,153846.2,246,true,0,queries run back to back
+khop,cpu8,935310,100000,32,1,1,60,0.009,0.028,113636.4,246,true,0,queries run back to back
+khop,cpu24,935310,100000,32,1,1,60,0.007,0.028,140845.1,246,true,0,queries run back to back
+khop,gpu,935310,100000,32,1,1,60,0.151,0.625,6618.1,246,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,1,32,12,0.119,0.187,268231.3,234,true,0,queries run back to back
+khop,cpu8,935310,100000,32,1,32,12,0.149,0.180,215053.8,234,true,0,queries run back to back
+khop,cpu24,935310,100000,32,1,32,12,0.167,0.227,191961.6,234,true,0,queries run back to back
+khop,gpu,935310,100000,32,1,32,12,2.061,2.598,15524.9,234,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,2,1,60,0.024,0.078,42553.2,1903,true,0,queries run back to back
+khop,cpu8,935310,100000,32,2,1,60,0.025,0.088,39840.6,1903,true,0,queries run back to back
+khop,cpu24,935310,100000,32,2,1,60,0.024,0.068,41322.3,1903,true,0,queries run back to back
+khop,gpu,935310,100000,32,2,1,60,0.265,0.987,3779.3,1903,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,2,32,12,0.726,0.832,44101.4,2049,true,0,queries run back to back
+khop,cpu8,935310,100000,32,2,32,12,0.989,32.326,32362.5,2049,true,0,queries run back to back
+khop,cpu24,935310,100000,32,2,32,12,0.936,1.196,34195.3,2049,true,0,queries run back to back
+khop,gpu,935310,100000,32,2,32,12,5.482,6.760,5837.3,2049,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,3,1,60,0.140,0.482,7168.5,12772,true,0,queries run back to back
+khop,cpu8,935310,100000,32,3,1,60,0.119,0.265,8382.2,12772,true,0,queries run back to back
+khop,cpu24,935310,100000,32,3,1,60,0.109,0.242,9182.7,12772,true,0,queries run back to back
+khop,gpu,935310,100000,32,3,1,60,0.383,0.960,2614.4,12772,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,935310,100000,32,3,32,12,6.003,19.295,5330.5,13834,true,0,queries run back to back
+khop,cpu8,935310,100000,32,3,32,12,4.579,9.983,6988.4,13834,true,0,queries run back to back
+khop,cpu24,935310,100000,32,3,32,12,4.391,10.436,7286.8,13834,true,0,queries run back to back
+khop,gpu,935310,100000,32,3,32,12,9.780,11.999,3271.8,13834,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,2,1,60,0.014,0.024,71942.4,236,true,0,queries run back to back
+dag,cpu8,935310,100000,32,2,1,60,0.012,0.033,80645.2,236,true,0,queries run back to back
+dag,cpu24,935310,100000,32,2,1,60,0.010,0.041,100000.0,236,true,0,queries run back to back
+dag,gpu,935310,100000,32,2,1,60,0.149,0.281,6689.0,236,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,2,32,12,0.256,0.329,125146.7,245,true,0,queries run back to back
+dag,cpu8,935310,100000,32,2,32,12,0.325,0.410,98461.5,245,true,0,queries run back to back
+dag,cpu24,935310,100000,32,2,32,12,0.357,0.510,89736.4,245,true,0,queries run back to back
+dag,gpu,935310,100000,32,2,32,12,1.936,2.548,16527.2,245,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,8,1,60,0.162,0.242,6192.0,3841,true,0,queries run back to back
+dag,cpu8,935310,100000,32,8,1,60,0.118,0.164,8453.1,3841,true,0,queries run back to back
+dag,cpu24,935310,100000,32,8,1,60,0.117,0.140,8576.3,3841,true,0,queries run back to back
+dag,gpu,935310,100000,32,8,1,60,0.432,0.948,2312.7,3841,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,8,32,12,4.935,5.344,6483.9,3604,true,0,queries run back to back
+dag,cpu8,935310,100000,32,8,32,12,4.021,27.325,7957.6,3604,true,0,queries run back to back
+dag,cpu24,935310,100000,32,8,32,12,3.993,4.313,8014.8,3604,true,0,queries run back to back
+dag,gpu,935310,100000,32,8,32,12,11.517,15.867,2778.5,3604,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,32,1,60,1.172,1.465,853.2,24237,true,0,queries run back to back
+dag,cpu8,935310,100000,32,32,1,60,0.599,28.306,1669.7,24237,true,0,queries run back to back
+dag,cpu24,935310,100000,32,32,1,60,0.592,0.799,1690.3,24237,true,0,queries run back to back
+dag,gpu,935310,100000,32,32,1,60,1.645,2.734,607.8,24237,true,20,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,935310,100000,32,32,32,12,37.504,63.467,853.3,23136,true,0,queries run back to back
+dag,cpu8,935310,100000,32,32,32,12,19.930,53.289,1605.7,23136,true,0,queries run back to back
+dag,cpu24,935310,100000,32,32,32,12,19.186,53.195,1667.9,23136,true,0,queries run back to back
+dag,gpu,935310,100000,32,32,32,12,47.301,102.455,676.5,23136,true,20,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,1,1,60,0.002,0.004,476190.5,6,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,1,1,60,0.003,0.015,344827.6,6,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,1,1,60,0.003,0.017,333333.3,6,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,1,1,60,0.098,0.206,10193.7,6,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,1,32,12,0.060,0.068,529801.3,6,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,1,32,12,0.092,0.214,348204.6,6,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,1,32,12,0.093,0.115,344827.6,6,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,1,32,12,0.516,0.739,62015.5,6,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,2,1,60,0.004,0.050,270270.3,45,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,2,1,60,0.006,0.116,178571.4,45,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,2,1,60,0.005,0.145,185185.2,45,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,2,1,60,0.110,0.245,9074.4,45,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,2,32,12,0.114,0.228,280210.2,31,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,2,32,12,0.168,0.309,190816.9,31,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,2,32,12,0.158,0.352,203045.7,31,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,2,32,12,1.050,1.998,30470.4,31,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,3,1,60,0.010,0.325,96153.8,407,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,3,1,60,0.013,0.171,78740.2,407,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,3,1,60,0.010,0.153,104166.7,407,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,3,1,60,0.220,0.576,4545.5,407,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,1,3,32,12,0.411,1.320,77839.9,214,true,0,queries run back to back
+khop,cpu8,9276485,1000000,1,3,32,12,0.453,0.867,70702.6,214,true,0,queries run back to back
+khop,cpu24,9276485,1000000,1,3,32,12,0.458,0.803,69823.3,214,true,0,queries run back to back
+khop,gpu,9276485,1000000,1,3,32,12,2.843,4.503,11254.9,214,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,2,1,60,0.003,0.008,344827.6,5,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,2,1,60,0.004,0.014,227272.7,5,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,2,1,60,0.004,0.020,243902.4,5,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,2,1,60,0.104,0.153,9606.1,5,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,2,32,12,0.084,0.107,382317.8,4,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,2,32,12,0.136,0.269,235814.3,4,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,2,32,12,0.134,0.162,238627.9,4,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,2,32,12,0.608,0.732,52631.6,4,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,8,1,60,0.011,0.024,95238.1,117,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,8,1,60,0.019,0.058,52083.3,117,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,8,1,60,0.016,0.033,62893.1,117,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,8,1,60,0.164,0.283,6116.2,117,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,8,32,12,0.320,0.397,100125.2,6,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,8,32,12,0.508,0.597,63029.3,6,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,8,32,12,0.498,0.583,64295.8,6,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,8,32,12,2.509,3.228,12756.1,6,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,32,1,60,0.080,0.099,12500.0,1154,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,32,1,60,0.105,0.148,9560.2,1154,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,32,1,60,0.094,0.124,10615.7,1154,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,32,1,60,0.594,1.073,1683.5,1154,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,1,32,32,12,1.915,2.412,16705.8,6,true,0,queries run back to back
+dag,cpu8,9276485,1000000,1,32,32,12,2.662,3.262,12020.1,6,true,0,queries run back to back
+dag,cpu24,9276485,1000000,1,32,32,12,2.693,3.211,11884.4,6,true,0,queries run back to back
+dag,gpu,9276485,1000000,1,32,32,12,13.658,19.224,2343.0,6,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,1,1,60,0.004,0.007,250000.0,62,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,1,1,60,0.004,0.022,243902.4,62,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,1,1,60,0.003,0.011,294117.6,62,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,1,1,60,0.122,0.263,8163.3,62,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,1,32,12,0.118,0.251,270042.2,48,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,1,32,12,0.124,0.144,257649.0,48,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,1,32,12,0.118,0.157,270498.7,48,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,1,32,12,0.929,1.113,34430.8,48,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,2,1,60,0.013,0.079,77519.4,494,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,2,1,60,0.013,0.123,75757.6,494,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,2,1,60,0.010,0.091,101010.1,494,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,2,1,60,0.216,0.644,4631.8,494,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,2,32,12,0.487,0.614,65654.5,527,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,2,32,12,0.489,0.551,65466.4,527,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,2,32,12,0.470,0.514,68143.1,527,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,2,32,12,3.194,3.634,10018.5,527,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,3,1,60,0.072,0.748,13947.0,4191,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,3,1,60,0.088,0.445,11389.5,4191,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,3,1,60,0.087,0.344,11467.9,4191,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,3,1,60,0.341,0.875,2930.0,4191,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,8,3,32,12,2.648,3.329,12084.1,4194,true,0,queries run back to back
+khop,cpu8,9276485,1000000,8,3,32,12,2.513,2.739,12734.3,4194,true,0,queries run back to back
+khop,cpu24,9276485,1000000,8,3,32,12,2.426,9.287,13187.7,4194,true,0,queries run back to back
+khop,gpu,9276485,1000000,8,3,32,12,6.992,8.384,4576.7,4194,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,2,1,60,0.006,0.013,158730.2,54,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,2,1,60,0.006,0.114,169491.5,54,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,2,1,60,0.006,0.025,166666.7,54,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,2,1,60,0.154,1.258,6502.0,54,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,2,32,12,0.194,0.210,164863.5,45,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,2,32,12,0.241,0.287,132835.2,45,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,2,32,12,0.222,0.259,143949.6,45,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,2,32,12,1.218,1.375,26281.2,45,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,8,1,60,0.061,0.099,16366.6,1031,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,8,1,60,0.086,0.124,11682.2,1031,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,8,1,60,0.069,0.099,14492.8,1031,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,8,1,60,0.339,0.833,2951.6,1031,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,8,32,12,1.706,1.858,18752.9,887,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,8,32,12,2.373,2.663,13487.9,887,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,8,32,12,2.370,2.581,13501.5,887,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,8,32,12,7.038,8.444,4546.6,887,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,32,1,60,0.421,0.600,2372.5,7277,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,32,1,60,0.551,0.740,1813.2,7277,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,32,1,60,0.542,39.505,1845.4,7277,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,32,1,60,1.491,2.755,670.7,7277,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,8,32,32,12,12.543,13.481,2551.1,6124,true,0,queries run back to back
+dag,cpu8,9276485,1000000,8,32,32,12,15.754,53.666,2031.2,6124,true,0,queries run back to back
+dag,cpu24,9276485,1000000,8,32,32,12,15.665,57.527,2042.8,6124,true,0,queries run back to back
+dag,gpu,9276485,1000000,8,32,32,12,44.652,58.209,716.7,6124,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,1,1,60,0.009,0.015,108695.7,249,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,1,1,60,0.011,0.024,89285.7,249,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,1,1,60,0.009,0.094,112359.6,249,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,1,1,60,0.111,0.283,8992.8,249,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,1,32,12,0.269,0.290,118914.9,251,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,1,32,12,0.345,0.505,92807.4,251,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,1,32,12,0.281,0.320,114082.0,251,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,1,32,12,1.730,1.991,18492.8,251,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,2,1,60,0.044,0.168,22935.8,2213,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,2,1,60,0.047,0.098,21097.0,2213,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,2,1,60,0.035,0.084,28248.6,2213,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,2,1,60,0.248,0.416,4035.5,2213,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,2,32,12,1.340,1.764,23884.2,2376,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,2,32,12,1.546,1.661,20697.2,2376,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,2,32,12,1.494,1.635,21421.9,2376,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,2,32,12,5.548,6.421,5767.5,2376,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,3,1,60,0.311,23.389,3217.5,17958,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,3,1,60,0.157,0.521,6365.4,17958,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,3,1,60,0.166,0.390,6042.3,17958,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,3,1,60,0.423,0.562,2361.3,17958,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,9276485,1000000,32,3,32,12,10.180,18.079,3143.5,22191,true,0,queries run back to back
+khop,cpu8,9276485,1000000,32,3,32,12,6.327,10.761,5058.0,22191,true,0,queries run back to back
+khop,cpu24,9276485,1000000,32,3,32,12,6.073,13.360,5269.0,22191,true,0,queries run back to back
+khop,gpu,9276485,1000000,32,3,32,12,11.915,18.593,2685.7,22191,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,2,1,60,0.018,0.034,54945.1,242,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,2,1,60,0.024,0.044,41322.3,242,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,2,1,60,0.017,0.059,58823.5,242,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,2,1,60,0.176,0.609,5691.5,242,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,2,32,12,0.524,0.571,61080.4,276,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,2,32,12,0.659,0.755,48573.2,276,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,2,32,12,0.504,0.653,63479.5,276,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,2,32,12,2.084,2.980,15352.1,276,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,8,1,60,0.219,0.326,4564.1,3939,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,8,1,60,0.151,0.270,6618.1,3939,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,8,1,60,0.133,0.165,7547.2,3939,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,8,1,60,0.452,0.985,2212.9,3939,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,8,32,12,6.265,6.596,5108.1,3945,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,8,32,12,4.734,28.927,6760.0,3945,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,8,32,12,4.804,4.935,6661.1,3945,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,8,32,12,10.983,11.803,2913.7,3945,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,32,1,60,1.569,1.905,637.2,27568,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,32,1,60,0.725,33.114,1379.3,27568,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,32,1,60,0.758,0.993,1319.6,27568,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,32,1,60,1.754,3.542,570.0,27568,true,63,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,9276485,1000000,32,32,32,12,49.881,75.316,641.5,28095,true,0,queries run back to back
+dag,cpu8,9276485,1000000,32,32,32,12,24.107,56.737,1327.4,28095,true,0,queries run back to back
+dag,cpu24,9276485,1000000,32,32,32,12,22.948,54.165,1394.5,28095,true,0,queries run back to back
+dag,gpu,9276485,1000000,32,32,32,12,50.690,109.832,631.3,28095,true,63,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,1,1,60,0.015,0.020,68493.2,6,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,1,1,60,0.016,0.032,61728.4,6,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,1,1,60,0.016,0.042,62111.8,6,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,1,1,60,0.126,0.210,7917.7,6,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,1,32,12,0.469,0.496,68259.4,6,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,1,32,12,0.531,0.867,60218.3,6,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,1,32,12,0.531,0.541,60275.0,6,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,1,32,12,0.667,1.268,47976.0,6,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,2,1,60,0.017,0.023,60241.0,31,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,2,1,60,0.019,0.049,52083.3,31,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,2,1,60,0.018,0.222,54945.1,31,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,2,1,60,0.117,0.273,8525.1,31,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,2,32,12,0.550,0.645,58129.0,45,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,2,32,12,0.636,0.718,50322.4,45,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,2,32,12,0.607,0.692,52718.3,45,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,2,32,12,1.176,1.766,27206.3,45,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,3,1,60,0.025,0.118,40650.4,292,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,3,1,60,0.030,0.237,33557.0,292,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,3,1,60,0.023,0.059,44052.9,292,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,3,1,60,0.136,0.357,7363.8,292,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,1,3,32,12,0.984,1.552,32513.7,273,true,0,queries run back to back
+khop,cpu8,92923110,10000000,1,3,32,12,1.112,1.627,28766.6,273,true,0,queries run back to back
+khop,cpu24,92923110,10000000,1,3,32,12,1.068,1.380,29951.3,273,true,0,queries run back to back
+khop,gpu,92923110,10000000,1,3,32,12,2.981,3.460,10735.7,273,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,2,1,60,0.015,0.016,65359.5,7,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,2,1,60,0.018,0.277,56818.2,7,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,2,1,60,0.017,0.038,57471.3,7,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,2,1,60,0.106,0.183,9407.3,7,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,2,32,12,0.485,0.505,66033.8,3,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,2,32,12,0.572,0.792,55983.2,3,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,2,32,12,0.562,0.577,56959.8,3,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,2,32,12,0.711,0.839,45013.4,3,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,8,1,60,0.025,0.040,40000.0,171,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,8,1,60,0.034,0.231,29239.8,171,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,8,1,60,0.031,0.059,32362.5,171,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,8,1,60,0.183,0.288,5476.5,171,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,8,32,12,0.740,0.817,43243.2,3,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,8,32,12,0.984,1.056,32510.4,3,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,8,32,12,0.976,1.049,32780.2,3,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,8,32,12,2.488,3.685,12859.7,3,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,32,1,60,0.094,0.118,10672.4,1198,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,32,1,60,0.129,0.178,7770.0,1198,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,32,1,60,0.123,0.235,8097.2,1198,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,32,1,60,0.692,1.299,1444.3,1198,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,1,32,32,12,2.372,53.615,13489.0,3,true,0,queries run back to back
+dag,cpu8,92923110,10000000,1,32,32,12,3.100,3.645,10321.6,3,true,0,queries run back to back
+dag,cpu24,92923110,10000000,1,32,32,12,3.141,3.556,10186.9,3,true,0,queries run back to back
+dag,gpu,92923110,10000000,1,32,32,12,13.315,16.413,2403.4,3,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,1,1,60,0.017,0.021,58479.5,63,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,1,1,60,0.019,0.130,53763.4,63,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,1,1,60,0.017,0.021,59880.2,63,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,1,1,60,0.133,0.290,7518.8,63,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,1,32,12,0.548,0.592,58351.6,62,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,1,32,12,0.588,0.631,54384.8,62,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,1,32,12,0.547,0.563,58468.8,62,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,1,32,12,1.039,1.299,30810.7,62,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,2,1,60,0.030,0.095,33444.8,476,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,2,1,60,0.034,0.485,29761.9,476,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,2,1,60,0.025,0.060,40485.8,476,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,2,1,60,0.158,0.659,6313.1,476,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,2,32,12,1.067,1.236,29993.4,408,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,2,32,12,1.048,1.184,30534.4,408,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,2,32,12,1.040,1.227,30763.3,408,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,2,32,12,2.963,3.860,10799.9,408,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,3,1,60,0.126,0.688,7968.1,3786,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,3,1,60,0.121,0.415,8257.6,3786,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,3,1,60,0.126,1.165,7955.4,3786,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,3,1,60,0.325,0.901,3081.7,3786,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,8,3,32,12,4.460,5.964,7174.2,4080,true,0,queries run back to back
+khop,cpu8,92923110,10000000,8,3,32,12,3.537,4.072,9047.7,4080,true,0,queries run back to back
+khop,cpu24,92923110,10000000,8,3,32,12,3.648,10.929,8771.0,4080,true,0,queries run back to back
+khop,gpu,92923110,10000000,8,3,32,12,7.201,8.284,4444.0,4080,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,2,1,60,0.020,0.026,49751.2,57,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,2,1,60,0.023,0.065,44052.9,57,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,2,1,60,0.020,0.233,49019.6,57,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,2,1,60,0.157,1.061,6365.4,57,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,2,32,12,0.608,0.636,52648.9,58,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,2,32,12,0.696,1.046,45990.2,58,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,2,32,12,0.648,0.681,49413.2,58,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,2,32,12,1.361,1.810,23520.8,58,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,8,1,60,0.071,0.109,14025.2,1056,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,8,1,60,0.103,0.152,9718.2,1056,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,8,1,60,0.097,0.225,10277.5,1056,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,8,1,60,0.331,1.026,3024.8,1056,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,8,32,12,2.256,2.344,14185.0,876,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,8,32,12,3.128,3.613,10230.8,876,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,8,32,12,3.127,3.804,10235.1,876,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,8,32,12,7.845,9.111,4079.1,876,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,32,1,60,0.445,0.623,2249.2,7346,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,32,1,60,0.570,0.729,1753.2,7346,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,32,1,60,0.577,33.175,1733.7,7346,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,32,1,60,1.317,1.903,759.0,7346,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,8,32,32,12,13.813,14.225,2316.7,7230,true,0,queries run back to back
+dag,cpu8,92923110,10000000,8,32,32,12,17.512,56.934,1827.3,7230,true,0,queries run back to back
+dag,cpu24,92923110,10000000,8,32,32,12,17.878,61.190,1789.9,7230,true,0,queries run back to back
+dag,gpu,92923110,10000000,8,32,32,12,37.363,38.453,856.5,7230,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,1,1,60,0.024,0.030,41493.8,236,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,1,1,60,0.030,0.064,33670.0,236,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,1,1,60,0.020,0.041,49019.6,236,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,1,1,60,0.115,0.258,8703.2,236,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,1,32,12,0.744,0.794,43005.0,222,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,1,32,12,0.919,1.675,34820.5,222,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,1,32,12,0.847,1.562,37798.3,222,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,1,32,12,1.873,2.327,17082.2,222,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,2,1,60,0.070,0.185,14204.5,2119,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,2,1,60,0.070,0.115,14265.3,2119,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,2,1,60,0.052,0.093,19193.9,2119,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,2,1,60,0.254,0.916,3930.8,2119,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,2,32,12,2.588,3.054,12365.7,1875,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,2,32,12,2.436,3.475,13136.3,1875,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,2,32,12,2.433,29.109,13150.3,1875,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,2,32,12,5.966,7.383,5363.7,1875,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,3,1,60,0.455,1.327,2195.9,17916,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,3,1,60,0.230,0.500,4345.9,17916,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,3,1,60,0.226,0.419,4420.9,17916,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,3,1,60,0.447,1.219,2235.6,17916,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,92923110,10000000,32,3,32,12,17.849,26.463,1792.9,16632,true,0,queries run back to back
+khop,cpu8,92923110,10000000,32,3,32,12,8.063,13.293,3968.5,16632,true,0,queries run back to back
+khop,cpu24,92923110,10000000,32,3,32,12,7.691,13.750,4160.6,16632,true,0,queries run back to back
+khop,gpu,92923110,10000000,32,3,32,12,10.478,18.267,3054.1,16632,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,2,1,60,0.033,0.047,30211.5,243,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,2,1,60,0.045,0.372,22222.2,243,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,2,1,60,0.027,0.051,37313.4,243,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,2,1,60,0.166,0.659,6013.2,243,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,2,32,12,1.036,1.069,30897.0,209,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,2,32,12,1.286,1.530,24873.7,209,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,2,32,12,1.187,1.423,26956.4,209,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,2,32,12,2.167,3.373,14765.6,209,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,8,1,60,0.244,0.297,4096.7,3962,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,8,1,60,0.185,0.340,5396.7,3962,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,8,1,60,0.163,0.188,6153.8,3962,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,8,1,60,0.490,1.081,2038.7,3962,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,8,32,12,7.745,27.403,4131.8,3700,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,8,32,12,6.253,6.397,5117.9,3700,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,8,32,12,6.261,6.420,5111.2,3700,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,8,32,12,11.463,14.670,2791.6,3700,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,32,1,60,1.744,28.243,573.3,28693,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,32,1,60,0.772,1.111,1295.7,28693,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,32,1,60,0.770,0.999,1298.0,28693,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,32,1,60,1.690,3.197,591.6,28693,true,498,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,92923110,10000000,32,32,32,12,55.376,75.323,577.9,27004,true,0,queries run back to back
+dag,cpu8,92923110,10000000,32,32,32,12,24.837,59.821,1288.4,27004,true,0,queries run back to back
+dag,cpu24,92923110,10000000,32,32,32,12,25.732,61.228,1243.6,27004,true,0,queries run back to back
+dag,gpu,92923110,10000000,32,32,32,12,51.484,122.295,621.5,27004,true,498,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,1,1,60,0.132,0.261,7558.6,6,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,1,1,60,0.138,0.265,7235.9,6,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,1,1,60,0.139,0.278,7215.0,6,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,1,1,60,0.179,0.803,5596.0,6,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,1,32,12,4.241,4.327,7546.1,6,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,1,32,12,4.655,5.310,6873.7,6,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,1,32,12,4.453,5.713,7186.7,6,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,1,32,12,1.613,1.938,19842.5,6,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,2,1,60,0.134,0.168,7440.5,31,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,2,1,60,0.141,0.769,7077.1,31,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,2,1,60,0.141,0.727,7092.2,31,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,2,1,60,0.170,0.345,5872.0,31,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,2,32,12,4.396,4.537,7279.3,31,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,2,32,12,4.904,6.281,6524.6,31,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,2,32,12,4.957,6.045,6455.6,31,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,2,32,12,2.347,4.521,13636.8,31,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,3,1,60,0.146,0.273,6854.0,306,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,3,1,60,0.155,0.730,6459.9,306,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,3,1,60,0.156,5.773,6422.6,306,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,3,1,60,0.225,0.827,4450.4,306,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,1,3,32,12,4.906,6.370,6522.4,254,true,0,queries run back to back
+khop,cpu8,464783635,50000000,1,3,32,12,6.835,9.493,4681.8,254,true,0,queries run back to back
+khop,cpu24,464783635,50000000,1,3,32,12,5.617,6.678,5696.8,254,true,0,queries run back to back
+khop,gpu,464783635,50000000,1,3,32,12,6.510,10.121,4915.9,254,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,2,1,60,0.133,0.428,7507.5,6,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,2,1,60,0.141,0.424,7082.2,6,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,2,1,60,0.140,0.335,7163.3,6,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,2,1,60,0.217,1.045,4614.7,6,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,2,32,12,4.258,4.306,7516.1,6,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,2,32,12,5.054,6.129,6331.7,6,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,2,32,12,4.876,5.401,6562.4,6,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,2,32,12,2.303,3.895,13894.9,6,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,8,1,60,0.144,0.270,6958.9,135,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,8,1,60,0.157,0.790,6357.3,135,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,8,1,60,0.157,0.334,6353.2,135,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,8,1,60,0.311,0.626,3212.3,135,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,8,32,12,4.620,4.783,6927.0,106,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,8,32,12,4.972,6.763,6435.7,106,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,8,32,12,4.951,5.832,6463.1,106,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,8,32,12,5.518,9.553,5799.5,106,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,32,1,60,0.214,0.312,4664.2,1164,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,32,1,60,0.248,0.926,4025.8,1164,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,32,1,60,0.248,0.370,4027.4,1164,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,32,1,60,0.630,1.274,1587.6,1164,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,1,32,32,12,6.274,38.468,5100.0,1161,true,0,queries run back to back
+dag,cpu8,464783635,50000000,1,32,32,12,7.600,8.926,4210.4,1161,true,0,queries run back to back
+dag,cpu24,464783635,50000000,1,32,32,12,7.225,8.441,4429.3,1161,true,0,queries run back to back
+dag,gpu,464783635,50000000,1,32,32,12,14.813,18.220,2160.3,1161,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,1,1,60,0.136,0.200,7358.4,61,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,1,1,60,0.139,0.720,7220.2,61,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,1,1,60,0.139,0.273,7173.6,61,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,1,1,60,0.120,0.477,8354.2,61,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,1,32,12,4.331,4.367,7388.8,62,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,1,32,12,4.500,6.558,7110.8,62,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,1,32,12,4.469,5.067,7160.3,62,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,1,32,12,1.619,2.037,19771.4,62,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,2,1,60,0.154,0.266,6480.9,548,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,2,1,60,0.162,0.814,6180.5,548,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,2,1,60,0.156,0.298,6422.6,548,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,2,1,60,0.298,0.937,3355.7,548,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,2,32,12,5.107,5.415,6265.3,425,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,2,32,12,5.273,7.245,6068.3,425,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,2,32,12,5.458,6.902,5862.7,425,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,2,32,12,4.161,6.372,7690.1,425,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,3,1,60,0.316,49.733,3164.6,4779,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,3,1,60,0.244,0.780,4105.1,4779,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,3,1,60,0.242,0.703,4127.1,4779,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,3,1,60,0.401,0.808,2494.4,4779,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,8,3,32,12,10.377,13.322,3083.6,3054,true,0,queries run back to back
+khop,cpu8,464783635,50000000,8,3,32,12,8.138,9.076,3932.2,3054,true,0,queries run back to back
+khop,cpu24,464783635,50000000,8,3,32,12,8.035,15.082,3982.6,3054,true,0,queries run back to back
+khop,gpu,464783635,50000000,8,3,32,12,11.034,13.276,2900.1,3054,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,2,1,60,0.138,0.171,7246.4,62,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,2,1,60,0.142,0.770,7037.3,62,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,2,1,60,0.141,0.291,7072.1,62,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,2,1,60,0.148,0.258,6738.5,62,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,2,32,12,4.402,4.488,7269.3,45,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,2,32,12,4.687,5.683,6827.0,45,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,2,32,12,5.006,5.458,6391.9,45,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,2,32,12,2.721,4.215,11759.5,45,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,8,1,60,0.195,0.302,5123.0,991,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,8,1,60,0.217,0.773,4614.7,991,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,8,1,60,0.221,0.679,4516.7,991,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,8,1,60,0.539,1.525,1854.3,991,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,8,32,12,6.055,6.378,5285.0,875,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,8,32,12,6.933,8.414,4615.8,875,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,8,32,12,6.979,7.648,4584.9,875,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,8,32,12,9.204,21.508,3476.6,875,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,32,1,60,0.581,32.394,1722.1,7289,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,32,1,60,0.676,0.868,1479.9,7289,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,32,1,60,0.680,0.849,1471.2,7289,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,32,1,60,1.411,2.088,709.0,7289,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,8,32,32,12,17.494,19.017,1829.3,5877,true,0,queries run back to back
+dag,cpu8,464783635,50000000,8,32,32,12,21.298,22.809,1502.5,5877,true,0,queries run back to back
+dag,cpu24,464783635,50000000,8,32,32,12,21.466,64.907,1490.7,5877,true,0,queries run back to back
+dag,gpu,464783635,50000000,8,32,32,12,41.489,63.160,771.3,5877,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,1,1,60,0.145,0.271,6915.6,236,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,1,1,60,0.147,0.705,6798.1,236,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,1,1,60,0.147,0.287,6802.7,236,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,1,1,60,0.121,0.261,8278.1,236,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,1,32,12,4.649,4.680,6883.9,234,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,1,32,12,4.718,4.791,6782.8,234,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,1,32,12,4.738,5.142,6753.6,234,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,1,32,12,2.367,3.214,13517.5,234,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,2,1,60,0.207,0.380,4835.6,2228,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,2,1,60,0.215,0.332,4657.7,2228,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,2,1,60,0.215,29.745,4644.7,2228,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,2,1,60,0.259,0.445,3868.5,2228,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,2,32,12,6.869,7.251,4658.5,1816,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,2,32,12,6.638,7.082,4820.4,1816,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,2,32,12,6.619,6.931,4834.9,1816,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,2,32,12,6.983,10.554,4582.4,1816,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,3,1,60,0.707,2.132,1415.0,19469,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,3,1,60,0.384,0.860,2601.5,19469,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,3,1,60,0.399,6.852,2505.6,19469,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,3,1,60,0.452,0.994,2211.9,19469,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,464783635,50000000,32,3,32,12,28.030,33.367,1141.6,16645,true,0,queries run back to back
+khop,cpu8,464783635,50000000,32,3,32,12,12.107,18.765,2643.2,16645,true,0,queries run back to back
+khop,cpu24,464783635,50000000,32,3,32,12,12.042,28.345,2657.4,16645,true,0,queries run back to back
+khop,gpu,464783635,50000000,32,3,32,12,15.316,17.388,2089.4,16645,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,2,1,60,0.154,0.269,6506.2,244,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,2,1,60,0.157,0.299,6377.6,244,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,2,1,60,0.162,1.205,6180.5,244,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,2,1,60,0.193,0.323,5170.6,244,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,2,32,12,4.864,4.941,6578.7,214,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,2,32,12,5.101,6.363,6272.8,214,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,2,32,12,5.165,6.060,6195.3,214,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,2,32,12,3.865,6.848,8278.8,214,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,8,1,60,0.362,0.505,2763.2,3954,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,8,1,60,0.300,0.483,3331.1,3954,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,8,1,60,0.305,0.500,3279.8,3954,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,8,1,60,0.509,1.668,1965.0,3954,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,8,32,12,11.458,11.736,2792.9,3735,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,8,32,12,10.121,33.604,3161.7,3735,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,8,32,12,9.944,12.116,3218.2,3735,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,8,32,12,11.826,19.745,2705.9,3735,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,32,1,60,1.859,2.138,537.9,28353,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,32,1,60,0.923,28.226,1083.3,28353,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,32,1,60,0.865,1.206,1155.5,28353,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,32,1,60,1.872,3.086,534.2,28353,true,2428,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,464783635,50000000,32,32,32,12,59.348,84.366,539.2,27660,true,0,queries run back to back
+dag,cpu8,464783635,50000000,32,32,32,12,29.078,62.104,1100.5,27660,true,0,queries run back to back
+dag,cpu24,464783635,50000000,32,32,32,12,28.194,61.407,1135.0,27660,true,0,queries run back to back
+dag,gpu,464783635,50000000,32,32,32,12,49.591,174.056,645.3,27660,true,2428,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,1,1,60,0.264,0.457,3786.4,6,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,1,1,60,0.272,0.878,3683.2,6,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,1,1,60,0.271,0.850,3695.5,6,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,1,1,60,0.199,0.460,5035.2,6,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,1,32,12,8.479,8.514,3773.9,6,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,1,32,12,9.875,36.374,3240.4,6,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,1,32,12,9.228,11.793,3467.7,6,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,1,32,12,3.153,8.018,10147.8,6,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,2,1,60,0.267,0.691,3739.7,31,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,2,1,60,0.277,0.837,3608.8,31,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,2,1,60,0.275,0.729,3640.3,31,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,2,1,60,0.269,2.946,3718.9,31,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,2,32,12,8.649,8.796,3699.8,31,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,2,32,12,10.534,12.283,3037.8,31,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,2,32,12,9.118,10.844,3509.5,31,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,2,32,12,4.452,9.271,7188.1,31,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,3,1,60,0.279,0.452,3588.1,258,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,3,1,60,0.289,0.849,3461.4,258,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,3,1,60,0.294,0.928,3396.7,258,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,3,1,60,0.217,0.695,4599.8,258,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,1,3,32,12,9.309,10.595,3437.7,186,true,0,queries run back to back
+khop,cpu8,929752390,100000000,1,3,32,12,11.094,22.239,2884.5,186,true,0,queries run back to back
+khop,cpu24,929752390,100000000,1,3,32,12,10.192,12.789,3139.7,186,true,0,queries run back to back
+khop,gpu,929752390,100000000,1,3,32,12,9.960,15.912,3212.7,186,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,2,1,60,0.266,0.623,3766.5,5,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,2,1,60,0.273,0.862,3660.3,5,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,2,1,60,0.273,0.897,3659.0,5,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,2,1,60,0.196,0.302,5112.5,5,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,2,32,12,8.502,8.551,3763.6,8,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,2,32,12,9.479,12.934,3375.7,8,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,2,32,12,10.686,12.335,2994.6,8,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,2,32,12,4.353,6.917,7351.4,8,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,8,1,60,0.277,0.465,3608.8,151,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,8,1,60,0.292,0.698,3423.5,151,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,8,1,60,0.292,0.943,3421.1,151,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,8,1,60,0.250,0.591,4000.0,151,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,8,32,12,8.806,9.082,3633.7,172,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,8,32,12,9.874,24.372,3241.0,172,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,8,32,12,10.052,10.683,3183.4,172,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,8,32,12,7.642,15.007,4187.2,172,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,32,1,60,0.352,0.717,2840.1,1164,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,32,1,60,0.391,1.215,2558.9,1164,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,32,1,60,0.387,0.952,2582.0,1164,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,32,1,60,1.132,2.256,883.1,1164,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,1,32,32,12,10.524,10.802,3040.6,1181,true,0,queries run back to back
+dag,cpu8,929752390,100000000,1,32,32,12,12.490,14.115,2562.0,1181,true,0,queries run back to back
+dag,cpu24,929752390,100000000,1,32,32,12,13.158,14.839,2432.1,1181,true,0,queries run back to back
+dag,gpu,929752390,100000000,1,32,32,12,15.315,28.145,2089.5,1181,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,1,1,60,0.268,0.693,3730.0,62,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,1,1,60,0.271,0.682,3686.0,62,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,1,1,60,0.272,0.834,3676.5,62,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,1,1,60,0.134,0.419,7490.6,62,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,1,32,12,8.586,8.619,3726.8,62,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,1,32,12,9.407,10.882,3401.8,62,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,1,32,12,9.403,65.035,3403.2,62,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,1,32,12,2.457,3.150,13021.9,62,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,2,1,60,0.286,0.635,3496.5,546,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,2,1,60,0.294,0.874,3395.6,546,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,2,1,60,0.292,1.007,3428.2,546,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,2,1,60,0.341,0.605,2930.8,546,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,2,32,12,9.366,9.619,3416.5,391,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,2,32,12,10.150,15.005,3152.6,391,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,2,32,12,9.658,10.668,3313.5,391,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,2,32,12,7.947,11.549,4026.5,391,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,3,1,60,0.430,1.489,2327.7,4612,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,3,1,60,0.387,0.796,2586.7,4612,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,3,1,60,0.374,0.833,2671.7,4612,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,3,1,60,0.593,1.468,1686.1,4612,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,8,3,32,12,15.312,17.967,2089.9,3535,true,0,queries run back to back
+khop,cpu8,929752390,100000000,8,3,32,12,13.109,33.173,2441.1,3535,true,0,queries run back to back
+khop,cpu24,929752390,100000000,8,3,32,12,13.516,16.918,2367.6,3535,true,0,queries run back to back
+khop,gpu,929752390,100000000,8,3,32,12,20.399,32.209,1568.7,3535,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,2,1,60,0.271,0.582,3694.1,55,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,2,1,60,0.276,0.973,3623.2,55,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,2,1,60,0.278,0.875,3595.8,55,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,2,1,60,0.234,0.435,4282.7,55,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,2,32,12,8.651,8.716,3698.8,53,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,2,32,12,9.845,14.426,3250.5,53,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,2,32,12,9.516,12.501,3362.9,53,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,2,32,12,4.196,7.485,7626.5,53,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,8,1,60,0.335,0.682,2985.1,975,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,8,1,60,0.370,0.917,2703.4,975,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,8,1,60,0.371,1.017,2696.1,975,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,8,1,60,0.372,0.712,2688.9,975,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,8,32,12,10.399,28.800,3077.3,906,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,8,32,12,11.280,12.382,2836.9,906,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,8,32,12,11.397,13.517,2807.7,906,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,8,32,12,15.474,17.702,2068.0,906,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,32,1,60,0.690,0.886,1448.9,7255,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,32,1,60,0.818,1.405,1223.1,7255,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,32,1,60,0.820,1.477,1219.4,7255,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,32,1,60,1.665,4.037,600.4,7255,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,8,32,32,12,21.983,62.665,1455.6,6820,true,0,queries run back to back
+dag,cpu8,929752390,100000000,8,32,32,12,25.670,63.325,1246.6,6820,true,0,queries run back to back
+dag,cpu24,929752390,100000000,8,32,32,12,25.355,26.274,1262.1,6820,true,0,queries run back to back
+dag,gpu,929752390,100000000,8,32,32,12,40.682,110.932,786.6,6820,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,1,1,60,0.278,0.454,3603.6,249,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,1,1,60,0.280,0.478,3574.0,249,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,1,1,60,0.280,0.608,3577.8,249,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,1,1,60,0.141,0.499,7112.4,249,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,1,32,12,8.895,8.931,3597.5,236,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,1,32,12,9.048,51.197,3536.6,236,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,1,32,12,9.026,9.185,3545.4,236,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,1,32,12,4.173,5.768,7668.0,236,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,2,1,60,0.347,0.690,2884.3,2168,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,2,1,60,0.360,0.649,2780.9,2168,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,2,1,60,0.357,0.753,2802.7,2168,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,2,1,60,0.322,0.979,3110.4,2168,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,2,32,12,11.477,11.920,2788.3,1918,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,2,32,12,11.138,11.905,2873.1,1918,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,2,32,12,11.316,11.960,2827.8,1918,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,2,32,12,12.201,14.478,2622.7,1918,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,3,1,60,0.928,2.315,1077.1,19718,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,3,1,60,0.531,7.453,1882.2,19718,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,3,1,60,0.562,0.967,1780.0,19718,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,3,1,60,1.079,1.925,927.2,19718,true,4842,queries run back to back in one submission; reached list stays on the device
+khop,cpu1,929752390,100000000,32,3,32,12,35.008,38.498,914.1,15445,true,0,queries run back to back
+khop,cpu8,929752390,100000000,32,3,32,12,18.429,25.831,1736.4,15445,true,0,queries run back to back
+khop,cpu24,929752390,100000000,32,3,32,12,18.373,24.373,1741.6,15445,true,0,queries run back to back
+khop,gpu,929752390,100000000,32,3,32,12,43.261,56.298,739.7,15445,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,2,1,60,0.286,0.501,3490.4,260,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,2,1,60,0.293,0.868,3417.6,260,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,2,1,60,0.290,0.891,3445.9,260,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,2,1,60,0.212,0.789,4712.5,260,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,2,32,12,9.134,9.171,3503.5,226,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,2,32,12,9.260,10.213,3455.6,226,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,2,32,12,9.325,10.550,3431.8,226,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,2,32,12,5.022,6.683,6371.7,226,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,8,1,60,0.496,6.224,2017.3,3889,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,8,1,60,0.436,1.050,2293.1,3889,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,8,1,60,0.434,0.838,2305.7,3889,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,8,1,60,0.522,1.143,1913.9,3889,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,8,32,12,15.750,16.011,2031.7,3716,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,8,32,12,14.871,17.124,2151.8,3716,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,8,32,12,15.402,45.855,2077.7,3716,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,8,32,12,21.823,31.871,1466.4,3716,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,32,1,60,2.018,2.489,495.6,28707,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,32,1,60,0.997,1.560,1003.2,28707,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,32,1,60,1.028,29.357,972.4,28707,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,32,1,60,1.741,4.590,574.5,28707,true,4842,queries run back to back in one submission; reached list stays on the device
+dag,cpu1,929752390,100000000,32,32,32,12,62.831,89.801,509.3,28206,true,0,queries run back to back
+dag,cpu8,929752390,100000000,32,32,32,12,32.620,64.399,981.0,28206,true,0,queries run back to back
+dag,cpu24,929752390,100000000,32,32,32,12,33.236,71.225,962.8,28206,true,0,queries run back to back
+dag,gpu,929752390,100000000,32,32,32,12,52.012,131.458,615.2,28206,true,4842,queries run back to back in one submission; reached list stays on the device
+ppr,cpu1,10375,1000,8,20,1,30,0.245,1.456,4078.3,NA,true (max abs diff 3.0E-008),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu8,10375,1000,8,20,1,30,0.325,0.467,3077.9,NA,true (max abs diff 3.0E-008),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu24,10375,1000,8,20,1,30,0.321,0.373,3119.2,NA,true (max abs diff 3.0E-008),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,gpu,10375,1000,8,20,1,30,0.594,0.903,1682.9,NA,true (max abs diff 3.0E-008),0,20 iterations, alpha 0.15, scores read back, includes top-50 selection
+ppr,cpu1,95855,10000,8,20,1,30,2.447,2.494,408.7,NA,true (max abs diff 7.5E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu8,95855,10000,8,20,1,30,1.448,4.937,690.7,NA,true (max abs diff 7.5E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu24,95855,10000,8,20,1,30,1.263,2.145,792.0,NA,true (max abs diff 7.5E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,gpu,95855,10000,8,20,1,30,2.298,3.965,435.2,NA,true (max abs diff 7.5E-009),1,20 iterations, alpha 0.15, scores read back, includes top-50 selection
+ppr,cpu1,935310,100000,8,20,1,30,25.300,26.015,39.5,NA,true (max abs diff 3.7E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu8,935310,100000,8,20,1,30,5.720,5.841,174.8,NA,true (max abs diff 3.7E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu24,935310,100000,8,20,1,30,4.893,5.023,204.4,NA,true (max abs diff 3.7E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,gpu,935310,100000,8,20,1,30,17.061,67.409,58.6,NA,true (max abs diff 3.7E-009),9,20 iterations, alpha 0.15, scores read back, includes top-50 selection
+ppr,cpu1,9276485,1000000,8,20,1,25,318.594,325.265,3.1,NA,true (max abs diff 1.9E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu8,9276485,1000000,8,20,1,30,84.993,86.921,11.8,NA,true (max abs diff 1.9E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,cpu24,9276485,1000000,8,20,1,30,57.835,59.496,17.3,NA,true (max abs diff 1.9E-009),0,20 iterations, alpha 0.15, includes top-50 selection
+ppr,gpu,9276485,1000000,8,20,1,30,93.793,108.982,10.7,NA,true (max abs diff 1.9E-009),86,20 iterations, alpha 0.15, scores read back, includes top-50 selection

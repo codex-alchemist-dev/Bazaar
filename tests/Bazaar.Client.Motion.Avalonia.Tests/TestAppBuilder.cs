@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Headless;
+using Avalonia.Themes.Fluent;
 using Bazaar.Client.Motion.Avalonia.Tests;
 
 [assembly: AvaloniaTestApplication(typeof(TestAppBuilder))]
@@ -12,4 +13,7 @@ public static class TestAppBuilder
         AppBuilder.Configure<global::Avalonia.Application>()
             .UseSkia()
             .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+            .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false })
+            // Without a theme an ItemsControl has no template, so its items are never realized.
+            .AfterSetup(_ => Application.Current!.Styles.Add(new FluentTheme()));
 }

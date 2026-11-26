@@ -28,6 +28,7 @@ public enum AlertChannelKind
     Webhook,
 
     /// <summary>An optional post in a GC the owner chooses.</summary>
+    /// <summary>An optional post in a group chat the owner chooses.</summary>
     GcPost,
 
     /// <summary>The scheduled health report (16.7).</summary>

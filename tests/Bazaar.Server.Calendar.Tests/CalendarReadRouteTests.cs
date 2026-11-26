@@ -28,6 +28,7 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
     public async ValueTask InitializeAsync() => await StartAsync(options: null);
 
     private async Task StartAsync(CalendarReadOptions? options)
+    private async Task StartAsync(CalendarReadOptions? options, CalendarViewer? viewer = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -36,6 +37,8 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
         builder.Services.AddSingleton<TimeProvider>(_time);
         if (options is not null)
             builder.Services.AddSingleton(options);
+        if (viewer is not null)
+            builder.Services.AddSingleton(viewer);
 
         _app = builder.Build();
         _app.MapCompanyCalendar(_ => ValueTask.FromResult(_refusal));
@@ -60,6 +63,8 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
     private static CalendarEventRecord Record(
         CalendarKind kind, DateTimeOffset starts, DateTimeOffset ends, bool allDay = false, string tz = "UTC",
         CalendarStatus status = CalendarStatus.Confirmed, Guid? agent = null, Guid? project = null, bool availability = false) => new()
+        CalendarStatus status = CalendarStatus.Confirmed, Guid? agent = null, Guid? project = null, bool availability = false,
+        CalendarVisibility visibility = CalendarVisibility.Public) => new()
         {
             Id = Guid.NewGuid(),
             Kind = kind,
@@ -74,6 +79,7 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
             AffectsAvailability = availability,
             Status = status,
             Version = 1,
+            Visibility = visibility,
         };
 
     [Fact]
@@ -241,6 +247,69 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
         Assert.Equal("agent", model.GetProperty("displayTimezone").GetString());
     }
 
+    private async Task<JsonElement[]> PostAsViewer(CalendarViewer? viewer)
+    {
+        _http.Dispose();
+        await _app.DisposeAsync();
+        await StartAsync(options: null, viewer);
+
+        using var response = await Post("{}");
+        return [.. JsonElement.Parse(await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).GetProperty("events").EnumerateArray()];
+    }
+
+    private void PrivateRows(out CalendarEventRecord attendees, out CalendarEventRecord owner, out CalendarEventRecord open)
+    {
+        attendees = Record(CalendarKind.Vacation, Utc(2026, 11, 25), Utc(2026, 11, 28), allDay: true, agent: _agent, availability: true, visibility: CalendarVisibility.Attendees);
+        owner = Record(CalendarKind.Planning, Utc(2026, 11, 26), Utc(2026, 11, 27), agent: _agent, visibility: CalendarVisibility.Owner);
+        open = Record(CalendarKind.Release, Utc(2026, 11, 29), Utc(2026, 11, 30));
+        _calendar.Rows = [attendees, owner, open];
+        _calendar.Titles[attendees.Id] = "Dentist";
+        _calendar.Titles[owner.Id] = "Salary talk";
+        _calendar.Titles[open.Id] = "Ship 0.2";
+    }
+
+    [Fact]
+    public async Task Without_a_registered_viewer_only_public_titles_are_shown()
+    {
+        PrivateRows(out var attendees, out var owner, out _);
+
+        var events = await PostAsViewer(viewer: null);
+
+        Assert.Equal(CalendarVisibilityRules.RedactedTitle, events[0].GetProperty("title").GetString());
+        Assert.Equal(CalendarVisibilityRules.RedactedTitle, events[1].GetProperty("title").GetString());
+        Assert.Equal("Ship 0.2", events[2].GetProperty("title").GetString());
+
+        // The time block and the rest of the row survive redaction, and a redacted title is never opened.
+        Assert.Equal("2026-11-25", events[0].GetProperty("startsAt").GetString());
+        Assert.Equal(attendees.Id.ToString(), events[0].GetProperty("id").GetString());
+        Assert.True(events[0].GetProperty("affectsAvailability").GetBoolean());
+        Assert.Equal(owner.StartsAt, ParseUtc(events[1].GetProperty("startsAt").GetString()!));
+        Assert.DoesNotContain(attendees.Id, _calendar.Opened);
+        Assert.DoesNotContain(owner.Id, _calendar.Opened);
+    }
+
+    [Fact]
+    public async Task The_company_owner_sees_every_title()
+    {
+        PrivateRows(out _, out _, out _);
+
+        var events = await PostAsViewer(new CalendarViewer(Guid.NewGuid(), IsCompanyOwner: true));
+
+        Assert.Equal(["Dentist", "Salary talk", "Ship 0.2"], events.Select(e => e.GetProperty("title").GetString()));
+    }
+
+    [Fact]
+    public async Task The_events_agent_sees_its_own_titles_and_another_agent_does_not()
+    {
+        PrivateRows(out _, out _, out _);
+
+        var mine = await PostAsViewer(new CalendarViewer(_agent, IsCompanyOwner: false));
+        Assert.Equal(["Dentist", "Salary talk", "Ship 0.2"], mine.Select(e => e.GetProperty("title").GetString()));
+
+        var other = await PostAsViewer(new CalendarViewer(Guid.NewGuid(), IsCompanyOwner: false));
+        Assert.Equal([CalendarVisibilityRules.RedactedTitle, CalendarVisibilityRules.RedactedTitle, "Ship 0.2"], other.Select(e => e.GetProperty("title").GetString()));
+    }
+
     [Fact]
     public void TryResolveWindow_rejects_a_window_over_the_cap()
     {
@@ -255,6 +324,8 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
         public Dictionary<Guid, string?> Titles { get; } = [];
 
         public int Calls { get; private set; }
+
+        public List<Guid> Opened { get; } = [];
 
         public DateTimeOffset From { get; private set; }
 
@@ -271,6 +342,11 @@ public sealed class CalendarReadRouteTests : IAsyncLifetime
 
         public ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default) =>
             ValueTask.FromResult(Titles.GetValueOrDefault(record.Id));
+        public ValueTask<string?> OpenTitleAsync(CalendarEventRecord record, CancellationToken ct = default)
+        {
+            Opened.Add(record.Id);
+            return ValueTask.FromResult(Titles.GetValueOrDefault(record.Id));
+        }
 
         public Task<CalendarResult> CreateAsync(CalendarDraft draft, CalendarActor actor, Guid noticeGcId, CancellationToken ct = default) => throw new NotSupportedException();
 

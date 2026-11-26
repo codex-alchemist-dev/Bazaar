@@ -85,6 +85,7 @@ public sealed partial class ModuleActivationHost : IDisposable
             {
                 ct.ThrowIfCancellationRequested();
                 if (!BazaarComponentRegistration.IsEnabled(_configuration, manifest.Id))
+                if (!BazaarComponentRegistration.IsEnabled(_configuration, manifest))
                 {
                     Set(new ModuleActivation(manifest.Id, ModuleActivationStatus.Disabled, Detail: "Disabled by configuration."));
                     continue;
@@ -118,6 +119,7 @@ public sealed partial class ModuleActivationHost : IDisposable
             }
 
             if (!BazaarComponentRegistration.IsEnabled(_configuration, moduleId))
+            if (!BazaarComponentRegistration.IsEnabled(_configuration, manifest))
             {
                 return Set(new ModuleActivation(moduleId, ModuleActivationStatus.Disabled, Detail: "Disabled by configuration."));
             }
@@ -194,6 +196,7 @@ public sealed partial class ModuleActivationHost : IDisposable
             {
                 if (_state.TryGetValue(manifest.Id, out var s) && s.Status == ModuleActivationStatus.Active
                     && !BazaarComponentRegistration.IsEnabled(_configuration, manifest.Id))
+                    && !BazaarComponentRegistration.IsEnabled(_configuration, manifest))
                 {
                     changed.AddRange(DeactivateCore(manifest.Id, ModuleDeactivationReason.Disabled));
                 }

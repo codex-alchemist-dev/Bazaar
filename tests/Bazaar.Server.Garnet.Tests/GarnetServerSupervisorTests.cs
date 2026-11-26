@@ -31,6 +31,7 @@ public class GarnetServerSupervisorTests
 
         var spec = Assert.Single(harness.Launcher.Launches);
         Assert.Equal("Garnet.exe", spec.Executable);
+        Assert.Equal("garnet-server.exe", spec.Executable);
         Assert.Equal(harness.Connection.PasswordForChild(), spec.Arguments[spec.Arguments.ToList().IndexOf("--password") + 1]);
         Assert.Contains("--bind", spec.Arguments);
         Assert.DoesNotContain("-r", spec.Arguments);
@@ -38,6 +39,20 @@ public class GarnetServerSupervisorTests
         Assert.True(harness.Connection.IsReady);
         Assert.Equal($"127.0.0.1:16379,password={harness.Connection.PasswordForChild()}", Assert.Single(harness.Factory.Endpoints));
         Assert.Equal(0, harness.Supervisor.Restarts);
+        await harness.Supervisor.StopAsync(TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task A_first_start_on_a_directory_that_already_holds_data_recovers_it()
+    {
+        var harness = new Harness(Managed(port: 16380));
+        Directory.CreateDirectory(harness.DataDirectory);
+        await File.WriteAllTextAsync(Path.Combine(harness.DataDirectory, "appendonly.aof"), "x", TestContext.Current.CancellationToken);
+
+        await harness.StartAsync();
+        await WaitUntilAsync(() => harness.Supervisor.State == ValkeyChildState.Running);
+
+        Assert.Contains("-r", Assert.Single(harness.Launcher.Launches).Arguments);
         await harness.Supervisor.StopAsync(TestContext.Current.CancellationToken);
     }
 
@@ -181,6 +196,7 @@ public class GarnetServerSupervisorTests
     }
 
     private static GarnetCacheOptions Managed(int port) => new() { Managed = true, BinaryPath = "Garnet.exe", ManagedPort = port };
+    private static GarnetCacheOptions Managed(int port) => new() { Managed = true, BinaryPath = "garnet-server.exe", ManagedPort = port };
 
     /// <summary>Polls real time until the condition holds. Used where the supervisor runs on its own task.</summary>
     private static async Task WaitUntilAsync(Func<bool> condition)
@@ -317,6 +333,8 @@ public class GarnetServerSupervisorTests
             public Task DeleteAsync(string key, CancellationToken ct) => throw new NotSupportedException();
 
             public Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct) => throw new NotSupportedException();
+
+            public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct) => throw new NotSupportedException();
 
             public Task<string?> GetConfigAsync(string parameter, CancellationToken ct) => throw new NotSupportedException();
 

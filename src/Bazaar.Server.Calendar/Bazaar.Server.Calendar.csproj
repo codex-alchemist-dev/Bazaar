@@ -8,6 +8,10 @@
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <EmbeddedResource Include="Sql\**\*.sql" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Calendar.Abstractions\Bazaar.Server.Calendar.Abstractions.csproj" />

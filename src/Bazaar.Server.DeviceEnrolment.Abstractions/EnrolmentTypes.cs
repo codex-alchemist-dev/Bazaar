@@ -55,6 +55,9 @@ public enum EnrolmentVerdict
     ApprovalKeyNotHardware,
     CredentialRefused,
     CredentialSynced,
+
+    /// <summary>The request named a different device than the signed-in one (doc 32 section 5b step 4). Raised by the route, before the ceremony.</summary>
+    DeviceMismatch,
 }
 
 /// <summary>The outcome of <see cref="IDeviceEnrolment.CompleteAsync"/>.</summary>
@@ -188,6 +191,7 @@ public static class EnrolmentArgs
         ms.Write(deviceId.ToByteArray(bigEndian: true));
         ms.Write(SHA256.HashData(approvalPublicKeySpki));
         return SHA256.HashData(ms.ToArray());
+        return Bazaar.Contracts.Enrolment.EnrolmentChallengeFormula.Compute(nonce, humanId, deviceId, approvalPublicKeySpki);
     }
 
     private static void Append(StringBuilder sb, string value) => sb.Append(value.Length).Append(':').Append(value).Append(';');

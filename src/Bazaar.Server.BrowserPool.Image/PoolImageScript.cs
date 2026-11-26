@@ -12,6 +12,7 @@ namespace Bazaar.Server.BrowserPool.Image;
 public static class PoolImageScript
 {
     private const string _heredocTag = "BAZAAR_POOL_BWRAP_PROFILE";
+    private const string _manifestTag = "BAZAAR_POOL_TOOL_MANIFEST";
 
     /// <summary>The systemd-tmpfiles entry that recreates the pipe directory's parent at boot.</summary>
     public const string TmpfilesPath = "/etc/tmpfiles.d/bazaar-pool.conf";
@@ -19,6 +20,17 @@ public static class PoolImageScript
     /// <summary>Renders the script.</summary>
     /// <exception cref="ArgumentException">A package name or a path is not acceptable.</exception>
     public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host)
+    /// <summary>Renders the script without a tool install step.</summary>
+    /// <exception cref="ArgumentException">A package name or a path is not acceptable, or the options name a tool source directory.</exception>
+    public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host) => Render(image, pool, host, null);
+
+    /// <summary>
+    /// Renders the script. With a <paramref name="tools"/> bundle (and <see cref="PoolImageOptions.ToolSourceDirectory"/>) it also
+    /// installs each tool: the file's SHA-256 is checked against the manifest value first and a mismatch stops the script, then the
+    /// file is installed root-owned, mode 0755. Nothing is fetched from the network.
+    /// </summary>
+    /// <exception cref="ArgumentException">A package name or a path is not acceptable, or the bundle and the options disagree.</exception>
+    public static string Render(PoolImageOptions image, BrowserPoolOptions pool, LinuxPoolHostOptions host, PoolToolBundle? tools)
     {
         ArgumentNullException.ThrowIfNull(image);
         ArgumentNullException.ThrowIfNull(pool);
@@ -46,6 +58,16 @@ public static class PoolImageScript
         if (!BrowserPoolOptionsValidator.IsSafeAbsolutePath(pool.SlotRoot))
         {
             throw new ArgumentException("The slot root is not a safe absolute path.", nameof(pool));
+        }
+
+        if ((tools is null) != (image.ToolSourceDirectory is null))
+        {
+            throw new ArgumentException("A tool bundle and ToolSourceDirectory must be given together.", nameof(tools));
+        }
+
+        if (tools is not null)
+        {
+            ValidateToolSettings(image, tools);
         }
 
         string profile = BwrapAppArmorProfile.Render(pool.BwrapPath);
@@ -87,6 +109,53 @@ public static class PoolImageScript
         }
 
         return sb.ToString();
+    }
+
+        if (tools is not null)
+        {
+            AppendToolInstall(sb, image, tools);
+        }
+
+        return sb.ToString();
+    }
+
+    private static void ValidateToolSettings(PoolImageOptions image, PoolToolBundle tools)
+    {
+        if (!BrowserPoolOptionsValidator.IsSafeAbsolutePath(image.ToolSourceDirectory)
+            || !BrowserPoolOptionsValidator.IsSafeAbsolutePath(image.ToolInstallDirectory)
+            || (image.ToolManifestPath is not null && !BrowserPoolOptionsValidator.IsSafeAbsolutePath(image.ToolManifestPath)))
+        {
+            throw new ArgumentException("A tool directory is not a safe absolute path.", nameof(image));
+        }
+
+        // The bundle may have been built by hand: check it again before anything is interpolated.
+        if (PoolToolBundle.Validate(tools.Tools).Count != 0)
+        {
+            throw new ArgumentException("The tool bundle is not valid.", nameof(tools));
+        }
+    }
+
+    private static void AppendToolInstall(StringBuilder sb, PoolImageOptions image, PoolToolBundle tools)
+    {
+        string source = image.ToolSourceDirectory!.TrimEnd('/');
+        string target = image.ToolInstallDirectory.TrimEnd('/');
+        sb.Append("\n# Guest tools: checked against the manifest hash, then installed root-owned.\n");
+        AppendDirectory(sb, target, "0755");
+        foreach (var tool in tools.Tools)
+        {
+            string from = source + "/" + tool.FileName;
+            sb.Append("printf '%s  %s\\n' ").Append(tool.Sha256).Append(' ').Append(from).Append(" | sha256sum -c -\n");
+            sb.Append("install -o root -g root -m 0755 ").Append(from).Append(' ').Append(target).Append('/').Append(tool.FileName).Append('\n');
+        }
+
+        if (image.ToolManifestPath is { } manifest)
+        {
+            sb.Append("cat > ").Append(manifest).Append(" <<'").Append(_manifestTag).Append("'\n");
+            sb.Append(tools.ToJson());
+            sb.Append(_manifestTag).Append('\n');
+            sb.Append("chown root:root ").Append(manifest).Append('\n');
+            sb.Append("chmod 0644 ").Append(manifest).Append('\n');
+        }
     }
 
     private static void AppendDirectory(StringBuilder sb, string path, string mode)

@@ -1,7 +1,9 @@
 using Bazaar.Core;
 using Bazaar.RyuseiFuda.Kanban.Data;
+using Bazaar.RyuseiFuda.Kanban.Health;
 using Bazaar.RyuseiFuda.Kanban.Wire;
 using Bazaar.Server.Agents.Turns.Tools;
+using Bazaar.Server.Health;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Security.Policy;
 using Bazaar.Server.Wire.Connection;
@@ -43,6 +45,8 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<TaskEventRepository>();
         services.TryAddSingleton<TaskLinkRepository>();
         services.TryAddSingleton<TaskService>();
+        services.TryAddSingleton<BoardDirectoryRepository>();
+        services.TryAddSingleton<IBoardDirectoryReader>(sp => sp.GetRequiredService<BoardDirectoryRepository>());
 
         // Agent tool (doc 12, WP5). The turn path builds its tool registry from every ToolRegistration, so this is what makes
         // kanban.transition runnable. Policy (doc 15) fails closed without a capability: a board move is autonomous with a
@@ -53,11 +57,18 @@ public sealed class KanbanComponent : IBazaarComponent
         services.AddSingleton(TransitionCapability);
         services.AddSingleton(KanbanTransitionTool.Definition);
 
+        // The card a turn woken by an assignment shows the model (doc 12, Assignment wake). Without it that turn has no context.
+        services.AddSingleton<Bazaar.Server.Agents.Turns.Context.IContextSource>(sp => new AssignmentContextSource(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
+        services.AddSingleton<Bazaar.Server.Agents.Turns.ITurnReplyTarget>(sp => new AssignmentReplyTarget(sp.GetRequiredService<Npgsql.NpgsqlDataSource>()));
+
         // Board read over the wire (doc 12, board view). Owner-only until project membership is decided (see BoardAccess.cs).
         services.TryAddSingleton<IBoardAccessPolicy, OwnerOnlyBoardAccess>();
         services.AddSingleton<IWireRequestHandler, BoardSnapshotHandler>();
         // Owner move (doc 12, Card revision and client move command): the authorised UI command, owner principal only.
         services.AddSingleton<IWireRequestHandler, BoardMoveHandler>();
+        // Owner assign (doc 12, Assign authority and command [PROPOSED]): owner principal only.
+        services.AddSingleton<IWireRequestHandler, BoardAssignHandler>();
 
         // Deadline scanner (doc 12, WP11): the job handler the poller runs for kanban.deadline_scan.
         var deadline = new DeadlineScanOptions();
@@ -67,5 +78,10 @@ public sealed class KanbanComponent : IBazaarComponent
         services.TryAddSingleton<DeadlineScanHandler>();
         services.AddSingleton<IJobHandler>(sp => sp.GetRequiredService<DeadlineScanHandler>());
         services.AddSingleton(new RecurringJob(DeadlineScanHandler.JobKind, deadline.Interval));
+
+        // Project health feeder (doc 25): blocked share and reopened cards, one health project per board project.
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthFactSource, KanbanHealthFactSource>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IHealthProjectSource, KanbanHealthProjectSource>());
     }
 }

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Bazaar.Server.CodingBench</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CodingBench.Abstractions\Bazaar.Server.CodingBench.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

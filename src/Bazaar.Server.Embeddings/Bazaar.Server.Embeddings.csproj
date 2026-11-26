@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <RootNamespace>Bazaar.Server.Embeddings</RootNamespace>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Embeddings.Abstractions\Bazaar.Server.Embeddings.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Setup.Abstractions\Bazaar.Server.Setup.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

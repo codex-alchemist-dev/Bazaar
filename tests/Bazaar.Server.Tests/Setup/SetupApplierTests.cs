@@ -184,6 +184,19 @@ public sealed class SetupApplierTests
             payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
         Assert.Equal(4, harness.SettingAudit.Entries.Count);
         Assert.Equal(["\"loopback\"", "8443", "\"beta\""], harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
+        // The settings map plus the plan fields that map to registry keys (backups, email, network block, release channel, update policy).
+        Assert.Equal(
+            new List<string>
+            {
+                "backup.drill_interval_days", "backup.no_target_acknowledged", "backup.target", "company.source", "deps.update.autoSecurityPatches",
+                "gateway.default_preset", "host.shutdown_timeout_seconds", "host.status.bind", "host.status.port", "identity.merge_credential",
+                "identity.merge_credential.app_id_ref", "mail.backend", "mail.enabled", "update.channel",
+            },
+            payload["changedSettingKeys"]!.AsArray().Select(node => node!.GetValue<string>()));
+        Assert.Equal(14, harness.SettingAudit.Entries.Count);
+        Assert.Equal(
+            ["30", "false", "\"file:/mnt/backup/bazaar\"", "\"template:starter@1.0.0\"", "true", "\"free-lane\"", "\"loopback\"", "8443", "\"owner_app\"", "\"secret://bazaar/owner/app-id\"", "\"none\"", "false", "\"beta\""],
+            harness.SettingAudit.Entries.Where(e => e.Key != "host.shutdown_timeout_seconds").Select(e => e.NewValueJson));
 
         var setting = Assert.Single(harness.SettingAudit.Entries, e => e.Key == "host.shutdown_timeout_seconds");
         Assert.Equal(SettingWriteOutcome.Accepted, setting.Outcome);

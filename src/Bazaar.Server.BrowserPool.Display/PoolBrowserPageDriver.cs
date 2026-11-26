@@ -21,6 +21,11 @@ namespace Bazaar.Server.BrowserPool.Display;
 /// </para>
 /// </summary>
 public sealed class PoolBrowserPageDriver : IBrowserPageDriver, IAsyncDisposable
+/// never interleave. Coordinates are CSS pixels of the viewport. The pool starts Chromium with a device scale factor of 1 and the
+/// screenshot covers the viewport only, so screenshot pixels and input coordinates are one space (<see cref="IPixelExactBrowserPageDriver"/>).
+/// </para>
+/// </summary>
+public sealed class PoolBrowserPageDriver : IPixelExactBrowserPageDriver, IAsyncDisposable
 {
     private const int _sessionNotFoundCode = -32001;
     private const int _maxIdLength = 256;

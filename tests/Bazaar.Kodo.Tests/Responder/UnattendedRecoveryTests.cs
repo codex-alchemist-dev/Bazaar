@@ -234,6 +234,7 @@ public sealed class UnattendedRecoveryTests
     {
         RunbookDefinition d = Fix("fix.host_restart");
         RunbookCatalogue catalogue = new(new RsaPkcs1Sha256Verifier(), ResponderTestKit.Key.ExportSubjectPublicKeyInfo());
+        RunbookCatalogue catalogue = new(new RsaPkcs1Sha256Verifier(), ResponderTestKit.PublicKey);
 
         Assert.NotNull(catalogue.TryAdd(d, new byte[256]));
         Assert.Equal(0, catalogue.Count);

@@ -6,6 +6,9 @@ Bazaar.Server.Components.Backup
 Bazaar.Server.Constellation
 Bazaar.Server.Hive
 Bazaar.Server.Identity.Postgres
+Bazaar.Server.CompanyKnowledge
+Bazaar.Server.Constellation
+Bazaar.Server.Hive
 Bazaar.Server.Memory
 Bazaar.Server.ReadAudit
 Bazaar.Server.Setup.Host

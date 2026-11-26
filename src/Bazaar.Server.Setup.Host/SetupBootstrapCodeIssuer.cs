@@ -24,10 +24,18 @@ public sealed partial class SetupBootstrapCodeIssuer(
     ISetupOwnerDirectory owners,
     IBootstrapCodeAnnouncer announcer,
     ILogger<SetupBootstrapCodeIssuer> logger) : IHostedService
+    ILogger<SetupBootstrapCodeIssuer> logger,
+    SetupPlanStartOutcome? planStart = null) : IHostedService
 {
     /// <inheritdoc />
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        // A --setup-only run stops after the plan apply, so it announces no code.
+        if (planStart is { StopRequested: true })
+        {
+            return;
+        }
+
         try
         {
             if (await owners.OwnerExistsAsync(cancellationToken).ConfigureAwait(false))

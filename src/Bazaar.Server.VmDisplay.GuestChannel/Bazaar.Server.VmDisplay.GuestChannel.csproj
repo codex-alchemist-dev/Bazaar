@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- An adapter between two ports: the display module's IDisplayGuestExec over the transport's channel directory. Core and the two
+         Abstractions projects only: no Bazaar.Server, no Bazaar.Server.VmTransport. -->
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.VmDisplay.GuestChannel.Tests" />
+  </ItemGroup>
+</Project>

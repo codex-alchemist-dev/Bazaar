@@ -23,6 +23,7 @@ public static class WindowsProviders
     /// The VM provider candidates in preference order. Hyper-V goes first once it exists; the sandbox is listed after it.
     /// Returns an empty list when the host is not Windows. The sandbox declares one instance per host, so the agent pair
     /// (which needs two) never selects it (fail closed in the Server's ProviderSelector).
+    /// (which needs two) must not use it for the pair (the consuming module checks the declared limit).
     /// </summary>
     public static IReadOnlyList<IVmProvider> VmCandidates(string dataRoot)
     {

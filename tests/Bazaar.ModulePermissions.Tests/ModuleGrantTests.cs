@@ -33,7 +33,7 @@ public class ModuleGrantTests
     [InlineData("wire:kanban.write", "data.write:kanban")]
     [InlineData("wire:vault.read", "data.read:vault")]
     [InlineData("wire:constellation.read", "data.read:constellation")]
-    [InlineData("storage:local", "fs:local")]
+    [InlineData("storage:local", "fs:local/*")]
     public void Client_capability_names_read_as_their_permission(string capability, string expected) =>
         Assert.Equal(expected, Parse(capability).ToString());
 

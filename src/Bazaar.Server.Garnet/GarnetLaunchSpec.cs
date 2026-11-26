@@ -50,6 +50,7 @@ public sealed class GarnetLaunchSpec
             "--aof",
             "--logdir", options.DataDirectory,
             "--checkpointdir", Path.Combine(options.DataDirectory, "checkpoints"),
+            "--checkpointdir", options.DataDirectory,
         ];
         if (options.AofCommitWait)
         {

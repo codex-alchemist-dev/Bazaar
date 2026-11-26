@@ -2,6 +2,8 @@ using System.Globalization;
 using Bazaar.Contracts.Community;
 using Bazaar.Server.Http;
 using Bazaar.Server.Wire.Connection;
+using Bazaar.Community.Http;
+using Bazaar.Contracts.Community;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -21,6 +23,7 @@ public static class CommunityLogEndpoint
 {
     /// <summary>Route path.</summary>
     public const string Path = "/community/log";
+    public const string Path = "/" + CommunityRoutes.Log;
 
     /// <summary>Maps the route. Called by host composition, next to <c>MapBazaarHttpSurface</c>.</summary>
     public static IEndpointRouteBuilder MapCommunityLog(this IEndpointRouteBuilder routes)
@@ -57,6 +60,9 @@ public static class CommunityLogEndpoint
         }
 
         if (auth.Principal.Kind != "owner") return Error(StatusCodes.Status403Forbidden, "forbidden");
+        var denied = await CommunityHttpGuard.CheckOwnerAsync(http);
+        if (denied is not null) return denied;
+        var services = http.RequestServices;
 
         var query = http.Request.Query;
         var limit = CommunityLogFilter.DefaultLimit;
@@ -98,4 +104,5 @@ public static class CommunityLogEndpoint
     }
 
     private static IResult Error(int status, string code) => Results.Json(new { error = code }, statusCode: status);
+    private static IResult Error(int status, string code) => CommunityHttpGuard.Error(status, code);
 }
