@@ -35,9 +35,3 @@ public interface IWindowsSandboxHost
 
 /// <summary>The exit code and captured output of one command run inside a sandbox.</summary>
 public sealed record SandboxExecResult(int ExitCode, string StandardOutput, string StandardError);
-
-/// <summary>Probes the host's facts for <see cref="Bazaar.Contracts.Modules.HostCompatibility"/>. Must be synchronous and change nothing.</summary>
-public interface IHostFactsSource
-{
-    HostFacts Current();
-}

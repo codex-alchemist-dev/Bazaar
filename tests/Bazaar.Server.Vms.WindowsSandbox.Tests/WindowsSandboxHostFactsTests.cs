@@ -52,13 +52,12 @@ public sealed class WindowsSandboxHostFactsTests
     }
 
     [Fact]
-    public void The_sandbox_never_fits_the_agent_pair_even_when_its_feature_is_present()
+    public void The_sandbox_declares_less_than_the_agent_pair_even_when_its_feature_is_present()
     {
         var facts = new FixedHostFacts(new HostFacts("windows", "x64", new HashSet<string>(StringComparer.Ordinal) { "windows-sandbox" }));
         using var backend = new WindowsSandboxBackend(new FakeWindowsSandboxHost(), facts, new WindowsSandboxOptions(Guid.NewGuid()));
 
-        var selection = ProviderSelector.Select(ProviderRole.Vm, ProviderSelector.Auto, new IVmProvider[] { backend }, ProviderRequirements.AgentPairConcurrency);
-
-        Assert.Null(selection.Provider);
+        Assert.True(backend.Probe().Usable);
+        Assert.True(backend.MaxConcurrentInstances < ProviderRequirements.AgentPairConcurrency);
     }
 }

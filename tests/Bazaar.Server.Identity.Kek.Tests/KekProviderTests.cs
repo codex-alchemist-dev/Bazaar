@@ -232,7 +232,7 @@ public sealed class KekProviderTests : IDisposable
     [Fact]
     public void Factory_refuses_unknown_and_unbuilt_kinds()
     {
-        Assert.Throws<ArgumentException>(() => KekProviderFactory.Create("tpm", _root));
+        Assert.Throws<ArgumentException>(() => KekProviderFactory.Create("tpm2", _root));
         Assert.Throws<NotSupportedException>(() => KekProviderFactory.Create("openbao", _root));
     }
 

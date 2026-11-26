@@ -4,7 +4,7 @@ namespace Bazaar.Client.Modules;
 
 /// <summary>Why a module was not loaded.</summary>
 /// <param name="ModuleId">The manifest id, or an empty string when the module has no manifest.</param>
-/// <param name="Code">Stable code: <c>no-manifest</c>, <c>invalid-manifest</c>, <c>host-incompatible</c>, <c>duplicate-id</c>, <c>pane-kind-taken</c>, <c>command-taken</c> or <c>register-failed</c>.</param>
+/// <param name="Code">Stable code: <c>no-manifest</c>, <c>invalid-manifest</c>, <c>host-incompatible</c>, <c>optional-off</c>, <c>duplicate-id</c>, <c>pane-kind-taken</c>, <c>command-taken</c> or <c>register-failed</c>.</param>
 /// <param name="Message">One line for the log.</param>
 public sealed record ClientModuleSkip(string ModuleId, string Code, string Message);
 
@@ -65,7 +65,13 @@ public static class ClientModuleHost
     /// <param name="modules">The modules the head composes, in the order they should register.</param>
     /// <param name="host">What this head runs on, for each manifest's host requirements.</param>
     /// <param name="report">Receives one line per skipped module. Null reports nothing.</param>
-    public static ClientModuleLoadResult Load(IEnumerable<IClientModule> modules, HostFacts host, Action<string>? report = null)
+    /// <param name="enabled">
+    /// Explicit settings by module id: true switches an optional module on, false switches any module off. A module with no entry
+    /// uses its manifest's <see cref="ModuleManifest.EnabledByDefault"/>. Null means no explicit settings. A module that is off is
+    /// recorded as skipped with code <c>optional-off</c> and is not reported, because that is a choice, not a fault.
+    /// </param>
+    public static ClientModuleLoadResult Load(
+        IEnumerable<IClientModule> modules, HostFacts host, Action<string>? report = null, IReadOnlyDictionary<string, bool>? enabled = null)
     {
         ArgumentNullException.ThrowIfNull(modules);
         ArgumentNullException.ThrowIfNull(host);
@@ -96,6 +102,13 @@ public static class ClientModuleHost
             if (!validation.IsValid)
             {
                 Skip(manifest.Id, "invalid-manifest", string.Join("; ", validation.Issues.Select(issue => $"{issue.Path}: {issue.Code}")));
+                continue;
+            }
+
+            var on = enabled is not null && enabled.TryGetValue(manifest.Id, out var explicitSetting) ? explicitSetting : manifest.EnabledByDefault;
+            if (!on)
+            {
+                skipped.Add(new ClientModuleSkip(manifest.Id, "optional-off", "the module is switched off."));
                 continue;
             }
 

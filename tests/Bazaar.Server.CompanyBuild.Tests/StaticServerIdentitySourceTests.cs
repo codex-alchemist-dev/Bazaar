@@ -5,14 +5,14 @@ namespace Bazaar.Server.CompanyBuild.Tests;
 
 public sealed class StaticServerIdentitySourceTests
 {
-    private static readonly string Pin = new('a', 64);
+    private static readonly string _pin = new('a', 64);
 
     [Fact]
     public void Carries_address_and_pin()
     {
-        var source = new StaticServerIdentitySource(new Uri("https://bazaar.example/"), Pin);
+        var source = new StaticServerIdentitySource(new Uri("https://bazaar.example/"), _pin);
         Assert.Equal("https://bazaar.example/", source.Address.AbsoluteUri);
-        Assert.Equal(Pin, source.KeyHashPin);
+        Assert.Equal(_pin, source.KeyHashPin);
     }
 
     [Theory]
@@ -25,5 +25,5 @@ public sealed class StaticServerIdentitySourceTests
 
     [Fact]
     public void Refuses_a_relative_address() =>
-        Assert.Throws<ArgumentException>(() => new StaticServerIdentitySource(new Uri("/x", UriKind.Relative), Pin));
+        Assert.Throws<ArgumentException>(() => new StaticServerIdentitySource(new Uri("/x", UriKind.Relative), _pin));
 }
