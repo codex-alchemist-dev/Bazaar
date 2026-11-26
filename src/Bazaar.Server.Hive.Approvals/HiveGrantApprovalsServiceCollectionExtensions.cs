@@ -2,9 +2,9 @@ using System.Data.Common;
 using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.ReadAudit.Npgsql;
 using Bazaar.Server.Security.Approvals;
-using Npgsql;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Npgsql;
 
 namespace Bazaar.Server.Hive.Approvals;
 

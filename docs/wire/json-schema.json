@@ -1,11 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Bazaar wire payloads",
-  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
+  "description": "Payload shapes for the JSON and CBOR codecs, protocol 1.0, schema hash sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf. Unknown fields must be ignored by readers. Enums are the member name on CBOR and in JSON written as a string or, without a converter, as the number.",
   "x-protocol": { "major": 1, "minor": 0 },
-  "x-schemaHash": "sha256:14ad93d6521e065f5bde5aadfb699cacb3773022550163a1a60f9cc829000842",
+  "x-schemaHash": "sha256:1b3ed49d8ee3c9ae36a6b0f2e4a7f968975decd0fff7abad67027cb2fce096bf",
   "x-messages": {
     "board.assign": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanAssignRequest" },
+    "board.move": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanMoveRequest" },
     "board.snapshot": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardRequest" },
     "editor.create": { "$ref": "#/$defs/Bazaar.Contracts.Athanor.EditorCreateRequest" },
     "editor.open": { "$ref": "#/$defs/Bazaar.Contracts.Athanor.EditorOpenRequest" },
@@ -572,6 +573,29 @@
         "cards": { "type": "array", "items": { "$ref": "#/$defs/Bazaar.Contracts.Kanban.KanbanBoardCard" } }
       },
       "required": ["projectId", "cards"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanMoveReply": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "revision": { "anyOf": [ { "type": "integer" }, { "type": "null" } ] },
+        "blockerTitles": { "type": "array", "items": { "type": "string" } },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["status", "blockerTitles"],
+      "additionalProperties": true
+    },
+    "Bazaar.Contracts.Kanban.KanbanMoveRequest": {
+      "type": "object",
+      "properties": {
+        "projectId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "cardId": { "type": "string", "format": "uuid", "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$" },
+        "toState": { "type": "string" },
+        "expectedRevision": { "type": "integer" },
+        "reason": { "anyOf": [ { "type": "string" }, { "type": "null" } ] }
+      },
+      "required": ["projectId", "cardId", "toState", "expectedRevision"],
       "additionalProperties": true
     },
     "Bazaar.Contracts.Releases.ReleaseArtifact": {

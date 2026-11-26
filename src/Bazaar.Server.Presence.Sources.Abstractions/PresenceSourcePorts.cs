@@ -62,6 +62,32 @@ public enum TurnGcKind
     Other,
 }
 
+/// <summary>What a GC is, for presence: its <see cref="TurnGcKind"/> and, for a project GC, the project it belongs to.</summary>
+/// <param name="Kind">The kind. <see cref="TurnGcKind.Other"/> when unknown.</param>
+/// <param name="ProjectId">The project slug, or null when the GC has none.</param>
+public readonly record struct GcKindInfo(TurnGcKind Kind, string? ProjectId = null)
+{
+    /// <summary>The answer for an unknown GC.</summary>
+    public static GcKindInfo Other => new(TurnGcKind.Other);
+}
+
+/// <summary>Says what kind of GC a turn runs in (doc 23, GC context). An implementation never throws for an unknown GC; it answers <see cref="GcKindInfo.Other"/>.</summary>
+public interface IGcKindLookup
+{
+    /// <summary>Looks up the GC.</summary>
+    ValueTask<GcKindInfo> LookupAsync(Guid gcId, CancellationToken ct);
+}
+
+/// <summary>
+/// The project an agent is working on now, so a project GC of another project reads as "other project". Optional: the agent runtime
+/// exposes no current project yet, so with no implementation registered the project-differs rule never fires.
+/// </summary>
+public interface IAgentProjectLookup
+{
+    /// <summary>The agent's current project slug, or null when it has none.</summary>
+    ValueTask<string?> GetCurrentProjectAsync(Guid agentId, CancellationToken ct);
+}
+
 /// <summary>One turn or tool lifecycle event.</summary>
 /// <param name="AgentId">The agent.</param>
 /// <param name="At">When it happened (UTC).</param>
@@ -124,4 +150,72 @@ public interface IWardStateSink
 {
     /// <summary>Reports a saved stay: admitted while <see cref="WardStay.IsAdmitted"/>, otherwise discharged.</summary>
     ValueTask OnStayChangedAsync(WardStay stay, CancellationToken ct);
+}
+
+// Restart seed ports (docs/design/23, "Restart"). The presence table is not a seed source (it is what is being rebuilt), so the
+// seed reads the modules that own the truth. No implementation of the three readers exists yet; see each summary for what must
+// provide it. Each reader is optional: the seed source uses whichever are registered.
+
+/// <summary>An agent's persisted availability-machine state, with its overlays (doc 09).</summary>
+/// <param name="AgentId">The agent.</param>
+/// <param name="Snapshot">The last snapshot the work-life module saved for the agent's machine.</param>
+public sealed record AgentAvailabilityState(Guid AgentId, AvailabilitySnapshot Snapshot);
+
+/// <summary>
+/// Reads the saved availability-machine state of every agent. Must be implemented by the work-life store, which is not built yet
+/// (no module saves <see cref="AvailabilitySnapshot"/>; a <c>PresenceNotifyingAvailabilityMachine</c> driver would be the writer).
+/// </summary>
+public interface IAvailabilityStateReader
+{
+    /// <summary>Lists the saved state of every agent that has one.</summary>
+    ValueTask<IReadOnlyList<AgentAvailabilityState>> ListAsync(CancellationToken ct);
+}
+
+/// <summary>One agent's schedule inputs for the schedule calculator (doc 09).</summary>
+/// <param name="AgentId">The agent.</param>
+/// <param name="Schedule">Shifts, curfew and zone.</param>
+/// <param name="Events">Calendar events that can make the agent unavailable.</param>
+/// <param name="Options">Operator additions to the evaluation; null uses the defaults.</param>
+public sealed record AgentScheduleInputs(
+    Guid AgentId,
+    AgentSchedule Schedule,
+    IReadOnlyList<CalendarEvent> Events,
+    EvaluationOptions? Options = null);
+
+/// <summary>
+/// Reads every agent's schedule. Must be implemented over the work-life store (<c>agent_schedule</c> and the calendar), which is
+/// not built yet. Used when an agent has no saved state: availability then comes from <see cref="ScheduleEvaluator"/> at "now".
+/// </summary>
+public interface IAgentScheduleReader
+{
+    /// <summary>Lists the schedule inputs of every agent that has a schedule.</summary>
+    ValueTask<IReadOnlyList<AgentScheduleInputs>> ListAsync(CancellationToken ct);
+}
+
+/// <summary>A turn still marked running (doc 06).</summary>
+/// <param name="AgentId">The agent.</param>
+/// <param name="TurnId">The turn.</param>
+/// <param name="StartedAt">When it started (UTC).</param>
+/// <param name="GcId">The GC the turn runs in, when known.</param>
+/// <param name="GcKind">The kind of that GC.</param>
+/// <param name="GcProjectId">The project the GC belongs to, for a project GC.</param>
+/// <param name="AgentProjectId">The project the agent works on now.</param>
+public sealed record OpenTurn(
+    Guid AgentId,
+    Guid TurnId,
+    DateTimeOffset StartedAt,
+    Guid? GcId = null,
+    TurnGcKind GcKind = TurnGcKind.Other,
+    string? GcProjectId = null,
+    string? AgentProjectId = null);
+
+/// <summary>
+/// Reads turns whose status is <c>running</c>, for every agent. Must be implemented over <c>turn</c> in <c>Bazaar.Server.Agents</c>:
+/// <c>TurnRepository.ListRunningAsync</c> reads one agent at a time, so an adapter needs an all-agents query (or the agent list) and
+/// the GC of each turn's session, neither of which that repository offers.
+/// </summary>
+public interface IOpenTurnReader
+{
+    /// <summary>Lists the open turns of every agent.</summary>
+    ValueTask<IReadOnlyList<OpenTurn>> ListOpenAsync(CancellationToken ct);
 }

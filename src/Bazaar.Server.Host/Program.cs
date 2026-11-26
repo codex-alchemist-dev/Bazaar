@@ -1,11 +1,12 @@
 using Bazaar.Archive.Http;
-using Bazaar.Server.Council.Http;
 using Bazaar.Community.Drafts;
 using Bazaar.Community.Observatory;
 using Bazaar.Core;
 using Bazaar.GitHub;
 using Bazaar.Server.Analytics;
+using Bazaar.Server.Approvals.Http;
 using Bazaar.Server.CompanyMemory;
+using Bazaar.Server.Council.Http;
 using Bazaar.Server.Host.Analytics;
 using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Host.Composition;
@@ -96,6 +97,7 @@ app.MapCouncilEscalations((http, run) => HttpSurfaceEndpoints.Guarded(http, (h, 
 app.MapBazaarAuthWhoAmI();
 app.MapBazaarGitHubRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapBazaarCompanyReadRoutes();
+app.MapBazaarApprovalRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapCommunityLog();
 app.MapCommunityDraftDecision();
 app.MapCommunityDraftReads();

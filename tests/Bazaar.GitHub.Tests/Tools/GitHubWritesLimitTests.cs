@@ -11,7 +11,7 @@ namespace Bazaar.GitHub.Tests.Tools;
 /// <summary>The per-installation writes-per-hour limit of the agent GitHub tools (doc 21, Agent tools).</summary>
 public sealed class GitHubWritesLimitTests
 {
-    private const string Head = "0123456789abcdef0123456789abcdef01234567";
+    private const string _head = "0123456789abcdef0123456789abcdef01234567";
     private static readonly Guid _agentA = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
     private static readonly Guid _agentB = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002");
 
@@ -46,7 +46,7 @@ public sealed class GitHubWritesLimitTests
         public Task<string> GetHeadShaAsync(PrRef pr, CancellationToken cancellationToken)
         {
             Calls++;
-            return Task.FromResult(Head);
+            return Task.FromResult(_head);
         }
 
         public Task<PrChecksState> GetChecksStateAsync(PrRef pr, string headSha, CancellationToken cancellationToken) => Task.FromResult(PrChecksState.Passing);
@@ -93,7 +93,7 @@ public sealed class GitHubWritesLimitTests
     }
 
     private static JsonElement ReviewArgs() =>
-        JsonElement.Parse($$"""{"owner":"acme","repo":"widgets","number":7,"headSha":"{{Head}}","event":"COMMENT","body":"ok"}""");
+        JsonElement.Parse($$"""{"owner":"acme","repo":"widgets","number":7,"headSha":"{{_head}}","event":"COMMENT","body":"ok"}""");
 
     private static JsonElement ReadArgs() => JsonElement.Parse("""{"owner":"acme","repo":"widgets","number":7}""");
 

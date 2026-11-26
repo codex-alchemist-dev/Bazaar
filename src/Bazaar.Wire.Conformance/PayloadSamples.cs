@@ -1,14 +1,14 @@
-using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Athanor;
 using Bazaar.Contracts.Engines;
 using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.GitHub;
 using Bazaar.Contracts.Graph;
+using Bazaar.Contracts.Hive;
 using Bazaar.Contracts.Kanban;
 using Bazaar.Contracts.Releases;
 using Bazaar.Contracts.Roadmap;
-using Bazaar.Contracts.TimeMachine;
 using Bazaar.Contracts.Ryusei;
+using Bazaar.Contracts.TimeMachine;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Xunit;
@@ -169,6 +169,8 @@ public static class PayloadSamples
         Of(null, new ReplayReputationWire(_author, 0.75m)),
         Of(null, new ReplayForkRequest(_gc, 12, _other), WireTypes.ReplayFork),
         Of(null, new ReplayForkResult(_other, "abc123", true)),
+        Of(null, new KanbanMoveRequest(_gc, _author, "in_progress", 3), WireTypes.BoardMove),
+        Of(null, new KanbanMoveReply(KanbanMoveStatuses.Applied, 4, [], null)),
         Of(null, new KanbanAssignRequest(_gc, _author, _other, 3), WireTypes.BoardAssign),
         Of(null, new KanbanAssignReply(KanbanAssignStatuses.Applied, 4)),
         Of(null, new ReleaseManifest("Stable", "0.1.0", "1.0", "1.2", "7", "0123456789abcdef0123456789abcdef01234567",

@@ -9,8 +9,8 @@ namespace Bazaar.Server.SoulProfile.Tests;
 
 public class SoulProfileEndpointTests
 {
-    private static readonly Guid Known = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
-    private static readonly Guid SoulId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
+    private static readonly Guid _known = Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001");
+    private static readonly Guid _soulId = Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001");
 
     private sealed class Resolver : ISoulProfileCallerResolver
     {
@@ -21,8 +21,8 @@ public class SoulProfileEndpointTests
     private sealed class Source : ISoulProfileSource
     {
         public Task<AgentProfileInfo?> ReadAsync(string personId, Guid agentId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(personId == "owner" && agentId == Known
-                ? new AgentProfileInfo(SoulId, "Claude", "Developer", "Haiku 5.5",
+            Task.FromResult(personId == "owner" && agentId == _known
+                ? new AgentProfileInfo(_soulId, "Claude", "Developer", "Haiku 5.5",
                     [new SoulVersionInfo(1, null, "aa", "{\"tone\":\"calm\"}", "bb", "owner", "first", null, DateTimeOffset.UnixEpoch)])
                 : null);
     }
@@ -57,11 +57,11 @@ public class SoulProfileEndpointTests
         var (client, host) = await StartAsync();
         await using var _ = host;
 
-        var reply = await client.SendAsync(Get($"/agents/{Known}/profile"), TestContext.Current.CancellationToken);
+        var reply = await client.SendAsync(Get($"/agents/{_known}/profile"), TestContext.Current.CancellationToken);
         var text = await reply.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.OK, reply.StatusCode);
-        Assert.Contains("\"soul_id\":\"" + SoulId + "\"", text);
+        Assert.Contains("\"soul_id\":\"" + _soulId + "\"", text);
         Assert.Contains("\"model_badge\":\"Haiku 5.5\"", text);
         Assert.Contains("\"charter_sha256\":\"aa\"", text);
         Assert.DoesNotContain("charter\":", text);
@@ -74,11 +74,11 @@ public class SoulProfileEndpointTests
         await using var _ = host;
         var ct = TestContext.Current.CancellationToken;
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Get($"/agents/{Known}/profile", token: null), ct)).StatusCode);
-        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Get($"/agents/{Known}/profile", token: "nobody"), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Get($"/agents/{_known}/profile", token: null), ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Get($"/agents/{_known}/profile", token: "nobody"), ct)).StatusCode);
 
         var unknown = await client.SendAsync(Get($"/agents/{Guid.NewGuid()}/profile"), ct);
-        var refused = await client.SendAsync(Get($"/agents/{Known}/profile", token: "guest"), ct);
+        var refused = await client.SendAsync(Get($"/agents/{_known}/profile", token: "guest"), ct);
         var malformed = await client.SendAsync(Get("/agents/not-a-guid/profile"), ct);
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
         Assert.Equal(await unknown.Content.ReadAsStringAsync(ct), await refused.Content.ReadAsStringAsync(ct));
@@ -90,18 +90,18 @@ public class SoulProfileEndpointTests
     {
         var (noPorts, hostA) = await StartAsync(ports: false);
         await using var _a = hostA;
-        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await noPorts.SendAsync(Get($"/agents/{Known}/profile"), TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await noPorts.SendAsync(Get($"/agents/{_known}/profile"), TestContext.Current.CancellationToken)).StatusCode);
 
         var (off, hostB) = await StartAsync(enabled: false);
         await using var _b = hostB;
-        Assert.Equal(HttpStatusCode.NotFound, (await off.SendAsync(Get($"/agents/{Known}/profile"), TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await off.SendAsync(Get($"/agents/{_known}/profile"), TestContext.Current.CancellationToken)).StatusCode);
     }
 }
 
 public class SoulProfileSourceTests
 {
-    private static readonly Guid Agent = Guid.NewGuid();
-    private static readonly Guid Soul = Guid.NewGuid();
+    private static readonly Guid _agent = Guid.NewGuid();
+    private static readonly Guid _soul = Guid.NewGuid();
 
     private sealed class Access(bool allowed) : ISoulProfileAccess
     {
@@ -138,11 +138,11 @@ public class SoulProfileSourceTests
     [Fact]
     public async Task A_readable_bound_agent_gives_identity_and_the_chain_oldest_first()
     {
-        var profile = await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(Soul), new Versions())
-            .ReadAsync("owner", Agent, TestContext.Current.CancellationToken);
+        var profile = await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(_soul), new Versions())
+            .ReadAsync("owner", _agent, TestContext.Current.CancellationToken);
 
         Assert.Equal("Claude", profile!.Name);
-        Assert.Equal(Soul, profile.SoulId);
+        Assert.Equal(_soul, profile.SoulId);
         Assert.Equal([1, 2], profile.Versions.Select(v => v.Version));
     }
 
@@ -150,9 +150,9 @@ public class SoulProfileSourceTests
     public async Task Every_miss_is_null_and_a_refused_reader_never_reaches_the_version_store()
     {
         var versions = new Versions();
-        Assert.Null(await new SoulProfileSource(new Access(false), new Identities(true), new Bindings(Soul), versions).ReadAsync("guest", Agent, TestContext.Current.CancellationToken));
-        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(false), new Bindings(Soul), versions).ReadAsync("owner", Agent, TestContext.Current.CancellationToken));
-        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(null), versions).ReadAsync("owner", Agent, TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulProfileSource(new Access(false), new Identities(true), new Bindings(_soul), versions).ReadAsync("guest", _agent, TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(false), new Bindings(_soul), versions).ReadAsync("owner", _agent, TestContext.Current.CancellationToken));
+        Assert.Null(await new SoulProfileSource(new Access(true), new Identities(true), new Bindings(null), versions).ReadAsync("owner", _agent, TestContext.Current.CancellationToken));
         Assert.Equal(0, versions.Calls);
     }
 }

@@ -13,7 +13,7 @@ namespace Bazaar.Client.Calcinato.Tests.Wire;
 /// <summary>The pane adapter over the real <see cref="WireClient"/> and a scripted socket (doc 55, section 6.1).</summary>
 public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
 {
-    private const string Stream = "pane:t1";
+    private const string _stream = "pane:t1";
 
     private readonly ScriptedTransport _transport = new();
     private readonly WireClient _client;
@@ -75,46 +75,46 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     [Fact]
     public async Task Pane_frame_events_become_bodies_with_the_frame_text()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
         var conn = _transport.Latest;
         string frame = FrameText(new TerminalOutput("t1", 1, [104, 105]));
 
-        conn.PushPaneFrame(Stream, frame);
+        conn.PushPaneFrame(_stream, frame);
 
         var body = await Next(_adapter.Bodies);
-        Assert.Equal(Stream, body.Stream);
+        Assert.Equal(_stream, body.Stream);
         Assert.Equal(frame, Text(body));
     }
 
     [Fact]
     public async Task Subscribe_sends_a_subscribe_for_the_stream_and_unsubscribe_sends_unsubscribe()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1 && _transport.Latest.SentOfType(WireTypes.Subscribe).Count > 0);
         var conn = _transport.Latest;
-        Assert.Equal(Stream, _transport.Codec.DecodePayload<Subscribe>(conn.SentOfType(WireTypes.Subscribe).Single()).Streams.Single().S);
+        Assert.Equal(_stream, _transport.Codec.DecodePayload<Subscribe>(conn.SentOfType(WireTypes.Subscribe).Single()).Streams.Single().S);
 
-        await _adapter.UnsubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.UnsubscribeAsync(_stream, TestContext.Current.CancellationToken);
 
         await Until(() => conn.SentOfType(WireTypes.Unsubscribe).Count > 0);
-        Assert.Equal([Stream], _transport.Codec.DecodePayload<Unsubscribe>(conn.SentOfType(WireTypes.Unsubscribe).Single()).Streams);
+        Assert.Equal([_stream], _transport.Codec.DecodePayload<Unsubscribe>(conn.SentOfType(WireTypes.Unsubscribe).Single()).Streams);
     }
 
     [Fact]
     public async Task Send_makes_a_pane_frame_request_on_the_stream_and_completes_on_ok()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
         var conn = _transport.Latest;
         string frame = FrameText(new TerminalInput("t1", [108, 115]));
 
-        var send = _adapter.SendAsync(Stream, Encoding.UTF8.GetBytes(frame), TestContext.Current.CancellationToken).AsTask();
+        var send = _adapter.SendAsync(_stream, Encoding.UTF8.GetBytes(frame), TestContext.Current.CancellationToken).AsTask();
         await Until(() => conn.SentOfType("pane.frame").Count > 0);
         var request = conn.SentOfType("pane.frame").Single();
 
         Assert.Equal(EnvelopeKind.Request, request.K);
-        Assert.Equal(Stream, request.S);
+        Assert.Equal(_stream, request.S);
         using (var doc = JsonDocument.Parse(request.P))
         {
             Assert.Equal(frame, doc.RootElement.GetProperty("frame").GetString());
@@ -128,11 +128,11 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     [Fact]
     public async Task An_error_answer_throws_a_wire_request_exception()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
         var conn = _transport.Latest;
 
-        var send = _adapter.SendAsync(Stream, "{}"u8.ToArray(), TestContext.Current.CancellationToken).AsTask();
+        var send = _adapter.SendAsync(_stream, "{}"u8.ToArray(), TestContext.Current.CancellationToken).AsTask();
         await Until(() => conn.SentOfType("pane.frame").Count > 0);
         var request = conn.SentOfType("pane.frame").Single();
         conn.Push(new Envelope(1, "pane.frame", EnvelopeKind.Error, null, request.Id, null, null, DateTimeOffset.UnixEpoch,
@@ -145,16 +145,16 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     [Fact]
     public async Task Unknown_streams_and_other_types_and_bad_payloads_are_ignored()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
         var conn = _transport.Latest;
 
         conn.PushPaneFrame("other:t1", "ignored-stream");
-        conn.PushRaw("pane.other", Stream, "{\"frame\":\"wrong-type\"}"u8.ToArray());
-        conn.PushRaw("pane.frame", Stream, "{\"frame\":5}"u8.ToArray());
-        conn.PushRaw("pane.frame", Stream, "[1]"u8.ToArray());
+        conn.PushRaw("pane.other", _stream, "{\"frame\":\"wrong-type\"}"u8.ToArray());
+        conn.PushRaw("pane.frame", _stream, "{\"frame\":5}"u8.ToArray());
+        conn.PushRaw("pane.frame", _stream, "[1]"u8.ToArray());
         conn.PushRaw("pane.frame", "pane:bad id", "{\"frame\":\"bad-id\"}"u8.ToArray());
-        conn.PushPaneFrame(Stream, "last");
+        conn.PushPaneFrame(_stream, "last");
 
         var body = await Next(_adapter.Bodies);
 
@@ -174,10 +174,10 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     {
         int reconnected = 0;
         _adapter.Reconnected += () => Interlocked.Increment(ref reconnected);
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
         var first = _transport.Latest;
-        var send = _adapter.SendAsync(Stream, "{\"x\":1}"u8.ToArray(), TestContext.Current.CancellationToken).AsTask();
+        var send = _adapter.SendAsync(_stream, "{\"x\":1}"u8.ToArray(), TestContext.Current.CancellationToken).AsTask();
         await Until(() => first.SentOfType("pane.frame").Count > 0);
         string id = first.SentOfType("pane.frame").Single().Id!;
 
@@ -186,24 +186,24 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
         var second = _transport.Latest;
 
         Assert.Equal(id, second.SentOfType("pane.frame").Single().Id);
-        Assert.Equal(Stream, _transport.Codec.DecodePayload<Subscribe>(second.SentOfType(WireTypes.Subscribe).Single()).Streams.Single().S);
+        Assert.Equal(_stream, _transport.Codec.DecodePayload<Subscribe>(second.SentOfType(WireTypes.Subscribe).Single()).Streams.Single().S);
         await Until(() => Volatile.Read(ref reconnected) == 1);
 
         second.Push(new Envelope(1, "pane.frame", EnvelopeKind.Response, null, id, null, null, DateTimeOffset.UnixEpoch, default));
         await send;
 
         // The same body reader keeps delivering after the reconnect.
-        second.PushPaneFrame(Stream, "after");
+        second.PushPaneFrame(_stream, "after");
         Assert.Equal("after", Text(await Next(_adapter.Bodies)));
     }
 
     [Fact]
     public async Task An_unsubscribed_stream_is_not_resubscribed_after_a_reconnect()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await _adapter.SubscribeAsync("pane:t2", TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
-        await _adapter.UnsubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.UnsubscribeAsync(_stream, TestContext.Current.CancellationToken);
 
         _transport.Latest.Close();
         await Until(() => _transport.Count == 2 && _transport.Latest.SentOfType(WireTypes.Subscribe).Count > 0);
@@ -224,11 +224,11 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
     [Fact]
     public async Task A_non_pane_event_still_reaches_no_sink_and_the_client_keeps_running()
     {
-        await _adapter.SubscribeAsync(Stream, TestContext.Current.CancellationToken);
+        await _adapter.SubscribeAsync(_stream, TestContext.Current.CancellationToken);
         await Until(() => _transport.Count == 1);
 
         _transport.Latest.PushRaw("future.event", "future:1", "{}"u8.ToArray());
-        _transport.Latest.PushPaneFrame(Stream, "still-alive");
+        _transport.Latest.PushPaneFrame(_stream, "still-alive");
 
         Assert.Equal("still-alive", Text(await Next(_adapter.Bodies)));
     }
@@ -246,7 +246,7 @@ public sealed class WireClientPaneStreamConnectionTests : IAsyncLifetime
         var request = conn.SentOfType("pane.frame").Single();
         conn.Push(new Envelope(1, "pane.frame", EnvelopeKind.Response, null, request.Id, null, null, DateTimeOffset.UnixEpoch, default));
         await send;
-        conn.PushPaneFrame(Stream, FrameText(new TerminalOutput("t1", 7, [65])));
+        conn.PushPaneFrame(_stream, FrameText(new TerminalOutput("t1", 7, [65])));
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
