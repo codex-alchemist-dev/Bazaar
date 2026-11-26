@@ -7,6 +7,7 @@ namespace Bazaar.Server.SignIn;
 /// (default true) keeps the page reachable for the admin panel, which is on by default (doc 51). The routes are served when either is on.
 /// </summary>
 public sealed record SignInOptions(bool Enabled, bool AdminEnabled, string DisplayName, string? RpId)
+public sealed record SignInOptions(bool Enabled, bool AdminEnabled, string DisplayName, string? RpId, bool AllowPlaintextOverlay = false)
 {
     public const string DefaultDisplayName = "Bazaar server";
 
@@ -27,10 +28,14 @@ public sealed record SignInOptions(bool Enabled, bool AdminEnabled, string Displ
         ArgumentNullException.ThrowIfNull(configuration);
         var name = configuration["signin:displayName"];
         var rp = configuration["signin:rpId"];
+        // The same setting the wire and refresh routes read (wire.allow_plaintext_overlay), so one switch governs every credential route.
+        var plaintext = bool.TryParse(configuration["Bazaar:Wire:AllowPlaintextOverlay"], out var p) && p;
         return new SignInOptions(
             bool.TryParse(configuration["signin:enabled"], out var e) && e,
             !bool.TryParse(configuration["signin:adminEnabled"], out var a) || a,
             string.IsNullOrWhiteSpace(name) || name.Length > 80 ? DefaultDisplayName : name.Trim(),
             string.IsNullOrWhiteSpace(rp) ? null : rp.Trim());
+            string.IsNullOrWhiteSpace(rp) ? null : rp.Trim(),
+            plaintext);
     }
 }

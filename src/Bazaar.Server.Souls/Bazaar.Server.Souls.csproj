@@ -5,9 +5,17 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Npgsql" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Npgsql" />
+    <ProjectReference Include="..\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Souls.Abstractions\Bazaar.Souls.Abstractions.csproj" />
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Gateway.Abstractions\Bazaar.Server.Gateway.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Presets\Data\*.json" LogicalName="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

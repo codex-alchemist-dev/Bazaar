@@ -62,3 +62,7 @@ The renderer is a standalone module and has its own default theme, separate from
 - Optional subtle twinkle (small, slow per-node brightness modulation). It is a theme setting, off when the frame controller (section 11 of the scale doc) is shedding detail, and off with reduced-motion.
 - It stays a theme: hosts may supply another, and Bazaar's Constellation view may use the Bazaar theme. Nothing in the renderer core hard-codes colours.
 
+## 8. Node kinds, sections and frame pacing (owner, 2026-11-20, DECIDED)
+
+The renderer (Constellation.Renderer) is the standalone shared module, and the Constellation module in Bazaar is its consumer. Node icons by kind, sections, and the on-demand frame pacer belong to the renderer core; deciding what a node is, what a section holds and where connections come from stays in the Bazaar adapter. Details: `constellation-node-detail-and-pacing.md`.
+

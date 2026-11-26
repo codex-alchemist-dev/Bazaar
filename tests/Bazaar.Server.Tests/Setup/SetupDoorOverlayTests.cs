@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
+using Bazaar.Admin.Composition;
 using Bazaar.Server.Setup;
+using Bazaar.Server.Setup.Host;
 
 namespace Bazaar.Server.Tests.Setup;
 
@@ -15,7 +17,7 @@ public sealed class SetupDoorOverlayTests
     private static readonly Dictionary<string, string?> _noEnvironment = [];
 
     private static SetupOverlayResult Merge(string? file, IReadOnlyList<string>? sets = null, IReadOnlyDictionary<string, string?>? environment = null) =>
-        SetupDoorOverlay.Merge(file, sets ?? [], environment ?? _noEnvironment);
+        SetupDoorOverlay.Merge(file, sets ?? [], environment ?? _noEnvironment, RegistrySetupSettingCatalog.Known);
 
     private static Dictionary<string, string?> Env(params (string Name, string? Value)[] variables)
     {
@@ -32,7 +34,7 @@ public sealed class SetupDoorOverlayTests
     private static SetupLoadResult Load(SetupOverlayResult overlay)
     {
         Assert.False(overlay.HasErrors, string.Join("; ", overlay.Issues.Select(issue => issue.Path + " " + issue.Message)));
-        return SetupPlanLoader.Load(overlay.MergedJson!);
+        return SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known);
     }
 
     private static bool HasError(SetupOverlayResult overlay, string path) =>
@@ -67,13 +69,14 @@ public sealed class SetupDoorOverlayTests
     [Fact]
     public void A_list_item_is_set_by_its_numeric_segment_in_both_doors()
     {
-        var environment = Env(("BAZAAR__SETUP__MODELS__SOURCES__1__ID", "other-source"));
-        var flags = new[] { "models.sources.0.id=first-source" };
+        var environment = Env(("BAZAAR__SETUP__MODELS__SOURCES__1__ID", "openrouter"));
+        var flags = new[] { "models.sources.0.id=openai" };
 
         var result = Load(Merge(SetupFixtures.Valid, flags, environment));
 
-        Assert.Equal("first-source", result.Plan!.Models.Sources[0].Id);
-        Assert.Equal("other-source", result.Plan.Models.Sources[1].Id);
+        Assert.True(result.Plan is not null, string.Join("; ", result.Issues.Select(issue => issue.Path + " " + issue.Message)));
+        Assert.Equal("openai", result.Plan!.Models.Sources[0].Id);
+        Assert.Equal("openrouter", result.Plan.Models.Sources[1].Id);
     }
 
     [Fact]
@@ -90,12 +93,12 @@ public sealed class SetupDoorOverlayTests
     {
         var overlay = Merge(
             SetupFixtures.Valid,
-            ["models.sources.2.id=third", "models.sources.2.keyRef=secret://bazaar/providers/third/key"]);
+            ["models.sources.2.id=openrouter", "models.sources.2.keyRef=secret://bazaar/providers/openrouter/key"]);
 
         var result = Load(overlay);
 
-        Assert.Equal("third", result.Plan!.Models.Sources[2].Id);
-        Assert.Equal("secret://bazaar/providers/third/key", result.Plan.Models.Sources[2].KeyRef);
+        Assert.Equal("openrouter", result.Plan!.Models.Sources[2].Id);
+        Assert.Equal("secret://bazaar/providers/openrouter/key", result.Plan.Models.Sources[2].KeyRef);
     }
 
     [Fact]
@@ -292,14 +295,14 @@ public sealed class SetupDoorOverlayTests
 
         Assert.False(overlay.HasErrors);
         Assert.Equal(broken, overlay.MergedJson);
-        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(overlay.MergedJson!).ExitCode);
+        Assert.Equal(SetupExitCode.InvalidInput, SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known).ExitCode);
     }
 
     [Fact]
     public void Without_a_file_the_document_starts_empty_and_the_loader_asks_for_the_required_keys()
     {
         var overlay = Merge(null, ["schemaVersion=1"]);
-        var result = SetupPlanLoader.Load(overlay.MergedJson!);
+        var result = SetupPlanLoader.Load(overlay.MergedJson!, RegistrySetupSettingCatalog.Known);
 
         Assert.Equal(SetupExitCode.InvalidInput, result.ExitCode);
         Assert.Contains(result.Issues, issue => issue.Path == "install" && issue.Message == "is required.");
@@ -356,7 +359,7 @@ public sealed class SetupDoorOverlayTests
         var fromEnvironment = Load(Merge(null, environment: environment));
         var fromFlags = Load(Merge(null, flags));
 
-        Assert.Equal(fromFile.PlanHash, SetupPlanLoader.Load(SetupFixtures.Valid).PlanHash);
+        Assert.Equal(fromFile.PlanHash, SetupPlanLoader.Load(SetupFixtures.Valid, RegistrySetupSettingCatalog.Known).PlanHash);
         Assert.Equal(fromFile.PlanHash, fromEnvironment.PlanHash);
         Assert.Equal(fromFile.PlanHash, fromFlags.PlanHash);
         Assert.Equal(SetupEntryPath.File, Merge(SetupFixtures.Valid).EntryPath);

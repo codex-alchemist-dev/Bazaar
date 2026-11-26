@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool.Display\Bazaar.Server.BrowserPool.Display.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
+    <!-- The real test launches Chromium through the real host chain: the pool command line, the Linux host and the spawn helper. -->
+    <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool.LinuxHost\Bazaar.Server.BrowserPool.LinuxHost.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Guest.PoolSpawn\Bazaar.Guest.PoolSpawn.csproj" />
+  </ItemGroup>
+</Project>
