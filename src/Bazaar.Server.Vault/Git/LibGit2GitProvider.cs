@@ -11,7 +11,7 @@ namespace Bazaar.Server.Vault.Git;
 /// Writes take <see cref="CheckoutLocks"/> for the checkout they change (see the single-writer rule on
 /// <see cref="IGitProvider"/>). Sparse worktrees are not implemented.
 /// </remarks>
-public sealed class LibGit2GitProvider : IGitProvider
+public sealed class LibGit2GitProvider : IGitProvider, IGitBranchWriter
 {
     private static readonly string[] _mergeStateNames = ["MERGE_HEAD", "MERGE_MSG", "MERGE_MODE", "MERGE_RR"];
 
@@ -60,6 +60,26 @@ public sealed class LibGit2GitProvider : IGitProvider
                 return false;
             }
 
+            return true;
+        }, ct).ConfigureAwait(false);
+    }
+
+    public async Task<bool> CreateBranchAsync(string repoPath, string branch, string commitSha, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(branch);
+        ArgumentException.ThrowIfNullOrWhiteSpace(commitSha);
+
+        using var _ = await CheckoutLocks.AcquireAsync(repoPath, ct).ConfigureAwait(false);
+        return await Task.Run(() =>
+        {
+            using var repo = OpenRepository(repoPath);
+            if (repo.Branches[branch] is not null)
+            {
+                return false;
+            }
+
+            var commit = repo.Lookup<Commit>(commitSha) ?? throw new InvalidOperationException($"Commit {commitSha} does not exist.");
+            repo.CreateBranch(branch, commit);
             return true;
         }, ct).ConfigureAwait(false);
     }

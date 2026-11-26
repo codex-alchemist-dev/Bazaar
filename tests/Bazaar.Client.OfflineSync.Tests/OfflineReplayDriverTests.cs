@@ -36,6 +36,32 @@ public sealed class OfflineReplayDriverTests : IDisposable
     }
 
     [Fact]
+    public async Task ModuleUnavailable_KeepsThatWriteAndEverythingBehindItQueued_ThenDrainsWhenTheModuleArrives()
+    {
+        var queue = NewQueue(directory: _dir.Root, count: 5);
+        var server = new FakeOfflineServer();
+        server.Overrides[WriteIdAt(queue, 3)] = OfflineOutcomeKind.ModuleUnavailable;
+        var state = new ConnectionStateTracker();
+        var driver = new OfflineReplayDriver(queue, server, state, batchSize: 10);
+
+        var waiting = await driver.RunAsync(CancellationToken.None);
+
+        Assert.Equal(OfflineReplayStatus.WaitingForModule, waiting.Status);
+        Assert.Equal(2, waiting.AckedSequence);
+        Assert.Equal(0, waiting.AttentionCount);
+        Assert.Equal(3, queue.PendingCount);
+        Assert.IsType<ConnectionState.Live>(state.Current);
+
+        server.Overrides.Clear();
+        var drained = await driver.RunAsync(CancellationToken.None);
+
+        Assert.Equal(OfflineReplayStatus.Drained, drained.Status);
+        Assert.Equal(0, queue.PendingCount);
+        Assert.Equal(5, server.AppliedLog.Count);
+        Assert.Equal(server.AppliedLog.Distinct().Count(), server.AppliedLog.Count);
+    }
+
+    [Fact]
     public async Task GapReportedByServer_IsResentFromTheGap()
     {
         var queue = NewQueue(directory: _dir.Root, count: 5);
