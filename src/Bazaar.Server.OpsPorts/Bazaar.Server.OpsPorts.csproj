@@ -19,5 +19,7 @@
     <!-- AdminGate.CapabilitiesFor, so the TUI roles check is the web admin's and not a copy. -->
     <ProjectReference Include="..\Bazaar.Server.WebAdmin\Bazaar.Server.WebAdmin.csproj" />
     <ProjectReference Include="..\Bazaar.Roles.Abstractions\Bazaar.Roles.Abstractions.csproj" />
+    <!-- KodoSnapshotFile and KodoAdminViews: the snapshot the Kodo module writes and its mapping. Abstractions only, never the Kodo module. -->
+    <ProjectReference Include="..\Bazaar.Server.Kodo.Abstractions\Bazaar.Server.Kodo.Abstractions.csproj" />
   </ItemGroup>
 </Project>
