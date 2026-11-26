@@ -26,6 +26,7 @@
     <ProjectReference Include="..\Bazaar.Server.Council\Bazaar.Server.Council.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Postgres\Bazaar.Server.Identity.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules\Bazaar.Server.Modules.csproj" />
+    <ProjectReference Include="..\Bazaar.Install\Bazaar.Install.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.WindowsSandbox\Bazaar.Server.Vms.WindowsSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Components.ManagedPostgres\Bazaar.Components.ManagedPostgres.csproj" />
@@ -36,6 +37,7 @@
     <ProjectReference Include="..\Bazaar.Server.AuditReader\Bazaar.Server.AuditReader.csproj" />
     <ProjectReference Include="..\Bazaar.GitHub\Bazaar.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.CompanyBuild\Bazaar.Server.CompanyBuild.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.CompanyBuild.State\Bazaar.Server.CompanyBuild.State.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution.Abstractions\Bazaar.Server.Constitution.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Constitution\Bazaar.Server.Constitution.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Components.Backup\Bazaar.Server.Components.Backup.csproj" />

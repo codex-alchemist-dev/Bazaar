@@ -1,8 +1,10 @@
 using Bazaar.Core;
 using Bazaar.Erasure;
+using Bazaar.Install.Abstractions;
 using Bazaar.Server.Agents.Responder;
 using Bazaar.Server.AgentSafety;
 using Bazaar.Server.Blobs;
+using Bazaar.Server.CompanyBuild.State;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
 using Bazaar.Server.Gateway.Adapters.OpenAi;
@@ -16,6 +18,7 @@ using Bazaar.Server.Souls.Retirement;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Bazaar.Server.Host.Composition;
 
@@ -48,6 +51,14 @@ public static class HostApplicationExtensions
         // Bazaar Components (docs/design/BAZAAR-COMPONENTS.md). Each entry is one component; the kernel orders and validates them.
         // Registered before the agent responder, so the GC component's hosted services (GC log, wire) still start before it.
         services.AddBazaarComponents(configuration, HostComponents.All);
+        // The module catalogue the panel and the company build state read. The build runner and the install-gate approval check
+        // are seams: the executor is bound when Bazaar:CompanyBuild is configured (else a rebuild is refused with a reason), and the
+        // approval requirement reads the install gate's rule (docs/design/51 section 5a).
+        services.TryAddSingleton<IModuleCatalogue, HostModuleCatalogue>();
+        services.AddBazaarCompanyBuildExecutor(configuration);
+        services.TryAddSingleton<IModuleDeclarationSource, HostModuleDeclarationSource>();
+        services.TryAddSingleton<IModuleApprovalRequirement>(sp => new InstallGateApprovalRequirement(
+            sp.GetRequiredService<IModuleDeclarationSource>(), sp.GetService<IModulePermissionApprovalReader>()));
         // The Council's Vault decision writer (C24). It resolves the Vault writer on first use.
         services.AddBazaarCouncilDecisionVault();
         FreeLlmApiComponent.RequireComponentWhenGatewayIsOn(configuration);
