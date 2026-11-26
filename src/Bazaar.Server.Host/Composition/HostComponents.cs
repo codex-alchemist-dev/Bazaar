@@ -12,6 +12,7 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
+using Bazaar.Server.AuditReader;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Analytics.Git;
 using Bazaar.Server.Analytics.Postgres;
@@ -69,6 +70,9 @@ using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
+using Bazaar.Server.Setup.Host;
+using Bazaar.Server.TalentPool.Component;
+using Bazaar.Server.Valkey;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.SignIn.WebAuthn;
 using Bazaar.Server.Vault;
@@ -146,6 +150,7 @@ public static class HostComponents
         new SignInComponent(),
         new SignInWebAuthnComponent(),
         new WebAdminComponent(),
+        new AuditReaderComponent(),
         new PasskeysComponent(),
         new WebAdminComponent(),
         new CommunityGitHubComponent(),
