@@ -55,6 +55,9 @@ public enum EnrolmentVerdict
     ApprovalKeyNotHardware,
     CredentialRefused,
     CredentialSynced,
+
+    /// <summary>The request named a different device than the signed-in one (doc 32 section 5b step 4). Raised by the route, before the ceremony.</summary>
+    DeviceMismatch,
 }
 
 /// <summary>The outcome of <see cref="IDeviceEnrolment.CompleteAsync"/>.</summary>
@@ -160,8 +163,6 @@ public static class EnrolmentArgs
     /// <summary>The owner payload action for approving a further device.</summary>
     public const string Action = "device.enrol";
 
-    private const string _challengeDomain = "bazaar.enrol.v1";
-
     /// <summary>SHA-256 over the new device id and the SHA-256 of its approval key, each length-prefixed.</summary>
     public static byte[] Hash(Guid deviceId, byte[] approvalPublicKeySpki)
     {
@@ -178,16 +179,7 @@ public static class EnrolmentArgs
     /// </summary>
     public static byte[] Challenge(byte[] nonce, Guid humanId, Guid deviceId, byte[] approvalPublicKeySpki)
     {
-        ArgumentNullException.ThrowIfNull(nonce);
-        ArgumentNullException.ThrowIfNull(approvalPublicKeySpki);
-        using var ms = new MemoryStream();
-        ms.Write(Encoding.ASCII.GetBytes(_challengeDomain));
-        ms.WriteByte(0);
-        ms.Write(nonce);
-        ms.Write(humanId.ToByteArray(bigEndian: true));
-        ms.Write(deviceId.ToByteArray(bigEndian: true));
-        ms.Write(SHA256.HashData(approvalPublicKeySpki));
-        return SHA256.HashData(ms.ToArray());
+        return Bazaar.Contracts.Enrolment.EnrolmentChallengeFormula.Compute(nonce, humanId, deviceId, approvalPublicKeySpki);
     }
 
     private static void Append(StringBuilder sb, string value) => sb.Append(value.Length).Append(':').Append(value).Append(';');

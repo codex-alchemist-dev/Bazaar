@@ -69,6 +69,7 @@ public sealed class MemoryGraphProjectionRegistrationTests
         var config = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
         new Bazaar.Server.Vault.VaultComponent().AddServices(services, config);
         new MemoryComponent().AddServices(services, config);
+        new MemoryComponent().AddServices(services, new ConfigurationBuilder().AddInMemoryCollection(values).Build());
     }
 
     private sealed class FakeGraphStore : IMemoryGraphStore
@@ -81,6 +82,9 @@ public sealed class MemoryGraphProjectionRegistrationTests
             Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
 
         public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
+
+        public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsByDocAsync(Guid docId, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<MemoryGraphRevision>>([]);
     }
 }

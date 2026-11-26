@@ -58,5 +58,8 @@ public sealed class VaultComponent : IBazaarComponent
             new GitIdentity(writerName, writerEmail),
             sp.GetService<IVaultCommitObserver>()));
         services.TryAddSingleton<IVaultWriter>(sp => sp.GetRequiredService<VaultWriter>());
+        // Page writes (doc 18) are the writer itself: forward the one VaultWriter instance, so the vault lane stays single.
+        // Resolving fails until the host registers a VaultWriter, like the other write-side services.
+        services.TryAddSingleton<IVaultPageWriter>(sp => sp.GetRequiredService<VaultWriter>());
     }
 }

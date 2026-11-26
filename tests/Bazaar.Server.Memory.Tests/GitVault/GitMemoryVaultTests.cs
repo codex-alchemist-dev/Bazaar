@@ -179,5 +179,6 @@ public sealed class GitMemoryVaultTests : IDisposable
 
         public Task<VaultEditResult> CreateDecisionAsync(DecisionDraft draft, CancellationToken ct) =>
             throw new NotSupportedException();
+            Task.FromResult(new VaultEditResult(outcome, "old", "old", paths, null));
     }
 }

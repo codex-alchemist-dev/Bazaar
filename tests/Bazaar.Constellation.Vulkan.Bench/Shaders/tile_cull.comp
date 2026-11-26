@@ -1,0 +1,56 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+// Per-frame tile cull: frustum test of the tile's bounding box, then (a = 1) a Hi-Z occlusion test against the previous
+// frame's depth pyramid. Each surviving tile appends one VkDrawIndirectCommand {1 vertex, tile point count, 0, first sample slot}.
+#include "topology.glsl"
+#include "tile.glsl"
+layout(local_size_x = 256) in;
+void main()
+{
+    uint t = gl_GlobalInvocationID.x;
+    if (t >= TILES) { return; }
+    uint cnt = tileCount[t];
+    if (cnt == 0u) { return; }
+    atomicAdd(cmds[3], 1u);
+    vec3 mn = vec3(ukey(tileBounds[t * 6u + 0u]), ukey(tileBounds[t * 6u + 1u]), ukey(tileBounds[t * 6u + 2u]));
+    vec3 mx = vec3(ukey(tileBounds[t * 6u + 3u]), ukey(tileBounds[t * 6u + 4u]), ukey(tileBounds[t * 6u + 5u]));
+    uint allOutside = 63u;
+    bool behind = false;
+    vec3 ndcMin = vec3(1e30), ndcMax = vec3(-1e30);
+    for (uint c = 0u; c < 8u; c++)
+    {
+        vec3 corner = vec3((c & 1u) != 0u ? mx.x : mn.x, (c & 2u) != 0u ? mx.y : mn.y, (c & 4u) != 0u ? mx.z : mn.z);
+        vec4 q = pc.viewProj * vec4(corner, 1.0);
+        uint m = (q.x < -q.w ? 1u : 0u) | (q.x > q.w ? 2u : 0u) | (q.y < -q.w ? 4u : 0u) | (q.y > q.w ? 8u : 0u) | (q.z < 0.0 ? 16u : 0u) | (q.z > q.w ? 32u : 0u);
+        allOutside &= m;
+        if (q.w <= 1e-5) { behind = true; }
+        else
+        {
+            vec3 n = q.xyz / q.w;
+            ndcMin = min(ndcMin, n);
+            ndcMax = max(ndcMax, n);
+        }
+    }
+    if (allOutside != 0u) { return; }
+    atomicAdd(cmds[1], 1u);
+    if (pc.a == 1u && !behind)
+    {
+        // Rectangle in level-0 texels (640x360), nearest depth of the box (reversed-Z: larger is nearer).
+        vec2 lo = clamp((ndcMin.xy * 0.5 + 0.5) * vec2(640.0, 360.0), vec2(0.0), vec2(639.0, 359.0));
+        vec2 hi = clamp((ndcMax.xy * 0.5 + 0.5) * vec2(640.0, 360.0), vec2(0.0), vec2(639.0, 359.0));
+        float extent = max(max(hi.x - lo.x, hi.y - lo.y), 1.0);
+        uint level = min(uint(ceil(log2(extent))), 10u);
+        uint off, w, h;
+        hizLevel(level, off, w, h);
+        uvec2 a = min(uvec2(lo) >> level, uvec2(w - 1u, h - 1u));
+        uvec2 b = min(uvec2(hi) >> level, uvec2(w - 1u, h - 1u));
+        float farthest = min(min(hiz[off + a.y * w + a.x], hiz[off + a.y * w + b.x]), min(hiz[off + b.y * w + a.x], hiz[off + b.y * w + b.x]));
+        if (clamp(ndcMax.z, 0.0, 1.0) < farthest) { return; }
+    }
+    uint slot = atomicAdd(cmds[0], 1u);
+    atomicAdd(cmds[2], cnt);
+    cmds[4u + slot * 4u + 0u] = 1u;
+    cmds[4u + slot * 4u + 1u] = cnt;
+    cmds[4u + slot * 4u + 2u] = 0u;
+    cmds[4u + slot * 4u + 3u] = tileOffset[t];
+}

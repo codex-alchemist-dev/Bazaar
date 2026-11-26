@@ -10,9 +10,13 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Identity.Abstractions\Bazaar.Server.Identity.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals.Abstractions\Bazaar.Approvals.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Modules.Abstractions\Bazaar.Server.Modules.Abstractions.csproj" />
+    <!-- The doc 51 approvals read port this module implements (abstractions only). -->
+    <ProjectReference Include="..\Bazaar.Server.WebAdmin.Abstractions\Bazaar.Server.WebAdmin.Abstractions.csproj" />
   </ItemGroup>
 </Project>

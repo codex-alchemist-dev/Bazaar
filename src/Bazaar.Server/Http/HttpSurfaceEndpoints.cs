@@ -47,6 +47,49 @@ public static class HttpSurfaceEndpoints
     }
 
     /// <summary>
+    /// The HTTP surface guard for routes that live in a module (bearer, rate bucket). Host composition passes it as the <c>guard</c>
+    /// of a module's route mapper, so the module never references this project. The filter authenticates first (401), spends a
+    /// token of the HTTP bucket (429), then runs the route.
+    /// </summary>
+    public static RouteHandlerBuilder RequireBazaarAuth(this RouteHandlerBuilder route)
+    {
+        ArgumentNullException.ThrowIfNull(route);
+        return route.AddEndpointFilter(async (context, next) =>
+            await Guarded(context.HttpContext, async (_, _) => await next(context) is IResult result ? result : Results.Empty));
+    /// The authentication step every route of this surface runs first (doc 02 WP10): transport check (403), bearer token (401),
+    /// expiry (401) and the HTTP rate limit (429). Returns the principal, or the answer to send. Public so a module's routes can
+    /// be guarded the same way as the routes here (an endpoint filter calls this); it changes nothing for the routes in this class.
+    /// </summary>
+    public static async Task<(PrincipalRef? Principal, IResult? Failure)> AuthenticateAsync(HttpContext http)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        var services = http.RequestServices;
+        var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
+
+        // Credentials never travel in clear text off the machine unless the operator allowed an overlay network.
+        var remote = http.Connection.RemoteIpAddress;
+        if (!http.Request.IsHttps && !wire.AllowPlaintextOverlay && remote is not null && !System.Net.IPAddress.IsLoopback(remote))
+            return (null, Error(StatusCodes.Status403Forbidden, "forbidden"));
+
+        var header = http.Request.Headers.Authorization.ToString();
+        var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
+        if (string.IsNullOrEmpty(token)) return (null, Unauthorized(http));
+
+        var auth = await services.GetRequiredService<IConnectionAuthenticator>()
+            .AuthenticateAsync(new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), http.RequestAborted);
+        if (!auth.Ok || auth.Principal is null || (auth.ExpiresAt is { } expiry && expiry <= services.GetRequiredService<TimeProvider>().GetUtcNow()))
+            return (null, Unauthorized(http));
+
+        if (!services.GetRequiredService<HttpRateLimiter>().TryAcquire(auth.Principal.Id, out var retryAfter))
+        {
+            http.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
+            return (null, Error(StatusCodes.Status429TooManyRequests, "rate_limited"));
+        }
+
+        return (auth.Principal, null);
+    }
+
+    /// <summary>
     /// The same bearer and rate-bucket check as every route here, for routes that live in feature modules. Returns null when the
     /// caller may proceed, otherwise the refusal (401, 403 or 429) to send as it is.
     /// </summary>
@@ -62,32 +105,15 @@ public static class HttpSurfaceEndpoints
         return passed ? null : refused;
     }
 
-    internal static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
+    /// <summary>
+    /// Guards one route of the authenticated HTTP surface: plaintext refusal, bearer authentication (401), the HTTP rate bucket
+    /// (429), then <paramref name="run"/> with the caller. Public so a module can map its own route with the same guard
+    /// (for example <c>POST /github/merge</c>, doc 21).
+    /// </summary>
+    public static async Task<IResult> Guarded(HttpContext http, Func<HttpContext, PrincipalRef, Task<IResult>> run)
     {
-        var services = http.RequestServices;
-        var wire = services.GetRequiredService<IOptions<WireOptions>>().Value;
-
-        // Credentials never travel in clear text off the machine unless the operator allowed an overlay network.
-        var remote = http.Connection.RemoteIpAddress;
-        if (!http.Request.IsHttps && !wire.AllowPlaintextOverlay && remote is not null && !System.Net.IPAddress.IsLoopback(remote))
-            return Error(StatusCodes.Status403Forbidden, "forbidden");
-
-        var header = http.Request.Headers.Authorization.ToString();
-        var token = header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) ? header[7..].Trim() : null;
-        if (string.IsNullOrEmpty(token)) return Unauthorized(http);
-
-        var auth = await services.GetRequiredService<IConnectionAuthenticator>()
-            .AuthenticateAsync(new HelloCredential(token), new DeviceInfo("http", "http", string.Empty), http.RequestAborted);
-        if (!auth.Ok || auth.Principal is null || (auth.ExpiresAt is { } expiry && expiry <= services.GetRequiredService<TimeProvider>().GetUtcNow()))
-            return Unauthorized(http);
-
-        if (!services.GetRequiredService<HttpRateLimiter>().TryAcquire(auth.Principal.Id, out var retryAfter))
-        {
-            http.Response.Headers.RetryAfter = retryAfter.ToString(CultureInfo.InvariantCulture);
-            return Error(StatusCodes.Status429TooManyRequests, "rate_limited");
-        }
-
-        return await run(http, auth.Principal);
+        var (principal, failure) = await AuthenticateAsync(http);
+        return failure ?? await run(http, principal!);
     }
 
     private const int _maxTileBodyBytes = 4096;
@@ -225,7 +251,7 @@ public static class HttpSurfaceEndpoints
         foreach (var hit in hits)
         {
             if (!long.TryParse(hit.Id, NumberStyles.None, CultureInfo.InvariantCulture, out var seq)) continue;
-            if (grant.ThroughSeq is { } through && seq > through) continue;
+            if (!grant.Covers(seq)) continue;
             results.Add(new { gc = gcId, seq, score = hit.Score });
             if (results.Count == limit) break;
         }
