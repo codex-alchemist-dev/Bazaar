@@ -48,6 +48,7 @@ using Bazaar.Server.GcReactions;
 using Bazaar.Server.GeneticMemory;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
+using Bazaar.Server.Interrupts;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;

@@ -10,6 +10,10 @@ public interface IInterruptStackService
     /// Pushes a frame. Refused with <see cref="InterruptDepthExceededException"/> when two frames are already live. An
     /// identical system push (same source, reason and GC) within 60 seconds of a live frame returns that frame instead of
     /// adding one. The reason is sealed under <paramref name="authorId"/>'s person key; for a system source the author is ignored
+    /// and the company owner's key is used (doc 24 section 5, "Interrupt reason sealing").
+    /// </summary>
+    Task<InterruptFrame> PushAsync(
+        Guid agentId, Guid authorId, InterruptSource source, string reason, Guid gcId, DateTimeOffset? ttlAt = null, CancellationToken ct = default);
     /// and the company owner's key is used (doc 24 section 5, "Interrupt reason sealing"). <paramref name="emergency"/> is stored
     /// only for an owner source; a system frame always stores false.
     /// </summary>
