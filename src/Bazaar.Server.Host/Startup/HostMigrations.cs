@@ -7,6 +7,7 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Constellation.Memory;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Data.Migrations;
+using Bazaar.Server.DeviceEnrolment.Postgres;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.GeneticMemory;
@@ -27,6 +28,10 @@ using Bazaar.Server.Walkthrough;
 
 namespace Bazaar.Server.Host.Startup;
 
+/// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, and the module component files under Sql/components/ (Vms, Council, Hive, Setup, DeviceEnrolment).</summary>
+public static class HostMigrations
+{
+    /// <summary>Server, module manager, Vms, Council, Hive, Setup and device enrolment migrations, read from their assemblies.</summary>
 /// <summary>The migration files the host runs: the server's own, the module manager's <c>modules</c> namespace, the Gateway module's <c>gateway</c> namespace, the module component files under Sql/components/ (Vms, Council, Hive, Health, Talent Pool, Account Approval, Setup, Company, Setup first-run, Agents, Calendar, Constellation), and the portability namespace (import jobs, doc 44) from the Portability.Postgres assembly.</summary>
 public static class HostMigrations
 {
@@ -41,6 +46,8 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(Bazaar.Server.WhatIf.WhatIfComponent).Assembly),
         new ComponentMigrationSource(typeof(CouncilStore).Assembly),
         new ComponentMigrationSource(typeof(HiveComponent).Assembly),
+        new ComponentMigrationSource(typeof(PostgresApplyResultStore).Assembly),
+        new ComponentMigrationSource(typeof(PostgresEnrolmentStore).Assembly));
         new ComponentMigrationSource(typeof(GeneticMemoryComponent).Assembly),
         new ComponentMigrationSource(typeof(ProjectsComponent).Assembly),
         new ComponentMigrationSource(typeof(HealthServerComponent).Assembly),
