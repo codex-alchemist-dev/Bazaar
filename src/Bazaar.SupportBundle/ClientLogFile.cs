@@ -9,7 +9,7 @@ namespace Bazaar.SupportBundle;
 /// </summary>
 public sealed class ClientLogFile : TextWriter
 {
-    private const long MaxBytesOnOpen = 4 * 1024 * 1024;
+    private const long _maxBytesOnOpen = 4 * 1024 * 1024;
     private readonly TextWriter _inner;
     private readonly StreamWriter _file;
     private readonly TimeProvider _clock;
@@ -29,7 +29,7 @@ public sealed class ClientLogFile : TextWriter
     public static ClientLogFile Open(string path, TextWriter inner, TimeProvider? clock = null)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        var mode = File.Exists(path) && new FileInfo(path).Length > MaxBytesOnOpen ? FileMode.Create : FileMode.Append;
+        var mode = File.Exists(path) && new FileInfo(path).Length > _maxBytesOnOpen ? FileMode.Create : FileMode.Append;
         var stream = new FileStream(path, mode, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
         return new ClientLogFile(inner, new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true }, clock ?? TimeProvider.System);
     }

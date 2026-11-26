@@ -21,13 +21,13 @@ internal static partial class SetupDatabase
             MigrateCommand.CurrentProvider(),
             ct);
 
-    /// <summary>Only common 0003 (setting) and 0004 (audit_log) of the server's files.</summary>
+    /// <summary>Only common 0002 (gateway tables), 0003 (setting) and 0004 (audit_log) of the server's files.</summary>
     private sealed class AuditOnly(IMigrationSource inner) : IMigrationSource
     {
         public IReadOnlyList<string> Namespaces() => [MigrationNamespaces.Common];
 
         public IReadOnlyList<MigrationFile> Load(string ns) =>
-            ns == MigrationNamespaces.Common ? [.. inner.Load(ns).Where(f => f.Version is 3 or 4)] : [];
+            ns == MigrationNamespaces.Common ? [.. inner.Load(ns).Where(f => f.Version is 2 or 3 or 4)] : [];
     }
 
     private sealed class TwoSources(IMigrationSource first, IMigrationSource second) : IMigrationSource

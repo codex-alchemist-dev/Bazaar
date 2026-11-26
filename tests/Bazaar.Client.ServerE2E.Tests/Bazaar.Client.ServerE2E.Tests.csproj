@@ -15,6 +15,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Client.Chat\Bazaar.Client.Chat.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.SignIn\Bazaar.Client.SignIn.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Client.Gc\Bazaar.Client.Gc.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
     <!-- Built so the host's output folder exists. The tests start it as a separate process, never in this one. -->

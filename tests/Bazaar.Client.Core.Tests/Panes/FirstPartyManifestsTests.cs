@@ -79,7 +79,7 @@ public class FirstPartyManifestsTests
         var result = ClientModuleHost.Load(FirstParty(), _host);
 
         Assert.Equal(
-            ["nav.constellation", "nav.gc.first", "nav.gc.top", "nav.ryusei.board", "nav.ryusei.roadmap"],
+            ["nav.constellation", "nav.dashboard", "nav.gc.first", "nav.gc.top", "nav.ryusei.board", "nav.ryusei.roadmap"],
             result.Commands.Select(c => c.Id).Order(StringComparer.Ordinal));
         Assert.All(result.Commands, c => Assert.Contains(c.Id, result.CommandOwners.Keys));
     }
@@ -88,7 +88,8 @@ public class FirstPartyManifestsTests
     public void Module_contributions_match_the_module_owned_defaults_of_the_mnemonic_engine()
     {
         var contributed = Bazaar.Ex.MnemonicAssignment.FromContributions(ClientModuleHost.Load(FirstParty(), _host).Commands);
-        var shellIds = new[] { Bazaar.Ex.NavigationDefaults.UnreadCommandId, Bazaar.Ex.NavigationDefaults.SettingsCommandId };
+        // Shell-owned core commands (doc 41 section 5): the shell handles remap itself, so no module contributes it.
+        var shellIds = new[] { Bazaar.Ex.NavigationDefaults.UnreadCommandId, Bazaar.Ex.NavigationDefaults.SettingsCommandId, Bazaar.Ex.NavigationDefaults.RemapCommandId };
         var moduleOwned = Bazaar.Ex.NavigationDefaults.Assignments.Where(a => !shellIds.Contains(a.CommandId));
 
         Assert.Equal(

@@ -76,6 +76,21 @@ public interface IPoolGate
     bool IsBlocked(string agentId);
 }
 
+/// <summary>
+/// The asynchronous form of <see cref="IPoolGate"/>, for gates whose answer comes from an asynchronous read (the kill switch reader,
+/// doc 15 "Reads for modules"). When one is registered the pool asks it, awaited, at each point where it would call
+/// <see cref="IPoolGate.IsBlocked"/>, and the synchronous gate is not consulted. An implementation is also registered as the
+/// <see cref="IPoolGate"/> so that code which only knows the synchronous port stays safe.
+/// </summary>
+public interface IAsyncPoolGate
+{
+    /// <summary>
+    /// True when the agent may not have pool sessions now. An implementation answers true when it cannot tell. The pool also treats
+    /// an exception other than cancellation as true. Cancellation propagates.
+    /// </summary>
+    ValueTask<bool> IsBlockedAsync(string agentId, CancellationToken ct);
+}
+
 /// <summary>Audit rows for pool events. Implementations must not throw and must never record page content.</summary>
 public interface IPoolAuditSink
 {

@@ -19,16 +19,16 @@ public sealed class ProtobufWireCodec : IWireCodec
     /// <summary>The negotiated codec name.</summary>
     public const string CodecName = "protobuf";
 
-    private const int TagV = (1 << 3) | 0;
-    private const int TagT = (2 << 3) | 2;
-    private const int TagK = (3 << 3) | 2;
-    private const int TagId = (4 << 3) | 2;
-    private const int TagRe = (5 << 3) | 2;
-    private const int TagS = (6 << 3) | 2;
-    private const int TagN = (7 << 3) | 0;
-    private const int TagTs = (8 << 3) | 2;
-    private const int TagP = (9 << 3) | 2;
-    private const int TagEnd = (10 << 3) | 0;
+    private const int _tagV = (1 << 3) | 0;
+    private const int _tagT = (2 << 3) | 2;
+    private const int _tagK = (3 << 3) | 2;
+    private const int _tagId = (4 << 3) | 2;
+    private const int _tagRe = (5 << 3) | 2;
+    private const int _tagS = (6 << 3) | 2;
+    private const int _tagN = (7 << 3) | 0;
+    private const int _tagTs = (8 << 3) | 2;
+    private const int _tagP = (9 << 3) | 2;
+    private const int _tagEnd = (10 << 3) | 0;
 
     private readonly ProtobufLimits _limits;
 
@@ -136,16 +136,16 @@ public sealed class ProtobufWireCodec : IWireCodec
 
             switch (tag)
             {
-                case TagV: v = input.ReadInt32(); break;
-                case TagT: t = ReadText(input); break;
-                case TagK: k = ReadText(input); break;
-                case TagId: id = ReadText(input); break;
-                case TagRe: re = ReadText(input); break;
-                case TagS: s = ReadText(input); break;
-                case TagN: n = input.ReadInt64(); break;
-                case TagTs: ts = ProtobufWireRuntime.FromInstant(Proto.Instant.Parser.ParseFrom(input.ReadBytes())); break;
-                case TagP: p = input.ReadBytes().Memory; break;
-                case TagEnd:
+                case _tagV: v = input.ReadInt32(); break;
+                case _tagT: t = ReadText(input); break;
+                case _tagK: k = ReadText(input); break;
+                case _tagId: id = ReadText(input); break;
+                case _tagRe: re = ReadText(input); break;
+                case _tagS: s = ReadText(input); break;
+                case _tagN: n = input.ReadInt64(); break;
+                case _tagTs: ts = ProtobufWireRuntime.FromInstant(Proto.Instant.Parser.ParseFrom(input.ReadBytes())); break;
+                case _tagP: p = input.ReadBytes().Memory; break;
+                case _tagEnd:
                     if (!input.ReadBool()) throw new WireFormatException("The envelope end marker is false.");
                     sawEnd = true;
                     break;

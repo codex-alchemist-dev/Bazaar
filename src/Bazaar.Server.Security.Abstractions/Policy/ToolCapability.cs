@@ -9,9 +9,13 @@ namespace Bazaar.Server.Security.Policy;
 /// <param name="Class">The side effect the tool has.</param>
 /// <param name="Roles">The session roles that may call the tool. Calls from other roles are denied.</param>
 /// <param name="Rate">Optional quota applied when a call is allowed. Breach denies the call.</param>
+/// <param name="ResultTaint">
+/// How the tool's result taints the session (doc 15, "Reads for modules"). Default <see cref="ToolResultTaint.None"/>.
+/// </param>
 public sealed record ToolCapability(
     string Name,
     ToolTier Tier,
     CapabilityClass Class,
     SessionRoles Roles,
-    RateRule? Rate = null);
+    RateRule? Rate = null,
+    ToolResultTaint ResultTaint = ToolResultTaint.None);

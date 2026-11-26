@@ -32,6 +32,19 @@ public class NodeInstanceVertexLayoutTests
     }
 
     [Fact]
+    public void Icon_stream_is_one_vec4_rectangle_per_instance_on_its_own_binding()
+    {
+        Assert.Equal((uint)(NodeIconBuffer.FloatsPerInstance * sizeof(float)), NodeInstanceVertexLayout.IconStride);
+        VkVertexInputBindingDescription binding = Assert.Single(NodeInstanceVertexLayout.Bindings, b => b.binding == 2);
+        Assert.Equal(NodeInstanceVertexLayout.IconStride, binding.stride);
+        Assert.Equal(VkVertexInputRate.Instance, binding.inputRate);
+
+        VkVertexInputAttributeDescription icon = Assert.Single(NodeInstanceVertexLayout.Attributes, a => a.binding == 2);
+        Assert.Equal(3u, icon.location);
+        Assert.Equal(VkFormat.R32G32B32A32Sfloat, icon.format);
+    }
+
+    [Fact]
     public void Quad_corners_are_the_unit_square()
     {
         float[] corners = NodeInstanceVertexLayout.QuadCorners.ToArray();
