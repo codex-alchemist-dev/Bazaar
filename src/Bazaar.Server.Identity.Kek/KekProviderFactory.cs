@@ -6,7 +6,6 @@ namespace Bazaar.Server.Identity.Kek;
 /// <summary>
 /// Chooses and opens the host KEK provider from <c>identity.kek_provider</c> (doc 14). The default is <c>dpapi</c> on a Windows
 /// host and <c>file</c> elsewhere. <c>tpm</c> is an explicit Linux opt-in and fails closed. An unknown value, <c>openbao</c> (not built yet) or <c>dpapi</c> off Windows fails here, never
-/// host and <c>file</c> elsewhere. An unknown value, <c>openbao</c> without its module loaded or <c>dpapi</c> off Windows fails here, never
 /// falls back to another provider.
 /// </summary>
 public static class KekProviderFactory
@@ -44,8 +43,6 @@ public static class KekProviderFactory
     public static string NormaliseKind(string? kind) =>
         string.IsNullOrWhiteSpace(kind) ? DefaultKind : kind.Trim().ToLowerInvariant();
 
-    /// <summary>Opens the provider for <paramref name="kind"/> (null or blank means the platform default) with its key file under <paramref name="dataRoot"/>.</summary>
-    public static IKekProvider Create(string? kind, string dataRoot, TpmKekOptions? tpm = null)
     private static string Normalise(string? kind) => NormaliseKind(kind);
 
     /// <summary>
@@ -54,11 +51,17 @@ public static class KekProviderFactory
     /// </summary>
     /// <exception cref="KekMissingException">The key is missing or empty and <paramref name="mode"/> is <see cref="KekOpenMode.OpenExisting"/>.</exception>
     public static IKekProvider Create(string? kind, string keyRoot, KekOpenMode mode = KekOpenMode.CreateIfMissing)
+        => Create(kind, keyRoot, mode, tpm: null);
+
+    /// <summary>Opens the provider for <paramref name="kind"/>, creating a missing key, with <paramref name="tpm"/> tuning the <c>tpm</c> provider.</summary>
+    public static IKekProvider Create(string? kind, string keyRoot, TpmKekOptions tpm)
+        => Create(kind, keyRoot, KekOpenMode.CreateIfMissing, tpm);
+
+    private static IKekProvider Create(string? kind, string keyRoot, KekOpenMode mode, TpmKekOptions? tpm)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(keyRoot);
         var chosen = Normalise(kind);
-        var keyPath = chosen is "file" or "dpapi" or "tpm" ? KeyPathFor(chosen, dataRoot) : string.Empty;
-        var keyPath = chosen is "file" or "dpapi" ? KeyPathFor(chosen, keyRoot) : string.Empty;
+        var keyPath = chosen is "file" or "dpapi" or "tpm" ? KeyPathFor(chosen, keyRoot) : string.Empty;
 
         switch (chosen)
         {
@@ -67,12 +70,11 @@ public static class KekProviderFactory
             case "dpapi":
                 if (!OperatingSystem.IsWindows())
                     throw new PlatformNotSupportedException("identity.kek_provider 'dpapi' needs a Windows host. Use 'file' on this host (doc 14).");
-                return CreateDpapi(keyPath);
+                return CreateDpapi(keyPath, mode);
             case "tpm":
                 if (!OperatingSystem.IsLinux())
                     throw new PlatformNotSupportedException("identity.kek_provider 'tpm' is a Linux option (doc 14). Use 'dpapi' on Windows.");
                 return OpenTpm(keyPath, tpm ?? new TpmKekOptions());
-                return CreateDpapi(keyPath, mode);
             case "openbao":
                 throw new NotSupportedException("identity.kek_provider 'openbao' needs the identity-kek-openbao module to be loaded (doc 14).");
             default:
@@ -80,9 +82,6 @@ public static class KekProviderFactory
                     $"identity.kek_provider '{kind}' is not one of: {string.Join(", ", AllowedKinds)}.", nameof(kind));
         }
     }
-
-    [SupportedOSPlatform("windows")]
-    private static DpapiKekProvider CreateDpapi(string keyPath) => DpapiKekProvider.Open(keyPath, new DpapiKeyProtector());
 
     private static TpmKekProvider OpenTpm(string keyPath, TpmKekOptions options)
     {
@@ -92,5 +91,7 @@ public static class KekProviderFactory
         ITpmKeySealer sealer = systemd ? new SystemdCredsSealer(runner, options.Pcrs) : new Tpm2ToolsSealer(runner);
         return TpmKekProvider.Open(keyPath, sealer, TpmKekProvider.ProbeCustodyClass(runner));
     }
+
+    [SupportedOSPlatform("windows")]
     private static DpapiKekProvider CreateDpapi(string keyPath, KekOpenMode mode) => DpapiKekProvider.Open(keyPath, new DpapiKeyProtector(), mode);
 }

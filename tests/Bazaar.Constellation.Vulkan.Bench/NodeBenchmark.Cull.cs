@@ -53,7 +53,6 @@ public sealed unsafe partial class NodeBenchmark
 
     private const ulong _cullCellBytes = 640UL * 360 * 4;
     private const ulong _cullSurvivorBytes = (8UL + (640 * 360)) * 4;
-    private VkDeviceMemory[] _cullMemory = new VkDeviceMemory[7];
     private VkImage _depthImage;
     private VkDeviceMemory _depthMemory;
     private VkImageView _depthView;
@@ -88,9 +87,6 @@ public sealed unsafe partial class NodeBenchmark
 
         var bindings = stackalloc VkDescriptorSetLayoutBinding[9];
         for (uint b = 0; b < 9; b++)
-
-        var bindings = stackalloc VkDescriptorSetLayoutBinding[7];
-        for (uint b = 0; b < 7; b++)
         {
             bindings[b] = new VkDescriptorSetLayoutBinding
             {
@@ -102,7 +98,6 @@ public sealed unsafe partial class NodeBenchmark
         }
 
         var layoutInfo = new VkDescriptorSetLayoutCreateInfo { sType = VkStructureType.DescriptorSetLayoutCreateInfo, bindingCount = 9, pBindings = bindings };
-        var layoutInfo = new VkDescriptorSetLayoutCreateInfo { sType = VkStructureType.DescriptorSetLayoutCreateInfo, bindingCount = 7, pBindings = bindings };
         Check(_deviceApi.vkCreateDescriptorSetLayout(&layoutInfo, null, out _cullSetLayout), "vkCreateDescriptorSetLayout(cull)");
         var depthBinding = new VkDescriptorSetLayoutBinding
         {
@@ -116,7 +111,6 @@ public sealed unsafe partial class NodeBenchmark
 
         var poolSizes = stackalloc VkDescriptorPoolSize[2];
         poolSizes[0] = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 9 };
-        poolSizes[0] = new VkDescriptorPoolSize { type = VkDescriptorType.StorageBuffer, descriptorCount = 7 };
         poolSizes[1] = new VkDescriptorPoolSize { type = VkDescriptorType.SampledImage, descriptorCount = 1 };
         var poolInfo = new VkDescriptorPoolCreateInfo { sType = VkStructureType.DescriptorPoolCreateInfo, maxSets = 2, poolSizeCount = 2, pPoolSizes = poolSizes };
         Check(_deviceApi.vkCreateDescriptorPool(&poolInfo, null, out _cullPool), "vkCreateDescriptorPool(cull)");
@@ -136,11 +130,6 @@ public sealed unsafe partial class NodeBenchmark
         var infos = stackalloc VkDescriptorBufferInfo[9];
         var writes = stackalloc VkWriteDescriptorSet[10];
         for (uint b = 0; b < 9; b++)
-        VkBuffer[] buffers = [_tileCountBuffer, _tileOffsetBuffer, _tileCursorBuffer, _tileBoundsBuffer, _sortedBuffer, _cmdBuffer, _hizBuffer];
-        ulong[] sizes = [tileWords, tileWords + 16, tileWords, (ulong)TileCount * 6 * 4, (ulong)_cullMaxPoints * 4, 16 + ((ulong)TileCount * 16), _hizWords * 4UL];
-        var infos = stackalloc VkDescriptorBufferInfo[7];
-        var writes = stackalloc VkWriteDescriptorSet[8];
-        for (uint b = 0; b < 7; b++)
         {
             infos[b] = new VkDescriptorBufferInfo { buffer = buffers[b], offset = 0, range = sizes[b] };
             writes[b] = new VkWriteDescriptorSet
@@ -156,7 +145,6 @@ public sealed unsafe partial class NodeBenchmark
 
         var imageInfo = new VkDescriptorImageInfo { imageView = _depthView, imageLayout = VkImageLayout.DepthStencilReadOnlyOptimal };
         writes[9] = new VkWriteDescriptorSet
-        writes[7] = new VkWriteDescriptorSet
         {
             sType = VkStructureType.WriteDescriptorSet,
             dstSet = _depthSet,
@@ -166,7 +154,6 @@ public sealed unsafe partial class NodeBenchmark
             pImageInfo = &imageInfo,
         };
         _deviceApi.vkUpdateDescriptorSets(10, writes, 0, null);
-        _deviceApi.vkUpdateDescriptorSets(8, writes, 0, null);
 
         var pushRange = new VkPushConstantRange
         {
@@ -540,10 +527,6 @@ public sealed unsafe partial class NodeBenchmark
             stamp();
         });
         return [_hostReadbackMapped[0], _hostReadbackMapped[1], _hostReadbackMapped[2], _hostReadbackMapped[3], _hostReadbackMapped[4], _hostReadbackMapped[5], _hostReadbackMapped[6], _hostReadbackMapped[7], _hostReadbackMapped[8], _hostReadbackMapped[9], _hostReadbackMapped[10], _hostReadbackMapped[11]];
-            GlobalBarrier(cb, VkPipelineStageFlags.Transfer, VkPipelineStageFlags.Host, VkAccessFlags.TransferWrite, VkAccessFlags.HostRead);
-            stamp();
-        });
-        return [_hostReadbackMapped[0], _hostReadbackMapped[1], _hostReadbackMapped[2], _hostReadbackMapped[3]];
     }
 
     public const string CullCsvHeader = CsvHeader + ",tiles_nonempty,tiles_frustum,tiles_drawn,instances_drawn_gpu";

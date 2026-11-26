@@ -1,7 +1,5 @@
 namespace Bazaar.Server.Org;
 
-/// <summary>A project or an agent as the Org pane lists it: an id and a display name.</summary>
-public sealed record OrgDirectoryEntry(Guid Id, string Name);
 /// <summary>A project or an agent as the Org pane lists it: an id, a display name and, for agents, an optional role.</summary>
 public sealed record OrgDirectoryEntry(Guid Id, string Name, string? Role = null);
 

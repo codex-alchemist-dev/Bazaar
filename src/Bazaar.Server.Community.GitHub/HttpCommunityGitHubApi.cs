@@ -102,8 +102,6 @@ public sealed class HttpCommunityGitHubApi(HttpClient http, ICommunityGitHubToke
         {
             token = await tokens.GetInstallationTokenAsync(owner, repo, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
         catch (Exception ex) when (ex is not (OperationCanceledException or CommunityPostException))
         {
             // A CommunityPostException from the token source already says whether the failure is final (for example, no installation

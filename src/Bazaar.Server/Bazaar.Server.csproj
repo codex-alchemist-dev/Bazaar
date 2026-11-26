@@ -44,7 +44,6 @@
     <ProjectReference Include="..\Bazaar.Server.Mentions\Bazaar.Server.Mentions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Sanitization\Bazaar.Server.Sanitization.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Verification\Bazaar.Server.Verification.csproj" />
-    <ProjectReference Include="..\Bazaar.PrivacyAudit\Bazaar.PrivacyAudit.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Remote\Bazaar.Server.Remote.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Remote.Abstractions\Bazaar.Server.Remote.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Constellation.Abstractions\Bazaar.Constellation.Abstractions.csproj" />
@@ -64,7 +63,6 @@
     <ProjectReference Include="..\Bazaar.Server.Knowledge\Bazaar.Server.Knowledge.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls.Abstractions\Bazaar.Server.Souls.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Souls\Bazaar.Server.Souls.csproj" />
-    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Data\Sql\**\*.sql" />

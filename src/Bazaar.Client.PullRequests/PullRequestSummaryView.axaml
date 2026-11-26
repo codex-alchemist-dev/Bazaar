@@ -28,11 +28,11 @@
         <Button Name="CancelMergeButton" Content="Cancel" Click="OnCancelMergeClick" />
       </StackPanel>
 
-      <TextBox Name="ReviewBody" AcceptsReturn="True" Watermark="Review text" />
+      <TextBox Name="ReviewBody" AcceptsReturn="True" PlaceholderText="Review text" />
       <Button Name="RequestChangesButton" Content="Request changes" IsEnabled="{Binding CanReview}" Click="OnRequestChangesClick" />
       <Button Name="CommentButton" Content="Comment" IsEnabled="{Binding CanReview}" Click="OnCommentClick" />
 
-      <TextBox Name="DiffPathBox" Watermark="File path for the full diff" />
+      <TextBox Name="DiffPathBox" PlaceholderText="File path for the full diff" />
       <Button Name="DiffButton" Content="Show diff" IsEnabled="{Binding FullDiffEnabled}" Click="OnDiffClick" />
       <Border Name="DiffHost" BorderThickness="1" BorderBrush="Gray" CornerRadius="4" Padding="4" />
     </StackPanel>

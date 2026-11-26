@@ -1,7 +1,7 @@
 using System.Net;
 using System.Reflection;
 using System.Text;
-using Bazaar.GitHub.Webhooks;
+using Bazaar.Server.GitHub.Webhooks;
 using Bazaar.Server.Secrets;
 using Bazaar.Testing.Postgres;
 using Microsoft.AspNetCore.Builder;
@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
-namespace Bazaar.GitHub.Tests.Webhooks;
+namespace Bazaar.Server.GitHub.Tests.Webhooks;
 
 /// <summary><c>POST /github/webhook</c> (doc 21, Ingress): verify, dedupe, persist, acknowledge.</summary>
 public sealed class GitHubWebhookEndpointTests

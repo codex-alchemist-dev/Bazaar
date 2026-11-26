@@ -17,10 +17,6 @@ namespace Bazaar.Server.BrowserPool.Display;
 /// <para>
 /// One <see cref="DevToolsSession"/> exists per pool session id. It is created on first use and retired once
 /// <see cref="IPoolDevToolsPipes.TryGetPipe"/> stops returning the pipe. Calls to one session run one at a time, so input batches
-/// never interleave. Coordinates are CSS pixels of the viewport.
-/// </para>
-/// </summary>
-public sealed class PoolBrowserPageDriver : IBrowserPageDriver, IAsyncDisposable
 /// never interleave. Coordinates are CSS pixels of the viewport. The pool starts Chromium with a device scale factor of 1 and the
 /// screenshot covers the viewport only, so screenshot pixels and input coordinates are one space (<see cref="IPixelExactBrowserPageDriver"/>).
 /// </para>

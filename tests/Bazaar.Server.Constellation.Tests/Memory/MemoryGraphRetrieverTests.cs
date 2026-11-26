@@ -22,7 +22,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Seed_is_returned_at_hop_zero_with_its_fused_score()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -40,7 +39,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Link_neighbour_in_the_same_scope_is_expanded_at_hop_one()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("b")),
             Note("b", "agent-a"));
@@ -48,7 +46,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1);
 
-        Assert.Equal(["a", "b"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a", "b"], Names(result));
         MemoryGraphHit neighbour = result.Hits[1];
         Assert.Equal(1, neighbour.HopDistance);
@@ -59,7 +56,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Max_hops_zero_returns_seeds_only()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("b")),
             Note("b", "agent-a"));
@@ -67,14 +63,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 0);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
     public async Task Max_hops_above_two_is_capped_at_two()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("b")),
             Note("b", "agent-a", Link("c")),
@@ -84,7 +78,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 5);
 
-        Assert.Equal(["a", "b", "c"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a", "b", "c"], Names(result));
         Assert.Equal([0, 1, 2], result.Hits.Select(h => h.HopDistance));
     }
@@ -92,7 +85,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Negative_max_hops_is_treated_as_zero()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("b")),
             Note("b", "agent-a"));
@@ -100,14 +92,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: -3);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
     public async Task Linked_note_in_another_agents_private_area_is_never_returned_to_agent_a()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("secret")),
             Note("secret", "agent-b"));
@@ -115,14 +105,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 2);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
     public async Task Hidden_seed_from_another_agent_is_not_returned()
     {
-        var store = new FakeStore(Note("secret", "agent-b"));
         var store = new FakeNodes(Note("secret", "agent-b"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -135,7 +123,6 @@ public class MemoryGraphRetrieverTests
     public async Task Hidden_note_is_not_a_hop_target_so_its_own_neighbours_are_not_reached()
     {
         // a (agent-a) -> secret (agent-b) -> own (agent-a). The hidden middle note must not carry expansion to own.
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("secret")),
             Note("secret", "agent-b", Link("own")),
@@ -144,38 +131,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 2);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
-    }
-
-    // The retriever's access layer takes project areas from VaultAccess.ProjectAreaOf, the same source as Vault search.
-    [Fact]
-    public async Task Expansion_reaches_the_members_own_project_notes_and_never_another_projects()
-    {
-        var access = new VaultPathAccess(new StaticProjectMembership(new Dictionary<string, ProjectMembers>
-        {
-            ["x"] = new(new HashSet<string> { "agent-a" }, new HashSet<string>()),
-            ["y"] = new(new HashSet<string> { "agent-b" }, new HashSet<string>()),
-        }));
-        var store = new FakeStore(
-            Note("a", "agent-a", Link("px"), Link("ty"), Link("py")),
-            At(Note("px", "agent-a"), "projects/x/memory/px.md"),
-            At(Note("ty", "agent-b"), "twin/y/overview.md"),
-            At(Note("py", "agent-b"), "projects/y/memory/py.md"));
-        var retriever = new MemoryGraphRetriever(store, access);
-
-        var forA = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1);
-        var forB = await RetrieveAsync(retriever, _agentB, lexical: ["ty", "py", "px"], vector: [], store: store, maxHops: 1);
-
-        Assert.Equal(["a", "px"], forA.Hits.Select(h => h.NoteId));
-        Assert.Equal(["ty", "py"], forB.Hits.Select(h => h.NoteId));
-    }
-
-    private static MemoryGraphRevision At(MemoryGraphRevision revision, string vaultPath) => revision with { VaultPath = vaultPath };
-
-    [Fact]
-    public async Task Owner_sees_the_linked_note_in_another_agents_area()
-    {
-        var store = new FakeStore(
         Assert.Equal(["a"], Names(result));
     }
 
@@ -189,14 +144,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _owner, lexical: ["a"], vector: [], store: store, maxHops: 1);
 
-        Assert.Equal(["a", "secret"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a", "secret"], Names(result));
     }
 
     [Fact]
     public async Task Deprecated_seed_is_never_returned()
     {
-        var store = new FakeStore(Note("old", "agent-a", status: "Deprecated"));
         var store = new FakeNodes(Note("old", "agent-a", status: "Deprecated"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -208,7 +161,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Deprecated_neighbour_is_never_returned_or_expanded()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Link("old")),
             Note("old", "agent-a", status: "Deprecated", Link("b")),
@@ -217,7 +169,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 2);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
@@ -226,7 +177,6 @@ public class MemoryGraphRetrieverTests
     {
         // Seeds a (rank 1) and b (rank 2). Both link to c, but a reaches it through a weight 0.8 edge and b through a
         // weight 1.0 edge. The b path scores higher: (1/62) * 1.0 * 0.5 beats (1/61) * 0.8 * 0.5.
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Edge("c", MemoryEdgeKind.DerivedFrom, 0.8)),
             Note("b", "agent-a", Link("c")),
@@ -235,7 +185,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a", "b"], vector: [], store: store, maxHops: 1);
 
-        MemoryGraphHit c = result.Hits.Single(h => h.NoteId == "c");
         MemoryGraphHit c = result.Hits.Single(h => h.DocId == Key("c"));
         Assert.Equal(1, c.HopDistance);
         Assert.Equal((1.0 / 62) * 1.0 * 0.5, c.Score, 12);
@@ -244,13 +193,11 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Budget_drops_hits_that_do_not_fit_and_keeps_later_smaller_ones()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a"),
             Note("b", "agent-a"),
             Note("c", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
-        var counts = new Dictionary<string, int> { ["a"] = 10, ["b"] = 5, ["c"] = 2 };
         var counts = new Dictionary<string, int> { [Key("a")] = 10, [Key("b")] = 5, [Key("c")] = 2 };
 
         var result = await retriever.RetrieveAsync(
@@ -263,18 +210,12 @@ public class MemoryGraphRetrieverTests
             CancellationToken.None);
 
         // a fits (10). b does not (15 > 12) and is skipped. c fits (12).
-        Assert.Equal(["a", "c"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a", "c"], Names(result));
     }
 
     [Fact]
     public async Task Candidate_without_a_token_count_is_skipped_without_throwing()
     {
-        var store = new FakeStore(
-            Note("a", "agent-a"),
-            Note("b", "agent-a"));
-        var retriever = new MemoryGraphRetriever(store, _access);
-        var counts = new Dictionary<string, int> { ["a"] = 1 };
         var store = new FakeNodes(
             Note("a", "agent-a"),
             Note("b", "agent-a"));
@@ -290,14 +231,12 @@ public class MemoryGraphRetrieverTests
             new MemoryGraphOptions(MaxHops: 0),
             CancellationToken.None);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
     public async Task LexicalOnly_is_true_when_vector_is_empty()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -309,7 +248,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task LexicalOnly_is_false_when_vector_seeds_are_present()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -319,12 +257,6 @@ public class MemoryGraphRetrieverTests
     }
 
     [Fact]
-    public async Task DerivedFrom_and_Supersedes_edges_expand()
-    {
-        var store = new FakeStore(
-            Note("a", "agent-a", Edge("derived", MemoryEdgeKind.DerivedFrom, 0.8), Edge("replaced", MemoryEdgeKind.Supersedes, 0.5)),
-            Note("derived", "agent-a"),
-            Note("replaced", "agent-a"));
     public async Task DerivedFrom_edges_expand_and_a_Supersedes_target_is_history_not_a_current_hit()
     {
         var store = new FakeNodes(
@@ -335,9 +267,6 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 1);
 
-        Assert.Equal(["a", "derived", "replaced"], result.Hits.Select(h => h.NoteId));
-        Assert.Equal(Rank1 * 0.8 * 0.5, result.Hits[1].Score, 12);
-        Assert.Equal(Rank1 * 0.5 * 0.5, result.Hits[2].Score, 12);
         Assert.Equal(["a", "derived"], Names(result));
         Assert.Equal(Rank1 * 0.8 * 0.5, result.Hits[1].Score, 12);
         Assert.All(result.Hits, h => Assert.False(h.IsHistory));
@@ -452,7 +381,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Provenance_edges_do_not_expand()
     {
-        var store = new FakeStore(
         var store = new FakeNodes(
             Note("a", "agent-a", Edge("g1", MemoryEdgeKind.FromGc, 0.0), Edge("m1", MemoryEdgeKind.FromMessage, 0.0), Edge("agent-a", MemoryEdgeKind.AuthoredBy, 0.0)),
             Note("g1", "agent-a"),
@@ -461,14 +389,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["a"], vector: [], store: store, maxHops: 2);
 
-        Assert.Equal(["a"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a"], Names(result));
     }
 
     [Fact]
     public async Task Empty_seeds_return_an_empty_result()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -479,10 +405,6 @@ public class MemoryGraphRetrieverTests
     }
 
     [Fact]
-    public async Task Equal_scores_are_ordered_by_note_id()
-    {
-        // b is rank 1 in the lexical list and a is rank 1 in the vector list, so both score 1/61.
-        var store = new FakeStore(
     public async Task Equal_scores_are_ordered_by_doc_id()
     {
         // b is rank 1 in the lexical list and a is rank 1 in the vector list, so both score 1/61.
@@ -493,14 +415,12 @@ public class MemoryGraphRetrieverTests
 
         var result = await RetrieveAsync(retriever, _agentA, lexical: ["b"], vector: ["a"], store: store);
 
-        Assert.Equal(["a", "b"], result.Hits.Select(h => h.NoteId));
         Assert.Equal(["a", "b"], Names(result));
     }
 
     [Fact]
     public async Task Member_human_without_a_project_sees_nothing_in_an_agent_area()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
 
@@ -512,7 +432,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Null_arguments_are_rejected()
     {
-        var store = new FakeStore(Note("a", "agent-a"));
         var store = new FakeNodes(Note("a", "agent-a"));
         var retriever = new MemoryGraphRetriever(store, _access);
         var counts = new Dictionary<string, int>();
@@ -535,14 +454,12 @@ public class MemoryGraphRetrieverTests
     public void Constructor_rejects_null_dependencies()
     {
         Assert.Throws<ArgumentNullException>(() => new MemoryGraphRetriever(null!, _access));
-        Assert.Throws<ArgumentNullException>(() => new MemoryGraphRetriever(new FakeStore(), null!));
         Assert.Throws<ArgumentNullException>(() => new MemoryGraphRetriever(new FakeNodes(), null!));
     }
 
     [Fact]
     public async Task Negative_token_budget_is_rejected()
     {
-        var retriever = new MemoryGraphRetriever(new FakeStore(), _access);
         var retriever = new MemoryGraphRetriever(new FakeNodes(), _access);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
@@ -552,7 +469,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Zero_top_k_is_rejected()
     {
-        var retriever = new MemoryGraphRetriever(new FakeStore(), _access);
         var retriever = new MemoryGraphRetriever(new FakeNodes(), _access);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
@@ -562,7 +478,6 @@ public class MemoryGraphRetrieverTests
     [Fact]
     public async Task Zero_rrf_k_is_rejected()
     {
-        var retriever = new MemoryGraphRetriever(new FakeStore(), _access);
         var retriever = new MemoryGraphRetriever(new FakeNodes(), _access);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
@@ -674,8 +589,6 @@ public class MemoryGraphRetrieverTests
         VaultPrincipal who,
         string[] lexical,
         string[] vector,
-        FakeStore store,
-        int maxHops = 1)
         FakeNodes store,
         int maxHops = 1,
         bool includeHistory = false)
@@ -687,71 +600,6 @@ public class MemoryGraphRetrieverTests
             Ranked(vector),
             counts,
             _defaultBudget,
-            new MemoryGraphOptions(MaxHops: maxHops),
-            CancellationToken.None);
-    }
-
-    private static RankedHit[] Ranked(params string[] ids) =>
-        ids.Select((id, i) => new RankedHit(id, ids.Length - i)).ToArray();
-
-    private static MemoryGraphRevision Note(
-        string id,
-        string scope,
-        params MemoryGraphEdge[] edges) => Note(id, scope, "Active", edges);
-
-    private static MemoryGraphRevision Note(
-        string id,
-        string scope,
-        string status,
-        params MemoryGraphEdge[] edges) =>
-        new(
-            NoteId: id,
-            Version: 1,
-            ScopeAgentId: scope,
-            VaultPath: $"agents/{scope}/memory/{id}.md",
-            Title: id,
-            Kind: "Semantic",
-            Status: status,
-            Trust: "Trusted",
-            Edges: edges);
-
-    private static MemoryGraphEdge Link(string target) => Edge(target, MemoryEdgeKind.Link, 1.0);
-
-    private static MemoryGraphEdge Edge(string target, MemoryEdgeKind kind, double weight) =>
-        new(target, kind, weight);
-
-    /// <summary>In-memory store that holds one active revision per note. Revision history is not needed here.</summary>
-    private sealed class FakeStore : IMemoryGraphStore
-    {
-        private readonly Dictionary<string, MemoryGraphRevision> _active = new(StringComparer.Ordinal);
-
-        public FakeStore(params MemoryGraphRevision[] revisions)
-        {
-            foreach (MemoryGraphRevision revision in revisions)
-            {
-                _active[revision.NoteId] = revision;
-            }
-        }
-
-        public string[] Ids() => _active.Keys.ToArray();
-
-        public Task StoreRevisionAsync(MemoryGraphRevision revision, CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public Task<bool> ActivateRevisionAsync(string noteId, long version, CancellationToken ct) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyList<MemoryGraphRevision>> GetActiveAsync(IReadOnlyCollection<string> noteIds, CancellationToken ct)
-        {
-            IReadOnlyList<MemoryGraphRevision> found = noteIds
-                .Where(_active.ContainsKey)
-                .Select(id => _active[id])
-                .ToArray();
-            return Task.FromResult(found);
-        }
-
-        public Task<IReadOnlyList<MemoryGraphRevision>> ListRevisionsAsync(string noteId, CancellationToken ct) =>
-            throw new NotSupportedException();
             new MemoryGraphOptions(MaxHops: maxHops, IncludeHistory: includeHistory),
             CancellationToken.None);
     }

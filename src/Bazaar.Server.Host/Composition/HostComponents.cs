@@ -1,11 +1,6 @@
 using Bazaar.Archive;
-using Bazaar.Server.Community;
 using Bazaar.Conduit;
 using Bazaar.Core;
-using Bazaar.Server.Fun;
-using Bazaar.Server.GitHub;
-using Bazaar.Fun;
-using Bazaar.GitHub;
 using Bazaar.Lucky;
 using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
@@ -14,12 +9,10 @@ using Bazaar.RyuseiFuda.Roadmap;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.Agents.Turns;
-using Bazaar.Server.Company;
-using Bazaar.Server.Calendar;
-using Bazaar.Server.AuditReader;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Analytics.Git;
 using Bazaar.Server.Analytics.Postgres;
+using Bazaar.Server.AuditReader;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.BrowserPool;
 using Bazaar.Server.BrowserPool.Audit;
@@ -29,8 +22,8 @@ using Bazaar.Server.BrowserPool.Gate;
 using Bazaar.Server.BrowserPool.Image;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Bazaar.Server.Calendar;
+using Bazaar.Server.Community;
 using Bazaar.Server.Community.GitHub;
-using Bazaar.Server.MemberRoster;
 using Bazaar.Server.Company;
 using Bazaar.Server.CompanyBuild;
 using Bazaar.Server.CompanyKnowledge;
@@ -38,8 +31,9 @@ using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Components.Backup;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Constellation;
-using Bazaar.Server.Embeddings;
 using Bazaar.Server.Council;
+using Bazaar.Server.Embeddings;
+using Bazaar.Server.Fun;
 using Bazaar.Server.Garnet;
 using Bazaar.Server.Gateway.Adapters.Anthropic;
 using Bazaar.Server.Gateway.Adapters.Gemini;
@@ -54,9 +48,9 @@ using Bazaar.Server.Gc.Skimmer;
 using Bazaar.Server.GcMetadata;
 using Bazaar.Server.GcReactions;
 using Bazaar.Server.GeneticMemory;
+using Bazaar.Server.GitHub;
 using Bazaar.Server.Health;
 using Bazaar.Server.Hive;
-using Bazaar.Server.Interrupts;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Components.Settings;
@@ -66,31 +60,21 @@ using Bazaar.Server.Interrupts;
 using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
 using Bazaar.Server.MailPolicy;
+using Bazaar.Server.MemberRoster;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
-using Bazaar.Server.Org;
-using Bazaar.Server.Retention;
-using Bazaar.Server.TalentPool.Component;
-using Bazaar.Server.Setup.Host;
-using Bazaar.Server.Valkey;
-using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Observatory;
 using Bazaar.Server.Observatory.Postgres;
+using Bazaar.Server.OfflineSync;
 using Bazaar.Server.Org;
 using Bazaar.Server.Presence;
 using Bazaar.Server.Projects;
 using Bazaar.Server.Retention;
 using Bazaar.Server.Setup.Host;
-using Bazaar.Server.TalentPool.Component;
-using Bazaar.Server.Valkey;
-using Bazaar.Server.SignIn;
-using Bazaar.Server.SignIn.WebAuthn;
-using Bazaar.Server.Vault;
-using Bazaar.Server.WebAdmin;
-using Bazaar.Server.Setup.Host;
 using Bazaar.Server.SignIn;
 using Bazaar.Server.SignIn.Passkeys;
+using Bazaar.Server.SignIn.WebAuthn;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.SoulProfile;
 using Bazaar.Server.TalentPool.Component;
@@ -128,8 +112,6 @@ public static class HostComponents
         new ReadAuditComponent(),
         new SettingsComponent(),
         new SetupComponent(),
-        new RetentionComponent(),
-        new GatewayRetentionComponent(),
         new WalkthroughComponent(),
         new SoulProfileComponent(),
         new FirstRunAdaptersComponent(),
@@ -146,7 +128,6 @@ public static class HostComponents
         new KekComponent(),
         new OpenBaoKekComponent(),
         new GcComponent(),
-        new CalendarComponent(),
         new GcMetadataComponent(),
         new ThinkingGcComponent(),
         new GcReactionsComponent(),
@@ -203,8 +184,6 @@ public static class HostComponents
         new GeminiGenerateContentAdapterComponent(),
         new FreeLlmApiComponent(),
         new AnthropicDirectComponent(),
-        new ValkeyComponent(),
-        new GarnetComponent(),
         new Bazaar.Server.Providers.ClaudeCode.ClaudeCodeComponent(),
         new Bazaar.Server.Providers.ClaudeCode.Windows.ClaudeCodeWindowsComponent(),
         new ValkeyComponent(),

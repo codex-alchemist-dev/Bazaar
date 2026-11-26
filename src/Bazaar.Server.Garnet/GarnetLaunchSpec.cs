@@ -48,8 +48,6 @@ public sealed class GarnetLaunchSpec
             "--password", password,
             "--memory", options.MaxMemory,
             "--aof",
-            "--logdir", options.DataDirectory,
-            "--checkpointdir", Path.Combine(options.DataDirectory, "checkpoints"),
             "--checkpointdir", options.DataDirectory,
         ];
         if (options.AofCommitWait)

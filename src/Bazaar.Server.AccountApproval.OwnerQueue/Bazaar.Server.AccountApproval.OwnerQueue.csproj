@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- An adapter for the IOwnerApprovalHandOff port over the Security enqueue port. No Bazaar.Server, no other feature module. -->
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.AccountApproval.Abstractions\Bazaar.Server.AccountApproval.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Security.Abstractions\Bazaar.Server.Security.Abstractions.csproj" />

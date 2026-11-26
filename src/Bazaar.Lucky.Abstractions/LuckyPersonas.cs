@@ -1,8 +1,4 @@
-<<<<<<<< HEAD:src/Bazaar.Server.Fun/Lucky/LuckyPersonas.cs
-namespace Bazaar.Server.Fun.Lucky;
-========
 namespace Bazaar.Lucky;
->>>>>>>> origin/main:src/Bazaar.Lucky.Abstractions/LuckyPersonas.cs
 
 /// <summary>Persona selection from a recorded seed. The same seed always selects the same persona.</summary>
 public static class LuckyPersonas

@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Bazaar.GitHub.Events;
+namespace Bazaar.Server.GitHub.Events;
 
 /// <summary>
 /// Branch names for the PR lookup (doc 21, Event mapping; PROPOSED). Shared by the webhook and Events API parsers so both fill

@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 
-namespace Bazaar.GitHub.Webhooks;
+namespace Bazaar.Server.GitHub.Webhooks;
 
 /// <summary>
 /// Webhook ingress (doc 21, Ingress): verify the HMAC-SHA256 signature over the raw body in constant time, persist the delivery
@@ -38,7 +38,7 @@ public static partial class GitHubWebhookEndpoint
     {
         var services = http.RequestServices;
         var options = services.GetRequiredService<GitHubWebhookOptions>();
-        var log = services.GetRequiredService<ILoggerFactory>().CreateLogger("Bazaar.GitHub.Webhooks");
+        var log = services.GetRequiredService<ILoggerFactory>().CreateLogger("Bazaar.Server.GitHub.Webhooks");
 
         if (opaque is not null && !OpaqueMatches(options.OpaqueSegment, opaque))
             return Status(StatusCodes.Status404NotFound);

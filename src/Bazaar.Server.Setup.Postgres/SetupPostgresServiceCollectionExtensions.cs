@@ -8,7 +8,6 @@ namespace Bazaar.Server.Setup.Postgres;
 /// <summary>Registers the durable setup services. The caller registers the shared <see cref="NpgsqlDataSource"/> first.</summary>
 public static class SetupPostgresServiceCollectionExtensions
 {
-    /// <summary>Registers <see cref="PostgresSetupInstanceLock"/> and <see cref="PostgresApplyResultStore"/> (TryAdd, so a caller's own wins).</summary>
     /// <summary>
     /// Registers <see cref="PostgresSetupInstanceLock"/>, <see cref="PostgresApplyResultStore"/>, <see cref="PostgresInstallIdProvider"/>
     /// and the setup secret writer (TryAdd, so a caller's own wins). The writer is <see cref="SecretStoreSetupSecretWriter"/> when an
@@ -19,8 +18,6 @@ public static class SetupPostgresServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         services.TryAddSingleton<ISetupInstanceLock, PostgresSetupInstanceLock>();
         services.TryAddSingleton<IApplyResultStore, PostgresApplyResultStore>();
-        return services;
-    }
         services.TryAddSingleton<IInstallIdProvider>(sp => new PostgresInstallIdProvider(sp.GetRequiredService<NpgsqlDataSource>()));
         services.TryAddSingleton<ISetupSecretWriter>(sp =>
             sp.GetService<ISecretStore>() is { } store ? new SecretStoreSetupSecretWriter(store) : new NoSecretStoreWriter());

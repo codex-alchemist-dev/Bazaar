@@ -230,7 +230,6 @@ public sealed class SetupPlanLoaderTests
     public void Enabling_the_scam_mail_protocol_with_email_on_is_held_for_owner_approval()
     {
         var result = SetupPlanLoader.Load(SetupFixtures.Valid
-            .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true }", StringComparison.Ordinal)
             .Replace("\"email\": { \"enabled\": false }", "\"email\": { \"enabled\": true, \"backend\": \"imap_smtp\" }", StringComparison.Ordinal)
             .Replace("\"scamMailProtocol\": { \"enabled\": false }", "\"scamMailProtocol\": { \"enabled\": true }", StringComparison.Ordinal), RegistrySetupSettingCatalog.Known);
 

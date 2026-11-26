@@ -165,7 +165,6 @@ public static class GatewayCompositionExtensions
             quota: new RetryAfterQuotaTracker(sp.GetRequiredService<TimeProvider>()),
             time: sp.GetRequiredService<TimeProvider>(),
             onInternalError: ex => GatewayProviderRowSync.LogInternalError(sp.GetRequiredService<ILoggerFactory>().CreateLogger<ModelGateway>(), ex),
-            scrubber: sp.GetRequiredService<SecretScrubber>())));
             scrubber: sp.GetRequiredService<SecretScrubber>(),
             ranker: sp.GetRequiredService<ICandidateRanker>(),
             selectionStats: sp.GetRequiredService<IEndpointStatsTracker>(),

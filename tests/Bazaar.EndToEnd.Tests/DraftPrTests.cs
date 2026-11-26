@@ -1,6 +1,6 @@
 using Bazaar.EndToEnd.Tests.Harness;
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bazaar.EndToEnd.Tests;

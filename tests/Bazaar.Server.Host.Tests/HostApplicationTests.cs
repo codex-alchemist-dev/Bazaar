@@ -1,11 +1,11 @@
 using Bazaar.Approvals;
-using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Sanitization;
 using Bazaar.Server.AccountApproval;
 using Bazaar.Server.AccountApproval.Abstractions;
 using Bazaar.Server.AccountApproval.OwnerQueue;
 using Bazaar.Server.AccountApproval.Postgres;
 using Bazaar.Server.Agents.Responder;
+using Bazaar.Server.GitHub.Adapter;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Portability;
 using Bazaar.Server.Portability.Postgres;

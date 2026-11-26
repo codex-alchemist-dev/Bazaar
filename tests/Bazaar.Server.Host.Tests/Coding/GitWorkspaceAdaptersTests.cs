@@ -1,7 +1,7 @@
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
-using Bazaar.GitHub.Workspace;
 using Bazaar.Server.CodingGit;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
+using Bazaar.Server.GitHub.Workspace;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Vault.Git;
 using Repository = LibGit2Sharp.Repository;

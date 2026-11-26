@@ -3,7 +3,6 @@ using System.Globalization;
 namespace Bazaar.Server.Garnet;
 
 /// <summary>
-/// Settings for the Garnet cache provider (doc 03 <c>host.provider.cache</c> = <c>garnet</c>, Windows). Bound from <see cref="SectionName"/>.
 /// Settings for the Garnet cache provider (doc 03, Provider modules; Windows). Bound from <see cref="SectionName"/>.
 /// Unmanaged: set exactly one of <see cref="Endpoint"/> or <see cref="SecretReference"/>. Managed (<see cref="Managed"/>): the host runs
 /// its own loopback server with a generated password, so neither may be set.
@@ -38,7 +37,6 @@ public sealed class GarnetCacheOptions
     public bool Managed { get; set; }
 
     /// <summary>The Garnet executable for a managed child. A bare name is looked up on the PATH.</summary>
-    public string BinaryPath { get; set; } = "Garnet.exe";
     public string BinaryPath { get; set; } = "garnet-server.exe";
 
     /// <summary>The loopback TCP port of the managed child. 0 picks a free loopback port at each start (the default).</summary>
@@ -60,7 +58,6 @@ public sealed class GarnetCacheOptions
     public bool AofCommitWait { get; set; }
 
     /// <summary>
-    /// Directory for the managed child's append-only file and checkpoints (<c>--logdir</c>, <c>--checkpointdir</c>) and its pid file. The
     /// Directory for the managed child's append-only file and checkpoints (<c>--checkpointdir</c>; <c>--logdir</c> is only valid with <c>--storage-tier</c>, so it is not passed) and its pid file. The
     /// password is never written here.
     /// </summary>

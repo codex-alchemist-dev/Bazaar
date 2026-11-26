@@ -7,10 +7,6 @@ namespace Bazaar.Server.Gateway.Fakes;
 /// <summary>
 /// The gateway seam over a <see cref="FakeProvider"/>. Pass it to <see cref="Ai.GatewayChatClient"/> to exercise scripted
 /// <see cref="ModelEvent"/> steps through the <c>IChatClient</c> adapter, exactly as a real gateway call would.
-/// </summary>
-public sealed class FakeModelGateway : IModelGateway
-{
-    private readonly FakeProvider _provider;
 /// <para>
 /// <see cref="EmbedAsync"/> returns deterministic, hash-based unit vectors: the same text and dimension count always give
 /// the same vector, different texts give different vectors, and the vector does not depend on the batch. No policy runs.
@@ -30,8 +26,6 @@ public sealed class FakeModelGateway : IModelGateway
         _provider = provider ?? throw new ArgumentNullException(nameof(provider));
     }
 
-    public IAsyncEnumerable<ModelEvent> CallAsync(ModelRequest request, CancellationToken cancellationToken) =>
-        _provider.StreamAsync(request, cancellationToken);
     /// <summary>Every embedding request this fake received, in order.</summary>
     public IReadOnlyList<EmbeddingRequest> EmbeddingRequests
     {

@@ -19,10 +19,6 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
     public async Task<string> CreateDifferencingDiskAsync(string vmName, string parentDiskPath, CancellationToken ct)
     {
         RequireVmName(vmName);
-        if (!Path.IsPathFullyQualified(parentDiskPath) || !parentDiskPath.EndsWith(".vhdx", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new ArgumentException("The parent disk must be a full path to a .vhdx file.", nameof(parentDiskPath));
-        }
         RequireVhdxPath(parentDiskPath, nameof(parentDiskPath));
 
         var folder = Path.Combine(vmDirectory, vmName);
@@ -167,12 +163,6 @@ public sealed class PowerShellHyperVHost(IHyperVCommandRunner runner, string scr
         try
         {
             Directory.CreateDirectory(scriptDirectory);
-            var path = Path.Combine(scriptDirectory, $"bazaar-hyperv-{HyperVScript.Hash()}.ps1");
-
-            // Checked on every call: a script file that was changed on disk is replaced before it runs.
-            if (!File.Exists(path) || await File.ReadAllTextAsync(path, ct).ConfigureAwait(false) != HyperVScript.Text)
-            {
-                await File.WriteAllTextAsync(path, HyperVScript.Text, _utf8Bom, ct).ConfigureAwait(false);
             if (OperatingSystem.IsWindows() && new DirectoryInfo(scriptDirectory).Attributes.HasFlag(FileAttributes.ReparsePoint))
             {
                 throw new HyperVCommandException("The script directory is a reparse point (junction or symbolic link); refusing to run a script from it.");
