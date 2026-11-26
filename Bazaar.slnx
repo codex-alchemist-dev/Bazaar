@@ -315,6 +315,7 @@
     <Project Path="src/Bazaar.Server.Security.Abstractions/Bazaar.Server.Security.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Security/Bazaar.Server.Security.csproj" />
     <Project Path="src/Bazaar.Server.AgentSafety/Bazaar.Server.AgentSafety.csproj" />
+    <Project Path="src/Bazaar.Server.AgentSafety.Drill/Bazaar.Server.AgentSafety.Drill.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox.Abstractions/Bazaar.Server.DevSandbox.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox/Bazaar.Server.DevSandbox.csproj" />
     <Project Path="src/Bazaar.Server.DevSandbox.Linux/Bazaar.Server.DevSandbox.Linux.csproj" />
@@ -416,9 +417,9 @@
     <Project Path="src/Bazaar.Server.Coding/Bazaar.Server.Coding.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Abstractions/Bazaar.Server.Vms.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Vms/Bazaar.Server.Vms.csproj" />
+    <Project Path="src/Bazaar.Server.Vms.HyperV/Bazaar.Server.Vms.HyperV.csproj" />
     <Project Path="src/Bazaar.Server.WhatIf.Abstractions/Bazaar.Server.WhatIf.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.WhatIf/Bazaar.Server.WhatIf.csproj" />
-    <Project Path="src/Bazaar.Server.Vms.HyperV/Bazaar.Server.Vms.HyperV.csproj" />
     <Project Path="src/Bazaar.Server.Vms.Kvm/Bazaar.Server.Vms.Kvm.csproj" />
     <Project Path="src/Bazaar.Server.CodingBench.Abstractions/Bazaar.Server.CodingBench.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.CodingBench/Bazaar.Server.CodingBench.csproj" />
@@ -799,6 +800,7 @@
     <Project Path="tests/Bazaar.Guest.Agent.Tests/Bazaar.Guest.Agent.Tests.csproj" />
     <Project Path="tests/Bazaar.Guest.PoolSpawn.Tests/Bazaar.Guest.PoolSpawn.Tests.csproj" />
     <Project Path="tests/Bazaar.GitHub.Tests/Bazaar.GitHub.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.AgentSafety.Drill.Tests/Bazaar.Server.AgentSafety.Drill.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.AgentSafety.Tests/Bazaar.Server.AgentSafety.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Tests/Bazaar.Server.DevSandbox.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.DevSandbox.Linux.Tests/Bazaar.Server.DevSandbox.Linux.Tests.csproj" />

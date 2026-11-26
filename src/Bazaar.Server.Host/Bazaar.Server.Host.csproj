@@ -87,6 +87,7 @@
     <ProjectReference Include="..\Bazaar.Server.MailPolicy\Bazaar.Server.MailPolicy.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Setup.FirstRun.Postgres\Bazaar.Server.Setup.FirstRun.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms\Bazaar.Server.Vms.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.HyperV\Bazaar.Server.Vms.HyperV.csproj" />
     <ProjectReference Include="..\Bazaar.Server.DevSandbox\Bazaar.Server.DevSandbox.csproj" />
     <ProjectReference Include="..\Bazaar.Server.DevSandbox.Linux\Bazaar.Server.DevSandbox.Linux.csproj" />
     <ProjectReference Include="..\Bazaar.Server.DevSandbox.Windows\Bazaar.Server.DevSandbox.Windows.csproj" />

@@ -18,6 +18,13 @@ public static class HyperVScript
         [CmdletBinding()]
         param(
             [Parameter(Mandatory)][ValidateSet('CreateDisk', 'CreateVm', 'Start', 'Stop', 'Save', 'Checkpoint', 'Restore', 'Remove', 'State')][string]$Operation,
+            [Parameter(Mandatory)][ValidatePattern('^bazaar-[0-9a-f]{32}$')][string]$Name,
+            [string]$ParentPath,
+            [string]$DiskPath,
+            [ValidateSet('Windows', 'Linux')][string]$GuestOs,
+            [ValidateRange(1, 64)][int]$Vcpu = 2,
+            [ValidateRange(512, 1048576)][int]$MemoryMb = 2048,
+            [ValidatePattern('^bazaar-cp-[0-9a-f]{32}$')][string]$CheckpointName,
             [Parameter(Mandatory)][ValidatePattern('(?-i)^bazaar-[0-9a-f]{32}\z')][string]$Name,
             [ValidatePattern('(?-i)^[A-Za-z]:\\(?!(.*\\)?\.\.(\\|\z))[^*?\[\]<>|"\x00-\x1f]+\.vhdx\z')][string]$ParentPath,
             [ValidatePattern('(?-i)^[A-Za-z]:\\(?!(.*\\)?\.\.(\\|\z))[^*?\[\]<>|"\x00-\x1f]+\.vhdx\z')][string]$DiskPath,
@@ -84,6 +91,10 @@ public static class HyperVScript
                     Get-VMSnapshot -VMName $Name -ErrorAction SilentlyContinue | Remove-VMSnapshot -IncludeAllChildSnapshots -ErrorAction SilentlyContinue
                     Remove-VM -Name $Name -Force
                     if ($DeleteDisk) {
+                        foreach ($path in $disks) { if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path -Force } }
+                    }
+                }
+                elseif ($DeleteDisk -and $DiskPath -and (Test-Path -LiteralPath $DiskPath)) {
                         foreach ($path in $disks) { if ((Test-OwnedDisk -Path $path -VmName $Name) -and (Test-Path -LiteralPath $path)) { Remove-Item -LiteralPath $path -Force } }
                     }
                 }
