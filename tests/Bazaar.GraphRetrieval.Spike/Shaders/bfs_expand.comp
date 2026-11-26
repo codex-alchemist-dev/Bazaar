@@ -1,0 +1,27 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 256) in;
+#include "graph.glsl"
+void main()
+{
+    uint i = gl_GlobalInvocationID.x;
+    uint start = state[0];
+    uint end = state[1];
+    if (start + i >= end) { return; }
+    uint u = reached[start + i];
+    uint b = offsets[u];
+    uint e = offsets[u + 1u];
+    for (uint k = b; k < e; k++)
+    {
+        uint kind = (kinds[k >> 2] >> ((k & 3u) * 8u)) & 0xFFu;
+        if (((p.kindMask >> kind) & 1u) == 0u) { continue; }
+        uint t = cols[k];
+        uint bit = 1u << (t & 31u);
+        if ((visited[t >> 5] & bit) != 0u) { continue; }
+        if ((atomicOr(visited[t >> 5], bit) & bit) == 0u)
+        {
+            uint pos = atomicAdd(state[2], 1u);
+            if (pos < p.cap) { reached[pos] = t; } else { state[6] = 1u; }
+        }
+    }
+}

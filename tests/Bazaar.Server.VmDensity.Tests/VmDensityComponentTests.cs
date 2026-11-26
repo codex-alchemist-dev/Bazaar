@@ -117,5 +117,35 @@ public sealed class VmDensityComponentTests
         Assert.True(new VmActivity(true, false, false, t).IsBusy);
         Assert.True(new VmActivity(false, true, false, t).IsBusy);
         Assert.True(new VmActivity(false, false, true, t).IsBusy);
+        Assert.True(VmActivity.Unknown(t).IsBusy);
+        Assert.True(VmActivity.Unknown(t).IsUnknown);
+    }
+
+    [Fact]
+    public async Task The_default_activity_reader_reads_nothing_so_no_vm_can_be_reported_idle()
+    {
+        using ServiceProvider provider = Build();
+        var vm = new DensityVm(Guid.NewGuid(), "agent", DensityGuestOs.Linux, 2048);
+
+        var reader = provider.GetRequiredService<IVmActivityReader>();
+
+        Assert.IsType<UnreadableVmActivityReader>(reader);
+        Assert.Null(await reader.ReadAsync(vm, TestContext.Current.CancellationToken));
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => reader.ReadAsync(vm, cts.Token));
+    }
+
+    [Fact]
+    public void A_reader_the_host_registered_wins_over_the_default()
+    {
+        using ServiceProvider provider = Build(extra: s => s.AddSingleton<IVmActivityReader>(new OwnReader()));
+
+        Assert.IsType<OwnReader>(provider.GetRequiredService<IVmActivityReader>());
+    }
+
+    private sealed class OwnReader : IVmActivityReader
+    {
+        public Task<VmActivity?> ReadAsync(DensityVm vm, CancellationToken cancellationToken) => Task.FromResult<VmActivity?>(null);
     }
 }

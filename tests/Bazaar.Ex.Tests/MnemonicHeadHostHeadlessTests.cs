@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 using Bazaar.Client.Input;
+using Bazaar.Contracts.Modules;
 using Bazaar.Ex.Head;
 
 namespace Bazaar.Ex.Tests;
@@ -99,5 +100,85 @@ public class MnemonicHeadHostHeadlessTests
         Assert.Contains(h.Host.Runtime.Document.Overrides, o => o.CommandId == NavigationDefaults.SettingsCommandId && o.Mnemonic == "zz");
         Assert.Contains(h.Store.Saved.Overrides, o => o.CommandId == NavigationDefaults.SettingsCommandId && o.Mnemonic == "zz");
         h.Host.Dispose();
+    }
+
+    private static readonly ClientCommandContribution[] _dispatchCommands =
+    [
+        new("test.one", "Test one", "tone"),
+        new("test.other", "Test other", "tother"),
+    ];
+
+    private static string TempFile() => Path.Combine(Path.GetTempPath(), "bazaar-mnemonic-tests", Guid.NewGuid().ToString("N") + ".json");
+
+    private static void TypeThenEnter(Window window, string text)
+    {
+        foreach (var ch in text)
+        {
+            window.KeyPress(Enum.Parse<Key>(char.ToUpperInvariant(ch).ToString()), RawInputModifiers.None, PhysicalKey.None, ch.ToString());
+        }
+
+        window.KeyPress(Key.Enter, RawInputModifiers.None, PhysicalKey.None, null);
+    }
+
+    [AvaloniaFact]
+    public async Task A_typed_mnemonic_plus_Enter_reaches_the_registered_handler()
+    {
+        var window = new Window { Content = new Border() };
+        window.Show();
+        var ran = new List<string>();
+        var dispatcher = new ClientCommandDispatcher();
+        dispatcher.Add(id => id == "test.one", (id, _) =>
+        {
+            ran.Add(id);
+            return Task.FromResult<string?>(null);
+        });
+        using var host = await MnemonicHeadHost.AttachAsync(window, TempFile(), _dispatchCommands, dispatcher, _ => { }, TestContext.Current.CancellationToken);
+
+        TypeThenEnter(window, "tone");
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Equal(["test.one"], ran);
+    }
+
+    [AvaloniaFact]
+    public async Task A_command_with_no_handler_is_logged_and_nothing_else_happens()
+    {
+        var window = new Window { Content = new Border() };
+        window.Show();
+        var log = new List<string>();
+        using var host = await MnemonicHeadHost.AttachAsync(window, TempFile(), _dispatchCommands, new ClientCommandDispatcher(), log.Add, TestContext.Current.CancellationToken);
+
+        TypeThenEnter(window, "tother");
+        await Task.Delay(50, TestContext.Current.CancellationToken);
+
+        Assert.Contains(log, line => line.Contains("test.other", StringComparison.Ordinal) && line.Contains("No handler", StringComparison.Ordinal));
+    }
+
+    [AvaloniaFact]
+    public async Task Ctrl_chords_pass_through_untouched_when_a_dispatcher_is_attached()
+    {
+        var window = new Window { Content = new Border() };
+        window.Show();
+        var ran = new List<string>();
+        var dispatcher = new ClientCommandDispatcher();
+        dispatcher.Add(_ => true, (id, _) =>
+        {
+            ran.Add(id);
+            return Task.FromResult<string?>(null);
+        });
+        using var host = await MnemonicHeadHost.AttachAsync(window, TempFile(), _dispatchCommands, dispatcher, _ => { }, TestContext.Current.CancellationToken);
+        var handled = false;
+        window.KeyDown += (_, e) => handled = e.Handled;
+
+        window.KeyPress(Key.S, RawInputModifiers.Control, PhysicalKey.None, "s");
+
+        Assert.False(handled);
+        Assert.Empty(ran);
+    }
+
+    [Fact]
+    public void The_palette_mnemonic_is_the_one_the_editor_claim_table_assumes()
+    {
+        Assert.Equal("palette", MnemonicHeadSetup.PaletteMnemonic);
     }
 }

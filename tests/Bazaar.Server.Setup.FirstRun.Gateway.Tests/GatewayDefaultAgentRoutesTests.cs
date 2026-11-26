@@ -90,17 +90,17 @@ public class GatewayDefaultAgentRoutesTests
 
 public class DefaultAgentPolicyGrantTests
 {
-    private static readonly Guid Agent = Guid.NewGuid();
-    private static readonly string[] Whitelist = ["default-agent-balanced", "a:claude-x"];
+    private static readonly Guid _agent = Guid.NewGuid();
+    private static readonly string[] _whitelist = ["default-agent-balanced", "a:claude-x"];
 
     [Fact]
     public async Task Writes_whitelist_with_route_as_default_and_seed_label()
     {
         var dir = new FakeDirectory();
-        Assert.True(await new DefaultAgentPolicyGrant(dir).GrantAsync(Agent, Whitelist, TestContext.Current.CancellationToken));
+        Assert.True(await new DefaultAgentPolicyGrant(dir).GrantAsync(_agent, _whitelist, TestContext.Current.CancellationToken));
 
-        var row = dir.Policies[Agent.ToString("D")];
-        Assert.Equal(Whitelist, row.Entries);
+        var row = dir.Policies[_agent.ToString("D")];
+        Assert.Equal(_whitelist, row.Entries);
         Assert.Equal("default-agent-balanced", row.Default);
         Assert.Equal(DefaultAgentPolicyGrant.ChangedBy, row.ChangedBy);
     }
@@ -109,7 +109,7 @@ public class DefaultAgentPolicyGrantTests
     public async Task Empty_whitelist_writes_nothing()
     {
         var dir = new FakeDirectory();
-        Assert.False(await new DefaultAgentPolicyGrant(dir).GrantAsync(Agent, [], TestContext.Current.CancellationToken));
+        Assert.False(await new DefaultAgentPolicyGrant(dir).GrantAsync(_agent, [], TestContext.Current.CancellationToken));
         Assert.Empty(dir.Policies);
     }
 
@@ -117,20 +117,20 @@ public class DefaultAgentPolicyGrantTests
     public async Task Operator_edited_row_is_never_overwritten()
     {
         var dir = new FakeDirectory();
-        dir.Policies[Agent.ToString("D")] = (["x:y"], "x:y", "owner");
+        dir.Policies[_agent.ToString("D")] = (["x:y"], "x:y", "owner");
 
-        Assert.False(await new DefaultAgentPolicyGrant(dir).GrantAsync(Agent, Whitelist, TestContext.Current.CancellationToken));
-        Assert.Equal(["x:y"], dir.Policies[Agent.ToString("D")].Entries);
+        Assert.False(await new DefaultAgentPolicyGrant(dir).GrantAsync(_agent, _whitelist, TestContext.Current.CancellationToken));
+        Assert.Equal(["x:y"], dir.Policies[_agent.ToString("D")].Entries);
     }
 
     [Fact]
     public async Task Own_earlier_row_is_refreshed()
     {
         var dir = new FakeDirectory();
-        dir.Policies[Agent.ToString("D")] = (["old:m"], "old:m", DefaultAgentPolicyGrant.ChangedBy);
+        dir.Policies[_agent.ToString("D")] = (["old:m"], "old:m", DefaultAgentPolicyGrant.ChangedBy);
 
-        Assert.True(await new DefaultAgentPolicyGrant(dir).GrantAsync(Agent, Whitelist, TestContext.Current.CancellationToken));
-        Assert.Equal(Whitelist, dir.Policies[Agent.ToString("D")].Entries);
+        Assert.True(await new DefaultAgentPolicyGrant(dir).GrantAsync(_agent, _whitelist, TestContext.Current.CancellationToken));
+        Assert.Equal(_whitelist, dir.Policies[_agent.ToString("D")].Entries);
     }
 }
 

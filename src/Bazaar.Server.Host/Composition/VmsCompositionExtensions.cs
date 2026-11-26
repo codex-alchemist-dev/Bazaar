@@ -1,19 +1,36 @@
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.Vms.Environments;
+using Bazaar.Server.Vms.HyperV;
+using Bazaar.Server.Vms.HyperV.PowerShell;
+using Bazaar.Server.Vms.Kvm;
+using Bazaar.Server.Vms.Kvm.Virsh;
 using Bazaar.Server.Vms.Lifecycle;
+using Bazaar.Server.Vms.Ports;
 using Bazaar.Server.Vms.WindowsSandbox;
 using Bazaar.Server.Vms.WindowsSandbox.WsbCli;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
+using HyperVParentResolver = Bazaar.Server.Vms.HyperV.DirectoryParentResolver;
+using KvmParentResolver = Bazaar.Server.Vms.Kvm.DirectoryParentResolver;
+using ModuleAgentVmDirectory = Bazaar.Server.Vms.Abstractions.IAgentVmDirectory;
+using ModuleVmControl = Bazaar.Server.Vms.Abstractions.IVmControl;
 
 namespace Bazaar.Server.Host.Composition;
 
 /// <summary>
 /// The Vms module in the host: the environment repository and store, the operation locks, and the lifecycle service. The lifecycle
 /// service needs a backend, so it is registered only when one is configured. Without a backend, the agent pauser stays fail closed.
+/// The cross-module ports (<c>Bazaar.Server.Vms.Abstractions</c>) follow the same rule: the directory only reads records and is always
+/// registered; the control port needs the lifecycle service, so it exists only with a backend.
 /// </summary>
 public static class VmsCompositionExtensions
 {
+    /// <summary>Configuration section for the Hyper-V backend. Keys: ImageDirectory (golden image VHDX files), VmDirectory (child disks), ScriptDirectory.</summary>
+    public const string HyperVSection = "Bazaar:Vms:HyperV";
+
+    /// <summary>Configuration section for the KVM backend. Keys: ImageDirectory (golden image qcow2 files), VmDirectory (child disks), ConnectionUri (default qemu:///system).</summary>
+    public const string KvmSection = "Bazaar:Vms:Kvm";
+
     /// <summary>Configuration section for the Windows Sandbox backend. Keys: HostBaseImage (GUID), ConfigDirectory, Networking.</summary>
     public const string WindowsSandboxSection = "Bazaar:Vms:WindowsSandbox";
 
@@ -28,19 +45,65 @@ public static class VmsCompositionExtensions
         services.TryAddSingleton<IEnvironmentVmStore>(sp => new EnvironmentVmStore(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton<IAgentVmDirectory>(sp => new RepositoryAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>()));
         services.TryAddSingleton(new VmOperationLocks());
+        // The read port for other modules (not the agent pauser's directory above): it reads records and calls no backend.
+        services.TryAddSingleton<ModuleAgentVmDirectory>(sp => new EnvironmentAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>(), sp.GetService<IVmBackend>()));
 
-        var backend = WindowsSandboxFromConfiguration(configuration);
+        // Hyper-V is the VM provider for the agent pair and is chosen first, then KVM on Linux hosts; Windows Sandbox serves one-off work and is the fallback (doc 50).
+        // Each backend's host facts fail closed on the wrong OS, so the host decides in practice.
+        IVmBackend? backend = HyperVFromConfiguration(configuration);
+        backend ??= KvmFromConfiguration(configuration);
+        backend ??= WindowsSandboxFromConfiguration(configuration);
         if (backend is not null)
         {
-            services.TryAddSingleton<IVmBackend>(backend);
+            services.TryAddSingleton(backend);
             services.TryAddSingleton(sp => new VmLifecycleService(
                 sp.GetRequiredService<IEnvironmentVmStore>(),
                 sp.GetRequiredService<IVmBackend>(),
                 sp.GetRequiredService<VmOperationLocks>(),
                 sp.GetRequiredService<TimeProvider>()));
+            services.TryAddSingleton<ModuleVmControl>(sp => new LifecycleVmControl(sp.GetRequiredService<VmLifecycleService>()));
         }
 
         return services;
+    }
+
+    /// <summary>The Hyper-V backend, or null when its section does not name all three directories.</summary>
+    private static HyperVBackend? HyperVFromConfiguration(IConfiguration configuration)
+    {
+        var section = configuration.GetSection(HyperVSection);
+        var imageDirectory = section["ImageDirectory"];
+        var vmDirectory = section["VmDirectory"];
+        var scriptDirectory = section["ScriptDirectory"];
+        if (string.IsNullOrWhiteSpace(imageDirectory) || string.IsNullOrWhiteSpace(vmDirectory) || string.IsNullOrWhiteSpace(scriptDirectory))
+        {
+            return null;
+        }
+
+        return new HyperVBackend(
+            new PowerShellHyperVHost(new ProcessHyperVCommandRunner(), scriptDirectory, vmDirectory),
+            new HyperVParentResolver(imageDirectory),
+            new HyperVHostFacts());
+    }
+
+    /// <summary>The KVM backend, or null when its section does not name an image directory and a VM directory.</summary>
+    private static KvmBackend? KvmFromConfiguration(IConfiguration configuration)
+    {
+        var section = configuration.GetSection(KvmSection);
+        var imageDirectory = section["ImageDirectory"];
+        var vmDirectory = section["VmDirectory"];
+        if (string.IsNullOrWhiteSpace(imageDirectory) || string.IsNullOrWhiteSpace(vmDirectory))
+        {
+            return null;
+        }
+
+        var connectionUri = section["ConnectionUri"];
+        var options = string.IsNullOrWhiteSpace(connectionUri)
+            ? new VirshKvmOptions(vmDirectory)
+            : new VirshKvmOptions(vmDirectory, connectionUri);
+        return new KvmBackend(
+            new VirshKvmHost(new ProcessKvmCommandRunner(), options),
+            new KvmParentResolver(imageDirectory),
+            new KvmHostFacts());
     }
 
     /// <summary>The Windows Sandbox backend, or null when its section does not name a base image and a config directory.</summary>
