@@ -34,6 +34,8 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
     private ReplayViewMode? _viewerOverride;
     private CancellationTokenSource? _playing;
     private int _requestCounter;
+    private readonly List<ReplayPointView> _points = [];
+    private long? _nextPointsAfter = 0;
 
     public ReplayScrubberViewModel(
         Guid gcId,
@@ -142,6 +144,15 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
 
     public bool CanFork => HasClient && !IsLoading && Frame is not null;
 
+    /// <summary>Points in time loaded so far, in seq order. Empty when the client has no snapshot list.</summary>
+    public IReadOnlyList<ReplayPointView> Points => _points;
+
+    /// <summary>True when the client can list points.</summary>
+    public bool HasPoints => _client is IReplayPointClient;
+
+    /// <summary>True when more points can be loaded.</summary>
+    public bool CanLoadMorePoints => HasPoints && !IsLoading && _nextPointsAfter is not null;
+
     /// <summary>Raised after any state change. The view rebuilds from the view model.</summary>
     public event Action? Changed;
 
@@ -154,6 +165,35 @@ public sealed class ReplayScrubberViewModel : IPaneViewModel
         _viewerOverride = mode;
         _preferences?.SetViewerOverride(mode);
         Changed?.Invoke();
+    }
+
+    /// <summary>Loads the next page of points, or the first page. A failure shows in <see cref="ErrorText"/>.</summary>
+    public async Task LoadPointsAsync(int limit = 100, CancellationToken ct = default)
+    {
+        if (_client is not IReplayPointClient points || _nextPointsAfter is not { } after)
+        {
+            return;
+        }
+
+        try
+        {
+            var page = await points.GetPointsAsync(GcId, after, limit, ct).ConfigureAwait(true);
+            _points.AddRange(page.Points);
+            _nextPointsAfter = page.Next;
+        }
+        catch (ReplayClientException ex)
+        {
+            ErrorText = ex.Message;
+        }
+
+        Changed?.Invoke();
+    }
+
+    /// <summary>Jumps the cursor to a listed point and loads that frame. Read-only, like any seek.</summary>
+    public Task JumpToAsync(ReplayPointView point, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(point);
+        return SeekAsync(point.Seq, ct);
     }
 
     /// <summary>Loads the frame at the cursor (the head on open).</summary>

@@ -4,10 +4,13 @@ using Bazaar.Server.Setup;
 namespace Bazaar.Client.Tui.Host;
 
 /// <summary>What Ops mode runs on: the ports, the sign-in, the crash journal, and whether an owner exists. Disposing it closes the database.</summary>
-public sealed class OpsWiring(OpsPorts ports, OpsSignIn signIn, IOpsCrashJournal crashes, Func<CancellationToken, Task<bool>> ownerExists, IAsyncDisposable? owner = null)
+public sealed class OpsWiring(OpsPorts ports, OpsSignIn signIn, IOpsCrashJournal crashes, Func<CancellationToken, Task<bool>> ownerExists, IAsyncDisposable? owner = null, OpsWritePorts? writes = null)
     : IAsyncDisposable
 {
     public OpsPorts Ports => ports;
+
+    /// <summary>The write ports that have an owning operation; the rest stay null and their actions report unavailable.</summary>
+    public OpsWritePorts Writes => writes ?? new OpsWritePorts();
 
     public OpsSignIn SignIn => signIn;
 

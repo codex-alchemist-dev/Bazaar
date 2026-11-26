@@ -15,6 +15,7 @@ using Bazaar.Client.Athanor.Sources;
 using Bazaar.Client.Calcinato.Panes;
 using Bazaar.Client.Calendar;
 using Bazaar.Client.Chat;
+using Bazaar.Client.Commands;
 using Bazaar.Client.ColdArchive;
 using Bazaar.Client.Components.Chat;
 using Bazaar.Client.Components.Launcher;
@@ -44,8 +45,8 @@ using Bazaar.Client.Preload;
 using Bazaar.Client.RyuseiFuda;
 using Bazaar.Client.Settings;
 using Bazaar.Client.Shell;
-using Bazaar.Client.Theme;
 using Bazaar.Client.SignIn;
+using Bazaar.Client.Theme;
 using Bazaar.Client.Vault;
 using Bazaar.Client.Views;
 using Bazaar.Contracts.Modules;
@@ -115,8 +116,12 @@ internal static class Program
         var viewActions = ViewActionRouter.ForServices(new PaneNavigator(paneSurface), new CommandRunner(), preferences);
         var terminals = CalcinatoTerminalPanes.CreateSessions();
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
+        var router = new CommandRouter();
+        var navigator = new LatePaneNavigator();
         var features = CalcinatoTerminalPanes.AddServices(
             new PaneModuleContext()
+                .With<ICommandRouter>(router)
+                .With<IPaneNavigator>(navigator)
                 .With<IConstellationTileSource>(HttpConstellationTileSource.Create(ClientServer.Current))
                 .With<IGitSolarSource>(HttpGitSolarSource.Create(ClientServer.Current))
                 .With<IColdArchiveClient>(HttpColdArchiveClient.Create(ClientServer.Current))
@@ -206,10 +211,18 @@ internal static class Program
 
             // Direction from the locale and the screen-reader live region wrap whatever the window now shows (doc 41c).
             ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
+            // A mnemonic command that opens a pane shows that pane in this window (the same view --panes builds).
+            navigator.Bind(kind =>
+            {
+                window.ShowPanes([new PaneDescriptor(kind, kind, string.Empty, JsonElement.Parse("{}"))], registry);
+                return true;
+            });
 
             // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the cursor file.
             window.Opened += async (_, _) =>
             {
+                var host = await MnemonicHeadHost.AttachAsync(window, Path.Combine(Path.GetDirectoryName(CursorPath())!, "mnemonic-overrides.json"), loaded.Commands);
+                RouteCommands(host, router);
                 // The editor commands (edopen, ednew, edsave, eddiff) are typed text plus Enter, no Ctrl chord; with --athanor they run through the editor's dispatcher.
                 var dispatcher = showAthanor ? AthanorHeadComposition.CreateDispatcher(window, athanorModule) : null;
                 var head = await MnemonicHeadHost.AttachAsync(
@@ -307,6 +320,15 @@ internal static class Program
                 : Environment.GetEnvironmentVariable(name));
     }
 
+    // What a chosen command does belongs to the pane module that registered a handler for it.
+    private static void RouteCommands(MnemonicHeadHost host, CommandRouter router) =>
+        host.Shell.CommandInvoked += (_, id) =>
+        {
+            if (!router.TryInvoke(id))
+            {
+                Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+            }
+        };
     private static string SettingsPath() =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Bazaar", "client-settings.json");
 

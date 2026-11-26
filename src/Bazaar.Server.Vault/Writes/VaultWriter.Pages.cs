@@ -95,8 +95,11 @@ public sealed partial class VaultWriter : IVaultPageWriter
 
     private IEnumerable<string> EnumeratePageFiles(string prefix)
     {
-        var directory = Path.Combine(_repoPath, prefix.TrimEnd('/'));
-        return Directory.Exists(directory) ? Directory.EnumerateFiles(directory, "*.md", SearchOption.AllDirectories) : [];
+        // Normalised like ResolveInside's result: on Windows Path.Combine keeps the prefix's '/' and the file would not match itself.
+        var directory = Path.GetFullPath(Path.Combine(_repoPath, prefix.TrimEnd('/')));
+        return Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory, "*.md", SearchOption.AllDirectories).Select(f => Path.GetFullPath(f))
+            : [];
     }
 
     private static async Task<string?> ReadIdAsync(string file, CancellationToken ct) => IdOf(await File.ReadAllTextAsync(file, ct));

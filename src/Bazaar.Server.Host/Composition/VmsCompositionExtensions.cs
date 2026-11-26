@@ -48,6 +48,8 @@ public static class VmsCompositionExtensions
         // The read port for other modules (not the agent pauser's directory above): it reads records and calls no backend.
         services.TryAddSingleton<ModuleAgentVmDirectory>(sp => new EnvironmentAgentVmDirectory(sp.GetRequiredService<EnvironmentRepository>(), sp.GetService<IVmBackend>()));
 
+        // Hyper-V is the VM provider for the agent pair and is chosen first; Windows Sandbox serves one-off work and is the fallback (doc 50).
+        IVmBackend? backend = HyperVFromConfiguration(configuration);
         // Hyper-V is the VM provider for the agent pair and is chosen first, then KVM on Linux hosts; Windows Sandbox serves one-off work and is the fallback (doc 50).
         // Each backend's host facts fail closed on the wrong OS, so the host decides in practice.
         IVmBackend? backend = HyperVFromConfiguration(configuration);
@@ -60,6 +62,8 @@ public static class VmsCompositionExtensions
                 sp.GetRequiredService<IEnvironmentVmStore>(),
                 sp.GetRequiredService<IVmBackend>(),
                 sp.GetRequiredService<VmOperationLocks>(),
+                sp.GetRequiredService<TimeProvider>(),
+                sp.GetService<IAgentContainmentCheck>()));
                 sp.GetRequiredService<TimeProvider>()));
             services.TryAddSingleton<ModuleVmControl>(sp => new LifecycleVmControl(sp.GetRequiredService<VmLifecycleService>()));
         }
@@ -81,6 +85,10 @@ public static class VmsCompositionExtensions
 
         return new HyperVBackend(
             new PowerShellHyperVHost(new ProcessHyperVCommandRunner(), scriptDirectory, vmDirectory),
+            new DirectoryParentResolver(imageDirectory),
+            new HyperVHostFacts());
+    }
+
             new HyperVParentResolver(imageDirectory),
             new HyperVHostFacts());
     }

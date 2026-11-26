@@ -8,11 +8,17 @@ internal sealed record AssertRequest(string? ChallengeId, string? Assertion, str
 
 internal sealed record RedirectResponse(string Redirect);
 
+internal sealed record RegisterRequest(string? Attestation);
+
+internal sealed record RegisterResponse(bool Ok);
+
 internal sealed record ErrorResponse(string Error);
 
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(ChallengeResponse))]
 [JsonSerializable(typeof(AssertRequest))]
 [JsonSerializable(typeof(RedirectResponse))]
+[JsonSerializable(typeof(RegisterRequest))]
+[JsonSerializable(typeof(RegisterResponse))]
 [JsonSerializable(typeof(ErrorResponse))]
 internal sealed partial class SignInJson : JsonSerializerContext;

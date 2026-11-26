@@ -7,7 +7,12 @@ namespace Bazaar.Server.Vms.Lifecycle;
 /// checks the transition table, calls the backend, then records the new state with a compare-and-set. A refused transition
 /// never reaches the backend. If the backend throws, the recorded state stays as it was and the exception propagates.
 /// </summary>
-public sealed class VmLifecycleService(IEnvironmentVmStore store, IVmBackend backend, VmOperationLocks locks, TimeProvider clock)
+public sealed class VmLifecycleService(
+    IEnvironmentVmStore store,
+    IVmBackend backend,
+    VmOperationLocks locks,
+    TimeProvider clock,
+    IAgentContainmentCheck? containment = null)
 {
     /// <summary>
     /// Creates the child VM for <paramref name="vm"/>, which must be in <see cref="VmState.Absent"/>. The row is inserted,
@@ -45,7 +50,28 @@ public sealed class VmLifecycleService(IEnvironmentVmStore store, IVmBackend bac
         return new VmOperationResult.Applied(VmState.Stopped);
     }
 
-    public Task<VmOperationResult> StartAsync(Guid vmId, CancellationToken ct) =>
+    /// <summary>
+    /// Starts the VM unless its agent is contained: then the start is refused with <see cref="VmRefusalReason.AgentContained"/> and the
+    /// backend is not called. When the containment check cannot answer it throws, so the VM stays down (fail closed).
+    /// </summary>
+    public async Task<VmOperationResult> StartAsync(Guid vmId, CancellationToken ct)
+    {
+        if (containment is not null)
+        {
+            var record = await store.GetAsync(vmId, ct).ConfigureAwait(false);
+            if (record is not null && await containment.IsContainedAsync(record.AgentId, ct).ConfigureAwait(false))
+                return Refuse(VmRefusalReason.AgentContained, record.State, VmState.Running);
+        }
+
+        return await RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Starts the VM without the containment check. Only the owner-signed containment release uses it: it resumes the VMs while the
+    /// agent is still in the containment store, and removes the agent from the store afterwards. It is internal: only
+    /// <c>Bazaar.Server.AgentSafety</c> (and the Vms tests) can reach it, and an architecture test pins which file calls it.
+    /// </summary>
+    internal Task<VmOperationResult> StartForReleaseAsync(Guid vmId, CancellationToken ct) =>
         RunAsync(vmId, VmState.Running, h => backend.StartAsync(h, ct), ct);
 
     public Task<VmOperationResult> StopAsync(Guid vmId, StopMode mode, CancellationToken ct) =>

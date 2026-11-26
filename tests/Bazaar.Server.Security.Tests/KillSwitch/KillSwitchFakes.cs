@@ -26,6 +26,9 @@ internal sealed class RecordingContainment : IAgentContainment
     /// <summary>When set, <see cref="ReleaseAsync"/> throws, to test a failing host hook.</summary>
     public bool FailRelease { get; set; }
 
+    /// <summary>When set, <see cref="ReleaseAsync"/> answers Denied, as a containment does for a forged signature.</summary>
+    public bool DenyRelease { get; set; }
+
     public Task ContainAsync(string agentId, string actorId, CancellationToken ct = default)
     {
         lock (_gate)
@@ -44,6 +47,11 @@ internal sealed class RecordingContainment : IAgentContainment
         lock (_gate)
         {
             _calls.Add("release:" + agentId);
+        }
+
+        if (DenyRelease)
+        {
+            return Task.FromResult(new ContainmentReleaseResult(ContainmentReleaseOutcome.Denied));
         }
 
         return FailRelease

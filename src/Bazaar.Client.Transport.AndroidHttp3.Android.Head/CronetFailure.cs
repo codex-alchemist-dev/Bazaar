@@ -24,12 +24,12 @@ internal sealed record CronetFailureInfo(CronetFailureKind Kind, int ErrorCode, 
 internal static class CronetFailure
 {
     // org.chromium.net.NetworkException.ERROR_* values.
-    private const int HostLookup = 1;
-    private const int Timed = 4;
-    private const int ConnectionClosed = 5;
-    private const int ConnectionReset = 6;
-    private const int ConnectionRefused = 7;
-    private const int Disconnected = 9;
+    private const int _hostLookup = 1;
+    private const int _timed = 4;
+    private const int _connectionClosed = 5;
+    private const int _connectionReset = 6;
+    private const int _connectionRefused = 7;
+    private const int _disconnected = 9;
 
     /// <summary>The exception for <paramref name="info"/>. The message names the Java error code; it never carries a URL or header.</summary>
     public static IOException ToException(CronetFailureInfo info)
@@ -48,12 +48,12 @@ internal static class CronetFailure
     /// <summary>A short stable name for a <c>NetworkException</c> error code.</summary>
     public static string Describe(int errorCode) => errorCode switch
     {
-        HostLookup => "host lookup failed",
-        Timed => "timed out",
-        ConnectionClosed => "connection closed",
-        ConnectionReset => "connection reset",
-        ConnectionRefused => "connection refused",
-        Disconnected => "internet disconnected",
+        _hostLookup => "host lookup failed",
+        _timed => "timed out",
+        _connectionClosed => "connection closed",
+        _connectionReset => "connection reset",
+        _connectionRefused => "connection refused",
+        _disconnected => "internet disconnected",
         _ => $"error {errorCode}",
     };
 }

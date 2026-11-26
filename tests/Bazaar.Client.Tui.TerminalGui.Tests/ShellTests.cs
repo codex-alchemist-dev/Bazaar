@@ -8,6 +8,9 @@ public class ShellTests
     private static TuiShell NewShell(HeadlessSession session, ShellOptions? options = null) =>
         session.Host.CreateShell(DefaultMenus.Create(), options);
 
+    // A captured screen is drawn first (HeadlessSession.Capture), so the status and search rows show the state set just before it.
+    private static string[] RowsOf(string screen) => screen.TrimEnd('\n').Split('\n');
+
     [Fact]
     public void The_menu_bar_lists_the_default_menus_with_the_first_selected_and_underlines_in_text()
     {
@@ -139,11 +142,12 @@ public class ShellTests
         using var shell = NewShell(session);
         var chosen = new List<string>();
         shell.Chosen += chosen.Add;
-        var rows = new List<string>();
-        session.Type("/").Type("aud").Do(() => rows.AddRange(session.Rows)).Press(Key.Enter);
+        var screens = new List<string>();
+        session.Type("/").Type("aud").Capture(screens).Press(Key.Enter);
 
         shell.RunShell();
 
+        var rows = RowsOf(screens[0]);
         Assert.Contains("Search: aud", rows[23]);
         Assert.Contains(rows, row => row.Contains("> Admin > Audit", StringComparison.Ordinal));
         Assert.Equal([DefaultMenus.Audit], chosen);
@@ -308,13 +312,14 @@ public class ShellTests
     {
         using var session = new HeadlessSession();
         using var shell = NewShell(session);
-        var rows = new List<string>();
+        var screens = new List<string>();
         session.Do(() => shell.SetStatus("Server healthy, 3 modules loaded"))
             .Do(() => { })
-            .Do(() => rows.AddRange(session.Rows));
+            .Capture(screens);
 
         shell.RunShell();
 
+        var rows = RowsOf(screens[0]);
         Assert.Contains("Server healthy, 3 modules loaded", rows[23]);
         Assert.Equal("Server healthy, 3 modules loaded", shell.StatusText);
     }

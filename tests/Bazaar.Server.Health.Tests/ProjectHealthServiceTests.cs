@@ -6,7 +6,7 @@ namespace Bazaar.Server.Health.Tests;
 public class ProjectHealthServiceTests
 {
     private static readonly DateOnly _today = new(2026, 11, 22);
-    private const string P = "alpha";
+    private const string _p = "alpha";
 
     private static (ProjectHealthService Service, InMemoryMetricStore Store) Make(ProjectHealthSettings? settings = null)
     {
@@ -16,13 +16,13 @@ public class ProjectHealthServiceTests
     }
 
     private static MetricSample S(string metric, int daysAgo, double value, string dim = "", string src = "r") =>
-        new(P, metric, dim, _today.AddDays(-daysAgo), value, src);
+        new(_p, metric, dim, _today.AddDays(-daysAgo), value, src);
 
     [Fact]
     public async Task Nothing_recorded_is_no_data_not_healthy()
     {
         var (svc, _) = Make();
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(ProjectHealthStatus.NoData, r.Status);
         Assert.Null(r.Build.PassRate);
@@ -36,7 +36,7 @@ public class ProjectHealthServiceTests
     {
         var (svc, store) = Make();
         await store.UpsertAsync([S(HealthMetricNames.AnalyzerWarnings, 0, 12)], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(ProjectHealthStatus.Healthy, r.Status);
         Assert.Null(r.Build.PassRate);
@@ -55,7 +55,7 @@ public class ProjectHealthServiceTests
             S(MetricNames.CoverageLinePercent, 0, 75, "dotnet", "b"),
             S(MetricNames.CoverageLinePercent, 0, 40, "luau", "c"),
         ], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(ProjectHealthStatus.Alert, r.Status);
         Assert.Contains(r.Alerts, a => a.Kind == "coverage_drop" && a.Message.Contains("dotnet"));
@@ -73,7 +73,7 @@ public class ProjectHealthServiceTests
             S(MetricNames.CiRunsTotal, 1, 4, src: "a"), S(MetricNames.CiRunsPassed, 1, 3, src: "a"),
             S(MetricNames.CiRunsTotal, 0, 2, src: "b"), S(MetricNames.CiRunsPassed, 0, 0, src: "b"),
         ], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Contains(r.Alerts, a => a.Kind == "build_failure_streak");
         Assert.Equal(6, r.Build.Runs);
@@ -91,7 +91,7 @@ public class ProjectHealthServiceTests
             S(HealthMetricNames.PackageVulnerabilities, 0, 2),
             S(HealthMetricNames.Reverts, 3, 1, src: "x"), S(HealthMetricNames.Reverts, 0, 2, src: "y"),
         ], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(12, r.TechDebt.AnalyzerWarnings!.Latest);
         Assert.Equal(15, r.TechDebt.AnalyzerWarnings.Previous);
@@ -105,7 +105,7 @@ public class ProjectHealthServiceTests
     {
         var (svc, store) = Make(new ProjectHealthSettings { WindowDays = 7 });
         await store.UpsertAsync([S(HealthMetricNames.Reverts, 20, 9)], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(ProjectHealthStatus.NoData, r.Status);
     }
@@ -119,7 +119,7 @@ public class ProjectHealthServiceTests
             S(HealthMetricNames.BlockedShare, 0, 0.4),
             S(HealthMetricNames.ReopenedTasks, 0, 5),
         ], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         var m = Assert.Single(r.Morale);
         Assert.Equal(MoraleSignals.BlockedShare, m.Signal);
@@ -133,7 +133,7 @@ public class ProjectHealthServiceTests
     {
         var (svc, store) = Make();
         await store.UpsertAsync([S(HealthMetricNames.ReopenedTasks, 0, 2), S(HealthMetricNames.VoteReversals, 0, 1)], TestContext.Current.CancellationToken);
-        var r = await svc.GetAsync(P, TestContext.Current.CancellationToken);
+        var r = await svc.GetAsync(_p, TestContext.Current.CancellationToken);
 
         Assert.Equal(["blocked_share", "reopened_tasks", "vote_reversals"], r.Morale.Select(m => m.Signal));
         Assert.Equal(ProjectHealthStatus.Healthy, r.Status);
@@ -145,8 +145,8 @@ public class ProjectHealthServiceTests
         var (svc, store) = Make();
         await store.UpsertAsync([S(MetricNames.CoverageLinePercent, 1, 80, "dotnet"), S(MetricNames.CoverageLinePercent, 0, 70, "dotnet", "z")], TestContext.Current.CancellationToken);
 
-        var a = HealthDashboardCard.ToPaneModel(HealthDashboardCard.Build(await svc.GetAsync(P, TestContext.Current.CancellationToken)));
-        var b = HealthDashboardCard.ToPaneModel(HealthDashboardCard.Build(await svc.GetAsync(P, TestContext.Current.CancellationToken)));
+        var a = HealthDashboardCard.ToPaneModel(HealthDashboardCard.Build(await svc.GetAsync(_p, TestContext.Current.CancellationToken)));
+        var b = HealthDashboardCard.ToPaneModel(HealthDashboardCard.Build(await svc.GetAsync(_p, TestContext.Current.CancellationToken)));
         Assert.Equal(a, b);
     }
 }

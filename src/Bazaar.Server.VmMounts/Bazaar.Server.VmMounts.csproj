@@ -17,7 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- No reference to Bazaar.Server: the module meets the rest only through abstractions and the vms tables (doc 16 WP8). -->
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmMounts.Abstractions\Bazaar.Server.VmMounts.Abstractions.csproj" />
   </ItemGroup>

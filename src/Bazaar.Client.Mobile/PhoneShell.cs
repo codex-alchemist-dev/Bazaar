@@ -20,6 +20,7 @@ namespace Bazaar.Client.Mobile;
 /// by side per page (doc 29). The pane list comes from the <see cref="PaneRegistry"/> in registration order.
 /// Pane bodies are placeholders that name the pane until the GC and Kanban panes plug in.
 /// </summary>
+public sealed class PhoneShell : UserControl, IDisposable
 public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
 {
     private readonly PaneRegistry _registry;
@@ -45,6 +46,7 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
     /// <param name="screenView">Returns the view for a pushed stack entry, or null for a placeholder. Used only with <paramref name="history"/>.</param>
     /// <param name="backSource">The system back gesture. Null wires no system back; <see cref="GoBack"/> still pops.</param>
     /// <param name="backSettings">Predictive back thresholds; null uses the doc 93 defaults.</param>
+    public PhoneShell(PaneRegistry registry, Func<string, Control?>? paneBody = null, GestureOptions? gestures = null, IReadOnlyList<string>? radialSectors = null, MotionSettings? motion = null, IFrameDriver? frames = null, IScreenHistory? history = null, Func<ScreenEntry, Control?>? screenView = null, IBackGestureSource? backSource = null, GestureSettings? backSettings = null, IHaptics? haptics = null)
     /// <param name="settings">The client settings. With them the shell shows the first-run coach once and records it as seen (<see cref="CoachSettingKeys.Seen"/>, registered through <see cref="CoachController.Definitions"/>). Null shows no coach.</param>
     /// <param name="pageTitle">The name the top strip shows for a page, from its pane kinds. Null joins the kinds with a comma.</param>
     /// <param name="coachOptions">Strip, peek and coach sizes; null uses the defaults.</param>
@@ -81,6 +83,8 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
         };
         Gestures.DictationChanged += (_, on) => DictationChanged?.Invoke(this, on);
         Gestures.RadialReleased += (_, release) => RadialReleased?.Invoke(this, release);
+        var body = new Grid { Children = { Gestures } };
+        Content = new DockPanel { Children = { title, body } };
         _pageTitle = pageTitle ?? (kinds => string.Join(", ", kinds));
         var options = coachOptions ?? PhoneCoachOptions.Default;
         // The strip names the chats and the peek edges show the neighbours, so a swipe is visible before the finger moves (doc 93).
@@ -105,6 +109,8 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
         {
             _history = history;
             _presenter = new ScreenStackPresenter(body, Gestures, history, screenView ?? (_ => null), backSource, frameDriver, motionSettings, backSettings);
+            history.Changed += (_, _) => CanGoBackChanged?.Invoke(this, history.CanPop);
+        }
             history.Changed += (_, _) =>
             {
                 // A pushed screen covers the pager, so the pager's strip and peek edges go with it.
@@ -190,6 +196,20 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
 
     /// <summary>Index of the page on screen, or -1 when there are no pages.</summary>
     public int SelectedPage => _pages.Count == 0 ? -1 : _pager.SelectedIndex;
+
+    /// <summary>Shows the page that holds the pane of <paramref name="paneKind"/>. Returns false when no page holds it.</summary>
+    public bool ShowPane(string paneKind)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(paneKind);
+        var index = _pages.ToList().FindIndex(page => page.Contains(paneKind, StringComparer.Ordinal));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        GoToPage(index);
+        return true;
+    }
 
     /// <summary>Shows the next page. Returns false on the last page. Also the route for the accessibility action "Next chat".</summary>
     public bool GoToNext() => Step(+1);

@@ -86,6 +86,7 @@ The audit view that shows these rows is doc 48. The hash chain, signed checkpoin
 | 7 | Privacy and retention | Privacy profile, retention periods, legal-hold defaults, erasure window. Each option that touches law is marked "needs counsel". | 32, 15, 33 |
 | 8 | Backups | Backup target (operator's choice), schedule, and restore-drill cadence. Finishing without a target needs a recorded acknowledgement. | 33 |
 | 9 | Model sources | FreeLLMAPI guided setup (priority source), the owner's provider API key by reference, optional custom proxies and local runtimes, the default free-lane preset. Subscription logins are refused on every route. | 05, 05b, 14 |
+| 9b | Embedding profile (optional) | `none` (lexical-only search, the default) or one configured embedding provider. The dimension is fixed once chosen. Implemented as the `embeddings.profile` step (order 95); the choice is the setting `memory.embedding_profile` in the plan, and the provider's base URL, model, dimensions and key reference come from the `Bazaar:Embeddings` configuration (key by reference only). Section 1.4. | 08 (WP6), 04 |
 | 10 | Git and GitHub | Merge credential (owner GitHub App or linked owner credential; no default), GitHub App installation for the company's organisation. | 14, 21 |
 | 11 | Email (optional) | Off by default. If enabled: back end, operator domain, DNS checker (SPF, DKIM, DMARC; PTR when self-hosted). Domains are never hardcoded. Optional plan fields under `email` (PROPOSED, 2026-11-18): `domain`, `backendKind`, `dkimSelector`, `dmarcReportAddress`, `selfHosted`. The check is advice and never blocks the apply. | 22 |
 | 12 | Scam-mail protocol (optional) | Shown only if step 11 is on. Off by default. Section 1.11. | 15, 22 |
@@ -143,6 +144,7 @@ Steps 1 (install identity) and 6 (owner) are applied by two small steps in `Baza
 | Retention and erasure window | Yes | The most protective documented option | Doc 04 lists 35 days as a placeholder. Needs counsel. |
 | Backup target | Yes | Required; finishing without one needs a recorded acknowledgement (DECIDED, owner 2026-11-16: Open questions item 5) | Operator's choice, documented in doc 33. |
 | Model sources | Yes | FreeLLMAPI guided setup; default free-lane preset | Owner's API key optional. Routing defaults are doc 05's. |
+| Embedding profile | Yes | `none` (lexical only) | One per install; the dimension is fixed at setup, so a plan with a different dimension on an active profile is refused. A later change is a planned re-embed (doc 08). Shipped as a step by `Bazaar.Server.Embeddings` [PROPOSED]. |
 | Merge credential | Yes | None; must be chosen (doc 14, round 12) | Owner GitHub App or linked owner credential. |
 | Status listener bind | Yes | Loopback | Non-loopback needs Tier 2 approval (doc 03). |
 | Email | Yes | Off | If on, a back end is required (`email.backend`: `bazaar_client`, `imap_smtp`, `cloudflare` or `builtin_server`; empty while off) and an operator domain is set in the mail panel afterwards, because the domain is a `mail_domain` row, not a plan field (doc 22). |
@@ -583,7 +585,7 @@ One client module, `Bazaar.Client.FirstTask` (with `.Avalonia`), adds no code to
 - **Nothing hidden.** The text is the person's own words, shown back after sending. The module stores nothing; the walkthrough's "task given" fact is the server's, computed from the chat (section 2.9).
 - **Keyboard first.** The box takes no focus by default (doc 27); Tab reaches Send. Enter inserts a new line; Send is a button. No Ctrl chords.
 - **Agent profile screen.** The profile card is `Bazaar.Client.Souls`; the walkthrough's "meet your first agent" step opens it from the read-only profile route (doc 07, PROPOSED), keyed by the `first_agent_id` fact. When the server has no profile to show, the step says it cannot open and the name from the facts stays on the card.
-- **Sending.** The Windows head sends over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
+- **Sending.** The Windows and Linux heads send over a short wire connection that carries the signed-in access token, posts one `gc.send` and closes, so the composer works without a running chat.
 - **Testing.** Unit tests for the view model (disabled without ids, sends once, trims, shows failures without repeating a secret) and an Avalonia.Headless test by `firsttask-*` ids; the sender adapter is tested against a fake wire.
 
 ---

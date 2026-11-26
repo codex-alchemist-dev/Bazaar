@@ -1,7 +1,7 @@
 using System.Text;
 using Terminal.Gui.Drawing;
-using Attribute = Terminal.Gui.Drawing.Attribute;
 using Terminal.Gui.ViewBase;
+using Attribute = Terminal.Gui.Drawing.Attribute;
 
 namespace Bazaar.Client.Tui.TerminalGui;
 

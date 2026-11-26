@@ -5,6 +5,7 @@ using Avalonia.Threading;
 using Bazaar.Accessibility;
 using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Client.Chat;
+using Bazaar.Client.Commands;
 using Bazaar.Client.Components.Launcher;
 using Bazaar.Client.Core;
 using Bazaar.Client.Launcher;
@@ -20,6 +21,9 @@ namespace Bazaar.Client.Linux;
 
 internal static class Program
 {
+    // The router modules register command handlers into. This head loads no pane modules yet.
+    private static readonly CommandRouter _router = new();
+
     private const string _clientBuild = "bazaar-linux";
 
     [STAThread]
@@ -150,4 +154,48 @@ internal static class Program
         var dataDir = ClientDataPaths.DataDir(Environment.GetEnvironmentVariable);
         return LinuxHead.Create(new LinuxHeadOptions(settings, paths, args, updates, dataDir, _clientBuild, Console.Error.WriteLine)).Window;
     }
+
+    // --sign-in, --create-company and --first-run replace the window content with the first-run screens (doc 45 section 2.6).
+    private static void ShowFirstRun(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (FirstRunScreens.TryBuild(args) is { } firstRun)
+        {
+            window.Content = firstRun;
+        }
+    }
+
+    // Keyboard mnemonics and the palette (doc 41). The person's remaps live beside the other state files.
+    private static void AttachMnemonics(MainWindow window, LinuxPaths paths)
+    {
+        Directory.CreateDirectory(paths.StateDirectory);
+        window.Opened += async (_, _) =>
+        {
+            var host = await MnemonicHeadHost.AttachAsync(window, Path.Combine(paths.StateDirectory, "mnemonic-overrides.json"));
+            // What a chosen command does belongs to the pane module that registered a handler for it; this head loads none yet.
+            host.Shell.CommandInvoked += (_, id) =>
+            {
+                if (!_router.TryInvoke(id))
+                {
+                    Console.Error.WriteLine($"Bazaar: no pane handles mnemonic command {id}");
+                }
+            };
+        };
+    }
+
+    // `--terminal` shows the local terminal pane in place of the start content (doc 55, section 5.4).
+    private static void ShowTerminalWhenAsked(MainWindow window, IReadOnlyList<string> args)
+    {
+        if (!args.Contains("--terminal", StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        var sessions = CalcinatoTerminalPanes.CreateSessions();
+        CalcinatoTerminalPanes.ShowTerminal(window, sessions);
+        window.Closed += async (_, _) => await sessions.DisposeAsync();
+    }
+
+    // Direction from the locale and the screen-reader live region wrap whatever the window shows (doc 41c).
+    private static void InstallShell(MainWindow window) =>
+        ShellHost.Install(window, new SystemLocaleSource(), new AnnouncementGate(TimeProvider.System));
 }

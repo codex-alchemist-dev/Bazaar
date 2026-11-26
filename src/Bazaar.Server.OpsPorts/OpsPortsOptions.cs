@@ -31,6 +31,12 @@ public sealed record OpsPortsOptions
 
     public required string CrashJournalFile { get; init; }
 
+    /// <summary>The file the server host writes its status view to (<c>Bazaar:Ops:StatusFile</c>); same resolution as the host's.</summary>
+    public required string StatusFile { get; init; }
+
+    /// <summary>The file Kodo writes its snapshot to (<c>Bazaar:Kodo:SnapshotFile</c>, else <c>Bazaar:Kodo:DataDirectory</c>); same resolution as Kodo's.</summary>
+    public required string KodoSnapshotFile { get; init; }
+
     /// <summary>The owner's principal id when more than one human holds the owner role. Null means the gate admits only a sole owner.</summary>
     public Guid? OwnerPrincipalId { get; init; }
 
@@ -54,6 +60,8 @@ public sealed record OpsPortsOptions
             LogFile = NonBlank(configuration[LogFileKey]) ?? Path.Combine(directory, "server-log.jsonl"),
             EventFile = NonBlank(configuration[EventFileKey]) ?? Path.Combine(directory, "health-events.jsonl"),
             CrashJournalFile = NonBlank(configuration[CrashJournalFileKey]) ?? Path.Combine(directory, "tui-crashes.jsonl"),
+            StatusFile = Bazaar.Server.WebAdmin.AdminStatusFile.ResolvePath(configuration["Bazaar:Ops:StatusFile"], NonBlank(configuration[DataDirectoryKey])),
+            KodoSnapshotFile = Bazaar.Server.Kodo.KodoSnapshotFile.ResolvePath(configuration["Bazaar:Kodo:SnapshotFile"], configuration["Bazaar:Kodo:DataDirectory"]),
             OwnerPrincipalId = owner,
             MaxReadBytes = maxRead,
         };
