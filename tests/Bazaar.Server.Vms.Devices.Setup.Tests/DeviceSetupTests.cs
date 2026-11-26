@@ -62,15 +62,42 @@ public sealed class DeviceSetupTests
     [Fact]
     public void WindowsDrivePathAccepted() => Assert.True(DeviceSetupValidator.IsExplicitAbsolutePath(@"D:\Android\Sdk"));
 
+    private static Dictionary<string, object> AppleSettings(string kind) => new()
+    {
+        ["vms.devices.enabled"] = new List<string> { kind },
+        ["vms.node.mac.endpoint"] = "mac-node.example.test:7443",
+        ["vms.node.mac.key_pin"] = "sha256:AbCd+/=",
+    };
+
+    [Theory]
+    [InlineData("ios", "Bazaar.Server.Vms.Ios")]
+    [InlineData("macos", "Bazaar.Server.Vms.MacOs")]
+    public void AppleKindValidWithNodeSettingsAndModule(string kind, string module) =>
+        Assert.Empty(DeviceSetupValidator.Validate(Plan(AppleSettings(kind), module)));
+
+    [Theory]
+    [InlineData("ios", "vms.node.mac.endpoint")]
+    [InlineData("macos", "vms.node.mac.key_pin")]
+    public void AppleKindNeedsTheMacNodeSettings(string kind, string missing)
+    {
+        var settings = AppleSettings(kind);
+        settings.Remove(missing);
+        var issues = DeviceSetupValidator.Validate(Plan(settings, kind == "ios" ? "Bazaar.Server.Vms.Ios" : "Bazaar.Server.Vms.MacOs"));
+        Assert.Contains(issues, i => i.Path == "settings." + missing);
+    }
+
     [Theory]
     [InlineData("ios")]
     [InlineData("macos")]
-    public void AppleKindsRefusedWithNotice(string kind)
+    public void AppleKindNeedsItsModule(string kind)
     {
-        var plan = Plan(new() { ["vms.devices.enabled"] = new List<string> { kind } });
-        var issues = DeviceSetupValidator.Validate(plan);
-        Assert.Contains(issues, i => i.Message.Contains(DeviceSetupText.AppleHardwareNotice, StringComparison.Ordinal));
+        var issues = DeviceSetupValidator.Validate(Plan(AppleSettings(kind)));
+        Assert.Contains(issues, i => i.Path == "modules");
     }
+
+    [Fact]
+    public void TheAppleNoticeStatesTheMacNodeRule() =>
+        Assert.Contains("Mac node", DeviceSetupText.AppleHardwareNotice, StringComparison.Ordinal);
 
     [Fact]
     public void UnknownKeyRefused()

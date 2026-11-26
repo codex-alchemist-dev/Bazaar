@@ -14,9 +14,15 @@ public static class DeviceSetupValidator
     public const string AndroidAvdHomeKey = "vms.android.avd_home";
     public const string AndroidSystemImageKey = "vms.android.system_image";
     public const string MicroVmStateDirKey = "vms.microvm.state_dir";
+    public const string IosRuntimePinKey = "vms.ios.runtime_pin";
+    public const string MacOsRestoreImagePinKey = "vms.macos.restore_image_pin";
+    public const string MacNodeEndpointKey = "vms.node.mac.endpoint";
+    public const string MacNodeKeyPinKey = "vms.node.mac.key_pin";
 
     public const string AndroidModuleName = "Bazaar.Server.Vms.Android";
     public const string MicroVmModuleName = "Bazaar.Server.Vms.MicroVm";
+    public const string IosModuleName = "Bazaar.Server.Vms.Ios";
+    public const string MacOsModuleName = "Bazaar.Server.Vms.MacOs";
 
     private static readonly HashSet<string> _knownKeys = new(StringComparer.Ordinal)
     {
@@ -27,12 +33,18 @@ public static class DeviceSetupValidator
         AndroidAvdHomeKey,
         AndroidSystemImageKey,
         "vms.android.max_concurrent",
+        "vms.ios.max_concurrent",
+        IosRuntimePinKey,
+        "vms.macos.max_concurrent",
+        MacOsRestoreImagePinKey,
+        MacNodeEndpointKey,
+        MacNodeKeyPinKey,
         "vms.microvm.monitor",
         "vms.microvm.max_concurrent",
         MicroVmStateDirKey,
     };
 
-    private static readonly string[] _prefixes = ["vms.devices.", "vms.android.", "vms.microvm."];
+    private static readonly string[] _prefixes = ["vms.devices.", "vms.android.", "vms.microvm.", "vms.ios.", "vms.macos.", "vms.node.mac."];
 
     /// <summary>Validates the plan. An empty list means valid.</summary>
     public static IReadOnlyList<SetupValidationIssue> Validate(SetupPlan plan)
@@ -51,17 +63,18 @@ public static class DeviceSetupValidator
         var enabled = ReadEnabled(plan, issues);
         var android = false;
         var microvm = false;
+        var ios = false;
+        var macos = false;
         foreach (var kind in enabled)
         {
             switch (kind)
             {
                 case "android": android = true; break;
                 case "microvm": microvm = true; break;
-                case "ios" or "macos":
-                    issues.Add(Error("settings." + EnabledKey, $"'{kind}' is parked. {DeviceSetupText.AppleHardwareNotice}"));
-                    break;
+                case "ios": ios = true; break;
+                case "macos": macos = true; break;
                 default:
-                    issues.Add(Error("settings." + EnabledKey, "lists a kind that is not allowed; use microvm or android."));
+                    issues.Add(Error("settings." + EnabledKey, "lists a kind that is not allowed; use microvm, android, ios or macos."));
                     break;
             }
         }
@@ -78,6 +91,23 @@ public static class DeviceSetupValidator
         {
             RequirePath(plan, MicroVmStateDirKey, issues);
             RequireModule(plan, MicroVmModuleName, "microvm", issues);
+        }
+
+        if (ios || macos)
+        {
+            // Apple guests run only on a Mac node (doc 62 sections 3 and 6). The wizard shows DeviceSetupText.AppleHardwareNotice; here the node link settings are required.
+            RequireString(plan, MacNodeEndpointKey, issues, packageId: false);
+            RequireString(plan, MacNodeKeyPinKey, issues, packageId: false);
+        }
+
+        if (ios)
+        {
+            RequireModule(plan, IosModuleName, "ios", issues);
+        }
+
+        if (macos)
+        {
+            RequireModule(plan, MacOsModuleName, "macos", issues);
         }
 
         return issues;
@@ -143,13 +173,13 @@ public static class DeviceSetupValidator
         }
     }
 
-    private static void RequireString(SetupPlan plan, string key, List<SetupValidationIssue> issues)
+    private static void RequireString(SetupPlan plan, string key, List<SetupValidationIssue> issues, bool packageId = true)
     {
         if (!TryString(plan, key, out var text) || string.IsNullOrWhiteSpace(text))
         {
             issues.Add(Error("settings." + key, "is required and must be a non-empty string."));
         }
-        else if (text.Any(c => c is not (';' or '-' or '_' or '.') && !char.IsAsciiLetterOrDigit(c)))
+        else if (packageId && text.Any(c => c is not (';' or '-' or '_' or '.') && !char.IsAsciiLetterOrDigit(c)))
         {
             issues.Add(Error("settings." + key, "must be an SDK package id."));
         }

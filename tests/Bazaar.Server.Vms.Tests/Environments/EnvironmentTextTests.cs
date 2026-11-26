@@ -44,8 +44,20 @@ public sealed class EnvironmentTextTests
     }
 
     [Theory]
+    [InlineData(VmOs.Windows, "windows")]
+    [InlineData(VmOs.Linux, "linux")]
+    [InlineData(VmOs.Android, "android")]
+    [InlineData(VmOs.Ios, "ios")]
+    [InlineData(VmOs.MacOs, "macos")]
+    public void Every_os_round_trips_through_its_database_text(VmOs os, string text)
+    {
+        Assert.Equal(text, EnvironmentText.ToDb(os));
+        Assert.Equal(os, EnvironmentText.ParseVmOs(text));
+    }
+
+    [Theory]
     [InlineData("Linux")]
-    [InlineData("macos")]
+    [InlineData("tvos")]
     public void Unknown_or_differently_cased_os_throws(string text)
     {
         Assert.Throws<InvalidDataException>(() => EnvironmentText.ParseVmOs(text));

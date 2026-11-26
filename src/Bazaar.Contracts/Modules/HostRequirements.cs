@@ -36,12 +36,13 @@ public sealed record HostCompatibilityIssue(string Code, string Message);
 /// </summary>
 public static class HostCompatibility
 {
-    /// <summary>Host operating systems a module may name. Android is a client host only.</summary>
+    /// <summary>Host operating systems a module may name. Android is a client host only; macos is the Mac node host (doc 62 section 6).</summary>
     public static readonly IReadOnlySet<string> KnownOperatingSystems = new HashSet<string>(StringComparer.Ordinal)
     {
         "windows",
         "linux",
         "android",
+        "macos",
     };
 
     /// <summary>Host CPU architectures a module may name.</summary>
@@ -59,6 +60,8 @@ public static class HostCompatibility
         "kvm",
         "android-emulator",
         "microvm",
+        "xcode-simulator",
+        "virtualization-framework",
     };
 
     /// <summary>Checks the declaration itself: schema version, non-empty lists, known names, no duplicates. Pure.</summary>

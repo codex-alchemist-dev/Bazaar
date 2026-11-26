@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Contracts for HostFacts and Devices.Abstractions for DeviceInput and DeviceScreen. No server project, no feature code. -->
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Vms.Devices.Abstractions\Bazaar.Server.Vms.Devices.Abstractions.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.Vms.MacNode.Abstractions.Tests" />
+  </ItemGroup>
+</Project>

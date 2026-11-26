@@ -35,6 +35,8 @@ using Bazaar.Server.Valkey;
 using Bazaar.Server.Vault;
 using Bazaar.Server.Vms.Android;
 using Bazaar.Server.Vms.Devices;
+using Bazaar.Server.Vms.Ios;
+using Bazaar.Server.Vms.MacOs;
 using Bazaar.Server.Vms.MicroVm;
 
 namespace Bazaar.Server.Host.Composition;
@@ -74,6 +76,8 @@ public static class HostComponents
         new ModuleManagerComponent(),
         new DeviceProvidersComponent(),
         new AndroidComponent(),
+        new IosComponent(),
+        new MacOsComponent(),
         new MicroVmComponent(),
         new RemoteComponent(),
         new GitHubComponent(),
