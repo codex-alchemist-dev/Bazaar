@@ -8,6 +8,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Npgsql" />
     <ProjectReference Include="..\Bazaar.Server.PsychWard.Abstractions\Bazaar.Server.PsychWard.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Presence.Sources.Abstractions\Bazaar.Server.Presence.Sources.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.LoopGuard.Abstractions\Bazaar.LoopGuard.Abstractions.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -14,10 +14,13 @@ public static partial class SetupPlanValidator
     private static readonly string[] _releaseChannels = ["alpha", "beta", "stable", "ltsc", "latest-commit"];
     private static readonly string[] _updateModes = ["automatic", "manual"];
     private static readonly string[] _kekProviders = ["env", "file", "dpapi", "systemd-creds"];
+    private static readonly string[] _identityKekProviders = ["file", "dpapi", "openbao", "tpm"];
     private static readonly string[] _mergeKinds = ["owner_app", "owner_linked"];
     private static readonly string[] _privacyProfiles = ["private"];
 
     private const int _maxNameLength = 100;
+
+    private const string _providerSecretPrefix = "secret://bazaar/providers/";
 
     [GeneratedRegex("^[a-z0-9][a-z0-9-]{0,62}$", RegexOptions.CultureInvariant)]
     private static partial Regex SlugRegex();
@@ -59,16 +62,94 @@ public static partial class SetupPlanValidator
         }
 
         ValidateBackups(plan.Backups, issues);
+        ValidateBackupSettings(plan, registry, issues);
+        ValidateEmail(plan, issues);
         ValidateModels(plan.Models, issues);
         ValidateCompany(plan.Company, issues);
         ValidateFirstRun(plan.FirstRun, issues);
+        ValidateStorage(plan, issues);
         NormalizeModules(plan, issues);
         ValidateNetwork(plan, registry, issues);
         ValidateReleaseChannel(plan, registry, issues);
         ValidateUpdatePolicy(plan, issues);
+        ValidateIdentityKek(plan, issues);
         ValidateScamMailProtocol(plan, registry, issues);
         ValidateSettings(plan, registry, issues);
     }
+
+    /// <summary>Doc 63 section 10. Shape only: whether the provider exists on this host is checked when the volume is created.</summary>
+    private static void ValidateStorage(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        var storage = plan.Storage;
+        var development = string.Equals(storage.InstanceClass, "development", StringComparison.Ordinal);
+        if (!development && !string.Equals(storage.InstanceClass, "production", StringComparison.Ordinal))
+        {
+            issues.Add(Error("storage.instanceClass", "must be production or development."));
+        }
+
+        var volume = storage.Volume;
+        if (volume.ContainerKind is not ("file" or "device"))
+        {
+            issues.Add(Error("storage.volume.containerKind", "must be file or device."));
+        }
+
+        if (volume.MaxGb is < 1 or > 1_000_000)
+        {
+            issues.Add(Error("storage.volume.maxGb", "must be a whole number of at least 1."));
+        }
+
+        if (IsBlank(volume.Provider))
+        {
+            return;
+        }
+
+        if (volume.Provider is not ("bitlocker-vhdx" or "luks2" or "dev-plain"))
+        {
+            issues.Add(Error("storage.volume.provider", "must be bitlocker-vhdx, luks2 or dev-plain."));
+            return;
+        }
+
+        if (IsBlank(plan.Database.DataRoot) || !IsAbsoluteOnAnyPlatform(plan.Database.DataRoot!))
+        {
+            issues.Add(Error("database.dataRoot", "must be an absolute path when storage.volume.provider is set: the volume is mounted there."));
+        }
+
+        if (volume.Provider == "dev-plain")
+        {
+            if (!development)
+            {
+                issues.Add(Error("storage.volume.provider", "dev-plain is accepted only when storage.instanceClass is development."));
+            }
+
+            return;
+        }
+
+        if (IsBlank(volume.ServiceAccount))
+        {
+            issues.Add(Error("storage.volume.serviceAccount", "is required for an encrypting provider."));
+        }
+
+        if (volume.ContainerKind == "file" && volume.MaxGb is null)
+        {
+            issues.Add(Error("storage.volume.maxGb", "is required for a file container."));
+        }
+
+        if (volume.ContainerKind == "device" && IsBlank(volume.Container))
+        {
+            issues.Add(Error("storage.volume.container", "is required for a device container."));
+        }
+
+        if (!IsBlank(volume.Container) && !IsAbsoluteOnAnyPlatform(volume.Container!))
+        {
+            issues.Add(Error("storage.volume.container", "must be an absolute path."));
+        }
+    }
+
+    // A plan can be checked on another OS than the one it is for, so both path forms count. The host checks again with its own rules.
+    private static bool IsAbsoluteOnAnyPlatform(string path) =>
+        path.StartsWith('/')
+        || path.StartsWith(@"\\", StringComparison.Ordinal)
+        || (path.Length >= 3 && char.IsAsciiLetter(path[0]) && path[1] == ':' && path[2] is '\\' or '/');
 
     private static void ValidateFirstRun(SetupFirstRunSection firstRun, List<SetupValidationIssue> issues)
     {
@@ -219,6 +300,11 @@ public static partial class SetupPlanValidator
             issues.Add(Error("owner.displayName", $"must be 1 to {_maxNameLength} characters."));
         }
 
+        if (owner.Recovery.BundleRef is not null && !SecretReferences.IsValid(owner.Recovery.BundleRef, SecretReferences.SecretStoreFamilies))
+        {
+            issues.Add(Error("owner.recovery.bundleRef", "must be a secret://bazaar/ reference, or omitted. The bundle itself never goes in a plan."));
+        }
+
         for (var i = 0; i < owner.Recovery.BackupOwners.Count; i++)
         {
             if (IsBlank(owner.Recovery.BackupOwners[i]))
@@ -251,9 +337,62 @@ public static partial class SetupPlanValidator
         }
     }
 
+    /// <summary>
+    /// The backups section is also registry keys (doc 45 step 8; doc 33): a value set twice (in the section and in <c>settings</c>) is an
+    /// error, and a target runs through the registry's checks (shape, no credentials, and held for owner approval when it leaves the install).
+    /// </summary>
+    private static void ValidateBackupSettings(SetupPlan plan, ISetupSettingCatalog registry, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.BackupTargetKey, "backups.target", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupDrillIntervalKey, "backups.drillIntervalDays", issues);
+        RejectDuplicate(plan, SetupSettingProjection.BackupNoTargetAcknowledgedKey, "backups.acknowledgeNoTarget", issues);
+
+        if (plan.Backups.Target is null || IsBlank(plan.Backups.Target))
+        {
+            return;
+        }
+
+        if (!registry.TryGet(SetupSettingProjection.BackupTargetKey, out var definition) || definition is null)
+        {
+            issues.Add(Error("backups.target", "the backup target setting is not registered in this build."));
+            return;
+        }
+
+        var value = JsonSerializer.SerializeToElement(plan.Backups.Target, SetupPlanJsonContext.Default.String);
+        CheckRegistryValue(definition, "backups.target", value, issues);
+    }
+
+    /// <summary>
+    /// The email section (doc 45 step 11; doc 22): off with no back end, or on with one of the four v1 back ends. The operator domain
+    /// is not a plan field. A value set twice (in the section and in <c>settings</c>) is an error.
+    /// </summary>
+    private static void ValidateEmail(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        RejectDuplicate(plan, SetupSettingProjection.MailEnabledKey, "email.enabled", issues);
+        RejectDuplicate(plan, SetupSettingProjection.MailBackendKey, "email.backend", issues);
+
+        if (SetupSettingProjection.IsEmailChoiceCoherent(plan))
+        {
+            return;
+        }
+
+        issues.Add(plan.Email.Enabled
+            ? Error("email.backend", $"is required when email.enabled is true: one of {string.Join(", ", SetupSettingProjection.MailBackends)}.")
+            : Error("email.backend", "must be empty while email.enabled is false."));
+    }
+
+    private static void RejectDuplicate(SetupPlan plan, string key, string planPath, List<SetupValidationIssue> issues)
+    {
+        if (plan.Settings.ContainsKey(key))
+        {
+            issues.Add(Error("settings." + key, $"is already set by {planPath}; set it in one place."));
+        }
+    }
+
     private static void ValidateModels(SetupModelsSection models, List<SetupValidationIssue> issues)
     {
         var ids = new HashSet<string>(StringComparer.Ordinal);
+        var canonicalIds = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < models.Sources.Count; i++)
         {
             var source = models.Sources[i];
@@ -271,11 +410,51 @@ public static partial class SetupPlanValidator
             {
                 issues.Add(Error(path + ".keyRef", "must be a secret://bazaar/ reference, or omitted. A literal value is not accepted."));
             }
+            else if (source.KeyRef is not null && !source.KeyRef.StartsWith(_providerSecretPrefix, StringComparison.Ordinal))
+            {
+                issues.Add(Error(path + ".keyRef", "must be under secret://bazaar/providers/ (the gateway only stores provider key references from there)."));
+            }
+
+            if (source.Id is not null && SlugRegex().IsMatch(source.Id))
+            {
+                ValidateModelSourceAgainstCatalogue(source, path, canonicalIds, issues);
+            }
         }
 
         if (IsBlank(models.DefaultPreset))
         {
             issues.Add(Error("models.defaultPreset", "must not be blank."));
+        }
+        else if (!SlugRegex().IsMatch(models.DefaultPreset))
+        {
+            issues.Add(Error("models.defaultPreset", "must be a lower-case slug."));
+        }
+    }
+
+    /// <summary>
+    /// A source must be one the default catalogue knows (doc 05), because the plan carries no kind, adapter or base URL and setup does not
+    /// invent them. A source that takes a key must carry one, and a local runtime takes none (the gateway refuses a key for auth none).
+    /// </summary>
+    private static void ValidateModelSourceAgainstCatalogue(SetupModelSource source, string path, HashSet<string> canonicalIds, List<SetupValidationIssue> issues)
+    {
+        if (!ModelSourceCatalogue.Default.TryGet(source.Id, out var entry) || entry is null)
+        {
+            issues.Add(Error(path + ".id", "is not in the default model source catalogue (doc 05), so its kind, adapter and base URL are unknown. Add the source in the admin panel after setup."));
+            return;
+        }
+
+        if (!canonicalIds.Add(entry.Id))
+        {
+            issues.Add(Error(path + ".id", "names a source that another entry already names (an id and its alias are the same source)."));
+        }
+
+        if (entry.TakesKey && source.KeyRef is null)
+        {
+            issues.Add(Error(path + ".keyRef", "is required: this source takes an API key or bearer token, held by reference."));
+        }
+        else if (!entry.TakesKey && source.KeyRef is not null)
+        {
+            issues.Add(Error(path + ".keyRef", "must be omitted: this source is a local runtime and takes no key."));
         }
     }
 
@@ -394,6 +573,20 @@ public static partial class SetupPlanValidator
         if (_updateModes.Contains(plan.Install.UpdatePolicy.Other, StringComparer.Ordinal) && !SetupSettingProjection.IsOtherUpdatePolicyBacked(plan))
         {
             issues.Add(Error("install.updatePolicy.other", "automatic is not supported yet: no setting stores it, so only manual can be applied."));
+        }
+    }
+
+    /// <summary>
+    /// The identity KEK provider (doc 45 step 5, doc 14 <c>identity.kek_provider</c>). Optional: absent writes nothing. A value must be
+    /// file, dpapi, openbao or tpm (a provider may land in a later build, the plan value is valid now). The KEK opens before the
+    /// database, so this value is applied to the host configuration file, not to the settings registry (PROPOSED, doc 45 step 5).
+    /// </summary>
+    private static void ValidateIdentityKek(SetupPlan plan, List<SetupValidationIssue> issues)
+    {
+        var value = plan.Custody.IdentityKek;
+        if (value is not null && !_identityKekProviders.Contains(value, StringComparer.Ordinal))
+        {
+            issues.Add(Error("custody.identityKek", "must be file, dpapi, openbao or tpm, or omitted for the server default."));
         }
     }
 

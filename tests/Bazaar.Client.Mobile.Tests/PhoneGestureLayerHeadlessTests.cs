@@ -64,7 +64,9 @@ public class PhoneGestureLayerHeadlessTests
     [AvaloniaFact]
     public void A_swipe_that_is_too_short_leaves_the_page_and_clears_the_drag_offset()
     {
-        var (window, shell) = Show();
+        // The flick rule reads speed from the event timestamps, which differ by a few milliseconds in a headless run, so a
+        // 15 dp move would read as a fast flick. Turn the flick rule off so this test checks only the distance rule.
+        var (window, shell) = Show(new GestureOptions { SwipeCommitVelocityDpPerSecond = double.PositiveInfinity });
 
         window.MouseDown(InBody(shell, 250, 200), MouseButton.Left);
         window.MouseMove(InBody(shell, 235, 200));

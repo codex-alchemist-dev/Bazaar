@@ -330,6 +330,8 @@ public class ValkeyServerSupervisorTests
 
             public Task<ValkeyMemoryInfo> MemoryInfoAsync(CancellationToken ct) => throw new NotSupportedException();
 
+            public Task<long> IncrementAsync(string key, long by, TimeSpan ttl, CancellationToken ct) => throw new NotSupportedException();
+
             public Task<string?> GetConfigAsync(string parameter, CancellationToken ct) => throw new NotSupportedException();
 
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;

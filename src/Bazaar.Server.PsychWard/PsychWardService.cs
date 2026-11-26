@@ -1,3 +1,4 @@
+using Bazaar.Server.Presence.Sources.Abstractions;
 using Bazaar.Server.PsychWard.Abstractions;
 
 namespace Bazaar.Server.PsychWard;
@@ -5,13 +6,16 @@ namespace Bazaar.Server.PsychWard;
 /// <summary>
 /// The Psych Ward (docs/design/26-fun-systems.md, section 1). Writes no GC entries itself: the host reacts to the stays it
 /// returns. No score is attached to a stay, and the check-in text grants nothing. Transitions run one at a time so two
-/// triggers for the same agent open one stay.
+/// triggers for the same agent open one stay. When an <see cref="IWardStateSink"/> is present, each saved admission or discharge is
+/// reported to it after the save (doc 23); a sink failure never fails the transition and goes to <c>onPresenceFailure</c>.
 /// </summary>
 public sealed class PsychWardService(
     IWardStayStore stays,
     IVentStore vents,
     PsychWardSettings settings,
-    TimeProvider? time = null) : IPsychWardService, IDisposable
+    TimeProvider? time = null,
+    IWardStateSink? presence = null,
+    Action<Exception>? onPresenceFailure = null) : IPsychWardService, IDisposable
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -22,6 +26,24 @@ public sealed class PsychWardService(
         ArgumentNullException.ThrowIfNull(value);
         value.Validate();
         return value;
+    }
+
+    /// <summary>Tells the presence sink about a saved admission or discharge. Best effort: the stay is already saved.</summary>
+    private async Task ReportStayAsync(WardStay stay, CancellationToken ct)
+    {
+        if (presence is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await presence.OnStayChangedAsync(stay, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not OperationCanceledException)
+        {
+            onPresenceFailure?.Invoke(ex);
+        }
     }
 
     /// <inheritdoc />
@@ -52,6 +74,8 @@ public sealed class PsychWardService(
                 return WardOutcome.Refuse("The agent is already admitted.", winner);
             }
 
+            await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
+            await ReportStayAsync(stay, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(stay);
         }
         finally
@@ -120,6 +144,7 @@ public sealed class PsychWardService(
 
             var updated = current with { DischargedAt = now, ReviewerId = request.IsOwner ? null : request.ReviewerId };
             await stays.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            await ReportStayAsync(updated, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(updated);
         }
         finally

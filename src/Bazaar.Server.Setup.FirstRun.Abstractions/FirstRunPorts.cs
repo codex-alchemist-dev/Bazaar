@@ -17,6 +17,13 @@ public interface IFirstRunOwner
     Task<Guid?> GetOwnerPrincipalIdAsync(CancellationToken cancellationToken = default);
 }
 
+/// <summary>Finds the company's general GC, the one the first-run seed made (doc 45 section 1.15). Read-only, so a module can announce company-wide without creating anything.</summary>
+public interface IGeneralGcReader
+{
+    /// <summary>The general GC's id, or null when the seed has not run, was skipped, or the GC was archived.</summary>
+    Task<Guid?> GetGeneralGcIdAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>
 /// Creates the seeded rows (doc 45 section 1.15). Every method is idempotent: the seed rows carry a fixed marker, so a second call
 /// finds them and changes nothing.
