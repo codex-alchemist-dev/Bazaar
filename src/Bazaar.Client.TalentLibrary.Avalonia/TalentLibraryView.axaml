@@ -1,0 +1,47 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:tl="using:Bazaar.Client.TalentLibrary"
+             xmlns:tla="using:Bazaar.Client.TalentLibrary.Avalonia"
+             x:Class="Bazaar.Client.TalentLibrary.Avalonia.TalentLibraryView"
+             x:DataType="tla:TalentLibraryViewModel">
+  <ScrollViewer>
+    <StackPanel Margin="16" Spacing="8">
+      <TextBlock Text="Talent library" FontSize="18" FontWeight="Bold" />
+      <Button Name="RefreshButton" Content="Refresh" Command="{Binding RefreshCommand}" />
+      <Border BorderThickness="1" BorderBrush="OrangeRed" Padding="8" CornerRadius="4" IsVisible="{Binding HasNotice}">
+        <TextBlock Name="NoticeText" Text="{Binding Notice}" TextWrapping="Wrap" />
+      </Border>
+      <ItemsControl Name="EntryList" ItemsSource="{Binding Entries}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="tl:LibraryEntry">
+            <Button Command="{Binding $parent[ItemsControl].((tla:TalentLibraryViewModel)DataContext).SelectCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch">
+              <TextBlock TextWrapping="Wrap">
+                <Run Text="{Binding Name}" FontWeight="Bold" /><Run Text=" version " /><Run Text="{Binding LatestVersion}" /><Run Text=", " /><Run Text="{Binding Standing}" />
+              </TextBlock>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <ItemsControl Name="VersionList" ItemsSource="{Binding Versions}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="tla:VersionRow">
+            <Button Content="{Binding Label}" Command="{Binding $parent[ItemsControl].((tla:TalentLibraryViewModel)DataContext).VersionCommand}" CommandParameter="{Binding}" HorizontalAlignment="Stretch" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <StackPanel Spacing="4" IsVisible="{Binding HasDiff}">
+        <TextBlock Name="DiffTitleText" Text="{Binding DiffTitle}" FontWeight="Bold" />
+        <ItemsControl Name="SummaryList" ItemsSource="{Binding Summary}" />
+        <ItemsControl Name="LineList" ItemsSource="{Binding Lines}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="tla:DiffLineRow">
+              <TextBlock FontFamily="Consolas,Menlo,monospace" TextWrapping="Wrap" Foreground="{Binding Color}">
+                <Run Text="{Binding Mark}" /><Run Text="{Binding Text}" />
+              </TextBlock>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
