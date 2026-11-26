@@ -549,6 +549,27 @@ Still in `Bazaar.Server/Agents` (14 files), with the reason each one stays:
 
 Note: the compile probe listed 14 files that stay. Three more were found to stay during the build, so the probe's "closed set" was not exact: `TurnRunAdapter.cs` (depends on `TurnRunner`), `PgResponderGcStore.cs` (depends on the internal `GcEnumText`) and `AgentResponderServiceCollectionExtensions.cs` (depends on the responder classes). `TurnRunnerJson.Read` and `TurnJsonContext` became public so that `TurnRunner` in `Bazaar.Server` can use them across the assembly boundary; no behaviour changed.
 
+## Knowledge module, wave 1 (extraction from `Bazaar.Server/Knowledge`)
+
+Docs section this implements: doc 25 (company systems and knowledge), WP1, WP2, WP3 and WP5 code, and this audit's module rule (modules reference others only through `.Abstractions`; no module references `Bazaar.Server.csproj`).
+
+The pure parts of `Bazaar.Server/Knowledge` (9 of 16 files) are two module projects. Namespaces did not change (`Bazaar.Server.Knowledge.*`), so callers only changed project references.
+
+- `Bazaar.Server.Knowledge.Abstractions` (references `Bazaar.Contracts` only): the data and port types. `MetricSample`, `MetricNames`, `CiRunFact`, `MetricRollupRow` and `IMetricStore`; `TwinFact`, `TwinSourceRef`, `TwinFactKinds`, `TwinSourceKinds` and `TwinFactStatus`; `HealthReasonKind`, `HealthReason`, `HealthStatus` and `ProjectHealthPanel`; `DecisionRecord` and `DecisionLink`.
+- `Bazaar.Server.Knowledge` (references the Abstractions and `Bazaar.Contracts`): `MetricRollup`, the CI and coverage collectors, `InMemoryMetricStore`, `HealthRules`, `HealthThresholds`, `ProjectHealthQuery`, `TwinFactExtractor` and `DecisionChain`.
+- `tests/Bazaar.Server.Knowledge.Tests`: the 61 tests for the moved code. The test that `HealthThresholds.Defaults` equals the `KnowledgeSettings` defaults stays in `tests/Bazaar.Server.Tests`.
+
+`HealthThresholds` used to read its defaults from `KnowledgeSettings`. It now owns the constants (`DefaultCoverageDropPoints` 2, `DefaultBuildFailureStreak` 3) and the settings test guards that both sides agree, so the module no longer needs the Settings types.
+
+Still in `Bazaar.Server/Knowledge` (7 files), with the reason each stays:
+
+- `KnowledgeSettings.cs`: uses `SettingKey`, `SettingDefinition` and `SettingRegistry` (`Bazaar.Server.Settings`), and `SettingRegistry.Known` lists it. Moves with the Settings abstractions.
+- `Archive/ArchiveModel.cs`, `ArchiveChapterValidator.cs`, `ArchiveChapterRenderer.cs`: use `MemoryTier` (`Bazaar.Server.Memory.Trust`) and `ContentTrust` (`Bazaar.Server.Security.Taint`). Move with the Memory and Security abstractions. The renderer also uses `VaultWriter.ToUlid`.
+- `Archive/ArchiveVaultWriter.cs`: uses the concrete `VaultWriter` and `VaultEditRequest` (`Bazaar.Server.Vault.Writes`); only `IVaultCommitObserver` is in `Bazaar.Vault.Abstractions`. Moves with the Vault writer port.
+- `Archive/ArchiveChapterGenerator.cs`: depends on the Archive model types above.
+- `CompanyMemory/DecisionRecordReader.cs`: uses `VaultFrontMatterReader` and `FrontMatterSplitter` (`Bazaar.Server.Vault.Markdown`, not in `Bazaar.Vault.Abstractions`) and YamlDotNet. Moves with the Vault Markdown parser.
+
+Module boundaries (owner rule: a part the doc names as its own module is its own module). Doc 25 (open PR #765, section "Modules and client panels") makes `Bazaar.Server.Twin.Prose`, `Bazaar.Server.Hive` and `Bazaar.Server.TalentPool` separate server modules, each with `.Abstractions`, and keeps the existing Health, Metrics, Twin fact, Archive and decision-chain code for "the Knowledge extraction". So Twin facts stay in `Bazaar.Server.Knowledge`; the prose step, Hive and Talent Pool do not belong here. Open PRs #410 (Talent Pool store) and #414 (GMT) still add `Bazaar.Server/Knowledge/Talent` and `Knowledge/Gmt`; they must be rehomed into `Bazaar.Server.TalentPool` (with `.Abstractions`) and a GMT module instead of reviving `Bazaar.Server/Knowledge`.
 ## Embeddings module (doc 08 WP6)
 
 Docs section this implements: doc 08, "WP6 detail: embedding provider adapter" [PROPOSED].

@@ -602,6 +602,7 @@
     <Project Path="tests/Bazaar.Server.Walkthrough.Tests/Bazaar.Server.Walkthrough.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.IdentityKek.Tests/Bazaar.Server.Setup.IdentityKek.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Agents.Tests/Bazaar.Server.Agents.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Setup.Postgres.Tests/Bazaar.Server.Setup.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Components.ManagedPostgres.Tests/Bazaar.Components.ManagedPostgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Valkey.Tests/Bazaar.Server.Valkey.Tests.csproj" />
@@ -648,7 +649,6 @@
     <Project Path="tests/Bazaar.Server.GcMetadata.Tests/Bazaar.Server.GcMetadata.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.PsychWard.Tests/Bazaar.Server.PsychWard.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
-    <Project Path="tests/Bazaar.Server.Knowledge.Tests/Bazaar.Server.Knowledge.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Health.Tests/Bazaar.Server.Health.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Kodo.Tests/Bazaar.Server.Kodo.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Kodo.Postgres.Tests/Bazaar.Server.Kodo.Postgres.Tests.csproj" />
