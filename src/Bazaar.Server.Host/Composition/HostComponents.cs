@@ -61,6 +61,7 @@ using Bazaar.Server.Kodo;
 using Bazaar.Server.Mail;
 using Bazaar.Server.MailPolicy;
 using Bazaar.Server.MemberRoster;
+using Bazaar.Server.StatusProviders;
 using Bazaar.Server.Memory.GitVault;
 using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
@@ -150,6 +151,7 @@ public static class HostComponents
         new WebAdminComponent(),
         new CommunityGitHubComponent(),
         new MemberRosterComponent(),
+        new StatusProvidersComponent(),
         new ConstellationComponent(),
         new BackupComponent(),
         new VaultComponent(),

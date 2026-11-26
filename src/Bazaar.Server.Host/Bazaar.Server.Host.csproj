@@ -127,6 +127,7 @@
     <ProjectReference Include="..\Bazaar.Server.SignIn.Postgres\Bazaar.Server.SignIn.Postgres.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SignIn.Passkeys\Bazaar.Server.SignIn.Passkeys.csproj" />
     <ProjectReference Include="..\Bazaar.Server.MemberRoster\Bazaar.Server.MemberRoster.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.StatusProviders\Bazaar.Server.StatusProviders.csproj" />
     <ProjectReference Include="..\Bazaar.Approvals\Bazaar.Approvals.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Community.GitHub\Bazaar.Server.Community.GitHub.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Community.GitHub.Bridge\Bazaar.Server.Community.GitHub.Bridge.csproj" />

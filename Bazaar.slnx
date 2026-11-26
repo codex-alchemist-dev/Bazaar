@@ -310,6 +310,7 @@
     <Project Path="src/Bazaar.Server.Gateway.Retention/Bazaar.Server.Gateway.Retention.csproj" />
     <Project Path="src/Bazaar.Server.MemberRoster/Bazaar.Server.MemberRoster.csproj" />
     <Project Path="src/Bazaar.StatusTui/Bazaar.StatusTui.csproj" />
+    <Project Path="src/Bazaar.Server.StatusProviders/Bazaar.Server.StatusProviders.csproj" />
     <Project Path="src/Bazaar.Souls.Abstractions/Bazaar.Souls.Abstractions.csproj" />
     <Project Path="src/Bazaar.LoopGuard.Abstractions/Bazaar.LoopGuard.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.LoopGuard/Bazaar.Server.LoopGuard.csproj" />
@@ -727,6 +728,7 @@
     <Project Path="tests/Bazaar.Server.DeviceEnrolment.Postgres.Tests/Bazaar.Server.DeviceEnrolment.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.MemberRoster.Tests/Bazaar.Server.MemberRoster.Tests.csproj" />
     <Project Path="tests/Bazaar.StatusTui.Tests/Bazaar.StatusTui.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.StatusProviders.Tests/Bazaar.Server.StatusProviders.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Tests/Bazaar.Server.CompanyBuild.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.CompanyBuild.Postgres.Tests/Bazaar.Server.CompanyBuild.Postgres.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Constitution.Tests/Bazaar.Server.Constitution.Tests.csproj" />
