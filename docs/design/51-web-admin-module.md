@@ -51,6 +51,8 @@ The owner decided the scope above. These mechanics fill the gaps the decisions l
 | `POST /admin/api/signout` | session | Ends the session. |
 | `GET /admin/api/session` | session | Account, held capabilities and the sections the account may open. |
 | `GET /admin/api/status`, `/kodo`, `/users`, `/devices`, `/audit`, `/approvals` | session + section capability | Read views. |
+| `GET /admin/api/members?kind=&limit=&offset=` | session + `admin.members` | Agents and humans in one paged list: role, status, last seen, model and 24-hour token use. `kind` is `human` or `agent`; `limit` 1 to 200 (default 50); a malformed query is 400. Port `IAdminMemberRoster`, implemented by `Bazaar.Server.MemberRoster` (doc 40). |
+| `GET /admin/api/status` body | session | Besides display name, version, uptime and provider lines, carries queue depths (`queues`) and an overall health state with its checks (`health`; `unknown` when nothing reports). Any module may add depths and checks through `IAdminQueueDepthSource` and `IAdminHealthSource`. The server TUI reads this same JSON. |
 | `GET /admin/api/modules`, `/modules/builds` | session + `admin.modules` | Catalogue, current selection with its revision, build history and reports. |
 | `POST /admin/api/modules/preview` | session + `admin.modules` | Dry-run of a selection: dependency problems and the change list. Writes nothing. |
 | `PUT /admin/api/modules/selection` | session + `admin.modules` | Commits a selection against an expected revision (409 on a stale revision). |

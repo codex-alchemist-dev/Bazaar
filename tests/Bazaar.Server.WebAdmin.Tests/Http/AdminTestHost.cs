@@ -70,6 +70,8 @@ internal sealed class AdminTestHost : IAsyncDisposable
             s.AddSingleton<IAdminKodoSource, FakeKodo>();
             s.AddSingleton<IAdminUserDirectory, FakeUsers>();
             s.AddSingleton<IAdminDeviceDirectory, FakeDevices>();
+            s.AddSingleton<FakeMemberRoster>();
+            s.AddSingleton<IAdminMemberRoster>(sp => sp.GetRequiredService<FakeMemberRoster>());
             s.AddSingleton<FakeAuditReader>();
             s.AddSingleton<IAdminAuditReader>(sp => sp.GetRequiredService<FakeAuditReader>());
             s.AddSingleton<IAdminApprovalSource, FakeApprovals>();
