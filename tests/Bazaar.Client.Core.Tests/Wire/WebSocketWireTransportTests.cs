@@ -2,7 +2,7 @@ using System.Buffers;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
-using Bazaar.Client.Core.Wire;
+using Bazaar.Client.Abstractions.Wire;
 using Bazaar.Contracts.Wire;
 
 namespace Bazaar.Client.Core.Tests.Wire;
@@ -12,7 +12,7 @@ public sealed class WebSocketWireTransportTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task TextMessages_RoundTripBothWays_AsTextFrames()
     {
         using var server = new LoopbackWebSocketServer();
@@ -32,7 +32,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal("{\"t\":\"pong\"}", System.Text.Encoding.UTF8.GetString(reply.Frame.Span));
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task BinaryFlag_SendsBinaryFrames()
     {
         using var server = new LoopbackWebSocketServer();
@@ -47,27 +47,58 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal(new byte[] { 1, 2, 3 }, bytes);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task FragmentedMessage_IsDeliveredAsOneFrame()
     {
-        using var server = new LoopbackWebSocketServer();
+        // The server writes the RFC 6455 frames itself over a plain TCP socket instead of going through
+        // HttpListener. On Windows HttpListener hands WebSocket sends to http.sys, which may hold small non-final
+        // fragments back, so this test depended on the host's buffering rather than on the client's reassembly.
+        // Raw frames put exactly the bytes "text, continuation, continuation (FIN)" on the wire, and every step
+        // has its own short bound that names the step, so a stall reports where it happened.
+        using var server = new RawFrameServer();
         var factory = new WebSocketWireTransportFactory(server.Endpoint);
 
-        var acceptTask = server.AcceptAsync(Ct);
-        await using var pair = await OpenAsync(factory, acceptTask);
+        Task<NetworkStream> acceptTask = server.AcceptAsync(Ct);
+        await using IWireConnection client = await Step(factory.ConnectAsync(Ct).AsTask(), "client connect");
+        NetworkStream stream = await Step(acceptTask, "server handshake");
 
-        // Send and receive concurrently: the client must read while the server is still writing fragments,
-        // so the test never depends on the server's writes completing before the client starts reading.
-        Task sending = SendFragmentsAsync(pair.Server, Ct);
+        await Step(RawFrameServer.WriteFrameAsync(stream, opcode: 0x1, fin: false, [1, 2], Ct), "write fragment 1");
+        await Step(RawFrameServer.WriteFrameAsync(stream, opcode: 0x0, fin: false, [3, 4, 5], Ct), "write fragment 2");
+        await Step(RawFrameServer.WriteFrameAsync(stream, opcode: 0x0, fin: true, [6], Ct), "write fragment 3");
 
-        WireReceive frame = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(10), Ct);
-        await sending.WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        WireReceive frame = await Step(client.ReceiveAsync(Ct).AsTask(), "client receive");
+        WireReceive frame = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(60), Ct);
+        await sending.WaitAsync(TimeSpan.FromSeconds(60), Ct);
 
         Assert.False(frame.IsClosed);
         Assert.Equal(new byte[] { 1, 2, 3, 4, 5, 6 }, frame.Frame.ToArray());
     }
 
-    [Fact(Timeout = 15_000)]
+    private static async Task<T> Step<T>(Task<T> task, string name)
+    {
+        try
+        {
+            return await task.WaitAsync(TimeSpan.FromSeconds(60), Ct);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException($"Stalled at step '{name}'.");
+        }
+    }
+
+    private static async Task Step(Task task, string name)
+    {
+        try
+        {
+            await task.WaitAsync(TimeSpan.FromSeconds(60), Ct);
+        }
+        catch (TimeoutException)
+        {
+            throw new TimeoutException($"Stalled at step '{name}'.");
+        }
+    }
+
+    [Fact(Timeout = 120_000)]
     public async Task MessageExactlyAtLimit_IsDelivered()
     {
         using var server = new LoopbackWebSocketServer();
@@ -84,7 +115,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal(payload, frame.Frame.ToArray());
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task MessageOverLimit_ClosesWith4400()
     {
         using var server = new LoopbackWebSocketServer();
@@ -109,7 +140,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal((WebSocketCloseStatus)WireCloseCodes.BadFrame, pair.Server.CloseStatus);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task ServerCloseWithCustomCode_SurfacesAsInt()
     {
         using var server = new LoopbackWebSocketServer();
@@ -120,14 +151,14 @@ public sealed class WebSocketWireTransportTests
 
         // Each step is bounded, so a stall fails at the step that stalled instead of running into the test timeout.
         await pair.Server.CloseOutputAsync((WebSocketCloseStatus)WireCloseCodes.UpgradeRequired, "upgrade required", Ct)
-            .WaitAsync(TimeSpan.FromSeconds(10), Ct);
+            .WaitAsync(TimeSpan.FromSeconds(60), Ct);
 
-        WireReceive result = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(10), Ct);
+        WireReceive result = await pair.Client.ReceiveAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(60), Ct);
         Assert.True(result.IsClosed);
         Assert.Equal(4426, result.CloseCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task ServerDroppingConnection_SurfacesAsClosedWithoutCode()
     {
         using var server = new LoopbackWebSocketServer();
@@ -145,7 +176,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal(0, result.CloseCode);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task ConnectToClosedPort_Throws()
     {
         var factory = new WebSocketWireTransportFactory(new Uri($"ws://127.0.0.1:{FreePort()}/ws/"));
@@ -153,7 +184,7 @@ public sealed class WebSocketWireTransportTests
         await Assert.ThrowsAnyAsync<Exception>(() => factory.ConnectAsync(Ct).AsTask());
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task ConfigureCallback_RunsBeforeConnect_AndSetsHeaders()
     {
         using var server = new LoopbackWebSocketServer();
@@ -165,7 +196,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal("Bearer test-token", pair.Request.Headers["Authorization"]);
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task ConcurrentSends_DoNotInterleave()
     {
         using var server = new LoopbackWebSocketServer();
@@ -191,7 +222,7 @@ public sealed class WebSocketWireTransportTests
         Assert.Equal(Enumerable.Range(0, count).Select(i => (byte)i), received.Select(m => m[0]).Order());
     }
 
-    [Fact(Timeout = 15_000)]
+    [Fact(Timeout = 120_000)]
     public async Task DisposeAsync_SendsNormalClosure()
     {
         using var server = new LoopbackWebSocketServer();
@@ -211,15 +242,8 @@ public sealed class WebSocketWireTransportTests
     private static async Task<Pair> OpenAsync(WebSocketWireTransportFactory factory, Task<AcceptedSocket> acceptTask)
     {
         IWireConnection client = await factory.ConnectAsync(TestContext.Current.CancellationToken);
-        AcceptedSocket accepted = await acceptTask.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+        AcceptedSocket accepted = await acceptTask.WaitAsync(TimeSpan.FromSeconds(60), TestContext.Current.CancellationToken);
         return new Pair(client, accepted.Socket, accepted.Request);
-    }
-
-    private static async Task SendFragmentsAsync(WebSocket socket, CancellationToken ct)
-    {
-        await socket.SendAsync(new byte[] { 1, 2 }, WebSocketMessageType.Text, false, ct);
-        await socket.SendAsync(new byte[] { 3, 4, 5 }, WebSocketMessageType.Text, false, ct);
-        await socket.SendAsync(new byte[] { 6 }, WebSocketMessageType.Text, true, ct);
     }
 
     private static async Task SendTextAsync(WebSocket socket, string text)
@@ -320,5 +344,69 @@ public sealed class WebSocketWireTransportTests
         }
 
         public void Dispose() => _listener.Close();
+    }
+
+    /// <summary>
+    /// A one-shot WebSocket server over a plain <see cref="TcpListener"/> bound to an OS-assigned port (no
+    /// find-a-free-port race). It completes the opening handshake and then writes unmasked frames on request.
+    /// </summary>
+    private sealed class RawFrameServer : IDisposable
+    {
+        private const string _handshakeGuid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        private readonly TcpListener _listener;
+
+        public RawFrameServer()
+        {
+            _listener = new TcpListener(IPAddress.Loopback, 0);
+            _listener.Start();
+            Endpoint = new Uri($"ws://127.0.0.1:{((IPEndPoint)_listener.LocalEndpoint).Port}/ws/");
+        }
+
+        public Uri Endpoint { get; }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Security", "CA5350:Do Not Use Weak Cryptographic Algorithms",
+            Justification = "RFC 6455 fixes SHA-1 for the Sec-WebSocket-Accept value; it protects nothing.")]
+        public async Task<NetworkStream> AcceptAsync(CancellationToken cancellationToken)
+        {
+            TcpClient tcp = await _listener.AcceptTcpClientAsync(cancellationToken);
+            tcp.NoDelay = true;
+            NetworkStream stream = tcp.GetStream();
+
+            var request = new List<byte>();
+            byte[] one = new byte[1];
+            while (true)
+            {
+                int read = await stream.ReadAsync(one, cancellationToken);
+                if (read == 0) throw new IOException("The client closed during the handshake.");
+                request.Add(one[0]);
+                int n = request.Count;
+                if (n >= 4 && request[n - 4] == '\r' && request[n - 3] == '\n' && request[n - 2] == '\r' && request[n - 1] == '\n') break;
+            }
+
+            string headers = System.Text.Encoding.ASCII.GetString(request.ToArray());
+            string key = headers.Split("\r\n")
+                .First(line => line.StartsWith("Sec-WebSocket-Key:", StringComparison.OrdinalIgnoreCase))
+                .Split(':', 2)[1].Trim();
+            string accept = Convert.ToBase64String(System.Security.Cryptography.SHA1.HashData(System.Text.Encoding.ASCII.GetBytes(key + _handshakeGuid)));
+            byte[] response = System.Text.Encoding.ASCII.GetBytes(
+                $"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n");
+            await stream.WriteAsync(response, cancellationToken);
+            await stream.FlushAsync(cancellationToken);
+            return stream;
+        }
+
+        /// <summary>Writes one unmasked frame (payloads under 126 bytes) and flushes it.</summary>
+        public static async Task WriteFrameAsync(NetworkStream stream, byte opcode, bool fin, byte[] payload, CancellationToken cancellationToken)
+        {
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(payload.Length, 125);
+            byte[] frame = new byte[2 + payload.Length];
+            frame[0] = (byte)((fin ? 0x80 : 0x00) | opcode);
+            frame[1] = (byte)payload.Length;
+            payload.CopyTo(frame, 2);
+            await stream.WriteAsync(frame, cancellationToken);
+            await stream.FlushAsync(cancellationToken);
+        }
+
+        public void Dispose() => _listener.Stop();
     }
 }

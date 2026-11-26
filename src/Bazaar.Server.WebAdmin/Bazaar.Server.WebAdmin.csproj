@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Bazaar.Server.WebAdmin</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**\*" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.WebAdmin.Abstractions\Bazaar.Server.WebAdmin.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Roles.Abstractions\Bazaar.Roles.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Audit.Abstractions\Bazaar.Audit.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

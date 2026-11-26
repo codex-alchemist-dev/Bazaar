@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Bazaar.Contracts.Gc;
 using Bazaar.Contracts.Wire;
 using Bazaar.Contracts.Wire.Codec;
 using Bazaar.Server.Wire.Sync;
@@ -54,10 +55,10 @@ internal sealed class SyncHarness : IDisposable
         private Task _reader = Task.CompletedTask;
         private readonly ConcurrentQueue<Envelope> _frames = new();
 
-        public Connection(SubscriptionEngine engine, Guid principal, int queueMax, bool paused)
+        public Connection(SubscriptionEngine engine, Guid principal, int queueMax, bool paused, PrincipalKind kind = PrincipalKind.Human)
         {
             _outbound = new BoundedOutbound(queueMax);
-            Session = engine.CreateSession(principal, _codec, _outbound);
+            Session = engine.CreateSession(principal, kind, _codec, _outbound);
             if (!paused)
             {
                 Resume();

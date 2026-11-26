@@ -12,4 +12,10 @@ namespace Bazaar.Contracts.Kodo;
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip)]
 [JsonSerializable(typeof(KodoStatusDto))]
 [JsonSerializable(typeof(KodoControlDto))]
+[JsonSerializable(typeof(KodoStatusSnapshotDto))]
+[JsonSerializable(typeof(KodoComponentDto))]
+[JsonSerializable(typeof(KodoStreamEventDto))]
+[JsonSerializable(typeof(KodoStateChangeDto))]
+[JsonSerializable(typeof(KodoFleetSnapshotDto))]
+[JsonSerializable(typeof(KodoServerStatusDto))]
 public sealed partial class KodoContractsJsonContext : JsonSerializerContext;

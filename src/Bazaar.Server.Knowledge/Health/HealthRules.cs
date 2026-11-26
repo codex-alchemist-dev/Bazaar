@@ -32,6 +32,10 @@ public sealed record HealthThresholds
 
     /// <summary>The shipped defaults (doc 25: 2 points and 3 days).</summary>
     public static HealthThresholds Defaults { get; } = new(DefaultCoverageDropPoints, DefaultBuildFailureStreak);
+    /// <summary>The shipped defaults from <see cref="HealthDefaults"/>.</summary>
+    public static HealthThresholds Defaults { get; } = new(
+        HealthDefaults.CoverageDropPoints,
+        HealthDefaults.BuildFailureStreak);
 }
 
 /// <summary>

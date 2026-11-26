@@ -8,5 +8,13 @@
   <ItemGroup>
     <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <Nullable>enable</Nullable>
+    <!-- DecisionRecordReader uses YamlDotNet's reflection-based DeserializerBuilder (as the Vault parser does), so this project is not AOT-compatible. -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" />
+    <ProjectReference Include="..\Bazaar.Server.Vault\Bazaar.Server.Vault.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Knowledge.Abstractions\Bazaar.Server.Knowledge.Abstractions.csproj" />
   </ItemGroup>
 </Project>

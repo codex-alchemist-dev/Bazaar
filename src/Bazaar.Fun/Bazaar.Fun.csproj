@@ -3,6 +3,9 @@
     <TargetFramework>net11.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Server\Bazaar.Server.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Sanitization.Abstractions\Bazaar.Server.Sanitization.Abstractions.csproj" />
   </ItemGroup>
 </Project>

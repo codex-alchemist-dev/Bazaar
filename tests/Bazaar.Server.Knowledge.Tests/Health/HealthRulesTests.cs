@@ -181,4 +181,11 @@ public sealed class HealthRulesTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => HealthRules.BuildFailureStreak([], _day1, _day1, 0));
     }
+
+    [Fact]
+    public void Thresholds_read_the_shipped_defaults_from_settings()
+    {
+        Assert.Equal(2, HealthThresholds.Defaults.CoverageDropPoints);
+        Assert.Equal(3, HealthThresholds.Defaults.BuildFailureStreak);
+    }
 }

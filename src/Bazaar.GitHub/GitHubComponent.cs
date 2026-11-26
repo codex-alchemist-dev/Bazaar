@@ -1,12 +1,26 @@
+using Bazaar.Core;
+using Bazaar.GitHub.Tools;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.GitHub;
 
 /// <summary>
-/// Registration for the GitHub component (doc 21). Only host composition calls <see cref="AddBazaarGitHub"/>.
-/// TODO(component): switch to the Bazaar Component model once PR #125 merges.
+/// The GitHub forge provider (doc 21) as a Bazaar Component. It owns no migration namespace yet: the <c>github_*</c> tables arrive
+/// with the ingress and PR service work packages. Host composition lists it in the component set and the kernel calls
+/// <see cref="AddServices"/>.
 /// </summary>
-public static class GitHubComponent
+public sealed class GitHubComponent : IBazaarComponent
 {
-    public static IServiceCollection AddBazaarGitHub(this IServiceCollection services) => services;
+    public static ComponentManifest ManifestDefinition { get; } = new(
+        Id: "github",
+        Version: "0.1.0",
+        Kind: ComponentKind.Feature,
+        DependsOn: [],
+        Provides: ["feature:github", "forge:github"]);
+
+    public ComponentManifest Manifest => ManifestDefinition;
+
+    public void AddServices(IServiceCollection services, IConfiguration configuration) =>
+        services.AddBazaarGitHub(configuration).AddBazaarGitHubAgentTools(configuration);
 }

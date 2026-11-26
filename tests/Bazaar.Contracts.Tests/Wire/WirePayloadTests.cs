@@ -18,6 +18,7 @@ public class WirePayloadTests
     {
         { "hello", new Hello(1, 1, 0, ["json"], "dev-1", "windows", "0.1.0", null, [new StreamCursor("gc:" + _gc, 11, 39)]) },
         { "welcome", new Welcome(1, 0, "json", _author, _at, 20, 60, new WireLimits(262144, 32, 200), ["resync"], 7, null, null) },
+        { "welcome-compat", new Welcome(1, 0, "json", _author, _at, 20, 60, new WireLimits(262144, 32, 200), ["resync"], 7, null, null, "12", true) },
         { "subscribe", new Subscribe([new StreamCursor(WireStreams.Gc(_gc), 11, 39)]) },
         { "subscribe-result", new SubscribeResult([new StreamResult(WireStreams.Gc(_gc), SubscribeStatuses.Ok)]) },
         { "gc-message", Message() },
@@ -26,7 +27,27 @@ public class WirePayloadTests
         { "gc-page", new GcPage([Message()], HasMore: true) },
         { "resync", new Resync(WireStreams.Gc(_gc), 5000, 5100, 3, [Message()]) },
         { "lagged", new Lagged(WireStreams.Gc(_gc), 12) },
+        { "hive-grant-request", new Bazaar.Contracts.Hive.HiveGrantChangeRequest("alpha", "beta", "procedural") },
+        { "hive-grant-reply", new Bazaar.Contracts.Hive.HiveGrantChangeReply(true, null, true) },
         { "error", new WireError(WireErrorCodes.RateLimited, null, 1500) },
+        { "memory-context-request", new Bazaar.Contracts.Memory.MemoryContextRequest("ada", "retry policy", "atlas", 1500, 8, ["01JC0000000000000000000000"], IncludeHistory: true) },
+        {
+            "memory-context-result",
+            new Bazaar.Contracts.Memory.MemoryContextResult(
+                [
+                    new Bazaar.Contracts.Memory.MemoryContextHitDto(
+                        _gc.ToString("D"), "01JC0000000000000000000001", "Retry policy", "private", "T2", "semantic", "agent:ada",
+                        "Retry three times.", false, 0.0164, 0, null, 3, false, null),
+                    new Bazaar.Contracts.Memory.MemoryContextHitDto(
+                        _msg.ToString("D"), null, "Retry decision", "project", null, "decision", "vault",
+                        "We decided on backoff.", false, 0.0082, 1, "01JC0000000000000000000001", null, false, null),
+                ],
+                LexicalOnly: true,
+                LexicalOnlyReason: "profile_none",
+                TokensUsed: 11,
+                Truncated: false,
+                AuditId: "0196a6f0-0000-7000-8000-000000000009")
+        },
     };
 
     [Theory]
@@ -48,6 +69,18 @@ public class WirePayloadTests
         object? back = JsonSerializer.Deserialize(node.ToJsonString(), payload.GetType(), WireJsonContext.Default);
 
         Assert.Equivalent(payload, back, strict: true);
+    }
+
+    [Fact]
+    public void Welcome_without_the_compatibility_fields_still_decodes_with_them_null()
+    {
+        var back = JsonSerializer.Deserialize(
+            """{"version":1,"minor":0,"codec":"json","principalId":"0196a6f0-0000-7000-8000-000000000002","serverTime":"2026-10-25T05:36:00+00:00","heartbeatIntervalS":20,"heartbeatTimeoutS":60,"limits":{"maxFrameBytes":262144,"inflightRequestsMax":32,"replayPageSize":200},"capabilities":["resync"],"uiRevision":7}""",
+            WireJsonContext.Default.Welcome);
+
+        Assert.NotNull(back);
+        Assert.Null(back.SchemaVersion);
+        Assert.Null(back.PreviousMajorSupported);
     }
 
     [Fact]

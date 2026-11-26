@@ -1,0 +1,12 @@
+{
+  "chrome.sidebar.name": "Group chats",
+  "chrome.sidebar.collapse": "Collapse sidebar",
+  "chrome.sidebar.expand": "Expand sidebar",
+  "chrome.strip.name": "Current group chat",
+  "chrome.strip.noGroupChat": "No group chat selected",
+  "chrome.strip.status": "Status",
+  "chrome.sheet.close": "Close",
+  "chrome.sheet.grip": "Drag to dismiss",
+  "chrome.sheet.opened": "{title}, dialog opened",
+  "chrome.sheet.closed": "{title} closed"
+}

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit.v3.mtp-v2" />
+    <PackageReference Include="Avalonia.Headless.XUnit" />
+    <PackageReference Include="Avalonia.Skia" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Client.Mobile\Bazaar.Client.Mobile.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.BackStack\Bazaar.Client.BackStack.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Gestures\Bazaar.Client.Gestures.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Abstractions\Bazaar.Client.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Settings\Bazaar.Client.Settings.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Client.Panes.Abstractions\Bazaar.Client.Panes.Abstractions.csproj" />
+  </ItemGroup>
+</Project>
