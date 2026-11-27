@@ -1,3 +1,4 @@
+using Bazaar.Contracts.Gc;
 using Bazaar.Server.PsychWard.Abstractions;
 
 namespace Bazaar.Server.PsychWard.Tests;
@@ -97,5 +98,45 @@ public class PgStoreTests(PsychWardDb db) : IClassFixture<PsychWardDb>
         await store.GetOrAddAsync(new VentDraft("done-1", agent, "a", "b", "c", VentStatus.Draft, DateTimeOffset.UtcNow), CancellationToken.None);
         await store.AddOpenFailureAsync(agent, "done-1", CancellationToken.None);
         Assert.False(await store.HasOpenFailureAsync(agent, CancellationToken.None));
+    }
+
+    private sealed class FixedOwner(GcPrincipal? owner) : IWardOwnerSource
+    {
+        public Task<GcPrincipal?> GetOwnerAsync(CancellationToken cancellationToken) => Task.FromResult(owner);
+    }
+
+    [Fact]
+    public async Task The_directory_reads_agent_names_and_takes_the_owner_from_the_source()
+    {
+        var agentId = Guid.CreateVersion7();
+        await using (var create = db.DataSource.CreateCommand("INSERT INTO agent (agent_id, name) VALUES (@id, 'Charles')"))
+        {
+            create.Parameters.AddWithValue("id", agentId);
+            await create.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var owner = new GcPrincipal(Guid.CreateVersion7(), PrincipalKind.Owner, "Boss");
+        var directory = new PgWardPrincipalDirectory(db.DataSource, new FixedOwner(owner));
+
+        Assert.Equal(new GcPrincipal(agentId, PrincipalKind.Agent, "Charles"), await directory.GetAgentAsync(agentId, CancellationToken.None));
+        Assert.Null(await directory.GetAgentAsync(Guid.CreateVersion7(), CancellationToken.None));
+        Assert.Equal(owner, await directory.GetOwnerAsync(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task The_owner_source_reads_the_one_active_owner_and_ignores_coworkers()
+    {
+        var ownerId = Guid.CreateVersion7();
+        await using (var insert = db.DataSource.CreateCommand(
+            "INSERT INTO human (id, display_name, role, status) VALUES (@owner, 'Boss', 'owner', 'active'), (@cow, 'Dana', 'coworker', 'active')"))
+        {
+            insert.Parameters.AddWithValue("owner", ownerId);
+            insert.Parameters.AddWithValue("cow", Guid.CreateVersion7());
+            await insert.ExecuteNonQueryAsync(TestContext.Current.CancellationToken);
+        }
+
+        var owner = await new PgWardOwnerSource(db.DataSource).GetOwnerAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(new GcPrincipal(ownerId, PrincipalKind.Owner, "Boss"), owner);
     }
 }

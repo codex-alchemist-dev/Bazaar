@@ -244,3 +244,59 @@ public class PsychWardTests
         Assert.Equal(VentStatus.Draft, result.Draft!.Status);
     }
 }
+
+public class WardCurfewTests
+{
+    private static readonly Guid _agent = Guid.Parse("00000000-0000-7000-8000-00000000000a");
+
+    private sealed class FixedProbe(WardCurfewStatus status) : IWardAvailabilityProbe
+    {
+        public Task<WardCurfewStatus> GetCurfewAsync(Guid agentId, CancellationToken cancellationToken) => Task.FromResult(status);
+    }
+
+    private static PsychWardService Service(FakeTimeProvider time, WardCurfewStatus status, WardCurfewBehaviour behaviour) =>
+        new(new InMemoryWardStayStore(), new InMemoryVentStore(), new PsychWardSettings { CurfewBehaviour = behaviour, MinStayMinutes = 60 }, time, availability: new FixedProbe(status));
+
+    [Fact]
+    public async Task A_curfew_admission_counts_from_the_next_shift_but_restricts_at_once()
+    {
+        var time = new FakeTimeProvider();
+        var next = time.GetUtcNow().AddHours(6);
+        using var ward = Service(time, new WardCurfewStatus(true, next), WardCurfewBehaviour.QueueNextShift);
+
+        var outcome = await ward.AdmitAsync(_agent, WardTrigger.LoopGuard, null, CancellationToken.None);
+
+        Assert.Equal(next, outcome.Stay!.AdmittedAt);
+        Assert.Equal(WardRestrictions.Admitted, await ward.GetRestrictionsAsync(_agent, CancellationToken.None));
+
+        time.Advance(TimeSpan.FromHours(6).Add(TimeSpan.FromMinutes(30)));
+        Assert.False((await ward.DischargeAsync(_agent, new DischargeRequest(true), CancellationToken.None)).Accepted);
+        time.Advance(TimeSpan.FromMinutes(31));
+        Assert.True((await ward.DischargeAsync(_agent, new DischargeRequest(true), CancellationToken.None)).Accepted);
+    }
+
+    [Fact]
+    public async Task Admit_now_and_owner_referrals_ignore_the_curfew()
+    {
+        var time = new FakeTimeProvider();
+        var status = new WardCurfewStatus(true, time.GetUtcNow().AddHours(6));
+
+        using var now = Service(time, status, WardCurfewBehaviour.AdmitNow);
+        Assert.Equal(time.GetUtcNow(), (await now.AdmitAsync(_agent, WardTrigger.LoopGuard, null, CancellationToken.None)).Stay!.AdmittedAt);
+
+        using var queued = Service(time, status, WardCurfewBehaviour.QueueNextShift);
+        Assert.Equal(time.GetUtcNow(), (await queued.AdmitAsync(_agent, WardTrigger.OwnerReferral, null, CancellationToken.None)).Stay!.AdmittedAt);
+    }
+
+    [Fact]
+    public async Task Outside_curfew_or_with_an_unknown_next_shift_the_stay_begins_now()
+    {
+        var time = new FakeTimeProvider();
+
+        using var outside = Service(time, new WardCurfewStatus(false, time.GetUtcNow().AddHours(6)), WardCurfewBehaviour.QueueNextShift);
+        Assert.Equal(time.GetUtcNow(), (await outside.AdmitAsync(_agent, WardTrigger.LoopGuard, null, CancellationToken.None)).Stay!.AdmittedAt);
+
+        using var unknown = Service(time, new WardCurfewStatus(true, null), WardCurfewBehaviour.QueueNextShift);
+        Assert.Equal(time.GetUtcNow(), (await unknown.AdmitAsync(_agent, WardTrigger.LoopGuard, null, CancellationToken.None)).Stay!.AdmittedAt);
+    }
+}
