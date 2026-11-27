@@ -25,38 +25,8 @@ public interface ISealedScope : IDisposable
     /// </summary>
     ValueTask<long> WriteAsync(string path, ReadOnlyMemory<byte> content, long? expectedGeneration = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Deletes a file with no generation check. Returns <c>false</c> when the path was not in the manifest.</summary>
+    /// <summary>Deletes a file. Returns <c>false</c> when the path was not in the manifest.</summary>
     ValueTask<bool> DeleteAsync(string path, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Deletes a file. <paramref name="expectedGeneration"/> is a generation to require that exact current one, 0 to require that the path
-    /// does not exist (then nothing is deleted), or <c>null</c> for any. A mismatch throws <see cref="SealGenerationConflictException"/> and deletes nothing.
-    /// Returns <c>false</c> when the path was not in the manifest.
-    /// </summary>
-    ValueTask<bool> DeleteAsync(string path, long? expectedGeneration, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Reads every file of the scope as one consistent snapshot: the manifest and all files are read and authenticated under one lock, so a
-    /// concurrent writer can never produce a mix of old and new files. Throws <see cref="SealTamperedException"/> on any mismatch and returns no
-    /// partial data. Throws <see cref="InvalidOperationException"/> when the files together exceed the store's bulk limit.
-    /// </summary>
-    ValueTask<SealedSnapshot> ReadAllAsync(CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Applies many writes and deletes with one manifest commit and returns the new manifest generation (unchanged when nothing changed).
-    /// Every expected generation and size is checked before anything is written; a conflict throws <see cref="SealGenerationConflictException"/>.
-    /// Readers see either all of the batch or none of it: new files are written first under new names and the manifest rename is the single
-    /// commit point. If anything fails before that rename, the batch's files are removed and the scope is exactly as it was.
-    /// </summary>
-    ValueTask<long> WriteBatchAsync(IReadOnlyList<SealedWrite> writes, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Takes the scope's cross-process lease: an OS lock file held until the lease is disposed, so a long read-modify-write cycle (for example
-    /// materialise, work, reseal) is exclusive against every other lease holder, in this or another process or store instance. Single operations
-    /// do not take the lease; they stay serialised by the per-operation lock and their generation checks. Throws <see cref="TimeoutException"/>
-    /// when the lease is not free within <paramref name="timeout"/>.
-    /// </summary>
-    ValueTask<ISealedLease> AcquireLeaseAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 
     /// <summary>Lists the manifest (not the folder), so a file added on disk is never listed.</summary>
     ValueTask<IReadOnlyList<SealedEntry>> ListAsync(CancellationToken cancellationToken = default);
@@ -70,26 +40,6 @@ public interface ISealedScope : IDisposable
 
 /// <summary>A decrypted file and the generation it was read at.</summary>
 public sealed record SealedFile(string Path, long Generation, byte[] Content);
-
-/// <summary>A consistent snapshot of a scope (<see cref="ISealedScope.ReadAllAsync"/>): every file at the manifest generation it was read at, ordered by path.</summary>
-public sealed record SealedSnapshot(long ManifestGeneration, IReadOnlyList<SealedFile> Files);
-
-/// <summary>One operation of <see cref="ISealedScope.WriteBatchAsync"/>. <see cref="ExpectedGeneration"/> works as in <see cref="ISealedScope.WriteAsync"/>.</summary>
-public sealed record SealedWrite(string Path, ReadOnlyMemory<byte> Content, long? ExpectedGeneration, bool IsDelete)
-{
-    /// <summary>Writes <paramref name="content"/> to <paramref name="path"/>.</summary>
-    public static SealedWrite Put(string path, ReadOnlyMemory<byte> content, long? expectedGeneration = null) => new(path, content, expectedGeneration, false);
-
-    /// <summary>Deletes <paramref name="path"/>; a path that does not exist is left alone.</summary>
-    public static SealedWrite Delete(string path, long? expectedGeneration = null) => new(path, ReadOnlyMemory<byte>.Empty, expectedGeneration, true);
-}
-
-/// <summary>A held scope lease (<see cref="ISealedScope.AcquireLeaseAsync"/>). Disposing releases it.</summary>
-public interface ISealedLease : IDisposable
-{
-    /// <summary>The scope the lease is held on.</summary>
-    string Scope { get; }
-}
 
 /// <summary>A manifest entry.</summary>
 public sealed record SealedEntry(string Path, long Generation);
@@ -144,14 +94,5 @@ public sealed class SealGenerationConflictException : Exception
     public SealGenerationConflictException(string path, long expected, long actual)
         : base($"Sealed write to '{path}' expected generation {expected} but it is {actual}.")
     {
-        Path = path;
-        Expected = expected;
-        Actual = actual;
     }
-
-    public string Path { get; }
-
-    public long Expected { get; }
-
-    public long Actual { get; }
 }
