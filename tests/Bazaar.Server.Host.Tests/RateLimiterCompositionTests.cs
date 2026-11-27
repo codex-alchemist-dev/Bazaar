@@ -1,7 +1,7 @@
-using Bazaar.RateLimits;
 using Bazaar.RateLimits.Cache;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Providers;
+using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -8,7 +8,7 @@ namespace Bazaar.Server.Community.GitHub.Bridge;
 public static class CommunityGitHubBridgeServiceCollectionExtensions
 {
     /// <summary>
-    /// Binds the community GitHub seams to Bazaar.GitHub. The host must register <c>IGitHubTokenProvider</c>, <c>IGitHubAdapter</c>
+    /// Binds the community GitHub seams to Bazaar.Server.GitHub. The host must register <c>IGitHubTokenProvider</c>, <c>IGitHubAdapter</c>
     /// and optionally an <see cref="ICommunityInstallationResolver"/>; the default is <see cref="ConfiguredCommunityInstallationResolver"/>. Uses TryAdd, so a host can override any binding.
     /// </summary>
     public static IServiceCollection AddBazaarCommunityGitHubBridge(this IServiceCollection services)

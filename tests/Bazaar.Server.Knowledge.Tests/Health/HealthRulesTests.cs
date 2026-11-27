@@ -1,4 +1,3 @@
-using Bazaar.Server.Knowledge;
 using Bazaar.Server.Knowledge.Health;
 using Bazaar.Server.Knowledge.Metrics;
 

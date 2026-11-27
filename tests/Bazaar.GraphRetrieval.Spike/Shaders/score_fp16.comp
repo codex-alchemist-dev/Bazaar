@@ -1,0 +1,44 @@
+#version 450
+#extension GL_EXT_control_flow_attributes : require
+// S28 vector top-k, pass 1 (fp16 matrix). One thread per row, queries applied in blocks of 8 so every row word is loaded once per block.
+// Cosine scores of Q queries against one chunk of rows. Query reads are the same address for every thread (broadcast).
+layout(local_size_x = 128) in;
+layout(push_constant) uniform P { uint rows; uint dim; uint queries; uint rowsStride; } p;
+layout(set = 0, binding = 0) readonly buffer Mat { uvec4 mat[]; };
+layout(set = 0, binding = 1) readonly buffer Aux { float aux[]; };      // per row: 1 / norm
+layout(set = 0, binding = 2) readonly buffer Qv { vec4 qv[]; };         // queries x dim, fp32, normalised
+layout(set = 0, binding = 3) writeonly buffer Scores { float scores[]; };
+const uint QB = 8u;
+void main()
+{
+    uint row = (gl_WorkGroupID.y * gl_NumWorkGroups.x + gl_WorkGroupID.x) * 128u + gl_LocalInvocationID.x;
+    if (row >= p.rows) { return; }
+    uint rowVecs = p.dim / 8u;                 // uvec4 = 8 halfs
+    uint qVecs = p.dim / 4u;
+    float inv = aux[row];
+    for (uint q0 = 0u; q0 < p.queries; q0 += QB)
+    {
+        float acc[8];
+        [[unroll]] for (uint i = 0u; i < 8u; i++) { acc[i] = 0.0; }
+        for (uint j = 0u; j < rowVecs; j++)
+        {
+            uvec4 u = mat[row * rowVecs + j];
+            vec2 a = unpackHalf2x16(u.x), b = unpackHalf2x16(u.y), c = unpackHalf2x16(u.z), d = unpackHalf2x16(u.w);
+            vec4 lo = vec4(a, b), hi = vec4(c, d);
+            [[unroll]] for (uint i = 0u; i < 8u; i++)
+            {
+                uint q = q0 + i;
+                if (q < p.queries)
+                {
+                    vec4 x0 = qv[q * qVecs + j * 2u];
+                    vec4 x1 = qv[q * qVecs + j * 2u + 1u];
+                    acc[i] += dot(lo, x0) + dot(hi, x1);
+                }
+            }
+        }
+        [[unroll]] for (uint i = 0u; i < 8u; i++)
+        {
+            if (q0 + i < p.queries) { scores[(q0 + i) * p.rowsStride + row] = acc[i] * inv; }
+        }
+    }
+}

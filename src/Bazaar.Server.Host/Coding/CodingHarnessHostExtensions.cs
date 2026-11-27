@@ -1,12 +1,12 @@
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
-using Bazaar.GitHub.Workspace;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.CodingEdit;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingPermissions;
 using Bazaar.Server.CodingReview;
 using Bazaar.Server.CodingStore;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
+using Bazaar.Server.GitHub.Workspace;
 using Bazaar.Server.Identity;
 using Bazaar.Server.RepoMap;
 using Bazaar.Server.Security.KillSwitch;
@@ -116,7 +116,7 @@ public static class CodingHarnessHostExtensions
             sp.GetRequiredService<SubagentRunner>(),
             sp.GetRequiredService<IRuntimeSubagentParentDirectory>()));
 
-        // GitHub side (doc 21). The token provider and the adapter are the concretes in Bazaar.GitHub; their own dependencies
+        // GitHub side (doc 21). The token provider and the adapter are the concretes in Bazaar.Server.GitHub; their own dependencies
         // (the identity token client, the HTTP client) are the host's to bind.
         services.TryAddSingleton<IGitHubTokenProvider, IdentityServiceGitHubTokenProvider>();
         services.TryAddSingleton<IGitHubRateState, InMemoryGitHubRateState>();

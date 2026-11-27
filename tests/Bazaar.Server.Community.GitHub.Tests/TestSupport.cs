@@ -34,7 +34,7 @@ internal static class TestSupport
     public static ApprovalId Approval { get; } = new(Guid.Parse("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"));
 }
 
-/// <summary>Stands in for the host's binding to Bazaar.GitHub's IGitHubAdapter.OpenDraftPrAsync.</summary>
+/// <summary>Stands in for the host's binding to Bazaar.Server.GitHub's IGitHubAdapter.OpenDraftPrAsync.</summary>
 internal sealed class RecordingPullRequestOpener : ICommunityPullRequestOpener
 {
     public List<CommunityPullRequestRequest> Requests { get; } = [];

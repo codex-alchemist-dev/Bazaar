@@ -25,6 +25,7 @@ internal static class AdminRouter
         new("GET", "/admin/api/status", r => ReadAsync<IAdminStatusSource, AdminStatusView>(r, "status", s => s.GetAsync(r.Ct), AdminJson.Default.AdminStatusView), Section: "status"),
         new("GET", "/admin/api/kodo", r => ReadAsync<IAdminKodoSource, AdminKodoView>(r, "kodo", s => s.GetAsync(r.Ct), AdminJson.Default.AdminKodoView), Section: "kodo"),
         new("GET", "/admin/api/users", r => ReadAsync<IAdminUserDirectory, IReadOnlyList<AdminUser>>(r, "users", s => s.ListAsync(r.Ct), AdminJson.Default.IReadOnlyListAdminUser), Section: "users"),
+        new("GET", "/admin/api/members", MembersAsync, Section: "users"),
         new("GET", "/admin/api/devices", r => ReadAsync<IAdminDeviceDirectory, IReadOnlyList<AdminDevice>>(r, "devices", s => s.ListAsync(r.Ct), AdminJson.Default.IReadOnlyListAdminDevice), Section: "devices"),
         new("GET", "/admin/api/audit", AuditAsync, Section: "audit"),
         new("GET", "/admin/api/approvals", r => ReadAsync<IAdminApprovalSource, IReadOnlyList<AdminApproval>>(r, "approvals", s => s.ListPendingAsync(r.Ct), AdminJson.Default.IReadOnlyListAdminApproval), Section: "approvals"),
@@ -275,6 +276,39 @@ internal static class AdminRouter
         }
 
         await AdminHttp.DataAsync(r.Http, await load(port), info);
+    }
+
+    private static Task MembersAsync(AdminRequest r)
+    {
+        var q = r.Http.Request.Query;
+        string? kind = null;
+        var limit = 50;
+        var offset = 0;
+        if (q.ContainsKey("kind"))
+        {
+            kind = q["kind"].ToString();
+            if (kind is not ("human" or "agent"))
+            {
+                return AdminHttp.EmptyAsync(r.Http, StatusCodes.Status400BadRequest);
+            }
+        }
+
+        if (q.ContainsKey("limit"))
+        {
+            if (!int.TryParse(q["limit"], NumberStyles.None, CultureInfo.InvariantCulture, out var l))
+            {
+                return AdminHttp.EmptyAsync(r.Http, StatusCodes.Status400BadRequest);
+            }
+
+            limit = Math.Clamp(l, 1, 200);
+        }
+
+        if (q.ContainsKey("offset") && !int.TryParse(q["offset"], NumberStyles.None, CultureInfo.InvariantCulture, out offset))
+        {
+            return AdminHttp.EmptyAsync(r.Http, StatusCodes.Status400BadRequest);
+        }
+
+        return ReadAsync<IAdminMemberRoster, AdminMemberPage>(r, "users", s => s.ListAsync(kind, limit, offset, r.Ct), AdminJson.Default.AdminMemberPage);
     }
 
     private static Task AuditAsync(AdminRequest r)

@@ -191,6 +191,20 @@ public sealed class PhoneShell : UserControl, IDisposable, IPagerNavigator
     /// <summary>Index of the page on screen, or -1 when there are no pages.</summary>
     public int SelectedPage => _pages.Count == 0 ? -1 : _pager.SelectedIndex;
 
+    /// <summary>Shows the page that holds the pane of <paramref name="paneKind"/>. Returns false when no page holds it.</summary>
+    public bool ShowPane(string paneKind)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(paneKind);
+        var index = _pages.ToList().FindIndex(page => page.Contains(paneKind, StringComparer.Ordinal));
+        if (index < 0)
+        {
+            return false;
+        }
+
+        GoToPage(index);
+        return true;
+    }
+
     /// <summary>Shows the next page. Returns false on the last page. Also the route for the accessibility action "Next chat".</summary>
     public bool GoToNext() => Step(+1);
 

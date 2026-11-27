@@ -32,6 +32,7 @@ public sealed record AdminSelectionRequest(IReadOnlyList<string>? Selected, long
 [JsonSerializable(typeof(IReadOnlyList<AdminDevice>))]
 [JsonSerializable(typeof(AdminAuditPage))]
 [JsonSerializable(typeof(IReadOnlyList<AdminApproval>))]
+[JsonSerializable(typeof(AdminMemberPage))]
 public sealed partial class AdminJson : JsonSerializerContext
 {
 }

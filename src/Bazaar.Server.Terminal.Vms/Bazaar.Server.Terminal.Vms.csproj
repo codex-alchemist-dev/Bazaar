@@ -5,8 +5,8 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <!-- An adapter between two ports: the terminal module's guest PTY seam and the guest transport's channel directory. No Bazaar.Server, no Bazaar.Server.Terminal, no Bazaar.Server.Vms. -->
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <!-- An adapter between two ports: the terminal module's guest PTY seam and the guest transport's channel directory. No Bazaar.Server, no Bazaar.Server.Terminal, no Bazaar.Server.Vms. -->    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Terminal.Abstractions\Bazaar.Server.Terminal.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmTransport.Abstractions\Bazaar.Server.VmTransport.Abstractions.csproj" />
   </ItemGroup>

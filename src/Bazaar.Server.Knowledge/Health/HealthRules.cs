@@ -3,16 +3,6 @@ using Bazaar.Server.Knowledge.Metrics;
 
 namespace Bazaar.Server.Knowledge.Health;
 
-/// <summary>Which health rule raised a reason.</summary>
-public enum HealthReasonKind
-{
-    CoverageDrop,
-    BuildFailureStreak,
-}
-
-/// <summary>One reason a project is flagged. <see cref="Message"/> is for people; the kind is for code.</summary>
-public sealed record HealthReason(HealthReasonKind Kind, string Message);
-
 /// <summary>
 /// The two project health thresholds (doc 25 <c>health.coverage_drop_points</c> and <c>health.build_failure_streak</c>).
 /// The caller reads them from settings; the rules never read settings themselves.

@@ -3,6 +3,7 @@ using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Membership;
 using Bazaar.Server.Council.Service;
 using Bazaar.Server.Council.Tests.Data;
+using Bazaar.Server.Mirror;
 
 namespace Bazaar.Server.Council.Tests.Service;
 
@@ -288,10 +289,12 @@ internal sealed class CouncilHarness
 
     public ICouncilDissentShareSource? Settings { get; set; }
 
+    public IMirrorFeed? Mirror { get; set; }
+
     public List<IMembershipOutcomeSink> Sinks { get; } = new();
 
     public CouncilService CreateService() =>
-        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Sinks);
+        new(Store, Events, Membership, Options, Clock, WithWriter ? Writer : null, Settings, Mirror, Sinks);
 
     /// <summary>Adds agent members and, optionally, the owner.</summary>
     public void AddAgents(params string[] agents)

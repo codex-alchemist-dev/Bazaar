@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Bazaar.RateLimits;
+using Bazaar.Server.RateLimits;
 using Bazaar.Server.Security.Audit;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;

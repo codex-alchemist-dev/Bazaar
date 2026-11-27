@@ -20,6 +20,13 @@ public sealed record KodoServerOptions
     /// </summary>
     public string? DataDirectory { get; init; }
 
+    /// <summary>
+    /// Where the latest status snapshot is written after every pass, for the resident TUI (doc 58 section 3), a separate process.
+    /// Null writes nothing (the shipped default of the record; <c>AddBazaarKodo</c> with configuration resolves
+    /// <c>Bazaar:Kodo:SnapshotFile</c>, then <see cref="DataDirectory"/>, then the machine-wide default, and an explicit empty value turns it off).
+    /// </summary>
+    public string? SnapshotFile { get; init; }
+
     /// <summary>The validated section 20 settings. Invalid or loosening operator values fall back to the defaults and are listed in <see cref="SettingErrors"/>.</summary>
     public KodoSettings Settings { get; init; } = KodoSettings.Defaults;
 

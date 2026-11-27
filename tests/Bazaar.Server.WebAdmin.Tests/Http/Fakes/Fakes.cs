@@ -121,7 +121,7 @@ internal sealed class FakeAssets : IAdminAssetProvider
 internal sealed class FakeStatus : IAdminStatusSource
 {
     public Task<AdminStatusView> GetAsync(CancellationToken ct = default) =>
-        Task.FromResult(new AdminStatusView("Bazaar", "0.1.0", "Zuhal", DateTimeOffset.UnixEpoch, 5, ["p1"]));
+        Task.FromResult(new AdminStatusView("Bazaar", "0.1.0", "Zuhal", DateTimeOffset.UnixEpoch, 5, ["p1"], [new AdminQueueDepth("jobs", 2)], new AdminHealthSummary("degraded", [new AdminHealthCheck("mail", "degraded", "slow")])));
 }
 
 internal sealed class FakeKodo : IAdminKodoSource
@@ -152,6 +152,27 @@ internal sealed class FakeAuditReader : IAdminAuditReader
         LastBefore = before;
         LastLimit = limit;
         return Task.FromResult(new AdminAuditPage([new AdminAuditRow(7, DateTimeOffset.UnixEpoch, "a1", "k", "s")], 6));
+    }
+}
+
+internal sealed class FakeMemberRoster : IAdminMemberRoster
+{
+    public string? LastKind { get; private set; }
+
+    public int LastLimit { get; private set; }
+
+    public int LastOffset { get; private set; }
+
+    public Task<AdminMemberPage> ListAsync(string? kind, int limit, int offset, CancellationToken ct = default)
+    {
+        (LastKind, LastLimit, LastOffset) = (kind, limit, offset);
+        return Task.FromResult(new AdminMemberPage(
+            [
+                new AdminMember(Guid.Empty, "Ada", "agent", "agent", "active", DateTimeOffset.UnixEpoch, "claude-code/sonnet", 1200),
+                new AdminMember(Guid.Empty, "Dom", "human", "owner", "active", null, null, 0),
+            ],
+            2,
+            null));
     }
 }
 

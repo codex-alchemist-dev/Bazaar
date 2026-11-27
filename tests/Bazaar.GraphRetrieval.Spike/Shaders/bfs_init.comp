@@ -1,0 +1,25 @@
+#version 450
+#extension GL_GOOGLE_include_directive : require
+layout(local_size_x = 64) in;
+#include "graph.glsl"
+void main()
+{
+    uint i = gl_LocalInvocationID.x;
+    if (i < p.seedCount)
+    {
+        uint s = seeds[p.seedOffset + i];
+        atomicOr(visited[s >> 5], 1u << (s & 31u));
+        reached[i] = s;
+    }
+    if (i == 0u)
+    {
+        state[0] = 0u;
+        state[1] = p.seedCount;
+        state[2] = p.seedCount;
+        state[3] = (p.seedCount + 255u) / 256u;
+        state[4] = 1u;
+        state[5] = 1u;
+        state[6] = 0u;
+        state[8] = p.seedCount;
+    }
+}

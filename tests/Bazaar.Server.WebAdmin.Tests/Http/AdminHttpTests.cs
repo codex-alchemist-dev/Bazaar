@@ -13,7 +13,7 @@ public sealed class AdminHttpTests
 
     private static readonly string[] _readRoutes =
     [
-        "/admin/api/status", "/admin/api/kodo", "/admin/api/users", "/admin/api/devices", "/admin/api/audit", "/admin/api/approvals",
+        "/admin/api/status", "/admin/api/kodo", "/admin/api/users", "/admin/api/members", "/admin/api/devices", "/admin/api/audit", "/admin/api/approvals",
         "/admin/api/modules", "/admin/api/modules/builds",
     ];
 
@@ -209,6 +209,7 @@ public sealed class AdminHttpTests
     [Theory]
     [InlineData("/admin/api/kodo", "admin.modules")]
     [InlineData("/admin/api/users", "kodo.view.status")]
+    [InlineData("/admin/api/members", "kodo.view.status")]
     [InlineData("/admin/api/devices", "admin.members")]
     [InlineData("/admin/api/audit", "admin.devices")]
     [InlineData("/admin/api/approvals", "chat.send")]
@@ -245,6 +246,7 @@ public sealed class AdminHttpTests
         { "/admin/api/status", "status" },
         { "/admin/api/kodo", "kodo" },
         { "/admin/api/users", "users" },
+        { "/admin/api/members", "users" },
         { "/admin/api/devices", "devices" },
         { "/admin/api/audit", "audit" },
         { "/admin/api/approvals", "approvals" },
@@ -263,6 +265,50 @@ public sealed class AdminHttpTests
         Assert.False(j.GetProperty("available").GetBoolean());
         Assert.False(j.TryGetProperty("data", out _));
         Assert.Equal(section, Assert.Single(h.Audit.Of(AdminAuditKinds.Read)).Fields["section"]);
+    }
+
+    [Fact]
+    public async Task Status_json_carries_version_uptime_queues_and_health_in_camel_case()
+    {
+        await using var h = await AdminTestHost.StartAsync();
+        var r = await h.SendAsync("GET", "/admin/api/status", h.Seed());
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var j = System.Text.Json.JsonElement.Parse(await r.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).GetProperty("data");
+        Assert.Equal("0.1.0", j.GetProperty("version").GetString());
+        Assert.Equal(5, j.GetProperty("uptimeSeconds").GetInt64());
+        Assert.Equal("jobs", j.GetProperty("queues")[0].GetProperty("name").GetString());
+        Assert.Equal(2, j.GetProperty("queues")[0].GetProperty("depth").GetInt64());
+        Assert.Equal("degraded", j.GetProperty("health").GetProperty("state").GetString());
+        Assert.Equal("mail", j.GetProperty("health").GetProperty("checks")[0].GetProperty("name").GetString());
+    }
+
+    [Theory]
+    [InlineData("", null, 50, 0)]
+    [InlineData("?kind=agent&limit=0", "agent", 1, 0)]
+    [InlineData("?kind=human&limit=9999&offset=40", "human", 200, 40)]
+    public async Task Members_clamps_limit_and_passes_kind_and_offset(string query, string? kind, int limit, int offset)
+    {
+        await using var h = await AdminTestHost.StartAsync();
+        var r = await h.SendAsync("GET", "/admin/api/members" + query, h.Seed("admin.members"));
+        Assert.Equal(HttpStatusCode.OK, r.StatusCode);
+        var roster = h.Services.GetRequiredService<FakeMemberRoster>();
+        Assert.Equal((kind, limit, offset), (roster.LastKind, roster.LastLimit, roster.LastOffset));
+        var data = (await JsonOf(r)).GetProperty("data");
+        Assert.Equal(2, data.GetProperty("total").GetInt64());
+        Assert.Equal("agent", data.GetProperty("rows")[0].GetProperty("kind").GetString());
+        Assert.Equal("claude-code/sonnet", data.GetProperty("rows")[0].GetProperty("model").GetString());
+        Assert.Equal(1200, data.GetProperty("rows")[0].GetProperty("tokens24h").GetInt64());
+    }
+
+    [Theory]
+    [InlineData("?kind=robot")]
+    [InlineData("?limit=abc")]
+    [InlineData("?offset=-1")]
+    public async Task Members_rejects_malformed_query(string query)
+    {
+        await using var h = await AdminTestHost.StartAsync();
+        var r = await h.SendAsync("GET", "/admin/api/members" + query, h.Seed("admin.members"));
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
     }
 
     [Fact]

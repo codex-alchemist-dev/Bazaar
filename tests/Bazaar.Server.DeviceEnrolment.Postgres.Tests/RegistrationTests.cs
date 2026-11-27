@@ -1,3 +1,4 @@
+using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 
@@ -9,7 +10,7 @@ public sealed class RegistrationTests
     public void The_extension_registers_the_postgres_store_over_the_shared_data_source()
     {
         using var source = NpgsqlDataSource.Create("Host=localhost;Database=unused");
-        var services = new ServiceCollection().AddSingleton(source);
+        var services = new ServiceCollection().AddSingleton(source).AddSingleton<ITransactionalAuditLog>(new RecordingAudit());
 
         services.AddBazaarDeviceEnrolmentPostgres();
 

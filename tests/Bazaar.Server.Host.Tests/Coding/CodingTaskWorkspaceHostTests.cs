@@ -1,8 +1,8 @@
-using Bazaar.GitHub.Workspace;
 using Bazaar.Server.CodingGit;
 using Bazaar.Server.CodingGit.Fakes;
 using Bazaar.Server.CodingWorkspace;
 using Bazaar.Server.CodingWorkspace.Fakes;
+using Bazaar.Server.GitHub.Workspace;
 using Bazaar.Server.Host.Coding;
 using Bazaar.Server.Vault.Git;
 using Microsoft.Extensions.Configuration;

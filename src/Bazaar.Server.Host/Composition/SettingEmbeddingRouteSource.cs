@@ -10,3 +10,9 @@ internal sealed class SettingEmbeddingRouteSource(ISettingStore store) : IEmbedd
     public Task<string> GetEmbeddingRouteAsync(CancellationToken cancellationToken = default) =>
         store.GetAsync(GatewaySettings.EmbeddingRoute, cancellationToken: cancellationToken);
 }
+
+/// <summary>The route source when no settings store is registered: no route is configured.</summary>
+internal sealed class UnsetEmbeddingRouteSource : IEmbeddingRouteSource
+{
+    public Task<string> GetEmbeddingRouteAsync(CancellationToken cancellationToken = default) => Task.FromResult("");
+}

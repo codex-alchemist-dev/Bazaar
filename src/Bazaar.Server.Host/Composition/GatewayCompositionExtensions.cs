@@ -117,6 +117,8 @@ public static class GatewayCompositionExtensions
                 : routed;
         }));
         services.Replace(ServiceDescriptor.Singleton<IAdapterRegistry>(sp => CreateAdapterRegistry(sp)));
+        services.TryAddSingleton<IEmbeddingRouteSource>(sp =>
+            sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : new UnsetEmbeddingRouteSource());
         // Endpoint selection (docs/design/92). Nothing changes until a route is bound to a profile, either through
         // IAgentSelectionSetup (the first-run wizard) or Bazaar:Gateway:Selection:Routes:<route> = <profile>.
         services.TryAddSingleton<EndpointStatsTracker>(sp => new EndpointStatsTracker(time: sp.GetRequiredService<TimeProvider>()));
@@ -169,7 +171,7 @@ public static class GatewayCompositionExtensions
             events: ComposeQuotaEvents(sp),
 
             embeddingProfile: sp.GetRequiredService<IEmbeddingProfile>(),
-            embeddingRoute: sp.GetService<ISettingStore>() is { } store ? new SettingEmbeddingRouteSource(store) : null)));
+            embeddingRoute: sp.GetService<IEmbeddingRouteSource>())));
         return services;
     }
 

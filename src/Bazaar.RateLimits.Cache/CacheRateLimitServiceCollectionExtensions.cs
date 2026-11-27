@@ -1,4 +1,5 @@
 using Bazaar.Server.Providers;
+using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;

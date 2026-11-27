@@ -1,10 +1,10 @@
-using Bazaar.PrivacyAudit;
 using Bazaar.Server.Components.Remote;
 using Bazaar.Server.Host.Auth;
 using Bazaar.Server.Http.Auth;
 using Bazaar.Server.Identity.Kek;
 using Bazaar.Server.Identity.Postgres;
 using Bazaar.Server.Identity.Signing;
+using Bazaar.Server.PrivacyAudit;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 
@@ -35,6 +35,8 @@ public static class RemoteAuthCompositionExtensions
 
         services.AddBazaarPrivacyAudit();
         services.AddBazaarRemoteTokens();
+        // Identity read ports and the device revoker for the web admin and the server TUI (docs 51 and 58).
+        services.AddBazaarRemoteAdminPorts();
         services.TryAddSingleton(TimeProvider.System);
         services.TryAddSingleton(ReadSigningOptions(configuration));
         if (services.Any(d => d.ServiceType == typeof(NpgsqlDataSource)))

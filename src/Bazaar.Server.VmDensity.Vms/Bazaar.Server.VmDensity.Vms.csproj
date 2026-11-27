@@ -6,6 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- An adapter between two ports: the density governor's VM ports and the VM module's read and control ports. No Bazaar.Server, no Bazaar.Server.Vms. -->
+    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDensity.Abstractions\Bazaar.Server.VmDensity.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.Abstractions\Bazaar.Server.Vms.Abstractions.csproj" />

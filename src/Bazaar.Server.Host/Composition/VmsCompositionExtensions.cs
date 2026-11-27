@@ -60,7 +60,8 @@ public static class VmsCompositionExtensions
                 sp.GetRequiredService<IEnvironmentVmStore>(),
                 sp.GetRequiredService<IVmBackend>(),
                 sp.GetRequiredService<VmOperationLocks>(),
-                sp.GetRequiredService<TimeProvider>()));
+                sp.GetRequiredService<TimeProvider>(),
+                sp.GetService<IAgentContainmentCheck>()));
             services.TryAddSingleton<ModuleVmControl>(sp => new LifecycleVmControl(sp.GetRequiredService<VmLifecycleService>()));
         }
 
@@ -81,7 +82,7 @@ public static class VmsCompositionExtensions
 
         return new HyperVBackend(
             new PowerShellHyperVHost(new ProcessHyperVCommandRunner(), scriptDirectory, vmDirectory),
-            new HyperVParentResolver(imageDirectory),
+            new Bazaar.Server.Vms.HyperV.DirectoryParentResolver(imageDirectory),
             new HyperVHostFacts());
     }
 

@@ -1,9 +1,9 @@
-using Bazaar.GitHub.Adapter;
-using Bazaar.GitHub.Auth;
+using Bazaar.Server.GitHub.Adapter;
+using Bazaar.Server.GitHub.Auth;
 
 namespace Bazaar.Server.Community.GitHub.Bridge;
 
-/// <summary>Maps Bazaar.GitHub failures to <see cref="CommunityPostException"/>. Messages are fixed text plus a status code; they never echo a token.</summary>
+/// <summary>Maps Bazaar.Server.GitHub failures to <see cref="CommunityPostException"/>. Messages are fixed text plus a status code; they never echo a token.</summary>
 internal static class BridgeFailure
 {
     public static CommunityPostException Refusal(string message) => new(message, retryable: false);

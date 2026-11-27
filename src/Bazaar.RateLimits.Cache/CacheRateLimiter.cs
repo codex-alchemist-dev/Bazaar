@@ -1,4 +1,5 @@
 using Bazaar.Server.Providers;
+using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.Logging;
 
 namespace Bazaar.RateLimits.Cache;

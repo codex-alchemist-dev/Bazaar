@@ -59,3 +59,11 @@ public interface IPsychWardService
     /// <summary>The owner's view: active stays and held vents. The caller checks the viewer is the owner.</summary>
     Task<WardOverview> GetOverviewAsync(CancellationToken cancellationToken);
 }
+
+/// <summary>Thrown by a stay store when a second active stay would open for one agent (another process won the race).</summary>
+public sealed class WardStayConflictException(Guid agentId)
+    : InvalidOperationException($"Agent {agentId} already has an active ward stay.")
+{
+    /// <summary>The agent that already has an active stay.</summary>
+    public Guid AgentId { get; } = agentId;
+}
