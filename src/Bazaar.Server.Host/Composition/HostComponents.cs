@@ -148,7 +148,6 @@ public static class HostComponents
         new WebAdminComponent(),
         new AuditReaderComponent(),
         new PasskeysComponent(),
-        new WebAdminComponent(),
         new CommunityGitHubComponent(),
         new MemberRosterComponent(),
         new StatusProvidersComponent(),
