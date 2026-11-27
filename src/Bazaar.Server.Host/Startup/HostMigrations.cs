@@ -21,6 +21,7 @@ using Bazaar.Server.Mirror;
 using Bazaar.Server.Modules;
 using Bazaar.Server.OfflineSync.Postgres;
 using Bazaar.Server.Portability.Postgres;
+using Bazaar.Server.PsychWard;
 using Bazaar.Server.Presence.Postgres;
 using Bazaar.Server.Projects;
 using Bazaar.Server.Setup.FirstRun.Postgres;
@@ -51,6 +52,7 @@ public static class HostMigrations
         new ComponentMigrationSource(typeof(Bazaar.Server.Playtest.PlaytestComponent).Assembly),
         new ComponentMigrationSource(typeof(Bazaar.Server.WhatIf.WhatIfComponent).Assembly),
         new ComponentMigrationSource(typeof(PostgresEnrolmentStore).Assembly),
+        new ComponentMigrationSource(typeof(PsychWardService).Assembly),
         new ComponentMigrationSource(typeof(GeneticMemoryComponent).Assembly),
         new ComponentMigrationSource(typeof(ProjectsComponent).Assembly),
         new ComponentMigrationSource(typeof(HealthServerComponent).Assembly),

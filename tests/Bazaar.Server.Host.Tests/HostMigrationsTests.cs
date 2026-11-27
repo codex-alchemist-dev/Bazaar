@@ -141,4 +141,13 @@ public sealed class HostMigrationsTests
         Assert.Contains(files, f => f.Version == 3 && f.Name == "memory_read_log");
         Assert.Equal(3, files.Count);
     }
+
+    [Fact]
+    public void Psych_ward_namespace_is_read_from_the_psych_ward_module_at_version_1()
+    {
+        var source = HostMigrations.Source();
+
+        Assert.Contains("psych_ward", source.Namespaces());
+        Assert.Contains(source.Load("psych_ward"), f => f.Version == 1 && f.Name == "ward_and_vent");
+    }
 }
