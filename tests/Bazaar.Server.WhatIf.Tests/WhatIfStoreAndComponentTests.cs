@@ -1,5 +1,5 @@
 using System.Reflection;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Testing.Postgres;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

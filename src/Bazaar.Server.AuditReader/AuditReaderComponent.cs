@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.AuditReader;
 
 /// <summary>Read-only audit port for the web admin panel (docs/design/51-web-admin-module.md section 5). No SQL migrations of its own.</summary>
-public sealed class AuditReaderComponent : IBazaarComponent
+public sealed class AuditReaderComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "audit-reader",

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,7 +8,7 @@ namespace Bazaar.Server.Identity.Kek.OpenBao;
 /// Makes <c>identity.kek_provider = openbao</c> available (doc 14). It only registers the kind; the KEK module picks it when the
 /// setting asks for it, so a host that never selects OpenBao opens no connection and needs no OpenBao settings.
 /// </summary>
-public sealed class OpenBaoKekComponent : IBazaarComponent
+public sealed class OpenBaoKekComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "identity-kek-openbao",

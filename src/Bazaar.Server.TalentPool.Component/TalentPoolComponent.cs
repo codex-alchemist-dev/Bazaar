@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Council.Hiring;
 using Bazaar.Server.Gateway.Data;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.TalentPool.Component;
 /// assembly. The Council service, the gateway directory, the agent repository and the Soul services come from their own components;
 /// resolving <see cref="ITalentPool"/> fails with the missing service's name when one is absent.
 /// </summary>
-public sealed class TalentPoolComponent : IBazaarComponent
+public sealed class TalentPoolComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key.</summary>
     public const string MigrationProvider = "talent_pool";

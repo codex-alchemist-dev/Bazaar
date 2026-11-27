@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.ReadAudit.Npgsql;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Host.Components.ReadAudit;
 /// <c>Bazaar:ReadAudit:Enabled=false</c> (or disables the component). <c>Bazaar:ReadAudit:RecordUntaggedReads</c> and
 /// <c>Bazaar:ReadAudit:UntaggedObjectType</c> tune <see cref="AuditedDataSourceOptions"/>. It depends on <c>audit</c> for <c>IAuditLog</c>.
 /// </summary>
-public sealed class ReadAuditComponent : IBazaarComponent
+public sealed class ReadAuditComponent : ICdaxModule
 {
     public const string SectionName = "Bazaar:ReadAudit";
 

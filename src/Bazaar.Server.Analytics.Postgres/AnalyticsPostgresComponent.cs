@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Analytics.Postgres;
 /// registers. <c>Bazaar:Analytics:RevertAuthorRole</c> (default <c>author</c>) names the outcome attribution role that counts as the
 /// author of a reverted change.
 /// </summary>
-public sealed class AnalyticsPostgresComponent : IBazaarComponent
+public sealed class AnalyticsPostgresComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "analytics-postgres",

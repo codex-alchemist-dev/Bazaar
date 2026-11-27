@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.FreeLlmApi;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,7 +29,7 @@ public sealed class FreeLlmApiComponentTests
     private static ServiceCollection Register(IConfiguration configuration)
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(configuration, [new FreeLlmApiComponent()]);
+        services.AddCdaxModules(configuration, [new FreeLlmApiComponent()]);
         return services;
     }
 
@@ -96,7 +96,7 @@ public sealed class FreeLlmApiComponentTests
     {
         var services = new ServiceCollection();
         services.AddOptions();
-        services.AddBazaarComponents(Config(), [new FreeLlmApiComponent()]);
+        services.AddCdaxModules(Config(), [new FreeLlmApiComponent()]);
 
         await using var provider = services.BuildServiceProvider(validateScopes: true);
         var options = provider.GetService<IOptions<FreeLlmApiOptions>>()?.Value ?? new FreeLlmApiOptions();

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.EngineDispatch;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.EngineGcRecorder;
 
 /// <summary>Registers <see cref="GcEngineCallRecorder"/> as the engine call recorder (doc 20 Audit). Needs the GC log writer from the host.</summary>
-public sealed class EngineGcRecorderComponent : IBazaarComponent
+public sealed class EngineGcRecorderComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "engine-gc-recorder",

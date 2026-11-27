@@ -1,7 +1,7 @@
 namespace Bazaar.Architecture.Tests;
 
 /// <summary>
-/// Feature modules must not reference the server library directly. Each module is its own project on Bazaar.Core
+/// Feature modules must not reference the server library directly. Each module is its own project on Cdax.Core
 /// (docs/design/40, CLAUDE.md "Design docs are law"), and Bazaar.Server is the server kernel that hosts load, not a module dependency.
 /// Existing offenders are listed by project name in <c>module-server-reference-baseline.txt</c>. A new offender fails until it drops
 /// the reference, and a listed project that no longer offends fails until its line is removed, so the list only shrinks.
@@ -34,7 +34,7 @@ public class ModuleServerReferenceTests
 
         Assert.True(
             added.Length == 0,
-            "Feature module projects must not reference src/Bazaar.Server (depend on Bazaar.Core and the module's Abstractions instead). "
+            "Feature module projects must not reference src/Bazaar.Server (depend on Cdax.Core and the module's Abstractions instead). "
             + "Projects found:\n" + string.Join('\n', added));
     }
 

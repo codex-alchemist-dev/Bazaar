@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Gateway.AnthropicDirect;
 /// stay in <c>AddBazaarGateway</c>, which reads these options with the disabled defaults when this component is not registered.
 /// </summary>
 /// <remarks>When the source is off (the default), nothing is registered: no options binding and no startup key check.</remarks>
-public sealed class AnthropicDirectComponent : IBazaarComponent
+public sealed class AnthropicDirectComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "anthropic-direct",
@@ -47,7 +47,7 @@ public sealed class AnthropicDirectComponent : IBazaarComponent
     public static void RequireComponentWhenGatewayIsOn(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
-        if (IsEnabled(configuration) && !BazaarComponentRegistration.IsEnabled(configuration, ManifestDefinition.Id))
+        if (IsEnabled(configuration) && !CdaxModuleRegistration.IsEnabled(configuration, ManifestDefinition.Id))
         {
             throw new InvalidOperationException(
                 $"{AnthropicDirectOptions.SectionName}:Enabled is true, but the {ManifestDefinition.Id} component is disabled " +

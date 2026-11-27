@@ -5,7 +5,7 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
-    <!-- An adapter between two ports: the screen tools' target port and the VM module's read port. No Bazaar.Server, no Bazaar.Server.Vms. -->    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <!-- An adapter between two ports: the screen tools' target port and the VM module's read port. No Bazaar.Server, no Bazaar.Server.Vms. -->    <ProjectReference Include="..\Cdax.Core\Cdax.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.AgentTools\Bazaar.Server.VmDisplay.AgentTools.csproj" />
     <ProjectReference Include="..\Bazaar.Server.VmDisplay.Abstractions\Bazaar.Server.VmDisplay.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Vms.Abstractions\Bazaar.Server.Vms.Abstractions.csproj" />

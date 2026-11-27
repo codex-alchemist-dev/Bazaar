@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.SignIn.WebAuthn.Credentials;
 using Bazaar.Server.SignIn.WebAuthn.Registration;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.SignIn.WebAuthn;
 /// replaces the sign-in module's deny-all verifier, owns the <c>sign_in_webauthn</c> migration namespace, and needs the audit log:
 /// a passkey is never registered unrecorded. Operator settings are in <see cref="WebAuthnOptions"/>.
 /// </summary>
-public sealed class SignInWebAuthnComponent : IBazaarComponent
+public sealed class SignInWebAuthnComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "sign-in-webauthn",

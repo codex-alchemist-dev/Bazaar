@@ -1,5 +1,5 @@
 using Bazaar.Client.Tui.Dashboard;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Roles.Abstractions;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
@@ -20,7 +20,7 @@ namespace Bazaar.Server.OpsPorts;
 /// are implemented by <c>Bazaar.Server.Remote</c> and <c>IAdminApprovalSource</c> by <c>Bazaar.Server.Security</c>; the TUI host and the
 /// server host register them (doc 58 section 4a). Not here: <c>IAdminModuleSelection</c>, whose owning module has no read model yet.</para>
 /// </summary>
-public sealed class OpsPortsComponent : IBazaarComponent
+public sealed class OpsPortsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "ops-ports",

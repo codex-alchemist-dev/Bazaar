@@ -1,6 +1,6 @@
 using System.Text;
 using System.Text.Json;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.OfflineSync;
 using Bazaar.Server.OfflineSync;
 using Microsoft.AspNetCore.Http;
@@ -160,7 +160,7 @@ public sealed class OfflineSyncBatchHandlerTests
         Assert.Empty(manifest.DependsOn);
 
         var services = new ServiceCollection();
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new OfflineSyncComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new OfflineSyncComponent()]);
         using var sp = services.BuildServiceProvider();
         Assert.NotNull(sp.GetService<OfflineSyncProcessor>());
         Assert.NotNull(sp.GetService<OfflineSyncBatchHandler>());
@@ -171,7 +171,7 @@ public sealed class OfflineSyncBatchHandlerTests
     {
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Bazaar:Components:offline-sync:Enabled"] = "false" }).Build();
         var services = new ServiceCollection();
-        services.AddBazaarComponents(config, [new OfflineSyncComponent()]);
+        services.AddCdaxModules(config, [new OfflineSyncComponent()]);
         using var sp = services.BuildServiceProvider();
         Assert.Null(sp.GetService<OfflineSyncBatchHandler>());
     }

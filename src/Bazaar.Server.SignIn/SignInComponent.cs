@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.SignIn.Handoff;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.SignIn;
 /// The interactive sign-in page and handoff-code store as a Bazaar Component (docs/design/32 sections 4 and 5). It registers the
 /// in-memory stores, the adapter that lets the admin panel redeem codes, and a deny-all passkey verifier until an adapter replaces it.
 /// </summary>
-public sealed class SignInComponent : IBazaarComponent
+public sealed class SignInComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "sign-in",

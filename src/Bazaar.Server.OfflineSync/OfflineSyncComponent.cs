@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,7 +9,7 @@ namespace Bazaar.Server.OfflineSync;
 /// Offline sync as a Bazaar Component (docs/design/56-offline-sync-module.md section 2). The merge rules of the other modules are
 /// optional: a missing dependency disables only the rule for its data class, so every dependency here is soft.
 /// </summary>
-public sealed class OfflineSyncComponent : IBazaarComponent
+public sealed class OfflineSyncComponent : ICdaxModule
 {
     /// <summary>The manifest, available without an instance for tests.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

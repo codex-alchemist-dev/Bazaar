@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;

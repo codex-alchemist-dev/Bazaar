@@ -1,6 +1,6 @@
 using System.Net;
 using System.Security.Cryptography;
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Identity.Kek.OpenBao.Tests;
@@ -185,7 +185,7 @@ public sealed class OpenBaoKekTests
             var config = new FakeConfiguration(settings);
 
             var loaded = new ServiceCollection();
-            loaded.AddBazaarComponents(config, [new KekComponent(), new OpenBaoKekComponent()]);
+            loaded.AddCdaxModules(config, [new KekComponent(), new OpenBaoKekComponent()]);
             using (var provider = loaded.BuildServiceProvider())
             {
                 var kek = provider.GetRequiredService<IKekProvider>();
@@ -194,7 +194,7 @@ public sealed class OpenBaoKekTests
             }
 
             var missing = new ServiceCollection();
-            missing.AddBazaarComponents(config, [new KekComponent()]);
+            missing.AddCdaxModules(config, [new KekComponent()]);
             using var bare = missing.BuildServiceProvider();
             Assert.Throws<NotSupportedException>(() => bare.GetRequiredService<IKekProvider>());
         }

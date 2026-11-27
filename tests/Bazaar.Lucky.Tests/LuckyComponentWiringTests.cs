@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Lucky;
 using Bazaar.Sanitization;
 using Bazaar.Server.Sanitization;

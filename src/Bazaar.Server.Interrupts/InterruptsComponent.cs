@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Health;
@@ -20,7 +20,7 @@ namespace Bazaar.Server.Interrupts;
 /// <c>gc</c> and <c>setup</c>. The <c>interrupt_frame</c> migrations ship with the server's own SQL. Host composition maps
 /// <c>POST /company/interrupts</c> with <see cref="InterruptsReadRoute.MapCompanyInterrupts"/>.
 /// </summary>
-public sealed class InterruptsComponent : IBazaarComponent
+public sealed class InterruptsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "interrupts",

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BackupPolicy;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.MailPolicy;

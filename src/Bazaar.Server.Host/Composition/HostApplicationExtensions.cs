@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Erasure;
 using Bazaar.Sanitization;
 using Bazaar.Server.AccountApproval.Postgres;
@@ -115,14 +115,14 @@ public static class HostApplicationExtensions
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
-        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id)
-            || BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
+        if (CdaxModuleRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id)
+            || CdaxModuleRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
         }
 
         // Lucky runs (docs/design/26-fun-systems.md, section 6): the host supplies the run store and the side-effect sink.
-        if (BazaarComponentRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
+        if (CdaxModuleRegistration.IsEnabled(configuration, Bazaar.Lucky.LuckyComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<Bazaar.Lucky.ILuckyRunStore>(sp =>
                 new Bazaar.Server.Host.Lucky.PgLuckyRunStore(sp.GetRequiredService<NpgsqlDataSource>()));
@@ -145,14 +145,14 @@ public static class HostApplicationExtensions
 
         // The fun systems depend on the sanitizer abstractions only (Bazaar.Server.Sanitization.Abstractions). The host supplies the
         // implementation, and only when the fun-systems component is enabled, as before the split.
-        if (BazaarComponentRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
+        if (CdaxModuleRegistration.IsEnabled(configuration, FunComponent.ManifestDefinition.Id))
         {
             services.TryAddSingleton<ITextSanitizer, TextSanitizer>();
         }
 
         // The density governor's host memory port (doc 59 section 8). The governor still admits every start until the host also
         // supplies the VM directory and VM control ports, which have no implementation yet.
-        if (BazaarComponentRegistration.IsEnabled(configuration, VmDensityComponent.ManifestDefinition.Id)
+        if (CdaxModuleRegistration.IsEnabled(configuration, VmDensityComponent.ManifestDefinition.Id)
             && (OperatingSystem.IsLinux() || OperatingSystem.IsWindows()))
         {
             services.TryAddSingleton<IHostMemoryProbe>(_ => HostMemoryProbes.CreateForCurrentOs());
@@ -164,14 +164,14 @@ public static class HostApplicationExtensions
         services.TryAddSingleton<Bazaar.Server.Setup.Host.IBootstrapCodeAnnouncer, ConsoleBootstrapCodeAnnouncer>();
         // The DM access flow reads gc.dm_access_approvers live from the settings store. Registered first, so the gc-metadata component keeps it.
         services.TryAddSingleton<Bazaar.Server.GcMetadata.IDmAccessOptionsSource, Components.GcMetadata.SettingsDmAccessOptionsSource>();
-        services.AddBazaarComponents(configuration, HostComponents.All);
+        services.AddCdaxModules(configuration, HostComponents.All);
         services.AddBazaarEmbeddingsHost(configuration);
         services.AddBazaarGcForkTarget();
         services.AddBazaarReplayWire();
 
         // The memory graph (Bazaar.Server.Constellation) is wired here, not in a component: the Constellation component cannot
         // reference its own module project, and the graph sink depends on the Memory module. Only when Constellation is enabled.
-        if (BazaarComponentRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
+        if (CdaxModuleRegistration.IsEnabled(configuration, ConstellationComponent.ManifestDefinition.Id))
         {
             services.AddMemoryGraphProjection();
 

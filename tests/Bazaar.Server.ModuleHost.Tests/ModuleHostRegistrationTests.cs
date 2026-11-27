@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Install.Abstractions;
 using Bazaar.ModulePermissions;
 using Bazaar.Server.ModuleHost;

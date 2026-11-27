@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -6,7 +6,7 @@ namespace Bazaar.Server.Tests.Components;
 
 public class ComponentServiceCollectionTests
 {
-    private sealed class FakeComponent(string id, Action<IServiceCollection>? register = null, params string[] dependsOn) : IBazaarComponent
+    private sealed class FakeComponent(string id, Action<IServiceCollection>? register = null, params string[] dependsOn) : ICdaxModule
     {
         public bool EnabledByDefault { get; init; } = true;
 
@@ -24,7 +24,7 @@ public class ComponentServiceCollectionTests
         var log = new List<string>();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(), [
+        services.AddCdaxModules(Config(), [
             new FakeComponent("agents", _ => log.Add("agents"), "gc"),
             new FakeComponent("gc", _ => log.Add("gc")),
         ]);
@@ -38,7 +38,7 @@ public class ComponentServiceCollectionTests
         var log = new List<string>();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(("Bazaar:Components:kanban:Enabled", "false")), [
+        services.AddCdaxModules(Config(("Bazaar:Components:kanban:Enabled", "false")), [
             new FakeComponent("kanban", _ => log.Add("kanban")),
         ]);
 
@@ -50,7 +50,7 @@ public class ComponentServiceCollectionTests
     {
         var services = new ServiceCollection();
 
-        var ex = Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
+        var ex = Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
             Config(("Bazaar:Components:gc:Enabled", "false")),
             [new FakeComponent("gc"), new FakeComponent("agents", null, "gc")]));
 
@@ -62,7 +62,7 @@ public class ComponentServiceCollectionTests
     {
         var services = new ServiceCollection();
 
-        Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
+        Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
             Config(("Bazaar:Components:kanban:Enabled", "false")),
             [new FakeComponent("kanban", null, "missing")]));
     }
@@ -70,8 +70,17 @@ public class ComponentServiceCollectionTests
     [Fact]
     public void Unset_or_unparseable_enablement_means_enabled()
     {
-        Assert.True(BazaarComponentRegistration.IsEnabled(Config(), "kanban"));
-        Assert.True(BazaarComponentRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "maybe")), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(Config(), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "maybe")), "kanban"));
+    }
+
+    [Fact]
+    public void The_cdax_key_wins_and_the_old_bazaar_key_still_works_as_a_fallback()
+    {
+        Assert.False(CdaxModuleRegistration.IsEnabled(Config(("Cdax:Modules:kanban:Enabled", "false")), "kanban"));
+        Assert.False(CdaxModuleRegistration.IsEnabled(Config(("Bazaar:Components:kanban:Enabled", "false")), "kanban"));
+        Assert.True(CdaxModuleRegistration.IsEnabled(
+            Config(("Cdax:Modules:kanban:Enabled", "true"), ("Bazaar:Components:kanban:Enabled", "false")), "kanban"));
     }
 
     [Fact]
@@ -79,7 +88,7 @@ public class ComponentServiceCollectionTests
     {
         var log = new List<string>();
 
-        new ServiceCollection().AddBazaarComponents(Config(), [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
+        new ServiceCollection().AddCdaxModules(Config(), [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
 
         Assert.Empty(log);
     }
@@ -89,7 +98,7 @@ public class ComponentServiceCollectionTests
     {
         var log = new List<string>();
 
-        new ServiceCollection().AddBazaarComponents(
+        new ServiceCollection().AddCdaxModules(
             Config(("Bazaar:Components:playground:Enabled", "true")),
             [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
 
@@ -101,7 +110,7 @@ public class ComponentServiceCollectionTests
     {
         var log = new List<string>();
 
-        new ServiceCollection().AddBazaarComponents(Config(("Bazaar:Components:kanban:Enabled", "false")), [new FakeComponent("kanban", _ => log.Add("kanban"))]);
+        new ServiceCollection().AddCdaxModules(Config(("Bazaar:Components:kanban:Enabled", "false")), [new FakeComponent("kanban", _ => log.Add("kanban"))]);
 
         Assert.Empty(log);
     }
@@ -111,7 +120,7 @@ public class ComponentServiceCollectionTests
     {
         var log = new List<string>();
 
-        new ServiceCollection().AddBazaarComponents(
+        new ServiceCollection().AddCdaxModules(
             Config(("Bazaar:Components:playground:Enabled", "maybe")),
             [new FakeComponent("playground", _ => log.Add("playground")) { EnabledByDefault = false }]);
 
@@ -123,7 +132,7 @@ public class ComponentServiceCollectionTests
     {
         var on = Config(("Bazaar:Components:b:Enabled", "true"));
 
-        var ex = Assert.Throws<ComponentGraphException>(() => new ServiceCollection().AddBazaarComponents(on,
+        var ex = Assert.Throws<ComponentGraphException>(() => new ServiceCollection().AddCdaxModules(on,
         [
             new FakeComponent("b", null, "a") { EnabledByDefault = false },
             new FakeComponent("a") { EnabledByDefault = false },

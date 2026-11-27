@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Embeddings;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Embeddings;
@@ -23,7 +23,7 @@ public sealed class EmbeddingsCompositionTests
     {
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddBazaarComponents(configuration, [new AuditComponent(), new SettingsComponent(), new EmbeddingsComponent()]);
+        services.AddCdaxModules(configuration, [new AuditComponent(), new SettingsComponent(), new EmbeddingsComponent()]);
         services.AddBazaarEmbeddingsHost(configuration);
         return services;
     }

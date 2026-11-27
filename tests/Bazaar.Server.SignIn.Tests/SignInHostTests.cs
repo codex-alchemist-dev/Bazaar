@@ -366,7 +366,7 @@ public sealed class SignInHostTests
         var m = SignInComponent.ManifestDefinition;
 
         Assert.Equal("sign-in", m.Id);
-        Assert.Equal(Bazaar.Core.ComponentKind.Feature, m.Kind);
+        Assert.Equal(Cdax.Core.ComponentKind.Feature, m.Kind);
         Assert.Empty(m.DependsOn);
         Assert.Equal(["audit"], m.Soft);
         Assert.Equal("signin", SignInRateLimitBuckets.SignIn);

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmBench;
 using Bazaar.Server.VmBench.Abstractions;
 using Microsoft.Extensions.Configuration;

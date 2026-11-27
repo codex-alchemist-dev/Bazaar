@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.BrowserPool;
 /// The shared browser pool as a Bazaar Component (docs/design/59 section 7, work package 8). Registers the pool with fail-closed
 /// defaults for every port: until the host registers the real gate, egress policy and VM host, no browser starts.
 /// </summary>
-public sealed class BrowserPoolComponent : IBazaarComponent
+public sealed class BrowserPoolComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

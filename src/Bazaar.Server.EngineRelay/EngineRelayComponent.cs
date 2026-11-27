@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Engines;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.EngineDispatch;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Wire.Sync;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.EngineRelay;
 /// (grant reader, taint reader, GC recorder, audit log) gets a fail-closed default at resolve time, whatever the component order, so until the Engines module and the GC recorder
 /// are composed no relayed call is allowed. Setting: <c>Engine:Relay:TimeoutSeconds</c> (<c>engine.relay.timeout_seconds</c>).
 /// </summary>
-public sealed class EngineRelayComponent : IBazaarComponent
+public sealed class EngineRelayComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "engine-relay",

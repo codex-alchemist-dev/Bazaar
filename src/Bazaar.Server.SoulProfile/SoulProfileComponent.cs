@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.SoulProfile;
 /// The read-only agent profile route as a Bazaar Component (doc 07, PROPOSED). The caller resolver and the profile source come from
 /// the modules that own sign-in and Souls; until they are registered the route answers 503, never a guess.
 /// </summary>
-public sealed class SoulProfileComponent : IBazaarComponent
+public sealed class SoulProfileComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "soul-profile",

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.BrowserPool.Audit;
 /// <see cref="AuditLogPoolAuditSink"/> as the <see cref="IPoolAuditSink"/>, replacing the pool's no-op default whichever component
 /// is added first. The audit log is resolved when the sink is first needed; without one every write is dropped and counted.
 /// </summary>
-public sealed class BrowserPoolAuditComponent : IBazaarComponent
+public sealed class BrowserPoolAuditComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

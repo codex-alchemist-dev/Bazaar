@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Git.GitHub;
 
 /// <summary>The GitHub forge provider as a Bazaar Component (doc 52). It needs the <c>git</c> component and adds no other dependency.</summary>
-public sealed class GitHubComponent : IBazaarComponent
+public sealed class GitHubComponent : ICdaxModule
 {
     public const string ComponentId = "git-github";
 

@@ -8,7 +8,7 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Cdax.Core.Hosting\Cdax.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Settings.Abstractions\Bazaar.Server.Settings.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Wire.Abstractions\Bazaar.Wire.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Wire.Discovery.Abstractions\Bazaar.Server.Wire.Discovery.Abstractions.csproj" />

@@ -1,6 +1,6 @@
 using System.Data.Common;
 using Bazaar.Contracts.Wire;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Hive.Abstractions;
 using Bazaar.Server.Hive.Settings;
 using Bazaar.Server.Memory.Access;
@@ -29,7 +29,7 @@ namespace Bazaar.Server.Hive;
 /// the services are resolved: with an <see cref="NpgsqlDataSource"/> registered they are used, otherwise the in-memory ones. They read through the
 /// <see cref="AuditedDbDataSource"/> when the read-audit component registered one (doc 48 section 5.1), and the raw source otherwise.
 /// </remarks>
-public sealed class HiveComponent : IBazaarComponent
+public sealed class HiveComponent : ICdaxModule
 {
     /// <summary>Configuration section that binds <see cref="HiveCopyOptions"/>.</summary>
     public const string SectionName = "Bazaar:Hive";

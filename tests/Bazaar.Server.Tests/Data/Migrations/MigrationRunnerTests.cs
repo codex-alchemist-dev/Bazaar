@@ -253,7 +253,7 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     {
         var ds = await FreshAsync(db);
         var files = new[] { Common(1, "one", "CREATE TABLE t_one (id int)"), new MigrationFile("playground", 1, "pg", "CREATE TABLE t_pg (id int)") };
-        var manifests = new[] { new Bazaar.Core.ComponentManifest("playground", "0.1.0", Bazaar.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
+        var manifests = new[] { new Cdax.Core.ComponentManifest("playground", "0.1.0", Cdax.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
         var ct = TestContext.Current.CancellationToken;
 
         var on = new MigrationRunner(ds, components: manifests, isEnabled: _ => true);
@@ -269,7 +269,7 @@ public sealed class MigrationRunnerTests(MigrationDb db) : IClassFixture<Migrati
     {
         var ds = await FreshAsync(db);
         var files = new[] { Common(1, "one", "CREATE TABLE t_one (id int)"), new MigrationFile("playground", 1, "pg", "CREATE TABLE t_pg (id int)") };
-        var manifests = new[] { new Bazaar.Core.ComponentManifest("playground", "0.1.0", Bazaar.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
+        var manifests = new[] { new Cdax.Core.ComponentManifest("playground", "0.1.0", Cdax.Core.ComponentKind.Feature, [], [], EnabledByDefault: false) };
         var ct = TestContext.Current.CancellationToken;
 
         var off = await new MigrationRunner(ds, components: manifests, isEnabled: _ => false).MigrateAsync(Source(files), "linux", ct);

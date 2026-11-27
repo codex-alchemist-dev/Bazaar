@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.GeneticMemory.Abstractions;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.GeneticMemory;
 /// Genetic Memory Transfer (docs/design/25-company-systems-knowledge.md work package 9) as a Bazaar Component. Memory is a soft
 /// dependency: the ledger and options always resolve, and the service resolves once <see cref="IGmtLessonWriter"/> exists (the memory component provides it).
 /// </summary>
-public sealed class GeneticMemoryComponent : IBazaarComponent
+public sealed class GeneticMemoryComponent : ICdaxModule
 {
     /// <summary>Configuration section that binds <see cref="GmtOptions"/>.</summary>
     public const string SectionName = "Bazaar:GeneticMemory";

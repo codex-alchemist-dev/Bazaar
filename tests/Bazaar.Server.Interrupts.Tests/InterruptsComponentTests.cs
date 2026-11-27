@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gc.Body;
 using Bazaar.Server.Setup.FirstRun;
 using Microsoft.Extensions.Configuration;

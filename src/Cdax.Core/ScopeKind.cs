@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>The three scope kinds, from widest to narrowest.</summary>
 public enum ScopeKind

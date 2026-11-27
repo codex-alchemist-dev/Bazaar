@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +9,7 @@ namespace Bazaar.Server.DataVolume.Windows;
 /// provider the start guard uses and the privileged operator the volume unit and setup use; on any other OS it registers nothing.
 /// The Windows service host, the status pipe's hosting and the <c>volume</c> subcommands belong to the host.
 /// </summary>
-public sealed class WindowsDataVolumeComponent : IBazaarComponent
+public sealed class WindowsDataVolumeComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "data-volume-windows",

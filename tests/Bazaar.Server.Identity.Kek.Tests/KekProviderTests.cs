@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -266,7 +266,7 @@ public sealed class KekProviderTests : IDisposable
         });
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(configuration, [new KekComponent()]);
+        services.AddCdaxModules(configuration, [new KekComponent()]);
         using var provider = services.BuildServiceProvider();
 
         Assert.IsType<FileKekProvider>(provider.GetRequiredService<IKekProvider>());
@@ -284,7 +284,7 @@ public sealed class KekProviderTests : IDisposable
         });
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(configuration, [new KekComponent()]);
+        services.AddCdaxModules(configuration, [new KekComponent()]);
 
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IKekProvider));
     }

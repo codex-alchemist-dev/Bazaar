@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Taint;

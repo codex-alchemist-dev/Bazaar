@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
 using Bazaar.Server.Host.Composition;
@@ -49,7 +49,7 @@ public sealed class SettingsAuditComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(
+        services.AddCdaxModules(
             Config(("Bazaar:Components:audit:Enabled", "false"), ("Bazaar:Components:settings:Enabled", "false")),
             [new AuditComponent(), new SettingsComponent()]);
 
@@ -63,7 +63,7 @@ public sealed class SettingsAuditComponentTests
         // Settings' audit sink appends to IAuditLog, so settings cannot start without audit. The kernel reports it at start.
         var services = new ServiceCollection();
 
-        var ex = Assert.Throws<ComponentGraphException>(() => services.AddBazaarComponents(
+        var ex = Assert.Throws<ComponentGraphException>(() => services.AddCdaxModules(
             Config(("Bazaar:Components:audit:Enabled", "false")),
             [new AuditComponent(), new SettingsComponent()]));
 
@@ -76,7 +76,7 @@ public sealed class SettingsAuditComponentTests
         // Registration only describes services; the shared data source is a factory that runs at first resolve, so no database is needed.
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(Config(), [new AuditComponent(), new SettingsComponent()]);
+        services.AddCdaxModules(Config(), [new AuditComponent(), new SettingsComponent()]);
 
         Assert.Contains(services, d => d.ServiceType == typeof(ISettingStore));
         Assert.Contains(services, d => d.ServiceType == typeof(ISettingAuditSink));

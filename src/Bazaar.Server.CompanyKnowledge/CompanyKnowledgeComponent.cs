@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.CompanyKnowledge.Abstractions;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Memory.Tools;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.CompanyKnowledge;
 /// component does not implement. Memory is a soft dependency: <see cref="CompanyKnowledgeService"/> resolves once the memory component
 /// provides <see cref="IMemoryVault"/>.
 /// </summary>
-public sealed class CompanyKnowledgeComponent : IBazaarComponent
+public sealed class CompanyKnowledgeComponent : ICdaxModule
 {
     /// <summary>Configuration section that binds <see cref="CompanyKnowledgeOptions"/>.</summary>
     public const string SectionName = "Bazaar:CompanyKnowledge";

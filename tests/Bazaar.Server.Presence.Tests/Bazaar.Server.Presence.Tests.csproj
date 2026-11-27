@@ -12,7 +12,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Cdax.Core\Cdax.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Presence\Bazaar.Server.Presence.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Presence.Abstractions\Bazaar.Server.Presence.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Providers\Bazaar.Server.Providers.csproj" />

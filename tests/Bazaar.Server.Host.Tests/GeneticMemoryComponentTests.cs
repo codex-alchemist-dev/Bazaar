@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Subagents;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.GeneticMemory;

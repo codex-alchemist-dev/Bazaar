@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.WhatIf;
 /// here: a host that has not bound them cannot resolve the engine, which is the safe failure. <see cref="WhatIfRegistration.AddBazaarWhatIfFakes"/>
 /// binds the deterministic fakes for tests and development.
 /// </remarks>
-public sealed class WhatIfComponent : IBazaarComponent
+public sealed class WhatIfComponent : ICdaxModule
 {
     /// <summary>Configuration key for <c>what_if.reputation_weight</c>.</summary>
     public const string ReputationWeightConfigKey = "WhatIf:ReputationWeight";

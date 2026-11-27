@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Server.Providers.ClaudeCode.Windows;
 
 /// <summary>Adds the Windows Job Object guard to the Claude Code provider. Registers nothing on other systems.</summary>
-public sealed class ClaudeCodeWindowsComponent : IBazaarComponent
+public sealed class ClaudeCodeWindowsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "claude-code-cli-windows",

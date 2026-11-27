@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Graph;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Constellation;
 using Bazaar.Server.Constellation.Tiles;
 using Microsoft.Extensions.Configuration;
@@ -29,7 +29,7 @@ public sealed class ConstellationComponentTests
     {
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<ConstellationTileHandler>();
@@ -49,7 +49,7 @@ public sealed class ConstellationComponentTests
         services.AddSingleton<IConstellationTileSource>(
             new FakeConstellationTileSource(7, [new FakeTileNode("a", 0f, 0f, 0f)]));
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var handler = provider.GetRequiredService<ConstellationTileHandler>();
@@ -65,7 +65,7 @@ public sealed class ConstellationComponentTests
             .Build();
         var services = new ServiceCollection();
 
-        services.AddBazaarComponents(configuration, [new ConstellationComponent()]);
+        services.AddCdaxModules(configuration, [new ConstellationComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.Null(provider.GetService<ConstellationTileHandler>());

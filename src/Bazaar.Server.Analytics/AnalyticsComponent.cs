@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Analytics;
 /// back to the narrower default. The module reads work events only; it has no write path into reputation, the Work-Life schedule,
 /// votes or Soul state, and a build-time test keeps it so.
 /// </summary>
-public sealed class AnalyticsComponent : IBazaarComponent
+public sealed class AnalyticsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "analytics",

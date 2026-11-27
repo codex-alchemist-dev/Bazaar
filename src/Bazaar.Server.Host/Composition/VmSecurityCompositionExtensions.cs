@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.AgentSafety.Containment;
 using Bazaar.Server.Settings;
 using Bazaar.Server.VmEgress;
@@ -114,7 +114,7 @@ public static class VmSecurityCompositionExtensions
 
     /// <summary>The mount module is wanted: its component is not off and it has a root.</summary>
     private static bool MountsConfigured(IConfiguration configuration) =>
-        BazaarComponentRegistration.IsEnabled(configuration, VmMountsComponent.ManifestDefinition.Id)
+        CdaxModuleRegistration.IsEnabled(configuration, VmMountsComponent.ManifestDefinition.Id)
         && !string.IsNullOrWhiteSpace(configuration.GetSection("VmMounts")["AgentsRoot"]);
 
     /// <summary>The mount module needs to be wanted and the three host-side ports to be registered (by the providers module or a host override).</summary>

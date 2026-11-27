@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Gateway.Catalogue;
 /// Gateway catalogue refresh as a Bazaar Component (docs/design/05-model-gateway.md, work package 11). Needs the gateway's
 /// repositories (<c>AddBazaarGateway</c>), an <see cref="ICatalogueSchedule"/> and the shared <c>HttpClient</c> that <c>AddBazaarGateway</c> registers.
 /// </summary>
-public sealed class CatalogueComponent : IBazaarComponent
+public sealed class CatalogueComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "gateway-catalogue",

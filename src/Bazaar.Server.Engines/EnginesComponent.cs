@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.EngineDispatch;
 using Bazaar.Server.Engines.Grants;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.Engines;
 /// assembly under <c>Data/Sql/engines</c>. Needs the host's <see cref="NpgsqlDataSource"/>; the grant store and reader resolve only
 /// when it is present, so a host without a database keeps the relay's deny-all default.
 /// </summary>
-public sealed class EnginesComponent : IBazaarComponent
+public sealed class EnginesComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key for this component's SQL.</summary>
     public const string MigrationProvider = "engines";

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.CompanyMemory;
 using Bazaar.Server.Host.Composition;
 using Microsoft.Extensions.Configuration;

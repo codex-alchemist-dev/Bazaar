@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.Settings;
@@ -17,7 +17,7 @@ namespace Bazaar.Server.Host.Components.Settings;
 /// cannot reference Bazaar.Server.Gateway, so the built-in keys leave them out.
 /// It depends on <c>audit</c> because the sink appends to the audit log, so the kernel starts audit first.
 /// </summary>
-public sealed class SettingsComponent : IBazaarComponent
+public sealed class SettingsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "settings",

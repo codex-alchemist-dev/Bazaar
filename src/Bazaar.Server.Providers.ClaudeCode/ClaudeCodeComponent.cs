@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.Adapters;
 using Bazaar.Server.Modules.Health;
 using Bazaar.Server.Secrets;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.Providers.ClaudeCode;
 /// The Claude Code CLI provider as a Bazaar Component (docs/design/91-claude-code-cli-provider.md). Off by default: when
 /// <c>Bazaar:Gateway:ClaudeCode:Enabled</c> is false nothing is registered.
 /// </summary>
-public sealed class ClaudeCodeComponent : IBazaarComponent
+public sealed class ClaudeCodeComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "claude-code-cli",

@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Observatory;

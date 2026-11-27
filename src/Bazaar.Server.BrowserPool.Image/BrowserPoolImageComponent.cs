@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.BrowserPool.LinuxHost;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.BrowserPool.Image;
 /// consults before every session, so a VM without its programs, directories or <c>bwrap</c> AppArmor profile refuses sessions. On any
 /// other OS it registers nothing. It reads the Linux host's options for its paths, so it works whether or not the host component is loaded.
 /// </summary>
-public sealed class BrowserPoolImageComponent : IBazaarComponent
+public sealed class BrowserPoolImageComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

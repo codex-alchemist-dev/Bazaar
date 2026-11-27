@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Host.Composition;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Wire.Discovery;
@@ -32,10 +32,10 @@ public sealed class WireDiscoveryHostTests
         builder.Configuration.AddInMemoryCollection(config ?? []);
         builder.Services.AddSingleton<IWireDiscoverySettingsReader>(reader);
         builder.Services.AddBazaarHostWireDiscovery();
-        builder.Services.AddBazaarComponents(builder.Configuration, [HostComponents.All.Single(c => c.Manifest.Id == WireDiscoveryComponent.Id)]);
+        builder.Services.AddCdaxModules(builder.Configuration, [HostComponents.All.Single(c => c.Manifest.Id == WireDiscoveryComponent.Id)]);
         builder.Services.Configure<WireDiscoveryOptions>(o => o.SettingsRefreshInterval = TimeSpan.FromMilliseconds(50));
         var app = builder.Build();
-        if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
+        if (CdaxModuleRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
         {
             app.MapBazaarWireDiscovery();
         }

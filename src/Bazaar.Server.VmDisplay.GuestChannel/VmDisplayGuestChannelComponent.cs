@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.VmDisplay.GuestChannel;
 /// It registers <see cref="GuestChannelDisplayExec"/> as an <see cref="IDisplayGuestExec"/>. The channel directory is resolved when the
 /// adapter is first built and is optional: without one every call fails. Loading starts no process and opens no socket.
 /// </summary>
-public sealed class VmDisplayGuestChannelComponent : IBazaarComponent
+public sealed class VmDisplayGuestChannelComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

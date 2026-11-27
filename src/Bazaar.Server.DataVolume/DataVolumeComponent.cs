@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.DataVolume;
 /// modules add <c>bitlocker-vhdx</c> and <c>luks2</c>. Options come from host configuration because the volume must be
 /// verified before the database is reachable.
 /// </summary>
-public sealed class DataVolumeComponent : IBazaarComponent
+public sealed class DataVolumeComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "data-volume",

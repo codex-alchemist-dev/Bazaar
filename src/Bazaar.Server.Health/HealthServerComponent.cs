@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Jobs;
 using Bazaar.Server.Knowledge.Metrics;
 using Microsoft.Extensions.Configuration;
@@ -9,7 +9,7 @@ using Npgsql;
 namespace Bazaar.Server.Health;
 
 /// <summary>Bazaar.Server.Health as a Bazaar Component (doc 25 Health and Analytics): the project health service and its settings.</summary>
-public sealed class HealthServerComponent : IBazaarComponent
+public sealed class HealthServerComponent : ICdaxModule
 {
     /// <summary>Configuration section for the health settings until the Settings service feeds them.</summary>
     public const string SectionName = "Bazaar:Health";

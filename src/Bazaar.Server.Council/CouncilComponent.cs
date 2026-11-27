@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Escalation;
 using Bazaar.Server.Council.Health;
@@ -25,7 +25,7 @@ namespace Bazaar.Server.Council;
 /// Hiring (<c>AddBazaarCouncilHiring</c>) is not registered here: it needs the Talent Pool's <c>IHireDecisionStore</c>, so the
 /// Talent Pool component owns that call. The deadline sweeper is a host opt-in (<c>AddBazaarCouncilDeadlineSweeper</c>).
 /// </remarks>
-public sealed class CouncilComponent : IBazaarComponent
+public sealed class CouncilComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "council",

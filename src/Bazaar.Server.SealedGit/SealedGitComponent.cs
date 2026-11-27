@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.SealedStorage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace Bazaar.Server.SealedGit;
 
 /// <summary>The sealed git module (doc 61 Q1): a bare git repo whose files live in a sealed scope. Temp root from <c>Bazaar:SealedGit:TempRoot</c>.</summary>
-public sealed class SealedGitComponent : IBazaarComponent
+public sealed class SealedGitComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "sealed-git",

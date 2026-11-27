@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using Bazaar.Contracts.Gc;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Council;
 using Bazaar.Server.Council.Data;
 using Bazaar.Server.Council.Service;

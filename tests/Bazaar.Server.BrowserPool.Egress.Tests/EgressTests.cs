@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using System.Net;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.VmEgress;
 using Microsoft.Extensions.Configuration;

@@ -1,6 +1,6 @@
 using Bazaar.Archive;
 using Bazaar.Conduit;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Lucky;
 using Bazaar.Roles;
 using Bazaar.RyuseiFuda.Kanban;
@@ -107,7 +107,7 @@ namespace Bazaar.Server.Host.Composition;
 /// </summary>
 public static class HostComponents
 {
-    public static IReadOnlyList<IBazaarComponent> All { get; } =
+    public static IReadOnlyList<ICdaxModule> All { get; } =
     [
         new AuditComponent(),
         new ReadAuditComponent(),
@@ -233,7 +233,7 @@ public static class HostComponents
     /// Registers a component only where its platform exists, for adapters that do not check the operating system themselves. The
     /// manifest is unchanged, so the graph, the migration order and the module manager still see the component everywhere.
     /// </summary>
-    private sealed class OsLimitedComponent(IBazaarComponent inner, Func<bool> supported) : IBazaarComponent
+    private sealed class OsLimitedComponent(ICdaxModule inner, Func<bool> supported) : ICdaxModule
     {
         public ComponentManifest Manifest => inner.Manifest;
 

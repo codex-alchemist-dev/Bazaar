@@ -1,5 +1,5 @@
 using System.Reflection;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.ReadAudit;
 using Bazaar.Server.Host.Composition;

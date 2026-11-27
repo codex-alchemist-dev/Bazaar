@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Vms.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +18,7 @@ namespace Bazaar.Server.VmDisplay.AgentTools.Vms;
 /// dependency, and the kernel starts components with no hard edge between them in id order, which puts this id first. The host's
 /// composition test fails if that order changes.
 /// </remarks>
-public sealed class VmAgentDisplayTargetsComponent : IBazaarComponent
+public sealed class VmAgentDisplayTargetsComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

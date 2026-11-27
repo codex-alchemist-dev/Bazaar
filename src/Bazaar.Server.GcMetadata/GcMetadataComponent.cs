@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gc.Write;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.GcMetadata;
 /// without one the options bind from <c>Bazaar:GcMetadata</c> (<c>Approvers</c>: owner or owner-or-dm-member; <c>ShowOwnerReadMarker</c>;
 /// <c>Statuses</c>).
 /// </summary>
-public sealed class GcMetadataComponent : IBazaarComponent
+public sealed class GcMetadataComponent : ICdaxModule
 {
     /// <summary>Configuration section.</summary>
     public const string SectionName = "Bazaar:GcMetadata";

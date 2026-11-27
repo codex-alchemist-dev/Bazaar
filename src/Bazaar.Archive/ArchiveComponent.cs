@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,7 +9,7 @@ namespace Bazaar.Archive;
 /// The Archive cold-storage module (doc 25 "Archive cold storage"). Settings: <c>Bazaar:Archive:Root</c> (the bundle directory; defaults to <c>archive</c> under <c>Bazaar:Host:DataRoot</c>)
 /// and <c>Bazaar:Archive:SegmentMaxRecords</c> (default 5000). Sources and restore targets come from the modules that own the data.
 /// </summary>
-public sealed class ArchiveComponent : IBazaarComponent
+public sealed class ArchiveComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "archive",

@@ -65,7 +65,7 @@ internal static partial class ArchitectureRules
     [
         "Bazaar.Server",
         "Bazaar.Server.Host",
-        "Bazaar.Core",
+        "Cdax.Core",
         "Bazaar.Contracts",
         "Bazaar.Sdk",
         "Bazaar.Client.Core",

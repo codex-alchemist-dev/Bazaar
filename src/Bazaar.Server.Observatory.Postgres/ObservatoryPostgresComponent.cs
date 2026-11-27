@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,7 +8,7 @@ namespace Bazaar.Server.Observatory.Postgres;
 /// Registers the Postgres usage and lane readers for the Observatory (doc 23). Needs an <c>NpgsqlDataSource</c> from the host.
 /// The price calculator is supplied by the host, because the price table lives with the gateway.
 /// </summary>
-public sealed class ObservatoryPostgresComponent : IBazaarComponent
+public sealed class ObservatoryPostgresComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "observatory-postgres",

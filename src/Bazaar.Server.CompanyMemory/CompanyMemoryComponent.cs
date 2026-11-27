@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Vault.Git;
 using Bazaar.Server.Vault.Writes;
 using Microsoft.Extensions.Configuration;
@@ -18,7 +18,7 @@ namespace Bazaar.Server.CompanyMemory;
 /// <c>Bazaar:CompanyMemory:VaultRepoPath</c> setting names the Vault checkout, decisions go to the Vault. Otherwise the
 /// in-memory store keeps them for the life of the process.
 /// </remarks>
-public sealed class CompanyMemoryComponent : IBazaarComponent
+public sealed class CompanyMemoryComponent : ICdaxModule
 {
     /// <summary>Configuration section for this module.</summary>
     public const string SectionName = "Bazaar:CompanyMemory";

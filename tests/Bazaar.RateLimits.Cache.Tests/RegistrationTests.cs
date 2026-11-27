@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Providers;
 using Bazaar.Server.RateLimits;
 using Microsoft.Extensions.Configuration;

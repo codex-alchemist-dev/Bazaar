@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Host.Components.Audit;
 using Bazaar.Server.Host.Components.Settings;
@@ -41,7 +41,7 @@ public sealed class SettingsAuditCompositionTests : IDisposable
         services.AddBazaarHostOptions(configuration);
         services.AddBazaarHostRuntime(configuration);
         services.AddBazaarSecrets();
-        services.AddBazaarComponents(configuration, [new AuditComponent(), new SettingsComponent()]);
+        services.AddCdaxModules(configuration, [new AuditComponent(), new SettingsComponent()]);
         return services.BuildServiceProvider(validateScopes: true);
     }
 

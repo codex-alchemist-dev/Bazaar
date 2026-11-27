@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.VmDisplay.Audit;
 /// default whichever component is added first. It does not touch <see cref="IDisplayGate"/>: the gate needs the policy engine, the
 /// session taint store and the kill switch, which live in Bazaar.Server and have no abstractions project yet.
 /// </summary>
-public sealed class VmDisplayAuditComponent : IBazaarComponent
+public sealed class VmDisplayAuditComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

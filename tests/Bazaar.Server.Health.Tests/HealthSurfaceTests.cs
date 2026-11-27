@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Text.Json;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Knowledge.Metrics;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;

@@ -1,5 +1,5 @@
 using Bazaar.Archive.Http;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Analytics;
 using Bazaar.Server.Approvals.Http;
 using Bazaar.Server.Community.Drafts;
@@ -113,7 +113,7 @@ app.MapBazaarWalkthrough();
 app.MapBazaarSoulProfile();
 app.MapBazaarAuthSignOut();
 app.UseBazaarWire();
-if (BazaarComponentRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
+if (CdaxModuleRegistration.IsEnabled(app.Configuration, WireDiscoveryComponent.Id))
 {
     app.MapBazaarWireDiscovery();
 }

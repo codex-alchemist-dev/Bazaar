@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,11 +9,11 @@ namespace Bazaar.Server.Valkey;
 /// It is a dependency module: tagged <c>Deps</c> and <c>3rd party</c> (doc 42 sections 3 and 8.1). Cache only; GC fan-out stays on
 /// Postgres NOTIFY (doc 04, C07). It depends on no other component.
 /// </summary>
-public sealed class ValkeyComponent : IBazaarComponent
+public sealed class ValkeyComponent : ICdaxModule
 {
     /// <summary>
     /// Tags shown in the module manager (doc 42 section 8.1). Built from <see cref="DependencyTags"/>, the one source in this module.
-    /// <see cref="ComponentManifest"/> has no tags field yet, so the tags live here instead of in the manifest (a gap to close in Bazaar.Core).
+    /// <see cref="ComponentManifest"/> has no tags field yet, so the tags live here instead of in the manifest (a gap to close in Cdax.Core).
     /// TODO: move these tags into the planned <c>ComponentManifest</c> Tags field (doc 40 section 4c.4 item 7, module-system gate #769).
     /// </summary>
     public static IReadOnlyList<string> Tags { get; } = [DependencyTags.Deps, DependencyTags.ThirdParty];

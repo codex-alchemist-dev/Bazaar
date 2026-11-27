@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Retention;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Gateway.Retention;
 /// inventory entry. The period is the retention table row <c>Bazaar:Retention:gateway_usage</c> (default keep). Needs an
 /// <c>NpgsqlDataSource</c> from the host.
 /// </summary>
-public sealed class GatewayRetentionComponent : IBazaarComponent
+public sealed class GatewayRetentionComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "gateway-retention",

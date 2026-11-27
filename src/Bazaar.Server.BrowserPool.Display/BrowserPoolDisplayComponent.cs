@@ -1,5 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.BrowserPool.Display;
 /// <see cref="PoolBrowserPageDriver"/> as an <see cref="IBrowserPageDriver"/>, which the display module collects with the other
 /// drivers. Without a host that hands out DevTools pipes the driver still resolves and supports no target.
 /// </summary>
-public sealed class BrowserPoolDisplayComponent : IBazaarComponent
+public sealed class BrowserPoolDisplayComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

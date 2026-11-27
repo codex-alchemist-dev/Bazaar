@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>
 /// Who performed an action and, optionally, on whose behalf, for example a service acting for a signed-in person

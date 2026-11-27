@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.VmDisplay.HyperV;
 /// The Hyper-V adapter for the vm-display module as a Bazaar Component (docs/design/59, sections 3 and 4). It registers one
 /// <see cref="IHypervisorConsole"/> next to any others, so several backends can coexist. Live behaviour is UNVERIFIED (spike S-DSP).
 /// </summary>
-public sealed class HyperVComponent : IBazaarComponent
+public sealed class HyperVComponent : ICdaxModule
 {
     /// <summary>The manifest, available without an instance.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

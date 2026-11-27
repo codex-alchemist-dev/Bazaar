@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.ModulePermissions;
 using Bazaar.Server.ModuleHost;
 using Bazaar.Server.Modules.Health;

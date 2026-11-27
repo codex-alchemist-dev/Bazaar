@@ -1,7 +1,7 @@
 using System.Net;
 using Bazaar.Conduit.Settings;
 using Bazaar.Conduit.Setup;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
 using Microsoft.Extensions.Configuration;
@@ -15,7 +15,7 @@ namespace Bazaar.Conduit;
 /// (<see cref="ConduitSettingContribution"/>), so the setup plan, the wizard and the admin panel know them. Registrations only: no
 /// I/O, and no module starts here. Every exposing module stays off until the owner approves it.
 /// </summary>
-public sealed class ConduitComponent : IBazaarComponent
+public sealed class ConduitComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "conduit",

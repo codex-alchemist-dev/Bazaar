@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Fun;
 using Bazaar.Server.Fun.Vent;
 using Microsoft.Extensions.Configuration;
@@ -20,7 +20,7 @@ public sealed class VentComponentConfigurationTests
             .Build();
         var services = new ServiceCollection();
         services.AddSingleton<IConfiguration>(configuration);
-        services.AddBazaarComponents(configuration, [new FunComponent()]);
+        services.AddCdaxModules(configuration, [new FunComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var settings = provider.GetRequiredService<VentSettings>();
