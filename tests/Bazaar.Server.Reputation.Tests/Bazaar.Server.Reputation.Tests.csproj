@@ -15,5 +15,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Bazaar.Server.Reputation\Bazaar.Server.Reputation.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Reputation.Abstractions\Bazaar.Server.Reputation.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.PsychWard.Abstractions\Bazaar.Server.PsychWard.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.OutcomeLedger\Bazaar.Server.OutcomeLedger.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.OutcomeLedger.Abstractions\Bazaar.Server.OutcomeLedger.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Testing\Bazaar.Testing.csproj" />
   </ItemGroup>
 </Project>
