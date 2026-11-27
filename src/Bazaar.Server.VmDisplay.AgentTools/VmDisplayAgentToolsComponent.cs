@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.VmDisplay.AgentTools;
 /// The turn path collects every <see cref="ToolRegistration"/> and <see cref="ModelToolDefinition"/>, so nothing else wires them.
 /// Policy entries (docs/design/15) belong to the host, which owns the policy types; until it adds them the policy engine fails closed.
 /// </summary>
-public sealed class VmDisplayAgentToolsComponent : IBazaarComponent
+public sealed class VmDisplayAgentToolsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vm-display-agent-tools",

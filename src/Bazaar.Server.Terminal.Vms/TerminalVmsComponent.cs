@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Terminal.Abstractions;
 using Bazaar.Server.VmTransport;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +16,7 @@ namespace Bazaar.Server.Terminal.Vms;
 /// The terminal module registers its own fail-closed channel with <c>TryAdd</c>, so this component depends on <c>terminal</c> to start after
 /// it and then replaces that registration. It is not part of the host composition yet: the host does not compose the terminal module.
 /// </remarks>
-public sealed class TerminalVmsComponent : IBazaarComponent
+public sealed class TerminalVmsComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

@@ -1,6 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.DeviceEnrolment.Postgres;
 using Bazaar.Testing.Postgres;

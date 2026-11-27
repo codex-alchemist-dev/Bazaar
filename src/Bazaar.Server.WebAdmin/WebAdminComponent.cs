@@ -1,5 +1,5 @@
 using System.Globalization;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.WebAdmin.Http;
 using Bazaar.Server.WebAdmin.Security;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.WebAdmin;
 /// The admin web panel as a Bazaar Component (docs/design/51-web-admin-module.md). It registers defaults only; the owning modules
 /// register the section ports (<c>IAdminStatusSource</c> and the rest), and a missing port makes that section "unavailable".
 /// </summary>
-public sealed class WebAdminComponent : IBazaarComponent
+public sealed class WebAdminComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "web-admin",

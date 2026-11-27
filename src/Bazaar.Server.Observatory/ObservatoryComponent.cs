@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Observatory;
 /// The host supplies <see cref="IUsageReader"/>, <see cref="IUsageCostCalculator"/> and <see cref="ILaneReader"/> from the gateway's tables.
 /// Settings: <c>Bazaar:Observatory:NearLimitPercent</c>, <c>:LongPromptTokens</c>, <c>:EstimateLabel</c>.
 /// </summary>
-public sealed class ObservatoryComponent : IBazaarComponent
+public sealed class ObservatoryComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "observatory",

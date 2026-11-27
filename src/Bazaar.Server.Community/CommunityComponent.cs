@@ -1,5 +1,5 @@
 using Bazaar.Approvals;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.Community;
 using Bazaar.Server.Community.Actions;
@@ -23,7 +23,7 @@ namespace Bazaar.Server.Community;
 /// from the Bazaar.Server assembly; the files live under <c>Data/Sql/community</c> there because the host's migration source is that
 /// assembly only (the same rule the GC tables follow, see GcComponent).
 /// </summary>
-public sealed class CommunityComponent : IBazaarComponent
+public sealed class CommunityComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key for this component's SQL. Equals <see cref="ComponentManifest.MigrationNamespace"/>.</summary>
     public const string MigrationProvider = "community";

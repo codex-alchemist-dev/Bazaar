@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Modules.Health;
 
 namespace Bazaar.Server.Modules.Tests.Health;

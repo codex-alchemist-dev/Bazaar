@@ -10,7 +10,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Cdax.Core\Cdax.Core.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Identity.Kek.Abstractions\Bazaar.Server.Identity.Kek.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.SealedStorage.Abstractions\Bazaar.Server.SealedStorage.Abstractions.csproj" />

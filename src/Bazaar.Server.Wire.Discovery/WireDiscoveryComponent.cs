@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Wire.Discovery;
 /// settings keys and the live settings refresher. The host still supplies <c>IWireSchemaSource</c>, the transport and codec
 /// contributions, and an <see cref="IWireDiscoverySettingsReader"/>; the route is mapped in <c>Program.cs</c> only while the component is enabled.
 /// </summary>
-public sealed class WireDiscoveryComponent : IBazaarComponent
+public sealed class WireDiscoveryComponent : ICdaxModule
 {
     /// <summary>Component id, also the key under <c>Bazaar:Components</c>.</summary>
     public const string Id = "wire-discovery";

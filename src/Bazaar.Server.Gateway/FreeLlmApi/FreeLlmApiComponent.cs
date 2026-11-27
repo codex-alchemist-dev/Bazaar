@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -16,7 +16,7 @@ namespace Bazaar.Server.Gateway.FreeLlmApi;
 /// When FreeLLMAPI is off (the default), nothing FreeLLMAPI-specific is registered: no options binding, no startup key check
 /// and no HTTP client. Enablement is read the same way the options bind it, including the managed-sidecar rule.
 /// </remarks>
-public sealed class FreeLlmApiComponent : IBazaarComponent
+public sealed class FreeLlmApiComponent : ICdaxModule
 {
     /// <summary>Keyed-service key for the FreeLLMAPI HTTP client, which carries the configured timeout.</summary>
     public const string HttpClientKey = "freellmapi";
@@ -67,7 +67,7 @@ public sealed class FreeLlmApiComponent : IBazaarComponent
     {
         ArgumentNullException.ThrowIfNull(configuration);
 
-        if (IsEnabled(configuration) && !BazaarComponentRegistration.IsEnabled(configuration, ManifestDefinition.Id))
+        if (IsEnabled(configuration) && !CdaxModuleRegistration.IsEnabled(configuration, ManifestDefinition.Id))
         {
             throw new InvalidOperationException(
                 "Bazaar:Gateway:FreeLlmApi:Enabled is true, but the freellmapi component is disabled (Bazaar:Components:freellmapi:Enabled=false). " +

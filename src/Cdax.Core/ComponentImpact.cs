@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>
 /// What one failed component does to the rest of the graph (docs/design/BAZAAR-COMPONENTS.md section 4.1): hard dependents are

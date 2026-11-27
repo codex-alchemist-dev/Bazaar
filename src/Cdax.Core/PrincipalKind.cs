@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>What sort of actor a <see cref="Principal"/> is.</summary>
 public enum PrincipalKind

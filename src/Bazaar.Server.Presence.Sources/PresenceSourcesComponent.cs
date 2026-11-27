@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Presence.Abstractions;
 using Bazaar.Server.Presence.Sources.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Presence.Sources;
 /// waits (doc 12) and the Psych Ward (doc 26). The adapters feed <see cref="Abstractions.IActivityProjector"/> from the presence
 /// component, which it depends on. Nothing happens until a source module calls its port.
 /// </summary>
-public sealed class PresenceSourcesComponent : IBazaarComponent
+public sealed class PresenceSourcesComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "presence-sources",

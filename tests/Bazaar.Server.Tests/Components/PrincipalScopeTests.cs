@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 
 namespace Bazaar.Server.Tests.Components;
 
@@ -224,7 +224,7 @@ public class PrincipalScopeTests
     [Fact]
     public void Cdax_core_project_has_no_package_or_project_references()
     {
-        var csproj = Path.Combine(FindRepoRoot(), "src", "Bazaar.Core", "Bazaar.Core.csproj");
+        var csproj = Path.Combine(FindRepoRoot(), "src", "Cdax.Core", "Cdax.Core.csproj");
         var text = File.ReadAllText(csproj);
 
         Assert.DoesNotContain("PackageReference", text, StringComparison.Ordinal);

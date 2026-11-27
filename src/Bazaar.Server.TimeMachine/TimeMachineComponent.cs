@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.TimeMachine;
 /// and the Postgres fork-link store. It depends on no component: the GC read seams (<c>IGcLogReader</c>, <c>IGcReadAccess</c>)
 /// and <see cref="IForkTargetProvisioner"/> come from the GC module, which is a soft dependency so it starts first when enabled.
 /// </summary>
-public sealed class TimeMachineComponent : IBazaarComponent
+public sealed class TimeMachineComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "time-machine",

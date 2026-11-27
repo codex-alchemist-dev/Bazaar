@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.Walkthrough;
 /// maps the routes. The caller resolver and the facts provider come from the modules that own that knowledge (sign-in tokens, agents
 /// and Kanban); until they are registered the routes answer 503, never a guess.
 /// </summary>
-public sealed class WalkthroughComponent : IBazaarComponent
+public sealed class WalkthroughComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "walkthrough",

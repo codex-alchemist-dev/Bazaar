@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmBench.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +9,7 @@ namespace Bazaar.Server.VmBench;
 /// The VM benchmark module (doc 16, "Testing"). It is measurement plumbing, not a VM feature: the Hyper-V host supplies
 /// <see cref="IVmBenchHost"/> at run time, so the module has no hard dependencies and the VM module is a soft link only.
 /// </summary>
-public sealed class VmBenchComponent : IBazaarComponent
+public sealed class VmBenchComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "vm-bench",

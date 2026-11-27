@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.Usage;
 using Bazaar.Server.Observatory;
 using Microsoft.Extensions.Configuration;
@@ -24,7 +24,7 @@ public sealed class PriceTableCostCalculator(PriceTable? prices) : IUsageCostCal
 }
 
 /// <summary>Registers <see cref="PriceTableCostCalculator"/> for the Observatory. Takes the gateway's <see cref="PriceTable"/> when one is registered.</summary>
-public sealed class ObservatoryBridgeComponent : IBazaarComponent
+public sealed class ObservatoryBridgeComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "observatory-bridge",

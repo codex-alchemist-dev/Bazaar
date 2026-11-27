@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>
 /// Who performed an action: a <see cref="PrincipalKind"/> plus an identifier. The canonical text form is

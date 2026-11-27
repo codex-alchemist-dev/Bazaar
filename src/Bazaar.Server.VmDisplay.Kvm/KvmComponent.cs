@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmDisplay.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.VmDisplay.Kvm;
 /// The KVM adapter for the vm-display module as a Bazaar Component (docs/design/59, sections 3 and 4). It registers one
 /// <see cref="IHypervisorConsole"/> next to any others, so several backends can coexist.
 /// </summary>
-public sealed class KvmComponent : IBazaarComponent
+public sealed class KvmComponent : ICdaxModule
 {
     /// <summary>The manifest, available without an instance.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

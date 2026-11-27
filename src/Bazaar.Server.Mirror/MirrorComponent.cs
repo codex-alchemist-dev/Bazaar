@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Mirror;
 /// The Mirror Agent module (doc 26 section 5, work package 6, server only). Settings: <c>Bazaar:Mirror:SignalKinds</c>
 /// (comma list), <c>:EvidenceThreshold</c>, <c>:AllowRewriteOffers</c>, <c>:ModelSource</c> (<c>Local</c> or <c>OperatorApprovedHosted</c>).
 /// </summary>
-public sealed class MirrorComponent : IBazaarComponent
+public sealed class MirrorComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "mirror",

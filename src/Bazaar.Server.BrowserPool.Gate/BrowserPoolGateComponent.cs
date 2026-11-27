@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.BrowserPool.Gate;
 /// <see cref="IAsyncPoolGate"/>, replacing the pool's blocks-everyone default whichever component is added first. The kill switch
 /// reader is resolved when the gate is first needed; without one every agent stays blocked.
 /// </summary>
-public sealed class BrowserPoolGateComponent : IBazaarComponent
+public sealed class BrowserPoolGateComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

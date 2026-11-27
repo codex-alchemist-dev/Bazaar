@@ -1,5 +1,5 @@
 using System.Text.Json.Nodes;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;

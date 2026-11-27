@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>Shared validation for the <c>kind:id</c> text forms of <see cref="Principal"/> and <see cref="Scope"/>.</summary>
 internal static class TextForm

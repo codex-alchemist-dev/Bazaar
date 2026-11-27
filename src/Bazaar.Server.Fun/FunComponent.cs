@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Fun.Sidewalk;
 using Bazaar.Server.Fun.Vent;
 using Bazaar.Server.Fun.Ward;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.Fun;
 /// machine is configured from the host settings. Stores (<c>ward_stay</c>, <c>vent</c>) and the remaining fun-system settings
 /// land with their migrations.
 /// </summary>
-public sealed class FunComponent : IBazaarComponent
+public sealed class FunComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "fun-systems",

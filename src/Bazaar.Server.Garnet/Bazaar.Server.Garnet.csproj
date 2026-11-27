@@ -16,7 +16,7 @@
     <InternalsVisibleTo Include="Bazaar.Server.Garnet.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Cdax.Core.Hosting\Cdax.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Secrets.Abstractions\Bazaar.Secrets.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Providers.Abstractions\Bazaar.Server.Providers.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Valkey.Abstractions\Bazaar.Server.Valkey.Abstractions.csproj" />

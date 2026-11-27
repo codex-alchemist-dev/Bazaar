@@ -1,20 +1,20 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
-public static class BazaarComponentRegistration
+public static class CdaxModuleRegistration
 {
     /// <summary>
     /// The kernel's registration step. Validates and orders every component, then registers the enabled ones in dependency order.
     /// A disabled component is validated but not registered. An enabled component that depends on a disabled one fails the start.
-    /// Enablement is <c>Bazaar:Components:&lt;id&gt;:Enabled</c>; with no setting it is the manifest's <c>EnabledByDefault</c> (true unless the manifest says otherwise).
+    /// Enablement is <c>Cdax:Modules:&lt;id&gt;:Enabled</c>; with no setting it is the manifest's <c>EnabledByDefault</c> (true unless the manifest says otherwise).
     /// </summary>
     /// <exception cref="ComponentGraphException">The graph cannot start.</exception>
-    public static IServiceCollection AddBazaarComponents(
+    public static IServiceCollection AddCdaxModules(
         this IServiceCollection services,
         IConfiguration configuration,
-        IEnumerable<IBazaarComponent> components)
+        IEnumerable<ICdaxModule> components)
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(components);
@@ -63,12 +63,19 @@ public static class BazaarComponentRegistration
 
     private static bool IsEnabled(IConfiguration configuration, string componentId, bool enabledByDefault)
     {
-        var value = configuration["Bazaar:Components:" + componentId + ":Enabled"];
+        var value = Read(configuration, componentId);
         if (value is null && LegacyIds.TryGetValue(componentId, out var legacy))
         {
-            value = configuration["Bazaar:Components:" + legacy + ":Enabled"];
+            value = Read(configuration, legacy);
         }
 
         return value is null || !bool.TryParse(value, out var enabled) ? enabledByDefault : enabled;
     }
+
+    /// <summary>The key prefix Bazaar used before the rename to Cdax. An operator's old settings keep working: it is read when the new key is absent.</summary>
+    private const string _previousKeyPrefix = "Bazaar:Components:";
+
+    private static string? Read(IConfiguration configuration, string componentId) =>
+        configuration["Cdax:Modules:" + componentId + ":Enabled"]
+        ?? configuration[_previousKeyPrefix + componentId + ":Enabled"];
 }

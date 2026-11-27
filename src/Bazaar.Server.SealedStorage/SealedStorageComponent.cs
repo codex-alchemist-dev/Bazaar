@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.SealedStorage;
 /// registers its own <see cref="ISealAnchor"/> (for example the audit-log anchor) wins. <see cref="ISealAuditSink"/> must be registered by the
 /// host: there is no silent default, because a store that cannot audit tamper must not start.
 /// </summary>
-public sealed class SealedStorageComponent : IBazaarComponent
+public sealed class SealedStorageComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "sealed-storage",

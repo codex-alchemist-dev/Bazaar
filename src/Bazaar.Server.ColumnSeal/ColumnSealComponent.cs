@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.ColumnSeal;
 /// The column sealing module (doc 63 section 9): the sealer, the blind indexer and the PostgreSQL DEK store. It needs the KEK
 /// module and an <see cref="NpgsqlDataSource"/> from the host. Its table comes from the <c>column_seal</c> migration namespace.
 /// </summary>
-public sealed class ColumnSealComponent : IBazaarComponent
+public sealed class ColumnSealComponent : ICdaxModule
 {
     /// <summary>The configuration key for the number of unwrapped DEKs kept in memory.</summary>
     public const string CacheSizeKey = "Bazaar:ColumnSeal:DekCacheSize";

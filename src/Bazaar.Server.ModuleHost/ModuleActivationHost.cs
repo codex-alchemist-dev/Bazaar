@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Install;
 using Bazaar.Install.Abstractions;
 using Bazaar.Install.Trust;
@@ -84,7 +84,7 @@ public sealed partial class ModuleActivationHost : IDisposable
             foreach (var manifest in _ordered)
             {
                 ct.ThrowIfCancellationRequested();
-                if (!BazaarComponentRegistration.IsEnabled(_configuration, manifest))
+                if (!CdaxModuleRegistration.IsEnabled(_configuration, manifest))
                 {
                     Set(new ModuleActivation(manifest.Id, ModuleActivationStatus.Disabled, Detail: "Disabled by configuration."));
                     continue;
@@ -117,7 +117,7 @@ public sealed partial class ModuleActivationHost : IDisposable
                 return current;
             }
 
-            if (!BazaarComponentRegistration.IsEnabled(_configuration, manifest))
+            if (!CdaxModuleRegistration.IsEnabled(_configuration, manifest))
             {
                 return Set(new ModuleActivation(moduleId, ModuleActivationStatus.Disabled, Detail: "Disabled by configuration."));
             }
@@ -193,7 +193,7 @@ public sealed partial class ModuleActivationHost : IDisposable
             foreach (var manifest in _ordered.Reverse())
             {
                 if (_state.TryGetValue(manifest.Id, out var s) && s.Status == ModuleActivationStatus.Active
-                    && !BazaarComponentRegistration.IsEnabled(_configuration, manifest))
+                    && !CdaxModuleRegistration.IsEnabled(_configuration, manifest))
                 {
                     changed.AddRange(DeactivateCore(manifest.Id, ModuleDeactivationReason.Disabled));
                 }

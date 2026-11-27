@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Playtest.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Playtest;
 /// namespace, embedded in this assembly. The host supplies the headless host, project hasher and note writer (the real VM runner and
 /// reader session are separate work packages); until then the run store defaults to memory.
 /// </summary>
-public sealed class PlaytestComponent : IBazaarComponent
+public sealed class PlaytestComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key for this component's SQL. Equals <see cref="ComponentManifest.MigrationNamespace"/>.</summary>
     public const string MigrationProvider = "playtest";

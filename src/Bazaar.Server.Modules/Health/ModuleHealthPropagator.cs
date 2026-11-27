@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 
 namespace Bazaar.Server.Modules.Health;
 
@@ -14,7 +14,7 @@ public static class ModuleHealthPropagator
     /// Returns one rollup per report, with dependency effects applied. A module with no report counts as Unknown (nothing was observed).
     /// Modules named in a report but absent from the manifests keep their own status.
     /// </summary>
-    /// <exception cref="Bazaar.Core.ComponentGraphException">The manifests do not form a valid graph.</exception>
+    /// <exception cref="Cdax.Core.ComponentGraphException">The manifests do not form a valid graph.</exception>
     public static IReadOnlyList<ModuleHealthRollup> Propagate(IEnumerable<ComponentManifest> manifests, IReadOnlyList<ModuleHealthReport> reports)
     {
         ArgumentNullException.ThrowIfNull(manifests);

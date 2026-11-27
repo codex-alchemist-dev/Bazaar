@@ -12,7 +12,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Cdax.Core\Cdax.Core.csproj" />
     <!-- The port interfaces the resident TUI defines (doc 58 section 3). Abstractions only; never Bazaar.Server. -->
     <ProjectReference Include="..\Bazaar.Client.Tui.Dashboard.Abstractions\Bazaar.Client.Tui.Dashboard.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.WebAdmin.Abstractions\Bazaar.Server.WebAdmin.Abstractions.csproj" />

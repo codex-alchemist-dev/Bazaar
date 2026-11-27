@@ -1,5 +1,7 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Roles.Abstractions;
+using PrincipalKind = Bazaar.Roles.Abstractions.PrincipalKind;
+using Scope = Bazaar.Roles.Abstractions.Scope;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Company;
 using Bazaar.Server.Components.Remote;
@@ -21,7 +23,7 @@ namespace Bazaar.Server.Host.Composition;
 /// <see cref="IBearerPersonLookup"/>; the lookup is the one <c>GET /auth/whoami</c> uses (access-token verifier plus signed-in person lookup); with no verifier registered it
 /// knows no one. The facts provider reads the company profile and the first-run seed markers.
 /// </summary>
-public sealed class FirstRunAdaptersComponent : IBazaarComponent
+public sealed class FirstRunAdaptersComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "first-run-adapters",

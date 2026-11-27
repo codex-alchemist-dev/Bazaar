@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.BrowserPool.LinuxHost;
 /// OS it registers nothing, so the pool keeps its fail-closed default. The module may load before or after the pool: it removes
 /// any earlier registration of the two ports, and the pool only adds its default when none exists.
 /// </summary>
-public sealed class BrowserPoolLinuxHostComponent : IBazaarComponent
+public sealed class BrowserPoolLinuxHostComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Presence.Abstractions;
 using Bazaar.Server.Presence.Sources.Abstractions;
 using Bazaar.Server.PsychWard.Abstractions;

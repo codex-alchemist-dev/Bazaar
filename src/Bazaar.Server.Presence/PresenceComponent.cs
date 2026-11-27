@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Presence;
 /// needs neither: with no cache the snapshot cache is skipped, and with no socket the deltas go nowhere. Event sources register as
 /// callers of <see cref="Abstractions.IActivityProjector"/>.
 /// </summary>
-public sealed class PresenceComponent : IBazaarComponent
+public sealed class PresenceComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "presence",

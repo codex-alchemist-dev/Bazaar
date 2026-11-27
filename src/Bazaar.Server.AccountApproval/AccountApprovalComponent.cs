@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.AccountApproval.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.AccountApproval;
 /// "nobody is eligible", so a host that wires nothing sends every request to the owner. State is kept in
 /// memory unless a host registers a durable <see cref="IAccountApprovalStore"/> first (<c>Bazaar.Server.AccountApproval.Postgres</c>).
 /// </summary>
-public sealed class AccountApprovalComponent : IBazaarComponent
+public sealed class AccountApprovalComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "account-approval",

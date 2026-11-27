@@ -5,7 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- An adapter that checks the pool VM image. It reads the pool's and the Linux host's options (for their paths), so it references both: no Bazaar.Server, no other feature module. -->
-    <ProjectReference Include="..\Bazaar.Core.Hosting\Bazaar.Core.Hosting.csproj" />
+    <ProjectReference Include="..\Cdax.Core.Hosting\Cdax.Core.Hosting.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.Abstractions\Bazaar.Server.BrowserPool.Abstractions.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool\Bazaar.Server.BrowserPool.csproj" />
     <ProjectReference Include="..\Bazaar.Server.BrowserPool.LinuxHost\Bazaar.Server.BrowserPool.LinuxHost.csproj" />

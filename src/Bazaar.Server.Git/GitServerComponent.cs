@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Git.Forge;
 using Bazaar.Server.Git.Health;
 using Bazaar.Server.Git.Merge;
@@ -16,7 +16,7 @@ namespace Bazaar.Server.Git;
 /// Provider modules (GitHub, GitLab) register their <see cref="IForgeProvider"/> and <see cref="IForgeMergeExecutor"/>. The gate
 /// needs an <c>IAuditLog</c> and an <c>IOwnerSignatureVerifier</c> from the host; audit is a soft dependency for start order.
 /// </summary>
-public sealed class GitServerComponent : IBazaarComponent
+public sealed class GitServerComponent : ICdaxModule
 {
     /// <summary>Configuration section for the git settings (doc 52, Settings).</summary>
     public const string SectionName = "Bazaar:Git";

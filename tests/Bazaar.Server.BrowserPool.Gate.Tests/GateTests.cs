@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.Security.KillSwitch;
 using Microsoft.Extensions.Configuration;

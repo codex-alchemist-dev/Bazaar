@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Roles;
 
 /// <summary>Roles with floors (docs/design/48-gap-decisions-security-identity.md section 4). SQL lives in the <c>roles</c> migration namespace.</summary>
-public sealed class RolesComponent : IBazaarComponent
+public sealed class RolesComponent : ICdaxModule
 {
     public const string MigrationProvider = "roles";
 

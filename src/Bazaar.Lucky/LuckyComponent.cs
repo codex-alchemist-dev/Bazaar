@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Wire.Connection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Lucky;
 /// The I'm Feeling Lucky module (docs/design/26-fun-systems.md, section 6). Settings come from <c>Bazaar:Lucky</c>, validated
 /// once. The controller is a singleton and uses the shared sanitizer, which the host supplies.
 /// </summary>
-public sealed class LuckyComponent : IBazaarComponent
+public sealed class LuckyComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "lucky",

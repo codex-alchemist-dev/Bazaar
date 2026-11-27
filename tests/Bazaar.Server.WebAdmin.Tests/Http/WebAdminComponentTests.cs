@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Roles.Abstractions;
 using Bazaar.Server.Security.Audit;
 using Bazaar.Server.WebAdmin.Http;

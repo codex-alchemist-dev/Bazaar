@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -9,7 +9,7 @@ namespace Bazaar.Server.Gateway.SystemPolicy;
 /// Gateway system-agent policy seeding as a Bazaar Component (docs/design/05-model-gateway.md, "System-agent policy seeding").
 /// Needs the gateway's repositories (<c>AddBazaarGateway</c>) and the settings store.
 /// </summary>
-public sealed class SystemPolicyComponent : IBazaarComponent
+public sealed class SystemPolicyComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "gateway-system-policy",

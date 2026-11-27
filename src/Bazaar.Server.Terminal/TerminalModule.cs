@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Terminal.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.Terminal;
 /// <c>vms</c> (it supplies <see cref="IGuestPtyChannel"/>) and <c>audit</c> (it supplies <see cref="ITerminalAudit"/>). Without
 /// them the broker fails closed: no backend means no terminals, and no audit sink means no human control of a terminal.
 /// </summary>
-public sealed class TerminalModule : IBazaarComponent
+public sealed class TerminalModule : ICdaxModule
 {
     /// <summary>The component manifest.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

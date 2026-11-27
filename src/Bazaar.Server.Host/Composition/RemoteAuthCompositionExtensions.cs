@@ -14,7 +14,7 @@ namespace Bazaar.Server.Host.Composition;
 /// Sign-in tokens and refresh (doc 32 section 5) for the host. Access tokens are signed by the production identity signer
 /// (<see cref="AccessTokenSigner"/>) under the access-token signing key. The key is stored wrapped by the host KEK in <c>soul_dek</c> when the
 /// host has a database. In Development without a database the key is kept in memory. With neither, the signer is
-/// <see cref="UnavailableAccessTokenSigner"/>, so routes answer 503 instead of minting tokens. Register after <c>AddBazaarComponents</c>, which
+/// <see cref="UnavailableAccessTokenSigner"/>, so routes answer 503 instead of minting tokens. Register after <c>AddCdaxModules</c>, which
 /// provides the audit log, the shared <c>NpgsqlDataSource</c> and the host KEK these services need.
 /// </summary>
 public static class RemoteAuthCompositionExtensions

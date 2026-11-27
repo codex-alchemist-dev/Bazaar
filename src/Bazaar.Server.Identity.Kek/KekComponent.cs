@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Identity.Kek.Tpm;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
@@ -16,7 +16,7 @@ namespace Bazaar.Server.Identity.Kek;
 /// The key file is under <c>Bazaar:Host:BootRoot</c> when that is set (doc 63: open only, never created at start), otherwise
 /// under <c>Bazaar:Host:DataRoot</c>.
 /// </summary>
-public sealed class KekComponent : IBazaarComponent
+public sealed class KekComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "identity-kek",

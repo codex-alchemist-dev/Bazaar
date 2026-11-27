@@ -1,11 +1,11 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Bazaar.Roles.Biometric;
 
 /// <summary>The biometric layer of the owner-signed grant widening gate (docs/design/48-gap-decisions-security-identity.md section 8.1).</summary>
-public sealed class RolesBiometricComponent : IBazaarComponent
+public sealed class RolesBiometricComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "roles-biometric",

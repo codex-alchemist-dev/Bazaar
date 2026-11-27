@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Agents.Turns.Tools;
 using Bazaar.Server.EngineDispatch;
 using Bazaar.Server.Security.Policy;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.EngineTool;
 /// hour, and the result hard-taints the session because it is content from a place the owner may have got from anywhere. The
 /// dispatcher's own grant, taint and allowlist checks still run on every call.
 /// </summary>
-public sealed class EngineToolComponent : IBazaarComponent
+public sealed class EngineToolComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "engine-tool",

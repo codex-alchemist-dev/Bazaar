@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.CodingBench.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.CodingBench;
 /// The coding-bench module: the benchmark runner and its report writer. It has no hard dependencies and sits outside Bazaar.Server.
 /// The harness supplies the task source, agent runner and verifier; the approval defaults to deny until the owner approves.
 /// </summary>
-public sealed class CodingBenchComponent : IBazaarComponent
+public sealed class CodingBenchComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "coding-bench",

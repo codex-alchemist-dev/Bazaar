@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.VmBench.Display;
 /// ports (display, density governor, browser pool, memory, targets) and a scenario whose port is missing reports "not run".
 /// All links are soft, so the module loads on a host that has none of the others.
 /// </summary>
-public sealed class DisplayBenchComponent : IBazaarComponent
+public sealed class DisplayBenchComponent : ICdaxModule
 {
     public ComponentManifest Manifest { get; } = new(
         Id: "vm-bench-display",

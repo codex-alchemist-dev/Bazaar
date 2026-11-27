@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>
 /// Where something applies: a <see cref="ScopeKind"/> plus an id, and for tenants an optional sub-path of further

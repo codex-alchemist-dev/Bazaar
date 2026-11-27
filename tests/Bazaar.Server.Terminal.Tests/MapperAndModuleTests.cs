@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Terminal;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Terminal.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

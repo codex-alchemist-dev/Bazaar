@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.SignIn.Handoff;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,7 +12,7 @@ namespace Bazaar.Server.SignIn.Passkeys;
 /// either it registers nothing and the deny-all default stays. It replaces only that default, so a verifier a host chose first
 /// (the development one while dev auth is on) is kept.
 /// </summary>
-public sealed class PasskeysComponent : IBazaarComponent
+public sealed class PasskeysComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "sign-in-passkeys",

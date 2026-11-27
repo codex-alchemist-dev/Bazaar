@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Company;
 using Bazaar.Server.RateLimits;
 using Bazaar.Server.Settings;
@@ -31,7 +31,7 @@ namespace Bazaar.Server.Setup.Host;
 /// exit 3 with one audit row. The routes are gated: before an owner exists a call needs loopback and the one-time bootstrap code,
 /// and afterwards the owner role.
 /// </remarks>
-public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : IBazaarComponent
+public sealed class SetupComponent(IEnumerable<ISetupStep>? steps = null) : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "setup",

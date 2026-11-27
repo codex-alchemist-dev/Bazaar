@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -11,7 +11,7 @@ namespace Bazaar.Server.ThinkingGc;
 /// nested under every GC it works in, and writes the agent's reasoning and turn steps there. Needs the GC component (the log
 /// writer and body codec) and the host's data source. Nothing is ever swept: the log is append-only and thinking is kept forever.
 /// </summary>
-public sealed class ThinkingGcComponent : IBazaarComponent
+public sealed class ThinkingGcComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "thinking-gc",

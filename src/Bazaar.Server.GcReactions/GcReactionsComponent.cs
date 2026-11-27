@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.GcReactions.Abstractions;
 using Bazaar.Server.Wire.Connection;
 using Bazaar.Server.Wire.Sync;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.GcReactions;
 /// only reads and appends to through the log's own interfaces. Its SQL is the <c>gc_reactions</c> migration namespace, embedded in
 /// this assembly under <c>Sql/components/gc_reactions</c>. Limits bind from <c>Bazaar:GcReactions</c>.
 /// </summary>
-public sealed class GcReactionsComponent : IBazaarComponent
+public sealed class GcReactionsComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key for this component's SQL. Equals <see cref="ComponentManifest.MigrationNamespace"/>.</summary>
     public const string MigrationProvider = "gc_reactions";

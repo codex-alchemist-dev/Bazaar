@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Memory.Access;
 using Bazaar.Server.Security.Audit;
 using Microsoft.Extensions.Configuration;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.Projects;
 /// <see cref="NpgsqlDataSource"/>. Its SQL is the <c>projects</c> migration namespace, embedded under <c>Sql/components/projects</c>. Options bind
 /// from <c>Bazaar:Projects</c>.
 /// </summary>
-public sealed class ProjectsComponent : IBazaarComponent
+public sealed class ProjectsComponent : ICdaxModule
 {
     /// <summary>Migration namespace and history key for this component's SQL. Equals <see cref="ComponentManifest.MigrationNamespace"/>.</summary>
     public const string MigrationProvider = "projects";

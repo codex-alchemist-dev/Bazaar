@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using Bazaar.Contracts.Modules;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Install;
 using Bazaar.Install.Abstractions;
 using Bazaar.Install.Trust;

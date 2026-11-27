@@ -1,5 +1,5 @@
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway.AnthropicDirect;
 using Bazaar.Server.Gateway.Data;
 using Bazaar.Server.Gateway.Pipeline;
@@ -325,7 +325,7 @@ public sealed class AnthropicDirectTests
     private static ServiceCollection Register(IConfiguration configuration)
     {
         var services = new ServiceCollection();
-        services.AddBazaarComponents(configuration, [new AnthropicDirectComponent()]);
+        services.AddCdaxModules(configuration, [new AnthropicDirectComponent()]);
         return services;
     }
 

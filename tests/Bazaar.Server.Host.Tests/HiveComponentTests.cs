@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Hive;
 using Bazaar.Server.Hive.Abstractions;

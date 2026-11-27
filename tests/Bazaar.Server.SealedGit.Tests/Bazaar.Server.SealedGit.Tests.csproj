@@ -14,7 +14,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Cdax.Core\Cdax.Core.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.SealedGit.Abstractions\Bazaar.Server.SealedGit.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.SealedGit\Bazaar.Server.SealedGit.csproj" />

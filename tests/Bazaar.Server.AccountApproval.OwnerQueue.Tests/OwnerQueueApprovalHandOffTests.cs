@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.AccountApproval.Abstractions;
 using Bazaar.Server.Security;
 using Bazaar.Server.Security.Approvals;

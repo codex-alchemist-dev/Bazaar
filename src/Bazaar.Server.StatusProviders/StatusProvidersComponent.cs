@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.WebAdmin;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +8,7 @@ using Npgsql;
 namespace Bazaar.Server.StatusProviders;
 
 /// <summary>Queue depths and health checks for the admin status page and the status TUI (docs/design/51-web-admin-module.md section 5). No migrations of its own.</summary>
-public sealed class StatusProvidersComponent : IBazaarComponent
+public sealed class StatusProvidersComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "status-providers",

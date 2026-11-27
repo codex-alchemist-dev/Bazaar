@@ -8,7 +8,7 @@ Design docs (final decisions, status-tagged): `docs/deep-dives/` — start with 
 
 - Before coding, read the relevant design doc (`docs/design/`, `docs/deep-dives/`) and the DECIDED items in `docs/design/DECISIONS-LOG.md`. Structure in the docs is binding. Do not invent spec; ask the owner for unspecified details.
 - Docs first: a change to design or structure lands as a docs PR before the code PR.
-- Every new feature is its own module project on Bazaar.Core (`Bazaar.<Module>` plus `Bazaar.<Module>.Abstractions`). Bazaar.Core holds no features, and Bazaar.Server and Bazaar.Client.Core must not gain feature code. Architecture tests in `tests/Bazaar.Architecture.Tests` enforce this.
+- Every new feature is its own module project on Cdax.Core (`Bazaar.<Module>` plus `Bazaar.<Module>.Abstractions`). Cdax.Core holds no features, and Bazaar.Server and Bazaar.Client.Core must not gain feature code. Architecture tests in `tests/Bazaar.Architecture.Tests` enforce this.
 - Every PR states the docs section it implements, as a line `Docs section this implements: <doc path and section>` in the PR body.
 
 ## Decisions in force (as of 2026-10-24)

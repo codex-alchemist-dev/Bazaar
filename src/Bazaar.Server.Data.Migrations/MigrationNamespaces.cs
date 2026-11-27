@@ -1,5 +1,5 @@
 using System.Text.RegularExpressions;
-using Bazaar.Core;
+using Cdax.Core;
 
 namespace Bazaar.Server.Data.Migrations;
 

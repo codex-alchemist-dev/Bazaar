@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Data.Migrations;
 using Bazaar.Server.Host.Composition;
 
@@ -12,6 +12,6 @@ public sealed class MigrationSchemaGate(DatabaseConnection database, IConfigurat
         var dataSource = await database.GetAsync(ct);
         var source = HostMigrations.Source();
         var components = HostComponents.All.Select(c => c.Manifest);
-        await new MigrationRunner(dataSource, components: components, isEnabled: configuration is null ? null : manifest => BazaarComponentRegistration.IsEnabled(configuration, manifest)).EnsureCurrentAsync(source, MigrateCommand.CurrentProvider(), ct);
+        await new MigrationRunner(dataSource, components: components, isEnabled: configuration is null ? null : manifest => CdaxModuleRegistration.IsEnabled(configuration, manifest)).EnsureCurrentAsync(source, MigrateCommand.CurrentProvider(), ct);
     }
 }

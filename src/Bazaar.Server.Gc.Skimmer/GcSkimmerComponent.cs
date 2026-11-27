@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gc.Archive;
 using Bazaar.Server.Skimmer.Shadow;
 using Microsoft.Extensions.Configuration;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Gc.Skimmer;
 /// The GC side of the Skimmer shadow gate (doc 13). Off until enabled, and it needs component <c>skimmer</c>. Settings under
 /// <c>Bazaar:Skimmer</c>: <c>QueueDepthLimit</c> (200) and <c>BatchSize</c> (50).
 /// </summary>
-public sealed class GcSkimmerComponent : IBazaarComponent
+public sealed class GcSkimmerComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "gc-skimmer",

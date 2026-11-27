@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Embeddings.Indexing;
 using Bazaar.Server.Settings;
 using Bazaar.Server.Setup;
@@ -15,7 +15,7 @@ namespace Bazaar.Server.Embeddings;
 /// <c>NpgsqlDataSource</c> and, to go beyond lexical-only search, an <see cref="IEmbeddingSettingSource"/> over its setting store;
 /// until then the setting reads as <c>none</c> and the indexer stays idle. It also contributes the <c>embeddings.profile</c> setup step.
 /// </summary>
-public sealed class EmbeddingsComponent : IBazaarComponent
+public sealed class EmbeddingsComponent : ICdaxModule
 {
     /// <summary>The component manifest.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

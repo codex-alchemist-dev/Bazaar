@@ -1,5 +1,5 @@
 using System.Reflection;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -99,7 +99,7 @@ public class StructuralInvariantTests
     {
         var refs = typeof(IBrowserPool).Assembly.GetReferencedAssemblies().Select(a => a.Name).ToList();
 
-        Assert.DoesNotContain(refs, r => r!.StartsWith("Bazaar.", StringComparison.Ordinal) && r != "Bazaar.Core");
+        Assert.DoesNotContain(refs, r => r!.StartsWith("Bazaar.", StringComparison.Ordinal) && r != "Cdax.Core");
         Assert.DoesNotContain(refs, r => r!.StartsWith("Microsoft.Extensions", StringComparison.Ordinal));
     }
 
@@ -112,7 +112,7 @@ public class StructuralInvariantTests
             .Order()
             .ToList();
 
-        Assert.Equal(["Bazaar.Core", "Bazaar.Core.Hosting", "Bazaar.Server.BrowserPool.Abstractions"], bazaar);
+        Assert.Equal(["Cdax.Core", "Cdax.Core.Hosting", "Bazaar.Server.BrowserPool.Abstractions"], bazaar);
     }
 
     [Fact]

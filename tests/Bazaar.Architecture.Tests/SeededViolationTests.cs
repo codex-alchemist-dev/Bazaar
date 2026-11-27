@@ -73,7 +73,7 @@ public class SeededViolationTests
 
     [Fact]
     public void Seeded_module_server_reference_is_flagged() =>
-        Assert.Equal(["Bazaar.Seeded"], ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Bazaar.Core", "Bazaar.Server"])]));
+        Assert.Equal(["Bazaar.Seeded"], ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Cdax.Core", "Bazaar.Server"])]));
 
     [Fact]
     public void Seeded_module_abstractions_server_reference_is_flagged() =>
@@ -85,7 +85,7 @@ public class SeededViolationTests
 
     [Fact]
     public void Seeded_module_without_server_reference_is_not_flagged() =>
-        Assert.Empty(ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Bazaar.Core", "Bazaar.Contracts"])]));
+        Assert.Empty(ArchitectureRules.ModuleServerReferences([("Bazaar.Seeded", ["Cdax.Core", "Bazaar.Contracts"])]));
 
     [Fact]
     public void Seeded_exempt_projects_referencing_server_are_not_flagged() =>
@@ -94,7 +94,7 @@ public class SeededViolationTests
             ("Bazaar.Server.Host", ["Bazaar.Server"]),
             ("Bazaar.Client.Windows", ["Bazaar.Server"]),
             ("Bazaar.Client.Core", ["Bazaar.Server"]),
-            ("Bazaar.Core", ["Bazaar.Server"]),
+            ("Cdax.Core", ["Bazaar.Server"]),
         ]));
 
     [Fact]

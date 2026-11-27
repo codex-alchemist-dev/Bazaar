@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Presence.Sources.Abstractions;
 using Bazaar.Server.WorkLife.Scheduler.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.WorkLife.Scheduler;
 /// availability from its schedule and reports every applied transition to presence through the presence sources module. The source,
 /// the state store and the drain gate are in memory or immediate until the durable ones (doc 09 WP3, WP5) register theirs first.
 /// </summary>
-public sealed class WorkLifeSchedulerComponent : IBazaarComponent
+public sealed class WorkLifeSchedulerComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "work-life-scheduler",

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.BrowserPool.Abstractions;
 using Bazaar.Server.VmEgress;
 using Microsoft.Extensions.Configuration;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.BrowserPool.Egress;
 /// replacing the pool's fail-closed default whichever component is added first. The allowlist store is resolved when the policy is
 /// first needed; without one no agent has a proxy.
 /// </summary>
-public sealed class BrowserPoolEgressComponent : IBazaarComponent
+public sealed class BrowserPoolEgressComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

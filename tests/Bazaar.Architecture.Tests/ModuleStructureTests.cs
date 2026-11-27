@@ -2,7 +2,7 @@ namespace Bazaar.Architecture.Tests;
 
 /// <summary>
 /// Prevention for the drift found in docs/audit/DRIFT-2026-11-16.md. Decided structure in docs/design/ is binding:
-/// every feature is its own module project on Bazaar.Core, and Bazaar.Server and Bazaar.Client.Core hold no new feature code.
+/// every feature is its own module project on Cdax.Core, and Bazaar.Server and Bazaar.Client.Core hold no new feature code.
 /// Existing violations are listed in <c>architecture-baseline.txt</c>. A new file in those projects fails the build until it is
 /// listed, and a listed file that has moved or been deleted fails until the baseline is trimmed, so the list only shrinks.
 /// </summary>
@@ -36,7 +36,7 @@ public class ModuleStructureTests
 
         Assert.True(
             added.Length == 0,
-            "New .cs files in Bazaar.Server or Bazaar.Client.Core. Put features in their own module project on Bazaar.Core "
+            "New .cs files in Bazaar.Server or Bazaar.Client.Core. Put features in their own module project on Cdax.Core "
             + "(docs/design/40, 41b; DECISIONS-LOG). Files found:\n" + string.Join('\n', added));
     }
 
@@ -54,30 +54,30 @@ public class ModuleStructureTests
     }
 
     /// <summary>
-    /// Target state from docs/design/40 and CLAUDE.md: a Bazaar.Core project exists, and the server host and client heads load modules through it.
-    /// Skipped until Bazaar.Client.Core references Bazaar.Core (the server kernel is in Bazaar.Core since #625).
+    /// Target state from docs/design/40 and CLAUDE.md: a Cdax.Core project exists, and the server host and client heads load modules through it.
+    /// Skipped until Bazaar.Client.Core references Cdax.Core (the server kernel is in Cdax.Core since #625).
     /// </summary>
     [Fact]
     public void Bazaar_core_project_exists_and_is_referenced_by_hosts()
     {
-        var corePath = RepoPaths.ProjectFile("Bazaar.Core");
-        Assert.True(File.Exists(corePath), "Bazaar.Core project is missing.");
+        var corePath = RepoPaths.ProjectFile("Cdax.Core");
+        Assert.True(File.Exists(corePath), "Cdax.Core project is missing.");
 
         foreach (var host in new[] { "Bazaar.Server.Host", "Bazaar.Client.Core" })
         {
             var refs = ArchitectureRules.ProjectReferenceNames(RepoPaths.ProjectFile(host)).ToArray();
-            Assert.Contains(refs, r => r is "Bazaar.Core" or "Bazaar.Core.Hosting");
+            Assert.Contains(refs, r => r is "Cdax.Core" or "Cdax.Core.Hosting");
         }
     }
 
     /// <summary>
-    /// Bazaar.Core must stay dependency-free so it can become a standalone repo (docs/design/BAZAAR-COMPONENTS.md section 13):
-    /// no package references and no project references. The dependency-injection and configuration entry point lives in Bazaar.Core.Hosting.
+    /// Cdax.Core must stay dependency-free so it can become a standalone repo (docs/design/BAZAAR-COMPONENTS.md section 13):
+    /// no package references and no project references. The dependency-injection and configuration entry point lives in Cdax.Core.Hosting.
     /// </summary>
     [Fact]
     public void Bazaar_core_has_no_package_or_project_references()
     {
-        var project = System.Xml.Linq.XDocument.Load(RepoPaths.ProjectFile("Bazaar.Core"));
+        var project = System.Xml.Linq.XDocument.Load(RepoPaths.ProjectFile("Cdax.Core"));
 
         Assert.Empty(project.Descendants("PackageReference"));
         Assert.Empty(project.Descendants("ProjectReference"));
@@ -99,6 +99,6 @@ public class ModuleStructureTests
         var rules = File.ReadAllText(Path.Combine(RepoPaths.Root, "CLAUDE.md"));
 
         Assert.Contains("## Design docs are law", rules);
-        Assert.Contains("its own module project on Bazaar.Core", rules);
+        Assert.Contains("its own module project on Cdax.Core", rules);
     }
 }

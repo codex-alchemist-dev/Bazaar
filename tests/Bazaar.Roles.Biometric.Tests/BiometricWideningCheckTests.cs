@@ -1,5 +1,5 @@
 using Bazaar.Approvals;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Roles.Abstractions;
 using Bazaar.Server.Biometric;
 using Microsoft.Extensions.Configuration;

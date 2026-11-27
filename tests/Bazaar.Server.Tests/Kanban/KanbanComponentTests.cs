@@ -1,6 +1,6 @@
 using System.Text.Json;
 using Bazaar.Contracts.Gateway;
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.RyuseiFuda.Kanban.Data;
 using Bazaar.Server.Agents.Turns.Tools;
@@ -31,7 +31,7 @@ public class KanbanComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
 
         using var provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<TaskService>());
@@ -45,7 +45,7 @@ public class KanbanComponentTests
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
 
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
 
         using var provider = services.BuildServiceProvider();
         var types = provider.GetServices<Bazaar.Server.Wire.Connection.IWireRequestHandler>().Select(h => h.Type).ToList();
@@ -60,7 +60,7 @@ public class KanbanComponentTests
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
         using var provider = services.BuildServiceProvider();
 
         // The turn path builds its registry exactly this way (AgentTurnsComponent).
@@ -77,7 +77,7 @@ public class KanbanComponentTests
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
         using var provider = services.BuildServiceProvider();
 
         var capabilities = CapabilityRegistry.Create(provider.GetServices<ToolCapability>());
@@ -94,7 +94,7 @@ public class KanbanComponentTests
         using var dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Port=1;Database=bazaar");
         var services = new ServiceCollection();
         services.AddSingleton(dataSource);
-        services.AddBazaarComponents(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
+        services.AddCdaxModules(new ConfigurationBuilder().Build(), [new KanbanComponent()]);
         using var provider = services.BuildServiceProvider();
         var registry = new ToolRegistry(provider.GetServices<ToolRegistration>().Select(r => (r.Name, r.Tool)));
 

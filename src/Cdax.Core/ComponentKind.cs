@@ -1,4 +1,4 @@
-namespace Bazaar.Core;
+namespace Cdax.Core;
 
 /// <summary>What a Bazaar Component is for (docs/design/BAZAAR-COMPONENTS.md section 2).</summary>
 public enum ComponentKind
@@ -6,7 +6,7 @@ public enum ComponentKind
     /// <summary>Part of the kernel. Always enabled.</summary>
     Kernel,
 
-    /// <summary>A base-app function such as GC, Kanban, Vault or agents.</summary>
+    /// <summary>A base-app function, such as chat, task boards, notes or agents.</summary>
     Feature,
 
     /// <summary>An infrastructure role implementation, such as a service host or database host.</summary>

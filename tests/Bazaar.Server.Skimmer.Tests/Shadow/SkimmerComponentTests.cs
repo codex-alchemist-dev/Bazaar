@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Skimmer;
 using Bazaar.Server.Skimmer.Shadow;

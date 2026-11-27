@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Analytics.Git;
 /// <c>Bazaar:Analytics:ForgeAuthors:{login}</c> = agent id. Exactly one source counts merges, so a merge is never counted twice. With
 /// <c>Forge</c> the Postgres module drops its merge events.
 /// </summary>
-public sealed class AnalyticsGitComponent : IBazaarComponent
+public sealed class AnalyticsGitComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "analytics-git",

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmDensity.Abstractions;
 using Bazaar.Server.Vms.Abstractions;
 using Microsoft.Extensions.Configuration;
@@ -17,7 +17,7 @@ namespace Bazaar.Server.VmDensity.Vms;
 /// Nothing in the host calls the governor yet, and the density module's default activity reader reads nothing, so every VM counts as
 /// busy and none is ever listed as a save candidate. Loading this component therefore saves and stops nothing.
 /// </remarks>
-public sealed class VmDensityVmsComponent : IBazaarComponent
+public sealed class VmDensityVmsComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

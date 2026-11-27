@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Settings;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +9,7 @@ namespace Bazaar.Server.MailPolicy;
 /// The mail policy settings as a Bazaar Component (BAZAAR-COMPONENTS.md). Registers only the settings contribution: no I/O, no
 /// mail runtime. The Mail module reads the keys; setup writes them (doc 45 step 11).
 /// </summary>
-public sealed class MailPolicyComponent : IBazaarComponent
+public sealed class MailPolicyComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "mail-policy",

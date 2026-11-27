@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Embeddings;
 using Bazaar.Server.Host.Components.Embeddings;
 using Bazaar.Server.Vault.Search;
@@ -24,8 +24,8 @@ public static class EmbeddingsCompositionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        if (!BazaarComponentRegistration.IsEnabled(configuration, EmbeddingsComponent.ManifestDefinition.Id)
-            || !BazaarComponentRegistration.IsEnabled(configuration, "settings"))
+        if (!CdaxModuleRegistration.IsEnabled(configuration, EmbeddingsComponent.ManifestDefinition.Id)
+            || !CdaxModuleRegistration.IsEnabled(configuration, "settings"))
         {
             return services;
         }

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Security.Credentials;
 using Bazaar.Server.Security.KillSwitch;
 using Bazaar.Server.Security.Taint;
@@ -14,7 +14,7 @@ namespace Bazaar.Server.VmDisplay.Gate;
 /// display module's refusing default with <see cref="SecurityDisplayGate"/>, whichever component is added first. It registers no
 /// implementation of the Security readers: when one is missing from the container the gate refuses everything.
 /// </summary>
-public sealed class VmDisplayGateComponent : IBazaarComponent
+public sealed class VmDisplayGateComponent : ICdaxModule
 {
     /// <summary>The manifest, available without constructing the component.</summary>
     public static ComponentManifest ManifestDefinition { get; } = new(

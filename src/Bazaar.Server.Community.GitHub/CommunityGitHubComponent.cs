@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,7 +10,7 @@ namespace Bazaar.Server.Community.GitHub;
 /// <see cref="ICommunityGitHubTokenSource"/> (bridge to IGitHubTokenProvider) and an <see cref="ICommunityPullRequestOpener"/> (bridge to
 /// IGitHubAdapter.OpenDraftPrAsync); without them the adapter cannot be built.
 /// </summary>
-public sealed class CommunityGitHubComponent : IBazaarComponent
+public sealed class CommunityGitHubComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "community-github",

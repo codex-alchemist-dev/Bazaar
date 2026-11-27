@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.RyuseiFuda.Kanban;
 using Bazaar.Server.Agents.Data;
 using Bazaar.Server.Org.Data;
@@ -13,7 +13,7 @@ namespace Bazaar.Server.Org;
 /// depend on the shared database and the GC components. Host composition maps <c>POST /company/org</c> with
 /// <see cref="OrgReadRoute.MapCompanyOrg"/>.
 /// </summary>
-public sealed class OrgComponent : IBazaarComponent
+public sealed class OrgComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "org",

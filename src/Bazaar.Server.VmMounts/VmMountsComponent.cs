@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.VmMounts.Abstractions;
 using Bazaar.Server.VmMounts.Containment;
 using Bazaar.Server.VmMounts.Paths;
@@ -23,7 +23,7 @@ namespace Bazaar.Server.VmMounts;
 /// (pause, then revert the disk); the default refuses, so a containment detach reports the failure. <see cref="IMountContentPolicy"/> defaults to
 /// <see cref="DefaultMountContentPolicy"/> until the Identity mount allow-list is adapted to it.
 /// </remarks>
-public sealed class VmMountsComponent : IBazaarComponent
+public sealed class VmMountsComponent : ICdaxModule
 {
     public static ComponentManifest ManifestDefinition { get; } = new(
         Id: "vm-mounts",

@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Server.Gateway;
 using Bazaar.Server.Skimmer.Data;
 using Bazaar.Server.Skimmer.Rules;
@@ -18,7 +18,7 @@ namespace Bazaar.Server.Skimmer;
 /// pass), <c>ThresholdBp</c> (7000), <c>ScorerModel</c> (<c>anthropic-direct:claude-haiku-5-5</c>), <c>ScorerTimeoutMs</c> (5000),
 /// <c>DmAlwaysWakes</c> (true). The host supplies <c>NpgsqlDataSource</c>, <c>IModelGateway</c> and <see cref="IGatekeeperPolicySeed"/>.
 /// </summary>
-public sealed class SkimmerComponent : IBazaarComponent
+public sealed class SkimmerComponent : ICdaxModule
 {
     /// <summary>The gateway policy subject the scorer calls under.</summary>
     public const string GatekeeperSubject = "gatekeeper";

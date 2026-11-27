@@ -1,4 +1,4 @@
-using Bazaar.Core;
+using Cdax.Core;
 using Bazaar.Kodo.Anchoring;
 using Bazaar.Kodo.Probes.Host;
 using Bazaar.Kodo.Settings;
@@ -13,7 +13,7 @@ using Microsoft.Extensions.Logging;
 namespace Bazaar.Server.Kodo;
 
 /// <summary>Bazaar.Server.Kodo as a Bazaar Component (doc 46 section 5.4): the health loop, its journal and the read API behind <see cref="IKodoStatusSource"/>.</summary>
-public sealed class KodoServerComponent : IBazaarComponent
+public sealed class KodoServerComponent : ICdaxModule
 {
     /// <summary>Configuration section for the module (doc 46 section 4: <c>Bazaar:Kodo</c>).</summary>
     public const string SectionName = "Bazaar:Kodo";
