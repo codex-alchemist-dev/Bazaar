@@ -13,8 +13,10 @@ public sealed class VentService(
     ITextSanitizer sanitizer,
     PsychWardSettings settings,
     IVentPublisher? publisher = null,
-    TimeProvider? time = null) : IVentService
+    TimeProvider? time = null,
+    IWardJournal? journal = null) : IVentService
 {
+    private readonly IWardJournal _journal = journal ?? new NoOpWardJournal();
     private readonly TimeProvider _time = time ?? TimeProvider.System;
 
     /// <inheritdoc />
@@ -45,6 +47,7 @@ public sealed class VentService(
 
         var stored = await store.GetOrAddAsync(candidate, cancellationToken).ConfigureAwait(false);
         await store.ResolveFailureAsync(failureRef, cancellationToken).ConfigureAwait(false);
+        await _journal.VentWrittenAsync(stored, cancellationToken).ConfigureAwait(false);
         return stored;
     }
 
@@ -88,6 +91,7 @@ public sealed class VentService(
         var published = draft with { Status = VentStatus.Published, PublishTarget = target };
         await publisher.PublishAsync(published, target, cancellationToken).ConfigureAwait(false);
         await store.UpdateAsync(published, cancellationToken).ConfigureAwait(false);
+        await _journal.VentPublishedAsync(published, cancellationToken).ConfigureAwait(false);
         return new VentPublishResult(published, null);
     }
 }

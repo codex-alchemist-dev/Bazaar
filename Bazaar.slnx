@@ -165,6 +165,11 @@
     <Project Path="src/Bazaar.Server.Interrupts/Bazaar.Server.Interrupts.csproj" />
     <Project Path="src/Bazaar.Server.Reputation.Abstractions/Bazaar.Server.Reputation.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.Reputation/Bazaar.Server.Reputation.csproj" />
+    <Project Path="src/Bazaar.Server.OutcomeLedger.Abstractions/Bazaar.Server.OutcomeLedger.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.OutcomeLedger.GitHub/Bazaar.Server.OutcomeLedger.GitHub.csproj" />
+    <Project Path="src/Bazaar.Server.OutcomeLedger/Bazaar.Server.OutcomeLedger.csproj" />
+    <Project Path="src/Bazaar.Server.ReviewLedger.Abstractions/Bazaar.Server.ReviewLedger.Abstractions.csproj" />
+    <Project Path="src/Bazaar.Server.ReviewLedger/Bazaar.Server.ReviewLedger.csproj" />
     <Project Path="src/Bazaar.Server.PsychWard.Abstractions/Bazaar.Server.PsychWard.Abstractions.csproj" />
     <Project Path="src/Bazaar.Server.PsychWard/Bazaar.Server.PsychWard.csproj" />
     <Project Path="src/Bazaar.Server.Knowledge.Abstractions/Bazaar.Server.Knowledge.Abstractions.csproj" />
@@ -655,6 +660,9 @@
     <Project Path="tests/Bazaar.Server.Org.Tests/Bazaar.Server.Org.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Interrupts.Tests/Bazaar.Server.Interrupts.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.GcMetadata.Tests/Bazaar.Server.GcMetadata.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.OutcomeLedger.GitHub.Tests/Bazaar.Server.OutcomeLedger.GitHub.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.OutcomeLedger.Tests/Bazaar.Server.OutcomeLedger.Tests.csproj" />
+    <Project Path="tests/Bazaar.Server.ReviewLedger.Tests/Bazaar.Server.ReviewLedger.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.PsychWard.Tests/Bazaar.Server.PsychWard.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Reputation.Tests/Bazaar.Server.Reputation.Tests.csproj" />
     <Project Path="tests/Bazaar.Server.Health.Tests/Bazaar.Server.Health.Tests.csproj" />

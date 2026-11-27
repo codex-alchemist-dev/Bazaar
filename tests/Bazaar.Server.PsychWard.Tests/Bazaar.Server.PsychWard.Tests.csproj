@@ -17,5 +17,8 @@
     <ProjectReference Include="..\..\src\Bazaar.Server.PsychWard.Abstractions\Bazaar.Server.PsychWard.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Presence.Sources.Abstractions\Bazaar.Server.Presence.Sources.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Bazaar.Server.Sanitization.Abstractions\Bazaar.Server.Sanitization.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.GC.Abstractions\Bazaar.GC.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Contracts\Bazaar.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.LoopGuard.Abstractions\Bazaar.LoopGuard.Abstractions.csproj" />
   </ItemGroup>
 </Project>

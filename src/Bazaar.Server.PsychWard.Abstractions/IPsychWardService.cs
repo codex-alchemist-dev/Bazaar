@@ -67,3 +67,15 @@ public sealed class WardStayConflictException(Guid agentId)
     /// <summary>The agent that already has an active stay.</summary>
     public Guid AgentId { get; } = agentId;
 }
+
+/// <summary>An agent's curfew status at one moment (doc 09).</summary>
+/// <param name="InCurfew">True while the agent is in its curfew window.</param>
+/// <param name="NextShiftStartsAt">When the agent's next shift starts; null when unknown.</param>
+public sealed record WardCurfewStatus(bool InCurfew, DateTimeOffset? NextShiftStartsAt);
+
+/// <summary>Tells the ward whether an agent is in curfew. The Work-Life schedule supplies it; without one the ward never queues.</summary>
+public interface IWardAvailabilityProbe
+{
+    /// <summary>The agent's curfew status now.</summary>
+    Task<WardCurfewStatus> GetCurfewAsync(Guid agentId, CancellationToken cancellationToken);
+}
