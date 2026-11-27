@@ -204,7 +204,7 @@ public sealed class App : Avalonia.Application
         // The Git Solar System feed has no Client.Core type, so the head hands it over through PaneModuleContext.With.
         var features = new PaneModuleContext()
             .With<ICommandRouter>(_router)
-            .With<IPaneNavigator>(_navigator)
+            .With<Bazaar.Client.Panes.Abstractions.IPaneNavigator>(_navigator)
             .With<IConstellationTileSource>(tiles)
             .With<IPendingApprovalSource>(approvals)
             .With<IPendingToolGrantSource>(grants)
