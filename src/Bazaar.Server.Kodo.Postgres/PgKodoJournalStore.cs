@@ -10,12 +10,15 @@ namespace Bazaar.Server.Kodo.Postgres;
 /// restart overlapping a slow shutdown) cannot interleave. Which records to write is decided by <see cref="KodoJournalAppendPlanner"/>,
 /// so replaying the local spill twice stores every record once.
 /// </summary>
-public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJournalStore
+public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJournalStore, IKodoCheckpointStore
 {
     private const string _columns = "sequence, at_ticks, kind, payload, previous_hash, record_hash";
 
     /// <summary>Key of the transaction-scoped advisory lock that serialises appends.</summary>
     internal const long AppendLockKey = 0x4B4F444F_4A524E4CL;
+
+    /// <summary>Key of the advisory lock that serialises checkpoint writes.</summary>
+    internal const long CheckpointLockKey = 0x4B4F444F_43484B50L;
 
     internal const string LockSql = "SELECT pg_advisory_xact_lock($1)";
     internal const string HeadSql = "SELECT " + _columns + " FROM kodo_journal ORDER BY sequence DESC LIMIT 1";
@@ -36,6 +39,14 @@ public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJourn
 
     internal const string PruneJournalSql =
         "DELETE FROM kodo_journal WHERE at_ticks < $1 AND sequence < (SELECT max(sequence) FROM kodo_journal)";
+
+    /// <summary>Retention bounded by <see cref="KodoPruneRule"/>: $1 is the age cutoff, $2 the highest sequence that may go.</summary>
+    internal const string PruneAnchoredJournalSql = "DELETE FROM kodo_journal WHERE at_ticks < $1 AND sequence <= $2";
+
+    internal const string HeadSequenceSql = "SELECT max(sequence) FROM kodo_journal";
+
+    internal const string NewestAnchoredSql =
+        "SELECT max(c.sequence) FROM kodo_checkpoint c WHERE EXISTS (SELECT 1 FROM kodo_checkpoint_anchor a WHERE a.checkpoint_sequence = c.sequence)";
 
     internal const string PruneStateSql = "DELETE FROM kodo_state_change WHERE at_ticks < $1";
 
@@ -255,6 +266,267 @@ public sealed class PgKodoJournalStore(NpgsqlDataSource dataSource) : IKodoJourn
         cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bigint, Value = beforeSequence is long before ? before : DBNull.Value });
         cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = limit });
     }
+
+    private const string _checkpointColumns =
+        "sequence, first_sequence, first_at_ticks, last_at_ticks, cut_at_ticks, previous_head, head_hash, root, digest, signature, signer_id";
+
+    internal const string InsertCheckpointSql =
+        "INSERT INTO kodo_checkpoint (" + _checkpointColumns + ") VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (sequence) DO NOTHING";
+
+    internal const string GetCheckpointSql = "SELECT " + _checkpointColumns + " FROM kodo_checkpoint WHERE sequence = $1";
+
+    /// <summary>The window that overlaps $1..$2, for the overlap check before an insert.</summary>
+    internal const string OverlapCheckpointSql = "SELECT 1 FROM kodo_checkpoint WHERE sequence >= $1 AND first_sequence <= $2 AND sequence <> $2 LIMIT 1";
+
+    internal const string LatestCheckpointSql = "SELECT " + _checkpointColumns + " FROM kodo_checkpoint ORDER BY sequence DESC LIMIT 1";
+
+    internal const string FirstStoredSequenceSql = "SELECT min(sequence) FROM kodo_journal";
+
+    internal const string UnanchoredCheckpointsSql =
+        "SELECT " + _checkpointColumns + " FROM kodo_checkpoint c " +
+        "WHERE NOT EXISTS (SELECT 1 FROM kodo_checkpoint_anchor a WHERE a.checkpoint_sequence = c.sequence) ORDER BY sequence LIMIT $1";
+
+    internal const string RecentCheckpointsSql = "SELECT " + _checkpointColumns + " FROM kodo_checkpoint ORDER BY sequence DESC LIMIT $1";
+
+    internal const string AnchorsForSql =
+        "SELECT checkpoint_sequence, sink_id, anchored_at_ticks FROM kodo_checkpoint_anchor WHERE checkpoint_sequence = ANY($1) ORDER BY checkpoint_sequence, sink_id";
+
+    internal const string InsertAnchorSql =
+        "INSERT INTO kodo_checkpoint_anchor (checkpoint_sequence, sink_id, anchored_at_ticks) VALUES ($1, $2, $3) ON CONFLICT (checkpoint_sequence, sink_id) DO NOTHING";
+
+    /// <summary>The first checkpoint at or after $1 whose window starts at or before it: the window that covers the record.</summary>
+    internal const string CoveringCheckpointSql =
+        "SELECT " + _checkpointColumns + " FROM kodo_checkpoint WHERE sequence >= $1 AND first_sequence <= $1 ORDER BY sequence LIMIT 1";
+
+    internal const string WindowHashesSql = "SELECT sequence, record_hash FROM kodo_journal WHERE sequence BETWEEN $1 AND $2 ORDER BY sequence";
+
+    /// <inheritdoc />
+    public async ValueTask<bool> SaveCheckpointAsync(KodoCheckpoint checkpoint, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(checkpoint);
+        if (!KodoCheckpoints.DigestIsValid(checkpoint))
+        {
+            throw new KodoJournalConflictException(KodoJournalConflict.BrokenChain, "The checkpoint digest does not match its fields.");
+        }
+
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await using (NpgsqlCommand lockCommand = new(LockSql, connection, transaction))
+        {
+            lockCommand.Parameters.Add(new NpgsqlParameter<long> { TypedValue = CheckpointLockKey });
+            await lockCommand.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        KodoCheckpoint? existing;
+        await using (NpgsqlCommand get = new(GetCheckpointSql, connection, transaction))
+        {
+            get.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.LastSequence });
+            await using NpgsqlDataReader reader = await get.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            existing = await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadCheckpoint(reader) : null;
+        }
+
+        if (existing is not null)
+        {
+            return existing.Digest.AsSpan().SequenceEqual(checkpoint.Digest)
+                ? false
+                : throw new KodoJournalConflictException(KodoJournalConflict.Diverged, $"A different checkpoint is stored for sequence {checkpoint.LastSequence}.");
+        }
+
+        await using (NpgsqlCommand overlap = new(OverlapCheckpointSql, connection, transaction))
+        {
+            overlap.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.FirstSequence });
+            overlap.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.LastSequence });
+            if (await overlap.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is not null)
+            {
+                throw new KodoJournalConflictException(KodoJournalConflict.Diverged, "The checkpoint window overlaps a stored checkpoint.");
+            }
+        }
+
+        await using (NpgsqlCommand insert = new(InsertCheckpointSql, connection, transaction))
+        {
+            insert.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.LastSequence });
+            insert.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.FirstSequence });
+            insert.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.FirstAt.UtcTicks });
+            insert.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.LastAt.UtcTicks });
+            insert.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.CutAt.UtcTicks });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = checkpoint.PreviousHead });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = checkpoint.HeadHash });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = checkpoint.Root });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = checkpoint.Digest });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Bytea, Value = (object?)checkpoint.Signature ?? DBNull.Value });
+            insert.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = (object?)checkpoint.SignerId ?? DBNull.Value });
+            await insert.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<KodoCheckpoint?> GetLatestCheckpointAsync(CancellationToken cancellationToken)
+    {
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(LatestCheckpointSql);
+        await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        return await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadCheckpoint(reader) : null;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<long?> GetFirstStoredSequenceAsync(CancellationToken cancellationToken)
+    {
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(FirstStoredSequenceSql);
+        return await cmd.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) is long first ? first : null;
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<KodoCheckpoint>> ListUnanchoredAsync(int limit, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        return await ReadCheckpointsAsync(UnanchoredCheckpointsSql, limit, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<IReadOnlyList<KodoCheckpointEntry>> ListCheckpointsAsync(int limit, CancellationToken cancellationToken)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
+        IReadOnlyList<KodoCheckpoint> checkpoints = await ReadCheckpointsAsync(RecentCheckpointsSql, limit, cancellationToken).ConfigureAwait(false);
+        if (checkpoints.Count == 0)
+        {
+            return [];
+        }
+
+        Dictionary<long, List<KodoAnchorMark>> marks = [];
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(AnchorsForSql);
+        cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Array | NpgsqlDbType.Bigint, Value = checkpoints.Select(c => c.LastSequence).ToArray() });
+        await using (NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                long key = reader.GetInt64(0);
+                if (!marks.TryGetValue(key, out List<KodoAnchorMark>? list))
+                {
+                    marks[key] = list = [];
+                }
+
+                list.Add(new KodoAnchorMark(reader.GetString(1), new DateTimeOffset(reader.GetInt64(2), TimeSpan.Zero)));
+            }
+        }
+
+        return [.. checkpoints.Select(c => new KodoCheckpointEntry(c, marks.TryGetValue(c.LastSequence, out List<KodoAnchorMark>? list) ? list : []))];
+    }
+
+    /// <inheritdoc />
+    public async ValueTask RecordAnchorAsync(long checkpointSequence, string sinkId, DateTimeOffset anchoredAt, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(sinkId);
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(InsertAnchorSql);
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpointSequence });
+        cmd.Parameters.Add(new NpgsqlParameter { NpgsqlDbType = NpgsqlDbType.Text, Value = sinkId });
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = anchoredAt.ToUniversalTime().UtcTicks });
+        await cmd.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<KodoCheckpointProof> ProofFromCheckpointAsync(long sequence, CancellationToken cancellationToken)
+    {
+        if (sequence < 0)
+        {
+            return new KodoCheckpointProof(KodoCheckpointProofOutcome.NotCheckpointed);
+        }
+
+        KodoCheckpoint? checkpoint;
+        await using (NpgsqlCommand cmd = dataSource.CreateCommand(CoveringCheckpointSql))
+        {
+            cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = sequence });
+            await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            checkpoint = await reader.ReadAsync(cancellationToken).ConfigureAwait(false) ? ReadCheckpoint(reader) : null;
+        }
+
+        if (checkpoint is null)
+        {
+            return new KodoCheckpointProof(KodoCheckpointProofOutcome.NotCheckpointed);
+        }
+
+        List<KeyValuePair<long, byte[]>> hashes = [];
+        await using (NpgsqlCommand cmd = dataSource.CreateCommand(WindowHashesSql))
+        {
+            cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.FirstSequence });
+            cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = checkpoint.LastSequence });
+            await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                hashes.Add(new KeyValuePair<long, byte[]>(reader.GetInt64(0), reader.GetFieldValue<byte[]>(1)));
+            }
+        }
+
+        return KodoCheckpoints.BuildProof(sequence, checkpoint, hashes);
+    }
+
+    /// <inheritdoc />
+    public async ValueTask<long> PruneAnchoredAsync(DateTimeOffset olderThan, CancellationToken cancellationToken)
+    {
+        long cutoff = olderThan.ToUniversalTime().UtcTicks;
+        await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync(cancellationToken).ConfigureAwait(false);
+        await using NpgsqlTransaction transaction = await connection.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+
+        long? head, anchored;
+        await using (NpgsqlCommand headCommand = new(HeadSequenceSql, connection, transaction))
+        {
+            head = await headCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as long?;
+        }
+
+        await using (NpgsqlCommand anchoredCommand = new(NewestAnchoredSql, connection, transaction))
+        {
+            anchored = await anchoredCommand.ExecuteScalarAsync(cancellationToken).ConfigureAwait(false) as long?;
+        }
+
+        long deleted = 0;
+        long highest = head is { } h ? KodoPruneRule.HighestPrunable(h, anchored) : -1;
+        if (highest >= 0)
+        {
+            await using NpgsqlCommand journal = new(PruneAnchoredJournalSql, connection, transaction);
+            journal.Parameters.Add(new NpgsqlParameter<long> { TypedValue = cutoff });
+            journal.Parameters.Add(new NpgsqlParameter<long> { TypedValue = highest });
+            deleted = await journal.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await using (NpgsqlCommand state = new(PruneStateSql, connection, transaction))
+        {
+            state.Parameters.Add(new NpgsqlParameter<long> { TypedValue = cutoff });
+            await state.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        return deleted;
+    }
+
+    private async Task<IReadOnlyList<KodoCheckpoint>> ReadCheckpointsAsync(string sql, int limit, CancellationToken cancellationToken)
+    {
+        await using NpgsqlCommand cmd = dataSource.CreateCommand(sql);
+        cmd.Parameters.Add(new NpgsqlParameter<long> { TypedValue = limit });
+        List<KodoCheckpoint> list = [];
+        await using NpgsqlDataReader reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            list.Add(ReadCheckpoint(reader));
+        }
+
+        return list;
+    }
+
+    private static KodoCheckpoint ReadCheckpoint(NpgsqlDataReader r) => new()
+    {
+        LastSequence = r.GetInt64(0),
+        FirstSequence = r.GetInt64(1),
+        FirstAt = new DateTimeOffset(r.GetInt64(2), TimeSpan.Zero),
+        LastAt = new DateTimeOffset(r.GetInt64(3), TimeSpan.Zero),
+        CutAt = new DateTimeOffset(r.GetInt64(4), TimeSpan.Zero),
+        PreviousHead = r.GetFieldValue<byte[]>(5),
+        HeadHash = r.GetFieldValue<byte[]>(6),
+        Root = r.GetFieldValue<byte[]>(7),
+        Digest = r.GetFieldValue<byte[]>(8),
+        Signature = r.IsDBNull(9) ? null : r.GetFieldValue<byte[]>(9),
+        SignerId = r.IsDBNull(10) ? null : r.GetString(10),
+    };
 
     /// <summary>Adds the six array parameters of <see cref="InsertSql"/>, in column order.</summary>
     internal static void AddRecordArrays(NpgsqlCommand cmd, IReadOnlyList<JournalRecord> records)

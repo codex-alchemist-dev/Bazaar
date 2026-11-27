@@ -106,9 +106,31 @@ public static class KodoEndpoints
                 return Error(http, StatusCodes.Status400BadRequest, "bad_sequence", "sequence must be a whole number.", retryable: false);
             }
 
-            return await source.JournalProofAsync(number, cancellationToken).ConfigureAwait(false) is { } proof
-                ? Json(new KodoProofResponse(1, proof), KodoJsonContext.Default.KodoProofResponse)
-                : Error(http, StatusCodes.Status404NotFound, "proof_unavailable", "No proof is available for that record.", retryable: false);
+            KodoProofLookup lookup = await source.LookupJournalProofAsync(number, cancellationToken).ConfigureAwait(false);
+            return lookup switch
+            {
+                { Outcome: KodoProofOutcome.Found, View: { } proof } => Json(new KodoProofResponse(1, proof), KodoJsonContext.Default.KodoProofResponse),
+                { Outcome: KodoProofOutcome.Pruned } => Error(http, StatusCodes.Status410Gone, "record_pruned", "Retention removed that record. Its checkpoint root is kept (see journal/anchors), but inclusion can no longer be proven.", retryable: false),
+                { Outcome: KodoProofOutcome.Inconsistent } => Error(http, StatusCodes.Status409Conflict, "checkpoint_inconsistent", "The stored records do not match their checkpoint. Treat the journal as suspect.", retryable: false),
+                _ => Error(http, StatusCodes.Status404NotFound, "proof_unavailable", "No proof is available for that record.", retryable: false),
+            };
+        }));
+
+        guard(app.MapGet(Prefix + "/journal/anchors", async (IKodoStatusSource source, HttpContext http, string? limit, CancellationToken cancellationToken) =>
+        {
+            if (Gate(source, http) is { } refused)
+            {
+                return refused;
+            }
+
+            int count = DefaultEventLimit;
+            if (limit is not null && (!int.TryParse(limit, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out count) || count is < 1 or > 200))
+            {
+                return Error(http, StatusCodes.Status400BadRequest, "bad_limit", "limit must be a whole number from 1 to 200.", retryable: false);
+            }
+
+            IReadOnlyList<KodoCheckpointView> checkpoints = await source.JournalAnchorsAsync(count, cancellationToken).ConfigureAwait(false);
+            return Json(new KodoAnchorsResponse(1, checkpoints), KodoJsonContext.Default.KodoAnchorsResponse);
         }));
 
         return app;

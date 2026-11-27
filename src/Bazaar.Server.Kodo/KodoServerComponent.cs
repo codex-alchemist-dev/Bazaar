@@ -1,4 +1,5 @@
 using Bazaar.Core;
+using Bazaar.Kodo.Anchoring;
 using Bazaar.Kodo.Probes.Host;
 using Bazaar.Kodo.Settings;
 using Bazaar.Server.WebAdmin;
@@ -35,7 +36,7 @@ public static class KodoServiceCollectionExtensions
     /// <summary>
     /// Registers the Kodo monitor, its hosted loop, <see cref="IKodoStatusSource"/> and the <c>kodo</c> stream on <c>/ws</c> (gate and publisher). Reads <c>Bazaar:Kodo</c>: <c>Enabled</c>,
     /// <c>DataDirectory</c>, <c>TickSeconds</c>, <c>HeartbeatSeconds</c>, <c>NonCriticalGraceSeconds</c>, <c>JournalMemoryRecords</c>,
-    /// <c>DataVolumePath</c>, <c>IncludeClockDrift</c>, <c>UseJournalStore</c>, <c>JournalRetentionDays</c> and <c>Settings:&lt;kodo.key&gt;</c> for the section 20 catalogue. Bound by hand, no
+    /// <c>DataVolumePath</c>, <c>IncludeClockDrift</c>, <c>UseJournalStore</c>, <c>JournalRetentionDays</c>, <c>CheckpointsEnabled</c>, <c>CheckpointMaxRecords</c>, <c>CheckpointIntervalSeconds</c>, <c>AnchorRetrySeconds</c>, <c>AnchorFilePath</c> and <c>Settings:&lt;kodo.key&gt;</c> for the section 20 catalogue. Bound by hand, no
     /// reflection. With <c>Enabled</c> false nothing is registered that runs. Every registration is TryAdd, so a host or test can
     /// substitute first (a stream publisher, host readings, a clock).
     /// </summary>
@@ -67,13 +68,39 @@ public static class KodoServiceCollectionExtensions
             sp.GetRequiredService<IKodoStreamPublisher>(),
             sp.GetRequiredService<TimeProvider>(),
             sp.GetRequiredService<ILogger<KodoMonitor>>(),
-            sp.GetService<IKodoJournalStore>()));
+            sp.GetService<IKodoJournalStore>(),
+            options.CheckpointsEnabled ? sp.GetService<IKodoCheckpointStore>() : null));
         services.TryAddSingleton<IKodoStatusSource>(sp => sp.GetRequiredService<KodoMonitor>());
         services.AddSingleton<IStreamGate>(sp => new KodoStreamGate(
             sp.GetRequiredService<IKodoStatusSource>(),
             sp.GetRequiredService<IKodoStreamAccess>(),
             sp.GetRequiredService<TimeProvider>()));
         services.AddHostedService<KodoMonitorService>();
+        if (options.CheckpointsEnabled && options.UseJournalStore)
+        {
+            if (options.AnchorFilePath is { } anchorFile)
+            {
+                services.AddSingleton<IAnchorSink>(new FileAnchorSink(anchorFile));
+            }
+
+            services.AddHostedService(sp =>
+            {
+                IKodoJournalStore? journal = sp.GetService<IKodoJournalStore>();
+                IKodoCheckpointStore? checkpoints = sp.GetService<IKodoCheckpointStore>();
+                KodoCheckpointScheduler? scheduler = journal is null || checkpoints is null
+                    ? null
+                    : new KodoCheckpointScheduler(
+                        journal,
+                        checkpoints,
+                        sp.GetServices<IAnchorSink>(),
+                        new KodoCheckpointOptions { MaxRecords = options.CheckpointMaxRecords, Interval = options.CheckpointInterval, RetryInterval = options.AnchorRetryInterval },
+                        sp.GetRequiredService<TimeProvider>(),
+                        sp.GetRequiredService<ILogger<KodoCheckpointScheduler>>(),
+                        sp.GetService<IKodoCheckpointSigner>());
+                return new KodoCheckpointService(scheduler, options, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<KodoCheckpointService>>());
+            });
+        }
+
         return services;
     }
 
@@ -91,12 +118,31 @@ public static class KodoServiceCollectionExtensions
 
         // A value that does not parse, or that loosens a floor, is ignored (the default applies) and reported; the rest still apply.
         KodoSettingsResult result = KodoSettingsValidator.Validate(operatorValues);
+        List<string> errors = [.. result.Errors.Select(e => $"{e.Key}: {e.Message}")];
+        KodoCheckpointOptions checkpointDefaults = new();
+        KodoCheckpointOptions checkpoint = new()
+        {
+            MaxRecords = Int(s, "CheckpointMaxRecords", checkpointDefaults.MaxRecords),
+            Interval = Seconds(s, "CheckpointIntervalSeconds", checkpointDefaults.Interval),
+            RetryInterval = Seconds(s, "AnchorRetrySeconds", checkpointDefaults.RetryInterval),
+        };
+        if (!checkpoint.IsValid)
+        {
+            errors.Add("Checkpoint settings: a value is out of range (records 1 to 100000, interval 1 second to 24 hours, retry 1 second to 1 hour); the defaults apply.");
+            checkpoint = checkpointDefaults;
+        }
+
         return d with
         {
+            CheckpointsEnabled = Bool(s, "CheckpointsEnabled", d.CheckpointsEnabled),
+            CheckpointMaxRecords = checkpoint.MaxRecords,
+            CheckpointInterval = checkpoint.Interval,
+            AnchorRetryInterval = checkpoint.RetryInterval,
+            AnchorFilePath = string.IsNullOrWhiteSpace(s?["AnchorFilePath"]) ? d.AnchorFilePath : s["AnchorFilePath"],
             Enabled = Bool(s, "Enabled", d.Enabled),
             DataDirectory = string.IsNullOrWhiteSpace(s?["DataDirectory"]) ? d.DataDirectory : s["DataDirectory"],
             Settings = result.Settings,
-            SettingErrors = result.Errors.Select(e => $"{e.Key}: {e.Message}").ToArray(),
+            SettingErrors = errors,
             TickInterval = Seconds(s, "TickSeconds", d.TickInterval),
             HeartbeatInterval = Seconds(s, "HeartbeatSeconds", d.HeartbeatInterval),
             NonCriticalGrace = Seconds(s, "NonCriticalGraceSeconds", d.NonCriticalGrace),

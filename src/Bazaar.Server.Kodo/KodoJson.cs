@@ -11,6 +11,9 @@ internal sealed record KodoEventsResponse(int Schema, string? Head, IReadOnlyLis
 /// <summary>Merkle proof response.</summary>
 internal sealed record KodoProofResponse(int Schema, KodoJournalProofView Proof);
 
+/// <summary>Checkpoints with their anchor marks, newest first.</summary>
+internal sealed record KodoAnchorsResponse(int Schema, IReadOnlyList<KodoCheckpointView> Checkpoints);
+
 /// <summary>Source-generated JSON for the Kodo read endpoints (camelCase like the contracts, nulls kept out, no reflection).</summary>
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
@@ -18,4 +21,5 @@ internal sealed record KodoProofResponse(int Schema, KodoJournalProofView Proof)
 [JsonSerializable(typeof(KodoErrorResponse))]
 [JsonSerializable(typeof(KodoEventsResponse))]
 [JsonSerializable(typeof(KodoProofResponse))]
+[JsonSerializable(typeof(KodoAnchorsResponse))]
 internal sealed partial class KodoJsonContext : JsonSerializerContext;
