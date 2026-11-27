@@ -8,6 +8,9 @@
     <Project Path="src/Bazaar.Client.TalentLibrary.Avalonia/Bazaar.Client.TalentLibrary.Avalonia.csproj" />
     <Project Path="src/Bazaar.Client.TalentLibrary.Http/Bazaar.Client.TalentLibrary.Http.csproj" />
     <Project Path="src/Bazaar.Client.TalentLibrary/Bazaar.Client.TalentLibrary.csproj" />
+    <Project Path="tests/Bazaar.Client.OwnerId.Tests/Bazaar.Client.OwnerId.Tests.csproj" />
+    <Project Path="src/Bazaar.Client.OwnerId.Avalonia/Bazaar.Client.OwnerId.Avalonia.csproj" />
+    <Project Path="src/Bazaar.Client.OwnerId/Bazaar.Client.OwnerId.csproj" />
     <Project Path="src/Bazaar.Client.Panes.Abstractions/Bazaar.Client.Panes.Abstractions.csproj" />
     <Project Path="src/Bazaar.Client.Core/Bazaar.Client.Core.csproj" />
     <Project Path="src/Bazaar.Client.Mobile/Bazaar.Client.Mobile.csproj" />
