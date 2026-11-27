@@ -25,10 +25,15 @@ public static class GitCommand
     /// <param name="workTree">Optional work tree.</param>
     /// <param name="gitPath">Absolute path of the git executable (<see cref="SealedGitOptions.GitPath"/>); null resolves <c>git</c> on PATH.</param>
     /// <param name="cancellationToken">On cancellation the whole git process tree is killed before this returns.</param>
-    public static async Task<GitResult> RunAsync(string gitDir, IReadOnlyList<string> args, string? workTree = null, string? gitPath = null, CancellationToken cancellationToken = default)
+    public static Task<GitResult> RunAsync(string gitDir, IReadOnlyList<string> args, string? workTree = null, string? gitPath = null, CancellationToken cancellationToken = default)
     {
         var parent = Path.GetDirectoryName(Path.GetFullPath(gitDir)) ?? Path.GetFullPath(gitDir);
-        var noHooks = Path.Combine(parent, ".nohooks");
+        return RunWithHooksDirAsync(gitDir, args, workTree, gitPath, Path.Combine(parent, ".nohooks"), cancellationToken);
+    }
+
+    /// <summary>As <see cref="RunAsync"/>, with the empty hooks folder at <paramref name="noHooks"/> (used where the git dir's parent is a working tree).</summary>
+    internal static async Task<GitResult> RunWithHooksDirAsync(string gitDir, IReadOnlyList<string> args, string? workTree, string? gitPath, string noHooks, CancellationToken cancellationToken)
+    {
         Directory.CreateDirectory(noHooks);
 
         var psi = new ProcessStartInfo(gitPath ?? "git")

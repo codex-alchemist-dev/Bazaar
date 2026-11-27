@@ -231,6 +231,29 @@ public sealed class SealedStoreTests : IDisposable
         Assert.Empty(await fresh.ListAsync());
     }
 
+    [Fact]
+    public async Task A_scope_that_fails_verification_can_still_be_force_shredded()
+    {
+        var store = Store();
+        using (var scope = await store.OpenScopeAsync("soul:1"))
+        {
+            await scope.WriteAsync("a.md", Bytes(_canary));
+        }
+
+        foreach (var file in Directory.GetFiles(ScopeDir()).Where(f => !f.EndsWith("scope.key", StringComparison.Ordinal) && !f.EndsWith(".lock", StringComparison.Ordinal) && !f.EndsWith(".lease", StringComparison.Ordinal) && !f.EndsWith(".bzs", StringComparison.Ordinal)))
+        {
+            File.WriteAllBytes(file, [1, 2, 3]);
+        }
+
+        await Assert.ThrowsAsync<SealTamperedException>(async () => await store.OpenScopeAsync("soul:1"));
+
+        await store.ForceShredScopeAsync("soul:1");
+
+        Assert.Empty(Directory.GetDirectories(Path.Combine(_dir, "root")));
+        Assert.Null(await _anchor.GetAsync("soul:1", CancellationToken.None));
+        Assert.Contains(_audit.Events, e => e.Kind == "seal.shred");
+    }
+
     [Theory]
     [InlineData("../x")]
     [InlineData("/abs")]

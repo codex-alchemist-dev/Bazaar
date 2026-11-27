@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Browser.Abstractions\Bazaar.Server.Browser.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedGit.Abstractions\Bazaar.Server.SealedGit.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedStorage.Abstractions\Bazaar.Server.SealedStorage.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedStorage\Bazaar.Server.SealedStorage.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedPassport.Abstractions\Bazaar.Server.SealedPassport.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedPassport\Bazaar.Server.SealedPassport.csproj" />
+  </ItemGroup>
+</Project>

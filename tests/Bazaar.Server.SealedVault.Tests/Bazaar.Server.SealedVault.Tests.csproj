@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net11.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <NoWarn>$(NoWarn);xUnit1051</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="xunit.v3.mtp-v2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+  <!-- Bazaar.Server is referenced only for the real LibGit2 provider the module decorates; the module itself never references it. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server\Bazaar.Server.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.Identity.Kek\Bazaar.Server.Identity.Kek.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedGit.Abstractions\Bazaar.Server.SealedGit.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedGit\Bazaar.Server.SealedGit.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedStorage.Abstractions\Bazaar.Server.SealedStorage.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedStorage\Bazaar.Server.SealedStorage.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedVault.Abstractions\Bazaar.Server.SealedVault.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Server.SealedVault\Bazaar.Server.SealedVault.csproj" />
+    <ProjectReference Include="..\..\src\Bazaar.Vault.Abstractions\Bazaar.Vault.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

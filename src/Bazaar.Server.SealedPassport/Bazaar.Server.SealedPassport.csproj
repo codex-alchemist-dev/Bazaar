@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <PackageLicenseExpression>AGPL-3.0-only</PackageLicenseExpression>
+    <RootNamespace>Bazaar.Server.SealedPassport</RootNamespace>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bazaar.Server.SealedPassport.Tests" />
+  </ItemGroup>
+  <!-- Placement rule (docs/design/40): a module never references Bazaar.Server. The legacy in-memory profile store there is replaced through
+       the Browser module's ports (IBrowserProfileDirectory, IBrowserCookieSource), not by adding code to Bazaar.Server. -->
+  <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Core\Bazaar.Core.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.Browser.Abstractions\Bazaar.Server.Browser.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SealedPassport.Abstractions\Bazaar.Server.SealedPassport.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SealedGit.Abstractions\Bazaar.Server.SealedGit.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SealedStorage.Abstractions\Bazaar.Server.SealedStorage.Abstractions.csproj" />
+    <ProjectReference Include="..\Bazaar.Server.SealedStorage\Bazaar.Server.SealedStorage.csproj" />
+  </ItemGroup>
+</Project>
