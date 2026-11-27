@@ -21,7 +21,8 @@ public class KodoSurfaceTests
         FakeTimeProvider time,
         Dictionary<string, string?>? config = null,
         RecordingPublisher? publisher = null,
-        Func<Microsoft.AspNetCore.Builder.RouteHandlerBuilder, Microsoft.AspNetCore.Builder.RouteHandlerBuilder>? guard = null)
+        Func<Microsoft.AspNetCore.Builder.RouteHandlerBuilder, Microsoft.AspNetCore.Builder.RouteHandlerBuilder>? guard = null,
+        IKodoJournalStore? store = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseUrls("http://127.0.0.1:0");
@@ -30,6 +31,11 @@ public class KodoSurfaceTests
         if (publisher is not null)
         {
             builder.Services.AddSingleton<IKodoStreamPublisher>(publisher);
+        }
+
+        if (store is not null)
+        {
+            builder.Services.AddSingleton(store);
         }
 
         builder.Services.AddBazaarKodo(new ConfigurationBuilder().AddInMemoryCollection(config ?? []).Build());
@@ -101,6 +107,12 @@ public class KodoSurfaceTests
     [InlineData("/api/kodo/v1/events?limit=0")]
     [InlineData("/api/kodo/v1/events?limit=201")]
     [InlineData("/api/kodo/v1/events?limit=abc")]
+    [InlineData("/api/kodo/v1/history?limit=0")]
+    [InlineData("/api/kodo/v1/history?limit=201")]
+    [InlineData("/api/kodo/v1/history?limit=abc")]
+    [InlineData("/api/kodo/v1/history?cursor=abc")]
+    [InlineData("/api/kodo/v1/history?cursor=-1")]
+    [InlineData("/api/kodo/v1/history?at=2026-11-22T12:00:00Z")]
     [InlineData("/api/kodo/v1/journal/proof/abc")]
     public async Task Malformed_input_is_a_400_with_the_error_shape(string path)
     {
@@ -112,6 +124,76 @@ public class KodoSurfaceTests
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
         using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(Ct));
         Assert.False(doc.RootElement.GetProperty("retryable").GetBoolean());
+    }
+
+    [Fact]
+    public async Task History_reads_the_state_changes_from_the_store_newest_first_and_pages_by_cursor()
+    {
+        var store = new FakeJournalStore();
+        for (int i = 1; i <= 5; i++)
+        {
+            store.StateChanges.Add(new KodoStateChange(i * 10, Make.Start.AddMinutes(i), "healthy", "degraded"));
+        }
+
+        await using var app = await StartAsync(new FakeReadings(), Make.Clock(), store: store);
+        using var http = Client(app);
+
+        using var first = JsonDocument.Parse(await http.GetStringAsync("/api/kodo/v1/history?limit=2", Ct));
+        var entries = first.RootElement.GetProperty("entries");
+        Assert.Equal([50L, 40L], entries.EnumerateArray().Select(e => e.GetProperty("sequence").GetInt64()));
+        Assert.Equal("healthy", entries[0].GetProperty("from").GetString());
+        Assert.Equal("degraded", entries[0].GetProperty("to").GetString());
+        string cursor = first.RootElement.GetProperty("nextCursor").GetString()!;
+
+        using var second = JsonDocument.Parse(await http.GetStringAsync($"/api/kodo/v1/history?limit=10&cursor={cursor}", Ct));
+        Assert.Equal([30L, 20L, 10L], second.RootElement.GetProperty("entries").EnumerateArray().Select(e => e.GetProperty("sequence").GetInt64()));
+        Assert.False(second.RootElement.TryGetProperty("nextCursor", out _));
+        Assert.Equal(2, store.HistoryCalls);
+    }
+
+    [Fact]
+    public async Task History_without_a_store_falls_back_to_the_state_records_in_memory_and_carries_no_payload_or_paths()
+    {
+        var readings = new FakeReadings();
+        var time = Make.Clock();
+        await using var app = await StartAsync(readings, time);
+        var monitor = app.Services.GetRequiredService<KodoMonitor>();
+        await monitor.RunCycleAsync(Ct);
+        readings.DiskUsedPercent = 97;
+        time.Advance(TimeSpan.FromMinutes(1));
+        await monitor.RunCycleAsync(Ct);
+        using var http = Client(app);
+
+        var text = await http.GetStringAsync("/api/kodo/v1/history", Ct);
+
+        using var doc = JsonDocument.Parse(text);
+        var entries = doc.RootElement.GetProperty("entries");
+        Assert.True(entries.GetArrayLength() >= 1);
+        Assert.Equal("failing", entries[0].GetProperty("to").GetString());
+        Assert.DoesNotContain("payload", text);
+        Assert.DoesNotContain(AppContext.BaseDirectory, text);
+    }
+
+    [Fact]
+    public async Task History_merges_records_the_store_has_not_received_yet_and_survives_a_database_outage()
+    {
+        var readings = new FakeReadings();
+        var time = Make.Clock();
+        var store = new FakeJournalStore();
+        await using var app = await StartAsync(readings, time, store: store);
+        var monitor = app.Services.GetRequiredService<KodoMonitor>();
+        await monitor.RunCycleAsync(Ct);
+        store.Down = true;
+        readings.DiskUsedPercent = 97;
+        time.Advance(TimeSpan.FromMinutes(1));
+        await monitor.RunCycleAsync(Ct);
+        using var http = Client(app);
+
+        using var res = await http.GetAsync("/api/kodo/v1/history", Ct);
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(Ct));
+        Assert.Equal("failing", doc.RootElement.GetProperty("entries")[0].GetProperty("to").GetString());
     }
 
     [Fact]
@@ -148,7 +230,7 @@ public class KodoSurfaceTests
                 ctx.HttpContext.Request.Headers.ContainsKey("X-Test-Auth") ? await next(ctx) : Microsoft.AspNetCore.Http.Results.StatusCode(401)));
         using var http = Client(app);
 
-        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/journal/proof/0" })
+        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/history", "/api/kodo/v1/journal/proof/0" })
         {
             using var res = await http.GetAsync(path, Ct);
             Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
@@ -172,7 +254,7 @@ public class KodoSurfaceTests
         Assert.Equal(0, readings.MemoryReads);
         Assert.Empty(publisher.Events);
         using var http = Client(app);
-        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/journal/proof/0" })
+        foreach (var path in new[] { "/api/kodo/v1/status", "/api/kodo/v1/events", "/api/kodo/v1/history", "/api/kodo/v1/journal/proof/0" })
         {
             using var res = await http.GetAsync(path, Ct);
             Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);

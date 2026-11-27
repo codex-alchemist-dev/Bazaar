@@ -55,6 +55,45 @@ public static class KodoEndpoints
             return Json(new KodoEventsResponse(1, entries.Count == 0 ? null : entries[0].Hash, entries), KodoJsonContext.Default.KodoEventsResponse);
         }));
 
+        guard(app.MapGet(Prefix + "/history", async (IKodoStatusSource source, HttpContext http, string? limit, string? cursor, string? at, CancellationToken cancellationToken) =>
+        {
+            if (Gate(source, http) is { } refused)
+            {
+                return refused;
+            }
+
+            if (at is not null)
+            {
+                return Error(http, StatusCodes.Status400BadRequest, "at_not_supported", "Reading the state at a time is not available yet; page the changes with limit and cursor.", retryable: false);
+            }
+
+            int count = DefaultEventLimit;
+            if (limit is not null && (!int.TryParse(limit, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out count) || count is < 1 or > 200))
+            {
+                return Error(http, StatusCodes.Status400BadRequest, "bad_limit", "limit must be a whole number from 1 to 200.", retryable: false);
+            }
+
+            long? before = null;
+            if (cursor is not null)
+            {
+                if (!long.TryParse(cursor, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long parsed))
+                {
+                    return Error(http, StatusCodes.Status400BadRequest, "bad_cursor", "cursor must be a value from a previous response.", retryable: false);
+                }
+
+                before = parsed;
+            }
+
+            IReadOnlyList<KodoStateChange> changes = await source.StateHistoryAsync(before, count, cancellationToken).ConfigureAwait(false);
+            KodoStateHistoryEntryDto[] entries = [.. changes.Select(change => new KodoStateHistoryEntryDto(change.Sequence, change.At, change.From, change.To))];
+
+            // A full page may have more behind it; a short one is the end. The cursor is the last sequence returned.
+            string? next = entries.Length == count ? entries[^1].Sequence.ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+            return Results.Text(
+                JsonSerializer.Serialize(new KodoStateHistoryDto(1, entries, next), KodoContractsJsonContext.Default.KodoStateHistoryDto),
+                "application/json");
+        }));
+
         guard(app.MapGet(Prefix + "/journal/proof/{sequence}", async (IKodoStatusSource source, HttpContext http, string sequence, CancellationToken cancellationToken) =>
         {
             if (Gate(source, http) is { } refused)

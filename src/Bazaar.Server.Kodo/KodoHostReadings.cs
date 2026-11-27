@@ -31,11 +31,15 @@ internal sealed class KodoHostReadings(KodoServerOptions options) : IHostReading
 
 /// <summary>
 /// The self readings: the journal writer's own state and, when a durable store is wired, the age of the oldest record not yet in it.
-/// With no store there is no unsent backlog, so the spill reading is none (green).
+/// With no store there is no unsent backlog, so the spill reading is none (green), unless the spill file itself cannot be read.
 /// </summary>
 internal sealed class KodoSelfReadings(KodoJournal journal, KodoJournalSync? sync = null) : IKodoSelfReadings
 {
     public Task<bool> CanWriteJournalAsync(CancellationToken cancellationToken) => Task.FromResult(journal.CheckWritable());
 
-    public Task<SpillFileReading?> ReadSpillFileAsync(CancellationToken cancellationToken) => Task.FromResult(sync?.ReadSpill());
+    public Task<SpillFileReading?> ReadSpillFileAsync(CancellationToken cancellationToken) =>
+        // A spill file that cannot be opened (unreadable, or its chain is broken) is never green: the probe turns this into red.
+        journal.CheckSpillReadable()
+            ? Task.FromResult(sync?.ReadSpill())
+            : throw new IOException("The journal spill file cannot be read.");
 }

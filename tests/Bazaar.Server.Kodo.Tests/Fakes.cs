@@ -144,8 +144,20 @@ internal sealed class FakeJournalStore : IKodoJournalStore
 
     public ValueTask<KodoStoredSnapshot?> GetSnapshotAsync(CancellationToken cancellationToken) => ValueTask.FromResult(Snapshot);
 
+    public List<KodoStateChange> StateChanges { get; } = [];
+
+    public int HistoryCalls { get; private set; }
+
     public ValueTask<IReadOnlyList<KodoStateChange>> RecentStateChangesAsync(int limit, CancellationToken cancellationToken) =>
-        ValueTask.FromResult<IReadOnlyList<KodoStateChange>>([]);
+        ValueTask.FromResult<IReadOnlyList<KodoStateChange>>([.. StateChanges.OrderByDescending(c => c.Sequence).Take(limit)]);
+
+    public ValueTask<IReadOnlyList<KodoStateChange>> ReadStateChangesAsync(long? beforeSequence, int limit, CancellationToken cancellationToken)
+    {
+        CheckUp();
+        HistoryCalls++;
+        return ValueTask.FromResult<IReadOnlyList<KodoStateChange>>(
+            [.. StateChanges.Where(c => beforeSequence is null || c.Sequence < beforeSequence).OrderByDescending(c => c.Sequence).Take(limit)]);
+    }
 
     private void CheckUp()
     {

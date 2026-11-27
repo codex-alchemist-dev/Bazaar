@@ -40,6 +40,23 @@ public class PgKodoJournalSqlTests
     }
 
     [Fact]
+    public void The_history_page_is_newest_first_bounded_and_takes_an_optional_exclusive_upper_sequence()
+    {
+        Assert.Contains("ORDER BY sequence DESC LIMIT $2", PgKodoJournalStore.StateChangePageSql);
+        Assert.Contains("sequence < $1", PgKodoJournalStore.StateChangePageSql);
+        using NpgsqlCommand open = new(PgKodoJournalStore.StateChangePageSql);
+        using NpgsqlCommand bounded = new(PgKodoJournalStore.StateChangePageSql);
+
+        PgKodoJournalStore.AddStateChangePageParameters(open, null, 50);
+        PgKodoJournalStore.AddStateChangePageParameters(bounded, 120, 10);
+
+        Assert.Equal(2, open.Parameters.Count);
+        Assert.Equal(DBNull.Value, open.Parameters[0].Value);
+        Assert.Equal(120L, bounded.Parameters[0].Value);
+        Assert.Equal(10L, ((NpgsqlParameter<long>)bounded.Parameters[1]).TypedValue);
+    }
+
+    [Fact]
     public void The_exact_ticks_are_stored_because_a_microsecond_column_would_break_the_hash()
     {
         List<JournalRecord> records = Chains.Build(1);

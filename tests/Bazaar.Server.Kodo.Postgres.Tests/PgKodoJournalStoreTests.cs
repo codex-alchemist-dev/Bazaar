@@ -142,6 +142,25 @@ public class PgKodoJournalStoreTests
     }
 
     [Fact]
+    public async Task The_state_history_pages_newest_first_below_a_cursor()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await OpenAsync(ct);
+        PgKodoJournalStore store = new(db.DataSource);
+        List<JournalRecord> first = Chains.Build(1, kind: "state", summary: _ => "state healthy -> degraded");
+        List<JournalRecord> second = Chains.Build(1, firstSequence: 1, previous: first[0].Hash, kind: "state", summary: _ => "state degraded -> failing");
+        List<JournalRecord> third = Chains.Build(1, firstSequence: 2, previous: second[0].Hash, kind: "state", summary: _ => "state failing -> recovering");
+        await store.AppendAsync([.. first, .. second, .. third], ct);
+
+        IReadOnlyList<KodoStateChange> newest = await store.ReadStateChangesAsync(null, 2, ct);
+        IReadOnlyList<KodoStateChange> older = await store.ReadStateChangesAsync(newest[^1].Sequence, 2, ct);
+
+        Assert.Equal(["recovering", "failing"], newest.Select(c => c.To));
+        Assert.Equal(["degraded"], older.Select(c => c.To));
+        Assert.Empty(await store.ReadStateChangesAsync(0, 2, ct));
+    }
+
+    [Fact]
     public async Task The_snapshot_is_replaced_in_place_and_reads_back()
     {
         var ct = TestContext.Current.CancellationToken;
