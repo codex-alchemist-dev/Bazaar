@@ -5,6 +5,7 @@
     <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Bazaar.Contracts\Bazaar.Contracts.csproj" />
     <ProjectReference Include="..\Bazaar.Server.Sanitization.Abstractions\Bazaar.Server.Sanitization.Abstractions.csproj" />
   </ItemGroup>
 </Project>

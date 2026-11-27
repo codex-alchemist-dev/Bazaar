@@ -15,9 +15,12 @@ public sealed class PsychWardService(
     PsychWardSettings settings,
     TimeProvider? time = null,
     IWardStateSink? presence = null,
-    Action<Exception>? onPresenceFailure = null) : IPsychWardService, IDisposable
+    Action<Exception>? onPresenceFailure = null,
+    IWardJournal? journal = null,
+    IWardAvailabilityProbe? availability = null) : IPsychWardService, IDisposable
 {
     private readonly TimeProvider _time = time ?? TimeProvider.System;
+    private readonly IWardJournal _journal = journal ?? new NoOpWardJournal();
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly PsychWardSettings _settings = Validated(settings);
 
@@ -63,7 +66,8 @@ public sealed class PsychWardService(
                 return WardOutcome.Refuse("Admission is owner-only; the owner must admit this agent.", current);
             }
 
-            var stay = new WardStay(Guid.CreateVersion7(), agentId, trigger, detail, _time.GetUtcNow());
+            var admittedAt = await AdmissionTimeAsync(agentId, trigger, cancellationToken).ConfigureAwait(false);
+            var stay = new WardStay(Guid.CreateVersion7(), agentId, trigger, detail, admittedAt);
             try
             {
                 await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
@@ -74,14 +78,30 @@ public sealed class PsychWardService(
                 return WardOutcome.Refuse("The agent is already admitted.", winner);
             }
 
-            await stays.SaveAsync(stay, cancellationToken).ConfigureAwait(false);
             await ReportStayAsync(stay, cancellationToken).ConfigureAwait(false);
+            await _journal.AdmittedAsync(stay, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(stay);
         }
         finally
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// When the stay counts from. An owner referral and <c>admit_now</c> count from now. Under <c>queue_next_shift</c>, an
+    /// admission during the agent's curfew counts from its next shift start; restrictions still apply at once.
+    /// </summary>
+    private async Task<DateTimeOffset> AdmissionTimeAsync(Guid agentId, WardTrigger trigger, CancellationToken ct)
+    {
+        var now = _time.GetUtcNow();
+        if (availability is null || trigger is WardTrigger.OwnerReferral || _settings.CurfewBehaviour != WardCurfewBehaviour.QueueNextShift)
+        {
+            return now;
+        }
+
+        var curfew = await availability.GetCurfewAsync(agentId, ct).ConfigureAwait(false);
+        return curfew is { InCurfew: true, NextShiftStartsAt: { } next } && next > now ? next : now;
     }
 
     /// <inheritdoc />
@@ -100,6 +120,7 @@ public sealed class PsychWardService(
 
             var updated = current with { CheckIn = checkIn };
             await stays.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
+            await _journal.CheckedInAsync(updated, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(updated);
         }
         finally
@@ -145,6 +166,7 @@ public sealed class PsychWardService(
             var updated = current with { DischargedAt = now, ReviewerId = request.IsOwner ? null : request.ReviewerId };
             await stays.SaveAsync(updated, cancellationToken).ConfigureAwait(false);
             await ReportStayAsync(updated, cancellationToken).ConfigureAwait(false);
+            await _journal.DischargedAsync(updated, cancellationToken).ConfigureAwait(false);
             return WardOutcome.Accept(updated);
         }
         finally

@@ -93,6 +93,7 @@ public static class AgentSafetyModule
                 : new UnavailableGuestScrubber()));
 
         services.AddAgentSafety(configuration);
+        services.TryAddSingleton<ICanarySink, CanaryContainmentSink>();
         services.AddHostedService<KillSwitchStartupGate>();
 
         // After the gate: re-applies containment for agents that were contained before this start.
