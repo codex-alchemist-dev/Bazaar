@@ -105,6 +105,7 @@ app.MapBazaarCompanyReadRoutes();
 app.MapBazaarApprovalRoutes(HttpSurfaceEndpoints.Guarded);
 app.MapCommunityLog();
 app.MapBazaarTalentToolGrants(route => route.RequireBazaarAuth());
+app.MapBazaarTalentLibrary(route => route.RequireBazaarAuth());
 app.MapCommunityDraftDecision();
 app.MapCommunityDraftReads();
 app.MapBazaarAnalytics(AnalyticsHostAuth.ResolveAsync);
