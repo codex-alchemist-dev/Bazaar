@@ -275,6 +275,7 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
             revision => KodoStatusSnapshotBuilder.Build(evaluation, observation, score, components, revision, now, head),
             now);
         Volatile.Write(ref _latest, snapshotEvent.Snapshot);
+        WriteSnapshotFile(snapshotEvent.Snapshot);
         if (_sync is not null)
         {
             await SyncStepAsync((sync, token) => sync.SyncAsync(snapshotEvent.Snapshot, token), ct).ConfigureAwait(false);
@@ -283,6 +284,32 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
         foreach (KodoStreamEventDto streamEvent in events)
         {
             await PublishAsync(streamEvent, ct).ConfigureAwait(false);
+        }
+    }
+
+    // The snapshot file is how the resident TUI, a separate process, reads Kodo (doc 58 section 3). A write failure never stops a pass;
+    // it is logged once until a write succeeds again.
+    private bool _snapshotFileFailing;
+
+    private void WriteSnapshotFile(KodoStatusSnapshotDto? snapshot)
+    {
+        if (_options.SnapshotFile is not { Length: > 0 } path || snapshot is null)
+        {
+            return;
+        }
+
+        try
+        {
+            KodoSnapshotFile.Write(path, snapshot);
+            _snapshotFileFailing = false;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            if (!_snapshotFileFailing)
+            {
+                _snapshotFileFailing = true;
+                LogSnapshotFileFailed(_logger, error);
+            }
         }
     }
 
@@ -421,6 +448,9 @@ internal sealed partial class KodoMonitor : IKodoStatusSource, IDisposable
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store could not answer a state history request; the memory journal answers instead.")]
     private static partial void LogHistoryStoreFailed(ILogger logger, Exception error);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo snapshot file could not be written; the resident TUI will show Kodo as silent.")]
+    private static partial void LogSnapshotFileFailed(ILogger logger, Exception error);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "The Kodo journal store could not answer a proof request.")]
     private static partial void LogProofStoreFailed(ILogger logger, Exception error);
