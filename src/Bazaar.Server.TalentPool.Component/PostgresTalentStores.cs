@@ -53,6 +53,21 @@ public sealed class PostgresTalentTemplateStore(NpgsqlDataSource dataSource) : I
         return list;
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<TalentTemplate>> ListVersionsAsync(string templateId, CancellationToken ct)
+    {
+        await using var cmd = dataSource.CreateCommand($"SELECT {_columns} FROM talent_template WHERE template_id = $1 ORDER BY version");
+        cmd.Parameters.AddWithValue(templateId);
+        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
+        var list = new List<TalentTemplate>();
+        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        {
+            list.Add(Read(reader));
+        }
+
+        return list;
+    }
+
     private static TalentTemplate Read(NpgsqlDataReader r) => new(
         r.GetString(0),
         r.GetInt32(1),
