@@ -37,6 +37,7 @@ public sealed class EmbeddingsComponent : IBazaarComponent
         services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISettingContribution, EmbeddingSettingContribution>());
         services.TryAddSingleton<IEmbeddingSettingSource, DefaultEmbeddingSettingSource>();
+        services.TryAddSingleton<IEmbeddingSwitchSettingSource, DefaultEmbeddingSwitchSettingSource>();
         services.TryAddSingleton<IEmbeddingProviderRegistry>(sp => new EmbeddingProviderRegistry(
             sp.GetRequiredService<IOptions<EmbeddingOptions>>(),
             sp.GetService<Bazaar.Server.Gateway.IModelGateway>(),
@@ -45,11 +46,22 @@ public sealed class EmbeddingsComponent : IBazaarComponent
         services.TryAddSingleton<IActiveEmbeddingSelector, ActiveEmbeddingSelector>();
         services.TryAddSingleton<IEmbeddingIndexStore, PostgresEmbeddingIndexStore>();
         services.TryAddSingleton<IPersonalDataBlockDetector, FencedPersonalDataBlockDetector>();
+        services.TryAddSingleton(sp => new ProfileSwitchPlanner(
+            sp.GetRequiredService<IEmbeddingSettingSource>(),
+            sp.GetRequiredService<IEmbeddingProfileStore>(),
+            sp.GetRequiredService<IEmbeddingProviderRegistry>()));
+        services.TryAddSingleton<EmbeddingStatusTracker>();
+        services.TryAddSingleton<IEmbeddingStatus>(sp => sp.GetRequiredService<EmbeddingStatusTracker>());
         services.TryAddSingleton(sp => new EmbeddingIndexer(
             sp.GetRequiredService<IActiveEmbeddingSelector>(),
             sp.GetRequiredService<IEmbeddingIndexStore>(),
             sp.GetRequiredService<IPersonalDataBlockDetector>(),
-            Math.Max(1, sp.GetRequiredService<IOptions<EmbeddingOptions>>().Value.IndexerBatchSize)));
+            Math.Max(1, sp.GetRequiredService<IOptions<EmbeddingOptions>>().Value.IndexerBatchSize),
+            sp.GetRequiredService<ProfileSwitchPlanner>(),
+            sp.GetRequiredService<IEmbeddingProfileStore>(),
+            sp.GetRequiredService<IEmbeddingSwitchSettingSource>(),
+            sp.GetRequiredService<EmbeddingStatusTracker>(),
+            sp.GetService<Microsoft.Extensions.Logging.ILogger<EmbeddingIndexer>>()));
         services.AddHostedService<EmbeddingIndexerService>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<ISetupStep, EmbeddingSetupStep>());
     }

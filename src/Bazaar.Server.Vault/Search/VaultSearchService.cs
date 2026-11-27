@@ -32,9 +32,10 @@ public sealed class VaultSearchService(
             query.VaultId, query.Text, query.Caller, query.Project, query.Type, pool, cancellationToken).ConfigureAwait(false);
 
         var vector = Array.Empty<VaultBlockRow>();
-        if (embedder is not null)
+        var embedderAvailable = embedder is { IsAvailable: true };
+        if (embedderAvailable)
         {
-            var queryVector = await embedder.EmbedAsync(query.Text, cancellationToken).ConfigureAwait(false);
+            var queryVector = await embedder!.EmbedAsync(query.Text, cancellationToken).ConfigureAwait(false);
             ValidateVector(queryVector);
             vector = (await repository.VectorCandidatesAsync(
                 query.VaultId, embedder.ProfileId, queryVector, query.Caller, query.Project, query.Type, pool, cancellationToken)
@@ -73,7 +74,7 @@ public sealed class VaultSearchService(
         }
 
         var indexedCommit = await repository.GetIndexedCommitAsync(query.VaultId, cancellationToken).ConfigureAwait(false);
-        return new VaultSearchResult(cards, LexicalOnly: embedder is null, IndexedCommit: indexedCommit);
+        return new VaultSearchResult(cards, LexicalOnly: !embedderAvailable, IndexedCommit: indexedCommit);
     }
 
     /// <summary>

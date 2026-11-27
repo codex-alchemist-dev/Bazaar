@@ -73,14 +73,25 @@ internal sealed class FakeRegistry(params (string Id, IEmbeddingProvider Provide
     public bool TryGet(string providerId, out IEmbeddingProvider provider) => _map.TryGetValue(providerId, out provider!);
 }
 
-/// <summary>In-memory stand-in for the two Vault tables: blocks, and embeddings keyed by (doc, ordinal).</summary>
+/// <summary>In-memory stand-in for the two Vault tables: blocks, and embeddings keyed by (profile, doc, ordinal).</summary>
 internal sealed class InMemoryIndexStore : IEmbeddingIndexStore
 {
     public List<PendingBlock> Blocks { get; } = [];
 
-    public Dictionary<(Guid Doc, int Ordinal), byte[]> Stored { get; } = [];
+    public Dictionary<(Guid Profile, Guid Doc, int Ordinal), byte[]> ByProfile { get; } = [];
+
+    /// <summary>Every stored row across profiles, keyed by (doc, ordinal); for tests that use one profile.</summary>
+    public Dictionary<(Guid Doc, int Ordinal), byte[]> Stored =>
+        ByProfile.GroupBy(kv => (kv.Key.Doc, kv.Key.Ordinal)).ToDictionary(g => g.Key, g => g.First().Value);
 
     public int ListCalls { get; private set; }
+
+    public List<Guid> UpsertedProfiles { get; } = [];
+
+    public int StoredFor(Guid profileId) => ByProfile.Keys.Count(k => k.Profile == profileId);
+
+    private bool Current(Guid profileId, PendingBlock b) =>
+        ByProfile.TryGetValue((profileId, b.DocId, b.Ordinal), out var hash) && hash.AsSpan().SequenceEqual(b.TextHash);
 
     public Task<IReadOnlyList<PendingBlock>> ListPendingAsync(Guid profileId, BlockCursor? after, int limit, CancellationToken cancellationToken)
     {
@@ -88,7 +99,7 @@ internal sealed class InMemoryIndexStore : IEmbeddingIndexStore
         IReadOnlyList<PendingBlock> page = Blocks
             .OrderBy(b => b.DocId).ThenBy(b => b.Ordinal)
             .Where(b => after is null || b.DocId.CompareTo(after.DocId) > 0 || (b.DocId == after.DocId && b.Ordinal > after.Ordinal))
-            .Where(b => !Stored.TryGetValue((b.DocId, b.Ordinal), out var hash) || !hash.AsSpan().SequenceEqual(b.TextHash))
+            .Where(b => !Current(profileId, b))
             .Take(limit)
             .ToArray();
         return Task.FromResult(page);
@@ -96,12 +107,19 @@ internal sealed class InMemoryIndexStore : IEmbeddingIndexStore
 
     public Task<int> UpsertAsync(Guid profileId, IReadOnlyList<EmbeddedBlock> embeddings, CancellationToken cancellationToken)
     {
+        UpsertedProfiles.Add(profileId);
         foreach (var e in embeddings)
         {
-            Stored[(e.DocId, e.Ordinal)] = e.TextHash;
+            ByProfile[(profileId, e.DocId, e.Ordinal)] = e.TextHash;
         }
 
         return Task.FromResult(embeddings.Count);
+    }
+
+    public Task<EmbeddingCoverage> CountCoverageAsync(Guid profileId, IPersonalDataBlockDetector personalData, CancellationToken cancellationToken)
+    {
+        var embeddable = Blocks.Where(b => !personalData.IsPersonalData(b.Body)).ToArray();
+        return Task.FromResult(new EmbeddingCoverage(profileId, embeddable.Count(b => Current(profileId, b)), embeddable.Length));
     }
 }
 

@@ -58,13 +58,16 @@ public class SelectorTests
     }
 
     [Fact]
-    public async Task A_setting_that_names_a_different_provider_than_the_profile_is_refused()
+    public async Task A_setting_that_names_another_provider_is_a_pending_switch_and_the_active_profile_keeps_serving()
     {
+        var profile = Profile("fake");
         var selector = new ActiveEmbeddingSelector(
-            new FakeSettingSource("other"), new FakeProfileStore(Profile("fake")),
-            new FakeRegistry(("fake", new FakeEmbeddingProvider()), ("other", new FakeEmbeddingProvider())));
+            new FakeSettingSource("other"), new FakeProfileStore(profile),
+            new FakeRegistry(("fake", new FakeEmbeddingProvider()), ("other", new FakeEmbeddingProvider(16))));
 
-        await Assert.ThrowsAsync<EmbeddingProfileMismatchException>(() => selector.ResolveAsync(CancellationToken.None));
+        var active = await selector.ResolveAsync(CancellationToken.None);
+
+        Assert.Equal(profile, active!.Profile);
     }
 
     [Fact]
@@ -101,7 +104,7 @@ public class SettingTests
         Assert.Equal("none", key.Default);
         Assert.Equal(SettingScope.Install, key.Scope);
         Assert.True(EmbeddingSettings.IsNone(key.Default));
-        Assert.Same(key, Assert.Single(new EmbeddingSettingContribution().Settings));
+        Assert.Contains(key, new EmbeddingSettingContribution().Settings);
     }
 
     [Theory]

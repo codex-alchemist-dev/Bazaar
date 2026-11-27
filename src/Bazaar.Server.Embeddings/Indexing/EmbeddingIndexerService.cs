@@ -23,9 +23,10 @@ public sealed partial class EmbeddingIndexerService(
                 {
                     LogDeferred(result.Error);
                 }
-                else if (result.Embedded > 0)
+
+                if (result.Embedded > 0 || result.TooLong > 0)
                 {
-                    LogEmbedded(result.Embedded, result.SkippedPersonal);
+                    LogEmbedded(result.Embedded, result.SkippedPersonal, result.TooLong, result.RetryLater);
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -56,8 +57,8 @@ public sealed partial class EmbeddingIndexerService(
     [LoggerMessage(Level = LogLevel.Warning, Message = "Embedding sweep deferred: {Reason}")]
     private partial void LogDeferred(string reason);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Embedded {Count} Vault blocks ({Skipped} personal-data blocks skipped)")]
-    private partial void LogEmbedded(int count, int skipped);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Embedded {Count} Vault blocks ({Skipped} personal-data blocks skipped, {TooLong} too long, {RetryLater} deferred)")]
+    private partial void LogEmbedded(int count, int skipped, int tooLong, int retryLater);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Embedding sweep failed")]
     private partial void LogFailed(Exception exception);

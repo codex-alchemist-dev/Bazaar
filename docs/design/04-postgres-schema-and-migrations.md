@@ -61,7 +61,7 @@ Conventions: UUIDv7 ids (native `uuidv7()` in PG 18); `timestamptz` in UTC; sing
 | `gc_message_version` | `message_id, version, body_ct, body_nonce, key_id, editor_id, tombstone, created_at`; PK `(message_id, version)` | Full copy per version. Bodies are encrypted under the author's key (Question 2). A tombstone row has no ciphertext. |
 | `gc_mention` | `target_id, gc_id, seq` | Feeds "what changed while away" (doc 29). Index `(target_id, seq)`. |
 | `person_key` | `key_id, person_id, wrapped_key, created_at, destroyed_at` | GC per-person keys only. Soul and Passport DEKs are doc 14's. `wrapped_key` is wrapped under the bootstrap key (doc 14). Destruction sets `destroyed_at` and clears the wrapped key. |
-| `embedding_profile` | `profile_id, provider_id, model_id, dimensions, created_at, active` | One active profile per install, chosen at setup. Changing it means re-embedding. The vector columns live with their owners (08, 18). |
+| `embedding_profile` | `profile_id, provider_id, model_id, dimensions, created_at, active` | One active profile per install, chosen at setup. Changing it means re-embedding. A planned switch fills the new profile in the background while the old one stays active, then swaps `active` in one transaction at a coverage threshold (doc 08, "Planned profile switch" [PROPOSED]); old profile rows are never deleted automatically. The vector columns live with their owners (08, 18). |
 | `schema_setting` | `key, value` | Records values fixed at first `migrate`, such as the partition count. Operator settings are owned by the registry in doc 03. |
 
 ### Settings

@@ -68,6 +68,55 @@ public sealed class PostgresEmbeddingIndexStore(NpgsqlDataSource dataSource) : I
         return await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<EmbeddingCoverage> CountCoverageAsync(
+        Guid profileId, IPersonalDataBlockDetector personalData, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(personalData);
+        long total;
+        long embedded;
+        await using (var cmd = dataSource.CreateCommand("""
+            SELECT count(*), count(*) FILTER (WHERE e.text_hash = b.text_hash)
+            FROM vault_blocks b
+            LEFT JOIN vault_block_embedding e
+              ON e.doc_id = b.doc_id AND e.ordinal = b.ordinal AND e.profile_id = $1
+            """))
+        {
+            cmd.Parameters.AddWithValue(profileId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            await reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            total = reader.GetInt64(0);
+            embedded = reader.GetInt64(1);
+        }
+
+        // The detector is the one place that knows what a personal-data block is, so SQL only narrows to blocks that mention the marker
+        // and the detector decides. Personal blocks come off both counts.
+        await using (var cmd = dataSource.CreateCommand("""
+            SELECT b.body, COALESCE(e.text_hash = b.text_hash, false)
+            FROM vault_blocks b
+            LEFT JOIN vault_block_embedding e
+              ON e.doc_id = b.doc_id AND e.ordinal = b.ordinal AND e.profile_id = $1
+            WHERE position($2 in b.body) > 0
+            """))
+        {
+            cmd.Parameters.AddWithValue(profileId);
+            cmd.Parameters.AddWithValue(FencedPersonalDataBlockDetector.InfoString);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (personalData.IsPersonalData(reader.GetString(0)))
+                {
+                    total--;
+                    if (reader.GetBoolean(1))
+                    {
+                        embedded--;
+                    }
+                }
+            }
+        }
+
+        return new EmbeddingCoverage(profileId, embedded, total);
+    }
+
     /// <summary>Formats a vector as pgvector text, for example <c>[0.5,-1,2]</c>. Values must be finite.</summary>
     public static string ToVectorLiteral(IReadOnlyList<float> vector)
     {
