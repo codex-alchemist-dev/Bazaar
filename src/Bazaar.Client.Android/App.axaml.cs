@@ -229,15 +229,13 @@ public sealed class App : Avalonia.Application
                 kind => GcPaneModule.PhoneBody(kind, registry),
                 kind => ApprovalsPaneModule.PhoneBody(kind, registry)),
             settings.Gestures,
-            settings.RadialSectors);
-        _navigator.Bind(shell.ShowPane);
             settings.RadialSectors,
             // The back stack is the phone's push/pop of screens over the pager (chat to thread to profile). Nothing pushes yet; modules
             // push as their screens land, and back then runs the predictive transition (doc 93).
             history: new ScreenHistory(new ScreenEntry("chat")),
-            backSource: MainActivity.Current?.BackGestures);
             backSource: MainActivity.Current?.BackGestures,
             settings: _clientSettings);
+        _navigator.Bind(shell.ShowPane);
         shell.CanGoBackChanged += (_, can) => MainActivity.Current?.SetBackCallbackEnabled(can);
         paneSurface.Bind(
             registry.Contains,
