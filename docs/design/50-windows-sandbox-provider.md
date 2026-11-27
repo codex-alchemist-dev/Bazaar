@@ -55,7 +55,7 @@ Modules declare the hosts they can run on. The declaration is typed and versione
 - `HostCompatibility.ValidateRequirements` checks the declaration (schema, vocabulary, duplicates). `HostCompatibility.Check(requirements, facts)` returns the reasons a host cannot run the module: `os-unsupported`, `arch-unsupported`, `feature-missing`. Both are pure.
 - `ModuleManifest` gains a required `Host` field. `ModuleManifestValidator` reports declaration problems under `/host/…`. The client module test factory declares Windows and Linux, x64.
 - **Provider status:** the Windows Sandbox probe runs `Check` against `WindowsSandboxModule.Requirements` and reports the reasons in `ProviderStatus.Reason`. The provider is a module on Core and loads like any other; the VM module that consumes VM providers decides what to do with an unusable one (doc 03, Provider modules).
-- **Install check (follow-up):** the module install path should run the same `Check` before it accepts a package. No server-side module manifest type exists yet (`ModulePackage` and `DependencyManifest` carry no host field), so this needs its own small change after this one.
+- **Install check (built):** `ModuleInstallCheck.Evaluate` in `Bazaar.Install` runs the same `HostCompatibility.Check` against `ModulePackage.Host` and returns `RefusedHost` with the reasons; the client module host does the same on load.
 
 ## 6. Spike S-WSB: what the owner's PC must measure
 Run on the owner's Windows PC, on a branch of its own, with the results written to `docs/spikes/S-WSB.md` (not yet written). Fix the pass criteria before the first run.
@@ -80,7 +80,8 @@ Run on the owner's Windows PC, on a branch of its own, with the results written 
 - The non-elevated facts probe (`WindowsSandboxHostFacts`) reports the `windows-sandbox` feature when `WindowsSandbox.exe` exists. The elevated check on the owner's PC confirmed `Containers-DisposableClientVM` is `Enabled` (S-WSB).
 - The sandbox is registered in the Vm role with capacity 1 and Windows-only scope, with Hyper-V reserved first (PR #612). Auto never selects it for the agent pair.
 - Still open: section 7 owner answers beyond the registration, and the per-user limit test (second account). Question 3 is settled in section 9 (PROPOSED), pending spike step 9.
-- The install-time host check is a follow-up (section 5).
+- The install-time host check is built (section 5, `Bazaar.Install`).
+- The guest connector (`WindowsSandboxGuestConnector`, Hyper-V socket, VM id from `hcsdiag`) is built and tested with fakes. The live round trip on the owner's PC is not proven: the guest's Application Control policy blocks the unsigned agent exe (0x800711C7), so the next step is a signed agent build, then a re-run.
 - DECISIONS-LOG has no entry for this yet. The main session writes one after the owner answers section 7.
 
 ## 9. Guest agent delivery and channel (PROPOSED, docs first)
